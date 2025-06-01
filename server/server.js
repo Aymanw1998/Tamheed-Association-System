@@ -54,6 +54,10 @@ const CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY;
 const CLOUDINARY_CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME;
 const CLOUDINARY_FOLDER = process.env.CLOUDINARY_FOLDER;
 
+app.get('/healthz', (req, res) => {
+  res.status(200).send('OK');
+});
+
 app.get('/api/cloudinary-signature', (req, res) => {
   const timestamp = Math.round(Date.now() / 1000);
   console.log("upload image 0 ", timestamp);
