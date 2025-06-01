@@ -12,6 +12,8 @@ const mongoSanitize = require('express-mongo-sanitize');
 const helmet = require('helmet');
 const xss = require('xss-clean');
 const cors = require('cors');
+const mongoose = require('mongoose');
+const axios = require('axios');
 
 const crypto = require("crypto")
 //Lod env vars
@@ -54,8 +56,37 @@ const CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY;
 const CLOUDINARY_CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME;
 const CLOUDINARY_FOLDER = process.env.CLOUDINARY_FOLDER;
 
-app.get('/healthz', (req, res) => {
-  res.status(200).send('OK');
+app.get('/healthz', async (req, res) => {
+  try {
+    // 1. בדיקת MongoDB
+    await mongoose.connection.db.admin().ping();
+
+    // 2. בדיקת שירות Cloudinary עם קריאה פשוטה לחשבון
+    const cloudinaryResponse = await axios.get(
+      `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}`,
+      {
+        auth: {
+          username: CLOUDINARY_API_KEY,
+          password: CLOUDINARY_API_SECRET,
+        },
+      }
+    );
+
+    // 3. הצלחנו להגיע גם למונגו וגם לקלאודינרי
+    res.status(200).json({
+      status: 'healthy',
+      mongo: 'connected',
+      cloudinary: 'reachable',
+      uptime: process.uptime(),
+      timestamp: new Date(),
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'unhealthy',
+      error: error.message,
+      timestamp: new Date(),
+    });
+  }
 });
 
 app.get('/api/cloudinary-signature', (req, res) => {
