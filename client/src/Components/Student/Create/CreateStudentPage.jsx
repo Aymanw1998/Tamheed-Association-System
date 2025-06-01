@@ -76,10 +76,9 @@ export default function CreateStudentPage() {
             const payload = { ...student };
             const studenttest = await POST(payload);
             if (studenttest.length > 0) {
-            alert('تم إرسال البيانات بنجاح!');
+            alert('تم حفظ البيانات بنجاح');
             navigate("/get")
-            // window.location.reload();
-            // handlePrint();
+            window.location.reload();
             } else {
             alert("فشل في حفظ البيانات");
             }
