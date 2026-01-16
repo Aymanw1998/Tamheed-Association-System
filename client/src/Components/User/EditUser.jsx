@@ -314,7 +314,7 @@ const EditUser = () => {
     <div className={styles.formContainer}>
       <h2>{isEdit ? "تحديث بيانات المستخدم" : "اضافة مستخدم جديد"}</h2>
 
-      <label>رقم الهوية:</label>
+      <label>رقم الهوية:<span style={{color: "red"}}>*</span></label>
       <input name="tz" value={form.tz} onChange={onField} readOnly={!isNew} />
       <label style={{color: "red"}}>{error.tz}</label>
       <br />
@@ -344,7 +344,7 @@ const EditUser = () => {
         <span><input type="checkbox" name="roles" value="مرشد" checked={form.roles.includes("مرشد")} onChange={(e) => toggleRole(e.target.value, e.target.checked)}/> مرشد</span>
         <span><input type="checkbox" name="roles" value="مساعد" checked={form.roles.includes("مساعد")} onChange={(e) => toggleRole(e.target.value, e.target.checked)}/> مساعد</span>
       <br /> */}
-      <label>الادوار:</label>
+      <label>الادوار:<span style={{color: "red"}}>*</span></label>
       <select
         name="roles"
         value={form.roles[0]  || ""}
@@ -360,7 +360,7 @@ const EditUser = () => {
       <br />
       
       
-      <label>اسم المستخدم:</label>
+      <label>اسم المستخدم:<span style={{color: "red"}}>*</span></label>
       <input
         name="firstname"
         value={form.firstname}
@@ -369,7 +369,7 @@ const EditUser = () => {
       />
       <label style={{color: "red"}}>{error.firstname}</label>
       <br />
-      <label>اسم العائلة:</label>
+      <label>اسم العائلة:<span style={{color: "red"}}>*</span></label>
       <input
         name="lastname"
         value={form.lastname}
@@ -378,7 +378,7 @@ const EditUser = () => {
       />
       <label style={{color: "red"}}>{error.lastname}</label>
       <br />
-      <label>تاريخ الميلاد:</label>
+      <label>تاريخ الميلاد:<span style={{color: "red"}}>*</span></label>
       <input
         name="birth_date"
         type="date"
@@ -387,7 +387,7 @@ const EditUser = () => {
       />
       <label style={{color: "red"}}>{error.birth_date}</label>
       <br />
-      <label>جنس:</label>
+      <label>جنس:<span style={{color: "red"}}>*</span></label>
       <select name="gender" value={form.gender} onChange={onField}>
         <option value="">اختار الجنس</option>
         <option value="ذكر">ذكر</option>
@@ -395,7 +395,7 @@ const EditUser = () => {
       </select>
       <label style={{color: "red"}}>{error.gender}</label>
       <br />
-      <label>هاتف:</label>
+      <label>هاتف:<span style={{color: "red"}}>*</span></label>
       <input
         name="phone"
         value={displayPhoneLocal(form.phone)}
@@ -404,7 +404,7 @@ const EditUser = () => {
       />
       <label style={{color: "red"}}>{error.mother_phone}</label>
       <br />
-      <label>بريد الكتروني:</label>
+      <label>بريد الكتروني:<span style={{color: "red"}}>*</span></label>
       <input name="email" value={form.email} onChange={onField} />
       <label style={{color: "red"}}>{error.email}</label>
 

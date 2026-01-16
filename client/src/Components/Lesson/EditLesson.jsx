@@ -265,7 +265,7 @@ const EditLesson = () => {
       )}
 
       <div className={styles.formControl}>
-        <label>اسم الدرس:</label>
+        <label>اسم الدرس:<span style={{color: "red"}}>*</span></label>
         <input
           type="text"
           name="name"
@@ -278,8 +278,8 @@ const EditLesson = () => {
         <label style={{color: "red"}}>{error.name}</label>
       </div>
 
-      {teachers.length > 0 && <div className={styles.formControl}>
-        <label>مرشد:</label>
+      <div className={styles.formControl}>
+        <label>مرشد:<span style={{color: "red"}}>*</span></label>
         <select
           name="teacher"
           value={lesson.teacher}
@@ -295,9 +295,9 @@ const EditLesson = () => {
             ))}
         </select>
         <label style={{color: "red"}}>{error.teacher}</label>
-      </div> }
+      </div>
         
-      {helpers.length > 0 && <div className={styles.formControl}>
+      <div className={styles.formControl}>
         <label>مساعد:</label>
         <select
           name="helper"
@@ -314,10 +314,10 @@ const EditLesson = () => {
             ))}
         </select>
         <label style={{color: "red"}}>{error.helper}</label>
-      </div> }
+      </div>
 
       <div className={styles.formControl}>
-        <label>اختر يوم للدرس:</label>
+        <label>اختر يوم للدرس:<span style={{color: "red"}}>*</span></label>
         <select
           name="day"
           value={lesson.date.day}
@@ -335,7 +335,7 @@ const EditLesson = () => {
 
 
       <div className={styles.formControl}>
-        <label>اختر غرفة للدرس:</label>
+        <label>اختر غرفة للدرس:<span style={{color: "red"}}>*</span></label>
         <select
           name="room"
           value={lesson.room}
@@ -353,7 +353,7 @@ const EditLesson = () => {
       </div>
 
       <div className={styles.formControl}>
-        <label>ساعة البدء:</label>
+        <label>ساعة البدء:<span style={{color: "red"}}>*</span></label>
         <input
           type="time"
           value={toHHMM(lesson.date.startMin)}
@@ -362,7 +362,7 @@ const EditLesson = () => {
         />
       </div>
       <div className={styles.formControl}>
-        <label>ساعة الانتهاء:</label>
+        <label>ساعة الانتهاء:<span style={{color: "red"}}>*</span></label>
         <input
           type="time"
           value={toHHMM(lesson.date.endMin)}
@@ -392,9 +392,9 @@ const EditLesson = () => {
           <table className={styles.selectedTraineesTable}>
             <thead>
               <tr>
-                <th>ת.ז.</th>
-                <th>שם פרטי</th>
-                <th>שם משפחה</th>
+                <th>رقم الهوية</th>
+                <th>اسم</th>
+                <th>العائلة</th>
               </tr>
             </thead>
             <tbody>
