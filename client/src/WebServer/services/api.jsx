@@ -3,9 +3,7 @@ import axios from 'axios';
 import { markSessionExpired } from '../utils/sessionMessages'; // אופציונלי: מציג הודעת "פג תוקף"
 import { getApiBaseUrl } from './apiBase';
 
-export const API_BASE_URL = "http://localhost:2025/api";
-//getApiBaseUrl();
-  //`${process.env.REACT_APP_SERVER_URI || ''}`.replace(/\/+$/, '') + '/api';
+export const API_BASE_URL = `${process.env.REACT_APP_SERVER_URI || ''}`.replace(/\/+$/, '') + '/api';
 
 // state פנימי של המודול
 let accessToken = localStorage.getItem('accessToken') || null;
