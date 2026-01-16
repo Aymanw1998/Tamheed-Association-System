@@ -328,7 +328,7 @@ export default function ViewAllLesson() {
           <div />{/* spacer */}
           {[...Array(7)].map((_,i)=><div key={i} className={styles.loaderBox} />)}
         </div>
-      ) : (
+      ) : (rooms && rooms.length > 0 ?
         Object.entries(rooms).map(([roomId, roomLessons]) => {
           return <ScheduleView
           room={roomId}
@@ -341,7 +341,18 @@ export default function ViewAllLesson() {
           onReload={loadData}
           setTooltip={(t)=> setTooltipInfo(prev => ({ ...prev, ...t }))}
         />
-        })
+        }):
+        <ScheduleView
+          room={0}
+          lessons={[]}
+          canEdit={canEdit}
+          currentMonth={currentMonthInfo.month}
+          currentYear={currentMonthInfo.year}
+          showMyLessons={showMyLessons}
+          navigate={navigate}
+          onReload={loadData}
+          setTooltip={(t)=> setTooltipInfo(prev => ({ ...prev, ...t }))}
+        />
       )}
 
       {tooltipInfo.show && (
