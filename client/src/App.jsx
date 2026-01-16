@@ -1,18 +1,21 @@
-import React from 'react';
-import { Routes, Route, BrowserRouter, useNavigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter } from 'react-router-dom';
+import CRoutes from './Components/Routes/Routes';
 
-import logo from './logo.svg';
-import './App.css';
-console.log("React version:", React.version);
-
-
-import CRoutes from "./Components/Routes/Routes";
+import { bindAccessTokenRefreshListener, scheduleAccessRefresh } from './WebServer/utils/accessScheduler';
 
 function App() {
+  useEffect(() => {
+    bindAccessTokenRefreshListener();
+
+    const savedAccess = localStorage.getItem("accessToken");
+    if (savedAccess) scheduleAccessRefresh(savedAccess);
+  }, []);
+
   return (
-    <div className="App">
-      <BrowserRouter><CRoutes/></BrowserRouter>
-    </div>
+        <BrowserRouter>
+          <CRoutes />
+        </BrowserRouter>
   );
 }
 

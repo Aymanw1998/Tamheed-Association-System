@@ -1,0 +1,118 @@
+/* // 📁 src/components/subs/subs.css */
+.container {
+  padding: 1rem;
+  max-width: 1000px;
+  margin: auto;
+  direction: rtl;
+}
+
+.subsTable {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+  font-size: 1rem;
+}
+
+.subsTable th,
+.subsTable td {
+  border: 1px solid #ccc;
+  padding: 10px;
+  text-align: right;
+}
+
+.subsTable th {
+  background-color: #f2f2f2;
+  font-weight: bold;
+}
+
+.actionsButtons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.actionsButtons button {
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: none;
+  background-color: #007bff;
+  color: white;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.actionsButtons button:hover {
+  background-color: #0056b3;
+}
+
+.formContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 600px;
+  margin: auto;
+  margin-top: 2rem;
+}
+
+.formContainer label {
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.formContainer input {
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 1rem;
+}
+
+.formContainer button {
+  align-self: flex-start;
+  padding: 10px 20px;
+  background-color: green;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.buttonRow {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+@media (max-width: 768px) {
+  .subsTable thead {
+    display: none;
+  }
+
+  .subsTable, .subsTable tbody, .subsTable tr, .subsTable td {
+    display: block;
+    width: 100%;
+  }
+
+  .subsTable tr {
+    margin-bottom: 1rem;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    background-color: #fff;
+    padding: 10px;
+  }
+
+  .subsTable td {
+    text-align: right;
+    padding-left: 50%;
+    position: relative;
+  }
+
+  .subsTable td::before {
+    content: attr(data-label);
+    position: absolute;
+    left: 10px;
+    top: 10px;
+    font-weight: bold;
+    color: #333;
+  }
+}

@@ -1,4 +1,4 @@
-const ErrorResponse = require('../utils/errorResponse');
+// const ErrorResponse = require('../utils/errorResponse');
 
 //for validation errore includes mongodn error ,400-500 errors
 // instad of using joi-lib 
@@ -13,7 +13,7 @@ const errorHandler = (err, req, res, next) => {
     // Mongoose bad ObjectId
     if (err.name === 'CastError') {
         const message = `Resource not found by id of : ${err.value}`;
-        error = new ErrorResponse(message, 404);
+        error = new Error(message, 404);
     }
 
     // Mongoose duplicate key
@@ -21,17 +21,17 @@ const errorHandler = (err, req, res, next) => {
     if (err.code === 11000) {
         if (err.keyPattern.email)
             message = `Duplicate field value entered of email`;
-        else if (err.keyPattern.username)
+        else if (err.keyPattern.tz)
             message = `Duplicate field value entered of usename`;
         else
             message = `Duplicate field value`;
-        error = new ErrorResponse(message, 400);
+        error = new Error(message, 400);
     }
 
     // Mongoose validation error
     if (err.name === 'ValidationError') {
         const message = Object.values(err.errors).map(val => val.message);
-        error = new ErrorResponse(message, 400);
+        error = new Error(message, 400);
     }
 
     res.status(error.statusCode || 500).json({

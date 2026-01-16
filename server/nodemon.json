@@ -1,0 +1,7 @@
+{
+  "watch": ["server", "config", "Entities"],
+  "ext": "js,json",
+  "ignore": ["node_modules", "client"],
+  "exec": "node server.js",
+  "delay": "500"
+}

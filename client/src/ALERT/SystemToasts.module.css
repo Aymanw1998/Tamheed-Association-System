@@ -1,0 +1,175 @@
+/* ============================
+   SystemToasts.module.css – Full + Mobile
+   ============================ */
+
+/* --- משתני עיצוב בסיסיים --- */
+:root{
+  --bg:#ffffff;
+  --card:#ffffff;
+  --text:#0f172a;
+  --muted:#475569;
+  --border:#e2e8f0;
+  --shadow:0 8px 30px rgba(2,6,23,.08);
+
+  --info-bg:#eff6ff;     --info-text:#1e40af;  --info-border:#bfdbfe;
+  --succ-bg:#ecfdf5;     --succ-text:#065f46;  --succ-border:#a7f3d0;
+  --warn-bg:#fffbeb;     --warn-text:#92400e;  --warn-border:#fde68a;
+  --err-bg:#fef2f2;      --err-text:#991b1b;   --err-border:#fecaca;
+
+  --badge-bg:rgba(255,255,255,.85);
+}
+
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#0b1220; --card:#0f172a; --text:#e5e7eb; --muted:#94a3b8; --border:#1f2937;
+    --shadow:0 8px 30px rgba(255,255,255,.05);
+
+    --info-bg:#0b1b3a;   --info-text:#93c5fd; --info-border:#1e3a8a;
+    --succ-bg:#052e2b;   --succ-text:#6ee7b7; --succ-border:#065f46;
+    --warn-bg:#3a2a05;   --warn-text:#fbbf24; --warn-border:#92400e;
+    --err-bg:#3a0b0b;    --err-text:#fca5a5;  --err-border:#991b1b;
+
+    --badge-bg:rgba(15,23,42,.85);
+  }
+}
+
+/* --- הפחתת אנימציות לנגישות --- */
+@media (prefers-reduced-motion: reduce){
+  .toast, .statusBadge{ transition: none !important; }
+}
+
+/* ============================
+   Viewport (מגש הטוסטים)
+   ============================ */
+.toastViewport{
+  position: fixed;
+  top: 12px; right: 12px; left: auto; bottom: auto;
+  z-index: 999999; /* גבוה כדי לעבור מודלים/אוברים */
+  pointer-events: none; /* שהמסך נשאר קליקבילי */
+}
+
+.toastStack{
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-end;
+  pointer-events: auto; /* כן לאפשר קליק על X */
+}
+
+/* מסכים בינוניים ומעלה – להצמיד לצד */
+@media (min-width: 640px){
+  .toastViewport{ inset-inline: auto 12px; }
+}
+
+/* --- מובייל --- */
+@media (max-width: 768px){
+  .toastViewport{ inset-inline: 8px; }
+  .toastStack{ max-width: none; gap: 12px; }
+}
+
+/* ============================
+   Toast item
+   ============================ */
+.toast{
+  min-width: 240px;
+  max-width: min(92vw, 420px);
+  background: #111;
+  color: #fff;
+  border-radius: 12px;
+  padding: 12px 14px;
+  box-shadow: 0 12px 30px rgba(0,0,0,.35);
+  border: 1px solid rgba(255,255,255,.08);
+  font-size: 14px;
+  direction: rtl;
+}
+
+/* פריסה פנימית */
+.toastRow { display: flex; align-items: center; gap: 12px; }
+.toastBody { display: flex; flex-direction: column; }
+.toastTitle { font-weight: 700; margin-bottom: 4px; }
+.toastDesc { opacity: .95; line-height: 1.35; }
+
+/* כפתור סגירה */
+.toastClose{
+  background: transparent; border: 0; color: inherit; font-size: 18px;
+  cursor: pointer; line-height: 1; padding: 4px 8px; opacity: .8;
+}
+.toastClose:hover{ color: var(--text); }
+
+/* מובייל: הגדלת אזור לחיצה */
+@media (max-width: 768px){
+  .toast{ border-radius: 18px; padding: 14px 16px; }
+  .toastClose{ padding: 8px; font-size: 20px; }
+}
+
+/* ============================
+   Variants
+   ============================ */
+.info        { background: #0f172a; border-color: #334155; }
+.success     { background:#10b981; }
+.warning     { background:#e2e60a; }
+.destructive { background:#ef4444; }
+
+/* ============================
+   Status badge (לא חובה)
+   ============================ */
+.statusBadge{
+  position: fixed;
+  inset-block-end: calc(12px + env(safe-area-inset-bottom, 0px));
+  inset-inline: 12px;
+  z-index: 1999;          /* מעט מתחת ל-toastViewport */
+  direction: rtl;
+}
+@media (min-width: 640px){ .statusBadge{ inset-inline: auto 12px; } }
+
+.statusBox{
+  display:inline-flex; align-items:center; gap:12px;
+  border-radius:14px; border:1px solid var(--border);
+  background: var(--badge-bg);
+  padding: 8px 12px; box-shadow: var(--shadow);
+  backdrop-filter: blur(6px);
+  color: var(--text); font-size: .92rem;
+}
+.statusSeg{ display:inline-flex; align-items:center; gap:6px; }
+.label{ opacity: .85; }
+.split{ width:1px; height:16px; background:var(--border); opacity:.7; }
+
+.dot{ width:10px; height:10px; border-radius:50%; display:inline-block; }
+.ok{   background:#10b981; }
+.warn{ background:#e2e60a; }
+.bad{  background:#ef4444; }
+
+@media (max-width: 768px){
+  .statusBox{ font-size: .95rem; border-radius: 16px; }
+  .dot{ width: 12px; height: 12px; }
+}
+
+
+/* טיימר ליד ההודעה */
+.toastTimer {
+  margin-inline-end: 8px;      /* RTL-friendly */
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  opacity: 0.8;
+  align-self: center;
+  white-space: nowrap;
+}
+
+/* פס התקדמות בתחתית הטוסט */
+.progressBar {
+  position: relative;
+  height: 3px;
+  width: 100%;
+  background: rgba(0,0,0,0.08);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 6px;
+}
+
+.progressFill {
+  height: 100%;
+  width: 0%;
+  background: currentColor;    /* מקבל צבע מה-variant (דרך color של ה .toast) */
+  opacity: 0.65;
+  transition: width 120ms linear;
+}

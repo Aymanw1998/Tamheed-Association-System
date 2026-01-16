@@ -1,0 +1,121 @@
+/* // 📁 src/components/subs/subs.css */
+.container {
+  padding: 1rem;
+  max-width: 1000px;
+  margin: auto;
+  direction: rtl;
+}
+
+.subsTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: Arial, sans-serif;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.subsTable thead {
+  background-color: #003366; /* כחול כהה */
+  color: white;
+}
+
+.subsTable th,
+.subsTable td {
+  border: 1px solid #ccc;
+  padding: 10px;
+  text-align: center;
+}
+
+.subsTable tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+.subsTable tr:hover {
+  background-color: #eef;
+  cursor: pointer;
+}
+
+.actions-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.actionsbButtons button {
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: none;
+  background-color: #007bff;
+  color: white;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.actionsButtons button:hover {
+  background-color: #0056b3;
+}
+
+.formContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 600px;
+  margin: auto;
+  margin-top: 2rem;
+}
+
+.formContainer label {
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.formContainer input {
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 1rem;
+}
+
+.formContainer button {
+  align-self: flex-start;
+  padding: 10px 20px;
+  background-color: green;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+@media (max-width: 768px) {
+  .subTable thead {
+    display: none;
+  }
+
+  .subTable, .subTable tbody, .subTable tr, .subTable td {
+    display: block;
+    width: 100%;
+  }
+
+  .subTable tr {
+    margin-bottom: 1rem;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    background-color: #fff;
+    padding: 10px;
+  }
+
+
+  .subTable td:first-child {
+    padding-top: .5em;
+  }
+
+  .subTable td:last-child {
+    padding-bottom: .5em;
+  }
+
+  .subTable td::before {
+      content: attr(data-label);
+      font-weight: bold;
+      width: 6.5em;
+      display: inline-block;
+  }
+}

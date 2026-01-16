@@ -1,0 +1,201 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Segoe UI', sans-serif;
+}
+
+.container {
+  display: flex;
+  height: 100vh;
+  flex-direction: row;
+}
+
+.leftPanel {
+  flex: 1;
+  background-color: #0b0c40;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  padding: 20px;
+}
+
+.logo {
+  align-items: center;
+  top: 20px;
+  left: 20px;
+  font-size: 24px;
+}
+
+.logoDisNone {
+  display: none;
+}
+
+.welcomeText h2 {
+  text-align: center;
+  font-size: 50px;
+  line-height: 1.5;
+}
+
+.welcomeText h2 span {
+  font-weight: normal;
+}
+
+.rightPanel {
+  position: relative;
+  flex: 1;
+  background-color: white;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 40px 20px;
+  overflow: hidden; /* חשוב למנוע גלילה מיותרת */
+}
+
+
+.loginForm {
+  width: 100%;
+  max-width: 350px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  position: relative;
+  z-index: 1;
+  background-color: rgba(255, 255, 255, 0.9); /* חצי שקוף */
+  padding: 20px;
+  border-radius: 10px;
+}
+
+.loginForm h2 {
+  text-align: center;
+  color: #0b0c40;
+  margin-bottom: 10px;
+}
+
+.loginForm input {
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+}
+
+.loginForm .forgot {
+  text-align: right;
+  font-size: 12px;
+  color: #0b0c40;
+  text-decoration: none;
+}
+
+.loginForm button {
+  padding: 10px;
+  background-color: #0b0c40;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.create {
+  font-size: 12px;
+  text-align: center;
+}
+
+.create a {
+  color: #0b0c40;
+  text-decoration: none;
+  font-weight: bold;
+}
+
+/* 🔁 רספונסיבי */
+@media (max-width: 768px) {
+  .rightPanel {
+  /* position: absolute; */
+      padding: 10px;
+      background-image: url('../../../images/logo.png'); /* שנה לנתיב הנכון אצלך */
+      /* background-size: contain; */
+      background-repeat: no-repeat;
+      background-position: center;
+      background-size: 400px 400px;
+      opacity: 10;
+      z-index: 3;
+  }
+  .container {
+    flex-direction: column;
+  }
+
+  .leftPanel {
+    display: none;
+  }
+
+  .logo {
+    font-size: 20px;
+  }
+
+  .welcomeText h2 {
+    font-size: 24px;
+  }
+}
+
+@media (max-width: 480px) {
+  .loginForm {
+    padding: 5px;
+  }
+
+  .loginForm h2 {
+    font-size: 30px;
+  }
+
+  .welcomeText h2 {
+    font-size: 30px;
+  }
+}
+
+
+
+
+/* popup */
+.popupOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.55);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 50;
+}
+
+.popup {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  min-width: 300px;
+  animation: popupShow 0.25s ease;
+}
+
+@keyframes popupShow {
+  from { transform: scale(0.8); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+
+.popupTitle {
+  font-size: 18px;
+  font-weight: bold;
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+.closeButton {
+  width: 100%;
+  padding: 8px;
+  background: #9e9e9e;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+

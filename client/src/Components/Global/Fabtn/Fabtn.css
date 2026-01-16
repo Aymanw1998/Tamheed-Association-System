@@ -1,0 +1,25 @@
+/* כפתור רודף (Floating Action Button) */
+.fab {
+  position: fixed;
+  inset-inline-end: clamp(12px, 2.5vw, 24px);              /* RTL/LTR תואם */
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));   /* נוח גם ב-iOS */
+  z-index: 9999999999999;
+  background: #22c55e;
+  color: #fff;
+  font-weight: 700;
+  padding: 12px 18px;
+  border: 0;
+  border-radius: 999px;
+  box-shadow: 0 10px 24px rgba(0,0,0,.22);
+  transform: translateY(120%);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform .25s ease, opacity .25s ease;
+  touch-action: manipulation;
+}
+
+.fab_visible {
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+}

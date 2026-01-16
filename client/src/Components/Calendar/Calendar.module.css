@@ -1,0 +1,282 @@
+.calendar {
+  width: 100%;
+  max-width: 750px;
+  margin: 0 auto;
+  padding: 20px;
+  background: #ffffff;
+  border-radius: 14px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  direction: rtl;
+  font-family: "Arial", sans-serif;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.monthYear {
+  font-size: 22px;
+  font-weight: bold;
+  color: #333;
+}
+
+.navButton {
+  background: #1976d2;
+  color: white;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 18px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.navButton:hover {
+  background: #145a9e;
+}
+
+.weekDays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-weight: bold;
+  margin-bottom: 10px;
+  color: #444;
+}
+
+.weekDay {
+  padding: 8px 0;
+  background: #f2f2f2;
+  border-radius: 6px;
+}
+
+.calendarGrid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+
+.emptyCell {
+  height: 90px;
+}
+
+.dateCell {
+  position: relative;
+  min-height: 90px;
+  padding: 6px;
+  border-radius: 8px;
+  background: #fafafa;
+  border: 1px solid #e3e3e3;
+  transition: 0.2s;
+  overflow: hidden;
+}
+
+.dateCell:hover {
+    cursor: pointer;
+    background: #f0f6ff;
+    border-color: #90caf9;
+}
+.dateCell.today {
+  border: 2px solid #3df12d;
+  background-color: #f0f5ef;
+}
+
+.dateNumber {
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 4px;
+  color: #333;
+}
+
+.eventsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.eventItem {
+  background: #1976d2;
+  color: white;
+  padding: 3px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  direction: rtl;
+}
+
+
+.eventItem.highPriority {
+  background: #d32f2f;
+}
+.eventItem.mediumPriority {
+  background: #f57c00;
+}
+.eventItem.lowPriority {
+  background: #388e3c;
+}
+.eventItem.veryLowPriority {
+  background: #1976d2;
+}
+.eventItem:hover {
+  background: #115293;
+}
+.eventItem.highPriority:hover {
+  background: #9a0007;
+}
+.eventItem.mediumPriority:hover {
+  background: #bb4d00;
+}
+.eventItem.lowPriority:hover {
+  background: #27632a;
+}
+.eventItem.veryLowPriority:hover {
+  background: #0d3c61;
+}
+.eventTime {
+  font-size: 10px;
+  opacity: 0.8;
+}
+.eventTitle {
+  font-size: 12px;
+  font-weight: 500;
+}
+.eventTitle.highPriority {
+  color: #ffcccc;
+}
+.eventTitle.mediumPriority {
+  color: #ffe0b2;
+}
+.eventTitle.lowPriority {
+  color: #c8e6c9;
+}
+.eventTitle.veryLowPriority {
+  color: #bbdefb;
+}
+.eventCountBadge {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  background: #1976d2;
+  color: white;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 12px;
+}
+.eventCountBadge.highPriority {
+  background: #d32f2f;
+}
+.eventCountBadge.mediumPriority {
+  background: #f57c00;
+}
+.eventCountBadge.lowPriority {
+  background: #388e3c;
+}
+.eventCountBadge.veryLowPriority {
+  background: #1976d2;
+}
+.eventCountBadge:hover {
+  background: #115293;
+}
+
+.popupOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.55);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 50;
+}
+
+.popup {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  min-width: 300px;
+  animation: popupShow 0.25s ease;
+}
+
+@keyframes popupShow {
+  from { transform: scale(0.8); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+
+.popupTitle {
+  font-size: 18px;
+  font-weight: bold;
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+.noEvents {
+  text-align: center;
+  padding: 20px 0;
+  color: #777;
+}
+
+.eventList {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 15px;
+}
+
+.eventListItem {
+  padding: 6px 8px;
+  background: #1976d2;
+  color: white;
+  border-radius: 6px;
+  margin-bottom: 6px;
+}
+
+.addButton {
+  width: 100%;
+  padding: 8px;
+  background: #2e7d32;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  margin-bottom: 10px;
+  cursor: pointer;
+}
+
+.closeButton {
+  width: 100%;
+  padding: 8px;
+  background: #9e9e9e;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.attTable{
+  width: 100%;
+  border-collapse: collapse;
+  direction: rtl;
+  text-align: right;
+  margin-top: 20px;
+}
+
+.attTable th,
+.attTable td{
+  padding: 8px 10px;
+  border-bottom: 1px solid #e6e6e6;
+  vertical-align: middle;
+}
+
+.attTable th{
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.checkCell{
+  text-align: center;
+}

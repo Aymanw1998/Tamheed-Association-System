@@ -1,42 +1,53 @@
-const jwt = require('jsonwebtoken');
-const User = require('../User/user.model');
+// middleware/authRequired.js
+const jwt = require('jsonwebtoken');  // אימות חתימת JWT
 
-// Middleware להגנה על נתיבים עם Access Token
-const protect = async (req, res, next) => {
-  const authHeader = req.headers.authorization;
-  let token;
-
-  if (authHeader && authHeader.startsWith('Bearer')) {
-    token = authHeader.split(' ')[1];
-  }
-
-  if (!token) {
-    return res.status(401).json({ message: 'غير مصرح - لا يوجد Access Token' });
-  }
-
+const requireAuth = (req, res, next) => {
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = await User.findById(decoded.id).select('-password');
-
-    if (!req.user) {
-      return res.status(401).json({ message: 'المستخدم غير موجود' });
+    const auth = req.headers.authorization || '';   // קורא את הכותרת Authorization
+    // console.log(auth);
+    const [type, token] = auth.split(' ');          // 'Bearer <token>'
+    // console.log(type, token);
+    if (type !== 'Bearer' || !token) {
+      return res.status(401).json({ code: 'NO_TOKEN', message: 'Missing Authorization Bearer token' });
     }
 
-    next();
-  } catch (error) {
-    console.log("***** Error in protect *******", error);
-    return res.status(401).json({ message: 'رمز غير صالح أو منتهي الصلاحية' });
+    // אימות הטוקן עם הסוד ACCESS
+    const payload = jwt.verify(token, process.env.JWT_ACCESS_SECRET, {
+      algorithms: ['HS256'],                         // אלגוריתם חתימה
+      clockTolerance: 5,                             // "סקיו" קטן לשעון
+    });
+    // console.log("payload",payload);
+    // שומר פרטים לשימוש בהמשך המסלול
+    req.user = { id: payload.id, tz: payload.tz, roles: payload.roles };
+    next();                                          // ממשיכים לראוטר הבא
+  } catch (err) {
+    if (err.name === 'TokenExpiredError') {
+      return res.status(401).json({ code: 'TOKEN_EXPIRED', message: 'Access token expired' });
+    }
+    return res.status(401).json({ code: 'TOKEN_INVALID', message: 'Invalid access token' });
   }
-};
+}
 
-// Middleware לבדוק תפקיד
-const protectRole = (role) => {
+// בדיקת תפקידים (אפשר להעביר כמה תפקידים)
+function requireRole(...roles) {
   return (req, res, next) => {
-    if (!req.user || req.user.role !== role) {
-      return res.status(403).json({ message: 'ليس لديك صلاحية الوصول لهذا المورد' });
+    console.log("roles", roles);
+    console.log("user", req.user);
+    console.log("roles", req.user.roles);
+    req.user.roles = req.user.roles || [];
+    let b = false;
+    for (let r of roles) {
+      if (req.user.roles.includes(r)) {
+        b = true;
+        break;
+      }
+    }
+
+    if (!b) {
+      return res.status(403).json({ code: 'FORBIDDEN', message: 'אין הרשאה' });
     }
     next();
   };
-};
+}
 
-module.exports = { protect, protectRole };
+module.exports = { requireAuth, requireRole };

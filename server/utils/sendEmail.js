@@ -1,25 +1,38 @@
-const nodemailer = require("nodemailer");
+const nodemailer = require('nodemailer');
 
-//using https://mailtrap.io/
-
-const sendEmail = async (options) => {
-    let transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port: process.env.SMTP_PORT,
+// יצירת טרנספורטר עם פרטי ה-SMTP
+const createTransporter = () => {
+    try{
+    return nodemailer.createTransport({
+        host: process.env.SMTP_SERVER,
+        port: Number(process.env.SMTP_PORT),
+        secure: Number(process.env.SMTP_PORT) == 465, // true עבור פורט 465, false עבור אחרים
         auth: {
-            user: process.env.SMTP_EMAIL,
-            pass: process.env.SMTP_PASSWORD,
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASS,
         },
     });
-    const message = {
-        from: `${process.env.FROM_NAME} <${process.env.FROM_EMAIL}>`,
-        to: options.email,
-        subject: options.subject,
-        text: options.message,
-    };
-
-    const info = await transporter.sendMail(message);
-    ////console.log('Message sent: %s', info.messageId);
+    }catch(err){
+        console.error("Error creating SMTP transporter:", err);
+        throw err;
+    }
 }
 
-module.exports = sendEmail;
+const sendResetPasswordEmail = async (to, otp) => {
+    const transporter = createTransporter();
+    const html = `<div style="font-family:Arial;line-height:1.6;align:center;">
+                    <h2>اعادة تعيين كلمة السر</h2>
+                    <p>الكود هو: </p>
+                    <div style="font-size:28px;font-weight:700;letter-spacing:4px">${otp}</div>
+                    <p>الكود لحديد 10 دقائق من الان.</p>
+                </div>`;
+    await transporter.sendMail({
+        from: process.env.SMTP_FROM, // למשל: "Tamheed-Ramla <no-reply@tamheed-ramla.org>"
+        to,
+        subject: "اعادة تعيين كلمة السر: " + otp,
+        html,
+    });
+}
+module.exports = {
+    sendResetPasswordEmail,
+};

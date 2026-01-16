@@ -1,0 +1,202 @@
+/* עוטף כללי של הדף */
+.scheduleContainer {
+  direction: rtl;
+  padding: 20px;
+  position: relative;
+  color: #fff;
+  background: rgb(197, 197, 221);
+  border-radius: 16px;
+  box-shadow: white 0 0 0 4px, var(--shadow);
+}
+
+/* כותרת */
+.title {
+  text-align: center;
+  font-weight: 800;
+  letter-spacing: .4px;
+  margin-bottom: 18px;
+}
+
+/* --- כפתורים עליונים --- */
+.monthControls {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 8px 0 18px;
+}
+
+.navBtn, .addBtn {
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform .1s ease, box-shadow .2s ease, filter .2s ease;
+  background: skyblue;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+
+}
+.navBtn:hover { filter: brightness(1.1); transform: translateY(-1px); }
+.addBtn {
+  background: linear-gradient(180deg, #f8d77c, #64b3ed);
+  border: none;
+  color: #fff;
+}
+.addBtn:hover { filter: brightness(1.03); }
+
+/* --- Grid של הלוח (דסקטופ) --- */
+.desktopView { display: block; }
+.mobileView  { display: none; }
+
+.timelineGrid {
+  display: grid;
+  grid-template-columns: 110px repeat(7, 1fr);  /* תוויות שעות + 5 ימים */
+  grid-template-rows: 52px 960px;               /* כותרות ימים + גוף (08–22 = 14h * 60px/h + שוליים) */
+  column-gap: 18px;
+  row-gap: 20px;
+}
+
+/* כותרות ימים */
+.headerSpacer {}
+.dayHeader {
+  display: grid;
+  place-items: center;
+  border-radius: 140px;
+  font-weight: 400;
+  letter-spacing: .4px;
+  position: relative;
+  background: linear-gradient(180deg, #dfe499, #eef4fb);
+  border: 1px solid #fff;
+  color: var(--text);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.5), var(--shadow);
+}
+
+/* עמודת תוויות שעות */
+.hoursGutter {
+  position: relative;
+  border-radius: 14px;
+  background:
+      repeating-linear-gradient(
+        to bottom,
+        rgba(143, 225, 228, 0.1) 0 1px,            /* קו כל חצי שעה */
+        transparent 1px 30px
+      ),
+      linear-gradient(150deg, #df9458, #f7e81c);  
+      border: 1px solid gray;
+  overflow: hidden;
+}
+
+/* קווי שעה */
+.hourLine {
+  position: absolute;
+  inset-inline: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(231, 68, 117, 0.2), transparent);
+}
+.hourLabel {
+  position: absolute;
+  right: 10px;
+  font-size: 12px;
+  transform: translateY(-50%);
+  color: #fff;
+  font-weight: 800;
+}
+
+/* עמודת יום */
+.dayCol {
+  position: relative;
+  border-radius: 14px;
+  border: 1px solid gay;
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      rgba(149, 216, 163, 0.1) 0 1px,            /* קו כל חצי שעה */
+      transparent 1px 30px
+    ),
+    linear-gradient(150deg, #1e7cf8, #115ef8);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+
+/* שיעור */
+.lessonBlock {
+  position: absolute;
+  inset-inline: 8px;
+  border-radius: 14px;
+  background: rgba(56,189,248,.55);;
+  border: 1px solid rgba(56,189,248,.55);
+  color: var(--text);
+  padding: 8px 10px;
+  font-size: 14px;
+  line-height: 1.2;
+  cursor: grab;
+  user-select: none;
+  box-shadow: 0 8px 20px rgba(2,132,199,.25);
+  backdrop-filter: blur(3px);
+  transition: transform .08s ease, box-shadow .2s ease;
+}
+.lessonBlock:hover { transform: translateY(-1px); box-shadow: 0 10px 26px rgba(2,132,199,.33); }
+.lessonBlock:active { cursor: grabbing; }
+
+/* טקסט בפנים */
+.lessonTitle {
+  font-weight: 800;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lessonMeta {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* אינדיקטור 'עכשיו' (לא חובה; אפשר להוסיף div עם המחלקה הזו) */
+.nowLine {
+  position: absolute;
+  left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--danger), transparent);
+  box-shadow: 0 0 18px rgba(239,68,68,.6);
+}
+
+/* --- מצב טעינה --- */
+.loaderWrap {
+  display: grid;
+  grid-template-columns: 110px repeat(5, 1fr);
+  column-gap: 18px;
+  row-gap: 10px;
+}
+.loaderBox {
+  height: 140px;
+  border-radius: 14px;
+  background: linear-gradient(90deg,#1b2742 25%,#223055 37%,#1b2742 63%);
+  background-size: 400% 100%;
+  animation: shimmer 1.2s ease-in-out infinite;
+}
+@keyframes shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: 0 0; }
+}
+
+/* ====== מובייל ====== */
+@media (max-width: 900px) {
+  .desktopView { display: none; }
+  .mobileView  { display: block; }
+
+  .lessonCard {
+    border-radius: 14px;
+    padding: 12px;
+    margin-bottom: 12px;
+    box-shadow: var(--shadow);
+    background: linear-gradient(180deg, #ffffff, #f2f7fd);
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+  .lessonCard p { margin: .25rem 0; }
+}
+
+/* עוגן FAB */
+.fabAnchor { display: block; height: 1px; width: 1px; }

@@ -1,0 +1,193 @@
+.traineesList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+  margin-bottom: 20px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+}
+
+.traineeItem {
+  background-color: #f8f8f8;
+  border-radius: 6px;
+  padding: 6px 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  direction: rtl;
+  font-size: 0.95rem;
+  transition: background-color 0.2s;
+}
+
+.traineeItem:hover {
+  background-color: #e2f0ff;
+}
+
+.traineeItem input[type="checkbox"] {
+  transform: scale(1.2);
+  margin-left: 6px;
+}
+
+.datetimeGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin-bottom: 20px;
+  direction: rtl;
+}
+
+.formControl {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 100px;
+}
+
+.formControl label {
+  margin-bottom: 4px;
+  font-weight: bold;
+  color: #333;
+}
+
+.formControl input,
+.formControl select {
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 1rem;
+}
+
+.timeInputs {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.timeInputs input {
+  width: 60px;
+  padding: 6px;
+  font-size: 1rem;
+  text-align: center;
+}
+
+.timeSeparator {
+  font-size: 1.2rem;
+  padding: 0 4px;
+}
+
+.formInline {
+  align-items: center;
+  justify-content: flex-end; /* לרווחה נכונה ב־RTL */
+  gap: 10px;
+  margin-bottom: 1rem;
+}
+
+.formInline label {
+  white-space: nowrap;
+  font-weight: bold;
+}
+
+.traineeSearch {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.traineeSearch input {
+  flex: 1;
+  padding: 6px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+}
+
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modalContent {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  max-height: 80vh;
+  overflow-y: auto;
+  width: 90%;
+  max-width: 600px;
+  direction: rtl;
+}
+
+.selectedTrainees {
+  list-style: none;
+  padding: 0;
+  margin: 10px 0;
+}
+
+.formInline input {
+  width: 80px;
+  padding: 6px;
+  font-size: 1rem;
+  text-align: center;
+}
+
+.selectedTrainees-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+
+.selectedTraineesTable th,
+.selectedTraineesTable td {
+  border: 1px solid #ccc;
+  padding: 8px;
+  text-align: right;
+}
+
+.buttonRow {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.buttonRow button {
+  align-self: flex-start;
+  padding: 10px 20px;
+  background-color: green;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.selectedTraineesTable th {
+  background-color: #f0f0f0;
+  font-weight: bold;
+}
+.editLessonContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 600px;
+  margin: auto;
+  margin-top: 2rem;
+}
+.editLessonContainer input, .editLessonContainer select {
+    padding: 0.6rem;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-size: 1rem;
+    box-sizing: border-box;
+    /* width: 100%; */
+    margin-left: 20px;
+}
