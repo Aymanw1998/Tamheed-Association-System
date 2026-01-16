@@ -37,8 +37,10 @@ const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
       'https://fitness-360.onrender.com', // הקליינט בפרודקשן
       'http://10.0.0.30:3000',
       'http://192.168.169.221:3000',
-      'http://tamheed-ramla.org:3000',
-      'http://www.tamheed-ramla.org:3000',
+      'http://tamheed-ramla.org',
+      'http://www.tamheed-ramla.org',
+      'https://tamheed-ramla.org',
+      'https://www.tamheed-ramla.org',
       // הוסף כאן דומיינים נוספים אם יש
       /^http:\/\/10\.0\.0\.\d+3000$/, // רשת LAN לדיבוג
     ];
