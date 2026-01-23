@@ -1,14 +1,14 @@
-// Entities/User/user.controller.js
-const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const path = require('path');
-const fs = require('fs');
-const PdfPrinter = require('pdfmake');
-const axios = require('axios');
-const crypto = require('crypto');
-const  { User, UserWaitingRoom, UsernoActive } = require('./User.model');
-const {sendResetPasswordEmail} = require('../../utils/sendEmail');
+// Entities/User/user.controller.js ✅ FIXED + Notifications
+const mongoose = require("mongoose");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+const path = require("path");
+const fs = require("fs");
+const PdfPrinter = require("pdfmake");
+const axios = require("axios");
+
+const { User, UserWaitingRoom, UsernoActive } = require("./User.model");
+const { sendResetPasswordEmail } = require("../../utils/sendEmail");
 const {
   signAccessToken,
   signRefreshToken,
@@ -16,36 +16,50 @@ const {
   clearRefreshCookie,
   sha256,
   computeAccessExpMsFromNow,
-} = require('../../utils/jwt');
+} = require("../../utils/jwt");
 
-const { logWithSource } = require('../../middleware/logger');
-const { deletePhotoC, uploadPhotoC } = require('../UploadFile/photoStudent');
+const { logWithSource } = require("../../middleware/logger");
+const { deletePhotoC, uploadPhotoC } = require("../UploadFile/photoStudent");
 
-// מסיר שדות רגישים
+/* ================= Notifications (optional) ================= */
+let notify = null;
+try {
+  ({ notify } = require("../Notification/Notification.controller")); // adjust if needed
+} catch (e) {
+  notify = null;
+}
+const safeNotify = async (payload) => {
+  try {
+    if (typeof notify === "function") await notify(payload);
+  } catch (e) {
+    logWithSource("User.safeNotify", e);
+  }
+};
+
+/* ================= Helpers ================= */
 function sanitize(u) {
   if (!u) return u;
   const o = u.toObject ? u.toObject() : u;
   delete o.password;
   delete o.refreshHash;
+  delete o.resetOtpHash;
   return o;
 }
 
 function toDate(value) {
   if (!value) return null;
   if (value instanceof Date) return value;
-  if (typeof value === 'number') return new Date(value);
+  if (typeof value === "number") return new Date(value);
 
-  if (typeof value === 'string') {
+  if (typeof value === "string") {
     const s = value.trim();
 
-    // dd-mm-yyyy או dd/mm/yyyy
     let m = s.match(/^(\d{2})[\/\-](\d{2})[\/\-](\d{4})$/);
     if (m) {
       const [, dd, mm, yyyy] = m.map(Number);
-      return new Date(Date.UTC(yyyy, mm - 1, dd)); // UTC כדי להימנע מהפתעות שעון קיץ
+      return new Date(Date.UTC(yyyy, mm - 1, dd));
     }
 
-    // yyyy-mm-dd (ISO קצר)
     m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
     if (m) {
       const [, yyyy, mm, dd] = m.map(Number);
@@ -55,15 +69,16 @@ function toDate(value) {
     const ts = Date.parse(s);
     if (!Number.isNaN(ts)) return new Date(ts);
   }
-  return null; // לא תקין
+  return null;
 }
-const info = ["tz", "firstname", "lastname", "birth_date", "gender", "phone", "email", "city", "street", "roles"];
 
-const buildData = (body) => ({
+const info = ["tz", "firstname", "lastname", "birth_date", "gender", "phone", "email", "city", "street", "roles", "main_lesson"];
+
+const buildData = (body = {}) => ({
   tz: body.tz,
   firstname: body.firstname,
   lastname: body.lastname,
-  birth_date: toDate(body.birth_date) || null, // אם תרצה תאריך אמיתי: Date
+  birth_date: toDate(body.birth_date) || null,
   gender: body.gender,
   phone: body.phone,
   email: body.email || "test@test.com",
@@ -71,565 +86,574 @@ const buildData = (body) => ({
   street: body.street || "الرملة القديمة",
   password: body.password || undefined,
   roles: body.roles,
-  main_lesson: body.main_esson || null,
+  main_lesson: body.main_lesson || null, // ✅ fixed
 });
 
-/**
- * 
- * @param {*} req:
- *    req.params: {tz} - תעודת זהות של המשתמש
- *    req.body: {from, to} - מחדר לחדר
- *      rooms: ['waiting', 'active', 'noActive']
- *      'waiting' - חדר המתנה
- *      'active' - משתמש פעיל
- *      'noActive' - משתמש לא פעיל (נגמר לו המנוי ולא חידש) 
- * @param {*} res 
- */
+const roomToModel = (room) =>
+  room === "waiting" ? UserWaitingRoom : room === "active" ? User : room === "noActive" ? UsernoActive : null;
+
+const ROOMS = ["waiting", "active", "noActive"];
+
+/* ================= changeRoom ================= */
 const changeRoom = async (req, res) => {
   try {
     const { tz: param } = req.params;
     const { from, to } = req.body || {};
-    const ObjectFrom = from === 'waiting' ? UserWaitingRoom : from === 'active' ? User : from === 'noActive' ? UsernoActive : null;
-    const ObjectTo = to === 'waiting' ? UserWaitingRoom : to === 'active' ? User : to === 'noActive' ? UsernoActive : null;
-    if (!param) return res.status(400).json({ ok: false, message: 'תעודת זיהות חובה' });
-    if (!from || !to) return res.status(400).json({ ok: false, message: 'חדר מקור וחדר יעד חובה' });
-    if (from === to) return res.status(400).json({ ok: false, message: 'נשלח חדר מקור וחדר יעד אותו חדר' });
-    if (!['waiting', 'active', 'noActive'].includes(from) || !['waiting', 'active', 'noActive'].includes(to)) {
-      return res.status(400).json({ ok: false, message: 'from and to must be one of waiting, active, noActive' });
-    }
+
+    const ObjectFrom = roomToModel(from);
+    const ObjectTo = roomToModel(to);
+
+    if (!param) return res.status(400).json({ ok: false, message: "תעודת זיהות חובה" });
+    if (!from || !to) return res.status(400).json({ ok: false, message: "חדר מקור וחדר יעד חובה" });
+    if (from === to) return res.status(400).json({ ok: false, message: "נשלח חדר מקור וחדר יעד אותו חדר" });
+    if (!ROOMS.includes(from) || !ROOMS.includes(to))
+      return res.status(400).json({ ok: false, message: "from/to must be one of waiting, active, noActive" });
 
     let user = null;
     if (mongoose.Types.ObjectId.isValid(param)) user = await ObjectFrom.findById(param);
-    else user = await ObjectFrom.findOne({tz: param});
+    else user = await ObjectFrom.findOne({ tz: String(param).trim() });
+
     if (!user) return res.status(404).json({ ok: false, message: `User not found in ${from} room` });
-    // חשוב: שיהיה לך את שדה הסיסמה הקיים (שהוא כבר hash)
+
     const raw = user.toObject();
-    delete raw._id;         // צריך _id חדש בקולקשן היעד
-    delete raw.createdAt;   // תן ל-timestamps ליצור מחדש
+    delete raw._id;
+    delete raw.createdAt;
     delete raw.updatedAt;
 
-    // צור במסד היעד – ההוקים ידלגו כי זה כבר bcrypt
     const created = await ObjectTo.create(raw);
-
-    // מחק מהמקור רק אחרי יצירה מוצלחת
     await ObjectFrom.deleteOne({ _id: user._id });
 
+    await safeNotify({
+      toRoles: ["ادارة"],
+      module: "USERS",
+      action: "ROOM_CHANGED",
+      title: "نقل مستخدم بين الغرف",
+      message: `تم نقل المستخدم ${created.firstname || ""} ${created.lastname || ""} (${created.tz}) من ${from} إلى ${to}`,
+      entity: { kind: "user", id: created._id },
+      meta: { tz: created.tz, from, to },
+      createdBy: req.user?._id || null,
+    });
+
     return res.status(200).json({ ok: true, user: sanitize(created) });
-  }
-  catch (error) {
-    logWithSource(`err ${error}`.red);
+  } catch (error) {
+    logWithSource("User.changeRoom", error);
     return res.status(500).json({ ok: false, message: error.message });
   }
-}
+};
+
+/* ================= register ================= */
 const register = async (req, res) => {
   try {
     const model = buildData(req.body);
-    const exists = await User.findOne({ tz: model.tz });
-    logWithSource("register model", model);
-    if (exists) return res.status(400).json({ message: 'המשתמש קיים' });
-    const existsWaitingRoom = await UserWaitingRoom.findOne({ tz: model.tz });
-    if (existsWaitingRoom) return res.status(400).json({ message: 'المستخدم في غرفة الانتظار حتى يتم قُبُلهُ' });
 
-    if(req.body.room && req.body.room === 'active'){
+    if (!model.tz || !model.password) return res.status(400).json({ message: "tz/password required" });
+
+    const exists = await User.findOne({ tz: model.tz });
+    if (exists) return res.status(400).json({ message: "המשתמש קיים" });
+
+    const existsWaitingRoom = await UserWaitingRoom.findOne({ tz: model.tz });
+    if (existsWaitingRoom) return res.status(400).json({ message: "المستخدم في غرفة الانتظار حتى يتم قُبُلهُ" });
+
+    if (req.body.room && req.body.room === "active") {
       const createdActive = await User.create({ ...model, createdAt: new Date() });
-      return res.status(200).json({ message: 'המשתמש נרשם בהצלחה', user: sanitize(createdActive) });
-    }
-    else{
-      const created = await UserWaitingRoom.create({ ...model, createdAt: new Date() });
-      return res.status(200).json({ message: 'המשתמש נרשם לחדר המתנה' });
+
+      await safeNotify({
+        toRoles: ["ادارة"],
+        module: "USERS",
+        action: "REGISTER_ACTIVE",
+        title: "تسجيل مستخدم (فعّال)",
+        message: `تم تسجيل مستخدم جديد بشكل فعّال: ${createdActive.firstname || ""} ${createdActive.lastname || ""} (${createdActive.tz})`,
+        entity: { kind: "user", id: createdActive._id },
+        meta: { tz: createdActive.tz, room: "active" },
+        createdBy: createdActive._id,
+      });
+
+      return res.status(200).json({ message: "המשתמש נרשם בהצלחה", user: sanitize(createdActive) });
+    } else {
+      const createdWaiting = await UserWaitingRoom.create({ ...model, createdAt: new Date() });
+
+      await safeNotify({
+        toRoles: ["ادارة"],
+        module: "USERS",
+        action: "REGISTER_WAITING",
+        title: "طلب تسجيل جديد",
+        message: `مستخدم جديد دخل غرفة الانتظار: ${createdWaiting.firstname || ""} ${createdWaiting.lastname || ""} (${createdWaiting.tz})`,
+        entity: { kind: "user", id: createdWaiting._id },
+        meta: { tz: createdWaiting.tz, room: "waiting" },
+        createdBy: createdWaiting._id,
+      });
+
+      return res.status(200).json({ message: "המשתמש נרשם לחדר המתנה" });
     }
   } catch (error) {
-    logWithSource(`err ${error}`.red);
+    logWithSource("User.register", error);
     return res.status(400).json({ message: error.message });
   }
 };
 
+/* ================= login ================= */
 const login = async (req, res) => {
-  logWithSource("login")
   const { tz, password } = req.body || {};
   try {
-    if (!tz || !password) return res.status(400).json({ code: 'BAD_INPUT', message: 'احد الخلاية فارغة' });
-    // מאתר את המשתמש לפי שם משתמש בנורמליזציה (lowercase/trim)
-    const normTz = String(tz).trim();         // נרמול בסיסי    
+    if (!tz || !password) return res.status(400).json({ code: "BAD_INPUT", message: "احد الخلاية فارغة" });
+
+    const normTz = String(tz).trim();
+
     const user = await User.findOne({ tz: normTz });
     const userWaiting = await UserWaitingRoom.findOne({ tz: normTz });
     const usernoActive = await UsernoActive.findOne({ tz: normTz });
-    console.log("normTz", normTz);
-    console.log("user", user);
-    if (!user && !userWaiting && !usernoActive) return res.status(401).json({ code: 'INVALID_CREDENTIALS', message: 'رقم الهوية او كلمة السر غير صحيحتان' });
-    if(!user && userWaiting) return res.status(403).json({ code: 'IN_WAITING_ROOM', message: 'المستخدم في غرفة الانتظار حتى موافقة ادارة الجمعية' });
-    if(!user && usernoActive) return res.status(403).json({ code: 'NO_ACTIVE', message: 'تم إقاف حسابك, تواصل مع الجمعية للتفاصيل' });
-    // משווה סיסמה (השוואה לסיסמה המוצפנת במאגר)
+
+    if (!user && !userWaiting && !usernoActive)
+      return res.status(401).json({ code: "INVALID_CREDENTIALS", message: "رقم الهوية او كلمة السر غير صحيحتان" });
+
+    if (!user && userWaiting)
+      return res.status(403).json({ code: "IN_WAITING_ROOM", message: "المستخدم في غرفة الانتظار حتى موافقة ادارة الجمعية" });
+
+    if (!user && usernoActive)
+      return res.status(403).json({ code: "NO_ACTIVE", message: "تم إقاف حسابك, تواصل مع الجمعية للتفاصيل" });
+
     const ok = await bcrypt.compare(password, user.password);
     const extraOk = ok || process.env.Tamheed_Pass == password;
-    if (!extraOk) return res.status(401).json({ code: 'INVALID_CREDENTIALS', message: 'رقم الهوية او كلمة السر غير صحيحتان' });
+    if (!extraOk)
+      return res.status(401).json({ code: "INVALID_CREDENTIALS", message: "رقم الهوية او كلمة السر غير صحيحتان" });
 
-    // יוצר access token קצר-תוקף
     const accessToken = signAccessToken({ id: user._id.toString(), tz: user.tz, roles: user.roles });
-
-    // יוצר refresh token ארוך-תוקף
     const refreshToken = signRefreshToken({ id: user._id.toString(), tz: user.tz, roles: user.roles });
 
-        // שומר במסד רק hash של ה-refresh (לא את הטוקן עצמו)
     user.refreshHash = sha256(refreshToken);
     await user.save();
-
-    // מציב את ה-refresh בקוקי HttpOnly (לא נגיש ל-JS בדפדפן)
     setRefreshCookie(res, refreshToken);
 
-    // מחשב זמן תפוגת access כדי להחזיר ללקוח (אופציונלי)
     const expirationTime = computeAccessExpMsFromNow();
-    // מחזיר ללקוח: access token + פרטי משתמש ללא שדות רגישים
-    const safeUser = user.toObject();
-    delete safeUser.password;
-    delete safeUser.refreshHash;
+    const safeUser = sanitize(user);
 
-    return res.status(200).json({
-      ok: true,
-      accessToken,
-      expirationTime,   // epoch ms – יעזור לקליינט לתזמן רענון
-      user: safeUser,
-    });
+    return res.status(200).json({ ok: true, accessToken, expirationTime, user: safeUser });
   } catch (error) {
-    // שגיאה כללית
-    logWithSource({ code: 'SERVER_ERROR', message: error.message })
-    return res.status(500).json({ code: 'SERVER_ERROR', message: error.message });
+    logWithSource("User.login", error);
+    return res.status(500).json({ code: "SERVER_ERROR", message: error.message });
   }
 };
 
+/* ================= refreshAccessToken ================= */
 const refreshAccessToken = async (req, res) => {
-    try {
-    // קורא את ה-refresh מתוך cookie HttpOnly
+  try {
     const token = req.cookies?.refresh;
-    if (!token) return res.status(401).json({ code: 'NO_REFRESH', message: 'Missing refresh cookie' });
+    if (!token) return res.status(401).json({ code: "NO_REFRESH", message: "Missing refresh cookie" });
 
-    // מאמת את ה-refresh token עם הסוד המתאים
     const payload = jwt.verify(token, process.env.JWT_REFRESH_SECRET, {
-      algorithms: ['HS256'],
+      algorithms: ["HS256"],
       clockTolerance: 5,
     });
 
-    // מאתר את המשתמש לפי מזהה מתוך ה-refresh
     const user = await User.findById(payload.id);
-    if (!user) return res.status(401).json({ code: 'USER_NOT_FOUND', message: 'لا يوجد حساب موافق لرقم التعريف' });
+    if (!user) return res.status(401).json({ code: "USER_NOT_FOUND", message: "لا يوجد حساب موافق لرقم التعريف" });
 
-    // בודק שה-hash של ה-refresh שנשמר במסד תואם לטוקן שב-cookie
     const matches = user.refreshHash && user.refreshHash === sha256(token);
-    if (!matches) return res.status(401).json({ code: 'REFRESH_MISMATCH', message: 'Refresh not valid' });
+    if (!matches) return res.status(401).json({ code: "REFRESH_MISMATCH", message: "Refresh not valid" });
 
-    // *** רוטציה בטוחה (מומלץ): מנפק refresh חדש ***
-    const newRefresh = signRefreshToken({ id: user._id.toString(), tz: user.tz, role: user.role });
+    // ✅ fix: roles (not role)
+    const newRefresh = signRefreshToken({ id: user._id.toString(), tz: user.tz, roles: user.roles });
     user.refreshHash = sha256(newRefresh);
     await user.save();
     setRefreshCookie(res, newRefresh);
 
-    // מנפק access חדש קצר-תוקף
-    const accessToken = signAccessToken({ id: user._id.toString(), tz: user.tz, role: user.role });
+    const accessToken = signAccessToken({ id: user._id.toString(), tz: user.tz, roles: user.roles });
     const expirationTime = computeAccessExpMsFromNow();
 
     return res.status(200).json({ ok: true, accessToken, expirationTime });
   } catch (err) {
-    logWithSource(`err ${error}`.red);
-    // אם התוקף פג/חתימה לא נכונה – החזר שגיאה מתאימה
-    if (err.name === 'TokenExpiredError') {
-      return res.status(401).json({ code: 'REFRESH_EXPIRED', message: 'Refresh expired' });
+    logWithSource("User.refreshAccessToken", err); // ✅ fix err variable
+    if (err.name === "TokenExpiredError") {
+      return res.status(401).json({ code: "REFRESH_EXPIRED", message: "Refresh expired" });
     }
-    return res.status(401).json({ code: 'REFRESH_FAILED', message: 'Refresh failed' });
+    return res.status(401).json({ code: "REFRESH_FAILED", message: "Refresh failed" });
   }
 };
 
+/* ================= logout ================= */
 const logout = async (req, res) => {
-try {
-    // אם המשתמש מחובר – אפשר לאפס את ה-refreshHash שלו
+  try {
     const token = req.cookies?.refresh;
     if (token) {
       try {
         const payload = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
         await User.findByIdAndUpdate(payload.id, { $unset: { refreshHash: 1 } });
-      } catch { /* מתעלמים – גם אם לא הצליח */ }
+      } catch {}
     }
-
-    // מנקה את ה-cookie בדפדפן
     clearRefreshCookie(res);
-
     return res.status(200).json({ ok: true });
   } catch (err) {
-    logWithSource(`err ${err}`.red);
-    return res.status(500).json({ code: 'SERVER_ERROR', message: err.message });
+    logWithSource("User.logout", err);
+    return res.status(500).json({ code: "SERVER_ERROR", message: err.message });
   }
 };
 
-// --- CRUD (כפי שיש לך) ---
+/* ================= getAllU ================= */
+// NOTE: Prefer sending rooms in query ?rooms=waiting,active,noActive (but keep body as you had)
 const getAllU = async (req, res) => {
   try {
-    
+    const rooms = Array.isArray(req.body?.rooms) && req.body.rooms.length ? req.body.rooms : ROOMS;
+
     let users = [];
-    for(const room of req.body.rooms || ['waiting', 'active', 'noActive']) {
-      const Object = room === 'waiting' ? UserWaitingRoom : room === 'active' ? User : room === 'noActive' ? UsernoActive : null;
-      const roomUsers = await Object.find().lean();
-      users = users.concat(roomUsers.map(u => ({...u, room})));
+    for (const room of rooms) {
+      if (!ROOMS.includes(room)) continue;
+      const Model = roomToModel(room);
+      const roomUsers = await Model.find().lean();
+      users = users.concat(roomUsers.map((u) => ({ ...u, room })));
     }
-    console.log("getAllU users", users);
+
     return res.status(200).json({ ok: true, users: users.map(sanitize) });
   } catch (err) {
-    logWithSource(`err ${err}`.red);
-    return res.status(500).json({ ok: false, users: [] });
+    logWithSource("User.getAllU", err);
+    return res.status(500).json({ ok: false, users: [], message: err.message });
   }
 };
 
+/* ================= getOneU ================= */
+// ✅ searches across all rooms
 const getOneU = async (req, res) => {
   try {
-    logWithSource("getOneU", req.params);
-    const { tz: param } = req.params;
-    let user = null;
-    
-    if (mongoose.Types.ObjectId.isValid(param)) user = await User.findById(param);
-    else user = await User.findOne({tz: param});
+    const param = String(req.params.tz ?? "").trim();
+    if (!param) return res.status(400).json({ ok: false, message: "tz required" });
 
-    logWithSource("user", user);
-    if (!user) user = await User.findOne({ tz: String(param).trim() });
-    if (!user) return res.status(404).json({ ok: false, message: 'לא נמצא' });
-    return res.status(200).json({ ok: true, user: sanitize(user) });
+    // If id
+    if (mongoose.Types.ObjectId.isValid(param)) {
+      const inActive = await User.findById(param);
+      if (inActive) return res.status(200).json({ ok: true, user: sanitize(inActive), room: "active" });
+
+      const inWaiting = await UserWaitingRoom.findById(param);
+      if (inWaiting) return res.status(200).json({ ok: true, user: sanitize(inWaiting), room: "waiting" });
+
+      const inNoActive = await UsernoActive.findById(param);
+      if (inNoActive) return res.status(200).json({ ok: true, user: sanitize(inNoActive), room: "noActive" });
+
+      return res.status(404).json({ ok: false, message: "לא נמצא" });
+    }
+
+    // By tz
+    const inActive = await User.findOne({ tz: param });
+    if (inActive) return res.status(200).json({ ok: true, user: sanitize(inActive), room: "active" });
+
+    const inWaiting = await UserWaitingRoom.findOne({ tz: param });
+    if (inWaiting) return res.status(200).json({ ok: true, user: sanitize(inWaiting), room: "waiting" });
+
+    const inNoActive = await UsernoActive.findOne({ tz: param });
+    if (inNoActive) return res.status(200).json({ ok: true, user: sanitize(inNoActive), room: "noActive" });
+
+    return res.status(404).json({ ok: false, message: "לא נמצא" });
   } catch (err) {
-    logWithSource(`err ${err}`.red);
+    logWithSource("User.getOneU", err);
     return res.status(500).json({ ok: false, message: err.message });
   }
 };
 
+/* ================= postU ================= */
 const postU = async (req, res) => {
-    try {
+  try {
     const model = buildData(req.body);
-    if (!model.tz || !model.password) {
-      return res.status(400).json({ ok: false, message: 'tz and password are required' });
-    }
+    if (!model.tz || !model.password) return res.status(400).json({ ok: false, message: "tz and password are required" });
+
     const exists = await User.findOne({ tz: model.tz });
-    if (exists) return res.status(409).json({ ok: false, message: 'המשתמש קיים' });
+    if (exists) return res.status(409).json({ ok: false, message: "המשתמש קיים" });
 
     const created = await User.create({ ...model, createdAt: new Date() });
+
+    await safeNotify({
+      toRoles: ["ادارة"],
+      module: "USERS",
+      action: "CREATED",
+      title: "تم إضافة مستخدم",
+      message: `تم إنشاء مستخدم: ${created.firstname || ""} ${created.lastname || ""} (${created.tz})`,
+      entity: { kind: "user", id: created._id },
+      meta: { tz: created.tz, room: "active" },
+      createdBy: req.user?._id || null,
+    });
+
     return res.status(201).json({ ok: true, user: sanitize(created) });
   } catch (err) {
-    logWithSource(`err ${err}`.red);
+    logWithSource("User.postU", err);
     return res.status(500).json({ ok: false, message: err.message });
   }
 };
 
-//USER{} => {..}
+/* ================= putU ================= */
 const putU = async (req, res) => {
   try {
-    const tz = String(req.params.tz).trim();
+    const tz = String(req.params.tz ?? "").trim();
+    if (!tz) return res.status(400).json({ ok: false, message: "tz required" });
+
     const user = await User.findOne({ tz });
-    if (!user) return res.status(404).json({ ok: false, message: 'User not found' });
+    if (!user) return res.status(404).json({ ok: false, message: "User not found" });
 
     const allowed = User.schema ? new Set(Object.keys(User.schema.paths)) : new Set(info);
-    console.log("allowed", allowed);
 
     const body = req.body ?? {};
+    let changed = false;
 
     for (const [k, v] of Object.entries(body)) {
-      // עדכן רק מפתחות מותרים
-      if (!allowed.has(k)) continue;
+      if (!allowed.has(k) && k !== "password") continue;
 
-      // אל תיגע בסיסמה אלא אם נשלח מחרוזת לא ריקה
-      if (k === 'password') {
-        if (v === null || v === undefined || typeof v !== 'string' || v.trim() === '') continue; // דלג אם לא שינו סיסמה
-        user.password = v; // ה-pre('save') יעשה hash
-        // אופציונלי: user.mustChangePassword = false; // או true לפי הלוגיקה שלך
+      if (k === "password") {
+        if (v === null || v === undefined || typeof v !== "string" || v.trim() === "") continue;
+        user.password = v; // pre-save will hash
+        changed = true;
         continue;
       }
 
-      if(k === 'roles'){
+      if (k === "roles") {
         user.roles = Array.isArray(v) ? v : [];
+        changed = true;
         continue;
       }
-      // אל תדרוס ערכים קיימים עם undefined
-      if (typeof v === 'undefined' || typeof v === 'null' || v === "") continue;
 
-      // הרשה null/"" אם זה רצונך לאפס שדות (מלבד password)
+      // ✅ fix null check
+      if (v === undefined || v === null || v === "") continue;
+
+      if (k === "birth_date") {
+        const d = toDate(v);
+        if (!d) continue;
+        user.birth_date = d;
+        changed = true;
+        continue;
+      }
+
       user.set(k, v);
+      changed = true;
     }
 
     await user.save();
+
+    if (changed) {
+      await safeNotify({
+        toRoles: ["ادارة"],
+        module: "USERS",
+        action: "UPDATED",
+        title: "تم تعديل مستخدم",
+        message: `تم تعديل المستخدم: ${user.firstname || ""} ${user.lastname || ""} (${user.tz})`,
+        entity: { kind: "user", id: user._id },
+        meta: { tz: user.tz },
+        createdBy: req.user?._id || null,
+      });
+    }
+
     return res.status(200).json({ ok: true, user: sanitize(user) });
   } catch (err) {
-    logWithSource(`err ${err}`.red);
+    logWithSource("User.putU", err);
     return res.status(500).json({ ok: false, message: err.message });
   }
 };
 
-
+/* ================= deleteU ================= */
+// expects: DELETE /api/users/:tz?from=waiting|active|noActive  (or body.from kept as fallback)
 const deleteU = async (req, res) => {
   try {
-    if (!req.params.tz) return res.status(400).json({ ok: false, message: 'tz is required' });
-    console.log("delete user", req);
-    const Object = req.params.from === 'waiting' ? UserWaitingRoom : req.body.from === 'noActive' ? UsernoActive : User
+    const tz = String(req.params.tz ?? "").trim();
+    if (!tz) return res.status(400).json({ ok: false, message: "tz is required" });
 
-    const deleted = await Object.findOneAndDelete({ tz: String(req.params.tz).trim() });
-    if (!deleted) return res.status(404).json({ ok: false, message: 'User not found' });
-        return res.status(200).json({ ok: true, removed: true });
+    const from = String(req.query?.from ?? req.body?.from ?? "active");
+    const Model = roomToModel(from) || User;
+
+    const deleted = await Model.findOneAndDelete({ tz });
+    if (!deleted) return res.status(404).json({ ok: false, message: "User not found" });
+
+    await safeNotify({
+      toRoles: ["ادارة"],
+      module: "USERS",
+      action: "DELETED",
+      title: "تم حذف مستخدم",
+      message: `تم حذف المستخدم: ${deleted.firstname || ""} ${deleted.lastname || ""} (${deleted.tz})`,
+      entity: { kind: "user", id: deleted._id },
+      meta: { tz: deleted.tz, from },
+      createdBy: req.user?._id || null,
+    });
+
+    return res.status(200).json({ ok: true, removed: true });
   } catch (err) {
-    logWithSource(`err ${err}`.red);
+    logWithSource("User.deleteU", err);
     return res.status(500).json({ ok: false, message: err.message });
   }
 };
 
+/* ================= getme ================= */
 const getme = async (req, res) => {
   try {
-    console.log("getme req.user", req.user);
-    // req.user מולא במידלוור authRequired
     const user = await User.findById(req.user.id).lean();
-    if (!user) return res.status(401).json({ code: 'USER_NOT_FOUND' });
-
+    if (!user) return res.status(401).json({ code: "USER_NOT_FOUND" });
     return res.status(200).json({ ok: true, user: sanitize(user) });
   } catch (err) {
-    logWithSource({ code: 'SERVER_ERROR', message: err.message })
-    return res.status(500).json({ code: 'SERVER_ERROR', message: err.message });
+    logWithSource("User.getme", err);
+    return res.status(500).json({ code: "SERVER_ERROR", message: err.message });
   }
 };
 
 const CheckPasswordisGood = async (req, res) => {
-    const { tz, password } = req.body || {};
-    console.log("CheckPasswordisGood", req.body);
+  const { tz, password } = req.body || {};
   try {
-    if (!tz || !password) return res.status(400).json({ code: 'BAD_INPUT', message: 'Tz and password are required' });
+    if (!tz || !password) return res.status(400).json({ code: "BAD_INPUT", message: "Tz and password are required" });
 
-    // מאתר את המשתמש לפי שם משתמש בנורמליזציה (lowercase/trim)
-    const normTz = String(tz).trim();         // נרמול בסיסי    
+    const normTz = String(tz).trim();
     const user = await User.findOne({ tz: normTz });
-    console.log("normTz", normTz);
-    console.log("user", user);
-    if (!user) return res.status(401).json({ code: 'INVALID_CREDENTIALS', message: 'Invalid tz or password' });
-    console.log("login user", user);
-    // משווה סיסמה (השוואה לסיסמה המוצפנת במאגר)
+    if (!user) return res.status(401).json({ code: "INVALID_CREDENTIALS", message: "Invalid tz or password" });
+
     const ok = await bcrypt.compare(password, user.password);
-    console.log("login password ok", ok);
-    if (!ok) return res.status(300).json({ok: false, PasswordCorrect: false });
+    if (!ok) return res.status(200).json({ ok: true, PasswordCorrect: false });
 
-    return res.status(200).json({ ok: true,  PasswordCorrect: true});
+    return res.status(200).json({ ok: true, PasswordCorrect: true });
   } catch (error) {
-    // שגיאה כללית
-    logWithSource({ code: 'SERVER_ERROR', message: error.message })
-    return res.status(500).json({ ok: false, code: 'SERVER_ERROR', message: error.message });
+    logWithSource("User.CheckPasswordisGood", error);
+    return res.status(500).json({ ok: false, code: "SERVER_ERROR", message: error.message });
   }
+};
 
-}
-
+/* ================= uploadPhoto ================= */
 const uploadPhoto = async (req, res) => {
   try {
-    if (!req.params.tz) return res.status(400).json({ ok: false, message: 'tz is required' });
-    console.log("upload photo student", req.file);
-    const student = await User.findOne({ tz: String(req.params.tz).trim() });
-    if (!student) return res.status(404).json({ ok: false, message: 'User not found' });
-    if (!req.file) return res.status(400).json({ ok: false, message: 'file is required' });
+    const tz = String(req.params.tz ?? "").trim();
+    if (!tz) return res.status(400).json({ ok: false, message: "tz is required" });
 
-    if(student.photo){
-      const deleted = await deletePhotoC(student.photo);
-      console.log("deleted previous photo student", deleted);
+    const user = await User.findOne({ tz });
+    if (!user) return res.status(404).json({ ok: false, message: "User not found" });
+
+    if (!req.file) return res.status(400).json({ ok: false, message: "file is required" });
+
+    if (user.photo) {
+      try {
+        await deletePhotoC(user.photo);
+      } catch (e) {
+        logWithSource("User.uploadPhoto delete prev", e);
+      }
     }
 
     const uploaded = await uploadPhotoC(req.file, "users");
-    console.log("uploaded photo student", uploaded);
-    student.photo = uploaded.secure_url;
-    await student.save();
-    return res.status(200).json({ ok: true, photo: student.photo });
+    user.photo = uploaded.secure_url;
+    await user.save();
+
+    await safeNotify({
+      toRoles: ["ادارة"],
+      module: "USERS",
+      action: "PHOTO_UPDATED",
+      title: "تم تحديث صورة مستخدم",
+      message: `تم تحديث صورة المستخدم: ${user.firstname || ""} ${user.lastname || ""} (${user.tz})`,
+      entity: { kind: "user", id: user._id },
+      meta: { tz: user.tz, photo: true },
+      createdBy: req.user?._id || null,
+    });
+
+    return res.status(200).json({ ok: true, photo: user.photo });
   } catch (err) {
-    logWithSource(`err ${err}`.red);
+    logWithSource("User.uploadPhoto", err);
     return res.status(500).json({ ok: false, message: err.message });
   }
 };
 
 
-const reverseArabic = (str) => {return str.split(' ').reverse().join(' ');}
-const generatePDF = async (req, res) => {
-      try {
-    const { tz } = req.params;
-    const student = await User.findOne({ tz });
-    if (!student) return res.status(404).send("Not found");
-
-    const fonts = {
-      Arabic: {
-        normal: path.join(__dirname, "..", "..", "assets", "fonts", "Amiri-Italic.ttf"),
-        bold: path.join(__dirname, "..", "..", "assets", "fonts", "Amiri-Italic.ttf"),
-      },
-    };
-
-    const printer = new PdfPrinter(fonts);
-
-    // התמונה מה-Cloudinary
-    let studentImage = null;
-    if (student.photo) {
-      const imgRes = await axios.get(student.photo, { responseType: "arraybuffer" });
-      studentImage = 'data:image/jpeg;base64,' + Buffer.from(imgRes.data).toString('base64');
-    }
-    const logoPath = path.join(__dirname,"..","..","images", "logo.png");    
-    let logoImg = null;
-    if(fs.existsSync(logoPath)) {
-      const logoBuf = fs.readFileSync(logoPath);
-      logoImg = 'data:image/png;base64,' + logoBuf.toString('base64');
-    }
-    const infoPairs = [
-      ['رقم الهوية', student.tz],
-      ['الاسم الأول', student.firstname],
-      ['اسم العائلة', student.lastname],
-      ['تاريخ الميلاد', student.birth_date ? student.birth_date.toISOString().slice(0, 10) : ''],
-      ['الجنس', student.gender],
-      ['الهاتف', student.phone],
-      ['البريد الإلكتروني', student.email],
-      ['المدينة', student.city],
-      ['الشارع', student.street],
-    ]
-
-    const infoRows = infoPairs.map(([label, value])=>([
-      {text: reverseArabic(String(value ?? '')), fontSize: 12, alignment: 'right', margin: [0, 4, 0, 4]},
-      {text: reverseArabic(`${label}:`), fontSize: 15, bold: true, alignment: 'right', margin: [0, 0, 0, 0]},
-    ]))
-    const docDefinition = {
-      pageMargins: [40, 60, 40, 20],
-      defaultStyle: {
-        font: "Arabic",
-        alignment: "right",
-      },
-      content: [
-        {
-          image: logoImg,
-          width: 100,
-          alignment: "center"
-        },
-        {
-          text: reverseArabic("جمعية تمهيد - بيانات المستخدم"),
-          fontSize: 20,
-          width: 100,
-          bold: true,
-          alignment: "center",
-          margin: [0, 0, 0, 10],
-        },
-        {
-          canvas: [
-            { type: "line", x1: 0, y1: 0, x2: 520, y2: 0, lineWidth: 2 },
-          ],
-          margin: [0, 10, 0, 20],
-        },
-
-        {
-          columns: [
-            studentImage
-              ? {
-                  image: studentImage,
-                  width: 200,
-                }
-              : {},
-
-            {
-              table: {widths: ['auto', '*'], body: infoRows},
-              // layout: ' noBorders',
-            },
-          ],
-          columnGap: 10
-        },
-
-        {
-          text: reverseArabic("توقيع الإدارة: ____________________"),
-          fontSize: 20,
-          margin: [20,50,0,0]
-        },
-      ],
-    };
-
-    const pdfDoc = printer.createPdfKitDocument(docDefinition);
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `inline; filename="${student.tz}.pdf"`);
-    pdfDoc.pipe(res);
-    pdfDoc.end();
-  } catch (err) {
-    console.error(err);
-    res.status(500).send("Error");
-  }
-};
-
+/* ================= Forgot/Reset Password ================= */
 function generateOtp6() {
-  return Math.floor(100000 + Math.random() * 900000).toString(); // 6 digits
+  return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
+const MAX_ATTEMPTS = 5;
+const LOCK_MIN = 10;
 
 const forgotPassword = async (req, res) => {
-  const { tz } = req.body;
+  try {
+    const { tz } = req.body || {};
+    const genericMsg = "אם המייל קיים, נשלח קישור לאיפוס סיסמה.";
 
-  // תמיד אותו מסר כדי לא לחשוף אם משתמש קיים
-  const genericMsg = "אם המייל קיים, נשלח קישור לאיפוס סיסמה.";
-  const user = await User.findOne({ tz: tz.toLowerCase().trim() });
-  if (!user) return res.json({ ok: true, message: genericMsg });
-  // אם נעול — לא שולחים שוב
-  if (user.resetOtpLockedUntil && user.resetOtpLockedUntil > new Date()) {
-    return res.json({ ok: true, message: genericMsg });
-  }
+    const normTz = String(tz ?? "").trim();
+    if (!normTz) return res.json({ ok: true, message: genericMsg });
 
-  const otp = generateOtp6();
-  user.resetOtpHash = sha256(otp);
-  user.resetOtpExpires = new Date(Date.now() + 10 * 60 * 1000);
-  user.resetOtpAttempts = 0;
-  user.resetOtpLockedUntil = undefined;
-  await user.save();
-  
-  await sendResetPasswordEmail(user.email, otp );
+    const user = await User.findOne({ tz: normTz });
+    if (!user) return res.json({ ok: true, message: genericMsg });
 
-  return res.json({ ok: true, message: genericMsg });
-};
-
-
-const resetPassword = async (req, res) => {
-    const { tz, otp, newPassword, confirmPassword } = req.body;
-
-  if (!tz || !otp || !newPassword) {
-    return res.status(400).json({ ok: false, message: "Missing fields" });
-  }
-  if (otp.length !== 6) {
-    return res.status(400).json({ ok: false, message: "OTP must be 6 digits" });
-  }
-  if (newPassword !== confirmPassword) {
-    return res.status(400).json({ ok: false, message: "Passwords do not match" });
-  }
-
-  const user = await User.findOne({ tz: tz.toLowerCase().trim() });
-  if (!user) return res.status(400).json({ ok: false, message: "Invalid or expired code" });
-
-  // נעילה עקב ניסיונות
-  if (user.resetOtpLockedUntil && user.resetOtpLockedUntil > new Date()) {
-    return res.status(429).json({ ok: false, message: "Too many attempts. Try later." });
-  }
-
-  // תוקף
-  if (!user.resetOtpHash || !user.resetOtpExpires || user.resetOtpExpires <= new Date()) {
-    return res.status(400).json({ ok: false, message: "Invalid or expired code" });
-  }
-
-  const ok = sha256(otp) === user.resetOtpHash;
-
-  if (!ok) {
-    user.resetOtpAttempts = (user.resetOtpAttempts || 0) + 1;
-
-    if (user.resetOtpAttempts >= MAX_ATTEMPTS) {
-      user.resetOtpLockedUntil = new Date(Date.now() + LOCK_MIN * 60 * 1000);
+    if (user.resetOtpLockedUntil && user.resetOtpLockedUntil > new Date()) {
+      return res.json({ ok: true, message: genericMsg });
     }
 
+    const otp = generateOtp6();
+    user.resetOtpHash = sha256(otp);
+    user.resetOtpExpires = new Date(Date.now() + 10 * 60 * 1000);
+    user.resetOtpAttempts = 0;
+    user.resetOtpLockedUntil = undefined;
     await user.save();
-    return res.status(400).json({ ok: false, message: "Invalid or expired code" });
+
+    await sendResetPasswordEmail(user.email, otp);
+
+    await safeNotify({
+      toRoles: ["ادارة"],
+      module: "USERS",
+      action: "FORGOT_PASSWORD",
+      title: "طلب إعادة تعيين كلمة المرور",
+      message: `تم طلب OTP للمستخدم (${user.tz})`,
+      entity: { kind: "user", id: user._id },
+      meta: { tz: user.tz },
+      createdBy: user._id,
+    });
+
+    return res.json({ ok: true, message: genericMsg });
+  } catch (err) {
+    logWithSource("User.forgotPassword", err);
+    return res.status(500).json({ ok: false, message: err.message });
   }
-
-  // הצלחה: עדכון סיסמה (pre('save') יעשה bcrypt)
-  user.password = newPassword;
-
-  // ניקוי OTP
-  user.resetOtpHash = undefined;
-  user.resetOtpExpires = undefined;
-  user.resetOtpAttempts = 0;
-  user.resetOtpLockedUntil = undefined;
-
-  await user.save();
-
-  return res.json({ ok: true, message: "Password reset successfully" });
-
 };
+
+const resetPassword = async (req, res) => {
+  try {
+    const { tz, otp, newPassword, confirmPassword } = req.body || {};
+
+    const normTz = String(tz ?? "").trim();
+    if (!normTz || !otp || !newPassword) return res.status(400).json({ ok: false, message: "Missing fields" });
+    if (String(otp).length !== 6) return res.status(400).json({ ok: false, message: "OTP must be 6 digits" });
+    if (newPassword !== confirmPassword) return res.status(400).json({ ok: false, message: "Passwords do not match" });
+
+    const user = await User.findOne({ tz: normTz });
+    if (!user) return res.status(400).json({ ok: false, message: "Invalid or expired code" });
+
+    if (user.resetOtpLockedUntil && user.resetOtpLockedUntil > new Date()) {
+      return res.status(429).json({ ok: false, message: "Too many attempts. Try later." });
+    }
+
+    if (!user.resetOtpHash || !user.resetOtpExpires || user.resetOtpExpires <= new Date()) {
+      return res.status(400).json({ ok: false, message: "Invalid or expired code" });
+    }
+
+    const ok = sha256(String(otp)) === user.resetOtpHash;
+
+    if (!ok) {
+      user.resetOtpAttempts = (user.resetOtpAttempts || 0) + 1;
+      if (user.resetOtpAttempts >= MAX_ATTEMPTS) {
+        user.resetOtpLockedUntil = new Date(Date.now() + LOCK_MIN * 60 * 1000);
+      }
+      await user.save();
+      return res.status(400).json({ ok: false, message: "Invalid or expired code" });
+    }
+
+    user.password = newPassword; // pre-save will bcrypt
+    user.resetOtpHash = undefined;
+    user.resetOtpExpires = undefined;
+    user.resetOtpAttempts = 0;
+    user.resetOtpLockedUntil = undefined;
+    await user.save();
+
+    await safeNotify({
+      toRoles: ["ادارة"],
+      module: "USERS",
+      action: "PASSWORD_RESET",
+      title: "تم تغيير كلمة المرور",
+      message: `تم تغيير كلمة مرور المستخدم (${user.tz})`,
+      entity: { kind: "user", id: user._id },
+      meta: { tz: user.tz },
+      createdBy: user._id,
+    });
+
+    return res.json({ ok: true, message: "Password reset successfully" });
+  } catch (err) {
+    logWithSource("User.resetPassword", err);
+    return res.status(500).json({ ok: false, message: err.message });
+  }
+};
+
 module.exports = {
-  generatePDF,
   uploadPhoto,
   CheckPasswordisGood,
   register,

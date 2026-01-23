@@ -7,40 +7,52 @@ import styles from "./Report.module.css";
 import { toast } from "../../ALERT/SystemToasts.jsx";
 import {validate as validateINV, submit as submitFromParent} from "../../WebServer/services/inviteToken/functionInviteToken.jsx";
 
-const  MultiTagSelect = ({
+const MultiTagSelect = ({
   options = [],
   value = [],
   onChange,
   placeholder = "Type to search...",
+  allowCustom = false, // ✅ חדש
 }) => {
   const [q, setQ] = useState("");
 
+  const norm = (s) => String(s ?? "").trim();
+
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
-    if (!s) return options.filter((o) => !value.includes(o.value));
-    return options
-      .filter((o) => !value.includes(o.value))
-      .filter((o) => o.label.toLowerCase().includes(s));
+    const selected = new Set(value.map(String));
+
+    const base = options.filter((o) => !selected.has(String(o.value)));
+
+    if (!s) return base;
+
+    return base.filter((o) => String(o.label).toLowerCase().includes(s));
   }, [q, options, value]);
 
   const add = (v) => {
-    if (value.includes(v)) return;
-    onChange?.([...value, v]);
+    const vv = norm(v);
+    if (!vv) return;
+    if (value.map(String).includes(String(vv))) return;
+    onChange?.([...value, vv]);
     setQ("");
   };
 
-  const remove = (v) => {
-    onChange?.(value.filter((x) => x !== v));
-  };
+  const remove = (v) => onChange?.(value.filter((x) => String(x) !== String(v)));
+
+  const canCreate =
+    allowCustom &&
+    norm(q) &&
+    !value.map(String).includes(norm(q)) &&
+    !options.some((o) => String(o.value) === norm(q) || String(o.label) === norm(q));
 
   return (
     <div style={{ border: "1px solid #ccc", borderRadius: 10, padding: 10 }}>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
         {value.map((v) => {
-          const opt = options.find((o) => o.value === v);
+          const opt = options.find((o) => String(o.value) === String(v));
           return (
             <span
-              key={v}
+              key={String(v)}
               style={{
                 display: "inline-flex",
                 alignItems: "center",
@@ -51,17 +63,11 @@ const  MultiTagSelect = ({
                 background: "#f7f7f7",
               }}
             >
-              {opt?.label ?? v}
+              {opt?.label ?? String(v)}
               <button
                 type="button"
                 onClick={() => remove(v)}
-                style={{
-                  border: "none",
-                  background: "transparent",
-                  cursor: "pointer",
-                  fontSize: 16,
-                  lineHeight: 1,
-                }}
+                style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: 16 }}
                 aria-label="remove"
               >
                 ❌
@@ -76,35 +82,42 @@ const  MultiTagSelect = ({
         onChange={(e) => setQ(e.target.value)}
         placeholder={placeholder}
         style={{ width: "100%", padding: 10, borderRadius: 8, border: "1px solid #ddd" }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            if (canCreate) add(q);                 // ✅ טקסט חופשי
+            else if (filtered[0]) add(filtered[0].value); // אופציה ראשונה
+          }
+          if (e.key === "Backspace" && !q && value.length) {
+            // נוחות: מחיקה מהירה
+            remove(value[value.length - 1]);
+          }
+        }}
       />
 
-      {filtered.length > 0 && (
-        <div
-          style={{
-            marginTop: 8,
-            border: "1px solid #eee",
-            borderRadius: 8,
-            overflow: "hidden",
-          }}
-        >
-          {filtered.slice(0, 8).map((o) => (
-            <div
-              key={o.value}
-              onClick={() => add(o.value)}
-              style={{
-                padding: 10,
-                cursor: "pointer",
-                borderBottom: "1px solid #f0f0f0",
-              }}
-            >
-              {o.label}
-            </div>
-          ))}
-        </div>
-      )}
+      <div style={{ marginTop: 8, border: "1px solid #eee", borderRadius: 8, overflow: "hidden" }}>
+        {canCreate && (
+          <div
+            onClick={() => add(q)}
+            style={{ padding: 10, cursor: "pointer", borderBottom: "1px solid #f0f0f0", background: "#f9fafb" }}
+          >
+            ➕ إضافة: <b>{q}</b>
+          </div>
+        )}
+
+        {filtered.slice(0, 8).map((o) => (
+          <div
+            key={String(o.value)}
+            onClick={() => add(o.value)}
+            style={{ padding: 10, cursor: "pointer", borderBottom: "1px solid #f0f0f0" }}
+          >
+            {o.label}
+          </div>
+        ))}
+      </div>
     </div>
   );
-}
+};
 
 
 
@@ -121,6 +134,7 @@ const EditReport = ({parent = false}) => {
     date: "", // אם תרצה תאריך אמיתי: Date
     attendance: [],
     title: [],
+    stitle: "",
     info: "",
     createdBy: localStorage.getItem("user_id") || "",
     
@@ -131,6 +145,7 @@ const EditReport = ({parent = false}) => {
     date: "", // אם תרצה תאריך אמיתי: Date
     attendance: "",
     title: "",
+    stitle: "",
     info: "",
     createdBy: "",
     
@@ -148,7 +163,7 @@ const EditReport = ({parent = false}) => {
         console.log("load training");
         setLoading(true);
         setErr(null);
-        const res = await getOne(id); // מצפה ל-{ status, subs }
+        const res = await getOne(id);
         if(!res.ok) throw new Error(res.message);
         if (res) {
           const s = res.report;
@@ -387,6 +402,17 @@ const EditReport = ({parent = false}) => {
       <h2>{isEdit ? "تحديث بيانات التقرير" : "اضافة تقرير جديد"}</h2>
 
       <label>عنوان التقرير:</label>
+      <input
+        type="text"
+        name="stitle"
+        value={form.stitle}
+        onChange={handleChange}
+        required
+      />
+      <label style={{color: "red"}}>{error.stitle}</label>
+      <br />
+      
+      <label>عنوان ثانوي:</label>
       <MultiTagSelect
         options={[
           { label: "تقرير عام", value: "تقرير عام" },
@@ -397,9 +423,11 @@ const EditReport = ({parent = false}) => {
         value={form.title}
         onChange={(vals) => setForm((prev) => ({ ...prev, title: vals }))}
         placeholder="اختر عنوان التقرير..."
+        allowCustom={true}
       />
       <label style={{color: "red"}}>{error.title}</label>
       <br />
+
       <label>صلب الموضوع:</label>
       <textarea
         name="info"
@@ -422,7 +450,7 @@ const EditReport = ({parent = false}) => {
       <label style={{color: "red"}}>{error.info}</label>
       <br />
       
-      <label>الحاضرون:</label>
+      {localStorage.getItem("roles").includes("ادارة") && <><label>الحاضرون:</label>
       <MultiTagSelect
         options={users.map(u => ({ label: `${u.firstname} ${u.lastname}`, value: u._id }))}
         value={form.attendance}
@@ -430,8 +458,8 @@ const EditReport = ({parent = false}) => {
         placeholder="اختر الحاضرين..."
       />
       <label style={{color: "red"}}>{error.attendance}</label>
-      <br />
-      <div className={styles.buttonRow} style={{ gap: 8, flexWrap: "wrap" }}>
+      <br /></>}
+      <center className={styles.buttonRow} style={{ gap: 8, flexWrap: "wrap" }}>
         <button type="submit" onClick={handleSubmit}>
           {saving ? "حفظ..." : parent ? "ارسال التفاصيل" : (isEdit ? "تعديل البيانات" : "اضافة التقرير")}
         </button>
@@ -447,7 +475,7 @@ const EditReport = ({parent = false}) => {
         {!parent && (<button type="button" style={{ background: "#6b7280" }} onClick={() => navigate(-1)}>
           الرجوع للقائمة
         </button>)}
-      </div>
+      </center>
     </div>
   );
 };

@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useEffectEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import styles from "./Header.module.css";
 import LOGO from "../../images/logo.png";
 import { getMe } from "../../WebServer/services/auth/fuctionsAuth";
 import { ask } from "../Provides/confirmBus";
 import { useToast } from "../../ALERT/SystemToasts";
+import NotificationsBell from "../Notification/NotificationsBell";
 
 export default function Header() {
     const { push } = useToast();  // ← מקבל את push מה-Provider
@@ -17,6 +18,7 @@ export default function Header() {
   // --- מובייל / תפריט ---
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [menuOpen, setMenuOpen] = useState(false);
+  useEffect(()=>console.log("isMobile", isMobile, "menuOpen", menuOpen), [isMobile, menuOpen]);
   const navRef = useRef(null);
 
   useEffect(() => console.log("roles", roles), [roles]);
@@ -135,31 +137,18 @@ export default function Header() {
           )}
         </div>
         {isMobile && menuOpen && <div className={styles.backdrop} onClick={() => setMenuOpen(false)} />}
-        {isMobile ? (
-            menuOpen && (
-                    <nav style={menuOpen && !isMobile ? {} : {width: "100%"} }className={`${styles.navbarV} ${isMobile ? styles.mobileNav : ''}`} data-open={menuOpen}>
-                      <a href="/calendar" onClick={(e) => onNavClick(e, "/calendar")}>حضور وغياب</a>
-                      <a href="/students" onClick={(e) => onNavClick(e, "/students")}>قائمة الطلاب</a>
-                      <a href="/users" onClick={(e) => onNavClick(e, "/users")}>قائمة المستخدمين</a>
-                      <a href="/lessons" onClick={(e) => onNavClick(e, "/lessons")}>قائمة الدروس</a>
-                      <a href="/reports" onClick={(e) => onNavClick(e, "/reports")}>قائمة التقارير</a>
-                      <a href="/profile" onClick={(e) => onNavClick(e, "/profile")}>ملف شخصي</a>
-                      <a href="#" onClick={(e) => onNavClick(e, "#")}>Drive</a>
-                      <button onClick={handleLogout} className={styles.logoutButton} title="خروج"> 🔓 خروج</button>
-                    </nav>
-                )
-        ) : (
-            <nav style={{width: "100%"}} className={`${styles.navbarV} ${isMobile ? styles.mobileNav : styles.navbarV}`} data-open={menuOpen}>
-                <a href="/calendar" onClick={(e) => onNavClick(e, "/calendar")}>حضور وغياب</a>
-                <a href="/students" onClick={(e) => onNavClick(e, "/students")}>قائمة الطلاب</a>
-                <a href="/users" onClick={(e) => onNavClick(e, "/users")}>قائمة المستخدمين</a>
-                <a href="/lessons" onClick={(e) => onNavClick(e, "/lessons")}>قائمة الدروس</a>
-                <a href="/reports" onClick={(e) => onNavClick(e, "/reports")}>قائمة التقارير</a>
-                <a href="/profile" onClick={(e) => onNavClick(e, "/profile")}>ملف شخصي</a>
-                <a href="#" onClick={(e) => onNavClick(e, "#")}>Drive</a>
-                <button onClick={handleLogout} className={styles.logoutButton} title="خروج"> 🔓 خروج</button>
-            </nav>
-        )}
+          {((isMobile && menuOpen) || (!isMobile && !menuOpen)) && 
+          <nav style={menuOpen && !isMobile ? {} : {width: "100%"} }className={`${styles.navbarV} ${isMobile ? styles.mobileNav : ''}`} data-open={menuOpen}>
+            {user?.roles?.includes("ادارة") && <NotificationsBell/>}
+            <a href="/calendar" onClick={(e) => onNavClick(e, "/calendar")}>حضور وغياب</a>
+            <a href="/students" onClick={(e) => onNavClick(e, "/students")}>قائمة الطلاب</a>
+            {user?.roles?.includes("ادارة") && <a href="/users" onClick={(e) => onNavClick(e, "/users")}>قائمة المستخدمين</a>}
+            <a href="/lessons" onClick={(e) => onNavClick(e, "/lessons")}>قائمة الدروس</a>
+            <a href="/reports" onClick={(e) => onNavClick(e, "/reports")}>قائمة التقارير</a>
+            <a href="/profile" onClick={(e) => onNavClick(e, "/profile")}>ملف شخصي</a>
+            <a href="#" onClick={(e) => onNavClick(e, "#")}>Drive</a>
+            <button onClick={handleLogout} className={styles.logoutButton} title="خروج"> 🔓 خروج</button>
+          </nav>}
       </header>
     </>
   );

@@ -60,7 +60,7 @@ export function ConfirmProvider({ children }) {
               </button>
               <button
                 className={`c-btn`}
-                style={{ backgroundColor: state.options.confirmText == "שמור" ? '#d94fd2ff' : (state.options.confirmText == "צור" ? '#09d802ff': (state.options.confirmText == "מחק" ? '#f53615ff': '')), color: 'black' }}
+                style={{ backgroundColor: state.options.confirmText == "حفظ" ? '#d94fd2ff' : (state.options.confirmText == "نعم" ? '#09d802ff': (state.options.confirmText == "حذف" ? '#f53615ff': '')), color: 'black' }}
                 onClick={() => close(true)}
                 autoFocus
               >

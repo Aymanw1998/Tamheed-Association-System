@@ -184,18 +184,23 @@ const ViewTodayLessonByUser = ({users}) => {
     list_students:[],
     room: '',
   }]);
-  
-  
+  const DAYS = [
+    {key:0, value:"كل"},{key:1, value:"الاحد"},{key:2, value:"الاثنين"},{key:3, value:"الثلاثاء"},
+    {key:4, value:"الاربعاء"},{key:5, value:"الخميس"},{key:6, value:"الجمعة"},{key:7, value:"السبت"}
+  ];
+  const [selectDay, setSelectDay] = useState(new Date().getDay() + 1 || 0);
+  useEffect(()=>console.log("selectDay", selectDay),[selectDay]);
   const [selectLesson, setSelectLesson] = useState(null);
   useEffect(()=>{console.log("selectLesson", selectLesson); loadStudents()},[selectLesson]);
   const [selectStudents, setSelectStudents] = useState(null);
   useEffect(()=>console.log("selectStudents", selectStudents), [selectStudents]);
 
   const loadLessons = async() => {
-    console.log("ViewAllloadLessonsssss");
+    setSelectLesson(null);
+    setSelectStudents(null);
     const day = new Date().getDay() + 1;
     const teacher = localStorage.getItem("user_id");
-    const res = await getLessonsByQuery({day: 1});
+    const res = await getLessonsByQuery(selectDay > 0 ? {day: selectDay} : {});
     console.log("res", res);
     if(res.ok)  setLessons(res.lessons);
     else        setLessons([]);
@@ -209,13 +214,25 @@ const ViewTodayLessonByUser = ({users}) => {
     else        setSelectStudents(null);
   }
 
-  useEffect(()=>{loadLessons()}, []);
+  useEffect(()=>{loadLessons()}, [selectDay]);
 
   const formatYMD = (r) => `${String(r.day).padStart(2,"0")}/${String(r.month).padStart(2,"0")}/${r.year}`;
 
   return(
     <div>
       <center><h1>حضور وغياب لليوم</h1></center>
+      <label>اختيار اليوم:</label>
+      <select
+          name="day"
+          value={selectDay}
+          onChange={(e)=>{setSelectDay(e.target.value)}}
+        >
+          {Array.isArray(DAYS) && DAYS.map((d, idx) => (
+              <option key={d.key || idx} value={d.key || ""}>
+                {d.value}
+              </option>
+            ))}
+        </select>
       <label>اختيار الدرس:</label>
       <select
           name="teacher"
@@ -234,178 +251,7 @@ const ViewTodayLessonByUser = ({users}) => {
     </div>
   )
 }
-const ViewHistoryLessonByUser = ({users=[], }) => {
-  const [lessons, setLessons] = useState([]);
-  useEffect(()=>console.log("lessons: ", lessons), [lessons]);
 
-  const getNameDay= (i) => {
-    if( i < 1 || i > 7) return "لا يوجد"
-    return ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"][i-1]
-  }
-  const getTimesLesson = (startMin, endMin) => {
-    const start = {hh: String(parseInt(startMin / 60)).padStart(2, "0"), mm: String(parseInt(startMin % 60)).padStart(2, "0") }
-    const end = {hh: String(parseInt(endMin / 60)).padStart(2, "0"), mm: String(parseInt(endMin % 60)).padStart(2, "0") }
-    return `${start.hh}:${start.mm} - ${end.hh}:${end.mm}`;
-  }
-  const loadLessons = async() => {
-    if(users == null) return;
-    if(users.length === 0) return;
-    setLoading(true)
-    try{
-      const res = await getAllLesson();
-      let lessonList = [];
-      if(res.ok) {
-        console.log("res lessons", users )
-        for(const user of users){
-          lessonList = [...lessonList, ...res.lessons.filter((l) => l.teacher == user._id || l.helper == user._id)];
-        }
-        console.log("res lessons", lessonList )
-        lessonList.length > 0 ? setLessons(lessonList): setLessons(res.lessons);
-      }
-    } catch(err) {
-      console.error(err)
-      setLessons([]);
-    } finally {
-      setLoading(false);
-    }
-  }
-  useEffect(()=>{loadLessons()},[users])
-
-  const [teachers, setTeachers] = useState([]);
-  const [helpers, setHelpers] = useState([]);
-  const loadTeacherAndHelper = async() => {
-    //teachers
-    try{
-      const res = await getUsers();
-      res.ok ? setTeachers(res.users.filter(u => u.roles[0] == "مرشد")): setTeachers([]);
-    } catch(err) {
-      setTeachers([])
-    }
-
-    try{
-      const res = await getUsers();
-      res.ok ? setHelpers(res.users.filter(u => u.roles[0] == "مساعد")): setHelpers([]);
-    } catch(err) {
-      setHelpers([])
-    }
-  }
-
-  const getUserInfo = (_id) => {
-    const users = [...teachers, ...helpers];
-    const u = users.filter(u=> u._id == _id);
-    if(u.length > 0) return u[0].firstname + " " + u[0].lastname;
-    return "لا يوجد";
-  }
-
-  useEffect(()=>{lessons && loadTeacherAndHelper()}, [lessons])
-  
-  const [searchTerm, setSearchTerm] = useState("");
-  const [sortField, setSortField] = useState("name");      // "name" | "price"
-  const [sortDir, setSortDir] = useState("asc");           // "asc" | "desc"
-  const [loading, setLoading] = useState(false);
-
-  const sortedFilteredLessons = useMemo(() => {
-    const q = searchTerm.trim().toLowerCase();
-  
-    const filtered = q
-      ? lessons.filter(l =>
-          [l.name, teachers.filter(t=> t._id == l.teacher).length > 0 && teachers.filter(t=> t._id == l.teacher)[0].firstname, teachers.filter(t=> t._id == l.teacher).length > 0 && teachers.filter(t=> t._id == l.teacher)[0].lastname, 
-            helpers.filter(t=> t._id == l.helper).length > 0 && helpers.filter(t=> t._id == l.helper)[0].firstname, helpers.filter(t=> t._id == l.helpers).length > 0 && helpers.filter(t=> t._id == l.helpers)[0].lastname, 
-            getNameDay(l.date.day), getTimesLesson(l.date.startMin, l.date.endMin)]
-            .map(v => String(v ?? "").toLowerCase())
-            .join(" ")
-            .includes(q)
-        )
-      : lessons;
-
-    const dirMul = sortDir === "asc" ? 1 : -1;
-
-    return [...filtered].sort((a, b) => {
-      if (sortField === "info") {
-        const an = String(a.info ?? "");
-        const bn = String(b.info ?? "");
-        return an.localeCompare(bn, "he", { sensitivity: "base" }) * dirMul;
-      }
-      // name (ברירת מחדל)
-      const an = String(a.name ?? "");
-      const bn = String(b.name ?? "");
-      return an.localeCompare(bn, "he", { sensitivity: "base" }) * dirMul;
-    }).sort((a,b)=> {
-      let bb = a.date.day - b.date.day;
-      if(bb !== 0){
-        return bb;
-      }
-
-      bb = a.date.startMin - b.date.startMin;
-      return bb;
-    });
-  }, [lessons, searchTerm]);
-  
-  return(
-  <>
-      <div >
-        <h1 style={{ textAlign: "center"}}>سجل الحضور والغياب</h1>
-
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <input
-            type="text"
-            placeholder="بحث..."
-            style={{
-              width: "80%", padding: "10px", margin: "10px", marginBottom: "20px",fontSize: "14px", 
-              border: "1px solid #ccc",borderRadius: "8px"
-            }}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-
-          <button
-            style={{ backgroundColor: '#374151', padding: '0.5rem 1rem', borderRadius: '0.5rem', color: 'white' }}
-            onClick={loadLessons}
-            disabled={loading}
-          >
-            {loading ? "جاري التحديث" : "🔄 تحديث القائمة"}
-          </button>
-        </div>
-        <div style={{ marginTop: 8, opacity: 0.7 }}>
-        مجموع: {sortedFilteredLessons && sortedFilteredLessons.length > 0 ? sortedFilteredLessons.length: 0} الدروس
-      </div>
-      </div>
-
-    {(
-      <table className={`table ${styles.subTable}`} style={{ marginTop: 12 }}>
-        <thead>
-          <tr>
-            <th>رقم</th>
-            <th>الدرس</th>
-            <th>المرشد</th>
-            <th>المساعد</th>
-            <th>يوم</th>
-            <th>ساعة</th>
-            <th>للعملومات</th>
-          </tr>
-        </thead>
-        <tbody>
-          {sortedFilteredLessons.length > 0 ? (
-            sortedFilteredLessons.map((t,idx) => (
-              <tr key={idx}>
-                <td data-label="رقم">{idx+1}</td>
-                <td data-label="الدرس">{t.name}</td>
-                <td data-label="المرشد">{getUserInfo(t?.teacher)}</td>
-                <td data-label="المساعد">{getUserInfo(t?.helper)}</td>
-                <td data-label="يوم">{getNameDay(t.date.day)}</td>
-                <td data-label="ساعة">{getTimesLesson(t.date.startMin, t.date.endMin)}</td>
-                <td data-label="للعملومات"></td>
-              </tr>
-            ))
-          ) : (
-            <tr>
-              <td colSpan={5} style={{ textAlign: "center", padding: 16 }}>لا يوجد بيانات لاظهاره</td>
-            </tr>
-          )}
-        </tbody>
-      </table>)}
-  </>)
-}
 const ViewAllAttendance = () => {
   const [users, setUsers] = useState();
   const [status, setStatus] = useState("today");

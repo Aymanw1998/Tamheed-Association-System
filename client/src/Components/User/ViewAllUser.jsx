@@ -27,7 +27,7 @@ const ViewAllUser = () => {
     }, []);
   
   const navigate = useNavigate();
-  const [users, setusers] = useState([]);
+  const [users, setUsers] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [sortField, setSortField] = useState("name");      // "name" | "price"
   const [sortDir, setSortDir] = useState("asc");           // "asc" | "desc"
@@ -44,10 +44,10 @@ const ViewAllUser = () => {
       const data = res.users;
       if (data && data.length > 0) {
         console.log("getAllUser", data)
-        const filtered = data;
-        setusers(filtered);
+        const filtered = data.filter(u=> u._id != localStorage.getItem("user_id"));
+        setUsers(filtered);
       } else {
-        setusers([]);
+        setUsers([]);
       }
     } catch (e) {
       console.error("שגיאה בהבאת האימונים", e);
@@ -234,7 +234,7 @@ const ViewAllUser = () => {
               ))
             ) : (
               <tr>
-                <td colSpan={5} style={{ textAlign: "center", padding: 16 }}>لا يوجد بيانات لاظهاره</td>
+                <td colSpan={7} style={{ textAlign: "center", padding: 16 }}>لا يوجد بيانات لاظهاره</td>
               </tr>
             )}
           </tbody>

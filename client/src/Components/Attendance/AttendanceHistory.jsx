@@ -174,15 +174,8 @@ export default function AttendanceHistory() {
             </div>
 
             <div style={{ display: "flex", gap: 8 }}>
-            <button
-                onClick={handleReset}
-                disabled={loading}
-                style={{ background: "#e5e7eb", borderRadius: 8, padding: "10px 14px" }}
-            >
-                ↩️ إعادة ضبط
-            </button>
             <div style={{ alignSelf: "center", opacity: 0.75 }}>
-                {loading ? "جاري البحث..." : `النتائج: ${rows.length}`}
+                {`النتائج: ${rows.length}`}
             </div>
             </div>
         </div>

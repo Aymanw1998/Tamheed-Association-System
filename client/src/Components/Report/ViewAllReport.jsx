@@ -2,11 +2,12 @@ import React, { useCallback, useEffect, useMemo, useState, useRef } from "react"
 import { useNavigate } from "react-router-dom";
 // עדכן את הנתיב לפי המבנה שלך:
 import { getAll, update, /*softDelete fallback: deleteS */ } from "../../WebServer/services/report/functionsReport.jsx";
-import {getAll as getUsers} from "../../WebServer/services/user/functionsUser.jsx"
+import {getAll as getUsers, getUserById} from "../../WebServer/services/user/functionsUser.jsx"
 import styles from "./Report.module.css";
 
 import Fabtn from "../Global/Fabtn/Fabtn.jsx"
 import { toast } from "../../ALERT/SystemToasts.jsx";
+import {exportReportPdf} from "./ExportPDF.jsx"
 const toDate = (value) =>{
   if (!value) return null;
   if (value instanceof Date) return value;
@@ -96,12 +97,10 @@ const ViewAllReport = () => {
 
         const enriched = (data).map(r => {
           console.log("r",r);
-          const u = usersById[String(r.createdBy)];
-          const name = u ? `${u.firstname ?? ""} ${u.lastname ?? ""}`.trim() : "لا يوجد";
-
+          const u = usersById[String(r.createdBy)] || null;
           return {
             ...r,
-            createdBy: name, // לא לדרוס createBy המקורי
+            user: u,
           };
         });
 
@@ -367,14 +366,16 @@ const closeInfo = () => setInfoModal({ open: false, title: "", info: "" });
                         ))}
                       </div>
                   </td>
-                  <td data-label="صاحب التقرير">{t.createdBy}</td>
+                  <td data-label="صاحب التقرير">{t.user ? t.user?.firstname + " " + t.user?.lastname : ""}</td>
                   <td data-label="للعملومات">
                     <button style={{ backgroundColor: 'green', padding: '0.5rem 1rem', borderRadius: '0.5rem', color: 'white', alignItems: "center" }} 
                     onClick={() => navigate(`/reports/${t._id}`)}>اضغط هنا</button>
                     <button style={{ backgroundColor: '#111827', padding: '0.5rem 1rem', borderRadius: '0.5rem', color: 'white' }}
                     onClick={() => openInfo(t)}>عرض المعلومات</button>
-                    {/* <button style={{ backgroundColor: 'blue', padding: '0.5rem 1rem', borderRadius: '0.5rem', color: 'white', alignItems: "center" }} 
-                    onClick={() => generateReportPDF(t.tz)}>تحميل ملف التقرير</button> */}
+                    <button style={{ backgroundColor: 'blue', padding: '0.5rem 1rem', borderRadius: '0.5rem', color: 'white', alignItems: "center" }} 
+                    onClick={() => {
+                      exportReportPdf(t, t.user) 
+                    }}>تحميل ملف التقرير</button>
                   </td>
                 </tr>
               ))

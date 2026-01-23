@@ -410,16 +410,14 @@ const EditLesson = () => {
 
           <div className={styles.buttonRow}>
             <button type="button" onClick={handleSave}>
-              {id !== 'new' ? 'שמור שינויים' : 'צור שיעור'}
+              {id !== 'new' ? 'تعديل البيانات' : 'حفظ البيانات'}
             </button>
             {id !== 'new' && (
               <button type="button" style={{ background: 'red' }} onClick={handleDelete}>
-                מחיקת שיעור
+              حذف
               </button>
             )}
-            <button type="button" style={{ background: "#6b7280" }} onClick={() => navigate(-1)}>
-          חזרה לרשימה
-        </button>
+            <button type="button" style={{ background: "#6b7280" }} onClick={() => navigate(-1)}>الرجوع للقائمة</button>
           </div>
         </>
       )}

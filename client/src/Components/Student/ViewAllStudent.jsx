@@ -152,13 +152,13 @@ const ViewAllStudent = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
 
-          <button id="page-add-subs"
+          {localStorage.getItem("roles").includes("الادارة") && <button id="page-add-subs"
             style={{ backgroundColor: 'green', padding: '0.5rem 1rem', borderRadius: '0.5rem', color: 'white' }}
             onClick={handleAddStudent}
           >
             ➕ أضافة طالب جديد
           </button>
-
+}
           <button
             style={{ backgroundColor: '#374151', padding: '0.5rem 1rem', borderRadius: '0.5rem', color: 'white' }}
             onClick={loadStudent}
@@ -211,7 +211,7 @@ const ViewAllStudent = () => {
               ))
             ) : (
               <tr>
-                <td colSpan={5} style={{ textAlign: "center", padding: 16 }}>لا يوجد بيانات لاظهاره</td>
+                <td colSpan={6} style={{ textAlign: "center", padding: 16 }}>لا يوجد بيانات لاظهاره</td>
               </tr>
             )}
           </tbody>

@@ -1,15 +1,31 @@
 // Entities/User/user.controller.js
 const PdfPrinter = require("pdfmake");
 const fs = require("fs");
-const path = require('path');
-const axios = require('axios');
+const path = require("path");
+const axios = require("axios");
 
-const  Student = require('./Student.model');
-  const InviteToken = require('../InviteToken/InviteToken.model');
-const { uploadPhotoC, deletePhotoC } = require('../UploadFile/photoStudent');
-const { logWithSource } = require('../../middleware/logger');
+const Student = require("./Student.model");
+const InviteToken = require("../InviteToken/InviteToken.model"); // إذا بتحتاجه لاحقاً
+const { uploadPhotoC, deletePhotoC } = require("../UploadFile/photoStudent");
+const { logWithSource } = require("../../middleware/logger");
 
-// מסיר שדות רגישים
+/* =============== Notifications (optional) =============== */
+let notify = null;
+try {
+  ({ notify } = require("../Notification/Notification.controller")); // عدّل المسار إذا لازم
+} catch (e) {
+  notify = null;
+}
+const safeNotify = async (payload) => {
+  try {
+    if (typeof notify === "function") await notify(payload);
+  } catch (e) {
+    logWithSource("Student.safeNotify", e);
+  }
+};
+
+/* =============== helpers =============== */
+// remove sensitive fields
 function sanitize(u) {
   if (!u) return u;
   const o = u.toObject ? u.toObject() : u;
@@ -21,19 +37,19 @@ function sanitize(u) {
 function toDate(value) {
   if (!value) return null;
   if (value instanceof Date) return value;
-  if (typeof value === 'number') return new Date(value);
+  if (typeof value === "number") return new Date(value);
 
-  if (typeof value === 'string') {
+  if (typeof value === "string") {
     const s = value.trim();
 
-    // dd-mm-yyyy או dd/mm/yyyy
+    // dd-mm-yyyy or dd/mm/yyyy
     let m = s.match(/^(\d{2})[\/\-](\d{2})[\/\-](\d{4})$/);
     if (m) {
       const [, dd, mm, yyyy] = m.map(Number);
-      return new Date(Date.UTC(yyyy, mm - 1, dd)); // UTC כדי להימנע מהפתעות שעון קיץ
+      return new Date(Date.UTC(yyyy, mm - 1, dd));
     }
 
-    // yyyy-mm-dd (ISO קצר)
+    // yyyy-mm-dd
     m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
     if (m) {
       const [, yyyy, mm, dd] = m.map(Number);
@@ -43,19 +59,24 @@ function toDate(value) {
     const ts = Date.parse(s);
     if (!Number.isNaN(ts)) return new Date(ts);
   }
-  return null; // לא תקין
+  return null;
 }
-const info = ["tz", "firstname", "lastname", "birth_date", "gender", "phone", "email", "city", "street", "father_name", "mother_name", "father_phone", "mother_phone"];
 
-const buildData = (body) => ({
+const infoKeys = [
+  "tz","firstname","lastname","birth_date","gender","phone","email","city","street",
+  "father_name","mother_name","father_phone","mother_phone","father_work","mother_work",
+  "school","layer","health_status","notes","main_teacher","photo"
+];
+
+const buildData = (body = {}) => ({
   tz: body.tz,
   firstname: body.firstname,
   lastname: body.lastname,
-  birth_date: toDate(body.birth_date) || null, // אם תרצה תאריך אמיתי: Date
+  birth_date: toDate(body.birth_date) || null,
   gender: body.gender,
   phone: body.phone,
   email: body.email || "test@test.com",
-  city: body.city || "الرمة",
+  city: body.city || "الرملة",
   street: body.street || "الرملة القديمة",
   father_name: body.father_name,
   mother_name: body.mother_name,
@@ -70,239 +91,203 @@ const buildData = (body) => ({
   main_teacher: body.main_teacher || null,
 });
 
+/* =============== CRUD =============== */
 
-// --- CRUD (כפי שיש לך) ---
+// GET /api/students
 const getAllS = async (req, res) => {
   try {
-    const students = await Student.find({});
+    const students = await Student.find({}).lean();
     return res.status(200).json({ ok: true, students: students.map(sanitize) });
   } catch (err) {
-    logWithSource(`err ${err}`.red);
-    return res.status(500).json({ ok: false, students: []});
+    logWithSource("Student.getAllS", err);
+    return res.status(500).json({ ok: false, students: [], message: err.message });
   }
 };
 
+// GET /api/students/:tz
 const getOneS = async (req, res) => {
   try {
-    logWithSource("getOneS", req.params);
-    const { tz: param } = req.params;
-    const student = await Student.findOne({tz: param});
+    logWithSource("Student.getOneS params", req.params);
+    const tzParam = String(req.params.tz ?? "").trim();
+    if (!tzParam) return res.status(400).json({ ok: false, message: "tz required" });
 
-    logWithSource("student", student);
-    if (!student) student = await Student.findOne({ tz: String(param).trim() });
-    if (!student) return res.status(404).json({ ok: false, message: 'לא נמצא' });
+    // ✅ FIX: let (مش const)
+    let student = await Student.findOne({ tz: tzParam }).lean();
+    if (!student) return res.status(404).json({ ok: false, message: "לא נמצא" });
+
     return res.status(200).json({ ok: true, student: sanitize(student) });
   } catch (err) {
-    logWithSource(`err ${err}`.red);
+    logWithSource("Student.getOneS", err);
     return res.status(500).json({ ok: false, message: err.message });
   }
 };
 
+// POST /api/students
 const postS = async (req, res) => {
-    try {
+  try {
     const model = buildData(req.body);
-    if (!model.tz) {
-      return res.status(400).json({ ok: false, message: 'tz required' });
+
+    if (!model.tz) return res.status(400).json({ ok: false, message: "tz required" });
+    if (!model.firstname || !model.lastname) {
+      return res.status(400).json({ ok: false, message: "firstname/lastname required" });
     }
-    const exists = await Student.findOne({ tz: model.tz });
-    if (exists) return res.status(409).json({ ok: false, message: 'המשתמש קיים' });
+
+    const exists = await Student.findOne({ tz: String(model.tz).trim() }).lean();
+    if (exists) return res.status(409).json({ ok: false, message: "המשתמש קיים" });
 
     const created = await Student.create({ ...model, createdAt: new Date() });
+
+    // ✅ notify admins
+    await safeNotify({
+      toRoles: ["ادارة"],
+      module: "STUDENTS",
+      action: "CREATED",
+      title: "تم إضافة طالب جديد",
+      message: `تم إنشاء طالب: ${created.firstname || ""} ${created.lastname || ""} (${created.tz})`,
+      entity: { kind: "student", id: created._id },
+      meta: { tz: created.tz },
+      createdBy: req.user?._id || null,
+    });
+
     return res.status(201).json({ ok: true, student: sanitize(created) });
   } catch (err) {
-    logWithSource(`err ${err}`.red);
+    logWithSource("Student.postS", err);
     return res.status(500).json({ ok: false, message: err.message });
   }
 };
 
-//USER{} => {..}
+// PUT /api/students/:tz
 const putS = async (req, res) => {
   try {
-    const tz = String(req.params.tz).trim();
-    const student = await Student.findOne({ tz });
-    if (!student) return res.status(404).json({ ok: false, message: 'Student not found' });
+    const tz = String(req.params.tz ?? "").trim();
+    if (!tz) return res.status(400).json({ ok: false, message: "tz required" });
 
-    const allowed = Student.schema ? new Set(Object.keys(Student.schema.paths)) : new Set(info);
-    console.log("allowed", allowed);
+    const studentDoc = await Student.findOne({ tz });
+    if (!studentDoc) return res.status(404).json({ ok: false, message: "Student not found" });
+
+    const allowed =
+      Student.schema ? new Set(Object.keys(Student.schema.paths)) : new Set(infoKeys);
 
     const body = req.body ?? {};
 
+    let changed = false;
+
     for (const [k, v] of Object.entries(body)) {
-      // עדכן רק מפתחות מותרים
       if (!allowed.has(k)) continue;
 
-      // אל תדרוס ערכים קיימים עם undefined
-      if (typeof v === 'undefined' || typeof v === 'null' || v === "") continue;
+      // ✅ FIX null/undefined/"" handling
+      if (v === undefined || v === null || v === "") continue;
 
-      // הרשה null/"" אם זה רצונך לאפס שדות (מלבד password)
-      student.set(k, v);
+      // ✅ parse birth_date if sent
+      if (k === "birth_date") {
+        const d = toDate(v);
+        if (!d) continue;
+        studentDoc.set(k, d);
+        changed = true;
+        continue;
+      }
+
+      studentDoc.set(k, v);
+      changed = true;
     }
 
-    await student.save();
-    return res.status(200).json({ ok: true, student: sanitize(student) });
+    if (!changed) {
+      return res.status(200).json({ ok: true, student: sanitize(studentDoc), message: "no changes" });
+    }
+
+    await studentDoc.save();
+
+    // ✅ notify admins
+    await safeNotify({
+      toRoles: ["ادارة"],
+      module: "STUDENTS",
+      action: "UPDATED",
+      title: "تم تعديل طالب",
+      message: `تم تعديل بيانات الطالب: ${studentDoc.firstname || ""} ${studentDoc.lastname || ""} (${studentDoc.tz})`,
+      entity: { kind: "student", id: studentDoc._id },
+      meta: { tz: studentDoc.tz },
+      createdBy: req.user?._id || null,
+    });
+
+    return res.status(200).json({ ok: true, student: sanitize(studentDoc) });
   } catch (err) {
-    logWithSource(`err ${err}`.red);
+    logWithSource("Student.putS", err);
     return res.status(500).json({ ok: false, message: err.message });
   }
 };
 
+// POST /api/students/:tz/photo
 const uploadPhoto = async (req, res) => {
   try {
-    if (!req.params.tz) return res.status(400).json({ ok: false, message: 'tz is required' });
-    console.log("upload photo student", req.file);
-    const student = await Student.findOne({ tz: String(req.params.tz).trim() });
-    if (!student) return res.status(404).json({ ok: false, message: 'Student not found' });
-    if (!req.file) return res.status(400).json({ ok: false, message: 'file is required' });
+    const tz = String(req.params.tz ?? "").trim();
+    if (!tz) return res.status(400).json({ ok: false, message: "tz is required" });
 
-    if(student.photo){
-      const deleted = await deletePhotoC(student.photo);
-      console.log("deleted previous photo student", deleted);
+    const student = await Student.findOne({ tz });
+    if (!student) return res.status(404).json({ ok: false, message: "Student not found" });
+
+    if (!req.file) return res.status(400).json({ ok: false, message: "file is required" });
+
+    // delete previous
+    if (student.photo) {
+      try {
+        await deletePhotoC(student.photo);
+      } catch (e) {
+        logWithSource("Student.uploadPhoto delete prev", e);
+      }
     }
 
     const uploaded = await uploadPhotoC(req.file, "students");
-    console.log("uploaded photo student", uploaded);
     student.photo = uploaded.secure_url;
     await student.save();
+
+    // ✅ notify admins
+    await safeNotify({
+      toRoles: ["ادارة"],
+      module: "STUDENTS",
+      action: "PHOTO_UPDATED",
+      title: "تم تحديث صورة طالب",
+      message: `تم تحديث صورة الطالب: ${student.firstname || ""} ${student.lastname || ""} (${student.tz})`,
+      entity: { kind: "student", id: student._id },
+      meta: { tz: student.tz, photo: true },
+      createdBy: req.user?._id || null,
+    });
+
     return res.status(200).json({ ok: true, photo: student.photo });
   } catch (err) {
-    logWithSource(`err ${err}`.red);
+    logWithSource("Student.uploadPhoto", err);
     return res.status(500).json({ ok: false, message: err.message });
   }
 };
 
+// DELETE /api/students/:tz
 const deleteS = async (req, res) => {
   try {
-    if (!req.params.tz) return res.status(400).json({ ok: false, message: 'tz is required' });
-    console.log("delete user", req.params);
+    const tz = String(req.params.tz ?? "").trim();
+    if (!tz) return res.status(400).json({ ok: false, message: "tz is required" });
 
-    const deleted = await Student.findOneAndDelete({ tz: String(req.params.tz).trim() });
-    if (!deleted) return res.status(404).json({ ok: false, message: 'Student not found' });
-        return res.status(200).json({ ok: true, removed: true });
+    const deleted = await Student.findOneAndDelete({ tz });
+    if (!deleted) return res.status(404).json({ ok: false, message: "Student not found" });
+
+    // ✅ notify admins
+    await safeNotify({
+      toRoles: ["ادارة"],
+      module: "STUDENTS",
+      action: "DELETED",
+      title: "تم حذف طالب",
+      message: `تم حذف الطالب: ${deleted.firstname || ""} ${deleted.lastname || ""} (${deleted.tz})`,
+      entity: { kind: "student", id: deleted._id },
+      meta: { tz: deleted.tz },
+      createdBy: req.user?._id || null,
+    });
+
+    return res.status(200).json({ ok: true, removed: true });
   } catch (err) {
-    logWithSource(`err ${err}`.red);
+    logWithSource("Student.deleteS", err);
     return res.status(500).json({ ok: false, message: err.message });
-  }
-};
-
-const reverseArabic = (str) => {return str.split(' ').reverse().join(' ');}
-const generateStudentPDF = async (req, res) => {
-      try {
-    const { tz } = req.params;
-    const student = await Student.findOne({ tz });
-    if (!student) return res.status(404).send("Not found");
-
-    const fonts = {
-      Arabic: {
-        normal: path.join(__dirname, "..", "..", "assets", "fonts", "Amiri-Italic.ttf"),
-        bold: path.join(__dirname, "..", "..", "assets", "fonts", "Amiri-Italic.ttf"),
-      },
-    };
-
-    const printer = new PdfPrinter(fonts);
-
-    // התמונה מה-Cloudinary
-    let studentImage = null;
-    if (student.photo) {
-      const imgRes = await axios.get(student.photo, { responseType: "arraybuffer" });
-      studentImage = 'data:image/jpeg;base64,' + Buffer.from(imgRes.data).toString('base64');
-    }
-    const logoPath = path.join(__dirname,"..","..","images", "logo.png");    
-    let logoImg = null;
-    if(fs.existsSync(logoPath)) {
-      const logoBuf = fs.readFileSync(logoPath);
-      logoImg = 'data:image/png;base64,' + logoBuf.toString('base64');
-    }
-    const infoPairs = [
-      ['رقم الهوية', student.tz],
-      ['الاسم الأول', student.firstname],
-      ['اسم العائلة', student.lastname],
-      ['تاريخ الميلاد', student.birth_date ? student.birth_date.toISOString().slice(0, 10) : ''],
-      ['الجنس', student.gender],
-      ['الهاتف', student.phone],
-      ['البريد الإلكتروني', student.email],
-      ['المدينة', student.city],
-      ['الشارع', student.street],
-      ['اسم الأب', student.father_name],
-      ['هاتف الأب', student.father_phone],
-      ['عمل الأب', student.father_work],
-      ['اسم الأم', student.mother_name],
-      ['هاتف الأم', student.mother_phone],
-      ['عمل الأم', student.mother_work],
-      ['المدرسة', student.school],
-      ['الصف', student.layer],
-      ['الحالة الصحية', student.health_status],
-      ['ملاحظات', student.notes],
-    ]
-
-    const infoRows = infoPairs.map(([label, value])=>([
-      {text: reverseArabic(String(value ?? '')), fontSize: 12, alignment: 'right', margin: [0, 4, 0, 4]},
-      {text: reverseArabic(`${label}:`), fontSize: 15, bold: true, alignment: 'right', margin: [0, 0, 0, 0]},
-    ]))
-    const docDefinition = {
-      pageMargins: [40, 60, 40, 20],
-      defaultStyle: {
-        font: "Arabic",
-        alignment: "right",
-      },
-      content: [
-        {
-          image: logoImg,
-          width: 100,
-          alignment: "center"
-        },
-        {
-          text: reverseArabic("جمعية تمهيد - بيانات الطالب"),
-          fontSize: 20,
-          width: 100,
-          bold: true,
-          alignment: "center",
-          margin: [0, 0, 0, 10],
-        },
-        {
-          canvas: [
-            { type: "line", x1: 0, y1: 0, x2: 520, y2: 0, lineWidth: 2 },
-          ],
-          margin: [0, 10, 0, 20],
-        },
-
-        {
-          columns: [
-            studentImage
-              ? {
-                  image: studentImage,
-                  width: 200,
-                }
-              : {},
-
-            {
-              table: {widths: ['auto', '*'], body: infoRows},
-              // layout: ' noBorders',
-            },
-          ],
-          columnGap: 10
-        },
-
-        {
-          text: reverseArabic("توقيع الإدارة: ____________________"),
-          fontSize: 20,
-          margin: [20,50,0,0]
-        },
-      ],
-    };
-
-    const pdfDoc = printer.createPdfKitDocument(docDefinition);
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `inline; filename="${student.tz}.pdf"`);
-    pdfDoc.pipe(res);
-    pdfDoc.end();
-  } catch (err) {
-    console.error(err);
-    res.status(500).send("Error");
   }
 };
 
 module.exports = {
-  generateStudentPDF,
   getAllS,
   getOneS,
   postS,

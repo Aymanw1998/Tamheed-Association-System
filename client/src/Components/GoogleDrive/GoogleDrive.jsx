@@ -126,11 +126,11 @@ export default function PageDrive() {
     if (!newName) return alert("שם חדש לא יכול להיות ריק");
     try {
       const res = await renameDriveItem(renameId, newName);
-      if (!res?.ok) return alert(res?.msg || "שינוי שם נכשל");
+      if (!res?.ok) return alert(res?.msg || "فشل التعديل");
       cancelRename();
       await load();
     } catch (e) {
-      alert(e?.message || "שינוי שם נכשל");
+      alert(e?.message || "فشل التعديل");
     }
   };
 
@@ -249,7 +249,7 @@ export default function PageDrive() {
                     {!isFolder(item) && (
                       <button onClick={() => downloadDrive(item.id)}>הורדה</button>
                     )}
-                    <button onClick={() => startRename(item)}>שינוי שם</button>
+                    <button onClick={() => startRename(item)}>تغيير الاسم</button>
                     <button onClick={() => onDelete(item.id, item.name)} style={{ color: "#b00020" }}>
                       מחיקה
                     </button>

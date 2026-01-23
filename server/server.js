@@ -78,6 +78,7 @@ app.use(xss()); // Prevent XSS attacks
 app.use('/api/google', require('./Entities/Drive/google.route'));
 
 // Routes
+app.use("/api/notifications", require('./Entities/Notification/Notification.route'));
 app.use('/api/lesson', require('./Entities/Lesson/Lesson.route'));
 app.use('/api/user', require('./Entities/User/User.route'));
 app.use('/api/auth', require('./Entities/User/Auth.route'))

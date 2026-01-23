@@ -1,201 +1,199 @@
 const mongoose = require("mongoose");
-const puppeteer = require("puppeteer");
 const Report = require("./Report.model.js");
-
 const { logWithSource } = require("../../middleware/logger.js");
 
-const exportPdf = async (req, res) => {
-    try {
-        const { id } = req.params;
-
-        if (!mongoose.Types.ObjectId.isValid(id)) {
-        return res.status(400).json({ message: "Invalid id" });
-        }
-
-        const report = await Report.findById(id);
-        if (!report) return res.status(404).json({ message: "Not found" });
-
-        const browser = await puppeteer.launch({
-        headless: "new",
-        args: ["--no-sandbox", "--disable-setuid-sandbox"],
-        });
-
-        const page = await browser.newPage();
-
-        const htmlDoc = `
-        <!doctype html>
-        <html>
-            <head>
-            <meta charset="utf-8"/>
-            <style>
-                body { font-family: Arial, sans-serif; padding: 24px; }
-                img { max-width: 100%; height: auto; }
-            </style>
-            </head>
-            <body>
-            <h2>${escapeHtml(report.title || "Untitled")}</h2>
-            <div>${report.html}</div>
-            </body>
-        </html>
-        `;
-
-        await page.setContent(htmlDoc, { waitUntil: "networkidle0" });
-
-        const pdfBuffer = await page.pdf({
-        format: "A4",
-        printBackground: true,
-        margin: { top: "15mm", right: "12mm", bottom: "15mm", left: "12mm" },
-        });
-
-        await browser.close();
-
-        res.setHeader("Content-Type", "application/pdf");
-        res.setHeader("Content-Disposition", `inline; filename="report-${id}.pdf"`);
-        return res.status(200).send(pdfBuffer);
-    } catch (error) {
-        logWithSource("Report.controller.exportPdf", error);
-        return res.status(500).json({ message: "Internal server error" });
-    }
-};
-
-// يساعد فقط للعنوان (لا يلمس report.html)
-function escapeHtml(str) {
-    return String(str)
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
+// ✅ optional: notifications service (إذا موجود)
+let notify = null;
+try {
+  ({ notify } = require("../Notification/Notification.controller")); // عدّل المسار حسب مشروعك
+} catch (e) {
+  notify = null;
 }
+const safeNotify = async (payload) => {
+  try {
+    if (typeof notify === "function") await notify(payload);
+  } catch (e) {
+    logWithSource("Report.safeNotify", e);
+  }
+};
 
+const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
 
-/**
- * GET /api/reports
- * Get all reports
- */
+/* ===================== GET ALL ===================== */
+// GET /api/reports?type=
 const getAll = async (req, res) => {
-    try {
-        const { type } = req.query;
+  try {
+    const { type } = req.query;
 
-        const filter = {};
-        if (type) filter.type = type;
+    const filter = {};
+    if (type) filter.type = type;
 
-        const reports = await Report.find(filter).sort({ createdAt: -1 });
-        return res.status(200).json(reports);
-    } catch (error) {
-        logWithSource("Report.controller.getAll", error);
-        return res.status(500).json({ message: "Internal server error" });
-    }
+    const reports = await Report.find(filter).sort({ createdAt: -1 }).lean();
+    
+    return res.status(200).json({ ok: true, reports });
+  } catch (error) {
+    logWithSource("Report.getAll", error);
+    return res.status(500).json({ ok: false, message: "Internal server error" });
+  }
 };
 
-/**
- * GET /api/reports/:id
- * Get report by id
- */
+/* ===================== GET BY ID ===================== */
+// GET /api/reports/:id
 const getById = async (req, res) => {
-    try {
-        const { id } = req.params;
+  try {
+    const { id } = req.params;
 
-        if (!mongoose.Types.ObjectId.isValid(id)) {
-        return res.status(400).json({ message: "Invalid id" });
-        }
-
-        const report = await Report.findById(id);
-        if (!report) return res.status(404).json({ message: "Not found" });
-
-        return res.status(200).json(report);
-    } catch (error) {
-        logWithSource("Report.controller.getById", error);
-        return res.status(500).json({ message: "Internal server error" });
+    if (!isValidId(id)) {
+      return res.status(400).json({ ok: false, message: "Invalid id" });
     }
+
+    const report = await Report.findById(id).lean();
+    if (!report) return res.status(404).json({ ok: false, message: "Not found" });
+
+    return res.status(200).json({ ok: true, report });
+  } catch (error) {
+    logWithSource("Report.getById", error);
+    return res.status(500).json({ ok: false, message: "Internal server error" });
+  }
 };
 
-/**
- * POST /api/reports
- * Create report
- */
+/* ===================== CREATE ===================== */
+// POST /api/reports
 const post = async (req, res) => {
-    try {
-        const { date,attendance, title, info, createdBy} = req.body;
+  try {
+    const { date, attendance, title, stitle, info, createdBy, type } = req.body;
 
-        if (!info && info.trim() === "") {
-            return res.status(400).json({ message: "يجب ان يكون صلب موضوع" });
-        }
-        const report = await Report.create({
-        date : date || new Date(),
-        attendance : attendance || [],
-        title: title || [],
-        info,
-        createdBy: createdBy || req.user?._id, // optional
-        });
-
-        return res.status(201).json(report);
-    } catch (error) {
-        logWithSource("Report.controller.post", error);
-        return res.status(500).json({ message: "Internal server error" });
+    // ✅ fix validation
+    if (!info || String(info).trim() === "") {
+      return res.status(400).json({ ok: false, message: "يجب ان يكون صلب موضوع" });
     }
+
+    const doc = await Report.create({
+      date: date || new Date(),
+      attendance: Array.isArray(attendance) ? attendance : [],
+      title: Array.isArray(title) ? title : [],
+      stitle: stitle || "",
+      info: String(info),
+      type: type || undefined,
+      createdBy: createdBy || req.user?._id || null,
+    });
+
+    // ✅ notify admins
+    await safeNotify({
+      toRoles: ["ادارة"],
+      module: "REPORTS",
+      action: "CREATED",
+      title: "تم إضافة تقرير جديد",
+      message: `تم إنشاء تقرير: ${doc.stitle || (doc.title || []).join(", ") || "بدون عنوان"}`,
+      entity: { kind: "report", id: doc._id },
+      meta: {
+        date: doc.date,
+        title: doc.title,
+        attendanceCount: (doc.attendance || []).length,
+      },
+      createdBy: req.user?._id || doc.createdBy || null,
+    });
+
+    return res.status(201).json({ ok: true, report: doc });
+  } catch (error) {
+    logWithSource("Report.post", error);
+    return res.status(500).json({ ok: false, message: "Internal server error" });
+  }
 };
 
-/**
- * PUT /api/reports/:id
- * Update report
- */
+/* ===================== UPDATE ===================== */
+// PUT /api/reports/:id
 const put = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { date,attendance, title, info} = req.body;
+  try {
+    const { id } = req.params;
+    const { date, attendance, title, stitle, info, type } = req.body;
 
-        if (!mongoose.Types.ObjectId.isValid(id)) {
-        return res.status(400).json({ message: "Invalid id" });
-        }
-
-        const update = {};
-        if (date !== undefined) update.date = date;
-        if (attendance !== undefined) update.attendance = attendance;
-        if (title !== undefined) update.title = title;
-        if (info !== undefined) update.info = info;
-
-        const report = await Report.findByIdAndUpdate(id, update, {
-        new: true,
-        runValidators: true,
-        });
-
-        if (!report) return res.status(404).json({ message: "Not found" });
-
-        return res.status(200).json(report);
-    } catch (error) {
-        logWithSource("Report.controller.put", error);
-        return res.status(500).json({ message: "Internal server error" });
+    if (!isValidId(id)) {
+      return res.status(400).json({ ok: false, message: "Invalid id" });
     }
+
+    // ✅ optional: if info موجود لازم يكون مش فاضي
+    if (info !== undefined && String(info).trim() === "") {
+      return res.status(400).json({ ok: false, message: "يجب ان يكون صلب موضوع" });
+    }
+
+    const updateObj = {};
+    if (date !== undefined) updateObj.date = date;
+    if (attendance !== undefined) updateObj.attendance = Array.isArray(attendance) ? attendance : [];
+    if (title !== undefined) updateObj.title = Array.isArray(title) ? title : [];
+    if (stitle !== undefined) updateObj.stitle = stitle || "";
+    if (info !== undefined) updateObj.info = String(info);
+    if (type !== undefined) updateObj.type = type;
+
+    const report = await Report.findByIdAndUpdate(id, updateObj, {
+      new: true,
+      runValidators: true,
+    });
+
+    if (!report) return res.status(404).json({ ok: false, message: "Not found" });
+
+    // ✅ notify admins
+    await safeNotify({
+      toRoles: ["ادارة"],
+      module: "REPORTS",
+      action: "UPDATED",
+      title: "تم تعديل تقرير",
+      message: `تم تعديل تقرير: ${report.stitle || (report.title || []).join(", ") || "بدون عنوان"}`,
+      entity: { kind: "report", id: report._id },
+      meta: {
+        date: report.date,
+        title: report.title,
+        attendanceCount: (report.attendance || []).length,
+      },
+      createdBy: req.user?._id || report.createdBy || null,
+    });
+
+    return res.status(200).json({ ok: true, report });
+  } catch (error) {
+    logWithSource("Report.put", error);
+    return res.status(500).json({ ok: false, message: "Internal server error" });
+  }
 };
 
-/**
- * DELETE /api/reports/:id
- * Delete report
- */
- const remove = async (req, res) => {
-    try {
-        const { id } = req.params;
+/* ===================== DELETE ===================== */
+// DELETE /api/reports/:id
+const remove = async (req, res) => {
+  try {
+    const { id } = req.params;
 
-        if (!mongoose.Types.ObjectId.isValid(id)) {
-        return res.status(400).json({ message: "Invalid id" });
-        }
-
-        const report = await Report.findByIdAndDelete(id);
-        if (!report) return res.status(404).json({ message: "Not found" });
-
-        return res.status(200).json({ message: "Deleted successfully" });
-    } catch (error) {
-        logWithSource("Report.controller.remove", error);
-        return res.status(500).json({ message: "Internal server error" });
+    if (!isValidId(id)) {
+      return res.status(400).json({ ok: false, message: "Invalid id" });
     }
+
+    const report = await Report.findByIdAndDelete(id);
+    if (!report) return res.status(404).json({ ok: false, message: "Not found" });
+
+    // ✅ notify admins
+    await safeNotify({
+      toRoles: ["ادارة"],
+      module: "REPORTS",
+      action: "DELETED",
+      title: "تم حذف تقرير",
+      message: `تم حذف تقرير: ${report.stitle || (report.title || []).join(", ") || "بدون عنوان"}`,
+      entity: { kind: "report", id: report._id },
+      meta: {
+        date: report.date,
+        title: report.title,
+      },
+      createdBy: req.user?._id || report.createdBy || null,
+    });
+
+    return res.status(200).json({ ok: true, removed: true });
+  } catch (error) {
+    logWithSource("Report.remove", error);
+    return res.status(500).json({ ok: false, message: "Internal server error" });
+  }
 };
 
 module.exports = {
-    getAll,
-    getById,
-    post,
-    put,
-    remove,
-    exportPdf,
+  getAll,
+  getById,
+  post,
+  put,
+  remove,
 };

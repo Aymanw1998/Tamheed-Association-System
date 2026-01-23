@@ -7,7 +7,7 @@ export const getAll = async() => {
         const {status, data} = await api.get(namespace);
         console.log("getAll report", status, data);
         if(![200,201].includes(status)) throw new Error('لا يوجد تقارير');
-        return {ok: true, reports: data || []}
+        return {ok: true, reports: data.reports || []}
     } catch(err) {
         return {ok: false, message: err.response.data.message || err.message || 'يوجد خلل في العملية'};
     }
