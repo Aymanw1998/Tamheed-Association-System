@@ -121,7 +121,7 @@ export default function NotificationsPage() {
 
               {n.message && <div style={{ marginTop: 8, lineHeight: 1.6 }}>{n.message}</div>}
 
-              {n.meta && (
+              {/* {n.meta && (
                 <pre
                   style={{
                     marginTop: 8,
@@ -131,11 +131,12 @@ export default function NotificationsPage() {
                     border: "1px solid #eee",
                     overflow: "auto",
                     fontSize: 12,
+                    direction: "ltr",
                   }}
                 >
                   {JSON.stringify(n.meta, null, 2)}
                 </pre>
-              )}
+              )} */}
 
               <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
                 {!n.readAt && (

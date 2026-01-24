@@ -34,7 +34,6 @@ const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim())
   : [
       'http://localhost:3000',
-      'https://fitness-360.onrender.com', // הקליינט בפרודקשן
       'http://10.0.0.30:3000',
       'http://192.168.169.221:3000',
       'http://tamheed-ramla.org',

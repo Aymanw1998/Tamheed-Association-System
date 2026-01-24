@@ -14,11 +14,12 @@ exports.sha256 = (str) => crypto.createHash('sha256').update(String(str)).digest
 
 exports.setRefreshCookie = (res, token) => {
   const isProd = process.env.NODE_ENV === 'production';
-  res.cookie('refresh', token, {
+  res.cookie("refresh", token, {
     httpOnly: true,
-    secure: true,           // true ב-HTTPS
-    sameSite: 'None',   // כדי לעבור cross-site
-    domain: 'fitness360-suji.onrender.com', // לא חובה, אפשר להשאיר בליINERS
+    secure: isProd,                 // prod فقط
+    sameSite: isProd ? "None" : "Lax",
+    path: "/",
+    domain: isProd ? ".tamheed-ramla.org" : undefined,
   });
 };
 

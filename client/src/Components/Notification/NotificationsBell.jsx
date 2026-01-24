@@ -3,7 +3,7 @@ import { getNotifications } from "../../WebServer/services/notification/function
 import { useNavigate } from "react-router-dom";
 
 export default function NotificationsBell() {
-  const nav = useNavigate();
+  const navigate = useNavigate();
   const [unread, setUnread] = useState(0);
 
   const load = async () => {
@@ -23,7 +23,7 @@ export default function NotificationsBell() {
     <div style={{ position: "relative" }}>
       <button
         type="button"
-        onClick={() => nav("/admin/notifications")}
+        onClick={() => navigate("/dashboard")}
         style={{
           border: "1px solid #ddd",
           background: "white",
