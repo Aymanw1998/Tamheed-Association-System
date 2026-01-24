@@ -88,7 +88,7 @@ export default function CRoutes() {
           </Route>
 
           {/* ברירת מחדל פנימית – אם נכנסו ל-root בעודך מחובר */}
-          <Route path="/" element={<Navigate to="/calendar" replace />} />
+          {/* <Route path="/" element={<Navigate to="/calendar" replace />} /> */}
         </Route>
         <Route element={<BlankLayout />}>
           <Route path="/report-editor/:id" element={<ReportWordPage/>} />
