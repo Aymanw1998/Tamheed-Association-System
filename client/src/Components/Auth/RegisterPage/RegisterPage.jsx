@@ -278,7 +278,7 @@ export default function RegisterPage() {
         if(!res)return;
         if(!res.ok) throw new Error(res.message);
         toast.success(`✅ المستخدم حُفِظ بنجاح`);
-        if(photo == "") {navigte(-1);return;}
+        if(photo == "") {navigate(-1);return;}
 
         const res2 = await uploadPhoto(form.tz, photo);
         if(!res2) return;
