@@ -438,7 +438,9 @@ export default function RegisterPage() {
         </div>
   
         <div className={styles.buttonRow} style={{ gap: 8, flexWrap: "wrap" }}>
-          <button type="submit" onClick={handleSubmit}>اضافة المستخدم</button></div>
+          <button type="submit" onClick={handleSubmit}>اضافة المستخدم</button>
+          <button type="button" style={{ background: "#6b7280", width: "100%" }} onClick={() => navigate(-1)}>الرجوع</button>
+        </div>
       </div>
     );
 }
