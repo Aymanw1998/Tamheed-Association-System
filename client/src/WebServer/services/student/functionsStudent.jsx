@@ -108,35 +108,3 @@ export const deleteS= async(idOrName,{confirm = true} = {}) => {
     }
 }
 
-export const generateStudentPDF = async(tz) => {
-    const encodedTz = encodeURIComponent(tz);
-    const urlBase = api.defaults.baseURL || '';
-    console.log("generateStudentPDF", urlBase, encodedTz);
-    // /api כי בשרת השתמשנו ב־ app.use('/api/student', ...)
-    const url = `${urlBase}/student/generate-pdf/${encodedTz}`;
-
-    window.open(url, '_blank', 'noopener,noreferrer');
-
-    return;
-    console.log("generateStudentPDF student", tz);
-    try{
-        const { data, status } = await api.get(`/student/generate-pdf/${encodeURIComponent(tz)}`, {
-            responseType: 'blob', // חשוב לקבל את התגובה כ־blob
-        });
-        if (![200,201].includes(status)) throw new Error('لم يتم إنشاء ملف PDF للطالب');
-            // יצירת קובץ מה־blob והורדה למחשב
-        const blob = new Blob([data], { type: 'application/pdf' });
-        const url = window.URL.createObjectURL(blob);
-
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `${tz}.pdf`; // שם הקובץ שיורד (אותו safeFileName מהשרת אם תרצי)
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        window.URL.revokeObjectURL(url);
-        return {ok: true}
-    } catch(err) {
-        return {ok: false, message: err.response.data.message || err.message || 'يوجد خلل في العملية'};
-    }
-}

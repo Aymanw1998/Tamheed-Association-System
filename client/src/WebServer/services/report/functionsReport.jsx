@@ -23,7 +23,7 @@ export const getOne = async(idOrName) => {
         const {status, data} = await api.get(`${namespace}/`+idOrName);
         console.log("getOne report", status, data);
         if(![200,201].includes(status)) throw new Error('لا يوجد تقرير موجود صاحب رقم التعريف هذا: ' + idOrName);
-        return {ok: true, report: data}
+        return {ok: true, report: data.report || null}
     } catch(err){
         return {ok: false, message: err.response.data.message || err.message || 'يوجد خلل في العملية'};
     }
@@ -46,7 +46,7 @@ export const create = async(payload, {confirm = true} = {}) => {
         const body = {...payload};
         const { data, status } = await api.post(namespace, body);
         if (![200,201].includes(status)) throw new Error('الطالب لم يتم إنشاؤه');
-        return {ok: true, report: data}
+        return {ok: true, report: data.report}
     } catch(err) {
         return {ok: false, message: err.response.data.message || err.message || 'يوجد خلل في العملية'};
     }
@@ -70,7 +70,7 @@ export const update= async(idOrName, patch,{confirm = true} = {}) => {
         const body = {...patch};
         const { data, status } = await api.put(`${namespace}/${encodeURIComponent(idOrName)}`, body);
         if (![200,201].includes(status)) throw new Error(data?.message || 'الطالب لم يتم تحديثه');
-        return {ok: true, report: data}
+        return {ok: true, report: data.report}
     } catch(err) {
         return {ok: false, message: err.response.data.message || err.message || 'يوجد خلل في العملية'};
     }
@@ -91,39 +91,6 @@ export const deleteR= async(idOrName,{confirm = true} = {}) => {
         const { data, status } = await api.delete(`${namespace}/${encodeURIComponent(idOrName)}`);
         if (![200,201].includes(status) || !data?.ok) throw new Error(data?.message || 'الطالب لم يتم حذفه');
         return {ok: true, report: null}
-    } catch(err) {
-        return {ok: false, message: err.response.data.message || err.message || 'يوجد خلل في العملية'};
-    }
-}
-
-export const generateStudentPDF = async(tz) => {
-    const encodedTz = encodeURIComponent(tz);
-    const urlBase = api.defaults.baseURL || '';
-    console.log("generateStudentPDF", urlBase, encodedTz);
-    // /api כי בשרת השתמשנו ב־ app.use('/api/student', ...)
-    const url = `${urlBase}/student/generate-pdf/${encodedTz}`;
-
-    window.open(url, '_blank', 'noopener,noreferrer');
-
-    return;
-    console.log("generateStudentPDF student", tz);
-    try{
-        const { data, status } = await api.get(`/student/generate-pdf/${encodeURIComponent(tz)}`, {
-            responseType: 'blob', // חשוב לקבל את התגובה כ־blob
-        });
-        if (![200,201].includes(status)) throw new Error('لم يتم إنشاء ملف PDF للطالب');
-            // יצירת קובץ מה־blob והורדה למחשב
-        const blob = new Blob([data], { type: 'application/pdf' });
-        const url = window.URL.createObjectURL(blob);
-
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `${tz}.pdf`; // שם הקובץ שיורד (אותו safeFileName מהשרת אם תרצי)
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        window.URL.revokeObjectURL(url);
-        return {ok: true}
     } catch(err) {
         return {ok: false, message: err.response.data.message || err.message || 'يوجد خلل في العملية'};
     }

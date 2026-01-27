@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 // עדכן את הנתיב לפי המבנה שלך:
-import { generateStudentPDF, getAll, update, /*softDelete fallback: deleteS */ } from "../../WebServer/services/student/functionsStudent.jsx";
+import { getAll, update, /*softDelete fallback: deleteS */ } from "../../WebServer/services/student/functionsStudent.jsx";
 import styles from "./Student.module.css";
 
 import Fabtn from "../Global/Fabtn/Fabtn"

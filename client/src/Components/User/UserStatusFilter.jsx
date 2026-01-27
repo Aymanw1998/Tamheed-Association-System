@@ -35,9 +35,9 @@ export default function UserStatusFilter({
 
 
     const buttons = [
-        { key: "active", label: "פעילים", badge: counts?.active, color: '#8feba6ff' },
-        { key: "waiting", label: "ממתינים", badge: counts?.pending, color: '#e9f85eff' },
-        { key: "noActive",label: "לא פעילים", badge: counts?.inactive, color: '#eea3a3ff' },
+        { key: "active", label: "مُفعالين", badge: counts?.active, color: '#8feba6ff' },
+        { key: "waiting", label: "مُنتظرين", badge: counts?.pending, color: '#e9f85eff' },
+        { key: "noActive",label: "مُعطل", badge: counts?.inactive, color: '#eea3a3ff' },
     ];
 
     const select = (next) =>{

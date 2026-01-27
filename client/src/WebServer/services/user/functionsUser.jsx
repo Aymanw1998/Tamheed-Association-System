@@ -143,13 +143,3 @@ export const removeSub = async (_userId) => {
     return {ok: false, message: err.response.data.message || err.message || 'حدث خطأ أثناء العملية.'};
   }
 };
-
-export const generatePDF = async(tz) => {
-    const encodedTz = encodeURIComponent(tz);
-    const urlBase = api.defaults.baseURL || '';
-    console.log("generateStudentPDF", urlBase, encodedTz);
-    // /api כי בשרת השתמשנו ב־ app.use('/api/student', ...)
-    const url = `${urlBase}/user/generate-pdf/${encodedTz}`;
-
-    window.open(url, '_blank', 'noopener,noreferrer');
-}
