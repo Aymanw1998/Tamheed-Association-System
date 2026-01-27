@@ -278,7 +278,7 @@ export default function RegisterPage() {
         if(!res)return;
         if(!res.ok) throw new Error(res.message);
         toast.success(`✅ المستخدم حُفِظ بنجاح`);
-        if(photo == "") {navigte(-1);return;}
+        if(photo == "") {navigate(-1);return;}
 
         const res2 = await uploadPhoto(form.tz, photo);
         if(!res2) return;
@@ -438,7 +438,9 @@ export default function RegisterPage() {
         </div>
   
         <div className={styles.buttonRow} style={{ gap: 8, flexWrap: "wrap" }}>
-          <button type="submit" onClick={handleSubmit}>اضافة المستخدم</button></div>
+          <button type="submit" onClick={handleSubmit}>اضافة المستخدم</button>
+          <button type="button" style={{ background: "#6b7280", width: "100%" }} onClick={() => navigate(-1)}>الرجوع</button>
+        </div>
       </div>
     );
 }
