@@ -121,7 +121,6 @@ const ViewAllStudent = () => {
       toast.success("✅ נוצר קישור ונעתק ללוח. שלחי אותו להורה בוואטסאפ / מייל.");
     } catch {
       toast.success("✅ נוצר קישור. העתקי ושלחי להורה:");
-      alert(res.url); // גיבוי אם אין גישה ל־clipboard
     }
 
     // navigate("/students/new");
@@ -220,7 +219,7 @@ const ViewAllStudent = () => {
 
       <Fabtn
         anchor="#page-add-subs"                     // או: showFab && canEdit אם תרצה רק כשיש הרשאת עריכה
-        visible={showFab}
+        visible={showFab && localStorage.getItem("roles").includes("ادارة")}
         label="اضافة طالب جديد"
         onClick={() => {
           console.log('fab click');           // בדיקת קליק

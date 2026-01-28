@@ -78,6 +78,11 @@ export const exportReportPdf = (report, user) => {
     </style>
     </head>
     <body>
+        <div class="toolbar">
+            <button id="btnPrint">تحميل PDF / طباعة</button>
+            <button class="secondary" id="btnClose">إغلاق</button>
+        </div>
+
     <div class="wrap">
         <h1>${escapeHtml(report?.stitle || "")}</h1>
 
@@ -100,15 +105,16 @@ export const exportReportPdf = (report, user) => {
     <script>
         window.onload = () => {
         document.title = ${JSON.stringify(`report-${report?._id ?? "new"}`)};
-        window.print();
-        setTimeout(() => window.close(), 300);
+        document.getElementById("btnPrint").onclick = () => window.print();
+        document.getElementById("btnClose").onclick = () => window.close();
         };
     </script>
     </body>
     </html>`;
 
     const w = window.open("", "_blank", "width=900,height=1200");
+    if (!w) return;
     w.document.open();
     w.document.write(html);
-  w.document.close();
+    w.document.close();
 };

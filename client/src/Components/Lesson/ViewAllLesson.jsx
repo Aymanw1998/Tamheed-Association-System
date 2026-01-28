@@ -117,6 +117,7 @@ function DesktopTimeline({ lessons, canEdit, currentMonth, currentYear, showMyLe
               className={styles.dayCol}
               onClick={(e) => {
                 if (!canEdit) return;
+                if (!localStorage.getItem("roles").includes("ادارة")) return;
                 const rect = e.currentTarget.getBoundingClientRect();
                 const offsetY = e.clientY - rect.top;
                 const clickedMin = BASE_MIN + Math.round(offsetY);
@@ -125,6 +126,7 @@ function DesktopTimeline({ lessons, canEdit, currentMonth, currentYear, showMyLe
               onDragOver={(e) => { if (canEdit) e.preventDefault(); }}
               onDrop={(e) => {
                 if (!canEdit) return;
+                if (!localStorage.getItem("roles").includes("ادارة")) return;
                 const lessonId = e.dataTransfer.getData('lesson-id');
                 if (!lessonId) return;
                 const rect = e.currentTarget.getBoundingClientRect();
@@ -147,7 +149,7 @@ function DesktopTimeline({ lessons, canEdit, currentMonth, currentYear, showMyLe
                     className={styles.lessonBlock}
                     style={{ top, height }}
                     draggable={canEdit}
-                    onClick={(ev) => { ev.stopPropagation(); navigate(`/lessons/${l._id}`); }}
+                    onClick={(ev) => {if (!localStorage.getItem("roles").includes("ادارة")) return;ev.stopPropagation(); navigate(`/lessons/${l._id}`); }}
                     onDragStart={(e) => e.dataTransfer.setData('lesson-id', l._id)}
                     onMouseEnter={(e) => onHover?.(l, e)}
                     onMouseMove={(e) => onHover?.('__move__', e)}
@@ -209,7 +211,7 @@ function ScheduleView({room, lessons, canEdit, currentMonth, currentYear, showMy
       <h1>{room == 0? "" : `قائمة الدروس للغرفة ${room}` }</h1>
       {/* מובייל */}
       <div className={styles.mobileView}>
-        { (
+        {localStorage.getItem("roles").includes("الادارة") && (
           <button id="page-add-lesson" className={styles.addBtn}
                   style={{backgroundColor: "greenyellow"}}
                   onClick={() => navigate(`/lessons/new?month=${currentMonth}&year=${currentYear}&room=${room}`)}>
@@ -446,7 +448,7 @@ export default function ViewAllLesson() {
 
       <Fabtn
         anchor="#page-add-lesson"
-        visible={showFab}
+        visible={showFab && localStorage.getItem("roles").includes("ادارة")}
         label="הוספת שיעור"
         onClick={() => navigate(`/lessons/new?month=${currentMonthInfo.month}&year=${currentMonthInfo.year}`)}
       />

@@ -243,7 +243,7 @@ const ViewAllUser = () => {
 
       <Fabtn
         anchor="#page-add-subs"                     // או: showFab && canEdit אם תרצה רק כשיש הרשאת עריכה
-        visible={showFab}
+        visible={showFab && localStorage.getItem("roles").includes("ادارة")}
         label="اضافة مستخدم جديد"
         onClick={() => {
           console.log('fab click');           // בדיקת קליק

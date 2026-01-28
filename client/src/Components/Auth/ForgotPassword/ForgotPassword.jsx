@@ -16,9 +16,7 @@ export default function ForgotPassword() {
         try {
             setLoading(true);
             const res = await forgotPassword(tz.trim());
-            alert(2);
             setMsg(res?.message || "سوف يتم إرسال رابط إعادة التعيين إذا كان المستخدم موجودًا.");
-            alert(2);
             setStep(2);
         } catch (err) {
             setMsg("حدث خطأ أثناء معالجة طلبك. الرجاء المحاولة مرة أخرى.");

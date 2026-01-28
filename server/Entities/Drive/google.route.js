@@ -1,35 +1,38 @@
+// routes/google.routes.js
 const express = require("express");
-const { getOAuthClient, saveTokens } = require("../../config/driveOAuth");
+const {google}= require("googleapis");
 
 const router = express.Router();
 
-// 1) כניסה לגוגל (רק פעם אחת)
-router.get("/", (req, res) => {
-    console.log("hi google");
-    const oauth = getOAuthClient();
+const oauth2Client = new google.auth.OAuth2(
+  process.env.GOOGLE_CLIENT_ID,
+  process.env.GOOGLE_CLIENT_SECRET,
+  process.env.GOOGLE_REDIRECT_URI
+);
 
-    const url = oauth.generateAuthUrl({
-        access_type: "offline",
-        prompt: "consent",
-        scope: ["https://www.googleapis.com/auth/drive"],
-    });
-    console.log(url);
-    res.redirect(url);
+const SCOPES = ["https://www.googleapis.com/auth/drive.file"];
+
+router.get("/oauth/start", (req, res) => {
+  const url = oauth2Client.generateAuthUrl({
+    access_type: "offline",
+    prompt: "consent", // مهم لأول مرة عشان refresh_token
+    scope: SCOPES,
+  });
+  res.redirect(url);
 });
 
-// 2) callback שמקבל code ושומר tokens
-router.get("/callback", async (req, res) => {
-    try {
-        const oauth = getOAuthClient();
-        const { code } = req.query;
+router.get("/oauth/callback", async (req, res, next) => {
+  try {
+    const code = req.query.code;
+    const { tokens } = await oauth2Client.getToken(code);
 
-        const { tokens } = await oauth.getToken(code);
-        saveTokens(tokens);
+    // TODO: خزّن tokens في DB حسب userId (مثلاً req.user._id)
+    // tokens: { access_token, refresh_token, expiry_date, ... }
 
-        res.send("✅ Connected! Tokens saved. You can close this tab.");
-    } catch (e) {
-        res.status(500).send(e.message);
-    }
+    return res.redirect(`${process.env.CLIENT_URL}/settings/integrations?google=connected`);
+  } catch (e) {
+    next(e);
+  }
 });
 
 module.exports = router;

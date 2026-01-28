@@ -146,7 +146,7 @@ export default function Header() {
             <a href="/lessons" onClick={(e) => onNavClick(e, "/lessons")}>قائمة الدروس</a>
             <a href="/reports" onClick={(e) => onNavClick(e, "/reports")}>قائمة التقارير</a>
             <a href="/profile" onClick={(e) => onNavClick(e, "/profile")}>ملف شخصي</a>
-            <a href="#" onClick={(e) => onNavClick(e, "#")}>Drive</a>
+            <a href="/drive" onClick={(e) => onNavClick(e, "/drive")}>Drive</a>
             <button onClick={handleLogout} className={styles.logoutButton} title="خروج"> 🔓 خروج</button>
           </nav>}
       </header>

@@ -74,7 +74,6 @@ export async function getMe() {
     return data.user; // הקומפוננטות אצלך מצפות ל-user ישירות
   }catch(err){
     console.warn("err getme", err);
-    alert("err getme: " + err?.response?.data?.message || err.message);
     throw err;
   }
 }
