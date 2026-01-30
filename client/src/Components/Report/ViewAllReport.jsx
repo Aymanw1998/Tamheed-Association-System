@@ -368,8 +368,8 @@ const closeInfo = () => setInfoModal({ open: false, title: "", info: "" });
                   </td>
                   <td data-label="صاحب التقرير">{t.user ? t.user?.firstname + " " + t.user?.lastname : ""}</td>
                   <td data-label="للعملومات">
-                    <button style={{ backgroundColor: 'green', padding: '0.5rem 1rem', borderRadius: '0.5rem', color: 'white', alignItems: "center" }} 
-                    onClick={() => navigate(`/reports/${t._id}`)}>اضغط هنا</button>
+                    <button style={{ backgroundColor: 'yellow', padding: '0.5rem 1rem', borderRadius: '0.5rem', color: 'white', alignItems: "center" }} 
+                    onClick={() => navigate(`/reports/${t._id}`)}>للتعريل</button>
                     <button style={{ backgroundColor: '#111827', padding: '0.5rem 1rem', borderRadius: '0.5rem', color: 'white' }}
                     onClick={() => openInfo(t)}>عرض المعلومات</button>
                     <button style={{ backgroundColor: 'blue', padding: '0.5rem 1rem', borderRadius: '0.5rem', color: 'white', alignItems: "center" }} 

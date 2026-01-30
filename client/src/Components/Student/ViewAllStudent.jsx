@@ -8,6 +8,7 @@ import Fabtn from "../Global/Fabtn/Fabtn"
 import { toast } from "../../ALERT/SystemToasts";
 import { createLink } from "../../WebServer/services/inviteToken/functionInviteToken.jsx";
 import { ask, setGlobalAsk } from "../Provides/confirmBus.js";
+import { exportStudentPdf } from "../ExportPDF/ExportPDF.jsx";
 
 const ViewAllStudent = () => {
   const topAnchorRef = useRef(null);
@@ -196,8 +197,15 @@ const ViewAllStudent = () => {
                   <td data-label="العمر">{new Date().getFullYear() - new Date(t.birth_date).getFullYear()}</td>
                   <td data-label="الجنس">{t.gender}</td>
                   <td data-label="للعملومات">
-                    {t.status === "عادي" &&<button style={{ backgroundColor: 'green', padding: '0.5rem 1rem', borderRadius: '0.5rem', color: 'white', alignItems: "center" }} 
-                    onClick={() => navigate(`/students/${t.tz}`)}>اضغط هنا</button>}
+                    {t.status === "عادي" &&<>
+                    <button style={{ backgroundColor: 'yellow', padding: '0.5rem 1rem', borderRadius: '0.5rem', color: 'white', alignItems: "center" }} 
+                    onClick={() => navigate(`/students/${t.tz}`)}>للتعريل</button>
+                    <button style={{ backgroundColor: 'blue', padding: '0.5rem 1rem', borderRadius: '0.5rem', color: 'white', alignItems: "center" }} 
+                    onClick={() => {
+                      exportStudentPdf(t) 
+                    }}>تحميل ملف الطالب</button>
+                    </>
+                    }
                     {t.status === "ينتظر" && <>
                     <button 
                       style={{ marginLeft: 8, backgroundColor: 'green', padding: '0.5rem 1rem', borderRadius: '0.5rem', color: 'white', alignItems: "center" }}

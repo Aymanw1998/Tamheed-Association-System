@@ -9,6 +9,7 @@ import { toast } from "../../ALERT/SystemToasts.jsx";
 import { createLink } from "../../WebServer/services/inviteToken/functionInviteToken.jsx";
 import { ask, setGlobalAsk } from "../Provides/confirmBus.js";
 import UserStatusFilter from "./UserStatusFilter.jsx";
+import { exportUserPdf } from "../ExportPDF/ExportPDF.jsx";
 
 const ViewAllUser = () => {
   const topAnchorRef = useRef(null);
@@ -207,10 +208,13 @@ const ViewAllUser = () => {
                   <td data-label="للعملومات">
                     { t.room != "waiting" && t.room != "noActive" &&
                       <>
-                        <button style={{ backgroundColor: 'green', padding: '0.5rem 1rem', borderRadius: '0.5rem', color: 'white', alignItems: "center" }} 
-                        onClick={() => navigate(`/users/${t.tz}`)}>اضغط هنا</button>
-                        {/* <button style={{ backgroundColor: 'blue', padding: '0.5rem 1rem', borderRadius: '0.5rem', color: 'white', alignItems: "center" }} 
-                        onClick={() => generatePDF(t.tz)}>تحميل ملف المستخدم</button> */}
+                        <button style={{ backgroundColor: 'yellow', padding: '0.5rem 1rem', borderRadius: '0.5rem', color: 'white', alignItems: "center" }} 
+                        onClick={() => navigate(`/users/${t.tz}`)}>للتعريل</button>
+                        <button style={{ backgroundColor: 'blue', padding: '0.5rem 1rem', borderRadius: '0.5rem', color: 'white', alignItems: "center" }} 
+                        onClick={() => {
+                          exportUserPdf(t) 
+                        }}>تحميل ملف المستخدم</button>
+    
                       </>
                     }
                     { t.room == "waiting" && 

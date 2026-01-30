@@ -1,120 +1,136 @@
-export const exportReportPdf = (report, user) => {
-    const escapeHtml = (str) =>
-        String(str ?? "")
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
+import html2pdf from "html2pdf.js";
 
-    const html = `<!doctype html>
-    <html dir="rtl" lang="ar">
-    <head>
-    <meta charset="utf-8"/>
-    <title>${escapeHtml(report?.stitle || "Report")}</title>
+export const exportReportPdf = async (report, user) => {
+  const escapeHtml = (str) =>
+    String(str ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+
+  const safeDate = report?.date ? new Date(report.date) : new Date();
+  const fileName = `report-${(report?.stitle ?? "new")
+    .toString()
+    .replace(/[\\/:*?"<>|]/g, "-")}-${safeDate.getDate()}-${safeDate.getMonth() + 1}-${safeDate.getFullYear()}.pdf`;
+
+  // ✅ HTML فقط للتقرير (بدون أزرار)
+  const reportHtml = `
+  <div id="pdfRoot">
     <style>
-        @page { size: A4; margin: 12mm; }
+      @page { size: A4; margin: 12mm; }
 
-        body{
+      body, #pdfRoot{
         font-family: Arial, sans-serif;
         color:#111;
         direction: rtl;
-        margin:10;
-        }
+      }
 
-        .wrap{ padding: 2mm; }
+      .wrap{ padding: 2mm; }
 
-        h1{
+      h1{
         text-align:center;
         margin: 0 0 14px;
-        font-size: 50px;
-        }
+        font-size: 40px; /* أنسب للـ PDF */
+      }
 
-        .meta{
-        font-size: 20px;
-        margin: 0 0 14px;
-        line-height: 1.8;
-        }
+      .meta{
+        display:flex;
+        justify-content: space-between;
+        font-size: 12px;
+      }
 
-        .box{
-        border:2px solid #080b0fff;
-        border-radius:20px;
-        padding:14px;
-        }
+      .chips{ margin: 12px 0; font-size: 10px; }
 
-        .chips{
-        margin: 20px 0 20px;
-        }
-
-        .chip{
+      .chip{
         display:inline-block;
-        padding:6px 12px;
+        padding:6px 10px;
         border:1px solid #ddd;
         border-radius:999px;
         margin:4px 6px 0 0;
-        font-size: 20px;
+        font-size: 16px;
         background:#f7f7f7;
-        }
+      }
 
-        .label{
+      .label{
         font-weight:700;
-        margin-bottom:8px;
-        font-size: 30px;
-        display:block;
-        }
-
-        .info{
-        white-space: pre-wrap;
-        margin-right: 30px;
-        line-height: 1.8;
+        margin: 12px 0 6px;
         font-size: 20px;
-        }
+        display:block;
+      }
 
-        /* ✅ حل الكلمات الطويلة */
-        .info, .box, body{
+      .info{
+        white-space: pre-wrap;
+        line-height: 1.8;
+        font-size: 18px;
+        margin: 12px;
+      }
+
+      /* ✅ حل الكلمات الطويلة */
+      .info, body, #pdfRoot{
         overflow-wrap:anywhere;
         word-break:break-word;
-        }
+      }
     </style>
-    </head>
-    <body>
-        <div class="toolbar">
-            <button id="btnPrint">تحميل PDF / طباعة</button>
-            <button class="secondary" id="btnClose">إغلاق</button>
-        </div>
 
     <div class="wrap">
+      
+      <div class="meta">
+        <div>${escapeHtml(safeDate.toLocaleDateString("en-GB"))}</div>
+        <div>
+          ${escapeHtml(`${user?.firstname ?? ""} ${user?.lastname ?? ""}`.trim())}
+          ${user?.tz ? `(${escapeHtml(user.tz)})` : ""}
+        </div>
+      </div>
+        <br/>
         <h1>${escapeHtml(report?.stitle || "")}</h1>
-
-        <div class="meta">
-        <div><b>تاريخ:</b> ${escapeHtml(new Date(report?.date).toLocaleDateString("en-GB"))}</div>
-        <div><b>صاحب التقرير:</b> ${escapeHtml(`${user?.firstname ?? ""} ${user?.lastname ?? ""}`.trim())} ${user?.tz ? `(${escapeHtml(user.tz)})` : ""}</div>
-        </div>
-
-        <div class="">
-        <span class="label">عناوين:</span>
-        <div class="chips">
-            ${(report?.title ?? []).map(t => `<span class="chip">${escapeHtml(t)}</span>`).join("")}
-        </div>
-
-        <span class="label">صلب الموضوع:</span>
-        <div class="info">${escapeHtml(report?.info ?? "")}</div>
-        </div>
+        <br/>
+      <span class="label">عناوين:</span>
+      <div class="chips">
+        ${(report?.title ?? [])
+          .map((t) => `<span class="chip">${escapeHtml(t)}</span>`)
+          .join("")}
+      </div>
+    <br/>
+      <span class="label">صلب الموضوع:</span>
+      <div class="info">${escapeHtml(report?.info ?? "")}</div>
     </div>
+  </div>
+  `;
 
-    <script>
-        window.onload = () => {
-        document.title = ${JSON.stringify(`report-${report?._id ?? "new"}`)};
-        document.getElementById("btnPrint").onclick = () => window.print();
-        document.getElementById("btnClose").onclick = () => window.close();
-        };
-    </script>
-    </body>
-    </html>`;
+  // ✅ حاوية مؤقتة (مخفية) للتحويل
+  const container = document.createElement("div");
+  container.style.position = "fixed";
+  container.style.left = "-10000px";
+  container.style.top = "0";
+  container.style.width = "794px"; // تقريباً عرض A4 بالبكسل على 96dpi
+  container.innerHTML = reportHtml;
+  document.body.appendChild(container);
 
-    const w = window.open("", "_blank", "width=900,height=1200");
-    if (!w) return;
-    w.document.open();
-    w.document.write(html);
-    w.document.close();
+  const element = container.querySelector("#pdfRoot");
+
+  // ✅ خيارات PDF
+  const opt = {
+    margin: [20, 20, 20, 20], // mm تقريبًا (html2pdf يستخدم inches داخليًا، بس هذا جيد)
+    filename: fileName,
+    image: { type: "jpeg", quality: 0.98 },
+    html2canvas: {
+      scale: 2,          // يرفع الجودة
+      useCORS: true,     // لو عندك صور خارجية
+      backgroundColor: "#ffffff",
+    },
+    jsPDF: {
+      unit: "mm",
+      format: "a4",
+      orientation: "portrait",
+    },
+    pagebreak: { mode: ["css", "legacy"] },
+  };
+
+  try {
+    await html2pdf().set(opt).from(element).save();
+  } finally {
+    // ✅ تنظيف
+    document.body.removeChild(container);
+  }
 };
