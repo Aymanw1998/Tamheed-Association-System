@@ -17,7 +17,7 @@
 }
 
 .logo {
-  width: 100px;
+  width: 50px;
   height: auto;
   cursor: pointer;
 }
@@ -25,7 +25,7 @@
 .title {
     font-family: 'Play Display';
     color: var(--text-color, #5b03fd);
-    font-size:2rem;
+    font-size:1.5rem;
     margin:0.5rem;
     flex:1 1 auto;
     text-align:center;
@@ -34,7 +34,7 @@
 
 .userBadge {
     flex:0 0 auto;
-    font-size:1.5rem;
+    font-size:1rem;
     color:var(--text-color);
     display:flex;
     align-items:center;
@@ -46,8 +46,8 @@
 /* כפתור המבורגר – מוצג רק במסכים צרים */
 .menuToggle {
   /* display: none; */
-  width: 44px;
-  height: 36px;
+  width: 40px;
+  height: 34px;
   border: 0;
   background: transparent;
   cursor: pointer;
@@ -76,7 +76,7 @@
 
 .navbarV a {
   color: var(--text-color, #5b03fd);
-  padding: 14px 20px;
+  padding: 15px 30px;
   text-decoration: none;
   display: block;
   transition: background-color 0.2s ease;

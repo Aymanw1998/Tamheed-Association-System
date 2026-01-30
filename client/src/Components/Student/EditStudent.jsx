@@ -74,6 +74,21 @@ const EditStudent = ({parent = false}) => {
     message: "",
   });
 
+  
+  const [teachers, setTeachers] = useState(null);
+  
+  const loadTeachers = async() => {
+    //teachers
+    if(parent) return;
+    try{
+      const res = await getUsers();
+      res.ok ? setTeachers(res.users.filter(u => u.roles[0] == "مرشد")): setTeachers([]);
+    } catch(err) {
+      setTeachers([])
+    }
+  }
+  useEffect(()=>{loadTeachers()},[])
+
   useEffect(() => {
     if (!isEdit) return;
     if  (parent) return;
@@ -390,18 +405,6 @@ const EditStudent = ({parent = false}) => {
     }
   }
 
-  const [teachers, setTeachers] = useState(null);
-  const loadTeachers = async() => {
-    //teachers
-    try{
-      const res = await getUsers();
-      res.ok ? setTeachers(res.users.filter(u => u.roles[0] == "مرشد")): setTeachers([]);
-    } catch(err) {
-      setTeachers([])
-    }
-  }
-  useEffect(()=>{loadTeachers()},[])
-
   if (loading) return <div className={styles.formContainer}>يتحدث...</div>;
   if (err)      return <div className={styles.formContainer} style={{color:"#b91c1c"}}>{err}</div>;
 
@@ -558,7 +561,7 @@ const EditStudent = ({parent = false}) => {
       {error.notes != "" && <label style={{color: "red"}}>{error.notes}</label>}
       <br />
 
-      {localStorage.getItem('roles').includes('ادارة') && teachers && teachers.length > 0 && <div className={styles.formControl}>
+      {!parent && localStorage.getItem('roles').includes('ادارة') && teachers && teachers.length > 0 && <div className={styles.formControl}>
         <label>مرشد مسؤول:</label>
         <select
           name="main_teacher"

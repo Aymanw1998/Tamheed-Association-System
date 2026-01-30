@@ -152,7 +152,7 @@ const ViewAllStudent = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
 
-          {localStorage.getItem("roles").includes("الادارة") && <button id="page-add-subs"
+          {localStorage.getItem("roles").includes("ادارة") && <button id="page-add-subs"
             style={{ backgroundColor: 'green', padding: '0.5rem 1rem', borderRadius: '0.5rem', color: 'white' }}
             onClick={handleAddStudent}
           >
