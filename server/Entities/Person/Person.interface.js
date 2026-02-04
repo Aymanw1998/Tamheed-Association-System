@@ -14,7 +14,14 @@ const PersonInterface = {
 
 const UserInterface = {
     ...PersonInterface,
-    password: { type: String, required: () => { return this.isNew }},
+    // חשוב: required צריך להיות function כדי ש-this יהיה document
+    password: {
+        type: String,
+        required: function () {
+            return this.isNew;
+        }, // bcrypt או enc
+    },
+
     mustChangePassword: { type: Boolean, default: false},
     roles: [{ type: String, enum: ['ادارة', 'مرشد', 'مساعد'], default: 'مرشد'}],
 }

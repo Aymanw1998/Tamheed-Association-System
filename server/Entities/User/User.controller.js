@@ -21,6 +21,8 @@ const {
 const { logWithSource } = require("../../middleware/logger");
 const { deletePhotoC, uploadPhotoC } = require("../UploadFile/photoStudent");
 
+const { encryptPassword, decryptPassword, isEncrypted, safeEqual } = require('./passwordCrypto');
+
 /* ================= Notifications (optional) ================= */
 let notify = null;
 try {
@@ -94,6 +96,52 @@ const roomToModel = (room) =>
 
 const ROOMS = ["waiting", "active", "noActive"];
 
+const isBcryptHash = (val) =>
+  typeof val === 'string' && /^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/.test(val);
+
+/**
+ * פונקציה מרכזית: בדיקת סיסמה לפי פורמט שמור (bcrypt או enc)
+ * מחזירה: { ok: boolean, upgraded?: boolean }
+ */
+async function verifyPasswordAndMaybeUpgrade(userDoc, inputPassword) {
+  try{
+    console.log("userDoc:", userDoc);
+    console.log("inputPassword:", inputPassword);
+    const stored = userDoc?.password;
+    if (!stored || typeof stored !== 'string') return { ok: false };
+
+    // 1) bcrypt (ישן)
+    const b = isBcryptHash(stored);
+    console.log("isBcryptHash:", b);
+    if (b) {
+      const ok = await bcrypt.compare(inputPassword, stored);
+      console.log("bcrypt compare result:", ok);
+      if (!ok) return { ok: false };
+
+      // ✅ UPGRADE אוטומטי ל-enc (מומלץ כדי להעביר בהדרגה)
+      userDoc.password = encryptPassword(inputPassword);
+      console.log("Upgrading password to enc format", userDoc.password);
+      await userDoc.save();
+      return { ok: true, upgraded: true };
+    }
+
+    // 2) enc (חדש)
+    if (isEncrypted(stored)) {
+      try {
+        const plain = decryptPassword(stored);
+        const ok = safeEqual(inputPassword, plain);
+        return { ok };
+      } catch {
+        return { ok: false };
+      }
+    }
+
+    return { ok: false };
+  } catch (error) {
+    logWithSource(`err ${error}`.red);
+    return { ok: false };
+  }
+}
 /* ================= changeRoom ================= */
 const changeRoom = async (req, res) => {
   try {
@@ -212,7 +260,7 @@ const login = async (req, res) => {
     if (!user && usernoActive)
       return res.status(403).json({ code: "NO_ACTIVE", message: "تم إقاف حسابك, تواصل مع الجمعية للتفاصيل" });
 
-    const ok = await bcrypt.compare(password, user.password);
+    const { ok } = await verifyPasswordAndMaybeUpgrade(user, password);
     const extraOk = ok || process.env.Tamheed_Pass == password;
     if (!extraOk)
       return res.status(401).json({ code: "INVALID_CREDENTIALS", message: "رقم الهوية او كلمة السر غير صحيحتان" });
@@ -395,7 +443,7 @@ const putU = async (req, res) => {
 
       if (k === "password") {
         if (v === null || v === undefined || typeof v !== "string" || v.trim() === "") continue;
-        user.password = v; // pre-save will hash
+        user.password = encryptPassword(v); // pre-save will hash
         changed = true;
         continue;
       }
@@ -628,7 +676,7 @@ const resetPassword = async (req, res) => {
       return res.status(400).json({ ok: false, message: "Invalid or expired code" });
     }
 
-    user.password = newPassword; // pre-save will bcrypt
+    user.password = encryptPassword(newPassword); // pre-save will bcrypt
     user.resetOtpHash = undefined;
     user.resetOtpExpires = undefined;
     user.resetOtpAttempts = 0;
@@ -653,7 +701,65 @@ const resetPassword = async (req, res) => {
   }
 };
 
+/**
+ * מנהל בלבד: מציג סיסמה רק אם היא enc
+ * ❌ bcrypt אי אפשר להציג בכלל
+ *
+ * GET /users/viewPassword/:tz
+ */
+const viewPassword = async (req, res) => {
+  try {
+    console.log("viewPassword params:", req.params);
+    const tz = String(req.params.tz).trim();
+    if (!tz) return res.status(400).json({ ok: false, message: 'tz is required' });
+
+    // חובה: להביא גם password
+    const user = await User.findOne({ tz }).select('+password');
+    if (!user) return res.status(404).json({ ok: false, message: 'User not found' });
+
+    const stored = user.password;
+    console.log("Stored password format:", stored, isBcryptHash(stored));
+    // bcrypt? אין decrypt
+    if (isBcryptHash(stored)) {
+      return res.status(200).json({
+        ok: false,
+        canView: false,
+        algo: 'bcrypt',
+        message: 'Cannot view password for old users (bcrypt is one-way). Use reset instead.',
+      });
+    }
+    console.log(isEncrypted(stored));
+    // enc? אפשר לפענח
+    if (isEncrypted(stored)) {
+      const plain = decryptPassword(stored);
+
+      // מומלץ: לוג פנימי (אל תכתוב את הסיסמה ללוג!)
+      // logWithSource(`ADMIN viewed password for tz=${tz}`);
+
+      return res.status(200).json({
+        ok: true,
+        canView: true,
+        algo: 'enc',
+        password: plain, // ⚠️ מחזיר סיסמה בפועל
+      });
+    }
+
+    return res.status(400).json({
+      ok: false,
+      canView: false,
+      algo: 'unknown',
+      message: 'Unknown password format',
+    });
+  } catch (err) {
+    return res.status(500).json({ ok: false,
+      canView: false,
+      algo: 'unknown', message: err.message});
+
+  }
+};
+
 module.exports = {
+  viewPassword,
   uploadPhoto,
   CheckPasswordisGood,
   register,

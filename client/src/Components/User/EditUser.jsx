@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 // עדכן נתיב אם אצלך שונה:
-import { create, update, getUserById as getOne, /*softDelete,*/ deleteU, uploadPhoto, changeStatus } from "../../WebServer/services/user/functionsUser.jsx";
+import { create, update, getUserById as getOne, /*softDelete,*/ deleteU, uploadPhoto, changeStatus, viewPassword } from "../../WebServer/services/user/functionsUser.jsx";
 import styles from "./User.module.css";
 import { toast } from "../../ALERT/SystemToasts.jsx";
 
@@ -45,7 +45,9 @@ const EditUser = () => {
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving]   = useState(false);
   const [err, setErr]         = useState(null);
+  const [fetchingPassword, setFetchingPassword] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [passwordTouched, setPasswordTouched] = useState(false);
 
 
   useEffect(() => {
@@ -65,6 +67,7 @@ const EditUser = () => {
         } else {
           setErr("المستخدم غير موجود");
         }
+        setPasswordTouched(false); // ✅ כי טענו משתמש מחדש
       } catch (e) {
         setErr("خلل في جلب البيانات");
       } finally {
@@ -209,6 +212,10 @@ const EditUser = () => {
     const { name, value } = e.target;
     //console.log(`onField[${name}] = ${String(value)}`, value === '');
     setForm((prev) => ({ ...prev, [name]: value }));
+    
+    // ✅ NEW: אם שינו סיסמה ידנית – מסמנים touched
+    if (name === 'password') setPasswordTouched(true);
+
     const msg = await validate(name, value)
     // //console.log("msg", msg);
     setError((prev) => ({ ...prev, [name]: msg }));
@@ -219,6 +226,45 @@ const EditUser = () => {
     const intl = normalizePhoneToIntl(local);
     setForm((prev) => ({ ...prev, [tag]: intl }));
   };
+
+    const handleFetchPassword = async () => {
+  if (isNew) return;
+
+  try {
+    setFetchingPassword(true);
+
+    // עדיף להשתמש ב-user.tz (זה אותו דבר כמו id במסך הזה)
+    const tzToFetch = String(form.tz || id).trim();
+    if (!tzToFetch) return;
+
+    const res = await viewPassword(tzToFetch);
+    console.log('Password fetch response:', res);
+
+    // bcrypt / cannot view
+    if (!res?.ok || res?.canView === false) {
+      toast.warn(res?.message || 'אי אפשר להציג סיסמה למשתמש הזה');
+      return;
+    }
+
+    if (typeof res.password === 'string') {
+      setForm((prev) => ({ ...prev, password: res.password }));
+      setShowPassword(true);
+
+      // ⚠️ חשוב: לא לסמן touched כשזו צפייה
+      setPasswordTouched(false);
+
+      //toast.success('✅ הסיסמה נטענה מהשרת');
+    } else {
+      toast.warn('לא התקבלה סיסמה');
+    }
+  } catch (e) {
+    console.error(e);
+    toast.error('❌ שגיאה במשיכת סיסמה');
+  } finally {
+    setFetchingPassword(false);
+  }
+};
+
   const handleSubmit = async (e) => {
     let b = await validate();
     if (b) { toast.warn(b); return; }
@@ -244,6 +290,10 @@ const EditUser = () => {
       const payload = { ...form };
       
       console.log("isEdit", isEdit);
+      // ✅ NEW: אם לא שינו סיסמה ידנית – לא שולחים password בכלל
+      if (!passwordTouched || !form.password?.trim()) {
+        delete payload.password;
+      }
       const res = isEdit ? await update(form.tz, payload): await create({...payload});
       if(!res) return;
       if(!res.ok) throw new Error(res.message);
@@ -327,15 +377,37 @@ const EditUser = () => {
           type={showPassword ? 'text' : 'password'}
           value={form.password || ''}
           onChange={onField}
-          // placeholder={isNew ? '' : 'השאר ריק כדי לא לשנות'}
+          placeholder={isNew ? '' : '*******'}
         />
         <button
           type="button"
           className={styles.togglePassword}
-          onClick={() => setShowPassword((s) => !s)}
+          disabled={fetchingPassword}
+          onClick={async () => {
+            // אם כרגע מסתירים -> עכשיו רוצים להציג
+            if (!showPassword) {
+              // מושכים רק אם אין סיסמה כרגע או שלא "touched"
+              if (!form.password?.trim() || !passwordTouched) {
+                await handleFetchPassword();
+              }
+              setShowPassword(true);
+              return;
+            }
+
+            // אם כרגע מציגים -> עכשיו מסתירים
+            setShowPassword(false);
+
+            // מומלץ: לנקות מה-state כדי שלא יישאר בזיכרון,
+            // אבל רק אם המשתמש לא ערך ידנית את הסיסמה
+            if (!passwordTouched) {
+              setForm((prev) => ({ ...prev, password: '' }));
+            }
+          }}
+          title={showPassword ? 'הסתר סיסמה' : 'הצג סיסמה'}
         >
-          {showPassword ? '🙈' : '👁️'}
+          {fetchingPassword ? '⏳' : (showPassword ? '🙈' : '👁️')}
         </button>
+
       </div>
       <label style={{color: "red"}}>{error.password}</label>
       <br />

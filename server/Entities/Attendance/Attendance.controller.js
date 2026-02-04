@@ -401,7 +401,39 @@ const getHistory = async (req, res) => {
   }
 };
 
+
+// ✅ GET /api/attendance/dates?lessonId=...
+const getLessonDates = async (req, res) => {
+  try {
+    const { lessonId } = req.query;
+    console.log("getLessonDates called with lessonId", lessonId, "query:", req.query);
+    if (lessonId == "-1") return res.status(400).json({ ok: false, message: "lessonId required" });
+
+    const dates = await Attendance.aggregate([
+      { $match: lessonId === "" ? {} : { lesson: new mongoose.Types.ObjectId(lessonId) } },
+      {
+        $group: {
+          _id: "$dateKey",
+          year: { $first: "$year" },
+          month: { $first: "$month" },
+          day: { $first: "$day" },
+        }
+      },
+      { $sort: { _id: -1 } }
+    ]);
+    console.log("Found lesson dates:", dates);
+    return res.json({
+      ok: true,
+      dates: dates.map(d => ({ dateKey: d._id, year: d.year, month: d.month, day: d.day }))
+    });
+  } catch (e) {
+    logWithSource("Attendance.getLessonDates", e);
+    return res.status(500).json({ ok: false, message: e.message });
+  }
+};
+
 module.exports = {
+  getLessonDates,
   getAll,
   getOne,
   getHistory,

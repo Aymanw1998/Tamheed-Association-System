@@ -13,6 +13,7 @@ const {
   putOne,
   deleteOne,
   deletePerMonth,
+  getLessonDates,
 } = require('./Attendance.controller');
 
 // alias כדי לשמור על protect/protectRole
@@ -24,6 +25,7 @@ router.use(protect);
 // פתוח לכל משתמש מחובר
 router.get('/', getAttendancesByQuery);
 router.get('/history', getHistory);
+router.get('/dates', getLessonDates);
 router.get('/:id', getOne);
 router.get('/:lesson_id/:day/:month/:year', getAllByLessonDayMonthYear);
 router.post('/ByList/:lesson_id/:day/:month/:year', postByLessonDayMonthYear);

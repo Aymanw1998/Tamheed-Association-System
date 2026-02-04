@@ -92,7 +92,7 @@ const cron = require("node-cron");
 const { runDailyJobs } = require("./utils/daily");
 
 // ירוץ כל יום בחצות לפי שעון ישראל
-cron.schedule("0 0 1 * *", async () => {
+cron.schedule("0 23 30 * *", async () => {
   try {
     console.time("[daily]");
     await runDailyJobs();

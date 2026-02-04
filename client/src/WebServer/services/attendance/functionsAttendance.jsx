@@ -97,3 +97,13 @@ export const getAttendanceHistory = async (params) => {
     // params: { studentId, lessonId, from, to }
     return api.get("/attendance/history", { params }).then(r => r.data).catch(()=> null);
 };
+
+
+
+export const getLessonDates = async (lessonId) => {
+    console.log("fetching lesson dates for lessonId", lessonId);
+    const res = await api.get("/attendance/dates", { params: { lessonId } });
+    return res.data;
+};
+
+

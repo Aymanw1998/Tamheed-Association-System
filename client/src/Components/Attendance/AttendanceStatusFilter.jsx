@@ -36,7 +36,8 @@ export default function AttendanceStatusFilter({
 
     const buttons = [
         { key: "today", label: "اليوم", badge: counts?.active, color: '#8feba6ff' },
-        { key: "history", label: "سجل الحضور", badge: counts?.pending, color: '#e9f85eff' },
+        { key: "history", label: "سجل الحضور حسب الدروس", badge: counts?.pending, color: '#e9f85eff' },
+        { key: "general", label: "عام", color: "#cde7ff" },
     ];
 
     const select = (next) =>{

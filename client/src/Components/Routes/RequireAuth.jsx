@@ -17,7 +17,6 @@ export default function RequireAuth() {
 
   useEffect(() => {
     let alive = true;
-
     (async () => {
       try {
         // 1) בדיקת access מקומי

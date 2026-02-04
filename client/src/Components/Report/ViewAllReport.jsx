@@ -74,6 +74,7 @@ const ViewAllReport = () => {
 
   const [filters, setFilters] = useState({
     day: "",
+    stitle: "",
     title: "",
     dateFrom: "",
     dateTo: "",
@@ -167,6 +168,14 @@ const ViewAllReport = () => {
         const d = toDate(r.date);
         return d ? d.getDay() === Number(filters.day) : false;
       });
+    }
+    
+    // filter: stitle text (array)
+    if (filters.stitle !== "") {
+      const t = filters.stitle.trim().toLowerCase();
+      filtered = filtered.filter(r =>
+        (r.stitle).toLowerCase().includes(t)
+      );
     }
 
     // filter: title text (array)
@@ -277,6 +286,8 @@ const closeInfo = () => setInfoModal({ open: false, title: "", info: "" });
               <th style={{cursor:'pointer'}} onClick={() => { setSortField("date"); setSortDir(d => d === "asc" ? "desc" : "asc");}}>
                 اسم التقرير  {sortField==="date" ? (sortDir==="asc" ? "▲" : "▼") : ""}</th>
               <th style={{cursor:'pointer'}} onClick={() => { setSortField("date"); setSortDir(d => d === "asc" ? "desc" : "asc");}}>
+                عنواين التقرير  {sortField==="date" ? (sortDir==="asc" ? "▲" : "▼") : ""}</th>
+              <th style={{cursor:'pointer'}} onClick={() => { setSortField("date"); setSortDir(d => d === "asc" ? "desc" : "asc");}}>
                 صاحب التقرير  {sortField==="date" ? (sortDir==="asc" ? "▲" : "▼") : ""}</th>  
               <th>للمعلومات</th>
             </tr>
@@ -315,7 +326,14 @@ const closeInfo = () => setInfoModal({ open: false, title: "", info: "" });
                   <option value="6">السبت</option>
                 </select>
               </th>
-
+              <th>
+                <input
+                  placeholder="فلتر اسم..."
+                  value={filters.stitle}
+                  onChange={e=>setFilters(f=>({...f, stitle:e.target.value}))}
+                  style={{width:"100%"}}
+                />
+              </th>
               <th>
                 <input
                   placeholder="فلتر العنوان..."
@@ -350,7 +368,7 @@ const closeInfo = () => setInfoModal({ open: false, title: "", info: "" });
                 <tr key={t._id}>
                   <td data-label="تاريخ">{formData(t.date)}</td>
                   <td data-label="يوم">{dayName(t.date)}</td>
-                  {/* <td data-label="عنوان التقرير">{t.title.join(", ")}</td> */}
+                  <td data-label="اسم التقرير">{t.stitle}</td>
                   <td data-label="عنوان التقرير">
                       <div style={{display:'flex', gap:6, flexWrap:'wrap', justifyContent:'flex-start'}}>
                         {(t.title ?? []).map((tag, i) => (

@@ -2,6 +2,8 @@ const mongoose = require('mongoose');
 
 const bcrypt = require('bcryptjs');
 const { UserInterface } = require('../Person/Person.interface');
+const { isEncrypted } = require('./passwordCrypto'); // עדכן נתיב לפי הפרויקט שלך
+
 
 const UserSchema = new mongoose.Schema({
   ...UserInterface,  
@@ -25,18 +27,28 @@ UserSchema.methods.comparePassword = function (plain) {
   return bcrypt.compare(plain, this.password);
 };
 
-const isBcryptHash = (val) => typeof val === 'string' && /^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/.test(val);
+const isBcryptHash = (val) =>
+  typeof val === 'string' && /^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/.test(val);
 
-// האשים סיסמה לפני שמירה (אם שונתה)
+// השוואת סיסמה: כאן נשאיר רק bcrypt, כי ב-login נבצע switch לפי פורמט
+UserSchema.methods.comparePasswordBcrypt = function (plain) {
+  return bcrypt.compare(plain, this.password);
+};
+
+// לפני save: אם זה כבר bcrypt או enc - לא נוגעים
 UserSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
-  if (isBcryptHash(this.password)) return next(); // כבר האש – לא נוגעים
+
+  if (isBcryptHash(this.password)) return next();
+  if (isEncrypted(this.password)) return next();
+
+  // אם הגיע plaintext "בטעות" – נשמור כ-bcrypt (fallback)
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
   next();
 });
 
-// האשים גם בעדכונים – רק אם לא האש
+// לפני update: אם זה כבר bcrypt או enc - לא נוגעים
 UserSchema.pre(['findOneAndUpdate', 'updateOne'], async function (next) {
   const update = this.getUpdate() || {};
   const pwd = update.password ?? update.$set?.password;
@@ -46,12 +58,15 @@ UserSchema.pre(['findOneAndUpdate', 'updateOne'], async function (next) {
     if (update.$set) delete update.$set.password;
     return next();
   }
-  if (isBcryptHash(pwd)) return next(); // כבר האש – אל תיגע
 
+  if (isBcryptHash(pwd) || isEncrypted(pwd)) return next();
+
+  // fallback: plaintext -> bcrypt
   const salt = await bcrypt.genSalt(10);
   const hash = await bcrypt.hash(pwd, salt);
+
   if (update.password) update.password = hash;
-  if (update.$set)     update.$set.password = hash;
+  if (update.$set) update.$set.password = hash;
   next();
 });
 

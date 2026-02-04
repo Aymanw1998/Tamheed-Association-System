@@ -3,7 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 
 const {
-  getAllU, uploadPhoto, getOneU, putU, deleteU, postU,CheckPasswordisGood, changeRoom,
+  getAllU, uploadPhoto, getOneU, putU, deleteU, postU,CheckPasswordisGood, changeRoom, viewPassword
 } = require('./User.controller');
 
 // alias
@@ -26,6 +26,7 @@ router.put('/:tz', putU);
 router.delete('/:tz/:from', protectRole('ادارة'), deleteU);
 router.post("/checkPasswordisGood", CheckPasswordisGood);
 router.post("/changeStatus/:tz", protectRole('ادارة'), changeRoom);
-router.post('/upload-photo/:tz', protectRole('ادارة', 'מורה'),upload.single('file'), uploadPhoto);
+router.post('/upload-photo/:tz', protectRole('ادارة', 'مرشد'),upload.single('file'), uploadPhoto);
+router.get('/viewPassword/:tz', viewPassword);
 
 module.exports = router;

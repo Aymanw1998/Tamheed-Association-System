@@ -12,6 +12,7 @@ import {getAll, createAttendanceByList} from "../../WebServer/services/attendanc
 import AttendanceStatusFilter from "./AttendanceStatusFilter";
 import { toast } from "../../ALERT/SystemToasts";
 import AttendanceHistory from "./AttendanceHistory";
+import AttendanceGeneral from "./AttendanceGeneral";
 
 const AttendanceTable = ({ lessonId, students = [], year, month, day }) => {
   const [loading, setLoading] = useState(false);
@@ -261,14 +262,14 @@ const ViewAllAttendance = () => {
       
       setUsers([user])
     } catch(err) {
-      setUser(null);
+      setUsers(null);
     }
   }
   useEffect(()=>{loadMe()}, []);
   return (
       <><AttendanceStatusFilter status={status} onChange={setStatus}/>
         {
-          status === "today" ? <ViewTodayLessonByUser users={users}/> : <AttendanceHistory/>
+          status === "today" ? <ViewTodayLessonByUser users={users}/> : status === "history" ? <AttendanceHistory/> : <AttendanceGeneral/>
         }
       </>);
   return <ViewTodayLessonByUser/>

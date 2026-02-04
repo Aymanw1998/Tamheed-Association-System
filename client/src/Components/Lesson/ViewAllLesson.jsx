@@ -430,6 +430,7 @@ export default function ViewAllLesson() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [lessons, setLessons] = useState([]);
+  console.log("lessons", lessons);
   const [teachers, setTeachers] = useState([]);
   const [teacherNames, setTeacherNames] = useState({});
 
@@ -502,20 +503,24 @@ export default function ViewAllLesson() {
   const filteredLessons = useMemo(() => {
     const uid = localStorage.getItem("user_id");
     const rolesNow = localStorage.getItem("roles") || "";
-
+    console.log("filteredLessons", lessons, filterDay, filterRoom, filterTeacher, showMyLessons);
     return (lessons || []).filter(l => {
       if (!l?.date) return false;
 
+      console.log("filtering day");
       // Filter day (global filter)
       if (filterDay !== 0 && Number(l.date.day) !== Number(filterDay)) return false;
 
+      console.log("filtering room");
       // Filter room
       const r = String(l?.room ?? 0);
       if (filterRoom !== "all" && r !== String(filterRoom)) return false;
 
+      console.log("filtering teacher");
       // Filter teacher
       if (filterTeacher !== "all" && String(l.teacher) !== String(filterTeacher)) return false;
-
+            
+      console.log("filtering Only my lessons (unless admin)", showMyLessons, !rolesNow.includes("ادارة"), rolesNow);
       // Only my lessons (unless admin)
       if (showMyLessons && !rolesNow.includes("ادارة")) {
         const isMine =
@@ -523,7 +528,7 @@ export default function ViewAllLesson() {
           (l.list_students || []).map(String).includes(String(uid));
         if (!isMine) return false;
       }
-
+      console.log("filtering search query");
       // search query by lesson name
       if (query.trim()) {
         const q = query.trim().toLowerCase();

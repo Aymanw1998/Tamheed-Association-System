@@ -1,228 +1,269 @@
-import React, { useEffect, useCallback, useMemo, useState } from "react";
-import styles from "./Attendance.module.css"; // نفس css عندك
+import React, { useEffect, useMemo, useState, useCallback } from "react";
+import styles from "./Attendance.module.css";
 
-import { getAttendanceHistory} from "../../WebServer/services/attendance/functionsAttendance"; // عدلي المسار حسب مشروعك
+import { getAllLesson as getLessonsList } from "../../WebServer/services/lesson/functionsLesson";
+import {
+  getLessonDates,
+  getAll, // ✅ existing: GET /attendance?lessonId=&year=&month=&day=
+  createAttendanceByList, // ✅ existing: POST /attendance/ByList/:lesson_id/:day/:month/:year
+} from "../../WebServer/services/attendance/functionsAttendance";
 
-import {getAll as getStudentsList} from "../../WebServer/services/student/functionsStudent"
-import {getAllLesson as getLessonsList} from "../../WebServer/services/lesson/functionsLesson"
-import AttendanceDonutChart from "./AttendanceDonutChart";
+import { toast } from "../../ALERT/SystemToasts";
 
-const useDebounce = (value, delay = 400) => {
-    const [debounced, setDebounced] = useState(value);
-
-    useEffect(() => {
-        const t = setTimeout(() => setDebounced(value), delay);
-        return () => clearTimeout(t);
-    }, [value, delay]);
-
-    return debounced;
-}
-
-const STATUS_OPTIONS = [
-    { value: "", label: "الكل" },
-    { value: "حاضر", label: "حاضر ✅" },
-    { value: "غائب", label: "غائب ❌" },
-    { value: "متأخر", label: "متأخر ⏰" },
+const STATUS = [
+  { value: "حاضر", label: "حاضر ✅" },
+  { value: "غائب", label: "غائب ❌" },
+  { value: "متأخر", label: "متأخر ⏰" },
 ];
 
-function formatDateKeyToYMD(a) {
-  // لو عندك day/month/year في الـ attendance
-    const d = String(a.day).padStart(2, "0");
-    const m = String(a.month).padStart(2, "0");
-    const y = String(a.year);
-    return `${d}/${m}/${y}`;
-    }
+const pad2 = (n) => String(n).padStart(2, "0");
+const fmtDate = (d) => `${pad2(d.day)}/${pad2(d.month)}/${d.year}`;
 
 export default function AttendanceHistory() {
-    const [students, setStudents] = useState([]);
-    const [lessons, setLessons] = useState([]);
+  const [lessons, setLessons] = useState([]);
+  const [lessonId, setLessonId] = useState("-1");
 
-    const [studentId, setStudentId] = useState("");
-    const [lessonId, setLessonId] = useState("");
-    const [status, setStatus] = useState("");
-    const [from, setFrom] = useState("");
-    const [to, setTo] = useState("");
+  const [dates, setDates] = useState([]); // [{dateKey,day,month,year}]
+  const [selectedDateKey, setSelectedDateKey] = useState("");
 
-    const [rows, setRows] = useState([]);
-    const [loading, setLoading] = useState(false);
+  const [rows, setRows] = useState([]); // rows from server (populated student maybe)
+  const [loading, setLoading] = useState(false);
 
-    // ✅ dropdowns
-    useEffect(() => {
-        (async () => {
-        try {
-            const [sRes, lRes] = await Promise.all([getStudentsList(), getLessonsList()]);
-            setStudents(sRes?.ok ? sRes.students : []);
-            setLessons(lRes?.ok ? lRes.lessons : []);
-        } catch (e) {
-            console.error(e);
-            setStudents([]);
-            setLessons([]);
-        }
-        })();
-    }, []);
+  const selectedDate = useMemo(
+    () => dates.find((d) => String(d.dateKey) === String(selectedDateKey)),
+    [dates, selectedDateKey]
+  );
 
-    // ✅ chart data from rows (no extra state)
-    const chartData = useMemo(() => {
-        const حاضر = rows.filter((a) => a.status === "حاضر").length;
-        const غائب = rows.filter((a) => a.status === "غائب").length;
-        const متأخر = rows.filter((a) => a.status === "متأخر").length;
+  // ✅ load lessons
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await getLessonsList();
+        setLessons(res?.ok ? res.lessons : []);
+      } catch (e) {
+        setLessons([]);
+      }
+    })();
+  }, []);
 
-        return [
-        { name: "حاضر", value: حاضر },
-        { name: "غائب", value: غائب },
-        { name: "متأخر", value: متأخر },
-        ];
-    }, [rows]);
+  // ✅ when lesson selected -> load dates for this lesson
+  useEffect(() => {
+    if (lessonId == "-1") {
+      setDates([]);
+      setSelectedDateKey("");
+      setRows([]);
+      return;
+    }
 
-    // ✅ Debounced filters for smart search
-    const debouncedFilters = useDebounce(
-        { studentId, lessonId, status, from, to },
-        450
-    );
-
-    const handleSearch = useCallback(async (filters) => {
-        setLoading(true);
-        try {
-        const params = {
-            studentId: filters.studentId || undefined,
-            lessonId: filters.lessonId || undefined,
-            status: filters.status || undefined,
-            from: filters.from || undefined,
-            to: filters.to || undefined,
-        };
-
-        const res = await getAttendanceHistory(params);
-        setRows(res?.ok ? res.attendances : []);
-        } catch (e) {
-        console.error(e);
+    (async () => {
+      setLoading(true);
+      try {
+        const res = await getLessonDates(lessonId);
+        console.log("got lesson dates", res);
+        if (!res?.ok) throw new Error(res?.message || "خطأ في جلب التواريخ");
+        setDates(res.dates || []);
+        setSelectedDateKey("");
         setRows([]);
-        } finally {
+      } catch (e) {
+        toast.error("فشل جلب تواريخ الدرس");
+        setDates([]);
+      } finally {
         setLoading(false);
-        }
-    }, []);
+      }
+    })();
+  }, [lessonId]);
 
-    // ✅ AUTO SEARCH (smart)
-    useEffect(() => {
-        handleSearch(debouncedFilters);
-    }, [debouncedFilters, handleSearch]);
+  // ✅ when date selected -> load attendances for lesson + date
+  useEffect(() => {
+    if (lessonId=="-1"  || !selectedDate) {
+      setRows([]);
+      return;
+    }
 
-    const handleReset = () => {
-        setStudentId("");
-        setLessonId("");
-        setStatus("");
-        setFrom("");
-        setTo("");
+    (async () => {
+      setLoading(true);
+      try {
+        const { year, month, day } = selectedDate;
+
+        // ✅ this calls: GET /attendance?lessonId=&year=&month=&day=
+        // and returns attendances with student populated? (in your controller getAttendancesByQuery it does populate)
+        const res = await getAll({ lessonId, year, month, day });
+        if (!res?.ok) throw new Error(res?.message || "خطأ في جلب الحضور");
+
+        const list = (res.attendances || []).map((a) => ({
+          _id: a._id,
+          student: typeof a.student === "object" ? a.student : { _id: a.student },
+          status: a.status || "حاضر",
+          notes: a.notes || "",
+        }));
+
+        setRows(list);
+      } catch (e) {
+        toast.error("فشل جلب الحضور للتاريخ المحدد");
         setRows([]);
-    };
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [lessonId, selectedDate]);
 
-    return (
-        <div>
-        <h1 style={{ textAlign: "center" }}>سجل الحضور والغياب</h1>
-
-        <div
-            style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-            gap: 12,
-            alignItems: "end",
-            marginTop: 16,
-            }}
-        >
-            <div>
-            <label>فلتر حسب الطالب</label>
-            <select value={studentId} onChange={(e) => setStudentId(e.target.value)}>
-                <option value="">الكل</option>
-                {students.map((s) => (
-                <option key={s._id} value={s._id}>
-                    {s.firstname} {s.lastname}
-                </option>
-                ))}
-            </select>
-            </div>
-
-            <div>
-            <label>فلتر حسب الدرس</label>
-            <select value={lessonId} onChange={(e) => setLessonId(e.target.value)}>
-                <option value="">الكل</option>
-                {lessons.map((l) => (
-                <option key={l._id} value={l._id}>
-                    {l.name}
-                </option>
-                ))}
-            </select>
-            </div>
-
-            <div>
-            <label>الحالة</label>
-            <select value={status} onChange={(e) => setStatus(e.target.value)}>
-                {STATUS_OPTIONS.map((o) => (
-                <option key={o.value || "all"} value={o.value}>
-                    {o.label}
-                </option>
-                ))}
-            </select>
-            </div>
-
-            <div>
-            <label>من تاريخ</label>
-            <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
-            </div>
-
-            <div>
-            <label>إلى تاريخ</label>
-            <input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
-            </div>
-
-            <div style={{ display: "flex", gap: 8 }}>
-            <div style={{ alignSelf: "center", opacity: 0.75 }}>
-                {`النتائج: ${rows.length}`}
-            </div>
-            </div>
-        </div>
-
-        <table className={`table ${styles.subTable}`} style={{ marginTop: 12 }}>
-            <thead>
-            <tr>
-                <th>#</th>
-                <th>التاريخ</th>
-                <th>الدرس</th>
-                <th>الطالب</th>
-                <th>الحالة</th>
-                <th>ملاحظات</th>
-            </tr>
-            </thead>
-
-            <tbody>
-            {rows && rows.length ? (
-                rows.map((r, idx) => (
-                <tr key={r._id || idx}>
-                    <td data-label="#">{idx + 1}</td>
-                    <td data-label="التاريخ">{formatDateKeyToYMD(r)}</td>
-                    <td data-label="الدرس">
-                    {typeof r.lesson === "object" ? r.lesson?.name : String(r.lesson || "")}
-                    </td>
-                    <td data-label="الطالب">
-                    {typeof r.student === "object"
-                        ? `${r.student?.firstname || ""} ${r.student?.lastname || ""}`.trim()
-                        : String(r.student || "")}
-                    </td>
-                    <td data-label="الحالة">{r.status}</td>
-                    <td data-label="ملاحظات">{r.notes || ""}</td>
-                </tr>
-                ))
-            ) : (
-                <tr>
-                <td colSpan={6} style={{ textAlign: "center", padding: 16 }}>
-                    لا يوجد بيانات
-                </td>
-                </tr>
-            )}
-            </tbody>
-        </table>
-
-        <div style={{ marginTop: 16 }}>
-            <AttendanceDonutChart data={chartData} title="نِسَب الحضور" />
-        </div>
-        </div>
+  const updateRow = useCallback((studentId, patch) => {
+    const sid = String(studentId);
+    setRows((prev) =>
+      prev.map((r) =>
+        String(r.student?._id) === sid ? { ...r, ...patch } : r
+      )
     );
+  }, []);
+
+  const save = async () => {
+    if (lessonId == "-1" || !selectedDate) return;
+
+    try {
+      setLoading(true);
+      const { year, month, day } = selectedDate;
+
+      // السيرفر يتوقع: [{student,status,notes}, ...]
+      const payload = rows.map((r) => ({
+        student: r.student?._id,
+        status: r.status,
+        notes: r.notes || "",
+      }));
+
+      const res = await createAttendanceByList(lessonId, day, month, year, payload);
+      if (!res?.ok) throw new Error(res?.message || "فشل الحفظ");
+
+      toast.success("تم حفظ التعديلات ✅");
+
+      // refresh table with returned result (your controller returns populated)
+      const list = (res.attendances || []).map((a) => ({
+        _id: a._id,
+        student: typeof a.student === "object" ? a.student : { _id: a.student },
+        status: a.status || "حاضر",
+        notes: a.notes || "",
+      }));
+      setRows(list);
+    } catch (e) {
+      toast.error("فشل حفظ التعديلات");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div dir="rtl">
+      <h1 style={{ textAlign: "center" }}>سجل الحضور والغياب</h1>
+
+      {/* ✅ Lesson then Date */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+          gap: 12,
+          alignItems: "end",
+          marginTop: 16,
+        }}
+      >
+        <div>
+          <label>اختيار الدرس</label>
+          <select value={lessonId} onChange={(e) => setLessonId(e.target.value)}>
+            <option key={-1} value="-1">-- اختر الدرس --</option>
+            <option value={""}>كل الدروس (عام)</option>
+            {lessons.map((l) => (
+              <option key={l._id} value={l._id}>
+                {l.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label>اختيار التاريخ</label>
+          <select
+            value={selectedDateKey}
+            onChange={(e) => setSelectedDateKey(e.target.value)}
+            disabled={lessonId == '-1' || dates.length === 0}
+          >
+            <option value="">-- اختر التاريخ --</option>
+            {dates.map((d) => (
+              <option key={d.dateKey} value={d.dateKey}>
+                {fmtDate(d)}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div style={{ opacity: 0.75 }}>
+          {selectedDate ? `النتائج: ${rows.length}` : ""}
+          {loading ? " — تحميل..." : ""}
+        </div>
+
+        <div>
+          <button onClick={save} disabled={!rows.length || loading}>
+            💾 حفظ التعديلات
+          </button>
+        </div>
+      </div>
+
+      {/* ✅ Editable table */}
+      <table className={`table ${styles.subTable}`} style={{ marginTop: 12 }}>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>الطالب</th>
+            <th>الحالة</th>
+            <th>ملاحظات</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {rows.length ? (
+            rows.map((r, idx) => (
+              <tr key={r._id || idx}>
+                <td data-label="#">{idx + 1}</td>
+
+                <td data-label="الطالب">
+                  {r.student
+                    ? `${r.student.firstname || ""} ${r.student.lastname || ""}`.trim()
+                    : "—"}
+                </td>
+
+                <td data-label="الحالة">
+                  <select
+                    value={r.status}
+                    onChange={(e) => updateRow(r.student?._id, { status: e.target.value })}
+                  >
+                    {STATUS.map((s) => (
+                      <option key={s.value} value={s.value}>
+                        {s.label}
+                      </option>
+                    ))}
+                  </select>
+                </td>
+
+                <td data-label="ملاحظات">
+                  <textarea
+                    value={r.notes}
+                    onChange={(e) => updateRow(r.student?._id, { notes: e.target.value })}
+                    placeholder="ملاحظة..."
+                    style={{ width: "70%" }}
+                  />
+                </td>
+              </tr>
+            ))
+          ) : (
+            <tr>
+              <td colSpan={4} style={{ textAlign: "center", padding: 16 }}>
+                {lessonId && !selectedDateKey
+                  ? "اختر تاريخ لعرض السجل"
+                  : lessonId && selectedDateKey
+                  ? "لا يوجد بيانات لهذا التاريخ"
+                  : "اختر درس أولاً"}
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
 }

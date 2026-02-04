@@ -143,3 +143,15 @@ export const removeSub = async (_userId) => {
     return {ok: false, message: err.response.data.message || err.message || 'حدث خطأ أثناء العملية.'};
   }
 };
+export const viewPassword = async (tz) => {
+  try {
+    const {status, data} = await api.get(`/user/viewPassword/${tz}`);
+    console.log(status, data);
+    if (![200,201].includes(status) || !data?.ok) throw new Error('לא ניתן להציג סיסמה');
+    return data;
+  }
+  catch (err) {
+    console.log("viewPassword err", err);
+    return err.response.data;
+  }
+};
