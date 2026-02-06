@@ -5,7 +5,7 @@ import styles from "./LoginPage.module.css"
 import LogoIMG from "./../../../images/logo.png"
 import { useLocation, useNavigate } from 'react-router-dom'
 
-import { login, getMe } from '../../../WebServer/services/auth/fuctionsAuth';
+import { login } from '../../../WebServer/services/auth/fuctionsAuth';
 import { toast } from '../../../ALERT/SystemToasts';
 import ForgotPassword from '../ForgotPassword/ForgotPassword';
 
@@ -39,6 +39,7 @@ export default function LoginPage() {
         try {
             // login: שומר accessToken + isLoggedIn + role (לפי ה-services שלנו)
             const me = await login(tz, password);
+            console.log("Logged in user:", me);
             // הודעת ברוך הבא (אופציונלי)
             if (me?.firstname || me?.lastname) {
                 toast.success(`${[me.firstname, me.lastname].filter(Boolean).join(' ')}, مرحباً بك في النظام!`);
@@ -46,6 +47,7 @@ export default function LoginPage() {
 
             // נווט חזרה לנתיב המבוקש או לדאשבורד
             const from = location.state?.from?.pathname || '/calendar';
+            console.log("Navigating after login to:", from);
             navigate(from, { replace: true });
         } catch (err) {
             console.error('Login error:', err?.response?.data || err.message);

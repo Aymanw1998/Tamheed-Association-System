@@ -45,6 +45,8 @@ function sanitize(u) {
   delete o.password;
   delete o.refreshHash;
   delete o.resetOtpHash;
+
+  console.log("Sanitized user object:", o);
   return o;
 }
 
@@ -525,7 +527,9 @@ const deleteU = async (req, res) => {
 /* ================= getme ================= */
 const getme = async (req, res) => {
   try {
+    console.log("getme req.user:", req.user);
     const user = await User.findById(req.user.id).lean();
+    console.log("getme user from DB:", user);
     if (!user) return res.status(401).json({ code: "USER_NOT_FOUND" });
     return res.status(200).json({ ok: true, user: sanitize(user) });
   } catch (err) {

@@ -1,0 +1,357 @@
+/* ===== Page Layout ===== */
+.page {
+  padding: 16px;
+  background: linear-gradient(180deg, #f7f8ff 0%, #ffffff 70%);
+  min-height: calc(100vh - 60px);
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.title {
+  font-size: 22px;
+  font-weight: 800;
+  margin: 0;
+}
+
+/* ===== Tabs ===== */
+.tabs {
+  display: flex;
+  gap: 8px;
+}
+
+.tabBtn {
+  padding: 8px 14px;
+  border-radius: 14px;
+  border: 1px solid #ddd;
+  background: #fff;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.tabActive {
+  background: #1b1b1f;
+  color: #fff;
+  border-color: #1b1b1f;
+}
+
+/* ===== Body Grid ===== */
+.body {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 900px) {
+  .body {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ===== Left Panel ===== */
+.left {
+  background: #fff;
+  border-radius: 18px;
+  border: 1px solid #ececf3;
+  overflow: hidden;
+}
+
+.leftHeader {
+  padding: 14px;
+  font-weight: 700;
+  border-bottom: 1px solid #eee;
+}
+
+.lessonList {
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.lessonCard {
+  background: #fafafa;
+  border: 1px solid #eee;
+  border-radius: 14px;
+  padding: 10px;
+  cursor: pointer;
+  text-align: right;
+}
+
+.lessonCard:hover {
+  background: #f1f2ff;
+}
+
+.lessonActive {
+  background: #fff;
+  border-color: #1b1b1f;
+}
+
+.lessonName {
+  font-weight: 700;
+}
+
+.lessonMeta {
+  font-size: 12px;
+  opacity: 0.7;
+  margin-top: 4px;
+}
+
+/* ===== Right Panel ===== */
+.right {
+  background: #fff;
+  border-radius: 18px;
+  border: 1px solid #ececf3;
+  padding: 14px;
+}
+
+.placeholder {
+  opacity: 0.6;
+  padding: 20px;
+  text-align: center;
+}
+
+/* ===== Attendance Sheet ===== */
+.sheetHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.sheetTitle {
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.sheetSub {
+  font-size: 13px;
+  opacity: 0.7;
+}
+
+/* ===== Quick Buttons ===== */
+.quickBtns {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.quickBtn {
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid #ddd;
+  background: #fff;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.quickBtn:hover {
+  background: #f3f3ff;
+}
+
+/* ===== Table ===== */
+.tableWrap {
+  overflow-x: auto;
+  margin-top: 12px;
+  border-radius: 14px;
+  border: 1px solid #eee;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 640px;
+}
+
+.table th {
+  background: #fafafa;
+  padding: 10px;
+  text-align: right;
+  font-size: 13px;
+}
+
+.table td {
+  padding: 10px;
+  border-top: 1px solid #eee;
+}
+
+/* ===== Student Cell ===== */
+.studentCell {
+  width: 240px;
+}
+
+.studentName {
+  font-weight: 700;
+}
+
+.studentTz {
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+/* ===== Status Pills ===== */
+.pills {
+  display: flex;
+  gap: 6px;
+}
+
+.pill {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid #ddd;
+  background: #fff;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.pillActive {
+  background: #1b1b1f;
+  color: #fff;
+  border-color: #1b1b1f;
+}
+
+/* ===== Notes ===== */
+.noteInput {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid #ddd;
+}
+
+/* ===== Footer ===== */
+.footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.counts {
+  font-size: 13px;
+  opacity: 0.75;
+}
+
+.saveBtn {
+  background: #1b1b1f;
+  color: #fff;
+  border: none;
+  border-radius: 14px;
+  padding: 10px 18px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.saveBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ===== Empty / Small ===== */
+.empty {
+  text-align: center;
+  padding: 14px;
+  opacity: 0.6;
+}
+
+.small {
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+/* ✅ Force full width even inside max-width containers */
+.page {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* في بعض اللLayouts بيكون في margin auto */
+@media (max-width: 900px) {
+  .page {
+    padding: 12px;
+    margin: 0 !important;
+  }
+
+  /* منع أي overflow أفقي */
+  .body,
+  .left,
+  .right {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  /* table تسبب تضييق بالموبايل */
+  .table {
+    min-width: 0 !important;
+  }
+
+  .tableWrap {
+    border: 0;
+  }
+}
+
+/* ===== Responsive switch ===== */
+.desktopOnly {
+  display: block;
+}
+
+.mobileOnly {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .desktopOnly {
+    display: none;
+  }
+  .mobileOnly {
+    display: block;
+  }
+}
+
+/* ===== Mobile vertical table ===== */
+.mobileRow {
+  border: 1px solid #eee;
+  border-radius: 16px;
+  padding: 12px;
+  margin-bottom: 12px;
+  background: #fff;
+}
+
+.mobileHeader {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.mobileIndex {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #1b1b1f;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mobileSection {
+  margin-top: 10px;
+}
+
+.mobileSection label {
+  display: block;
+  font-size: 12px;
+  opacity: 0.6;
+  margin-bottom: 4px;
+}

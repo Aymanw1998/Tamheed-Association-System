@@ -42,8 +42,9 @@ const ViewAllStudent = () => {
       if(!res.ok) throw new Error(res.message)
       const data = res.students;
       if (data && data.length > 0) {
-        console.log("getAllStudent", data)
-        const filtered = localStorage.getItem("roles").includes("مرشد") ? data.filter(s => s.main_teacher == localStorage.getItem("user_id")) : data;
+        console.log("getAllStudent", data, localStorage.getItem("roles").includes("مرشد"))
+        const filtered = localStorage.getItem("roles").includes("ادارة") ? data :  data.filter(s => s.main_teacher == localStorage.getItem("user_id"));
+        console.log("getAllStudent", filtered)
         setStudents(filtered);
       } else {
         setStudents([]);

@@ -48,7 +48,7 @@ export async function login(tz, password) {
 
 // רענון חד-פעמי ידני (בד"כ לא צריך לקרוא ידנית; ה־interceptor/‏PublicOnly עושה את זה)
 export async function refresh() {
-  const { data, status } = await axios.post(`${API_BASE_URL}/auth/refresh`, null, { withCredentials: true });
+  const { data, status } = await api.post(`/auth/refresh`, null, { withCredentials: true });
   if (![200,201].includes(status) || !data?.ok || !data?.accessToken) throw new Error('الدخول منتهي الصلاحية، الرجاء تسجيل الدخول مرة أخرى.');
   setAuthTokens(data.accessToken, data.expirationTime);
   scheduleAccessRefresh(data.accessToken);
@@ -58,13 +58,10 @@ export async function refresh() {
 // זהות עצמי (משתמש מחובר)
 export async function getMe() {
   try{
-    console.log("getMe baseURL:", api?.defaults?.baseURL);
-    console.log("getMe auth:", api?.defaults?.headers?.common?.Authorization);
-    console.log("API_BASE_URL:", API_BASE_URL);
     const token = localStorage.getItem("accessToken");
     let res = null;
-    res = await axios.get(`${API_BASE_URL}/auth/me`, {
-      headers: { Authorization: `Bearer ${token}` },
+    res = await api.post(`/auth/me`, {
+      headers: { Authorization: `Bearer ${token}`},
       withCredentials: true,
     });
     console.log("res", res);

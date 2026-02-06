@@ -21,9 +21,7 @@ const schema = new mongoose.Schema({
         ref: 'Students',
     }],
     room: {type: String, required: true},
-    createdAt: {type: Date, default: Date.now},
-    updatedAt: {type: Date},
-},{timeseries: false});
+},{timeseries: true});
 
 // Create the Meeting model
 const Lesson = mongoose.model('Lessons', schema);

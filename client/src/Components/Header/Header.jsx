@@ -141,7 +141,7 @@ export default function Header() {
           <nav style={menuOpen && !isMobile ? {} : {width: "100%"} }className={`${styles.navbarV} ${isMobile ? styles.mobileNav : ''}`} data-open={menuOpen}>
             {user?.roles?.includes("ادارة") && <NotificationsBell/>}
             <a href="/calendar" onClick={(e) => onNavClick(e, "/calendar")}>حضور وغياب</a>
-            <a href="/students" onClick={(e) => onNavClick(e, "/students")}>قائمة الطلاب</a>
+            {['ادارة', 'مرشد'].some(s => localStorage.getItem("roles").includes(s)) && <a href="/students" onClick={(e) => onNavClick(e, "/students")}>قائمة الطلاب</a>}
             {user?.roles?.includes("ادارة") && <a href="/users" onClick={(e) => onNavClick(e, "/users")}>قائمة المستخدمين</a>}
             <a href="/lessons" onClick={(e) => onNavClick(e, "/lessons")}>قائمة الدروس</a>
             <a href="/reports" onClick={(e) => onNavClick(e, "/reports")}>قائمة التقارير</a>

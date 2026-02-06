@@ -130,3 +130,13 @@ export async function deleteLessonsPerMonth(month, year) {
         return { status: err.status, ok:false, message: err.message || 'bad response' };
     }
 }
+
+export const getLessonsToday = async () => {
+    try {
+        const { data, status } = await api.get("/lesson/today");
+        if (![200, 201].includes(status) || !data.ok) throw new Error(data?.message || "failed");
+        return { ok: true, lessons: data.lessons || [] };
+    } catch (err) {
+        return { ok: false, message: err?.response?.data?.message || err.message };
+    }
+};

@@ -88,21 +88,6 @@ app.use('/api/report', require('./Entities/Report/Report.route'));
 app.use('/api/doc', require('./Entities/Doc/Doc.route'));
 app.use('/api/onlyoffice', require('./Entities/OnlyOffice/OnlyOffice.route'));
 // **********************************AUTO_PROCCESS ***************************
-const cron = require("node-cron");
-const { runDailyJobs } = require("./utils/daily");
-
-// ירוץ כל יום בחצות לפי שעון ישראל
-cron.schedule("0 23 30 * *", async () => {
-  try {
-    console.time("[daily]");
-    await runDailyJobs();
-  } catch (err) {
-    console.error("[daily] error:", err);
-  } finally {
-    console.timeEnd("[daily]");
-  }
-}, { timezone: "Asia/Jerusalem" });
-
 // בזמן פיתוח אפשר לבדוק כל דקה:
 // cron.schedule("* * * * *", runDailyJobs, { timezone: "Asia/Jerusalem" });
 // **********************************END - AUTO_PROCCESS ***************************
@@ -192,6 +177,7 @@ app.use(errorHandler);
 
 const { eventsHandler, broadcast } = require('./utils/sse');
 const { errorPublisher } = require('./utils/errorPublisher');
+
 
 // בריאות
 app.get('/api/health', (req, res) => res.json({ ok: true, ts: Date.now() }));

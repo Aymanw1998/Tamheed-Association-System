@@ -28,8 +28,8 @@ import ViewAllReport from '../Report/ViewAllReport';
 import EditReport from '../Report/EditReport';
 import Profile from '../Profile/Profile';
 import GoogleDrive from '../GoogleDrive/GoogleDrive';
-import ViewAllAttendance from '../Attendance/ViewAllAttendance';
 import NotificationsPage from '../Notification/NotificationsPage';
+import AttendancePage from '../Attendance/AttendancePage';
 
 function ProtectedLayout() {
   // Header רק בדפים מוגנים
@@ -68,7 +68,7 @@ export default function CRoutes() {
           <Route path='/dashboard' element={<NotificationsPage/>}/>
           </Route>
           <Route>
-            <Route path="/calendar" element={<ViewAllAttendance />} />
+            <Route path="/calendar" element={<AttendancePage />} />
             {/* <Route path="/calendar/:id" element={<Calendar />} /> */}
 
             <Route path="/students" element={<ViewAllStudent />} />

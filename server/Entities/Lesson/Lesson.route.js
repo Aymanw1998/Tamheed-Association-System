@@ -13,6 +13,7 @@ const {
   removeFromList,
   copyMonth,
   deletePerMonth,
+  getLessonsByToDay,
 } = require('./Lesson.controller');
 
 // alias כדי לשמור על protect/protectRole
@@ -24,6 +25,7 @@ router.use(protect);
 // פתוח לכל משתמש מחובר
 router.get('/', getAll);
 router.get('/query', getLessonsByQuery)
+router.get('/today', getLessonsByToDay);
 router.get('/:id', getOne);
 // פעולות שקשורות לרשימות/שיבוצים (מחוברים בלבד)
 router.post('/addToList/:id', addToList);

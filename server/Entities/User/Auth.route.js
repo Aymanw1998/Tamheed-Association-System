@@ -26,7 +26,7 @@ router.post('/logout', requireAuth, logout);
 
 // ---------- Protected ----------
 // יציאה – מנקה הקוקי ומבטל refresh במסד
-router.get('/me', requireAuth, getme);
+router.post('/me', requireAuth, getme);
 
 // דוגמה להגנת תפקיד
 router.get('/admin/ping', requireAuth, requireRole('ادارة'), (req, res) => res.json({ ok: true }));

@@ -58,11 +58,12 @@ export default function RequireAuth() {
         }
 
         // 4) בדיקת משתמש
-        const me = await getMe().catch(() => null);
-
+        const me = await getMe();
+        console.log("RequireAuth - fetched user (me):", me);
         if (!alive) return;
 
         if (!me) {
+          console.warn("RequireAuth - no user data, logging out");
           localStorage.removeItem('accessToken');
           navigate('/', { replace: true, state: { from: location } });
           return;

@@ -14,6 +14,7 @@ export function setAuthTokens(at, expirationTime /* אופציונלי */) {
   if (at) {
     localStorage.setItem('accessToken', at);
   } else {
+    console.warn("Clearing access token");
     localStorage.removeItem('accessToken');
   }
 

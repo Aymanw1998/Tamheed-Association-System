@@ -499,7 +499,26 @@ const deletePerMonth = async (req, res) => {
     return res.status(500).json({ ok: false, message: err.message });
   }
 };
+const getDow1to7 = (d = new Date()) => {
+  const js = d.getDay();
+  return js === 0 ? 1 : js + 1;
+};
 
+const getLessonsByToDay = async (req, res) => {
+  try {
+    const dow = getDow1to7(new Date());
+
+    const lessons = await Lesson.find({ "date.day": dow })
+      .populate("teacher", "firstname lastname name")
+      .select("name date room teacher helper list_students")
+      .lean();
+
+    return res.status(200).json({ ok: true, lessons });
+  } catch (err) {
+    console.error("lessons/today error:", err);
+    return res.status(500).json({ ok: false, message: "server error" });
+  }
+}
 module.exports = {
   getAll,
   getOne,
@@ -511,4 +530,5 @@ module.exports = {
   copyMonth,
   deletePerMonth,
   getLessonsByQuery,
+  getLessonsByToDay,
 };
