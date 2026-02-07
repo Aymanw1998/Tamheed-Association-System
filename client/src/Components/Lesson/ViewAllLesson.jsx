@@ -356,7 +356,7 @@ function DayRoomsTimeline({
             const height = Math.max(10, getEnd(l) - getStart(l));
 
             return (
-              <div
+              <button
                 key={l._id}
                 className={styles.lessonBlock}
                 style={{ top, height }}
@@ -390,7 +390,7 @@ function DayRoomsTimeline({
                 <div className={styles.lessonMeta}>
                   {toHHMM(getStart(l))}–{toHHMM(getEnd(l))}
                 </div>
-              </div>
+              </button>
             );
           })}
         </div>
