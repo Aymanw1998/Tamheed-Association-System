@@ -361,9 +361,9 @@ function DayRoomsTimeline({
                 className={styles.lessonBlock}
                 style={{ top, height }}
                 draggable={canEdit && localStorage.getItem("roles")?.includes("ادارة")}
-                onClick={(ev) => {
+                onClick={() => {
                   if (!localStorage.getItem("roles")?.includes("ادارة")) return;
-                  ev.stopPropagation();
+                  alert($`go to edit ${l._id}`);
                   navigate(`/lessons/${l._id}`);
                 }}
                 onDragStart={(e) => e.dataTransfer.setData("lesson-id", l._id)}
