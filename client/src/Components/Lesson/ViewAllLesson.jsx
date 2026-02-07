@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import styles from "./ViewAllLesson.module.css";
 import { getUserById, getAll as getAllUsers } from "../../WebServer/services/user/functionsUser";
 import { getAllLesson, updateLesson } from "../../WebServer/services/lesson/functionsLesson";
@@ -363,7 +363,6 @@ function DayRoomsTimeline({
                 draggable={canEdit && localStorage.getItem("roles")?.includes("ادارة")}
                 onClick={() => {
                   if (!localStorage.getItem("roles")?.includes("ادارة")) return;
-                  alert($`go to edit ${l._id}`);
                   navigate(`/lessons/${l._id}`);
                 }}
                 onDragStart={(e) => e.dataTransfer.setData("lesson-id", l._id)}
@@ -405,13 +404,31 @@ function DayRoomsTimeline({
 export default function ViewAllLesson() {
   const navigate = useNavigate();
 
-  const topAnchorRef = useRef(null);
   const [showFab, setShowFab] = useState(false);
-  useEffect(() => {
-    const io = new IntersectionObserver(([entry]) => setShowFab(!entry.isIntersecting), { root: null });
-    if (topAnchorRef.current) io.observe(topAnchorRef.current);
-    return () => io.disconnect();
+  const [addBtnEl, setAddBtnEl] = useState(null);
+  const addBtnRef = useCallback((node) => {
+    setAddBtnEl(node); // node = DOM element of the main button (or null)
   }, []);
+
+  useEffect(() => {
+    // if button not rendered (no admin) -> hide FAB
+    if (!addBtnEl) {
+      setShowFab(false);
+      return;
+    }
+
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        // if main button is NOT in viewport -> show FAB
+        setShowFab(!entry.isIntersecting);
+      },
+      { root: null, threshold: 0.01 }
+    );
+
+    io.observe(addBtnEl);
+    return () => io.disconnect();
+  }, [addBtnEl]);
+
 
   // Month picker
   const [monthOffset, setMonthOffset] = useState(Number(localStorage.getItem("monthOffset")) || 0);
@@ -540,21 +557,29 @@ export default function ViewAllLesson() {
     });
   }, [lessons, filterDay, filterRoom, filterTeacher, showMyLessons, query]);
 
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  useEffect(() => {
+    const handleResize = () => {
+      const m = window.innerWidth <= 768;
+      setIsMobile(m);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
   return (
     <div>
-      <span ref={topAnchorRef} className={styles.fabAnchor} aria-hidden="true" />
       <h1 className={styles.title}>برنامج الدروس</h1>
 
       {/* ===== Filters + Controls ===== */}
       <div className={styles.controlsBar}>
         <div className={styles.controlsCenter}>
-          <div className={styles.filterGroup}>
+          {!isMobile && <div className={styles.filterGroup}>
             <label>نوع الجدول</label>
             <select value={viewMode} onChange={(e) => setViewMode(e.target.value)}>
               <option value="week">اسبوعي (ايام)</option>
               <option value="dayRooms">يومي (غراف)</option>
             </select>
-          </div>
+          </div>}
 
           {viewMode === "dayRooms" && (
             <div className={styles.filterGroup}>
@@ -567,7 +592,7 @@ export default function ViewAllLesson() {
             </div>
           )}
 
-          <div className={styles.filterGroup}>
+          {viewMode !== "dayRooms" && <div className={styles.filterGroup}>
             <label>يوم مختار</label>
             <select value={filterDay} onChange={(e)=>setFilterDay(Number(e.target.value))}>
               <option value={0}>كل</option>
@@ -575,14 +600,14 @@ export default function ViewAllLesson() {
                 <option key={i+1} value={i+1}>{d}</option>
               ))}
             </select>
-          </div>
+          </div>}
 
           <div className={styles.filterGroup}>
             <label>غرفة</label>
             <select value={filterRoom} onChange={(e)=>setFilterRoom(e.target.value)}>
               <option value="all">كل</option>
               {roomOptions.map(r=>(
-                <option key={r} value={r}>{Number(r) === 0 ? "بدون غرفة" : `غرفة ${r}`}</option>
+                <option key={r} value={r}>{Number(r) === -1 ? "بدون غرفة" : `غرفة ${r}`}</option>
               ))}
             </select>
           </div>
@@ -596,11 +621,29 @@ export default function ViewAllLesson() {
               ))}
             </select>
           </div>
-          <div className={styles.filterGroup}>
-            <label>بحث</label>
-            <input value={query} onChange={(e)=>setQuery(e.target.value)} placeholder="שם שיעור..." />
-          </div>
-
+          <input
+            type="text"
+            placeholder="بحث..."
+            style={{
+              width: "80%", padding: "10px", margin: "10px", marginBottom: "20px",fontSize: "14px", 
+              border: "1px solid #ccc",borderRadius: "8px"
+            }}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          {localStorage.getItem("roles").includes("ادارة") && 
+            <button 
+            ref={addBtnRef}
+            id="page-add-lesson"
+            style={{ backgroundColor: 'green', padding: '0.5rem 1rem', borderRadius: '0.5rem', color: 'white' }}
+            onClick={()=>{
+              // אם dayRooms -> ניצור לפי selectedDay. אחרת לפי filterDay אם נבחר, אחרת יום 1.
+              const day = viewMode === "dayRooms" ? selectedDay : (filterDay || 1);
+              navigate(`/lessons/new?day=${day}&month=${currentMonthInfo.month}&year=${currentMonthInfo.year}`);
+            }}
+          >
+            ➕ إضافة درس جديد
+          </button>}
         </div>
       </div>
 
@@ -644,7 +687,10 @@ export default function ViewAllLesson() {
               {(filteredLessons || [])
                 .sort((a,b) => (a.date.day - b.date.day) || (getStart(a) - getStart(b)))
                 .map(l => (
-                  <div key={l._id} className={styles.lessonCard}>
+                  <div key={l._id} className={styles.lessonCard} onClick={()=>{
+                  if (!localStorage.getItem("roles")?.includes("ادارة")) return;
+                  navigate(`/lessons/${l._id}`);
+                  }}>
                     <div><b>{l.name}</b></div>
                     <div>{dayNames[(Number(l?.date?.day) || 1) - 1]} · {toHHMM(getStart(l))}–{toHHMM(getEnd(l))}</div>
                     <div>{Number(l?.room ?? 0) === 0 ? "بدون غرفة" : `غرفة ${l.room}`}</div>
@@ -679,7 +725,7 @@ export default function ViewAllLesson() {
       <Fabtn
         anchor="#page-add-lesson"
         visible={showFab && localStorage.getItem("roles")?.includes("ادارة")}
-        label="הוספת שיעור"
+        label="إضافة درس"
         onClick={() => {
           // אם dayRooms -> ניצור לפי selectedDay. אחרת לפי filterDay אם נבחר, אחרת יום 1.
           const day = viewMode === "dayRooms" ? selectedDay : (filterDay || 1);

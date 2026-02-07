@@ -363,7 +363,7 @@ const EditUser = () => {
 
   return (
     <div className={styles.formContainer}>
-      <h2>{isEdit ? "تحديث بيانات المستخدم" : "اضافة مستخدم جديد"}</h2>
+      <center><h1>{isEdit ? "تحديث بيانات المستخدم" : "اضافة مستخدم جديد"}</h1></center>
 
       <label>رقم الهوية:<span style={{color: "red"}}>*</span></label>
       <input name="tz" value={form.tz} onChange={onField} readOnly={!isNew} />
@@ -515,10 +515,11 @@ const EditUser = () => {
 
       <div className={styles.buttonRow} style={{ gap: 8, flexWrap: "wrap" }}>
         <button type="submit" onClick={handleSubmit} style={{width:"100%"}}>
-          {saving ? "حفظ..." : (isEdit ? "تعديل البيانات" : "اضافة المستخدم")}
+          {saving ? "حفظ..." : (isEdit ? "تعديل بيانات المستخدم" : "اضافة المستخدم")}
         </button>
         <br/>
         {isEdit &&  (
+          <center>
           <div style={{margin: "0 auto"}}>
             <button type="button" style={{ background: "#7f1d1d", margin: "10px" }} onClick={handleHardDelete}>
               {"حذف الحساب"}
@@ -527,6 +528,7 @@ const EditUser = () => {
               {"غلق الحساب"}
             </button>
           </div>
+          </center>
         )}
         <br/>
         {(<button type="button" style={{ background: "#6b7280", width: "100%" }} onClick={() => navigate(-1)}>

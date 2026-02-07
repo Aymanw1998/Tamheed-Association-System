@@ -259,7 +259,7 @@ const EditLesson = () => {
     <div className={styles.editLessonContainer}>
       {
       localStorage.getItem('roles').includes('ادارة') ? (
-        <h2>{id === 'new' ? '➕ اضافة كرس' : '✏️ تعديل كرس'}</h2>
+      <center><h1>{id != "new" ? "تحديث بيانات الدرس" : "اضافة درس جديد"}</h1></center>
       ) : (
         <h2>معلومات الكرس</h2>
       )}
@@ -408,16 +408,16 @@ const EditLesson = () => {
             </tbody>
           </table>
 
-          <div className={styles.buttonRow}>
-            <button type="button" onClick={handleSave}>
+          <div className={styles.buttonRow} style={{ gap: 8, flexWrap: "wrap" }}>
+            <button type="button" onClick={handleSave} style={{width:"100%"}} >
               {id !== 'new' ? 'تعديل البيانات' : 'حفظ البيانات'}
             </button>
             {id !== 'new' && (
-              <button type="button" style={{ background: 'red' }} onClick={handleDelete}>
+              <button type="button" style={{ background: 'red', width:"100%" }} onClick={handleDelete}>
               حذف
               </button>
             )}
-            <button type="button" style={{ background: "#6b7280" }} onClick={() => navigate(-1)}>الرجوع للقائمة</button>
+            <button type="button" style={{ background: "#6b7280", width: "100%" }} onClick={() => navigate(-1)}>الرجوع للقائمة</button>
           </div>
         </>
       )}

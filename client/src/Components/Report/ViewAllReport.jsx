@@ -48,20 +48,31 @@ const dayName = (value) => {
   return ["الاحد", "الاثنين", "الثلاثاء","الاربعاء", "الخميس","الجمعة","السبت"][d.getDay()];
 }
 const ViewAllReport = () => {
-  const topAnchorRef = useRef(null);
-  const [showFab, setShowFab] = useState(false);
-
-    // אם גוללים והעוגן לא נראה – נראה FAB
-    useEffect(() => {
-      // אם הגלילה נעשית בתוך קונטיינר פנימי עם overflow:auto,
-      // אפשר להחליף ל-root: scrollEl
-      const io = new IntersectionObserver(
-        ([entry]) => setShowFab(!entry.isIntersecting),
-        { root: null } // viewport
-      );
-      if (topAnchorRef.current) io.observe(topAnchorRef.current);
-      return () => io.disconnect();
+    
+    const [showFab, setShowFab] = useState(false);
+    const [addBtnEl, setAddBtnEl] = useState(null);
+    const addBtnRef = useCallback((node) => {
+      setAddBtnEl(node); // node = DOM element of the main button (or null)
     }, []);
+  
+    useEffect(() => {
+      // if button not rendered (no admin) -> hide FAB
+      if (!addBtnEl) {
+        setShowFab(false);
+        return;
+      }
+  
+      const io = new IntersectionObserver(
+        ([entry]) => {
+          // if main button is NOT in viewport -> show FAB
+          setShowFab(!entry.isIntersecting);
+        },
+        { root: null, threshold: 0.01 }
+      );
+  
+      io.observe(addBtnEl);
+      return () => io.disconnect();
+    }, [addBtnEl]);
   
   const navigate = useNavigate();
   const [reports, setReports] = useState([]);
@@ -252,11 +263,13 @@ const closeInfo = () => setInfoModal({ open: false, title: "", info: "" });
             onChange={(e) => setSearchTerm(e.target.value)}
           />
 
-          <button id="page-add-subs"
+          <button 
+            ref={addBtnRef}
+            id="page-add-report"
             style={{ backgroundColor: 'green', padding: '0.5rem 1rem', borderRadius: '0.5rem', color: 'white' }}
             onClick={handleAddReport}
           >
-            ➕ أضافة تقرير جديد
+            ➕ إضافة تقرير جديد
           </button>
 
           <button
@@ -407,7 +420,7 @@ const closeInfo = () => setInfoModal({ open: false, title: "", info: "" });
       )}
 
       <Fabtn
-        anchor="#page-add-subs"                     // או: showFab && canEdit אם תרצה רק כשיש הרשאת עריכה
+        anchor="#page-add-report"                     // או: showFab && canEdit אם תרצה רק כשיש הרשאת עריכה
         visible={showFab}
         label="اضافة تقرير جديد"
         onClick={() => {

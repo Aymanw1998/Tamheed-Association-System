@@ -399,7 +399,7 @@ const EditReport = ({parent = false}) => {
 
   return (
     <div className={styles.formContainer}>
-      <h2>{isEdit ? "تحديث بيانات التقرير" : "اضافة تقرير جديد"}</h2>
+      <center><h1>{isEdit ? "تحديث بيانات التقرير" : "اضافة تقرير جديد"}</h1></center>
 
       <label>عنوان التقرير:</label>
       <input
@@ -459,23 +459,23 @@ const EditReport = ({parent = false}) => {
       />
       <label style={{color: "red"}}>{error.attendance}</label>
       <br /></>}
-      <center className={styles.buttonRow} style={{ gap: 8, flexWrap: "wrap" }}>
-        <button type="submit" onClick={handleSubmit}>
+      <div className={styles.buttonRow} style={{ gap: 8, flexWrap: "wrap" }}>
+        <button type="submit" onClick={handleSubmit} style={{width:"100%"}}>
           {saving ? "حفظ..." : parent ? "ارسال التفاصيل" : (isEdit ? "تعديل البيانات" : "اضافة التقرير")}
         </button>
 
         {isEdit && (
           <>
-            <button type="button" style={{ background: "#7f1d1d" }} onClick={handleHardDelete}>
+            <button type="button" style={{ background: "#7f1d1d", width:"100%" }} onClick={handleHardDelete}>
               حذف
             </button>
           </>
         )}
 
-        {!parent && (<button type="button" style={{ background: "#6b7280" }} onClick={() => navigate(-1)}>
+        {!parent && (<button type="button" style={{ background: "#6b7280", width:"100%"}} onClick={() => navigate(-1)}>
           الرجوع للقائمة
         </button>)}
-      </center>
+      </div>
     </div>
   );
 };

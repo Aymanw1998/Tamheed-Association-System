@@ -11,20 +11,32 @@ import { ask, setGlobalAsk } from "../Provides/confirmBus.js";
 import { exportStudentPdf } from "../ExportPDF/ExportPDF.jsx";
 
 const ViewAllStudent = () => {
-  const topAnchorRef = useRef(null);
   const [showFab, setShowFab] = useState(false);
-  
-    // אם גוללים והעוגן לא נראה – נראה FAB
-    useEffect(() => {
-      // אם הגלילה נעשית בתוך קונטיינר פנימי עם overflow:auto,
-      // אפשר להחליף ל-root: scrollEl
-      const io = new IntersectionObserver(
-        ([entry]) => setShowFab(!entry.isIntersecting),
-        { root: null } // viewport
-      );
-      if (topAnchorRef.current) io.observe(topAnchorRef.current);
-      return () => io.disconnect();
+    const [addBtnEl, setAddBtnEl] = useState(null);
+    const addBtnRef = useCallback((node) => {
+      setAddBtnEl(node); // node = DOM element of the main button (or null)
     }, []);
+  
+    useEffect(() => {
+      // if button not rendered (no admin) -> hide FAB
+      if (!addBtnEl) {
+        setShowFab(false);
+        return;
+      }
+  
+      const io = new IntersectionObserver(
+        ([entry]) => {
+          // if main button is NOT in viewport -> show FAB
+          setShowFab(!entry.isIntersecting);
+        },
+        { root: null, threshold: 0.01 }
+      );
+  
+      io.observe(addBtnEl);
+      return () => io.disconnect();
+    }, [addBtnEl]);
+  
+  
   
   const navigate = useNavigate();
   const [students, setStudents] = useState([]);
@@ -153,11 +165,13 @@ const ViewAllStudent = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
 
-          {localStorage.getItem("roles").includes("ادارة") && <button id="page-add-subs"
+          {localStorage.getItem("roles").includes("ادارة") && <button 
+            ref={addBtnRef}
+            id="page-add-student"
             style={{ backgroundColor: 'green', padding: '0.5rem 1rem', borderRadius: '0.5rem', color: 'white' }}
             onClick={handleAddStudent}
           >
-            ➕ أضافة طالب جديد
+            ➕ إضافة طالب جديد
           </button>
 }
           <button
@@ -227,7 +241,7 @@ const ViewAllStudent = () => {
       )}
 
       <Fabtn
-        anchor="#page-add-subs"                     // או: showFab && canEdit אם תרצה רק כשיש הרשאת עריכה
+        anchor="#page-add-student"                     // או: showFab && canEdit אם תרצה רק כשיש הרשאת עריכה
         visible={showFab && localStorage.getItem("roles").includes("ادارة")}
         label="اضافة طالب جديد"
         onClick={() => {

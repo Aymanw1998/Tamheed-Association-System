@@ -606,19 +606,19 @@ const EditStudent = ({parent = false}) => {
       </div>
 
       <div className={styles.buttonRow} style={{ gap: 8, flexWrap: "wrap" }}>
-        <button type="submit" onClick={handleSubmit}>
+        <button type="submit" onClick={handleSubmit} style={{width:"100%"}}>
           {saving ? "حفظ..." : parent ? "ارسال التفاصيل" : (isEdit ? "تعديل البيانات" : "اضافة الطالب")}
         </button>
 
         {isEdit && !parent && (
-          <>
-            <button type="button" style={{ background: "#7f1d1d" }} onClick={handleHardDelete}>
+          <center>
+            <button type="button" style={{ background: "#7f1d1d", width: "100%" }} onClick={handleHardDelete}>
               حذف
             </button>
-          </>
+          </center>
         )}
 
-        {!parent && (<button type="button" style={{ background: "#6b7280" }} onClick={() => navigate(-1)}>
+        {!parent && (<button type="button" style={{ background: "#6b7280", width: "100%" }} onClick={() => navigate(-1)}>
           الرجوع للقائمة
         </button>)}
       </div>

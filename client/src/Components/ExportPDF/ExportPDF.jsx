@@ -38,6 +38,7 @@ export const exportCardPdf = async ({
   title,
   date,
   ownerLine,
+  photo = null,
   info = [], // [{ key, value }]
   fileNameBase,
 }) => {
@@ -117,7 +118,7 @@ export const exportCardPdf = async ({
       </div>
 
       <h1>${esc(title || "")}</h1>
-
+      <center><img src="${photo}" alt="Trulli" width="150" height="150"/></center>
       <div class="info">
         <table>
           <tbody>
@@ -196,6 +197,7 @@ export const exportUserPdf = async (u) => {
     title: `ملف المستخدم - ${u?.firstname || ""} ${u?.lastname || ""}`.trim(),
     date: new Date(),
     ownerLine: `${u?.firstname ?? ""} ${u?.lastname ?? ""}`.trim(),
+    photo: u?.photo ?? null,
     info,
     fileNameBase: `ملف المستخدم - ${u?.firstname || ""} ${u?.lastname || ""} - ${u?.tz || "noid"}`,
   });
@@ -236,6 +238,7 @@ export const exportStudentPdf = async (s, teacherName = "") => {
     title: `ملف الطالب - ${s?.firstname || ""} ${s?.lastname || ""}`.trim(),
     date: new Date(),
     ownerLine: `${s?.firstname ?? ""} ${s?.lastname ?? ""}`.trim(),
+    photo: s?.photo ?? null,
     info,
     fileNameBase: `ملف الطالب - ${s?.firstname || ""} ${s?.lastname || ""} - ${s?.tz || "noid"}`,
   });
