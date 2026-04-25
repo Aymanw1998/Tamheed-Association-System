@@ -78,7 +78,7 @@ export async function getMe() {
 // התנתקות
 export async function logout() {
   try {
-    await api.post('/auth/logout', null, { withCredentials: true });
+    await api.post('/auth/logout', {}, { withCredentials: true });
   } catch {}
   clearAccessRefresh();
   setAuthTokens(null);

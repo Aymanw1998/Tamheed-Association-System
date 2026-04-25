@@ -29,15 +29,20 @@ const requireAuth = (req, res, next) => {
 }
 
 // בדיקת תפקידים (אפשר להעביר כמה תפקידים)
+const ADMIN_ROLES = new Set(["ادارة", "إدارة", "الادارة", "الإدارة", "Ø§Ø¯Ø§Ø±Ø©"]);
+
 function requireRole(...roles) {
   return (req, res, next) => {
-    console.log("roles", roles);
-    console.log("user", req.user);
-    console.log("roles", req.user.roles);
+    // console.log("roles", roles);
+    // console.log("user", req.user);
+    // console.log("roles", req.user.roles);
     req.user.roles = req.user.roles || [];
     let b = false;
     for (let r of roles) {
-      if (req.user.roles.includes(r)) {
+      if (
+        req.user.roles.includes(r) ||
+        (ADMIN_ROLES.has(r) && req.user.roles.some((role) => ADMIN_ROLES.has(String(role).trim())))
+      ) {
         b = true;
         break;
       }

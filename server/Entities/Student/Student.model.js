@@ -1,15 +1,126 @@
-const mongoose = require('mongoose');
+const api = require("../api");
 
-const bcrypt = require('bcryptjs');
-const { StudentInterface } = require('../Person/Person.interface');
+// Model definition - לא mongoose אלא הגדרה גנרית שנוכל להשתמש בה עם כל DB
+const StudentModelDef = {
+    dbName: "tamheed_db",
 
-const StudentSchema = new mongoose.Schema({...StudentInterface,
-    main_teacher: {type:mongoose.Schema.Types.ObjectId, ref: 'Users', default: null},
-    source: {type: String, enum:['جمعية', 'اهل'], default: 'جمعية'},
-    status: {type: String, enum:['عادي', 'ينتظر'], default: 'عادي'}
-}, {timestamps: true} );
+    collections: {
+        active: "Students",
+    },
 
-StudentSchema.index({ tz: 1 }, { unique: true });
+    fields: {
+        tz: { type: "string", required: true },
+        firstname: { type: "string", required: false, default: "" },
+        lastname: { type: "string", required: false, default: "" },
+        birth_date: { type: "date", required: false, default: null },
+        gender: { type: "string", required: false, default: "ذكر" },
+        phone: { type: "string", required: false, default: "" },
+        email: { type: "string", required: false, default: "" },
+        city: { type: "string", required: false, default: "" },
+        street: { type: "string", required: false, default: "" },
+        photo: { type: "string", required: false, default: "" },
 
-const Student = mongoose.model('Students', StudentSchema);
-module.exports = Student;
+        father_name: { type: "string", required: false, default: "" },
+        mother_name: { type: "string", required: false, default: "" },
+        father_phone: { type: "string", required: false, default: "" },
+        mother_phone: { type: "string", required: false, default: "" },
+        father_work: { type: "string", required: false, default: "" },
+        mother_work: { type: "string", required: false, default: "" },
+        school: { type: "string", required: false, default: "" },
+        layer: { type: "string", required: false, default: "" },
+        health_status: { type: "string", required: false, default: "" },
+        notes: { type: "string", required: false, default: "" },
+
+        main_teacher: { type: "string", required: false, default: null },
+        source: { type: "string", required: false, default: "جمعية" },
+        status: { type: "string", required: false, default: "عادي" },
+
+        createdAt: {
+        type: "date",
+        required: false,
+        default: () => new Date(),
+        },
+        updatedAt: {
+        type: "date",
+        required: false,
+        default: () => new Date(),
+        },
+    },
+};
+
+// Build for getting students
+/**
+ *
+ * @param {*} filter | אופציונלי - פילטר לקריאה, לדוגמה { city: 'الرمة' }
+ * @returns
+ */
+StudentModelDef.get = async function (filter = {}) {
+    return await api.read({
+        dbName: this.dbName,
+        collection: this.collections.active,
+        filter,
+    });
+};
+
+// Build for creating a student
+/**
+ *
+ * @param {*} data | אובייקט עם שדות התלמיד ליצירה
+ * @returns
+ */
+StudentModelDef.create = async function (data) {
+    return await api.create({
+        dbName: this.dbName,
+        collection: this.collections.active,
+        data,
+    });
+};
+
+// Build for updating a student
+/**
+ *
+ * @param {*} filter | אובייקט עם שדות לפילטר, לדוגמה { tz: '123456789' }
+ * @param {*} newData | אובייקט עם שדות לעדכון
+ * @returns
+ */
+StudentModelDef.update = async function (filter, newData) {
+    return await api.update({
+        dbName: this.dbName,
+        collection: this.collections.active,
+        filter,
+        newData,
+    });
+};
+
+// Build for deleting a student
+/**
+ *
+ * @param {*} filter | אובייקט עם שדות לפילטר, לדוגמה { tz: '123456789' }
+ * @returns
+ */
+StudentModelDef.delete = async function (filter) {
+    return await api.delete({
+        dbName: this.dbName,
+        collection: this.collections.active,
+        filter,
+    });
+};
+
+module.exports = { StudentModelDef };
+
+// OLD CODE - DO NOT SUGGEST
+// const mongoose = require('mongoose');
+
+// const bcrypt = require('bcryptjs');
+// const { StudentInterface } = require('../Person/Person.interface');
+
+// const StudentSchema = new mongoose.Schema({...StudentInterface,
+//     main_teacher: {type:mongoose.Schema.Types.ObjectId, ref: 'Users', default: null},
+//     source: {type: String, enum:['جمعية', 'اهل'], default: 'جمعية'},
+//     status: {type: String, enum:['عادي', 'ينتظر'], default: 'عادي'}
+// }, {timestamps: true} );
+
+// StudentSchema.index({ tz: 1 }, { unique: true });
+
+// const Student = mongoose.model('Students', StudentSchema);
+// module.exports = Student;

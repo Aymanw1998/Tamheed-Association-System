@@ -3,6 +3,7 @@ import styles from "./AttendancePage.module.css";
 import { getLessonsToday, getAllLesson as getAllLessons } from "../../WebServer/services/lesson/functionsLesson";
 import { getAttendanceSheet, saveAttendanceSheet, getLessonDates } from "../../WebServer/services/attendance/functionsAttendance";
 import { toast } from "../../ALERT/SystemToasts";
+import { getStoredUserId, isStoredAdmin } from "../../utils/session";
 
 
 const pad2 = (n) => String(n).padStart(2, "0");
@@ -39,6 +40,8 @@ const StatusPill = ({ value, onChange }) => {
 };
 
 export default function AttendancePage() {
+    const isAdmin = isStoredAdmin();
+    const userId = getStoredUserId();
     const [tab, setTab] = useState("today"); // today | history
     useEffect(() => {setSearchDate("");setSearchLesson("")}, [tab]);
     // left lists

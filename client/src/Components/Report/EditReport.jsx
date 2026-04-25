@@ -6,6 +6,7 @@ import { getAll } from "../../WebServer/services/user/functionsUser.jsx";
 import styles from "./Report.module.css";
 import { toast } from "../../ALERT/SystemToasts.jsx";
 import {validate as validateINV, submit as submitFromParent} from "../../WebServer/services/inviteToken/functionInviteToken.jsx";
+import { isStoredAdmin } from "../../utils/session";
 
 const MultiTagSelect = ({
   options = [],
@@ -122,6 +123,7 @@ const MultiTagSelect = ({
 
 
 const EditReport = ({parent = false}) => {
+  const isAdmin = isStoredAdmin();
   const params = useParams();              // "new" או _id
   const navigate = useNavigate();
 

@@ -10,8 +10,11 @@ import { createLink } from "../../WebServer/services/inviteToken/functionInviteT
 import { ask, setGlobalAsk } from "../Provides/confirmBus.js";
 import UserStatusFilter from "./UserStatusFilter.jsx";
 import { exportUserPdf } from "../ExportPDF/ExportPDF.jsx";
+import { getStoredUserId, isStoredAdmin } from "../../utils/session";
 
 const ViewAllUser = () => {
+  const isAdmin = isStoredAdmin();
+  const userId = getStoredUserId();
   const [showFab, setShowFab] = useState(false);
     const [addBtnEl, setAddBtnEl] = useState(null);
     const addBtnRef = useCallback((node) => {
@@ -56,7 +59,7 @@ const ViewAllUser = () => {
       const data = res.users;
       if (data && data.length > 0) {
         console.log("getAllUser", data)
-        const filtered = data.filter(u=> u._id != localStorage.getItem("user_id"));
+        const filtered = data.filter((user) => String(user?._id ?? "") !== String(userId));
         setUsers(filtered);
       } else {
         setUsers([]);
@@ -83,7 +86,7 @@ const ViewAllUser = () => {
         )
       : users;
     console.log(filtered0, status);
-    const filtered = filtered0.filter(s=> s.room == status)
+    const filtered = filtered0.filter((user) => String(user?.room ?? "active") == status)
     const dirMul = sortDir === "asc" ? 1 : -1;
 
     return [...filtered].sort((a, b) => {

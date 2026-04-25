@@ -17,33 +17,22 @@ import EditStudent from '../Student/EditStudent';
 import ViewAllUser from '../User/ViewAllUser';
 import EditUser from '../User/EditUser';
 
-import { Calendar } from '../Calendar/Calendar';
-
 import ViewAllLesson from '../Lesson/ViewAllLesson';
 import EditLesson from '../Lesson/EditLesson';
 
-import ReportWordPage from '../Editor/OnlyOffice/ReportWordPage';
 import { setAuthTokens } from '../../WebServer/services/api';
 import ViewAllReport from '../Report/ViewAllReport';
 import EditReport from '../Report/EditReport';
 import Profile from '../Profile/Profile';
-import GoogleDrive from '../GoogleDrive/GoogleDrive';
-import NotificationsPage from '../Notification/NotificationsPage';
+
 import AttendancePage from '../Attendance/AttendancePage';
+import FilesPage from '../Files/FilesPage';
 
 function ProtectedLayout() {
   // Header רק בדפים מוגנים
   return (
     <div style={{ height: "100vh", width: "100vw" }}>
       <Header />
-      <Outlet />
-    </div>
-  );
-}
-
-function BlankLayout() {
-  return (
-    <div style={{ height: "100vh", width: "100vw" }}>
       <Outlet />
     </div>
   );
@@ -65,7 +54,7 @@ export default function CRoutes() {
           {/* ادارة בלבד */}
           {/* <Route element={<RoleGuard allows={['ادارة', 'مرشد', 'مساعد']} />}> */}
           <Route element={<RoleGuard allows={['ادارة']} />}>
-          <Route path='/dashboard' element={<NotificationsPage/>}/>
+          <Route path='/dashboard' element={<Navigate to="/calendar" replace />} />
           </Route>
           <Route>
             <Route path="/calendar" element={<AttendancePage />} />
@@ -83,15 +72,12 @@ export default function CRoutes() {
             <Route path="/reports" element={<ViewAllReport/>} />
             <Route path="/reports/:id" element={<EditReport/>} />
 
-            <Route path="/drive" element={<GoogleDrive/>} />
+            <Route path="/files" element={<FilesPage/>} />
             <Route path="/profile" element={<Profile/>} />
           </Route>
 
           {/* ברירת מחדל פנימית – אם נכנסו ל-root בעודך מחובר */}
           {/* <Route path="/" element={<Navigate to="/calendar" replace />} /> */}
-        </Route>
-        <Route element={<BlankLayout />}>
-          <Route path="/report-editor/:id" element={<ReportWordPage/>} />
         </Route>
       </Route>
     </Routes>

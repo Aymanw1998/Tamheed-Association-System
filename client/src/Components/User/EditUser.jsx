@@ -25,9 +25,10 @@ const EditUser = () => {
     city: "",
     street: "",
     roles: [],
+    photo: null,
   });
 
-  const [photo, setPhoto] = useState("");
+  const [photo, setPhoto] = useState(null);
   const [error, setError] = useState({
     tz: "",
     password: "",
@@ -48,6 +49,8 @@ const EditUser = () => {
   const [fetchingPassword, setFetchingPassword] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [passwordTouched, setPasswordTouched] = useState(false);
+  const [storedPasswordValue, setStoredPasswordValue] = useState("");
+  const [passwordAlgo, setPasswordAlgo] = useState("");
 
 
   useEffect(() => {
@@ -63,7 +66,9 @@ const EditUser = () => {
           const s = res.user;
           s.roles = s.roles.includes("ادارة") ? ["ادارة"] : (s.roles.includes("مرشد") ? ["مرشد"] : ["مساعد"]);
           setForm(s);
-          setPhoto(s.photo || "");
+          setPhoto(s.photo || null);
+          setStoredPasswordValue("");
+          setPasswordAlgo("");
         } else {
           setErr("المستخدم غير موجود");
         }
@@ -241,10 +246,15 @@ const EditUser = () => {
     console.log('Password fetch response:', res);
 
     // bcrypt / cannot view
-    if (!res?.ok || res?.canView === false) {
+    if (!res?.ok) {
       toast.warn(res?.message || 'אי אפשר להציג סיסמה למשתמש הזה');
       return;
     }
+
+    setStoredPasswordValue(
+      String(res.encryptedPassword || res.hashedPassword || res.storedPassword || '')
+    );
+    setPasswordAlgo(String(res.algo || ''));
 
     if (typeof res.password === 'string') {
       setForm((prev) => ({ ...prev, password: res.password }));
@@ -255,7 +265,9 @@ const EditUser = () => {
 
       //toast.success('✅ הסיסמה נטענה מהשרת');
     } else {
-      toast.warn('לא התקבלה סיסמה');
+      setShowPassword(false);
+      setForm((prev) => ({ ...prev, password: '' }));
+      toast.warn(res?.message || 'לא התקבלה סיסמה');
     }
   } catch (e) {
     console.error(e);
@@ -409,6 +421,19 @@ const EditUser = () => {
         </button>
 
       </div>
+      {/* {!!storedPasswordValue && (
+        <>
+          <label>القيمة المحفوظة ({passwordAlgo || "stored"}):</label>
+          <textarea
+            readOnly
+            value={storedPasswordValue}
+            style={{ width: "100%", minHeight: "90px", direction: "ltr" }}
+          />
+          <small style={{ color: "#374151", display: "block", marginTop: "4px" }}>
+            لتغيير كلمة السر عدل الحقل الأعلى ثم اضغط حفظ. سيتم حفظها مشفرة تلقائياً.
+          </small>
+        </>
+      )} */}
       <label style={{color: "red"}}>{error.password}</label>
       <br />
       

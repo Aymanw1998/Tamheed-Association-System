@@ -36,9 +36,10 @@ const EditStudent = ({parent = false}) => {
     health_status: "",
     notes: "",
     main_teacher: null,
+    photo: null,
   });
 
-  const [photo, setPhoto] = useState("");
+  const [photo, setPhoto] = useState(null);
   const [error, setError] = useState({
     tz: "",
     firstname: "",
@@ -102,7 +103,7 @@ const EditStudent = ({parent = false}) => {
         if (res) {
           const s = res.student;
           setForm(s);
-          setPhoto(s.photo || "");
+          setPhoto(s.photo || null);
         } else {
           setErr("الطالب غير موجود");
         }
@@ -591,8 +592,8 @@ const EditStudent = ({parent = false}) => {
             input.capture = "environment";
             input.click();
           }
-        }> {photo != "" ? "تعديل الاختيار" : "اختر صورة"} </button>
-        {photo != "" && <button style={{marginLeft: "18px", backgroundColor: "red"}} onClick={()=>setPhoto("")}>إزالة الصورة</button>}
+        }> {photo ? "تعديل الاختيار" : "اختر صورة"} </button>
+        {photo && <button style={{marginLeft: "18px", backgroundColor: "red"}} onClick={()=>setPhoto(null)}>إزالة الصورة</button>}
         <br />
 
         {/* معاينة الصورة إذا موجودة */}

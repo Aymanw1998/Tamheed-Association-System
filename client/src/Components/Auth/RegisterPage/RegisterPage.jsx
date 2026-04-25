@@ -58,7 +58,7 @@ export default function RegisterPage() {
       roles: ["مرشد"],
     });
     useEffect(()=>console.log("form", form), [form])
-    const [photo, setPhoto] = useState("");
+    const [photo, setPhoto] = useState(null);
     const [error, setError] = useState({
       tz: "",
       password: "",
@@ -92,7 +92,7 @@ export default function RegisterPage() {
             const s = res.user;
             s.roles = s.roles.includes("ادارة") ? ["ادارة"] : (s.roles.includes("مرشد") ? ["مرشد"] : ["مساعد"]);
             setForm(s);
-            setPhoto(s.photo || "");
+            setPhoto(s.photo || null);
           } else {
             setErr("المستخدم غير موجود");
           }
@@ -278,7 +278,7 @@ export default function RegisterPage() {
         if(!res)return;
         if(!res.ok) throw new Error(res.message);
         toast.success(`✅ المستخدم حُفِظ بنجاح`);
-        if(photo == "") {navigate(-1);return;}
+        if(photo == null) {navigate(-1);return;}
 
         const res2 = await uploadPhoto(form.tz, photo);
         if(!res2) return;
@@ -424,7 +424,7 @@ export default function RegisterPage() {
               input.capture = "environment";
               input.click();
             }
-          }> {photo != "" ? "تعديل الاختيار" : "اختر صورة"} </button>
+          }> {photo? "تعديل الاختيار" : "اختر صورة"} </button>
           <br />
   
           {/* معاينة الصورة إذا موجودة */}

@@ -129,6 +129,7 @@ const EditLesson = () => {
       // await getAllLesson();
 
       if (id !== 'new') {
+        console.log("loading lesson with id", id);
         const resL = await getOneLesson(id);
         if(!resL.ok) throw new Error(resL.message);
         const l = resL.lesson;

@@ -2,7 +2,7 @@
 const clients = new Set();
 
 function eventsHandler(req, res) {
-    console.log("clients", clients);
+    // console.log("clients", clients);
     res.set({
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',

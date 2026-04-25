@@ -2,9 +2,18 @@
 import { fromJSON } from "postcss";
 import { ask } from "../../../Components/Provides/confirmBus";
 import api, { publicApi } from "../api";
+import { normalizeRoles } from "../../../utils/session";
 
 // עוזר קטן לאחידות תשובות user מהשרת
-const extractUser = (data) => data?.user ?? data ?? null;
+const normalizeUser = (user) => {
+  if (!user) return null;
+  return {
+    ...user,
+    roles: normalizeRoles(user.roles),
+  };
+};
+
+const extractUser = (data) => normalizeUser(data?.user ?? data ?? null);
 /**
  * 
  * @param {*} tz |  מזהה משתמש (תעודת זהות) 
@@ -27,7 +36,7 @@ export const getAll = async (rooms = null) => {
   try{
     const {status, data} = await api.get('/user/', rooms ? {rooms} : {});
     if (![200,201].includes(status) || !data?.ok) throw new Error('לא קיים משתמשים');
-    return {ok: true, users: data.users};
+    return {ok: true, users: (data.users || []).map(normalizeUser)};
   } catch(err) {
     return {ok: false, message: err.response.data.message || err.message || 'حدث خطأ أثناء العملية.'};
   }
@@ -40,7 +49,7 @@ export const getUserById = async (tzOrId, {publicMode = false} = {}) => {
     const {status, data} = res;
     if (![200,201].includes(status) || !data?.ok) throw new Error('לא קיים משתמש בעל מזהה' + tzOrId);
     console.log("getUserById", data);
-    return {ok: true, user: data.user};
+    return {ok: true, user: normalizeUser(data.user)};
   } catch (err) {
     return {ok: false, message: err.response.data.message || err.message || 'حدث خطأ أثناء العملية.'};
   }
@@ -92,7 +101,18 @@ export const uploadPhoto = async(tz, file) => {
             },
         });
         if (![200,201].includes(status) || !data?.ok) throw new Error(data?.message || 'لم يتم تحميل صورة الطالب');
-        return {ok: true, student: data.student}
+        return {ok: true, photo: data.photo}
+    } catch(err) {
+        return {ok: false, message: err.response.data.message || err.message || 'يوجد خلل في العملية'};
+    }
+}
+
+export const deletePhoto = async(tz) => {
+    try {
+      console.log("deletePhoto user", tz);
+        const { data, status } = await api.delete(`/user/photo/${encodeURIComponent(tz)}`);
+        if (![200,201].includes(status) || !data?.ok) throw new Error(data?.message || 'لم يتم حذف الصورة');
+        return {ok: true, photo: data.photo};
     } catch(err) {
         return {ok: false, message: err.response.data.message || err.message || 'يوجد خلل في العملية'};
     }

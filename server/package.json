@@ -6,7 +6,10 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "nodemon server.js",
-    "dev": "nodemon"
+    "dev": "nodemon",
+    "data:clear": "node scripts/clearAllData.js --force",
+    "data:audit": "node scripts/auditData.js",
+    "data:seed": "node scripts/seedLoadData.js"
   },
   "keywords": [],
   "author": "",
@@ -14,7 +17,7 @@
   "dependencies": {
     "@faker-js/faker": "^9.8.0",
     "aws-sdk": "^2.1534.0",
-    "axios": "^1.13.2",
+    "axios": "^1.15.2",
     "bcrypt": "^5.1.1",
     "bcryptjs": "^2.4.3",
     "cloudinary": "^2.8.0",
@@ -26,6 +29,7 @@
     "dotenv": "^16.5.0",
     "express": "^4.21.2",
     "express-mongo-sanitize": "^2.2.0",
+    "form-data": "^4.0.5",
     "googleapis": "^169.0.0",
     "helmet": "^7.1.0",
     "major": "^0.0.0",

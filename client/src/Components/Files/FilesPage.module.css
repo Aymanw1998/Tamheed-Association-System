@@ -1,0 +1,208 @@
+.shell {
+  display: block;
+  min-height: calc(100vh - 86px);
+  direction: rtl;
+  background: #f4f6f5;
+  color: #182d28;
+}
+
+.workspace {
+  position: relative;
+  padding: 28px 30px 36px;
+  overflow: auto;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.breadcrumb {
+  color: #71837c;
+  font-size: 14px;
+}
+
+.breadcrumb button {
+  border: 0;
+  background: transparent;
+  color: #176b4d;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.topbar h2 {
+  margin: 4px 0 0;
+  font-size: 32px;
+}
+
+.searchRow {
+  margin-bottom: 16px;
+}
+
+.searchInput {
+  width: 100%;
+  border: 1px solid #d8e6df;
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: white;
+  outline: none;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+}
+
+.primaryBtn,
+.secondaryBtn {
+  border: 0;
+  border-radius: 12px;
+  padding: 12px 18px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.primaryBtn {
+  background: #1f7a59;
+  color: white;
+}
+
+.secondaryBtn {
+  background: white;
+  color: #176b4d;
+  border: 1px solid #d8e6df;
+}
+
+.fileInput {
+  display: none;
+}
+
+.tableWrap {
+  overflow: auto;
+  border: 1px solid #dce8e2;
+  border-radius: 18px;
+  background: white;
+  box-shadow: 0 18px 40px rgba(40, 69, 59, 0.08);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 760px;
+}
+
+.table th,
+.table td {
+  padding: 15px 16px;
+  border-bottom: 1px solid #eef3f0;
+  text-align: right;
+}
+
+.table th {
+  color: #60776e;
+  background: #f8fbf9;
+  font-size: 13px;
+}
+
+.nameCell {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-weight: 900;
+}
+
+.nameButton {
+  border: 0;
+  background: transparent;
+  color: #182d28;
+  font: inherit;
+  font-weight: 900;
+  cursor: pointer;
+  text-align: right;
+}
+
+.nameButton:hover {
+  color: #176b4d;
+  text-decoration: underline;
+}
+
+.fileBadge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 48px;
+  height: 34px;
+  padding: 0 8px;
+  border-radius: 10px;
+  background: #e5f3ec;
+  color: #176b4d;
+  font-size: 12px;
+}
+
+.rowActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.rowActions button {
+  border: 0;
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: #edf5f1;
+  color: #176b4d;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.rowActions .deleteBtn {
+  background: #fde7e5;
+  color: #9a261e;
+}
+
+.empty,
+.error,
+.dropOverlay {
+  margin-bottom: 12px;
+  padding: 16px;
+  border-radius: 14px;
+  background: white;
+  text-align: center;
+}
+
+.error {
+  background: #fde7e5;
+  color: #9a261e;
+}
+
+.emptyCell {
+  padding: 38px;
+  color: #71837c;
+  text-align: center !important;
+}
+
+.dragActive .workspace {
+  outline: 3px solid rgba(31, 122, 89, 0.18);
+  outline-offset: -10px;
+}
+
+.dropOverlay {
+  border: 2px dashed #1f7a59;
+  background: #edf8f2;
+  color: #176b4d;
+  font-weight: 900;
+}
+
+@media (max-width: 860px) {
+  .topbar {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .workspace {
+    padding: 18px 14px 24px;
+  }
+}

@@ -1,19 +1,18 @@
-/* Header בסיסי + דביק למעלה */
 .header {
   background: var(--background-header, #f3f3f7);
-  height: auto;
   padding: 0.5rem calc(1rem + env(safe-area-inset-right, 0px)) 0.5rem calc(1rem + env(safe-area-inset-left, 0px));
   direction: rtl;
   position: sticky;
   top: 0;
-  z-index: 1000; /* מתחת למודאלים אבל מעל התוכן */
+  z-index: 1000;
+  overflow: visible;
+  position: sticky;
 }
 
 .headerContent {
   display: flex;
   align-items: center;
-  gap: .75rem;
-  flex-wrap: nowrap;
+  gap: 0.75rem;
 }
 
 .logo {
@@ -23,29 +22,25 @@
 }
 
 .title {
-    font-family: 'Play Display';
-    color: var(--text-color, #5b03fd);
-    font-size:1.5rem;
-    margin:0.5rem;
-    flex:1 1 auto;
-    text-align:center;
-
+  font-family: "Play Display";
+  color: var(--text-color, #5b03fd);
+  font-size: 1.5rem;
+  margin: 0.5rem;
+  flex: 1 1 auto;
+  text-align: center;
 }
 
 .userBadge {
-    flex:0 0 auto;
-    font-size:1rem;
-    color:var(--text-color);
-    display:flex;
-    align-items:center;
-    /* gap:6px; */
-    white-space:nowrap;         /* לא לשבור את השם/תפקיד */
-    margin-inline-start:auto;   /* דוחף לשמאל ב-RTL */
+  flex: 0 0 auto;
+  font-size: 1rem;
+  color: var(--text-color);
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+  margin-inline-start: auto;
 }
 
-/* כפתור המבורגר – מוצג רק במסכים צרים */
 .menuToggle {
-  /* display: none; */
   width: 40px;
   height: 34px;
   border: 0;
@@ -53,20 +48,23 @@
   cursor: pointer;
   border-radius: 8px;
 }
-.menuToggle:focus-visible { outline: 2px solid #1ab9e9; outline-offset: 2px; }
+
+.menuToggle:focus-visible {
+  outline: 2px solid #1ab9e9;
+  outline-offset: 2px;
+}
+
 .menuToggle span {
   display: block;
   height: 2px;
   margin: 7px 8px;
-  background: #fff;
+  background: var(--text-color, #5b03fd);
   border-radius: 2px;
 }
 
-/* NAV ברירת־מחדל (דסקטופ) */
 .navbarV {
   background-color: var(--background-navbar, #e0e0eb);
   border-radius: 100px;
-  border-color: var(--text-color, #5b03fd);
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -81,102 +79,116 @@
   display: block;
   transition: background-color 0.2s ease;
 }
-.navbarV a:hover { 
+
+.navbarV a:hover {
   border-radius: 100px;
   background-color: white;
   color: #0ea5e9;
- }
+}
 
-/* כפתור יציאה בסרגל הרגיל */
 .logoutButton {
   background-color: #f57066;
   color: white;
   border: none;
   font-size: 16px;
   cursor: pointer;
-  margin-right: auto; /* RTL – דוחף לשמאל */
+  margin-right: auto;
   margin-left: 0;
   padding: 8px 12px;
-  transition: background-color .2s;
+  transition: background-color 0.2s;
   border-radius: 8px;
 }
-.logoutButton:hover { 
+
+.logoutButton:hover {
   border-radius: 100px;
   background-color: #f44336;
- }
-
-/* בתוך ההמבורגר במובייל: כפתור רוחב מלא, סגנון "פריט תפריט" */
-@media (max-width: 768px) {
-  .mobileNav .logoutButton,
-  .mobileLogout {
-    width: 100%;
-    margin: 10px 0 4px;
-    display: block;
-    text-align: center;
-    background-color: #f57066;
-    border-radius: 10px;
-  }
 }
 
-/* --- מובייל --- */
-@media (max-width: 768px) {
-    .title { font-size: 1.5rem; width: 100%; text-align: center; }
-    /* .userBadge { display: none; } */
-
-    .menuToggle { display: inline-block; }
-
-    /* מצב מובייל: התפריט הופך לפאנל שקופץ מלמעלה (מתחת להדר) */
-    .mobileNav {
-        position: fixed;
-        inset-inline: 0;
-        top: calc(200px + env(safe-area-inset-top, 0px)); /* גובה משוער של ההדר; עדכן אם צריך */
-        border-radius: 0px;
-        display: block;
-        transform: translateY(-100%);
-        transition: transform .25s ease;
-        z-index: 1200;
-        padding: 8px 12px 12px;
-        max-height: calc(100dvh - 64px);
-        overflow-y: auto;
-    }
-    .mobileNav.open { transform: translateY(100); }
-
-    .mobileNav a {
-        padding: 14px 12px;
-        border-bottom: 1px solid rgba(255,255,255,.08);
-    }
-
-    .mobileUserRow {
-        padding: 10px 12px 4px;
-        color: #e5e7eb;
-        font-size: 14px;
-    }
-    .mobileUserText { opacity: .9; }
-
-    /* כפתור יציאה בתוך תפריט מובייל – ברוחב מלא */
-    .mobileNav .logoutButton {
-        width: 100%;
-        margin: 8px 0 4px;
-        justify-self: stretch;
-    }
-
-    /* כיסוי רקע מאחורי התפריט */
-    .backdrop {
-        position: fixed;
-        inset: 0;
-        background: rgba(3, 3, 3, 0.35);
-        z-index: 1;
-        backdrop-filter: blur(10px);
-    }
-
-    .mobileNav { transform: translateY(-100%); }
-    .mobileNav[data-open="true"] { transform: translateY(0); }
-
-}
-
-/* נגישות: מצב פוקוס לקישורים/כפתורים */
 .navbarV a:focus-visible,
 .logoutButton:focus-visible {
   outline: 2px solid #0ea5e9;
   outline-offset: 2px;
+}
+
+@media (max-width: 768px) {
+  .headerContent {
+    justify-content: space-between;
+    position: relative;
+    z-index: 1302;
+  }
+
+  .title {
+    font-size: 1.2rem;
+    margin: 0.35rem 0;
+    text-align: center;
+  }
+
+  .userBadge {
+    font-size: 0.85rem;
+    white-space: normal;
+    text-align: left;
+    line-height: 1.3;
+    max-width: calc(100% - 72px);
+  }
+
+  .menuToggle {
+    display: inline-block;
+    min-width: 44px;
+    min-height: 44px;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(91, 3, 253, 0.18);
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
+    z-index: 1303;
+  }
+
+  .mobileNav {
+    position: absolute;
+    inset-inline: 12px;
+    top: calc(100% + 8px);
+    border-radius: 18px;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    padding: 8px 12px 12px;
+    box-shadow: 0 18px 35px rgba(15, 23, 42, 0.18);
+    max-height: calc(100dvh - 120px);
+    overflow-y: auto;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateY(-8px);
+    transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s ease;
+    z-index: 1300;
+  }
+
+  .mobileNav[data-open="true"] {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: translateY(0);
+  }
+
+  .mobileNav a {
+    width: 100%;
+    padding: 14px 12px;
+    border-bottom: 1px solid rgba(91, 3, 253, 0.08);
+    border-radius: 12px;
+  }
+
+  .mobileNav .logoutButton {
+    width: 100%;
+    margin: 10px 0 4px;
+    display: block;
+    text-align: center;
+    border-radius: 12px;
+  }
+
+  .backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(3, 3, 3, 0.35);
+    z-index: 1200;
+    backdrop-filter: blur(4px);
+  }
 }

@@ -1,11 +1,21 @@
 import { ask } from "../../../Components/Provides/confirmBus";
 import api,{setAuthToken } from "../api";
 
+const normalizeLesson = (lesson) => {
+    if (!lesson) return null;
+    return {
+        ...lesson,
+        name: String(lesson.name || ""),
+        list_students: Array.isArray(lesson.list_students) ? lesson.list_students.filter((value) => value != null) : [],
+        date: lesson.date || {},
+    };
+};
+
 export const getAllLesson = async() => {
     try{
         const {data, status} = await api.get('/lesson');
         if(![200,201].includes(status) || !data.ok) throw new Error ('לא קיים שיעורים במערכת');
-        return {ok: true, lessons: data.lessons || data.schema || []};
+        return {ok: true, lessons: (data.lessons || data.schema || []).map(normalizeLesson).filter(Boolean)};
     } catch(err) {    
         return {ok: false, message: err.response.data.message || err.message || 'حدث خطأ أثناء العملية.'};
     }
@@ -15,7 +25,7 @@ export const getOneLesson = async(_id) => {
     try{
         const {data, status} = await api.get('/lesson/' + _id, );
         if(![200,201].includes(status) || !data.ok) throw new Error ('השיעור לא קיים');
-        return {ok: true, lesson: data.lesson || data.schema};
+        return {ok: true, lesson: normalizeLesson(data.lesson || data.schema)};
     } catch(err) {    
         return {ok: false, message: err.response.data.message || err.message || 'حدث خطأ أثناء العملية.'};
     }
@@ -27,7 +37,7 @@ export const getLessonsByQuery = async(params) => {
     const {data, status} = await api.get('/lesson/query', {params});
         if(![200,201].includes(status) || !data.ok) throw new Error ('يوجد خطأ في جلب البيانات');
         console.log("getLessonsByQuery", data, status);
-        return {ok: true, lessons: data.lessons || data.schema};
+        return {ok: true, lessons: (data.lessons || data.schema || []).map(normalizeLesson).filter(Boolean)};
     } catch(err) {    
         return {ok: false, message: err.response.data.message || err.message || 'حدث خطأ أثناء العملية.'};
     }
@@ -44,7 +54,7 @@ export const createLesson = async(payload, {confirm = true} = {}) => {
         const res = await api.post('/lesson', payload);
         console.log(res);
         if(![200,201].includes(res.status) || !res.data.ok) throw new Error (data?.message || 'השיעור לא נוצר');
-        return {ok: true, lesson: res.data.lesson || res.data.schema};
+        return {ok: true, lesson: normalizeLesson(res.data.lesson || res.data.schema)};
     } catch(err) {
         console.error(err);
         return {ok: false, message: err.response.data.message || 'حدث خطأ أثناء العملية.'};
@@ -61,7 +71,7 @@ export const updateLesson = async(_id, payload, {confirm = true} = {}) => {
         const {data, status} = await api.put(`/lesson/${encodeURIComponent(_id)}`, payload);
         console.log("update lesson", status, data);
         if(![200,201].includes(status) || !data.ok) throw new Error (data?.message || 'השיעור לא עודכן');
-        return {ok: true, lesson: data.lesson || data.schema};
+        return {ok: true, lesson: normalizeLesson(data.lesson || data.schema)};
     } catch(err) {
         return {ok: false, message: err.response.data.message || err.message || 'حدث خطأ أثناء العملية.'};
     }
@@ -135,7 +145,7 @@ export const getLessonsToday = async () => {
     try {
         const { data, status } = await api.get("/lesson/today");
         if (![200, 201].includes(status) || !data.ok) throw new Error(data?.message || "failed");
-        return { ok: true, lessons: data.lessons || [] };
+        return { ok: true, lessons: (data.lessons || []).map(normalizeLesson).filter(Boolean) };
     } catch (err) {
         return { ok: false, message: err?.response?.data?.message || err.message };
     }

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
+
 // עדכן נתיב אם אצלך שונה:
-import { create, update, getUserById as getOne, /*softDelete,*/ deleteU, uploadPhoto } from "../../WebServer/services/user/functionsUser.jsx";
+import { create, update, getUserById as getOne, /*softDelete,*/ deleteU, uploadPhoto, deletePhoto, viewPassword } from "../../WebServer/services/user/functionsUser.jsx";
 import styles from "./Profile.module.css";
 import { toast } from "../../ALERT/SystemToasts.jsx";
 import {validate as validateINV, submit as submitFromParent} from "../../WebServer/services/inviteToken/functionInviteToken.jsx";
@@ -18,9 +19,10 @@ const Profile = ({parent = false}) => {
         email: "",
         city: "",
         street: "",
+        photo: null,
     });
 
-    const [photo, setPhoto] = useState("");
+    const [photo, setPhoto] = useState(null);
     const [error, setError] = useState({
         tz: "",
         password: "",
@@ -38,6 +40,10 @@ const Profile = ({parent = false}) => {
     const [saving, setSaving]   = useState(false);
     const [err, setErr]         = useState(null);
     const [showPassword, setShowPassword] = useState(false);
+    const [fetchingPassword, setFetchingPassword] = useState(false);
+    const [storedPasswordValue, setStoredPasswordValue] = useState("");
+    const [passwordAlgo, setPasswordAlgo] = useState("");
+    const [passwordTouched, setPasswordTouched] = useState(false);
 
 
     useEffect(() => {
@@ -55,7 +61,9 @@ const Profile = ({parent = false}) => {
                 delete s.__v;
                 delete s.roles;
                 setForm(s);
-                setPhoto(s.photo || "");
+                setPhoto(s.photo || null);
+                setStoredPasswordValue("");
+                setPasswordAlgo("");
             } else {
             setErr("خلل في جلب البيانات");
             }
@@ -85,6 +93,22 @@ const Profile = ({parent = false}) => {
         if (!file) return;
         setPhoto(file);
     };
+    const handleDeletePhoto = async () => {
+        if (!photo) return;
+        setPhoto(null);
+    }
+    const handleDeletePhotoWithSave = async () => {
+        try {
+            const res = await deletePhoto(form.tz);
+            if (!res || !res.ok) throw new Error(res?.message || "❌ فشل حذف الصورة");
+            setPhoto(null);
+            toast.success("✅ تم حذف الصورة بنجاح");
+            return true;
+        } catch (e) {
+            toast.error(e.message || "❌ فشل حذف الصورة");
+            return false;
+        }
+    };
 
 
     const handleChange = async(e) => {
@@ -98,7 +122,6 @@ const Profile = ({parent = false}) => {
     const validate = async(name = null, value = null) => {
         const tag = document.getElementsByName(name)[0];
         if(name === "tz"){
-        //console.log(isNew && value === "");
             if (value === "") {
             tag?.style.setProperty('border', '2px solid red'); // או ישירות סטייל
             return "מלאה שדה";
@@ -106,13 +129,6 @@ const Profile = ({parent = false}) => {
             else if(!isValidIsraeliId(value)){
             tag?.style.setProperty('border', '2px solid red'); // או ישירות סטייל
             return "תעודת זיהות לא חוקית"
-            }
-            else if(isNew) {
-            const data = parent ? {ok: false} : await getOne(value)
-            if(data.ok){
-                tag?.style.setProperty('border', '2px solid red'); // או ישירות סטייל
-                return "תעודת זיהות קיימת במערכת"
-            } 
             }
             tag?.style.setProperty('border', '2px solid green'); // או ישירות סטייל
             return ""
@@ -135,7 +151,7 @@ const Profile = ({parent = false}) => {
             if (name === 'gender' && !['ذكر' , 'انثى'].includes(value)) {
             tag?.style.setProperty('border', '2px solid red'); // או ישירות סטייל
             return "בחר מין";
-            } else if (isNew && name === 'role' && !['ادارة', 'مرشد', 'مساعد'].includes(value)) {
+            } else if (name === 'role' && !['ادارة', 'مرشد', 'مساعد'].includes(value)) {
             tag?.style.setProperty('border', '2px solid red'); // או ישירות סטייל
             return "בחר תפקיד";
             }  
@@ -203,6 +219,7 @@ const Profile = ({parent = false}) => {
         const { name, value } = e.target;
         //console.log(`onField[${name}] = ${String(value)}`, value === '');
         setForm((prev) => ({ ...prev, [name]: value }));
+        if (name === "password") setPasswordTouched(true);
         const msg = await validate(name, value)
         // //console.log("msg", msg);
         setError((prev) => ({ ...prev, [name]: msg }));
@@ -213,54 +230,99 @@ const Profile = ({parent = false}) => {
         const intl = normalizePhoneToIntl(local);
         setForm((prev) => ({ ...prev, [tag]: intl }));
     };
+
+    const handleFetchPassword = async () => {
+        try {
+            setFetchingPassword(true);
+            const tzToFetch = String(form.tz || "").trim();
+            if (!tzToFetch) return;
+
+            const res = await viewPassword(tzToFetch);
+            if (!res?.ok) {
+                toast.warn(res?.message || "אי אפשר להציג סיסמה למשתמש הזה");
+                return;
+            }
+
+            setStoredPasswordValue(
+                String(res.encryptedPassword || res.hashedPassword || res.storedPassword || "")
+            );
+            setPasswordAlgo(String(res.algo || ""));
+
+            if (typeof res.password === "string") {
+                setForm((prev) => ({ ...prev, password: res.password }));
+                setShowPassword(true);
+                setPasswordTouched(false);
+            } else {
+                setShowPassword(false);
+                setForm((prev) => ({ ...prev, password: "" }));
+                toast.warn(res?.message || "לא התקבלה סיסמה");
+            }
+        } catch (e) {
+            console.error(e);
+            toast.error("שגיאה במשיכת סיסמה");
+        } finally {
+            setFetchingPassword(false);
+        }
+    };
+
     const handleSubmit = async (e) => {
         let b = await validate();
         if (b) { toast.warn(b); return; }
         b = true
-        const ff = ['tz', 'firstname', 'lastname', 'birth_date', 'gender', 'phone', 'email', 'city', 'street', 'roles'];
+        const ff = ['tz', 'firstname', 'lastname', 'birth_date', 'gender', 'phone', 'email', 'city', 'street'];
         for(const nameTag in ff){
-        const tag = document.getElementsByName(ff[nameTag])[0];
-        //console.log('Tag', tag, ff[nameTag]);
-        // //console.log('tag', tag, tag.name, tag.value);
-        const msg = await validate(tag.name, tag.value);
-        setError((prev) => ({ ...prev, [tag.name]: msg }));
-        // //console.log('msg', msg)
-        if(msg && msg !== ''){
-            b = false;
-        }
+            const tag = document.getElementsByName(ff[nameTag])[0];
+            //console.log('Tag', tag, ff[nameTag]);
+            console.log('tag', tag);
+            const msg = await validate(tag.name, tag.value);
+            setError((prev) => ({ ...prev, [tag.name]: msg }));
+            // //console.log('msg', msg)
+            if(msg && msg !== ''){
+                b = false;
+            }
         }
         if(!b) return toast.warn("فحص الحقول المطلوبة");
         e.preventDefault();
         try {
-        setSaving(true);
-        setErr(null);
+            setSaving(true);
+            setErr(null);
 
-        const payload = { ...form };
-        //console.log("payload", payload);  
-        if(parent && !inviteToken){
-            toast.error("קישור הרשמה לא תקין");
-            return;
-        }
-        
-        const res = await update(form.tz, payload)
-        if(!res) return;
-        if(!res.ok) throw new Error(res.message);
-        toast.success(`✅ الملف الشخصي تم تحديثه بنجاح`);
+            const payload = { ...form };
+            if (!passwordTouched || !form.password?.trim()) {
+                delete payload.password;
+            }
+            //console.log("payload", payload);  
+            if(parent && !inviteToken){
+                toast.error("קישור הרשמה לא תקין");
+                return;
+            }
+            
+            var bb = await handleDeletePhotoWithSave();
+            console.log("deletePhotoWithSave", bb);
+            if(bb) {
+                payload.photo = null;
+            }
+            const res = await update(form.tz, payload);
+            if(!res) return;
+            if(!res.ok) throw new Error(res.message);
+            toast.success(`✅ الملف الشخصي تم تحديثه بنجاح`);
 
-        const res2 = await uploadPhoto(form.tz, photo);
-        if(!res2) return;
-        if(!res2.ok) {
-            toast.warn("لم يتم تحميل صورة : " + res2.message);
-        }
-        else{
-            toast.success("✅ تم تحميل صورة بنجاح");
-        }
-        navigate(-1);
+            if (photo instanceof File) {
+                const res2 = await uploadPhoto(form.tz, photo);
+                if(!res2) return;
+                if(!res2.ok) {
+                    toast.warn("لم يتم تحميل صورة : " + res2.message);
+                }
+                else{
+                    setPhoto(res2.photo || null);
+                    toast.success("✅ تم تحميل صورة بنجاح");
+                }
+            }
         } catch (e) {
-        console.error(e);
-        toast.error(e.message || "❌ فشل العملية");
+            console.error(e);
+            toast.error(e.message || "❌ فشل العملية");
         } finally {
-        setSaving(false);
+            setSaving(false);
         }
     };
 
@@ -275,6 +337,54 @@ const Profile = ({parent = false}) => {
         <label>رقم الهوية:</label>
         <input name="tz" value={form.tz} onChange={onField} readOnly={true} />
         <label style={{color: "red"}}>{error.tz}</label>
+        <br />
+
+        <label>كلمة السر:</label>
+        <div className={styles.passwordWrapper}>
+            <input
+                name="password"
+                type={showPassword ? "text" : "password"}
+                value={form.password || ""}
+                onChange={onField}
+                placeholder="*******"
+            />
+            <button
+                type="button"
+                className={styles.togglePassword}
+                disabled={fetchingPassword}
+                onClick={async () => {
+                    if (!showPassword) {
+                        if (!form.password?.trim() || !passwordTouched) {
+                            await handleFetchPassword();
+                        }
+                        setShowPassword(true);
+                        return;
+                    }
+
+                    setShowPassword(false);
+                    if (!passwordTouched) {
+                        setForm((prev) => ({ ...prev, password: "" }));
+                    }
+                }}
+                title={showPassword ? "إخفاء كلمة السر" : "إظهار كلمة السر"}
+            >
+                {fetchingPassword ? "⏳" : (showPassword ? "🙈" : "👁️")}
+            </button>
+        </div>
+        {/* {!!storedPasswordValue && (
+            <>
+                <label>القيمة المحفوظة ({passwordAlgo || "stored"}):</label>
+                <textarea
+                    readOnly
+                    value={storedPasswordValue}
+                    style={{ width: "100%", minHeight: "90px", direction: "ltr" }}
+                />
+                <small style={{ color: "#374151", display: "block", marginTop: "4px" }}>
+                    لتغيير كلمة السر عدل الحقل الأعلى ثم اضغط حفظ. سيتم حفظها مشفرة تلقائياً.
+                </small>
+            </>
+        )} */}
+        <label style={{color: "red"}}>{error.password}</label>
         <br />
 
         <label>اسمي:</label>
@@ -344,7 +454,12 @@ const Profile = ({parent = false}) => {
                 input.capture = "environment";
                 input.click();
             }
-            }> {photo != "" ? "تعديل الاختيار" : "اختر صورة"} </button>
+            }> {photo ? "تعديل الاختيار" : "اختر صورة"} </button>
+            {photo && (
+                <button type="button" onClick={handleDeletePhoto} style={{ marginInlineStart: "8px" }}>
+                    حذف الصورة
+                </button>
+            )}
             <br />
 
             {/* معاينة الصورة إذا موجودة */}

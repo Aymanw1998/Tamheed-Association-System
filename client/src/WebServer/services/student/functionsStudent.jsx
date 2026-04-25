@@ -1,10 +1,21 @@
 import { ask } from "../../../Components/Provides/confirmBus";
 import api,{ setAuthToken } from "../api";
+
+const normalizeStudent = (student) => {
+    if (!student) return null;
+    return {
+        ...student,
+        firstname: String(student.firstname || ""),
+        lastname: String(student.lastname || ""),
+        father_name: String(student.father_name || ""),
+        roles: Array.isArray(student.roles) ? student.roles.filter(Boolean) : [],
+    };
+};
 export const getAll = async() => {
     try{
         const {status, data} = await api.get("/student/");
         if(![200,201].includes(status) || !data?.ok) throw new Error('لا يوجد طلاب');
-        return {ok: true, students: data.students || []}
+        return {ok: true, students: (data.students || []).map(normalizeStudent).filter(Boolean)}
     } catch(err) {
         return {ok: false, message: err.response.data.message || err.message || 'يوجد خلل في العملية'};
     }
@@ -19,7 +30,7 @@ export const getOne = async(idOrName) => {
         console.log("getOne student", idOrName);
         const {status, data} = await api.get("/student/"+idOrName);
         if(![200,201].includes(status) || !data?.ok) throw new Error('لا يوجد طالب موجود صاحب رقم التعريف هذا: ' + idOrName);
-        return {ok: true, student: data.student}
+        return {ok: true, student: normalizeStudent(data.student)}
     } catch(err){
         return {ok: false, message: err.response.data.message || err.message || 'يوجد خلل في العملية'};
     }
@@ -42,7 +53,7 @@ export const create = async(payload, {confirm = true} = {}) => {
         const body = {...payload};
         const { data, status } = await api.post('/student', body);
         if (![200,201].includes(status) || !data?.ok) throw new Error('الطالب لم يتم إنشاؤه');
-        return {ok: true, student: data.student}
+        return {ok: true, student: normalizeStudent(data.student)}
     } catch(err) {
         return {ok: false, message: err.response.data.message || err.message || 'يوجد خلل في العملية'};
     }
@@ -66,7 +77,7 @@ export const update= async(idOrName, patch,{confirm = true} = {}) => {
         const body = {...patch};
         const { data, status } = await api.put(`/student/${encodeURIComponent(idOrName)}`, body);
         if (![200,201].includes(status) || !data?.ok) throw new Error(data?.message || 'الطالب لم يتم تحديثه');
-        return {ok: true, student: data.student}
+        return {ok: true, student: normalizeStudent(data.student)}
     } catch(err) {
         return {ok: false, message: err.response.data.message || err.message || 'يوجد خلل في العملية'};
     }

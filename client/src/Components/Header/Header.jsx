@@ -1,75 +1,86 @@
-import { useState, useEffect, useRef, useCallback, useEffectEvent } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import styles from "./Header.module.css";
 import LOGO from "../../images/logo.png";
-import { getMe } from "../../WebServer/services/auth/fuctionsAuth";
+import { getMe, logout } from "../../WebServer/services/auth/fuctionsAuth";
 import { ask } from "../Provides/confirmBus";
-import { useToast } from "../../ALERT/SystemToasts";
-import NotificationsBell from "../Notification/NotificationsBell";
+
+const ADMIN_ROLES = ["ادارة", "إدارة", "الادارة", "الإدارة"];
+const STUDENT_ROLES = [...ADMIN_ROLES, "مرشد"];
+
+const normalizeRoles = (value) => {
+  if (Array.isArray(value)) return value.filter(Boolean);
+  if (!value) return [];
+
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) return parsed.filter(Boolean);
+    } catch (error) {
+      return [value];
+    }
+
+    return [value];
+  }
+
+  return [];
+};
+
+const hasAnyRole = (roles, allowedRoles) => allowedRoles.some((role) => roles.includes(role));
 
 export default function Header() {
-    const { push } = useToast();  // ← מקבל את push מה-Provider
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState(null);
-  const [roles, setRoles] = useState(localStorage.getItem("roles"));
-  const [user, setUser] = useState();
-  const navigate = useNavigate();
-
-  // --- מובייל / תפריט ---
+  const [user, setUser] = useState(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [menuOpen, setMenuOpen] = useState(false);
-  useEffect(()=>console.log("isMobile", isMobile, "menuOpen", menuOpen), [isMobile, menuOpen]);
+  const navigate = useNavigate();
+  const headerRef = useRef(null);
   const navRef = useRef(null);
 
-  useEffect(() => console.log("roles", roles), [roles]);
-  useEffect(() => console.log("user", user), [user]);
-
-  useEffect(() => {
-    if (roles) setRoles(roles);
-    loadData();
-  }, []);
+  const roles = normalizeRoles(user?.roles || localStorage.getItem("roles"));
+  const isAdmin = hasAnyRole(roles, ADMIN_ROLES);
+  const canViewStudents = hasAnyRole(roles, STUDENT_ROLES);
+  const primaryRole = roles[0] || "";
 
   const loadData = useCallback(async () => {
-    setLoading(true);
-    setErr(null);
     try {
-      const u = await getMe();
-      setUser(u || null);
-    } catch (e) {
-      console.error(e);
-      setErr("שגיאה בטעינת משתמשים");
-    } finally {
-      setLoading(false);
+      const currentUser = await getMe();
+      setUser(currentUser || null);
+    } catch (error) {
+      console.error(error);
+      setUser(null);
     }
   }, []);
 
-  const handleLogout = () => {
-    localStorage.clear();
-    localStorage.setItem("LOGOUT_BROADCAST", "1");
-    navigate("/");
-  };
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
-  // --- resize: קובע מובייל/דסקטופ וסוגר תפריט כשעוברים לדסקטופ ---
   useEffect(() => {
     const handleResize = () => {
-      const m = window.innerWidth <= 768;
-      setIsMobile(m);
-      if (!m) setMenuOpen(false);
+      const mobile = window.innerWidth <= 768;
+      setIsMobile(mobile);
+      if (!mobile) setMenuOpen(false);
     };
+
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // --- click outside לסגירת התפריט במובייל ---
   useEffect(() => {
-    if (!menuOpen) return;
-    const onDocClick = (e) => {
-      if (!navRef.current) return;
-      if (!navRef.current.contains(e.target)) setMenuOpen(false);
+    if (!menuOpen || !isMobile) return undefined;
+
+    const onDocClick = (event) => {
+      if (!headerRef.current) return;
+      if (!headerRef.current.contains(event.target)) setMenuOpen(false);
     };
+
     document.addEventListener("click", onDocClick);
     return () => document.removeEventListener("click", onDocClick);
-  }, [menuOpen]);
+  }, [menuOpen, isMobile]);
+
+  const handleLogout = async () => {
+    await logout();
+  };
 
   const EDIT_PATTERNS = [
     /^\/students\/(new|[^/]+)$/,
@@ -80,76 +91,91 @@ export default function Header() {
     /^\/regnextmonth$/,
   ];
 
-  const onNavClick = async (e, to) => {
+  const onNavClick = async (event, to) => {
     setMenuOpen(false);
-    if (e.defaultPrevented) return;
-    if (e.button !== 0) return;
-    const a = e.currentTarget;
-    if (a.target === "_blank" || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    if (event.defaultPrevented) return;
+    if (event.button !== 0) return;
 
-    e.preventDefault();
+    const anchor = event.currentTarget;
+    if (anchor.target === "_blank" || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+      return;
+    }
 
-    const onEditPage = EDIT_PATTERNS.some((rx) => rx.test(window.location.pathname));
+    event.preventDefault();
+
+    const onEditPage = EDIT_PATTERNS.some((pattern) => pattern.test(window.location.pathname));
     if (onEditPage) {
       const ok = await ask("navigate");
       if (!ok) return;
     }
-    setMenuOpen(false);            // ← סגירת התפריט אחרי ניווט
+
     navigate(to);
   };
 
   return (
-    <>
-      <header id="header" className={styles.header}>
-        <div className={styles.headerContent}>
-          <img
-            src={LOGO}
-            alt="logo"
-            className={styles.logo}
-            onClick={(e) => onNavClick(e, "/")}
-            style={{ cursor: "pointer" }}
-          />
-          <span className={styles.title}>جمعية تمهيد - الرملة </span>
-          {user && !isMobile && (
-            <div className={styles.userBadge}>
-              {user?.firstname + " " + user?.lastname + " - "} {user?.roles.includes("ادارة") ? "ادارة" : user?.roles.includes("مرشد") ? "مرشد" : "مساعد مرشد"}
-            </div>
-          )}
-        </div>
-        <div className={styles.headerContent}>
-          {isMobile && (
-            <button
-              className={styles.menuToggle}
-              aria-label="פתיחת תפריט"
-              aria-controls="main-nav"
-              aria-expanded={menuOpen}
-              onClick={() => setMenuOpen((v) => !v)}
-            >
-              <span />
-              <span />
-              <span />
-            </button>
-          )}
-          {user && isMobile && (
-            <div className={styles.userBadge}>
-              {user?.firstname + " " + user?.lastname + " - " + user?.roles[0]}
-            </div>
-          )}
-        </div>
-        {isMobile && menuOpen && <div className={styles.backdrop} onClick={() => setMenuOpen(false)} />}
-          {((isMobile && menuOpen) || (!isMobile && !menuOpen)) && 
-          <nav style={menuOpen && !isMobile ? {} : {width: "100%"} }className={`${styles.navbarV} ${isMobile ? styles.mobileNav : ''}`} data-open={menuOpen}>
-            {user?.roles?.includes("ادارة") && <NotificationsBell/>}
-            <a href="/calendar" onClick={(e) => onNavClick(e, "/calendar")}>حضور وغياب</a>
-            {['ادارة', 'مرشد'].some(s => localStorage.getItem("roles").includes(s)) && <a href="/students" onClick={(e) => onNavClick(e, "/students")}>قائمة الطلاب</a>}
-            {user?.roles?.includes("ادارة") && <a href="/users" onClick={(e) => onNavClick(e, "/users")}>قائمة المستخدمين</a>}
-            <a href="/lessons" onClick={(e) => onNavClick(e, "/lessons")}>قائمة الدروس</a>
-            <a href="/reports" onClick={(e) => onNavClick(e, "/reports")}>قائمة التقارير</a>
-            <a href="/profile" onClick={(e) => onNavClick(e, "/profile")}>ملف شخصي</a>
-            <a href="/drive" onClick={(e) => onNavClick(e, "/drive")}>Drive</a>
-            <button onClick={handleLogout} className={styles.logoutButton} title="خروج"> 🔓 خروج</button>
-          </nav>}
-      </header>
-    </>
+    <header id="header" className={styles.header} ref={headerRef}>
+      <div className={styles.headerContent}>
+        <img
+          src={LOGO}
+          alt="logo"
+          className={styles.logo}
+          onClick={(event) => onNavClick(event, "/")}
+          style={{ cursor: "pointer" }}
+        />
+        <span className={styles.title}>جمعية تمهيد - الرملة</span>
+        {user && !isMobile && (
+          <div className={styles.userBadge}>
+            {user.firstname} {user.lastname} - {isAdmin ? "ادارة" : roles.includes("مرشد") ? "مرشد" : "مساعد مرشد"}
+          </div>
+        )}
+      </div>
+
+      <div className={styles.headerContent}>
+        {isMobile && (
+          <button
+            type="button"
+            className={styles.menuToggle}
+            aria-label="فتح القائمة"
+            aria-controls="main-nav"
+            aria-expanded={menuOpen}
+            onClick={(event) => {
+              event.stopPropagation();
+              setMenuOpen((value) => !value);
+            }}
+          >
+            <span />
+            <span />
+            <span />
+          </button>
+        )}
+        {user && isMobile && (
+          <div className={styles.userBadge}>
+            {user.firstname} {user.lastname} - {primaryRole}
+          </div>
+        )}
+      </div>
+
+      {isMobile && menuOpen && <div className={styles.backdrop} onClick={() => setMenuOpen(false)} />}
+
+      <nav
+        id="main-nav"
+        ref={navRef}
+        className={`${styles.navbarV} ${isMobile ? styles.mobileNav : ""}`}
+        data-open={isMobile ? menuOpen : true}
+      >
+        <a href="/calendar" onClick={(event) => onNavClick(event, "/calendar")}>حضور وغياب</a>
+        {canViewStudents && (
+          <a href="/students" onClick={(event) => onNavClick(event, "/students")}>قائمة الطلاب</a>
+        )}
+        {isAdmin && (
+          <a href="/users" onClick={(event) => onNavClick(event, "/users")}>قائمة المستخدمين</a>
+        )}
+        <a href="/lessons" onClick={(event) => onNavClick(event, "/lessons")}>قائمة الدروس</a>
+        <a href="/reports" onClick={(event) => onNavClick(event, "/reports")}>قائمة التقارير</a>
+        <a href="/files" onClick={(event) => onNavClick(event, "/files")}>مدير الملفات</a>
+        <a href="/profile" onClick={(event) => onNavClick(event, "/profile")}>ملف شخصي</a>
+        <button type="button" onClick={handleLogout} className={styles.logoutButton} title="خروج">خروج</button>
+      </nav>
+    </header>
   );
 }
