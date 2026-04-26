@@ -185,7 +185,7 @@ export default function Dashboard() {
   };
 
   const openLessonAttendance = (lesson) => {
-    navigate("/calendar", {
+    navigate("/dashboard", {
       state: {
         lessonId: lesson?._id || "",
         lessonName: lesson?.name || "",
