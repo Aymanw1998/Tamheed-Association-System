@@ -163,12 +163,22 @@ const isBcryptHash = (val) =>
   typeof val === "string" && /^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/.test(val);
 
 async function getUserInRoomByTz(tz, room) {
-  const result = await UserModelDef.get({ tz }, room);
-  console.log(`getUserInRoomByTz - tz: ${tz}, room: ${room}, result:`, result);
-  if (result?.success && Array.isArray(result.result) && result.result.length > 0) {
-    return result.result[0];
+  try{
+    const result = await UserModelDef.get({ tz }, room).catch(() => null);
+    const result2 = await UserModelDef.get({ _id: tz }, room).catch(() => null);
+    console.log(`getUserInRoomByTz - tz: ${tz}, room: ${room}, result:`, result);
+    console.log(`getUserInRoomByTz - tz: ${tz}, room: ${room}, result2:`, result2);
+    if (result?.success && Array.isArray(result.result) && result.result.length > 0) {
+      return result.result[0];
+    }
+    if (result2?.success && Array.isArray(result2.result) && result2.result.length > 0) {
+      return result2.result[0];
+    }
+    return null;
+  } catch (error) {
+    logWithSource("User.getUserInRoomByTz", error);
+    return null;
   }
-  return null;
 }
 
 async function findUserAcrossRooms(tz) {
@@ -258,18 +268,25 @@ const getAllU = async (req, res) => {
 
 const getOneU = async (req, res) => {
   try {
-    const tz = String(req.params.tz ?? "").trim();
-    if (!tz) {
+    const tzOrId = String(req.params.tz ?? "").trim();
+    if (!tzOrId) {
       return res.status(400).json({ ok: false, message: "tz required" });
     }
 
     for (const room of ROOMS) {
-      const result = await UserModelDef.get({ tz }, room);
-
+      const result = await UserModelDef.get({ tz: tzOrId }, room);
+      const result2 = await UserModelDef.get({ _id: tzOrId }, room);
       if (result?.success && Array.isArray(result.result) && result.result.length > 0) {
         return res.status(200).json({
           ok: true,
           user: sanitize(result.result[0]),
+          room,
+        });
+      }
+      if (result2?.success && Array.isArray(result2.result) && result2.result.length > 0) {
+        return res.status(200).json({
+          ok: true,
+          user: sanitize(result2.result[0]),
           room,
         });
       }
@@ -483,7 +500,7 @@ const register = async (req, res) => {
 /* ================= login ================= */
 const login = async (req, res) => {
   const { tz, password } = req.body || {};
-
+  console.log(tz, password);
   try {
     if (!tz || !password) {
       return res.status(400).json({

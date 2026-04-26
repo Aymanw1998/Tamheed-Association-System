@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import styles from "./AttendancePage.module.css";
+import { useLocation } from "react-router-dom";
 import { getLessonsToday, getAllLesson as getAllLessons } from "../../WebServer/services/lesson/functionsLesson";
 import { getAttendanceSheet, saveAttendanceSheet, getLessonDates } from "../../WebServer/services/attendance/functionsAttendance";
 import { toast } from "../../ALERT/SystemToasts";
@@ -40,6 +41,7 @@ const StatusPill = ({ value, onChange }) => {
 };
 
 export default function AttendancePage() {
+    const location = useLocation();
     const isAdmin = isStoredAdmin();
     const userId = getStoredUserId();
     const [tab, setTab] = useState("today"); // today | history
@@ -68,6 +70,7 @@ export default function AttendancePage() {
     //searchText
     const [searchDate, setSearchDate] = useState("");
     const [searchLesson, setSearchLesson] = useState("");
+    const preselectedLessonId = location.state?.lessonId || "";
     const doChange = (setValue, value) => {
         let b = true;
         if(dirty){
@@ -107,6 +110,13 @@ export default function AttendancePage() {
         setHistoryDates([]);
         setSelectedHistoryDate(null);
     }, [tab]);
+
+    useEffect(() => {
+        if (tab !== "today" || !preselectedLessonId || loadingLeft) return;
+        const lesson = todayLessons.find((item) => String(item?._id || "") === String(preselectedLessonId));
+        if (!lesson) return;
+        openLessonToday(lesson);
+    }, [tab, preselectedLessonId, todayLessons, loadingLeft]);
 
     const openLessonToday = async (lesson) => {
         setSelectedLesson(lesson);

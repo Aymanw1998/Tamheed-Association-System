@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import styles from "./ViewAllLesson.module.css";
-import { getUserById, getAll as getAllUsers } from "../../WebServer/services/user/functionsUser";
+import { getAll as getAllUsers } from "../../WebServer/services/user/functionsUser";
 import { getAllLesson, updateLesson } from "../../WebServer/services/lesson/functionsLesson";
 import { useNavigate } from "react-router-dom";
 import Fabtn from "./../Global/Fabtn/Fabtn";
 import { toast } from "../../ALERT/SystemToasts";
+import { getStoredRoles, isStoredAdmin } from "../../utils/session";
 
 /* =======================
    Helpers
@@ -34,10 +35,13 @@ async function fetchTeacherNames(lessons) {
   const pairs = await Promise.all(ids.map(async (id) => {
     try {
       const res = await getUserById(id);
+      console.log("fetchTeacherNames", {id, res});
       if (!res?.ok) throw 0;
       const u = res.user || {};
+      console.log("fetchTeacherNames", {id, user: u});
       return [id, [u.firstname, u.lastname].filter(Boolean).join(" ") || "לא ידוע"];
-    } catch {
+    } catch (err) {
+      console.log(`err`, `fetching teacher name for id ${id}`, err);
       return [id, "שגיאה"];
     }
   }));
@@ -403,6 +407,7 @@ function DayRoomsTimeline({
 ======================= */
 export default function ViewAllLesson() {
   const navigate = useNavigate();
+  const isAdmin = isStoredAdmin();
 
   const [showFab, setShowFab] = useState(false);
   const [addBtnEl, setAddBtnEl] = useState(null);
@@ -449,14 +454,17 @@ export default function ViewAllLesson() {
   const [lessons, setLessons] = useState([]);
   console.log("lessons", lessons);
   const [teachers, setTeachers] = useState([]);
+  console.log("teachers", teachers);
   const [teacherNames, setTeacherNames] = useState({});
-
+  console.log("teacherNames", teacherNames);
   // Tooltips
   const [tooltipInfo, setTooltipInfo] = useState({ show:false, content:"", x:0, y:0 });
 
   // Filters
-  const roles = localStorage.getItem("roles") || "";
-  const [showMyLessons, setShowMyLessons] = useState(roles.includes("مرشد") || roles.includes("مساعد"));
+  const roles = getStoredRoles();
+  const [showMyLessons, setShowMyLessons] = useState(
+    roles.includes("مرشد") || roles.includes("مساعد")
+  );
 
   const [viewMode, setViewMode] = useState("week"); // "week" | "dayRooms"
   const [selectedDay, setSelectedDay] = useState(() => (new Date().getDay() + 1)); // 1..7
@@ -494,9 +502,6 @@ export default function ViewAllLesson() {
 
       setLessons(cleaned);
 
-      // names map for tooltips
-      const names = await fetchTeacherNames(cleaned);
-      setTeacherNames(names);
     } catch {
       toast.error("שגיאה בטעינת השיעורים");
       setLessons([]);
@@ -508,6 +513,14 @@ export default function ViewAllLesson() {
 
   useEffect(() => { loadTeachers(); }, []);
   useEffect(() => { loadData(); }, [monthOffset]);
+  useEffect(() => {
+    const names = {};
+    (teachers || []).forEach((teacher) => {
+      if (!teacher?._id) return;
+      names[String(teacher._id)] = [teacher.firstname, teacher.lastname].filter(Boolean).join(" ") || "غير معروف";
+    });
+    setTeacherNames(names);
+  }, [teachers]);
 
   // Options from lessons
   const roomOptions = useMemo(() => {
@@ -519,7 +532,7 @@ export default function ViewAllLesson() {
   // Apply filters to a single list (always one calendar)
   const filteredLessons = useMemo(() => {
     const uid = localStorage.getItem("user_id");
-    const rolesNow = localStorage.getItem("roles") || "";
+    const rolesNow = getStoredRoles();
     console.log("filteredLessons", lessons, filterDay, filterRoom, filterTeacher, showMyLessons);
     return (lessons || []).filter(l => {
       if (!l?.date) return false;
@@ -631,7 +644,7 @@ export default function ViewAllLesson() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
-          {localStorage.getItem("roles").includes("ادارة") && 
+          {isAdmin && 
             <button 
             ref={addBtnRef}
             id="page-add-lesson"
@@ -724,7 +737,7 @@ export default function ViewAllLesson() {
 
       <Fabtn
         anchor="#page-add-lesson"
-        visible={showFab && localStorage.getItem("roles")?.includes("ادارة")}
+        visible={showFab && isAdmin}
         label="إضافة درس"
         onClick={() => {
           // אם dayRooms -> ניצור לפי selectedDay. אחרת לפי filterDay אם נבחר, אחרת יום 1.

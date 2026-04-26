@@ -1,191 +1,274 @@
-import React, { useCallback, useEffect, useMemo, useState, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-// עדכן את הנתיב לפי המבנה שלך:
-import { getAll, update, /*softDelete fallback: deleteS */ } from "../../WebServer/services/student/functionsStudent.jsx";
+import { deleteS, getAll, update } from "../../WebServer/services/student/functionsStudent.jsx";
 import styles from "./Student.module.css";
-
-import Fabtn from "../Global/Fabtn/Fabtn"
+import Fabtn from "../Global/Fabtn/Fabtn";
 import { toast } from "../../ALERT/SystemToasts";
 import { createLink } from "../../WebServer/services/inviteToken/functionInviteToken.jsx";
-import { ask, setGlobalAsk } from "../Provides/confirmBus.js";
+import { ask } from "../Provides/confirmBus.js";
 import { exportStudentPdf } from "../ExportPDF/ExportPDF.jsx";
+import { getStoredUserId, isStoredAdmin } from "../../utils/session.js";
+import StudentStatusFilter from "./StudentStatusFilter.jsx";
+
+const ACTIVE_STATUS = "عادي";
+const PENDING_STATUS = "ينتظر";
+
+const getStudentFilterKey = (student) => {
+  const status = String(student?.status || "").trim();
+
+  if (status === PENDING_STATUS) return "waiting";
+  if (status === ACTIVE_STATUS || !status) return "active";
+  return "noActive";
+};
+
+const getAge = (birthDate) => {
+  if (!birthDate) return "-";
+  const date = new Date(birthDate);
+  if (Number.isNaN(date.getTime())) return "-";
+  return new Date().getFullYear() - date.getFullYear();
+};
 
 const ViewAllStudent = () => {
-  const [showFab, setShowFab] = useState(false);
-    const [addBtnEl, setAddBtnEl] = useState(null);
-    const addBtnRef = useCallback((node) => {
-      setAddBtnEl(node); // node = DOM element of the main button (or null)
-    }, []);
-  
-    useEffect(() => {
-      // if button not rendered (no admin) -> hide FAB
-      if (!addBtnEl) {
-        setShowFab(false);
-        return;
-      }
-  
-      const io = new IntersectionObserver(
-        ([entry]) => {
-          // if main button is NOT in viewport -> show FAB
-          setShowFab(!entry.isIntersecting);
-        },
-        { root: null, threshold: 0.01 }
-      );
-  
-      io.observe(addBtnEl);
-      return () => io.disconnect();
-    }, [addBtnEl]);
-  
-  
-  
   const navigate = useNavigate();
+  const isAdmin = isStoredAdmin();
+  const userId = getStoredUserId();
+
   const [students, setStudents] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [sortField, setSortField] = useState("name");      // "name" | "price"
-  const [sortDir, setSortDir] = useState("asc");           // "asc" | "desc"
+  const [statusFilter, setStatusFilter] = useState("active");
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(null);
+  const [showFab, setShowFab] = useState(false);
+  const [addBtnEl, setAddBtnEl] = useState(null);
+
+  const addBtnRef = useCallback((node) => {
+    setAddBtnEl(node);
+  }, []);
+
+  useEffect(() => {
+    if (!addBtnEl) {
+      setShowFab(false);
+      return;
+    }
+
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        setShowFab(!entry.isIntersecting);
+      },
+      { root: null, threshold: 0.01 }
+    );
+
+    io.observe(addBtnEl);
+    return () => io.disconnect();
+  }, [addBtnEl]);
 
   const loadStudent = useCallback(async () => {
     setLoading(true);
     setErr(null);
+
     try {
       const res = await getAll();
-      if(!res.ok) throw new Error(res.message)
-      const data = res.students;
-      if (data && data.length > 0) {
-        console.log("roles", localStorage.getItem("roles"))
-        console.log("getAllStudent", data, localStorage.getItem("roles"), localStorage.getItem("roles").includes("ادارة"))
-        const filtered = localStorage.getItem("roles").includes("ادارة") ? data :  data.filter(s => s.main_teacher == localStorage.getItem("user_id"));
-        console.log("getAllStudent", filtered)
-        setStudents(filtered);
-      } else {
-        setStudents([]);
+      if (!res?.ok) {
+        throw new Error(res?.message || "يوجد خلل في جلب البيانات");
       }
-    } catch (e) {
-      console.error("שגיאה בהבאת האימונים", e);
+
+      const data = Array.isArray(res.students) ? res.students : [];
+      const filteredStudents = isAdmin
+        ? data
+        : data.filter((student) => String(student.main_teacher || "") === userId);
+
+      setStudents(filteredStudents);
+    } catch (error) {
+      console.error("Student load error", error);
       setErr("يوجد خلل في جلب البيانات");
+      setStudents([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isAdmin, userId]);
 
-  useEffect(() => { loadStudent(); }, [loadStudent]);
+  useEffect(() => {
+    loadStudent();
+  }, [loadStudent]);
+
+  const counts = useMemo(() => {
+    return students.reduce(
+      (acc, student) => {
+        const key = getStudentFilterKey(student);
+        acc[key] += 1;
+        if (key === "waiting") acc.pending += 1;
+        if (key === "noActive") acc.inactive += 1;
+        return acc;
+      },
+      { active: 0, pending: 0, inactive: 0, waiting: 0, noActive: 0 }
+    );
+  }, [students]);
+
   const sortedFilteredStudents = useMemo(() => {
-    const q = searchTerm.trim().toLowerCase();
+    const query = searchTerm.trim().toLowerCase();
 
-    const filtered = q
-      ? students.filter(s =>
-          [s.tz, s.firstname, s.lastname, s.father_name, new Date().getFullYear() - new Date(s.birth_date).getFullYear(), ]
-            .map(v => String(v ?? "").toLowerCase())
-            .join(" ")
-            .includes(q)
-        )
-      : students;
+    return students
+      .filter((student) => {
+        return getStudentFilterKey(student) === statusFilter;
+      })
+      .filter((student) => {
+        if (!query) return true;
 
-    const dirMul = sortDir === "asc" ? 1 : -1;
+        const haystack = [
+          student.tz,
+          student.firstname,
+          student.lastname,
+          student.father_name,
+          student.phone,
+          student.email,
+          student.school,
+          student.layer,
+          student.status,
+          getAge(student.birth_date),
+        ]
+          .map((value) => String(value ?? "").toLowerCase())
+          .join(" ");
 
-    return [...filtered].sort((a, b) => {
-      if (sortField === "info") {
-        const an = String(a.info ?? "");
-      const bn = String(b.info ?? "");
-      return an.localeCompare(bn, "he", { sensitivity: "base" }) * dirMul;
-      }
-      // name (ברירת מחדל)
-      const an = String(a.name ?? "");
-      const bn = String(b.name ?? "");
-      return an.localeCompare(bn, "he", { sensitivity: "base" }) * dirMul;
-    });
-  }, [students, searchTerm, sortField, sortDir]);
+        return haystack.includes(query);
+      })
+      .sort((a, b) => {
+        const aName = `${a.firstname || ""} ${a.lastname || ""}`.trim();
+        const bName = `${b.firstname || ""} ${b.lastname || ""}`.trim();
+        return aName.localeCompare(bName, "ar", { sensitivity: "base" });
+      });
+  }, [students, searchTerm, statusFilter]);
 
-  const handleAddStudent = async() => {
+  const handleAddStudent = async () => {
     let toParent;
 
     try {
-      toParent = await ask("",{
+      toParent = await ask("", {
         title: "طريقة الإضافة",
         message:
-          "كيف تفضلي إضافة الطالب؟\n\n" +
+          "كيف تفضلين إضافة الطالب؟\n\n" +
           "(1) إرسال رابط تعبئة إلى ولي الأمر\n" +
           "(2) أو إدخال يدوي عبر النظام",
         confirmText: "إرسال رابط",
         cancelText: "إضافة يدوية",
       });
-    } catch (e) {
-      console.error("ask error:", e);
-      toast.error("חלון האישור לא מוכן (Confirm not ready yet)");
+    } catch (error) {
+      console.error("ask error:", error);
+      toast.error("نافذة التأكيد غير جاهزة الآن");
       return;
     }
 
-    // ❌ המורה בחרה "ביטול" → כניסה למסך יצירה ידנית
     if (!toParent) {
-      navigate("/students/new");         // נתיב כמו שיש לך היום (תעדכני אם שונה)
+      navigate("/students/new");
       return;
     }
 
-    // ✅ יצירת קישור להורה
     const res = await createLink();
-    if (!res.url) {
-      toast.error(res.message);
+    if (!res?.url) {
+      toast.error(res?.message || "تعذر إنشاء الرابط");
       return;
     }
 
-    // להעתיק אוטומטית ללוח
     try {
       await navigator.clipboard.writeText(res.url);
-      toast.success("✅ נוצר קישור ונעתק ללוח. שלחי אותו להורה בוואטסאפ / מייל.");
-    } catch {
-      toast.success("✅ נוצר קישור. העתקי ושלחי להורה:");
+      toast.success("تم إنشاء الرابط ونسخه للحافظة");
+    } catch (error) {
+      toast.success("تم إنشاء الرابط");
     }
+  };
 
-    // navigate("/students/new");
-  }
-  const changeStatusStudent = async(tz) => {
-    const res = await update(tz, {status:"عادي"});
-    if(!res.ok) {
-      toast.error("لم يتم قبول الطالب: ");
+  const handleApproveStudent = async (tz) => {
+    const res = await update(tz, { status: ACTIVE_STATUS });
+    if (!res?.ok) {
+      toast.error(res?.message || "لم يتم قبول الطالب");
       return;
     }
+
     toast.success("تم قبول الطالب بنجاح");
     loadStudent();
-  }
+  };
+
+  const handleRejectStudent = async (tz) => {
+    const res = await deleteS(tz);
+    if (!res?.ok) {
+      toast.error(res?.message || "لم يتم رفض الطالب");
+      return;
+    }
+
+    toast.success("تم حذف الطالب من قائمة الانتظار");
+    loadStudent();
+  };
+
   return (
     <div>
-      <div >
-        <h1 style={{ textAlign: "center"}}>{localStorage.getItem("roles").includes("ادارة") ? "قائمة الطلاب" : "قائمة طلابي"}</h1>
+      <div>
+        <h1 style={{ textAlign: "center" }}>
+          {isAdmin ? "قائمة الطلاب" : "قائمة طلابي"}
+        </h1>
 
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <input
             type="text"
             placeholder="بحث..."
             style={{
-              width: "80%", padding: "10px", margin: "10px", marginBottom: "20px",fontSize: "14px", 
-              border: "1px solid #ccc",borderRadius: "8px"
+              width: "80%",
+              padding: "10px",
+              margin: "10px",
+              marginBottom: "20px",
+              fontSize: "14px",
+              border: "1px solid #ccc",
+              borderRadius: "8px",
             }}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
 
-          {localStorage.getItem("roles").includes("ادارة") && <button 
-            ref={addBtnRef}
-            id="page-add-student"
-            style={{ backgroundColor: 'green', padding: '0.5rem 1rem', borderRadius: '0.5rem', color: 'white' }}
-            onClick={handleAddStudent}
-          >
-            ➕ إضافة طالب جديد
-          </button>
-}
+          {isAdmin && (
+            <button
+              ref={addBtnRef}
+              id="page-add-student"
+              style={{
+                backgroundColor: "green",
+                padding: "0.5rem 1rem",
+                borderRadius: "0.5rem",
+                color: "white",
+              }}
+              onClick={handleAddStudent}
+            >
+              إضافة طالب جديد
+            </button>
+          )}
+
           <button
-            style={{ backgroundColor: '#374151', padding: '0.5rem 1rem', borderRadius: '0.5rem', color: 'white' }}
+            style={{
+              backgroundColor: "#374151",
+              padding: "0.5rem 1rem",
+              borderRadius: "0.5rem",
+              color: "white",
+            }}
             onClick={loadStudent}
             disabled={loading}
           >
-            {loading ? "جاري التحديث" : "🔄 تحديث القائمة"}
+            {loading ? "جاري التحديث" : "تحديث القائمة"}
           </button>
         </div>
+
+        { isAdmin && <div style={{ marginTop: 12, marginBottom: 12 }}>
+          <StudentStatusFilter
+            value={statusFilter}
+            onChange={setStatusFilter}
+            counts={counts}
+            compact={false}
+          />
+        </div>}
+
         <div style={{ marginTop: 8, opacity: 0.7 }}>
-        مجموع: {sortedFilteredStudents && sortedFilteredStudents.length > 0 ? sortedFilteredStudents.length: 0} الطلاب
-      </div>
+          مجموع: {sortedFilteredStudents.length} طالب{" "}
+          {statusFilter === "active"
+            ? "مُفعاليّن"
+            : statusFilter === "waiting"
+            ? "بانتظار الموافقة"
+            : "غير فعالين"}
+        </div>
       </div>
 
       {err && <div style={{ marginTop: 12, color: "#b91c1c" }}>{err}</div>}
@@ -197,44 +280,108 @@ const ViewAllStudent = () => {
             <tr>
               <th>رقم الهوية</th>
               <th>اسم الطالب</th>
-              <th>اسم الاب</th>
+              <th>اسم الأب</th>
               <th>العمر</th>
               <th>الجنس</th>
-              <th>للمعلومات</th>
+              <th>الحالة</th>
+              <th>للإجراءات</th>
             </tr>
           </thead>
           <tbody>
             {sortedFilteredStudents.length > 0 ? (
-              sortedFilteredStudents.map((t) => (
-                <tr key={t._id}>
-                  <td data-label="رقم الهوية">{t.tz}</td>
-                  <td data-label="اسم الطالب">{t.firstname + " " + t.lastname}</td>
-                  <td data-label="اسم الاب">{t.father_name}</td>
-                  <td data-label="العمر">{new Date().getFullYear() - new Date(t.birth_date).getFullYear()}</td>
-                  <td data-label="الجنس">{t.gender}</td>
-                  <td data-label="للعملومات">
-                    {t.status === "عادي" &&<>
-                    <button style={{ backgroundColor: 'yellow', padding: '0.5rem 1rem', borderRadius: '0.5rem', color: 'white', alignItems: "center" }} 
-                    onClick={() => navigate(`/students/${t.tz}`)}>للتعريل</button>
-                    <button style={{ backgroundColor: 'blue', padding: '0.5rem 1rem', borderRadius: '0.5rem', color: 'white', alignItems: "center" }} 
-                    onClick={() => {
-                      exportStudentPdf(t) 
-                    }}>تحميل ملف الطالب</button>
-                    </>
-                    }
-                    {t.status === "ينتظر" && <>
-                    <button 
-                      style={{ marginLeft: 8, backgroundColor: 'green', padding: '0.5rem 1rem', borderRadius: '0.5rem', color: 'white', alignItems: "center" }}
-                      onClick={()=>changeStatusStudent(t.tz)}>قبول</button>
-                    <button style={{ marginLeft: 8, backgroundColor: 'red', padding: '0.5rem 1rem', borderRadius: '0.5rem', color: 'white', alignItems: "center" }}>رفض</button></>}
-                    {/* <button style={{ backgroundColor: 'blue', padding: '0.5rem 1rem', borderRadius: '0.5rem', color: 'white', alignItems: "center" }} 
-                    onClick={() => generateStudentPDF(t.tz)}>تحميل ملف الطالب</button> */}
+              sortedFilteredStudents.map((student) => (
+                <tr key={student._id || student.tz}>
+                  <td data-label="رقم الهوية">{student.tz}</td>
+                  <td data-label="اسم الطالب">
+                    {`${student.firstname || ""} ${student.lastname || ""}`.trim()}
+                  </td>
+                  <td data-label="اسم الأب">{student.father_name || "-"}</td>
+                  <td data-label="العمر">{getAge(student.birth_date)}</td>
+                  <td data-label="الجنس">{student.gender || "-"}</td>
+                  <td data-label="الحالة">{student.status || ACTIVE_STATUS}</td>
+                  <td data-label="للإجراءات">
+                    {student.status === ACTIVE_STATUS && (
+                      <>
+                        <button
+                          style={{
+                            backgroundColor: "#eab308",
+                            padding: "0.5rem 1rem",
+                            borderRadius: "0.5rem",
+                            color: "white",
+                            alignItems: "center",
+                          }}
+                          onClick={() => navigate(`/students/${student.tz}`)}
+                        >
+                          للتعديل
+                        </button>
+                        <button
+                          style={{
+                            backgroundColor: "#2563eb",
+                            padding: "0.5rem 1rem",
+                            borderRadius: "0.5rem",
+                            color: "white",
+                            alignItems: "center",
+                          }}
+                          onClick={() => exportStudentPdf(student)}
+                        >
+                          تحميل ملف الطالب
+                        </button>
+                      </>
+                    )}
+
+                    {student.status === PENDING_STATUS && (
+                      <>
+                        <button
+                          style={{
+                            marginLeft: 8,
+                            backgroundColor: "green",
+                            padding: "0.5rem 1rem",
+                            borderRadius: "0.5rem",
+                            color: "white",
+                            alignItems: "center",
+                          }}
+                          onClick={() => handleApproveStudent(student.tz)}
+                        >
+                          قبول
+                        </button>
+                        <button
+                          style={{
+                            marginLeft: 8,
+                            backgroundColor: "red",
+                            padding: "0.5rem 1rem",
+                            borderRadius: "0.5rem",
+                            color: "white",
+                            alignItems: "center",
+                          }}
+                          onClick={() => handleRejectStudent(student.tz)}
+                        >
+                          رفض
+                        </button>
+                      </>
+                    )}
+
+                    {getStudentFilterKey(student) === "noActive" && (
+                      <button
+                        style={{
+                          backgroundColor: "#2563eb",
+                          padding: "0.5rem 1rem",
+                          borderRadius: "0.5rem",
+                          color: "white",
+                          alignItems: "center",
+                        }}
+                        onClick={() => navigate(`/students/${student.tz}`)}
+                      >
+                        عرض التفاصيل
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan={6} style={{ textAlign: "center", padding: 16 }}>لا يوجد بيانات لاظهاره</td>
+                <td colSpan={7} style={{ textAlign: "center", padding: 16 }}>
+                  لا يوجد طلاب في هذا القسم
+                </td>
               </tr>
             )}
           </tbody>
@@ -242,12 +389,11 @@ const ViewAllStudent = () => {
       )}
 
       <Fabtn
-        anchor="#page-add-student"                     // או: showFab && canEdit אם תרצה רק כשיש הרשאת עריכה
-        visible={showFab && localStorage.getItem("roles").includes("ادارة")}
+        anchor="#page-add-student"
+        visible={showFab && isAdmin}
         label="اضافة طالب جديد"
         onClick={() => {
-          console.log('fab click');           // בדיקת קליק
-          navigate(`/students/new`);
+          navigate("/students/new");
         }}
       />
     </div>

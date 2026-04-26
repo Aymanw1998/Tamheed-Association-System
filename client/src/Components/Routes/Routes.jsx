@@ -21,6 +21,7 @@ import ViewAllLesson from '../Lesson/ViewAllLesson';
 import EditLesson from '../Lesson/EditLesson';
 
 import { setAuthTokens } from '../../WebServer/services/api';
+import Dashboard from '../Dashboard/Dashboard';
 import ViewAllReport from '../Report/ViewAllReport';
 import EditReport from '../Report/EditReport';
 import Profile from '../Profile/Profile';
@@ -54,7 +55,7 @@ export default function CRoutes() {
           {/* ادارة בלבד */}
           {/* <Route element={<RoleGuard allows={['ادارة', 'مرشد', 'مساعد']} />}> */}
           <Route element={<RoleGuard allows={['ادارة']} />}>
-          <Route path='/dashboard' element={<Navigate to="/calendar" replace />} />
+          <Route path='/dashboard' element={<Dashboard />} />
           </Route>
           <Route>
             <Route path="/calendar" element={<AttendancePage />} />
