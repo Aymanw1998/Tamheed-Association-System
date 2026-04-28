@@ -332,7 +332,8 @@ const uploadPhoto = async (req, res) => {
     const uploaded = await handleUpload(
       req.file,
       StudentModelDef.dbName,
-      StudentModelDef.collections.active
+      StudentModelDef.collections.active,
+      {tz: student.tz}
     );
 
     await StudentModelDef.update(
@@ -353,6 +354,76 @@ const uploadPhoto = async (req, res) => {
   }
 };
 
+async function getStudentInRoomByTz(tz, room) {
+  try{
+    const result = await StudentModelDef.get({ tz }, room).catch(() => null);
+    const result2 = await StudentModelDef.get({ _id: tz }, room).catch(() => null);
+    console.log(`getStudentInRoomByTz - tz: ${tz}, room: ${room}, result:`, result);
+    console.log(`getStudentInRoomByTz - tz: ${tz}, room: ${room}, result2:`, result2);
+    if (result?.success && Array.isArray(result.result) && result.result.length > 0) {
+      return result.result[0];
+    }
+    if (result2?.success && Array.isArray(result2.result) && result2.result.length > 0) {
+      return result2.result[0];
+    }
+    return null;
+  } catch (error) {
+    logWithSource("Student.getStudentInRoomByTz", error);
+    return null;
+  }
+}
+
+const deletePhoto = async (req, res) => {
+  try {
+    const tz = String(req.params.tz ?? "").trim();
+    if (!tz) {
+      return res.status(400).json({ ok: false, message: "tz is required" });
+    }
+
+    const user = await getStudentInRoomByTz(tz, "active");
+    if (!user) {
+      return res.status(404).json({ ok: false, message: "Student not found" });
+    }
+
+    console.log("Deleting photo for user:", user.tz, "Photo URL:", user.photo);
+    if (user.photo) {
+      try {
+        await handleDeleteByUrl(user.photo);
+      } catch (e) {
+        logWithSource("Student.deletePhoto delete file", e);
+      }
+    }
+    console.warn("Updating student record to remove photo URL");
+    await StudentModelDef.update(
+      { tz },
+      { photo: null },
+      "active"
+    );
+    console.warn("Student record updated, sending notification");
+    await safeNotify({
+      toRoles: ["ادارة"],
+      module: "STUDENTS",
+      action: "PHOTO_DELETED",
+      title: "تم حذف صورة طالب",
+      message: `تم حذف صورة الطالب: ${user.firstname || ""} ${user.lastname || ""} (${user.tz})`,
+      meta: { tz: user.tz, photo: false },
+      createdBy: req.user?._id || null,
+    });
+
+    return res.status(200).json({
+      ok: true,
+      photo: null,
+      deleted: true,
+    });
+  } catch (err) {
+    logWithSource("Student.deletePhoto", err);
+    return res.status(500).json({
+      ok: false,
+      message: err.message,
+    });
+  }
+};
+
 module.exports = {
   getAllS,
   getOneS,
@@ -360,6 +431,7 @@ module.exports = {
   putS,
   deleteS,
   uploadPhoto,
+  deletePhoto,
 };
 // OLD CODE - DO NOT SUGGEST
 // // Entities/User/user.controller.js

@@ -59,8 +59,7 @@ export default function CRoutes() {
           </Route>
           <Route>
             <Route path="/calendar" element={<AttendancePage />} />
-            {/* <Route path="/calendar/:id" element={<Calendar />} /> */}
-
+            
             <Route path="/students" element={<ViewAllStudent />} />
             <Route path="/students/:id" element={<EditStudent/>} />
 

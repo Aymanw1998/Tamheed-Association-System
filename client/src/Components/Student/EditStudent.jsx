@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 // עדכן נתיב אם אצלך שונה:
-import { create, update, getOne, /*softDelete,*/ deleteS, uploadPhoto } from "../../WebServer/services/student/functionsStudent.jsx";
+import { create, update, getOne, /*softDelete,*/ deleteS, uploadPhoto, deletePhoto } from "../../WebServer/services/student/functionsStudent.jsx";
 import {getAll as getUsers} from "../../WebServer/services/user/functionsUser.jsx"
 import styles from "./Student.module.css";
 import { toast } from "../../ALERT/SystemToasts";
@@ -347,6 +347,11 @@ const EditStudent = ({parent = false}) => {
         return;
       }
       
+      var bb = await handleDeletePhotoWithSave();
+      console.log("deletePhotoWithSave", bb);
+      if(bb) {
+          payload.photo = null;
+      }
       const res = isEdit ? await update(form.tz, payload): await create({...payload});
       console.log("res", res);
       if(!res) return;
@@ -369,6 +374,19 @@ const EditStudent = ({parent = false}) => {
       setSaving(false);
     }
   };
+
+  const handleDeletePhotoWithSave = async () => {
+    try {
+        const res = await deletePhoto(form.tz);
+        if (!res || !res.ok) throw new Error(res?.message || "❌ فشل حذف الصورة");
+        setPhoto(null);
+        toast.success("✅ تم حذف الصورة بنجاح");
+        return true;
+    } catch (e) {
+        toast.error(e.message || "❌ فشل حذف الصورة");
+        return false;
+    }
+};
 
   // מחיקה קשיחה (אופציונלי)
   const handleHardDelete = async () => {

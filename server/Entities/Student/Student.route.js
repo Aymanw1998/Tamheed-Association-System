@@ -3,7 +3,7 @@ const multer = require('multer');
 const router = express.Router();
 
 const {
-  getAllS, getOneS, putS, deleteS, postS, uploadPhoto
+  getAllS, getOneS, putS, deleteS, postS, uploadPhoto, deletePhoto,
 } = require('./Student.controller');
 
 // alias
@@ -22,6 +22,7 @@ router.get('/', getAllS);
 router.get('/:tz', getOneS);
 router.post('/', protectRole('ادارة', ''), postS);
 router.put('/:tz', protectRole('ادارة', 'مرشد'), putS);
+router.delete('/photo/:tz', deletePhoto);
 router.delete('/:tz', protectRole('ادارة'), deleteS);
 router.post('/upload-photo/:tz', protectRole('ادارة', 'مرشد'),upload.single('file'), uploadPhoto);
 

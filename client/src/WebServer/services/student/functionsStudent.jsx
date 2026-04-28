@@ -99,6 +99,17 @@ export const uploadPhoto = async(tz, file) => {
         return {ok: false, message: err.response.data.message || err.message || 'يوجد خلل في العملية'};
     }
 }
+
+export const deletePhoto = async(tz) => {
+    try {
+      console.log("deletePhoto student", tz);
+        const { data, status } = await api.delete(`/student/photo/${encodeURIComponent(tz)}`);
+        if (![200,201].includes(status) || !data?.ok) throw new Error(data?.message || 'لم يتم حذف الصورة');
+        return {ok: true, photo: data.photo};
+    } catch(err) {
+        return {ok: false, message: err.response.data.message || err.message || 'يوجد خلل في العملية'};
+    }
+}
 /**
  * מחיקה (לפי Id או שם)
  * @param {string} idOrName

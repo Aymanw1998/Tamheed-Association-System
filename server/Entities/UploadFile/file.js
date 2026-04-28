@@ -47,8 +47,12 @@ function buildRelativeDir(dbName, collection, folder = "") {
 
 const axios = require("axios");
 const FormData = require("form-data");
+const buildPhotoName = (user = {}, file = {}) => {
+  const ext = path.extname(file.originalname || "") || "";
+  return `${user.tz || "person"}${ext}`;
+};
 
-async function handleUpload(file, dbName, collection, folder = "", customFileName = "") {
+async function handleUpload(file, dbName, collection, folder = "", tz = "") {
   try {
     if (!file || !file.buffer) {
       throw new Error("Missing file buffer");
@@ -61,7 +65,7 @@ async function handleUpload(file, dbName, collection, folder = "", customFileNam
     if (!collection) {
       throw new Error("collection is required");
     }
-
+    const customFileName = buildPhotoName(tz, file);
     const uploadFileName = safeName(customFileName || path.basename(file.originalname || "file")) || "file";
     const uploadExt = path.extname(uploadFileName) || getExt(file);
     const finalFileName = uploadExt && !uploadFileName.endsWith(uploadExt)

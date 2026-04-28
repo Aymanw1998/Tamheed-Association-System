@@ -9,7 +9,8 @@
     "dev": "nodemon",
     "data:clear": "node scripts/clearAllData.js --force",
     "data:audit": "node scripts/auditData.js",
-    "data:seed": "node scripts/seedLoadData.js"
+    "data:seed": "node scripts/seedLoadData.js",
+    "data:admin": "node scripts/createAdminUser.js"
   },
   "keywords": [],
   "author": "",

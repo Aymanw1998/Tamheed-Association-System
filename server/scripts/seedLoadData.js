@@ -48,6 +48,8 @@ const seeded = {
   inviteTokens: [],
 };
 
+const usedTzNumbers = new Set();
+
 const randomFrom = (list) => list[Math.floor(Math.random() * list.length)];
 
 const shuffle = (list) => [...list].sort(() => Math.random() - 0.5);
@@ -58,9 +60,38 @@ const takeRandom = (list, min, max) => {
   return shuffle(list).slice(0, amount);
 };
 
+const computeIsraeliIdCheckDigit = (baseDigits) => {
+  const digits = String(baseDigits).replace(/\D/g, "").padStart(8, "0").slice(-8);
+  const sum = digits.split("").reduce((acc, digit, index) => {
+    const factor = index % 2 === 0 ? 1 : 2;
+    const value = Number(digit) * factor;
+    return acc + (value > 9 ? value - 9 : value);
+  }, 0);
+
+  return String((10 - (sum % 10)) % 10);
+};
+
+const buildValidIsraeliTz = (numericSeed) => {
+  const base = String(numericSeed).replace(/\D/g, "").padStart(8, "0").slice(-8);
+  return `${base}${computeIsraeliIdCheckDigit(base)}`;
+};
+
 const buildTz = (namespace, index) => {
-  const seed = `${namespace}${runId}${String(index).padStart(3, "0")}`.replace(/\D/g, "");
-  return seed.slice(-9).padStart(9, "0");
+  let offset = 0;
+
+  while (offset < 10000) {
+    const rawSeed = `${runId}${namespace.length}${String(index + offset).padStart(4, "0")}`;
+    const candidate = buildValidIsraeliTz(rawSeed);
+
+    if (!usedTzNumbers.has(candidate)) {
+      usedTzNumbers.add(candidate);
+      return candidate;
+    }
+
+    offset += 1;
+  }
+
+  throw new Error(`Failed to build unique valid TZ for ${namespace}#${index}`);
 };
 
 const buildPhone = () => `05${faker.string.numeric(8)}`;

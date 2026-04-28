@@ -42,7 +42,7 @@ export default function PublicOnly() {
         if (deadline) scheduleAutoLogout(deadline);
 
         navigatingRef.current = true;
-        navigate('/calendar', { replace: true });
+        navigate('/dashboard', { replace: true });
         return;
       }
 
@@ -62,7 +62,7 @@ export default function PublicOnly() {
           if (deadline) scheduleAutoLogout(deadline);
 
           navigatingRef.current = true;
-          navigate('/calendar', { replace: true });
+          navigate('/dashboard', { replace: true });
           return;
         }
       } catch {

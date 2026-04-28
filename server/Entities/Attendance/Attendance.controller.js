@@ -15,21 +15,24 @@ function teacherName(teacher) {
 }
 
 async function getLessonById(lessonId) {
-  const result = await LessonModelDef.get({ _id: lessonId });
+  const result = await LessonModelDef.get({ _id: lessonId }).catch(() => null);
+  if(!result) return null;
   if (!result?.result?.length) return null;
   return result.result[0];
 }
 
 async function getUserById(userId) {
   if (!userId) return null;
-  const result = await UserModelDef.get({ _id: userId }, "active");
+  const result = await UserModelDef.get({ _id: userId }, "active").catch(() => null);
+  if(!result) return null;
   if (!result?.result?.length) return null;
   return result.result[0];
 }
 
 async function getStudentById(studentId) {
   if (!studentId) return null;
-  const result = await StudentModelDef.get({ _id: studentId });
+  const result = await StudentModelDef.get({ _id: studentId }).catch(() => null);
+  if(!result) return null;
   if (!result?.result?.length) return null;
   return result.result[0];
 }

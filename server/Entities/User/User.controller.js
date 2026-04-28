@@ -274,8 +274,8 @@ const getOneU = async (req, res) => {
     }
 
     for (const room of ROOMS) {
-      const result = await UserModelDef.get({ tz: tzOrId }, room);
-      const result2 = await UserModelDef.get({ _id: tzOrId }, room);
+      const result = await UserModelDef.get({ tz: tzOrId }, room).catch(() => null);
+      const result2 = await UserModelDef.get({ _id: tzOrId }, room).catch(() => null);
       if (result?.success && Array.isArray(result.result) && result.result.length > 0) {
         return res.status(200).json({
           ok: true,
@@ -1043,7 +1043,7 @@ const viewPassword = async (req, res) => {
 };
 
 /* ================= uploadPhoto ================= */
-const uploadPhoto = async (req, res) => {
+const   uploadPhoto = async (req, res) => {
   try {
     const tz = String(req.params.tz ?? "").trim();
     if (!tz) {
@@ -1074,9 +1074,8 @@ const uploadPhoto = async (req, res) => {
     const uploaded = await handleUpload(
       req.file,
       process.env.DB_NAME,
-      "users",
-      "",
-      buildUserPhotoName(user, req.file)
+      StudentModelDef.collections.active,
+      {tz: user.tz}
     );
 
     await UserModelDef.update(
