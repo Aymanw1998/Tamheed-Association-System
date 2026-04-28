@@ -333,7 +333,7 @@ const uploadPhoto = async (req, res) => {
       req.file,
       StudentModelDef.dbName,
       StudentModelDef.collections.active,
-      {tz: student.tz}
+      student.tz
     );
 
     await StudentModelDef.update(

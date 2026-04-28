@@ -1074,8 +1074,8 @@ const   uploadPhoto = async (req, res) => {
     const uploaded = await handleUpload(
       req.file,
       process.env.DB_NAME,
-      StudentModelDef.collections.active,
-      {tz: user.tz}
+      UserModelDef.collections.active,
+      user.tz
     );
 
     await UserModelDef.update(

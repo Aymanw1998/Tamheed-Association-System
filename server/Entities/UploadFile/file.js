@@ -47,12 +47,12 @@ function buildRelativeDir(dbName, collection, folder = "") {
 
 const axios = require("axios");
 const FormData = require("form-data");
-const buildPhotoName = (user = {}, file = {}) => {
+const buildPhotoName = (tz = "", file = {}) => {
   const ext = path.extname(file.originalname || "") || "";
-  return `${user.tz || "person"}${ext}`;
+  return `${tz || "person"}${ext}`;
 };
 
-async function handleUpload(file, dbName, collection, folder = "", tz = "") {
+async function handleUpload(file, dbName, collection, tz = "") {
   try {
     if (!file || !file.buffer) {
       throw new Error("Missing file buffer");
@@ -82,10 +82,6 @@ async function handleUpload(file, dbName, collection, folder = "", tz = "") {
 
     form.append("dbName", dbName);
     form.append("collection", collection);
-
-    if (folder) {
-      form.append("folder", folder);
-    }
 
     const response = await axios.post(
       PUBLIC_BASE_URL + "/upload",
