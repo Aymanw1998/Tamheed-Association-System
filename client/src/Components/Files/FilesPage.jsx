@@ -210,6 +210,8 @@ export default function FilesPage() {
   const inputRef = useRef(null);
   const refreshTimerRef = useRef(null);
   const contextMenuRef = useRef(null);
+  const uploadAbortRef = useRef(null);
+  const uploadCanceledRef = useRef(false);
   const shareToken = useMemo(() => readShareToken(), []);
   const currentUserId = useMemo(() => String(getStoredUserId() || "").trim(), []);
   const isSharedView = Boolean(shareToken);
@@ -469,6 +471,10 @@ export default function FilesPage() {
       return;
     }
 
+    const abortController = new AbortController();
+    uploadAbortRef.current = abortController;
+    uploadCanceledRef.current = false;
+
     setUploading(true);
     setError("");
     setUploadProgress({
@@ -511,6 +517,7 @@ export default function FilesPage() {
         onUploadSession: (session) => {
           setCurrentUploadSession(session);
         },
+        signal: abortController.signal,
         onUploadProgress: (event) => {
           const total = event.total || file.size || 0;
           const loaded = event.loaded || 0;
@@ -548,10 +555,13 @@ export default function FilesPage() {
       notifyActionTime("تم رفع الملف خلال", startedAt);
     } catch (err) {
       setItems((prev) => removeItemByKey(prev, pendingKey));
+      if (!uploadCanceledRef.current) {
       setError(err?.response?.data?.message || err.message || "تعذر رفع الملف");
+      }
     } finally {
       setUploading(false);
       setCurrentUploadSession(null);
+      uploadAbortRef.current = null;
       window.setTimeout(() => setUploadProgress(null), 900);
       if (inputRef.current) inputRef.current.value = "";
     }
@@ -567,10 +577,13 @@ export default function FilesPage() {
 
   const cancelCurrentUpload = async () => {
     const uploadId = currentUploadSession?.uploadId;
-    if (!uploadId) return;
+    uploadCanceledRef.current = true;
+    uploadAbortRef.current?.abort();
 
     try {
-      await cancelStorageUpload(uploadId);
+      if (uploadId) {
+        await cancelStorageUpload(uploadId);
+      }
       setUploading(false);
       setCurrentUploadSession(null);
       setUploadProgress(null);
@@ -881,7 +894,7 @@ export default function FilesPage() {
             </div>
             <div className={styles.uploadProgressMeta}>
               <span>{formatBytes(uploadProgress.loaded)} / {formatBytes(uploadProgress.total)}</span>
-              {currentUploadSession?.uploadId && (
+              {uploading && uploadProgress.phase !== "done" && (
                 <button type="button" className={styles.cancelUploadBtn} onClick={cancelCurrentUpload}>
                   إلغاء الرفع
                 </button>

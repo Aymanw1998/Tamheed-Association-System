@@ -344,6 +344,36 @@ const buildCentralFileUrl = (relativePath = "", options = {}) => {
     : `${baseUrl}/${encodedPath}`;
 };
 
+const getRequestApiBaseUrl = (req) => {
+  const configuredBase = (
+    process.env.TAMHEED_PUBLIC_API_URL ||
+    process.env.PUBLIC_API_URL ||
+    ""
+  ).replace(/\/+$/, "");
+
+  if (configuredBase) {
+    return configuredBase.endsWith("/api") ? configuredBase : `${configuredBase}/api`;
+  }
+
+  const forwardedProto = String(req.get("x-forwarded-proto") || "").split(",")[0].trim();
+  const forwardedHost = String(req.get("x-forwarded-host") || "").split(",")[0].trim();
+  const protocol = forwardedProto || req.protocol || "http";
+  const host = forwardedHost || req.get("host");
+
+  return `${protocol}://${host}/api`;
+};
+
+const buildTamheedSignedFileUrl = (req, token, options = {}) => {
+  const baseUrl = getRequestApiBaseUrl(req).replace(/\/+$/, "");
+  const endpoint = options.download ? "download-signed" : "open-signed";
+  const targetUrl = new URL(`${baseUrl}/storage/${endpoint}`);
+  targetUrl.searchParams.set("token", token);
+  if (options.download) {
+    targetUrl.searchParams.set("download", "1");
+  }
+  return targetUrl.toString();
+};
+
 const signStorageAccessToken = (payload = {}) =>
   jwt.sign(payload, STORAGE_SIGNED_URL_SECRET, {
     algorithm: "HS256",
@@ -2342,15 +2372,10 @@ const getSharedLinkOpenLink = async (req, res) => {
       displayName,
       sharedLink: true,
     });
-    const targetUrl = new URL(
-      `${STORAGE_FILE_BASE_URL.replace(/\/+$/, "")}/${encodeURIComponent(displayName || "file")}`
-    );
-    targetUrl.searchParams.set("token", signedFileToken);
-
     return res.json({
       success: true,
       ok: true,
-      url: targetUrl.toString(),
+      url: buildTamheedSignedFileUrl(req, signedFileToken),
     });
   } catch (error) {
     const status =
@@ -2443,18 +2468,9 @@ const getSignedOpenLink = async (req, res) => {
       displayName,
       tz: req.user?.tz || "",
     });
-    const encodedName = encodeURIComponent(displayName || "file");
-    const targetUrl = new URL(
-      `${STORAGE_FILE_BASE_URL.replace(/\/+$/, "")}/${encodedName}`
-    );
-    targetUrl.searchParams.set("token", token);
-    if (download) {
-      targetUrl.searchParams.set("download", "1");
-    }
-
     return res.json({
       success: true,
-      url: targetUrl.toString(),
+      url: buildTamheedSignedFileUrl(req, token, { download }),
       expiresIn: STORAGE_SIGNED_URL_TTL,
     });
   } catch (error) {

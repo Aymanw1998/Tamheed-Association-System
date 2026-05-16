@@ -2,6 +2,7 @@ import api, { API_BASE_URL } from "../api";
 
 const trimSlashes = (value = "") => String(value).replace(/^\/+|\/+$/g, "");
 const CHUNK_SIZE = 50 * 1024 * 1024;
+const DIRECT_CHUNK_THRESHOLD = 90 * 1024 * 1024;
 const UPLOAD_SESSION_PREFIX = "tamheed.storageUpload.";
 
 const shouldRetryWithChunks = (error) => {
@@ -140,6 +141,7 @@ export const uploadStorageFile = async (file, path = "", name = "", options = {}
     const { data } = await api.post("/storage/upload", formData, {
       headers: { "Content-Type": "multipart/form-data" },
       timeout: 30 * 60 * 1000,
+      signal: options.signal,
       onUploadProgress: options.onUploadProgress,
     });
 
@@ -217,10 +219,11 @@ const removeStoredUploadSessionById = (uploadId = "") => {
     });
 };
 
-export const getStorageUploadStatus = async (uploadId) => {
+export const getStorageUploadStatus = async (uploadId, options = {}) => {
   const { data } = await api.get("/storage/upload-status", {
     params: { uploadId },
     timeout: 60 * 1000,
+    signal: options.signal,
   });
   return data;
 };
@@ -263,7 +266,7 @@ export const uploadLargeStorageFile = async (file, path = "", name = "", options
   let receivedChunks = [];
 
   try {
-    const status = await getStorageUploadStatus(uploadId);
+    const status = await getStorageUploadStatus(uploadId, options);
     if (status?.status === "completed") {
       removeStoredUploadSession(file, path);
     } else if (Array.isArray(status?.missingChunks) && status.totalChunks === totalChunks) {
@@ -321,6 +324,7 @@ export const uploadLargeStorageFile = async (file, path = "", name = "", options
       await api.post("/storage/upload-chunk", formData, {
         headers: { "Content-Type": "multipart/form-data" },
         timeout: 30 * 60 * 1000,
+        signal: options.signal,
         onUploadProgress: (event) => {
           const chunkLoaded = event.loaded || 0;
           const loaded = Math.min(file.size, (receivedChunks.length * CHUNK_SIZE) + chunkLoaded);
@@ -381,7 +385,7 @@ export const uploadLargeStorageFile = async (file, path = "", name = "", options
       size: file.size,
       chunkSize: CHUNK_SIZE,
     },
-    { timeout: 30 * 60 * 1000 }
+    { timeout: 30 * 60 * 1000, signal: options.signal }
   );
 
   console.info("[storage-upload] merge:success", {
@@ -396,6 +400,16 @@ export const uploadLargeStorageFile = async (file, path = "", name = "", options
 };
 
 export const uploadStorageFileAuto = (file, path = "", name = "", options = {}) => {
+  if (file?.size > DIRECT_CHUNK_THRESHOLD) {
+    console.info("[storage-upload] auto:large-file-direct-chunked", {
+      fileName: name || file?.name,
+      size: file?.size,
+      threshold: DIRECT_CHUNK_THRESHOLD,
+    });
+    options.onFallbackToChunks?.({ reason: "large-file-direct-chunked" });
+    return uploadLargeStorageFile(file, path, name, options);
+  }
+
   return uploadStorageFile(file, path, name, options).catch((error) => {
     if (!shouldRetryWithChunks(error)) {
       throw error;
