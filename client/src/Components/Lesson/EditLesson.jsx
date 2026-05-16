@@ -14,7 +14,7 @@ import { getAll as getAllS} from '../../WebServer/services/student/functionsStud
 import { getAll as getAllU } from '../../WebServer/services/user/functionsUser';
 const EditLesson = () => {
   
-  const { id } = useParams(); // "new" או מזהה שיעור
+  const { id } = useParams(); // ملاحظة عربية
   
   const navigate = useNavigate();
   const isNew = id === 'new';
@@ -28,7 +28,7 @@ const EditLesson = () => {
     name: '',
     date: { 
       day: dayFromUrl,     
-      startMin: hhFromUrl*60,           // אם הגיע 'hh' מה-URL
+      startMin: hhFromUrl*60,           // ملاحظة عربية
       endMin:   hhFromUrl*60 + 45,
     },
       teacher: '', 
@@ -45,7 +45,7 @@ const EditLesson = () => {
     list_students: [],
   });
 
-  // helper להמרת HH:MM <-> דקות
+  // ملاحظة عربية
   const toMin = (hhmm) => {
     const [hh, mm] = (hhmm || '00:00').split(':').map(Number);
     return (hh*60 + (mm||0))|0;
@@ -56,7 +56,7 @@ const EditLesson = () => {
     return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
   };
 
-  // handleChange לשדות שעות
+  // handleChange عربيالسبتالأربعاءالجمعةعربي ساعات
   const handleTimeChange = (name, hhmm) => {
     console.log("handleTimeChange", name, hhmm, toMin(hhmm));
     setLesson(prev => {
@@ -68,7 +68,7 @@ const EditLesson = () => {
         if (endMin <= startMin) endMin = startMin + 45
       } else {
         endMin = toMin(hhmm);
-        if (endMin <= startMin + 45) endMin = startMin + 45; // לפחות דקה אחת
+        if (endMin <= startMin + 45) endMin = startMin + 45; // ملاحظة عربية
       }
       return { ...prev, date: { ...prev.date, startMin, endMin } };
     });
@@ -83,7 +83,7 @@ const EditLesson = () => {
   const [searchTerm2, setSearchTerm2] = useState('');
   const [showTraineeModal, setShowTraineeModal] = useState(false);
 
-  // פרה-פופול לשיעור חדש מה־querystring
+  // ملاحظة عربية
   useEffect(() => {
     if (id === 'new') {
       setLesson((prev) => ({
@@ -93,7 +93,7 @@ const EditLesson = () => {
     }
   }, [id, dayFromUrl, hhFromUrl]);
 
-  // טעינת נתונים
+  // ملاحظة عربية
   const loadData = async () => {
     try {
       const usersRes = await getAllU();
@@ -101,7 +101,7 @@ const EditLesson = () => {
       if (usersRes?.ok) {
         const allUsers = usersRes.users || [];
         setTeachers(allUsers.filter((u) => u.roles.includes('مرشد')));
-        // setTrainers(allUsers.filter((u) => u.role === 'מאמן'));
+        // setTrainers(allUsers.filter((u) => u.role === 'مدرب'));
       } else{
         throw new Error(usersRes?.message)
       }
@@ -116,7 +116,7 @@ const EditLesson = () => {
       if (usersRes?.ok) {
         const allUsers = usersRes.users || [];
         setHelpers(allUsers.filter((u) => u.roles.includes('مساعد')));
-        // setTrainers(allUsers.filter((u) => u.role === 'מאמן'));
+        // setTrainers(allUsers.filter((u) => u.role === 'مدرب'));
       } else{
         throw new Error(usersRes?.message)
       }
@@ -125,7 +125,7 @@ const EditLesson = () => {
       console.error(err.message)
     }
     try{
-      // לא חובה, אבל משאירים אם תרצה שימוש עתידי
+      // ملاحظة عربية
       // await getAllLesson();
 
       if (id !== 'new') {
@@ -159,7 +159,7 @@ const EditLesson = () => {
     loadData();
   }, [id]);
 
-  // שינוי שדות
+  // ملاحظة عربية
   const handleChange = (e) => {
     const { name, value } = e.target;
     console.log(name, value);
@@ -176,7 +176,7 @@ const EditLesson = () => {
 
     const validateBeforeSave = async(name = null, value = null) => {
         if(!name) {
-          // ולידציה בסיסית
+          // ملاحظة عربية
           if (!lesson.name?.trim()) return 'اسم الدرس مطلوب';
           const d = Number(lesson.date.day) ;
           const start = Number(lesson.date.startMin);
@@ -191,7 +191,7 @@ const EditLesson = () => {
       else{
         const tag = document.getElementsByName(name)[0];
         if(name === "name" && isNew && value === ""){
-          tag?.style.setProperty('border', '2px solid red'); // או ישירות סטייל
+          tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
           return "املاء الخانة";
         } else if(name === "name" && isNew) {
           return "";
@@ -200,7 +200,7 @@ const EditLesson = () => {
   };
   
 
-  // שמירה
+  // ملاحظة عربية
   const handleSave = async () => {
     let b = await validateBeforeSave();
     if (b) { toast.warn(b); return; }
@@ -215,21 +215,21 @@ const EditLesson = () => {
       
       if (!resL) return;
       if (resL.ok) {
-        console.log(`✅ الدرس ${id === 'new'? 'נשמר' : 'עודכן' }  بنجاح`, resL);
+        console.log(`✅ الدرس ${id === 'new'? 'تم الحفظ' : 'تم التحديث' }  بنجاح`, resL);
         toast.success(`✅ الدرس ${id === 'new'? 'حفظ' : 'حديث' }  بنجاح`);
         navigate(-1);
       } else {
-        // alert(resL.message || '❌ שגיאה בשמירה');
-        // console.warn(resL.message || '❌ שגיאה בשמירה');
-        toast.warn(resL.message || '❌ שגיאה בשמירה');
+        // alert(resL.message || '❌ خطأ في الحفظ');
+        // console.warn(resL.message || '❌ خطأ في الحفظ');
+        toast.warn(resL.message || '❌ خطأ في الحفظ');
       }
     } catch (e) {
       console.error(e);
-      toast.error(e.message || '❌ שגיאה בשמירה');
+      toast.error(e.message || '❌ خطأ في الحفظ');
     }
   };
 
-  // מחיקה
+  // حذف
   const handleDelete = async () => {
     if (id === 'new') return;
 
@@ -238,13 +238,13 @@ const EditLesson = () => {
       if(!resDL) return;
       if("delete b", resDL);
       if (resDL.ok) {
-        toast.success('✅ השיעור נמחק');
+        toast.success('✅ تم حذف الدرس');
         navigate(-1);
       } else {
-        toast.warn('❌ השיעור לא נמחק');
+        toast.warn('❌ لم يتم حذف الدرس');
       }
     } catch {
-      toast.error('❌ שגיאה במחיקה');
+      toast.error('❌ خطأ في الحذف');
     }
   };
 
@@ -272,7 +272,7 @@ const EditLesson = () => {
           name="name"
           value={lesson.name}
           onChange={handleChange}
-          placeholder="הכנס שם שיעור"
+          placeholder="أدخل اسم الدرس"
           disabled={!localStorage.getItem('roles').includes('ادارة')}
         />
         
@@ -378,7 +378,7 @@ const EditLesson = () => {
         <>
           <input
             type="text"
-            placeholder="חפש מתאמן לפי שם או תעודת זהות"
+            placeholder="ابحث عن متدرب حسب الاسم أو رقم الهوية"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -426,10 +426,10 @@ const EditLesson = () => {
       {showTraineeModal && (
         <div className={styles.modalOverlay}>
           <div className={styles.modalContent}>
-            <h4>הוספת מתאמנים</h4>
+            <h4>إضافة متدربين</h4>
             <input
               type="text"
-              placeholder="חיפוש לפי שם או תז"
+              placeholder="بحث حسب الاسم أو رقم الهوية"
               value={searchTerm2}
               onChange={(e) => setSearchTerm2(e.target.value)}
             />
@@ -445,7 +445,7 @@ const EditLesson = () => {
                       onChange={(e) => {
                         const { checked } = e.target;
                         if (checked && lesson.list_students.length === Number(lesson.max_trainees)) {
-                          return toast.warn('הגענו למקסימום משתתפים לשיעור הזה');
+                          return toast.warn('وصلنا إلى الحد الأقصى للمشاركين في هذا الدرس');
                         }
                         setLesson((prev) => ({
                           ...prev,
@@ -461,7 +461,7 @@ const EditLesson = () => {
               })}
             </div>
 
-            <button onClick={() => setShowTraineeModal(false)}>✔️ סגור</button>
+            <button onClick={() => setShowTraineeModal(false)}>✔️ إغلاق</button>
           </div>
         </div>
       )}

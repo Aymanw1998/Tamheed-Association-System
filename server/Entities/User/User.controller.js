@@ -26,6 +26,7 @@ const { handleUpload, handleDeleteByUrl } = require("../UploadFile/file");
 const {
   buildUserStorageFolder,
   ensureUserStorageFolder,
+  syncStorageViewPermissionsForUser,
 } = require("../Storage/Storage.controller");
 
 const ADMIN_ROLES = new Set(["ادارة", "إدارة", "الادارة", "الإدارة", "Ø§Ø¯Ø§Ø±Ø©", "admin", "administrator"]);
@@ -51,6 +52,14 @@ const safeEnsureStorageFolder = async (user) => {
     await ensureUserStorageFolder(user);
   } catch (error) {
     logWithSource("User.ensureStorageFolder", error);
+  }
+};
+
+const safeSyncStoragePermissions = async (user) => {
+  try {
+    await syncStorageViewPermissionsForUser(user);
+  } catch (error) {
+    logWithSource("User.syncStoragePermissions", error);
   }
 };
 
@@ -294,7 +303,7 @@ const getOneU = async (req, res) => {
 
     return res.status(404).json({
       ok: false,
-      message: "לא נמצא",
+      message: "غير موجود",
     });
   } catch (err) {
     logWithSource("User.getOneU", err);
@@ -324,7 +333,7 @@ const postU = async (req, res) => {
     if (existsActive?.success && existsActive.count > 0) {
       return res.status(409).json({
         ok: false,
-        message: "המשתמש קיים",
+        message: "المستخدم موجود",
       });
     }
 
@@ -456,7 +465,7 @@ const register = async (req, res) => {
 
     const existsActive = await getUserInRoomByTz(model.tz, "active");
     if (existsActive) {
-      return res.status(400).json({ message: "המשתמש קיים" });
+      return res.status(400).json({ message: "المستخدم موجود" });
     }
 
     const existsWaiting = await getUserInRoomByTz(model.tz, "waiting");
@@ -487,8 +496,8 @@ const register = async (req, res) => {
     return res.status(200).json({
       message:
         room === "active"
-          ? "המשתמש נרשם בהצלחה"
-          : "המשתמש נרשם לחדר המתנה",
+          ? "تم تسجيل المستخدم بنجاح"
+          : "تم تسجيل المستخدم في غرفة الانتظار",
       created,
     });
   } catch (error) {
@@ -557,13 +566,20 @@ const login = async (req, res) => {
       room,
     });
     
+    const normalizedStorageFolder = user.storageFolder || buildUserStorageFolder(user);
+
     await UserModelDef.update(
       { tz: user.tz },
-      { refreshHash: sha256(refreshToken) },
+      {
+        refreshHash: sha256(refreshToken),
+        ...(user.storageFolder ? {} : { storageFolder: normalizedStorageFolder }),
+      },
       "active"
     );
 
     setRefreshCookie(res, refreshToken);
+    await safeEnsureStorageFolder({ ...user, storageFolder: normalizedStorageFolder });
+    await safeSyncStoragePermissions({ ...user, storageFolder: normalizedStorageFolder });
 
     return res.status(200).json({
       ok: true,
@@ -750,7 +766,7 @@ const CheckPasswordisGood = async (req, res) => {
 const forgotPassword = async (req, res) => {
   try {
     const { tz } = req.body || {};
-    const genericMsg = "אם המייל קיים, נשלח קישור לאיפוס סיסמה.";
+    const genericMsg = "إذا كان البريد موجودا، سيتم إرسال رابط لإعادة تعيين كلمة المرور.";
 
     const normTz = String(tz ?? "").trim();
     if (!normTz) return res.json({ ok: true, message: genericMsg });
@@ -904,13 +920,13 @@ const changeRoom = async (req, res) => {
     const { from, to } = req.body || {};
 
     if (!tz) {
-      return res.status(400).json({ ok: false, message: "תעודת זיהות חובה" });
+      return res.status(400).json({ ok: false, message: "رقم الهوية مطلوب" });
     }
 
     if (!from || !to) {
       return res.status(400).json({
         ok: false,
-        message: "חדר מקור וחדר יעד חובה",
+        message: "غرفة المصدر وغرفة الهدف مطلوبة",
       });
     }
 
@@ -1056,7 +1072,7 @@ const   uploadPhoto = async (req, res) => {
     }
 
     if (!canManageUserMedia(req, tz)) {
-      return res.status(403).json({ ok: false, message: "אין הרשאה" });
+      return res.status(403).json({ ok: false, message: "لا توجد صلاحية" });
     }
 
     if (!req.file) {
@@ -1120,7 +1136,7 @@ const deletePhoto = async (req, res) => {
     }
 
     if (!canManageUserMedia(req, tz)) {
-      return res.status(403).json({ ok: false, message: "אין הרשאה" });
+      return res.status(403).json({ ok: false, message: "لا توجد صلاحية" });
     }
     console.log("Deleting photo for user:", user.tz, "Photo URL:", user.photo);
     if (user.photo) {
@@ -1274,8 +1290,8 @@ module.exports = {
 //   typeof val === 'string' && /^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/.test(val);
 
 // /**
-//  * פונקציה מרכזית: בדיקת סיסמה לפי פורמט שמור (bcrypt או enc)
-//  * מחזירה: { ok: boolean, upgraded?: boolean }
+// ملاحظة عربية
+// ملاحظة عربية
 //  */
 // async function verifyPasswordAndMaybeUpgrade(userDoc, inputPassword) {
 //   try{
@@ -1284,7 +1300,7 @@ module.exports = {
 //     const stored = userDoc?.password;
 //     if (!stored || typeof stored !== 'string') return { ok: false };
 
-//     // 1) bcrypt (ישן)
+//     // 1) bcrypt (عربيالسبتعربي)
 //     const b = isBcryptHash(stored);
 //     console.log("isBcryptHash:", b);
 //     if (b) {
@@ -1292,14 +1308,14 @@ module.exports = {
 //       console.log("bcrypt compare result:", ok);
 //       if (!ok) return { ok: false };
 
-//       // ✅ UPGRADE אוטומטי ל-enc (מומלץ כדי להעביר בהדרגה)
+// ملاحظة عربية
 //       userDoc.password = encryptPassword(inputPassword);
 //       console.log("Upgrading password to enc format", userDoc.password);
 //       await userDoc.save();
 //       return { ok: true, upgraded: true };
 //     }
 
-//     // 2) enc (חדש)
+//     // 2) enc (عربيالأربعاءالسبت)
 //     if (isEncrypted(stored)) {
 //       try {
 //         const plain = decryptPassword(stored);
@@ -1325,9 +1341,9 @@ module.exports = {
 //     const ObjectFrom = roomToModel(from);
 //     const ObjectTo = roomToModel(to);
 
-//     if (!param) return res.status(400).json({ ok: false, message: "תעודת זיהות חובה" });
-//     if (!from || !to) return res.status(400).json({ ok: false, message: "חדר מקור וחדר יעד חובה" });
-//     if (from === to) return res.status(400).json({ ok: false, message: "נשלח חדר מקור וחדר יעד אותו חדר" });
+//     if (!param) return res.status(400).json({ ok: false, message: "رقم الهوية مطلوب" });
+//     if (!from || !to) return res.status(400).json({ ok: false, message: "غرفة المصدر وغرفة الهدف مطلوبة" });
+//     if (from === to) return res.status(400).json({ ok: false, message: "تم إرسال نفس غرفة المصدر والهدف" });
 //     if (!ROOMS.includes(from) || !ROOMS.includes(to))
 //       return res.status(400).json({ ok: false, message: "from/to must be one of waiting, active, noActive" });
 
@@ -1371,7 +1387,7 @@ module.exports = {
 //     if (!model.tz || !model.password) return res.status(400).json({ message: "tz/password required" });
 
 //     const exists = await User.findOne({ tz: model.tz });
-//     if (exists) return res.status(400).json({ message: "המשתמש קיים" });
+//     if (exists) return res.status(400).json({ message: "المستخدم موجود" });
 
 //     const existsWaitingRoom = await UserWaitingRoom.findOne({ tz: model.tz });
 //     if (existsWaitingRoom) return res.status(400).json({ message: "المستخدم في غرفة الانتظار حتى يتم قُبُلهُ" });
@@ -1390,7 +1406,7 @@ module.exports = {
 //         createdBy: createdActive._id,
 //       });
 
-//       return res.status(200).json({ message: "המשתמש נרשם בהצלחה", user: sanitize(createdActive) });
+//       return res.status(200).json({ message: "تم تسجيل المستخدم بنجاح", user: sanitize(createdActive) });
 //     } else {
 //       const createdWaiting = await UserWaitingRoom.create({ ...model, createdAt: new Date() });
       
@@ -1405,7 +1421,7 @@ module.exports = {
 //         createdBy: createdWaiting._id,
 //       });
 
-//       return res.status(200).json({ message: "המשתמש נרשם לחדר המתנה" });
+//       return res.status(200).json({ message: "تم تسجيل المستخدم في غرفة الانتظار" });
 //     }
 //   } catch (error) {
 //     logWithSource("User.register", error);
@@ -1550,7 +1566,7 @@ module.exports = {
 //       const inNoActive = await UsernoActive.findById(param);
 //       if (inNoActive) return res.status(200).json({ ok: true, user: sanitize(inNoActive), room: "noActive" });
 
-//       return res.status(404).json({ ok: false, message: "לא נמצא" });
+//       return res.status(404).json({ ok: false, message: "غير موجود" });
 //     }
 
 //     // By tz
@@ -1563,7 +1579,7 @@ module.exports = {
 //     const inNoActive = await UsernoActive.findOne({ tz: param });
 //     if (inNoActive) return res.status(200).json({ ok: true, user: sanitize(inNoActive), room: "noActive" });
 
-//     return res.status(404).json({ ok: false, message: "לא נמצא" });
+//     return res.status(404).json({ ok: false, message: "غير موجود" });
 //   } catch (err) {
 //     logWithSource("User.getOneU", err);
 //     return res.status(500).json({ ok: false, message: err.message });
@@ -1577,7 +1593,7 @@ module.exports = {
 //     if (!model.tz || !model.password) return res.status(400).json({ ok: false, message: "tz and password are required" });
 
 //     const exists = await User.findOne({ tz: model.tz });
-//     if (exists) return res.status(409).json({ ok: false, message: "המשתמש קיים" });
+//     if (exists) return res.status(409).json({ ok: false, message: "المستخدم موجود" });
 
 //     const created = await User.create({ ...model, createdAt: new Date() });
 
@@ -1783,7 +1799,7 @@ module.exports = {
 // const forgotPassword = async (req, res) => {
 //   try {
 //     const { tz } = req.body || {};
-//     const genericMsg = "אם המייל קיים, נשלח קישור לאיפוס סיסמה.";
+//     const genericMsg = "إذا كان البريد موجودا، سيتم إرسال رابط لإعادة تعيين كلمة المرور.";
 
 //     const normTz = String(tz ?? "").trim();
 //     if (!normTz) return res.json({ ok: true, message: genericMsg });
@@ -1879,8 +1895,8 @@ module.exports = {
 // };
 
 // /**
-//  * מנהל בלבד: מציג סיסמה רק אם היא enc
-//  * ❌ bcrypt אי אפשר להציג בכלל
+// ملاحظة عربية
+// ملاحظة عربية
 //  *
 //  * GET /users/viewPassword/:tz
 //  */
@@ -1890,13 +1906,13 @@ module.exports = {
 //     const tz = String(req.params.tz).trim();
 //     if (!tz) return res.status(400).json({ ok: false, message: 'tz is required' });
 
-//     // חובה: להביא גם password
+//     // عربيالجمعةالاثنينالخميس: عربيالخميسالاثنينعربيالأحد الثلاثاءعربي password
 //     const user = await User.findOne({ tz }).select('+password');
 //     if (!user) return res.status(404).json({ ok: false, message: 'User not found' });
 
 //     const stored = user.password;
 //     console.log("Stored password format:", stored, isBcryptHash(stored));
-//     // bcrypt? אין decrypt
+// ملاحظة عربية
 //     if (isBcryptHash(stored)) {
 //       return res.status(200).json({
 //         ok: false,
@@ -1906,18 +1922,18 @@ module.exports = {
 //       });
 //     }
 //     console.log(isEncrypted(stored));
-//     // enc? אפשר לפענח
+// ملاحظة عربية
 //     if (isEncrypted(stored)) {
 //       const plain = decryptPassword(stored);
 
-//       // מומלץ: לוג פנימי (אל תכתוב את הסיסמה ללוג!)
+// ملاحظة عربية
 //       // logWithSource(`ADMIN viewed password for tz=${tz}`);
 
 //       return res.status(200).json({
 //         ok: true,
 //         canView: true,
 //         algo: 'enc',
-//         password: plain, // ⚠️ מחזיר סיסמה בפועל
+// ملاحظة عربية
 //       });
 //     }
 

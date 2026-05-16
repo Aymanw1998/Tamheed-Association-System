@@ -1,6 +1,6 @@
 const api = require("../api");
 
-// Model definition - לא mongoose אלא הגדרה גנרית שנוכל להשתמש בה עם כל DB
+// ملاحظة عربية
 const StudentModelDef = {
     dbName: "tamheed_db",
 
@@ -51,7 +51,7 @@ const StudentModelDef = {
 // Build for getting students
 /**
  *
- * @param {*} filter | אופציונלי - פילטר לקריאה, לדוגמה { city: 'الرمة' }
+ * ملاحظة عربية
  * @returns
  */
 StudentModelDef.get = async function (filter = {}) {
@@ -65,7 +65,7 @@ StudentModelDef.get = async function (filter = {}) {
 // Build for creating a student
 /**
  *
- * @param {*} data | אובייקט עם שדות התלמיד ליצירה
+ * ملاحظة عربية
  * @returns
  */
 StudentModelDef.create = async function (data) {
@@ -79,8 +79,8 @@ StudentModelDef.create = async function (data) {
 // Build for updating a student
 /**
  *
- * @param {*} filter | אובייקט עם שדות לפילטר, לדוגמה { tz: '123456789' }
- * @param {*} newData | אובייקט עם שדות לעדכון
+ * ملاحظة عربية
+ * ملاحظة عربية
  * @returns
  */
 StudentModelDef.update = async function (filter, newData) {
@@ -95,7 +95,7 @@ StudentModelDef.update = async function (filter, newData) {
 // Build for deleting a student
 /**
  *
- * @param {*} filter | אובייקט עם שדות לפילטר, לדוגמה { tz: '123456789' }
+ * ملاحظة عربية
  * @returns
  */
 StudentModelDef.delete = async function (filter) {

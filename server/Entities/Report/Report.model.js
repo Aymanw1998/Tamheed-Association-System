@@ -1,6 +1,6 @@
 const api = require("../api");
 
-// Model definition - גנרי
+// ملاحظة عربية
 const ReportModelDef = {
     dbName: "tamheed_db",
 
@@ -15,13 +15,13 @@ const ReportModelDef = {
         },
 
         attendance: {
-        type: "array", // נשמור array של tz או ids (string)
+        type: "array", // عربيالسبتعربيالجمعةعربي array السبتعربي tz الأحدالجمعة ids (string)
         required: false,
         default: [],
         },
 
         title: {
-        type: "array", // כמו שהיה (array של strings)
+        type: "array", // ملاحظة عربية
         required: false,
         default: [],
         },
@@ -38,7 +38,7 @@ const ReportModelDef = {
         },
 
         createdBy: {
-        type: "string", // במקום ObjectId
+        type: "string", // ملاحظة عربية
         required: false,
         default: null,
         },

@@ -39,10 +39,10 @@ async function fetchTeacherNames(lessons) {
       if (!res?.ok) throw 0;
       const u = res.user || {};
       console.log("fetchTeacherNames", {id, user: u});
-      return [id, [u.firstname, u.lastname].filter(Boolean).join(" ") || "לא ידוע"];
+      return [id, [u.firstname, u.lastname].filter(Boolean).join(" ") || "غير معروف"];
     } catch (err) {
       console.log(`err`, `fetching teacher name for id ${id}`, err);
-      return [id, "שגיאה"];
+      return [id, "خطأ"];
     }
   }));
   return Object.fromEntries(pairs);
@@ -57,7 +57,7 @@ async function saveReschedule({ lesson, newDay, newRoom, newStartMin, onReload }
   const end = Math.min(start + dur, 24 * 60);
 
   try {
-    // ⚠️ אם אצלך updateLesson דורש עוד שדות – תוסיף כאן
+    // ملاحظة عربية
     const payload = {
       name: lesson.name,
       teacher: lesson.teacher,
@@ -69,13 +69,13 @@ async function saveReschedule({ lesson, newDay, newRoom, newStartMin, onReload }
     const res = await updateLesson(lesson._id, payload);
 
     if (res?.ok || res?.status === 200) {
-      toast.success("עודכן בהצלחה");
+      toast.success("تم التحديث بنجاح");
       onReload?.();
     } else {
-      toast.error(res?.message || "שגיאה בעדכון");
+      toast.error(res?.message || "خطأ في التحديث");
     }
   } catch (e) {
-    toast.error("שגיאה בעדכון");
+    toast.error("خطأ في التحديث");
   }
 }
 
@@ -503,7 +503,7 @@ export default function ViewAllLesson() {
       setLessons(cleaned);
 
     } catch {
-      toast.error("שגיאה בטעינת השיעורים");
+      toast.error("خطأ في تحميل الدروس");
       setLessons([]);
       setTeacherNames({});
     } finally {
@@ -650,7 +650,7 @@ export default function ViewAllLesson() {
             id="page-add-lesson"
             style={{ backgroundColor: 'green', padding: '0.5rem 1rem', borderRadius: '0.5rem', color: 'white' }}
             onClick={()=>{
-              // אם dayRooms -> ניצור לפי selectedDay. אחרת לפי filterDay אם נבחר, אחרת יום 1.
+              // ملاحظة عربية
               const day = viewMode === "dayRooms" ? selectedDay : (filterDay || 1);
               navigate(`/lessons/new?day=${day}&month=${currentMonthInfo.month}&year=${currentMonthInfo.year}`);
             }}
@@ -694,7 +694,7 @@ export default function ViewAllLesson() {
             )}
           </div>
 
-          {/* Mobile (אפשר להשאיר רשימה פשוטה; כרגע נשאר week view כמו דסקטופ) */}
+          {/* ملاحظة عربية */}
           <div className={styles.mobileView}>
             <div style={{ padding: 10 }}>
               {(filteredLessons || [])
@@ -740,7 +740,7 @@ export default function ViewAllLesson() {
         visible={showFab && isAdmin}
         label="إضافة درس"
         onClick={() => {
-          // אם dayRooms -> ניצור לפי selectedDay. אחרת לפי filterDay אם נבחר, אחרת יום 1.
+          // ملاحظة عربية
           const day = viewMode === "dayRooms" ? selectedDay : (filterDay || 1);
           navigate(`/lessons/new?day=${day}&month=${currentMonthInfo.month}&year=${currentMonthInfo.year}`);
         }}

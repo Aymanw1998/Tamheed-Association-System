@@ -20,7 +20,7 @@ function useServerHealth() {
   return ok;
 }
 
-// ---------- API גלובלי ----------
+// ملاحظة عربية
 const _queue = [];
 export const toast = {
   _push: (t) => {_queue.length = 0; _queue.push(t)},
@@ -61,7 +61,7 @@ export function ToastProvider({ children, rtl = true, baseZIndex = 50 }) {
     return id;
   }, []);
 
-  // חבר את ה־API הגלובלי ונקז תור
+  // ملاحظة عربية
   useEffect(() => {
     toast._push = (t) => {
       return push(t);
@@ -105,9 +105,9 @@ function ToastItem({ t, onClose }) {
   const [remaining, setRemaining] = useState(total);
 
   const intervalRef = useRef(null);
-  const endAtRef = useRef(null); // timestamp שבו אמור להיגמר הטוסט (ms)
+  const endAtRef = useRef(null); // ملاحظة عربية
 
-  // פורמט mm:ss
+  // ملاحظة عربية
   const formatMMSS = (ms) => {
     if (ms == null) return "∞";
     const s = Math.max(0, Math.ceil(ms / 1000));
@@ -125,41 +125,41 @@ function ToastItem({ t, onClose }) {
 
   const startTick = () => {
     stopTick();
-    // אם זו התחלה מחדש (למשל אחרי hover), קבע יעד חדש לפי הזמן שנותר
+    // ملاحظة عربية
     endAtRef.current = Date.now() + (remaining ?? total);
     intervalRef.current = setInterval(() => {
       const left = endAtRef.current - Date.now();
       if (left <= 0) {
         setRemaining(0);
         stopTick();
-        onClose(); // סוגרים כשנגמר
+        onClose(); // ملاحظة عربية
       } else {
         setRemaining(left);
       }
-    }, 100); // דיוק נעים לעין
+    }, 100); // ملاحظة عربية
   };
 
-  // התחלת הטיימר בהיטענות
+  // ملاحظة عربية
   useEffect(() => {
     startTick();
     return () => stopTick();
   }, []);
 
-  // עצירה בעת hover וחידוש כשהעכבר יוצא
+  // ملاحظة عربية
   useEffect(() => {
     if (hover) {
-      // עוצרים את הספירה; remaining נשאר כמותכן
+      // ملاحظة عربية
       stopTick();
     } else {
-      // ממשיכים מהזמן שנותר
+      // ملاحظة عربية
       startTick();
     }
   }, [hover, isSticky]);
 
-  // עיצוב לפי ווריאנט
+  // ملاحظة عربية
   const variantClass = `${styles.toast} ${styles[t.variant || "info"]}`;
 
-  // אחוז התקדמות (לפס)
+  // ملاحظة عربية
   const pct = Math.max(0, Math.min(100, Math.round(((remaining || 0) / total) * 100)));
 
   return (
@@ -180,11 +180,11 @@ function ToastItem({ t, onClose }) {
           {t.description && <div className={styles.toastDesc}>{t.description}</div>}
         </div>
 
-        <div className={styles.toastTimer} aria-label="נותר">
+        <div className={styles.toastTimer} aria-label="المتبقي">
           {formatMMSS(remaining)}
         </div>
 
-        <button onClick={onClose} aria-label="סגירה" className={styles.toastClose}>×</button>
+        <button onClick={onClose} aria-label="إغلاق" className={styles.toastClose}>×</button>
       </div>
 
       {(
@@ -266,7 +266,7 @@ export function SystemEventSubscriber({ url = "/api/events" }) {
         const variant = level === "error" ? "destructive" : level === "warning" ? "warning" : level === "success" ? "success" : "info";
         push({ title: data.title, description: data.message, variant });
       } catch {
-        push({ description: ev.data || "אירוע מערכת", variant: "info" });
+        push({ description: ev.data || "حدث نظام", variant: "info" });
       }
     };
     return () => es.close();
@@ -274,7 +274,7 @@ export function SystemEventSubscriber({ url = "/api/events" }) {
   return null;
 }
 
-// ---------- Status Badge (לא חובה) ----------
+// ---------- Status Badge (عربيالأحد عربيالجمعةالاثنينالخميس) ----------
 export function StatusBadge({ className = "" }) {
   const serverOk = useServerHealth();
   const [minsLeft, setMinsLeft] = useState(null);
@@ -308,20 +308,20 @@ export function StatusBadge({ className = "" }) {
     return () => clearInterval(id);
   }, []);
 
-  // כבוי כברירת מחדל — הפעל ע"י החלפת false ל-true
+  // ملاحظة عربية
   return (
     <>
     {false && <div className={`${styles.statusBadge} ${className}`}>
       <div className={styles.statusBox}>
         <div className={styles.statusSeg}>
           <span className={`${styles.dot} ${styles[netState || "warn"]}`} />
-          <span className={styles.label}>שרת</span>
+          <span className={styles.label}>الخادم</span>
         </div>
         <div className={styles.split} />
         <div className={styles.statusSeg}>
           <span className={`${styles.dot} ${styles[tokenState]}`} />
           <span className={styles.label}>
-            טוקן {minsLeft !== null ? (minsLeft > 60 ? `~${(minsLeft/60).toFixed(0)} שע׳` : `~${minsLeft} ד׳`) : "לא נמצא"}
+            الرمز {minsLeft !== null ? (minsLeft > 60 ? `~${(minsLeft/60).toFixed(0)} س` : `~${minsLeft} د`) : "غير موجود"}
           </span>
         </div>
       </div>

@@ -6,14 +6,14 @@ function toDate(value) {
     if (typeof value === 'string') {
         const s = value.trim();
 
-        // dd-mm-yyyy או dd/mm/yyyy
+        // dd-mm-yyyy الأحدالجمعة dd/mm/yyyy
         let m = s.match(/^(\d{2})[\/\-](\d{2})[\/\-](\d{4})$/);
         if (m) {
         const [, dd, mm, yyyy] = m.map(Number);
-        return new Date(Date.UTC(yyyy, mm - 1, dd)); // UTC כדי להימנע מהפתעות שעון קיץ
+        return new Date(Date.UTC(yyyy, mm - 1, dd)); // ملاحظة عربية
         }
 
-        // yyyy-mm-dd (ISO קצר)
+        // ملاحظة عربية
         m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
         if (m) {
         const [, yyyy, mm, dd] = m.map(Number);
@@ -23,5 +23,5 @@ function toDate(value) {
         const ts = Date.parse(s);
         if (!Number.isNaN(ts)) return new Date(ts);
     }
-    return null; // לא תקין
+    return null; // ملاحظة عربية
 }

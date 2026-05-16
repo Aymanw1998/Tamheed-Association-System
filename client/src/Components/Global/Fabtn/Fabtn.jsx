@@ -4,15 +4,15 @@ import "./Fabtn.css";
 
 /**
  * props:
- * - label: טקסט לכפתור
- * - onClick: קליק
- * - visible: אופציונלי, מצב נשלט מבחוץ (אם נותנים – מבטל את ה־observer)
- * - anchor: סלקטור CSS / ref / HTMLElement של הכפתור המקורי בעמוד
- * - root:   סלקטור/ref/HTMLElement של האלמנט שגוללים בו (אם לא חלון)
- * - showWhenNoAnchor: אם אין עוגן בעמוד – האם להראות? ברירת מחדל true
+ * ملاحظة عربية
+ * ملاحظة عربية
+ * ملاحظة عربية
+ * ملاحظة عربية
+ * ملاحظة عربية
+ * ملاحظة عربية
  */
 export default function Fabtn({
-  label = "הוספה",
+  label = "إضافة",
   onClick,
   visible,
   anchor,
@@ -22,31 +22,31 @@ export default function Fabtn({
   const [show, setShow] = useState(!!visible);
 
   useEffect(() => {
-    // אם שולטים מבחוץ – לא מפעילים observer
+    // ملاحظة عربية
     if (typeof visible === "boolean") {
       setShow(visible);
       return;
     }
 
-    // מציאת העוגן
+    // ملاحظة عربية
     const anchorEl =
       typeof anchor === "string"
         ? document.querySelector(anchor)
         : anchor?.current || (anchor instanceof HTMLElement ? anchor : null);
 
-    // מציאת אלמנט הגלילה (אם לא ה־viewport)
+    // ملاحظة عربية
     const rootEl =
       typeof root === "string"
         ? document.querySelector(root)
         : root?.current || (root instanceof HTMLElement ? root : null);
 
     if (!anchorEl) {
-      setShow(showWhenNoAnchor);   // אין עוגן → מציגים לפי ברירת מחדל
+      setShow(showWhenNoAnchor);   // ملاحظة عربية
       return;
     }
 
     const io = new IntersectionObserver(
-      ([entry]) => setShow(!entry.isIntersecting), // אם העוגן לא נראה → הצג FAB
+      ([entry]) => setShow(!entry.isIntersecting), // ملاحظة عربية
       { root: rootEl || null }
     );
     io.observe(anchorEl);

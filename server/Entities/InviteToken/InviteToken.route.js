@@ -24,8 +24,8 @@ module.exports = router;
 
 // router.post('/create-link', async (req, res) => {
 //   try {
-//     const token = crypto.randomBytes(32).toString('hex'); // קישור מפולגן
-//     const expiresAt = new Date(Date.now() + 30 * 60 * 1000); // 10 דקות
+// ملاحظة عربية
+//     const expiresAt = new Date(Date.now() + 30 * 60 * 1000); // 10 دقائق
 
 //     await InviteToken.create({ token, expiresAt });
 
@@ -69,14 +69,14 @@ module.exports = router;
 //   if (typeof value === 'string') {
 //     const s = value.trim();
 
-//     // dd-mm-yyyy או dd/mm/yyyy
+//     // dd-mm-yyyy الأحدالجمعة dd/mm/yyyy
 //     let m = s.match(/^(\d{2})[\/\-](\d{2})[\/\-](\d{4})$/);
 //     if (m) {
 //       const [, dd, mm, yyyy] = m.map(Number);
-//       return new Date(Date.UTC(yyyy, mm - 1, dd)); // UTC כדי להימנע מהפתעות שעון קיץ
+// ملاحظة عربية
 //     }
 
-//     // yyyy-mm-dd (ISO קצר)
+// ملاحظة عربية
 //     m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
 //     if (m) {
 //       const [, yyyy, mm, dd] = m.map(Number);
@@ -86,7 +86,7 @@ module.exports = router;
 //     const ts = Date.parse(s);
 //     if (!Number.isNaN(ts)) return new Date(ts);
 //   }
-//   return null; // לא תקין
+// ملاحظة عربية
 // }
 
 // router.post('/submit/:token', async (req, res) => {
@@ -100,12 +100,12 @@ module.exports = router;
 
 //     const body = req.body;
 //     console.log("Invite submit body:", body, body.tz);
-//     // כאן שומרים את הנתונים של התלמיד בטבלה שלך
+// ملاحظة عربية
 //     const s = await Student.create({
 //       tz: req.body.tz,
 //       firstname: body.firstname,
 //       lastname: body.lastname,
-//       birth_date: toDate(body.birth_date) || null, // אם תרצה תאריך אמיתי: Date
+// ملاحظة عربية
 //       gender: body.gender,
 //       phone: body.phone,
 //       email: body.email || "test@test.com",

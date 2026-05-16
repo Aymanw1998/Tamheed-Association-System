@@ -265,7 +265,7 @@ export default function AttendancePage() {
                     const [yy, mm, dd] = e.target.value.split("-").map(Number);
                     const next = { year: yy, month: mm, day: dd };
                     setDate(next);
-                    // אם כבר פתוח שיעור - נטעין מחדש
+                    // ملاحظة عربية
                     if (selectedLesson) openLessonToday(selectedLesson);
                 }}
                 />

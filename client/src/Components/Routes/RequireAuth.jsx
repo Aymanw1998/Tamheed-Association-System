@@ -19,12 +19,12 @@ export default function RequireAuth() {
     let alive = true;
     (async () => {
       try {
-        // 1) בדיקת access מקומי
+        // ملاحظة عربية
         let token = localStorage.getItem("accessToken");
         const expMs = getAccessExpiryMs(token);
         const valid = token && expMs && (Date.now() + SKEW_MS < expMs);
 
-        // 2) אם לא תקף -> נסה refresh-cookie
+        // ملاحظة عربية
         if (!valid) {
           try {
             const { data } = await axios.post(
@@ -51,13 +51,13 @@ export default function RequireAuth() {
 
         if (!alive) return;
 
-        // 3) אם עדיין אין token -> ללוגין
+        // ملاحظة عربية
         if (!token) {
           navigate('/', { replace: true, state: { from: location } });
           return;
         }
 
-        // 4) בדיקת משתמש
+        // ملاحظة عربية
         const me = await getMe();
         console.log("RequireAuth - fetched user (me):", me);
         if (!alive) return;
@@ -76,6 +76,6 @@ export default function RequireAuth() {
     return () => { alive = false; };
   }, [location.pathname, navigate]);
 
-  if (checking) return null; // ספינר
+  if (checking) return null; // ملاحظة عربية
   return <Outlet />;
 }

@@ -4,7 +4,7 @@ const MAX_DAYS = 7;
 let logoutTimer = null;
 
 export function setLogoutDeadline(days) {
-  // days: 1..7; 0/undefined -> ביטול
+  // days: 1..7; 0/undefined -> إلغاء
   if (!days || days <= 0) {
     localStorage.removeItem(KEY);
     cancelAutoLogout();
@@ -31,7 +31,7 @@ export function getLogoutDeadline() {
     return null;
   }
   if (ms <= Date.now()) {
-    // עבר הזמן – התנתק מייד
+    // ملاحظة عربية
     doLogoutNow();
     return null;
   }
@@ -55,9 +55,9 @@ function doLogoutNow() {
   try {
     localStorage.clear();
     sessionStorage.clear();
-    // סנכרון בין טאבים:
+    // ملاحظة عربية
     localStorage.setItem('LOGOUT_BROADCAST', String(Date.now()));
   } catch {}
-  // נווט למסך הכניסה
+  // ملاحظة عربية
   window.location.assign('/');
 }

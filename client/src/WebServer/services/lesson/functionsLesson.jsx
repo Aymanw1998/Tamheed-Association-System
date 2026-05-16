@@ -14,7 +14,7 @@ const normalizeLesson = (lesson) => {
 export const getAllLesson = async() => {
     try{
         const {data, status} = await api.get('/lesson');
-        if(![200,201].includes(status) || !data.ok) throw new Error ('לא קיים שיעורים במערכת');
+        if(![200,201].includes(status) || !data.ok) throw new Error ('تعذر تحميل الدروس');
         return {ok: true, lessons: (data.lessons || data.schema || []).map(normalizeLesson).filter(Boolean)};
     } catch(err) {    
         return {ok: false, message: err.response.data.message || err.message || 'حدث خطأ أثناء العملية.'};
@@ -24,7 +24,7 @@ export const getAllLesson = async() => {
 export const getOneLesson = async(_id) => {
     try{
         const {data, status} = await api.get('/lesson/' + _id, );
-        if(![200,201].includes(status) || !data.ok) throw new Error ('השיעור לא קיים');
+        if(![200,201].includes(status) || !data.ok) throw new Error ('تعذر تحميل الدرس');
         return {ok: true, lesson: normalizeLesson(data.lesson || data.schema)};
     } catch(err) {    
         return {ok: false, message: err.response.data.message || err.message || 'حدث خطأ أثناء العملية.'};
@@ -53,7 +53,7 @@ export const createLesson = async(payload, {confirm = true} = {}) => {
         console.log("create lesson", payload);
         const res = await api.post('/lesson', payload);
         console.log(res);
-        if(![200,201].includes(res.status) || !res.data.ok) throw new Error (data?.message || 'השיעור לא נוצר');
+        if(![200,201].includes(res.status) || !res.data.ok) throw new Error (data?.message || 'تعذر إنشاء الدرس');
         return {ok: true, lesson: normalizeLesson(res.data.lesson || res.data.schema)};
     } catch(err) {
         console.error(err);
@@ -70,7 +70,7 @@ export const updateLesson = async(_id, payload, {confirm = true} = {}) => {
         }
         const {data, status} = await api.put(`/lesson/${encodeURIComponent(_id)}`, payload);
         console.log("update lesson", status, data);
-        if(![200,201].includes(status) || !data.ok) throw new Error (data?.message || 'השיעור לא עודכן');
+        if(![200,201].includes(status) || !data.ok) throw new Error (data?.message || 'تعذر تحديث الدرس');
         return {ok: true, lesson: normalizeLesson(data.lesson || data.schema)};
     } catch(err) {
         return {ok: false, message: err.response.data.message || err.message || 'حدث خطأ أثناء العملية.'};
@@ -87,20 +87,20 @@ export const deleteLesson = async(_id, {confirm = true} = {}) => {
         }
         const {data, status} = await api.delete(`/lesson/${encodeURIComponent(_id)}`);
         console.log("delete lesson", status, data);
-        if(![200,201].includes(status) || !data.ok) throw new Error (data?.message || 'השיעור לא נמחק');
+        if(![200,201].includes(status) || !data.ok) throw new Error (data?.message || 'لم يتم حذف الدرس');
         return {ok: true, lesson: null};
     } catch(err) {
         return {ok: false, message: err.response.data.message || err.message || 'حدث خطأ أثناء العملية.'};
     }
 }
 
-// ניהול רשימות משתתפים (כפי שהיה)
+// ملاحظة عربية
 export async function addToList(lessonId, traineeIds = []) {
     try{
         const { data, status } = await api.post(`/lesson/addToList/${encodeURIComponent(lessonId)}`, {
         list_trainees: traineeIds,
         });
-        if (![200,201].includes(status)) throw new Error(data?.message || 'הוסף מתאמן לשיעור נכשלה');
+        if (![200,201].includes(status)) throw new Error(data?.message || 'تعذر إزالة المتدرب من الدرس');
         return {ok: true, lessons: data.lessons || data.schema};
     } catch(err) {
         return {ok: false, message: err.response.data.message || err.message || 'حدث خطأ أثناء العملية.'};
@@ -113,7 +113,7 @@ export async function removeFromList(lessonId, traineeIds = []) {
             id: lessonId,
             list_trainees: traineeIds,
         });
-        if (![200,201].includes(status)) throw new Error(data?.message || 'הסרת מתאמן משיעור נכשלה');
+        if (![200,201].includes(status)) throw new Error(data?.message || 'تعذر إزالة المتدرب من الدرس');
         return {ok: true, lessons: data.lessons || data.schema};
     } catch(err) {
         return {ok: false, message: err.response.data.message || err.message || 'حدث خطأ أثناء العملية.'};

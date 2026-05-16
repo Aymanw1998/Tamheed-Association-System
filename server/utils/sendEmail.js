@@ -1,12 +1,12 @@
 const nodemailer = require('nodemailer');
 
-// יצירת טרנספורטר עם פרטי ה-SMTP
+// ملاحظة عربية
 const createTransporter = () => {
     try{
     return nodemailer.createTransport({
         host: process.env.SMTP_SERVER,
         port: Number(process.env.SMTP_PORT),
-        secure: Number(process.env.SMTP_PORT) == 465, // true עבור פורט 465, false עבור אחרים
+        secure: Number(process.env.SMTP_PORT) == 465, // ملاحظة عربية
         auth: {
             user: process.env.SMTP_USER,
             pass: process.env.SMTP_PASS,
@@ -27,7 +27,7 @@ const sendResetPasswordEmail = async (to, otp) => {
                     <p>الكود لحديد 10 دقائق من الان.</p>
                 </div>`;
     await transporter.sendMail({
-        from: process.env.SMTP_FROM, // למשל: "Tamheed-Ramla <no-reply@tamheed-ramla.org>"
+        from: process.env.SMTP_FROM, // ملاحظة عربية
         to,
         subject: "اعادة تعيين كلمة السر: " + otp,
         html,

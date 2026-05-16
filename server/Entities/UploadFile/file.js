@@ -89,7 +89,7 @@ async function handleUpload(file, dbName, collection, tz = "") {
       {
         headers: {
           ...form.getHeaders(),
-          // אם יש לך auth בין השירותים:
+          // ملاحظة عربية
           // Authorization: `Bearer ${process.env.GLOBAL_SERVICE_TOKEN}`,
         },
         maxContentLength: Infinity,
@@ -193,17 +193,17 @@ module.exports = {
 //     try {
 //         if (!url) return null;
 
-//         // 1️⃣ מוציאים את החלק אחרי "/upload/"
+// ملاحظة عربية
 //         const part = url.split("/upload/")[1];
 //         if (!part) return null;
 
-//         // 2️⃣ מורידים את הסיומת (.jpg / .png / .webp)
+// ملاحظة عربية
 //         const noExt = part.substring(0, part.lastIndexOf("."));
-//         // 3️⃣ ה־public_id המלא
+// ملاحظة عربية
 //         const noVersion = noExt.substring(noExt.indexOf("/") + 1);
 
 //         const publicId = noVersion.replace(/\.[^/.]+$/, "");
-//         // מוחקים
+// ملاحظة عربية
 //         const deleted = await handleDelete(publicId);
 //         console.log("Deleted result:", deleted);
 //         return deleted;

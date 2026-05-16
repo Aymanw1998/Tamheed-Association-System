@@ -3,7 +3,7 @@ const { encryptPassword, isEncrypted } = require('./passwordCrypto');
 const isBcryptHash = (val) =>
   typeof val === 'string' && /^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/.test(val);
 
-// Model definition - לא mongoose אלא הגדרה גנרית שנוכל להשתמש בה עם כל DB
+// ملاحظة عربية
 const UserModelDef = {
   dbName: 'tamheed_db',
 
@@ -31,10 +31,10 @@ const UserModelDef = {
         if (isBcryptHash(value)) return value;
         if (isEncrypted(value)) return value;
 
-        // אם את רוצה enc
+        // ملاحظة عربية
         return encryptPassword(value);
 
-        // או אם את רוצה bcrypt במקום זה, תעשי פה hash ידני
+        // ملاحظة عربية
       },
     },
     roles: { type: 'array', required: false, default: [] },
@@ -82,13 +82,13 @@ function applyFieldTransforms(fields = {}, payload = {}) {
   return transformed;
 }
 
-// Build functions for the model - פונקציות עזר לביצוע פעולות נפוצות על המודל
+// ملاحظة عربية
 
 // Build for getting all users
 /**
  * 
- * @param {*} filter | אופציונלי - פילטר לקריאה, לדוגמה { city: 'الرمة' } 
- * @param {*} collection | אופציונלי - מאיזה collection לקרוא, לדוגמה 'active' או 'waiting' או 'noActive'. ברירת מחדל: 'active'
+ * ملاحظة عربية
+ * ملاحظة عربية
  * @returns 
  */
 UserModelDef.get = async function (filter = {}, collection = 'active') {
@@ -102,8 +102,8 @@ UserModelDef.get = async function (filter = {}, collection = 'active') {
 //Build for creating a user
 /**
  * 
- * @param {*} data | אובייקט עם שדות המשתמש ליצירה, לדוגמה { tz: '123456789', firstname: 'Ayman', password: 'plaintext' } 
- * @param {*} collection | אופציונלי - באיזה collection ליצור, לדוגמה 'active' או 'waiting' או 'noActive'. ברירת מחדל: 'active'
+ * ملاحظة عربية
+ * ملاحظة عربية
  * @returns 
  */
 UserModelDef.create = async function (data, collection = 'active') {
@@ -119,9 +119,9 @@ UserModelDef.create = async function (data, collection = 'active') {
 //Build for updating a user
 /**
  * 
- * @param {*} filter | אובייקט עם שדות לפילטר, לדוגמה { tz: '123456789' } 
- * @param {*} newData | אובייקט עם שדות לעדכון, לדוגמה { city: 'תל אביב' }
- * @param {*} collection | אופציונלי - באיזה collection לעדכן, לדוגמה 'active' או 'waiting' או 'noActive'. ברירת מחדל: 'active'
+ * ملاحظة عربية
+ * ملاحظة عربية
+ * ملاحظة عربية
  * @returns
  */
 UserModelDef.update = async function (filter, newData, collection = 'active') {
@@ -138,8 +138,8 @@ UserModelDef.update = async function (filter, newData, collection = 'active') {
 //Build for deleting a user
 /**
  * 
- * @param {*} filter | אובייקט עם שדות לפילטר, לדוגמה { tz: '123456789' }
- * @param {*} collection | אופציונלי - מאיזה collection למחוק, לדוגמה 'active' או 'waiting' או 'noActive'. ברירת מחדל: 'active'
+ * ملاحظة عربية
+ * ملاحظة عربية
  * @returns 
  */
 UserModelDef.delete = async function (filter, collection = 'active') {
@@ -156,7 +156,7 @@ module.exports = { UserModelDef};
 
 // const bcrypt = require('bcryptjs');
 // const { UserInterface } = require('../Person/Person.interface');
-// const { isEncrypted } = require('./passwordCrypto'); // עדכן נתיב לפי הפרויקט שלך
+// ملاحظة عربية
 
 
 // const UserSchema = new mongoose.Schema({
@@ -170,13 +170,13 @@ module.exports = { UserModelDef};
 //     refreshToken: { type: String },
 //     accessToken: { type: String },
 //     expiryDate: { type: Number }, // ms timestamp
-//     folderId: { type: String },   // תיקייה ב-Drive
+// ملاحظة عربية
 //     folderName: { type: String },
 //   },
 
 // }, {timestamps: true} );
 // UserSchema.index({ tz: 1 }, { unique: true });
-// // השוואת סיסמה
+// // الخميسالسبتالجمعةالجمعةالأحدعربي كلمة مرور
 // UserSchema.methods.comparePassword = function (plain) {
 //   return bcrypt.compare(plain, this.password);
 // };
@@ -184,25 +184,25 @@ module.exports = { UserModelDef};
 // const isBcryptHash = (val) =>
 //   typeof val === 'string' && /^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/.test(val);
 
-// // השוואת סיסמה: כאן נשאיר רק bcrypt, כי ב-login נבצע switch לפי פורמט
+// ملاحظة عربية
 // UserSchema.methods.comparePasswordBcrypt = function (plain) {
 //   return bcrypt.compare(plain, this.password);
 // };
 
-// // לפני save: אם זה כבר bcrypt או enc - לא נוגעים
+// ملاحظة عربية
 // UserSchema.pre('save', async function (next) {
 //   if (!this.isModified('password')) return next();
 
 //   if (isBcryptHash(this.password)) return next();
 //   if (isEncrypted(this.password)) return next();
 
-//   // אם הגיע plaintext "בטעות" – נשמור כ-bcrypt (fallback)
+// ملاحظة عربية
 //   const salt = await bcrypt.genSalt(10);
 //   this.password = await bcrypt.hash(this.password, salt);
 //   next();
 // });
 
-// // לפני update: אם זה כבר bcrypt או enc - לא נוגעים
+// ملاحظة عربية
 // UserSchema.pre(['findOneAndUpdate', 'updateOne'], async function (next) {
 //   const update = this.getUpdate() || {};
 //   const pwd = update.password ?? update.$set?.password;

@@ -2,7 +2,7 @@
    SystemToasts.module.css – Full + Mobile
    ============================ */
 
-/* --- משתני עיצוב בסיסיים --- */
+/* ملاحظة عربية */
 :root{
   --bg:#ffffff;
   --card:#ffffff;
@@ -33,19 +33,19 @@
   }
 }
 
-/* --- הפחתת אנימציות לנגישות --- */
+/* ملاحظة عربية */
 @media (prefers-reduced-motion: reduce){
   .toast, .statusBadge{ transition: none !important; }
 }
 
 /* ============================
-   Viewport (מגש הטוסטים)
+   Viewport (عربيالثلاثاءالسبت الخميسعربيالجمعةنص عربي)
    ============================ */
 .toastViewport{
   position: fixed;
   top: 12px; right: 12px; left: auto; bottom: auto;
-  z-index: 999999; /* גבוה כדי לעבור מודלים/אוברים */
-  pointer-events: none; /* שהמסך נשאר קליקבילי */
+  z-index: 999999; /* ملاحظة عربية */
+  pointer-events: none; /* ملاحظة عربية */
 }
 
 .toastStack{
@@ -53,15 +53,15 @@
   flex-direction: column;
   gap: 8px;
   align-items: flex-end;
-  pointer-events: auto; /* כן לאפשר קליק על X */
+  pointer-events: auto; /* ملاحظة عربية */
 }
 
-/* מסכים בינוניים ומעלה – להצמיד לצד */
+/* ملاحظة عربية */
 @media (min-width: 640px){
   .toastViewport{ inset-inline: auto 12px; }
 }
 
-/* --- מובייל --- */
+/* ملاحظة عربية */
 @media (max-width: 768px){
   .toastViewport{ inset-inline: 8px; }
   .toastStack{ max-width: none; gap: 12px; }
@@ -83,20 +83,20 @@
   direction: rtl;
 }
 
-/* פריסה פנימית */
+/* ملاحظة عربية */
 .toastRow { display: flex; align-items: center; gap: 12px; }
 .toastBody { display: flex; flex-direction: column; }
 .toastTitle { font-weight: 700; margin-bottom: 4px; }
 .toastDesc { opacity: .95; line-height: 1.35; }
 
-/* כפתור סגירה */
+/* ملاحظة عربية */
 .toastClose{
   background: transparent; border: 0; color: inherit; font-size: 18px;
   cursor: pointer; line-height: 1; padding: 4px 8px; opacity: .8;
 }
 .toastClose:hover{ color: var(--text); }
 
-/* מובייל: הגדלת אזור לחיצה */
+/* ملاحظة عربية */
 @media (max-width: 768px){
   .toast{ border-radius: 18px; padding: 14px 16px; }
   .toastClose{ padding: 8px; font-size: 20px; }
@@ -111,13 +111,13 @@
 .destructive { background:#ef4444; }
 
 /* ============================
-   Status badge (לא חובה)
+   Status badge (عربيالأحد عربيالجمعةالاثنينالخميس)
    ============================ */
 .statusBadge{
   position: fixed;
   inset-block-end: calc(12px + env(safe-area-inset-bottom, 0px));
   inset-inline: 12px;
-  z-index: 1999;          /* מעט מתחת ל-toastViewport */
+  z-index: 1999;          /* ملاحظة عربية */
   direction: rtl;
 }
 @media (min-width: 640px){ .statusBadge{ inset-inline: auto 12px; } }
@@ -145,7 +145,7 @@
 }
 
 
-/* טיימר ליד ההודעה */
+/* ملاحظة عربية */
 .toastTimer {
   margin-inline-end: 8px;      /* RTL-friendly */
   font-variant-numeric: tabular-nums;
@@ -155,7 +155,7 @@
   white-space: nowrap;
 }
 
-/* פס התקדמות בתחתית הטוסט */
+/* ملاحظة عربية */
 .progressBar {
   position: relative;
   height: 3px;
@@ -169,7 +169,7 @@
 .progressFill {
   height: 100%;
   width: 0%;
-  background: currentColor;    /* מקבל צבע מה-variant (דרך color של ה .toast) */
+  background: currentColor;    /* ملاحظة عربية */
   opacity: 0.65;
   transition: width 120ms linear;
 }

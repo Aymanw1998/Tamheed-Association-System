@@ -16,22 +16,22 @@ const {
   getLessonsByToDay,
 } = require('./Lesson.controller');
 
-// alias כדי לשמור על protect/protectRole
+// ملاحظة عربية
 const { requireAuth: protect, requireRole: protectRole } = require('../../middleware/authMiddleware');
 
-// הגנה בסיסית לכל הראוטים תחת /api/lesson
+// ملاحظة عربية
 router.use(protect);
 
-// פתוח לכל משתמש מחובר
+// ملاحظة عربية
 router.get('/', getAll);
 router.get('/query', getLessonsByQuery)
 router.get('/today', getLessonsByToDay);
 router.get('/:id', getOne);
-// פעולות שקשורות לרשימות/שיבוצים (מחוברים בלבד)
+// ملاحظة عربية
 router.post('/addToList/:id', addToList);
 router.post('/removeFromList/:id', removeFromList);
 
-// מכאן והלאה — ادارة בלבד
+// ملاحظة عربية
 // router.use(protectRole('ادارة'));
 
 router.post('/', postOne);

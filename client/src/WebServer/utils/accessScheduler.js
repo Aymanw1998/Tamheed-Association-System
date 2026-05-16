@@ -12,7 +12,7 @@ export function scheduleAccessRefresh(accessToken, skewMs = 60_000) {
   const expMs = getAccessExpiryMs(accessToken);
   if (!expMs) return;
 
-  const logoutAt = getLogoutDeadline(); // epoch ms או null
+  const logoutAt = getLogoutDeadline(); // epoch ms الأحدالجمعة null
   const nextPlanned = expMs - Date.now() - skewMs;
   const timeToLogout = logoutAt ? logoutAt - Date.now() : Infinity;
 
@@ -20,7 +20,7 @@ export function scheduleAccessRefresh(accessToken, skewMs = 60_000) {
   if (!Number.isFinite(delay) || delay <= 0) return;
 
   refreshTimerId = setTimeout(async () => {
-    // רגע לפני רענון – אם עבר הדדליין, יוצאים
+    // ملاحظة عربية
     const now = Date.now();
     const logoutDeadline = getLogoutDeadline();
     if (logoutDeadline && now >= logoutDeadline - 2_000) {
@@ -34,12 +34,12 @@ export function scheduleAccessRefresh(accessToken, skewMs = 60_000) {
       if (data?.accessToken) {
         setAuthTokens(data.accessToken, data.expirationTime);
 
-        // ⚠️ חדש: לשדר אירוע רענון (מי שלא משתמש – פשוט יתעלם)
+        // ملاحظة عربية
         window.dispatchEvent(new CustomEvent('ACCESS_TOKEN_REFRESHED', {
           detail: { accessToken: data.accessToken }
         }));
 
-        // תזמון מחדש לפי הטוקן החדש
+        // ملاحظة عربية
         scheduleAccessRefresh(data.accessToken, skewMs);
       } else {
         hardResetToLogin();

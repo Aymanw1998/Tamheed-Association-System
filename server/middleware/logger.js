@@ -8,7 +8,7 @@ const logger = (req, res, next) => {
 
 function logWithSource(...args) {
     const stack = new Error().stack;
-    const callerLine = stack.split('\n')[2]; // שורת הקריאה
+    const callerLine = stack.split('\n')[2]; // ملاحظة عربية
     const match = callerLine.match(/\((.*):(\d+):(\d+)\)/); // path:line:col
 
     if (match) {

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-// עדכן נתיב אם אצלך שונה:
+// ملاحظة عربية
 import { create, update, getOne, /*softDelete,*/ deleteS, uploadPhoto, deletePhoto } from "../../WebServer/services/student/functionsStudent.jsx";
 import {getAll as getUsers} from "../../WebServer/services/user/functionsUser.jsx"
 import styles from "./Student.module.css";
@@ -8,7 +8,7 @@ import { toast } from "../../ALERT/SystemToasts";
 import {validate as validateINV, submit as submitFromParent} from "../../WebServer/services/inviteToken/functionInviteToken.jsx";
 
 const EditStudent = ({parent = false}) => {
-  const params = useParams();              // "new" או _id
+  const params = useParams();              // "new" الأحدالجمعة _id
   const navigate = useNavigate();
 
   const id = parent ? "new" : params.id;
@@ -19,7 +19,7 @@ const EditStudent = ({parent = false}) => {
     tz: "",
     firstname: "",
     lastname: "",
-    birth_date: "", // אם תרצה תאריך אמיתי: Date
+    birth_date: "", // ملاحظة عربية
     gender: "",
     phone: "",
     email: "",
@@ -44,7 +44,7 @@ const EditStudent = ({parent = false}) => {
     tz: "",
     firstname: "",
     lastname: "",
-    birth_date: "", // אם תרצה תאריך אמיתי: Date
+    birth_date: "", // ملاحظة عربية
     gender: "",
     phone: "",
     email: "",
@@ -67,11 +67,11 @@ const EditStudent = ({parent = false}) => {
   const [err, setErr]         = useState(null);
 
 
-  // invite token למצב הורה
+  // ملاحظة عربية
   const [inviteToken, setInviteToken] = useState(null);
   const [inviteStatus, setInviteStatus] = useState({
-    checking: parent,   // אם זה דף הורה – נבדוק טוקן
-    valid: !parent,     // אם זה אדמין – תמיד תקף
+    checking: parent,   // ملاحظة عربية
+    valid: !parent,     // ملاحظة عربية
     message: "",
   });
 
@@ -98,7 +98,7 @@ const EditStudent = ({parent = false}) => {
         console.log("load training");
         setLoading(true);
         setErr(null);
-        const res = await getOne(id); // מצפה ל-{ status, subs }
+        const res = await getOne(id); // ملاحظة عربية
         if(!res.ok) throw new Error(res.message);
         if (res) {
           const s = res.student;
@@ -115,7 +115,7 @@ const EditStudent = ({parent = false}) => {
     })();
   }, [id, isEdit]);
 
-    // 🔹 בדיקת invite token במצב הורה (דף חיצוני)
+    // ملاحظة عربية
   useEffect(() => {
     if (!parent) return;
 
@@ -126,7 +126,7 @@ const EditStudent = ({parent = false}) => {
       setInviteStatus({
         checking: false,
         valid: false,
-        message: "קישור לא תקין (חסר מזהה הרשמה)",
+        message: "رابط التسجيل غير صالح",
       });
       return;
     }
@@ -138,12 +138,12 @@ const EditStudent = ({parent = false}) => {
         setInviteStatus((prev) => ({ ...prev, checking: true }));
         const res = await validateINV(token);
         console.log("validate invite token", res);
-        // נניח שהפונקציה מחזירה { valid, message }
+        // ملاحظة عربية
         if (!res.valid) {
           setInviteStatus({
             checking: false,
             valid: false,
-            message: res?.message || "הקישור אינו תקף",
+            message: res?.message || "الرابط غير صالح",
           });
         } else {
           setInviteStatus({ checking: false, valid: true, message: "" });
@@ -153,7 +153,7 @@ const EditStudent = ({parent = false}) => {
         setInviteStatus({
           checking: false,
           valid: false,
-          message: "שגיאה בבדיקת הקישור",
+          message: "خطأ في فحص الرابط",
         });
       }
     })();
@@ -181,7 +181,7 @@ const EditStudent = ({parent = false}) => {
 
   const handleChange = async(e) => {
     const { name, value } = e.target;
-    // שמור כטקסט; נמיר למספרים בזמן שמירה
+    // ملاحظة عربية
     setForm((prev) => ({ ...prev, [name]: value }));
     const msg = await validate(name, value);
     setError((prev) => ({ ...prev, [name]: msg }));
@@ -192,32 +192,32 @@ const EditStudent = ({parent = false}) => {
     if(name === "tz"){
       console.log(isNew && value === "");
         if (value === "") {
-          tag?.style.setProperty('border', '2px solid red'); // או ישירות סטייל
-          return "מלאה שדה";
+          tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
+          return "املأ الحقل";
         } 
         else if(!isValidIsraeliId(value)){
-          tag?.style.setProperty('border', '2px solid red'); // או ישירות סטייל
-          return "תעודת זיהות לא חוקית"
+          tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
+          return "رقم الهوية غير صالح"
         }
         else if(isNew) {
           const data = parent ? {ok: false} : await getOne(value)
           if(data.ok){
-            tag?.style.setProperty('border', '2px solid red'); // או ישירות סטייל
-            return "תעודת זיהות קיימת במערכת"
+            tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
+            return "رقم الهوية موجود في النظام"
           } 
         }
-        tag?.style.setProperty('border', '2px solid green'); // או ישירות סטייל
+        tag?.style.setProperty('border', '2px solid green'); // ملاحظة عربية
         return ""
       }
 
       //fisrtname, lastname
       else if(['firstname', 'lastname', 'father_name', 'mother_name'].includes(name)){
         if (value === "") {
-          tag?.style.setProperty('border', '2px solid red'); // או ישירות סטייל
-          return "מלאה שדה";
+          tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
+          return "املأ الحقل";
         } 
         else{
-          tag?.style.setProperty('border', '2px solid green'); // או ישירות סטייל
+          tag?.style.setProperty('border', '2px solid green'); // ملاحظة عربية
           return ""
         }
       }
@@ -225,14 +225,14 @@ const EditStudent = ({parent = false}) => {
       //gender, role
       else if(['gender', 'role'].includes(name)){
         if (name === 'gender' && !['ذكر' , 'انثى'].includes(value)) {
-          tag?.style.setProperty('border', '2px solid red'); // או ישירות סטייל
-          return "בחר מין";
-        } else if (isNew && name === 'role' && !['ادارة', 'מאמן', 'מתאמן'].includes(value)) {
-          tag?.style.setProperty('border', '2px solid red'); // או ישירות סטייל
-          return "בחר תפקיד";
+          tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
+          return "اختر الجنس";
+        } else if (isNew && name === 'role' && !['ادارة', 'مدرب', 'متدرب'].includes(value)) {
+          tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
+          return "اختر الدور";
         }  
         else{
-          tag?.style.setProperty('border', '2px solid green'); // או ישירות סטייל
+          tag?.style.setProperty('border', '2px solid green'); // ملاحظة عربية
           return ""
         }
       }
@@ -244,24 +244,24 @@ const EditStudent = ({parent = false}) => {
             const date = new Date(value); 
           }
           else {
-          tag?.style.setProperty('border', '2px solid red'); // או ישירות סטייל
-          return "בחר תאריך לידה";
+          tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
+          return "اختر تاريخ الميلاد";
           }
         } catch {
           console.log("invalid date");
-          tag?.style.setProperty('border', '2px solid red'); // או ישירות סטייל
-          return "תאריך לא חוקי";
+          tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
+          return "تاريخ غير صالح";
         }
       }
 
       //phone, email, city, street
       else if (['father_phone', 'mother_phone', 'phone', 'email', 'city', 'street'].includes(name)){
         if (value === "") {
-          tag?.style.setProperty('border', '2px solid red'); // או ישירות סטייל
-          return "מלאה שדה";
+          tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
+          return "املأ الحقل";
         } 
         else{
-          tag?.style.setProperty('border', '2px solid green'); // או ישירות סטייל
+          tag?.style.setProperty('border', '2px solid green'); // ملاحظة عربية
           return ""
         }
       }
@@ -270,9 +270,9 @@ const EditStudent = ({parent = false}) => {
   const normalizePhoneToIntl = (val) => {
     if (!val) return '';
     let v = String(val).replace(/\D+/g, '');
-    // אם מתחיל ב-972 בלי +
+    // ملاحظة عربية
     if (v.startsWith('972')) v = '+' + v;
-    // אם מתחיל ב-0 ישראלי → +972
+    // ملاحظة عربية
     if (v.startsWith('0')) v = '+972' + v.slice(1);
     if (!v.startsWith('+')) v = '+' + v;
     return v;
@@ -323,7 +323,7 @@ const EditStudent = ({parent = false}) => {
       const payload = { ...form };
       console.log("data student", payload);
       if(parent && !inviteToken){
-          toast.error("קישור הרשמה לא תקין");
+          toast.error("رابط التسجيل غير صالح");
           return;
       }
       else if(parent) {
@@ -343,7 +343,7 @@ const EditStudent = ({parent = false}) => {
         else{
           toast.success("✅ تم تحميل صورة الطالب بنجاح");
         }
-        // אפשר לנקות טופס, לא מחזירים אחורה
+        // ملاحظة عربية
         return;
       }
       
@@ -388,7 +388,7 @@ const EditStudent = ({parent = false}) => {
     }
 };
 
-  // מחיקה קשיחה (אופציונלי)
+  // ملاحظة عربية
   const handleHardDelete = async () => {
     if (!isEdit) return;
     try {
@@ -402,12 +402,12 @@ const EditStudent = ({parent = false}) => {
       toast.error(e.message || "❌ فشل العملية");
     }
   };
-  // במצב הורה – קודם בודקים טוקן
+  // ملاحظة عربية
   if (parent) {
     if (inviteStatus.checking) {
       return (
         <div className={styles.formContainer}>
-          בודק תוקף קישור ההרשמה...
+          جار فحص صلاحية رابط التسجيل...
         </div>
       );
     }
@@ -417,8 +417,8 @@ const EditStudent = ({parent = false}) => {
           className={styles.formContainer}
           style={{ color: "#b91c1c", textAlign: "center" }}
         >
-          <h2>הקישור אינו תקף</h2>
-          <p>{inviteStatus.message || "אנא בקש/י קישור חדש מהמורה."}</p>
+          <h2>الرابط غير صالح</h2>
+          <p>{inviteStatus.message || "يرجى طلب رابط جديد من المعلم."}</p>
         </div>
       );
     }

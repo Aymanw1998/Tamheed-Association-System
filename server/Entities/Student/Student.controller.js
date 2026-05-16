@@ -129,7 +129,7 @@ const getOneS = async (req, res) => {
     if (!result?.result?.length) {
       return res.status(404).json({
         ok: false,
-        message: "לא נמצא",
+        message: "غير موجود",
       });
     }
 
@@ -169,7 +169,7 @@ const postS = async (req, res) => {
     if (exists?.result?.length) {
       return res.status(409).json({
         ok: false,
-        message: "התלמיד קיים",
+        message: "الطالب موجود",
       });
     }
 
@@ -549,7 +549,7 @@ module.exports = {
 
 //     // ✅ FIX: let (مش const)
 //     let student = await Student.findOne({ tz: tzParam }).lean();
-//     if (!student) return res.status(404).json({ ok: false, message: "לא נמצא" });
+//     if (!student) return res.status(404).json({ ok: false, message: "غير موجود" });
 
 //     return res.status(200).json({ ok: true, student: sanitize(student) });
 //   } catch (err) {
@@ -569,7 +569,7 @@ module.exports = {
 //     }
 
 //     const exists = await Student.findOne({ tz: String(model.tz).trim() }).lean();
-//     if (exists) return res.status(409).json({ ok: false, message: "המשתמש קיים" });
+//     if (exists) return res.status(409).json({ ok: false, message: "المستخدم موجود" });
 
 //     const created = await Student.create({ ...model, createdAt: new Date() });
 

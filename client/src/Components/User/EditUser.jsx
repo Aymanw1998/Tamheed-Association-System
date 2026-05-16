@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-// עדכן נתיב אם אצלך שונה:
+// ملاحظة عربية
 import { create, update, getUserById as getOne, /*softDelete,*/ deleteU, uploadPhoto, changeStatus, viewPassword } from "../../WebServer/services/user/functionsUser.jsx";
 import styles from "./User.module.css";
 import { toast } from "../../ALERT/SystemToasts.jsx";
 
 const EditUser = () => {
-  const params = useParams();              // "new" או _id
+  const params = useParams();              // "new" الأحدالجمعة _id
   const navigate = useNavigate();
 
   const id = params.id;
@@ -18,7 +18,7 @@ const EditUser = () => {
     password: "",
     firstname: "",
     lastname: "",
-    birth_date: "", // אם תרצה תאריך אמיתי: Date
+    birth_date: "", // ملاحظة عربية
     gender: "",
     phone: "",
     email: "",
@@ -34,7 +34,7 @@ const EditUser = () => {
     password: "",
     firstname: "",
     lastname: "",
-    birth_date: "", // אם תרצה תאריך אמיתי: Date
+    birth_date: "", // ملاحظة عربية
     gender: "",
     phone: "",
     email: "",
@@ -60,7 +60,7 @@ const EditUser = () => {
         //console.log("load training");
         setLoading(true);
         setErr(null);
-        const res = await getOne(id); // מצפה ל-{ status, subs }
+        const res = await getOne(id); // ملاحظة عربية
         if(!res.ok) throw new Error(res.message);
         if (res) {
           const s = res.user;
@@ -72,7 +72,7 @@ const EditUser = () => {
         } else {
           setErr("المستخدم غير موجود");
         }
-        setPasswordTouched(false); // ✅ כי טענו משתמש מחדש
+        setPasswordTouched(false); // ملاحظة عربية
       } catch (e) {
         setErr("خلل في جلب البيانات");
       } finally {
@@ -103,7 +103,7 @@ const EditUser = () => {
 
   const handleChange = async(e) => {
     const { name, value } = e.target;
-    // שמור כטקסט; נמיר למספרים בזמן שמירה
+    // ملاحظة عربية
     setForm((prev) => ({ ...prev, [name]: value }));
     const msg = await validate(name, value);
     setError((prev) => ({ ...prev, [name]: msg }));
@@ -114,32 +114,32 @@ const EditUser = () => {
     if(name === "tz"){
       //console.log(isNew && value === "");
         if (value === "") {
-          tag?.style.setProperty('border', '2px solid red'); // או ישירות סטייל
-          return "מלאה שדה";
+          tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
+          return "املأ الحقل";
         } 
         else if(!isValidIsraeliId(value)){
-          tag?.style.setProperty('border', '2px solid red'); // או ישירות סטייל
-          return "תעודת זיהות לא חוקית"
+          tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
+          return "رقم الهوية غير صالح"
         }
         else if(isNew) {
           const data = await getOne(value)
           if(data.ok){
-            tag?.style.setProperty('border', '2px solid red'); // או ישירות סטייל
-            return "תעודת זיהות קיימת במערכת"
+            tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
+            return "رقم الهوية موجود في النظام"
           } 
         }
-        tag?.style.setProperty('border', '2px solid green'); // או ישירות סטייל
+        tag?.style.setProperty('border', '2px solid green'); // ملاحظة عربية
         return ""
       }
 
       //fisrtname, lastname
       else if(['firstname', 'lastname', 'father_name', 'mother_name'].includes(name)){
         if (value === "") {
-          tag?.style.setProperty('border', '2px solid red'); // או ישירות סטייל
-          return "מלאה שדה";
+          tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
+          return "املأ الحقل";
         } 
         else{
-          tag?.style.setProperty('border', '2px solid green'); // או ישירות סטייל
+          tag?.style.setProperty('border', '2px solid green'); // ملاحظة عربية
           return ""
         }
       }
@@ -147,14 +147,14 @@ const EditUser = () => {
       //gender, role
       else if(['gender', 'roles'].includes(name)){
         if (name === 'gender' && !['ذكر' , 'انثى'].includes(value)) {
-          tag?.style.setProperty('border', '2px solid red'); // או ישירות סטייל
-          return "בחר מין";
+          tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
+          return "اختر الجنس";
         } else if (isNew && name === 'role' && !['ادارة', 'مرشد', 'مساعد'].includes(value)) {
-          tag?.style.setProperty('border', '2px solid red'); // או ישירות סטייל
-          return "בחר תפקיד";
+          tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
+          return "اختر الدور";
         }  
         else{
-          tag?.style.setProperty('border', '2px solid green'); // או ישירות סטייל
+          tag?.style.setProperty('border', '2px solid green'); // ملاحظة عربية
           return ""
         }
       }
@@ -166,29 +166,29 @@ const EditUser = () => {
             const date = new Date(value); 
           }
           else {
-          tag?.style.setProperty('border', '2px solid red'); // או ישירות סטייל
-          return "בחר תאריך לידה";
+          tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
+          return "اختر تاريخ الميلاد";
           }
         } catch {
           //console.log("invalid date");
-          tag?.style.setProperty('border', '2px solid red'); // או ישירות סטייל
-          return "תאריך לא חוקי";
+          tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
+          return "تاريخ غير صالح";
         }
       }
 
       //phone, email, city, street
       else if (['father_phone', 'mother_phone', 'phone', 'email', 'city', 'street'].includes(name)){
         if (value === "") {
-          tag?.style.setProperty('border', '2px solid red'); // או ישירות סטייל
-          return "מלאה שדה";
+          tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
+          return "املأ الحقل";
         } 
         else{
-          tag?.style.setProperty('border', '2px solid green'); // או ישירות סטייל
+          tag?.style.setProperty('border', '2px solid green'); // ملاحظة عربية
           return ""
         }
       }
       else if (name === "roles") {
-        if (!value || value.length === 0) return "בחר לפחות תפקיד אחד";
+        if (!value || value.length === 0) return "اختر دورا واحدا على الأقل";
         return "";
       }
 
@@ -198,9 +198,9 @@ const EditUser = () => {
   const normalizePhoneToIntl = (val) => {
     if (!val) return '';
     let v = String(val).replace(/\D+/g, '');
-    // אם מתחיל ב-972 בלי +
+    // ملاحظة عربية
     if (v.startsWith('972')) v = '+' + v;
-    // אם מתחיל ב-0 ישראלי → +972
+    // ملاحظة عربية
     if (v.startsWith('0')) v = '+972' + v.slice(1);
     if (!v.startsWith('+')) v = '+' + v;
     return v;
@@ -218,7 +218,7 @@ const EditUser = () => {
     //console.log(`onField[${name}] = ${String(value)}`, value === '');
     setForm((prev) => ({ ...prev, [name]: value }));
     
-    // ✅ NEW: אם שינו סיסמה ידנית – מסמנים touched
+    // ملاحظة عربية
     if (name === 'password') setPasswordTouched(true);
 
     const msg = await validate(name, value)
@@ -238,7 +238,7 @@ const EditUser = () => {
   try {
     setFetchingPassword(true);
 
-    // עדיף להשתמש ב-user.tz (זה אותו דבר כמו id במסך הזה)
+    // ملاحظة عربية
     const tzToFetch = String(form.tz || id).trim();
     if (!tzToFetch) return;
 
@@ -247,7 +247,7 @@ const EditUser = () => {
 
     // bcrypt / cannot view
     if (!res?.ok) {
-      toast.warn(res?.message || 'אי אפשר להציג סיסמה למשתמש הזה');
+      toast.warn(res?.message || 'لا يمكن عرض كلمة المرور لهذا المستخدم');
       return;
     }
 
@@ -260,18 +260,18 @@ const EditUser = () => {
       setForm((prev) => ({ ...prev, password: res.password }));
       setShowPassword(true);
 
-      // ⚠️ חשוב: לא לסמן touched כשזו צפייה
+      // ملاحظة عربية
       setPasswordTouched(false);
 
-      //toast.success('✅ הסיסמה נטענה מהשרת');
+      // ملاحظة عربية
     } else {
       setShowPassword(false);
       setForm((prev) => ({ ...prev, password: '' }));
-      toast.warn(res?.message || 'לא התקבלה סיסמה');
+      toast.warn(res?.message || 'لم يتم استلام كلمة مرور');
     }
   } catch (e) {
     console.error(e);
-    toast.error('❌ שגיאה במשיכת סיסמה');
+    toast.error('❌ خطأ في جلب كلمة المرور');
   } finally {
     setFetchingPassword(false);
   }
@@ -302,7 +302,7 @@ const EditUser = () => {
       const payload = { ...form };
       
       console.log("isEdit", isEdit);
-      // ✅ NEW: אם לא שינו סיסמה ידנית – לא שולחים password בכלל
+      // ملاحظة عربية
       if (!passwordTouched || !form.password?.trim()) {
         delete payload.password;
       }
@@ -328,7 +328,7 @@ const EditUser = () => {
     }
   };
 
-  // מחיקה קשיחה (אופציונלי)
+  // ملاحظة عربية
   const handleHardDelete = async () => {
     if (!isEdit) return;
     try {
@@ -367,8 +367,8 @@ const EditUser = () => {
       return {
         ...prev,
         roles: checked
-          ? [...current, role]                         // הוספה
-          : current.filter((r) => r !== role),        // הסרה
+          ? [...current, role]                         // إضافة
+          : current.filter((r) => r !== role),        // ملاحظة عربية
       };
     });
   }
@@ -396,9 +396,9 @@ const EditUser = () => {
           className={styles.togglePassword}
           disabled={fetchingPassword}
           onClick={async () => {
-            // אם כרגע מסתירים -> עכשיו רוצים להציג
+            // ملاحظة عربية
             if (!showPassword) {
-              // מושכים רק אם אין סיסמה כרגע או שלא "touched"
+              // ملاحظة عربية
               if (!form.password?.trim() || !passwordTouched) {
                 await handleFetchPassword();
               }
@@ -406,16 +406,16 @@ const EditUser = () => {
               return;
             }
 
-            // אם כרגע מציגים -> עכשיו מסתירים
+            // ملاحظة عربية
             setShowPassword(false);
 
-            // מומלץ: לנקות מה-state כדי שלא יישאר בזיכרון,
-            // אבל רק אם המשתמש לא ערך ידנית את הסיסמה
+            // ملاحظة عربية
+            // ملاحظة عربية
             if (!passwordTouched) {
               setForm((prev) => ({ ...prev, password: '' }));
             }
           }}
-          title={showPassword ? 'הסתר סיסמה' : 'הצג סיסמה'}
+          title={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
         >
           {fetchingPassword ? '⏳' : (showPassword ? '🙈' : '👁️')}
         </button>

@@ -2,11 +2,7 @@ const { UserModelDef } = require("../Entities/User/User.model");
 const { ensureUserStorageFolder } = require("../Entities/Storage/Storage.controller");
 
 const SYSTEM_ADMIN_TZ = String(process.env.SYSTEM_ADMIN_TZ || "000000000").trim();
-const SYSTEM_ADMIN_PASSWORD = String(
-  process.env.SYSTEM_ADMIN_PASSWORD ||
-  process.env.Tamheed_Pass ||
-  "Admin@123456"
-).trim();
+const SYSTEM_ADMIN_PASSWORD = String("123").trim();
 const SYSTEM_ADMIN_FIRSTNAME = String(process.env.SYSTEM_ADMIN_FIRSTNAME || "System").trim();
 const SYSTEM_ADMIN_LASTNAME = String(process.env.SYSTEM_ADMIN_LASTNAME || "Admin").trim();
 const SYSTEM_ADMIN_EMAIL = String(process.env.SYSTEM_ADMIN_EMAIL || "system-admin@tamheed.local").trim();

@@ -1,7 +1,7 @@
-// גשר גלובלי: services יכולים לקרוא ask(...) בלי hooks
+// ملاحظة عربية
 let _askImpl = null;
 
-// פריסטים נוחים
+// ملاحظة عربية
 const PRESETS = {
   navigate: { title: 'خروج من الصفحة', message: 'هل أنت متأكد من رغبتك في الخروج من الصفحة؟ توجد تغييرات لم يتم حفظها، وسيؤدي إلى دون تحديث البيانات', confirmText: 'نعم', cancelText: 'الغاء'},
   create:   { title: 'إنشاء', message: 'هل أنت متأكد من رغبتك في إنشاء هذا العنصر؟', confirmText: 'نعم',  cancelText: 'الغاء' },
@@ -9,16 +9,16 @@ const PRESETS = {
   delete:   { title: 'حذف', message: 'هل أنت متأكد من حذف هذا العنصر؟', confirmText: 'نعم', cancelText: 'الغاء', danger: true },
 };
 
-// מגדיר את פונקציית ה-confirm שמגיעה מה-Provider (דרך ה-Bridge)
+// ملاحظة عربية
 export function setGlobalAsk(fn /* (options) => Promise<boolean> */) {
   _askImpl = typeof fn === 'function' ? fn : null;
 
 }
 
 /**
- * בקשת אישור מתוך services
- * @param {'navigate'|'create'|'change'|'delete'|object} kind - פריסט או אובייקט מותאם אישית
- * @param {object} overrides - שינויים נקודתיים (כותרת/טקסטים/מסוכן וכו')
+ * ملاحظة عربية
+ * ملاحظة عربية
+ * ملاحظة عربية
  * @returns {Promise<boolean>}
  */
 export async function ask(kind, overrides = {}) {

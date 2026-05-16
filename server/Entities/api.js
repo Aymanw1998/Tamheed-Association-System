@@ -87,7 +87,7 @@ module.exports = api;
 // OLD CODE - DO NOT SUGGEST CHANGES
 // module.exports = axios.create({
 //     baseURL: process.env.API_URI,
-//     withCredentials: true, // refresh נעשה בקריאה נפרדת עם credentials:true
+// ملاحظة عربية
 //     timeout: 15000,
 // });
 //

@@ -52,7 +52,7 @@
   justify-content: center;
   align-items: center;
   padding: 40px 20px;
-  overflow: hidden; /* חשוב למנוע גלילה מיותרת */
+  overflow: hidden; /* ملاحظة عربية */
 }
 
 
@@ -64,7 +64,7 @@
   gap: 15px;
   position: relative;
   z-index: 1;
-  background-color: rgba(255, 255, 255, 0.9); /* חצי שקוף */
+  background-color: rgba(255, 255, 255, 0.9); /* ملاحظة عربية */
   padding: 20px;
   border-radius: 10px;
 }
@@ -108,12 +108,12 @@
   font-weight: bold;
 }
 
-/* 🔁 רספונסיבי */
+/* ملاحظة عربية */
 @media (max-width: 768px) {
   .rightPanel {
   /* position: absolute; */
       padding: 10px;
-      background-image: url('../../../images/logo.png'); /* שנה לנתיב הנכון אצלך */
+      background-image: url('../../../images/logo.png'); /* ملاحظة عربية */
       /* background-size: contain; */
       background-repeat: no-repeat;
       background-position: center;

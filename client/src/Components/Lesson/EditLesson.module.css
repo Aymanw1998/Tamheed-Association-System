@@ -80,7 +80,7 @@
 
 .formInline {
   align-items: center;
-  justify-content: flex-end; /* לרווחה נכונה ב־RTL */
+  justify-content: flex-end; /* ملاحظة عربية */
   gap: 10px;
   margin-bottom: 1rem;
 }

@@ -13,16 +13,16 @@ const initialUser = {
   tz: '', password: '',
   firstname: '', lastname: '', birth_date: '',
   gender: '', phone: '', email: '',
-  city: window.innerWidth < 768 ? 'רמלה' : '', street: '', role: 'מתאמן', wallet: 0,
+  city: window.innerWidth < 768 ? 'الرملة' : '', street: '', role: 'متدرب', wallet: 0,
   subs: { id: null, start: { day: -1} },
 };
 
 const normalizePhoneToIntl = (val) => {
   if (!val) return '';
   let v = String(val).replace(/\D+/g, '');
-  // אם מתחיל ב-972 בלי +
+  // ملاحظة عربية
   if (v.startsWith('972')) v = '+' + v;
-  // אם מתחיל ב-0 ישראלי → +972
+  // ملاحظة عربية
   if (v.startsWith('0')) v = '+972' + v.slice(1);
   if (!v.startsWith('+')) v = '+' + v;
   return v;
@@ -37,7 +37,7 @@ const displayPhoneLocal = (val) => {
 
 export default function RegisterPage() {
   
-    const params = useParams();              // "new" או _id
+    const params = useParams();              // "new" الأحدالجمعة _id
     const navigate = useNavigate();
   
     const id = "new";
@@ -49,7 +49,7 @@ export default function RegisterPage() {
       password: "",
       firstname: "",
       lastname: "",
-      birth_date: "", // אם תרצה תאריך אמיתי: Date
+      birth_date: "", // ملاحظة عربية
       gender: "",
       phone: "",
       email: "",
@@ -64,7 +64,7 @@ export default function RegisterPage() {
       password: "",
       firstname: "",
       lastname: "",
-      birth_date: "", // אם תרצה תאריך אמיתי: Date
+      birth_date: "", // ملاحظة عربية
       gender: "",
       phone: "",
       email: "",
@@ -86,7 +86,7 @@ export default function RegisterPage() {
           //console.log("load training");
           setLoading(true);
           setErr(null);
-          const res = await getOne(id); // מצפה ל-{ status, subs }
+          const res = await getOne(id); // ملاحظة عربية
           if(!res.ok) throw new Error(res.message);
           if (res) {
             const s = res.user;
@@ -126,7 +126,7 @@ export default function RegisterPage() {
   
     const handleChange = async(e) => {
       const { name, value } = e.target;
-      // שמור כטקסט; נמיר למספרים בזמן שמירה
+      // ملاحظة عربية
       setForm((prev) => ({ ...prev, [name]: value }));
       const msg = await validate(name, value);
       setError((prev) => ({ ...prev, [name]: msg }));
@@ -137,32 +137,32 @@ export default function RegisterPage() {
       if(name === "tz"){
         //console.log(isNew && value === "");
           if (value === "") {
-            tag?.style.setProperty('border', '2px solid red'); // או ישירות סטייל
-            return "מלאה שדה";
+            tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
+            return "املأ الحقل";
           } 
           else if(!isValidIsraeliId(value)){
-            tag?.style.setProperty('border', '2px solid red'); // או ישירות סטייל
-            return "תעודת זיהות לא חוקית"
+            tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
+            return "رقم الهوية غير صالح"
           }
           else if(isNew) {
             const data = parent ? {ok: false} : await getOne(value)
             if(data.ok){
-              tag?.style.setProperty('border', '2px solid red'); // או ישירות סטייל
-              return "תעודת זיהות קיימת במערכת"
+              tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
+              return "رقم الهوية موجود في النظام"
             } 
           }
-          tag?.style.setProperty('border', '2px solid green'); // או ישירות סטייל
+          tag?.style.setProperty('border', '2px solid green'); // ملاحظة عربية
           return ""
         }
   
         //fisrtname, lastname
         else if(['firstname', 'lastname', 'father_name', 'mother_name'].includes(name)){
           if (value === "") {
-            tag?.style.setProperty('border', '2px solid red'); // או ישירות סטייל
-            return "מלאה שדה";
+            tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
+            return "املأ الحقل";
           } 
           else{
-            tag?.style.setProperty('border', '2px solid green'); // או ישירות סטייל
+            tag?.style.setProperty('border', '2px solid green'); // ملاحظة عربية
             return ""
           }
         }
@@ -170,14 +170,14 @@ export default function RegisterPage() {
         //gender, role
         else if(['gender', 'roles'].includes(name)){
           if (name === 'gender' && !['ذكر' , 'انثى'].includes(value)) {
-            tag?.style.setProperty('border', '2px solid red'); // או ישירות סטייל
-            return "בחר מין";
+            tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
+            return "اختر الجنس";
           } else if (isNew && name === 'role' && !['ادارة', 'مرشد', 'مساعد'].includes(value)) {
-            tag?.style.setProperty('border', '2px solid red'); // או ישירות סטייל
-            return "בחר תפקיד";
+            tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
+            return "اختر الدور";
           }  
           else{
-            tag?.style.setProperty('border', '2px solid green'); // או ישירות סטייל
+            tag?.style.setProperty('border', '2px solid green'); // ملاحظة عربية
             return ""
           }
         }
@@ -189,29 +189,29 @@ export default function RegisterPage() {
               const date = new Date(value); 
             }
             else {
-            tag?.style.setProperty('border', '2px solid red'); // או ישירות סטייל
-            return "בחר תאריך לידה";
+            tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
+            return "اختر تاريخ الميلاد";
             }
           } catch {
             //console.log("invalid date");
-            tag?.style.setProperty('border', '2px solid red'); // או ישירות סטייל
-            return "תאריך לא חוקי";
+            tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
+            return "تاريخ غير صالح";
           }
         }
   
         //phone, email, city, street
         else if (['father_phone', 'mother_phone', 'phone', 'email', 'city', 'street'].includes(name)){
           if (value === "") {
-            tag?.style.setProperty('border', '2px solid red'); // או ישירות סטייל
-            return "מלאה שדה";
+            tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
+            return "املأ الحقل";
           } 
           else{
-            tag?.style.setProperty('border', '2px solid green'); // או ישירות סטייל
+            tag?.style.setProperty('border', '2px solid green'); // ملاحظة عربية
             return ""
           }
         }
         else if (name === "roles") {
-          if (!value || value.length === 0) return "בחר לפחות תפקיד אחד";
+          if (!value || value.length === 0) return "اختر دورا واحدا على الأقل";
           return "";
         }
   
@@ -220,9 +220,9 @@ export default function RegisterPage() {
     const normalizePhoneToIntl = (val) => {
       if (!val) return '';
       let v = String(val).replace(/\D+/g, '');
-      // אם מתחיל ב-972 בלי +
+      // ملاحظة عربية
       if (v.startsWith('972')) v = '+' + v;
-      // אם מתחיל ב-0 ישראלי → +972
+      // ملاحظة عربية
       if (v.startsWith('0')) v = '+972' + v.slice(1);
       if (!v.startsWith('+')) v = '+' + v;
       return v;
@@ -307,8 +307,8 @@ export default function RegisterPage() {
         return {
           ...prev,
           roles: checked
-            ? [...current, role]                         // הוספה
-            : current.filter((r) => r !== role),        // הסרה
+            ? [...current, role]                         // إضافة
+            : current.filter((r) => r !== role),        // ملاحظة عربية
         };
       });
     }

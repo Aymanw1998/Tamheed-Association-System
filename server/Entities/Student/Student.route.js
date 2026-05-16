@@ -13,10 +13,10 @@ const mongoose = require('mongoose');
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
-// כל הנתיבים כאן מוגנים
+// ملاحظة عربية
 router.use(protect);
 
-// אדמין
+// الأحدالأربعاءجنس
 // router.get('/public/:tz', getOneS);
 router.get('/', getAllS);
 router.get('/:tz', getOneS);

@@ -7,8 +7,8 @@ function errorPublisher(err, req, res, next) {
 
     broadcast({
         level: status >= 500 ? 'error' : 'warning',
-        title: `שגיאה ${status}`,
-        message: `${code}: ${err.message || 'תקלה כללית'}`,
+        title: `خطأ ${status}`,
+        message: `${code}: ${err.message || 'خطأ عام'}`,
     });
 
     next(err);

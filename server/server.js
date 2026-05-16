@@ -26,7 +26,7 @@ app.use(logger);
 
 
 // VERY TOP, right after app = express()
-// מומלץ דרך ENV כדי שלא תצטרך לקמפל מחדש
+// ملاحظة عربية
 const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim())
   : [
@@ -37,8 +37,8 @@ const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
       'http://www.tamheed-ramla.org',
       'https://tamheed-ramla.org',
       'https://www.tamheed-ramla.org',
-      // הוסף כאן דומיינים נוספים אם יש
-      /^http:\/\/10\.0\.0\.\d+3000$/, // רשת LAN לדיבוג
+      // ملاحظة عربية
+      /^http:\/\/10\.0\.0\.\d+3000$/, // ملاحظة عربية
     ];
 
 const allowedOrigins = new Set(ALLOWED_ORIGINS);
@@ -56,7 +56,7 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions)); // preflight
-app.set('trust proxy', 1); // חשוב ברנדר בשביל cookies Secure
+app.set('trust proxy', 1); // ملاحظة عربية
 
 //Middleware to parse JSON requests
 app.use(express.json());
@@ -64,8 +64,8 @@ app.use(express.json());
 app.use(cookieParser());
 //Prevent attects
 app.use(helmet({ 
-    frameguard: false, // ⬅️ קריטי ל-OnlyOffice
-  crossOriginResourcePolicy: false })); // לא לחסום משאבים cross-origin
+    frameguard: false, // ملاحظة عربية
+  crossOriginResourcePolicy: false })); // ملاحظة عربية
 
 app.use(mongoSanitize()); // Sanitize data for privent NoSql injection attack
 app.use(xss()); // Prevent XSS attacks
@@ -80,7 +80,7 @@ app.use('/api/inviteToken', require('./Entities/InviteToken/InviteToken.route'))
 app.use('/api/report', require('./Entities/Report/Report.route'));
 app.use('/api/storage', require('./Entities/Storage/Storage.route'))
 // **********************************AUTO_PROCCESS ***************************
-// בזמן פיתוח אפשר לבדוק כל דקה:
+// ملاحظة عربية
 // cron.schedule("* * * * *", runDailyJobs, { timezone: "Asia/Jerusalem" });
 // **********************************END - AUTO_PROCCESS ***************************
 
@@ -102,32 +102,32 @@ const { eventsHandler, broadcast } = require('./utils/sse');
 const { errorPublisher } = require('./utils/errorPublisher');
 
 
-// בריאות
+// ملاحظة عربية
 app.get('/api/health', (req, res) => res.json({ ok: true, ts: Date.now() }));
 
-// ערוץ SSE
+// ملاحظة عربية
 app.get('/api/events', eventsHandler);
 
-// דוגמה לאירוע יזום
+// ملاحظة عربية
 app.get('/api/test-event', (req, res) => {
-  broadcast({ level: 'success', title: 'בדיקה', message: 'אירוע בדיקה מהשרת' });
+  broadcast({ level: 'success', title: 'اختبار', message: 'حدث اختبار من الخادم' });
   res.json({ ok: true });
 });
 
-// שגיאה יזומה לבדיקה
+// ملاحظة عربية
 app.get('/api/boom', (req, res, next) => {
-  const err = new Error('נפילה לדוגמה');
+  const err = new Error('سقوط تجريبي');
   err.status = 500;
   err.code = 'BOOM_EXAMPLE';
   next(err);
 });
 
-// ⬅️ שים לפני error handler הראשי
+// ملاحظة عربية
 app.use(errorPublisher);
 app.use(require("express").json({ limit: "50mb" }));
 const StartServer = async () => {
   try {
-    // התחברות למסד הנתונים
+    // ملاحظة عربية
     // await connectDB();
     await ensureSystemAdmin();
     // **********************************END - ALERTS POPUP***************************
@@ -151,7 +151,7 @@ const StartServer = async () => {
       process.exit(1); // Exit immediately
     })
   } catch (err) {
-    console.error('Failed to connect to DB:', err.message);
+    console.error('Failed to connect to DB:', err);
     process.exit(1);
   }
 }

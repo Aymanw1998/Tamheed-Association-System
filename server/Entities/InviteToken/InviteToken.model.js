@@ -1,6 +1,6 @@
 const api = require("../api");
 
-// Model definition - לא mongoose אלא הגדרה גנרית שנוכל להשתמש בה עם כל DB
+// ملاحظة عربية
 const InviteTokenModelDef = {
     dbName: "tamheed_db",
 
@@ -80,7 +80,7 @@ module.exports = { InviteTokenModelDef };
 // });
 
 // inviteTokenSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 }); 
-// // מוחק אוטומטית אחרי פקיעה
+// ملاحظة عربية
 
 // const InviteToken = mongoose.model('InviteToken', inviteTokenSchema);
 // module.exports = InviteToken;

@@ -335,7 +335,7 @@ module.exports = {
 //
 //     const map = new Map(existing.map(a => [String(a.student), a]));
 //
-//     // items מלאים להצגה
+// ملاحظة عربية
 //     const items = students.map(st => {
 //       const row = map.get(String(st._id));
 //       const studentName = st.name || `${st.firstname || ""} ${st.lastname || ""}`.trim();
@@ -348,7 +348,7 @@ module.exports = {
 //       };
 //     });
 //
-//     // ensure rows קיימים (אם חסר)
+// ملاحظة عربية
 //     const missingDocs = students
 //       .filter(st => !map.has(String(st._id)))
 //       .map(st => ({
@@ -426,7 +426,7 @@ module.exports = {
 //     console.log("getLessonDates", req.query);
 //     if (!lessonId) return res.status(400).json({ ok: false, message: "lessonId required" });
 //     const lessonObjId = new mongoose.Types.ObjectId(lessonId);
-//     // מביא רק dateKey-ים ייחודיים
+// ملاحظة عربية
 //     const rows = await Attendance.aggregate([
 //       { $match: { lesson: lessonObjId } },
 //       { $group: { _id: "$dateKey" } },
@@ -434,7 +434,7 @@ module.exports = {
 //       { $limit: 500 },
 //     ]);
 //     console.log(rows);
-//     // המרה ל-YYYY-MM-DD להצגה
+// ملاحظة عربية
 //     const dates = rows.map(r => {
 //       const dk = Number(r._id);
 //       const y = Math.floor(dk / 10000);

@@ -1,9 +1,9 @@
 // middleware/authRequired.js
-const jwt = require('jsonwebtoken');  // אימות חתימת JWT
+const jwt = require('jsonwebtoken');  // ملاحظة عربية
 
 const requireAuth = (req, res, next) => {
   try {
-    const auth = req.headers.authorization || '';   // קורא את הכותרת Authorization
+    const auth = req.headers.authorization || '';   // ملاحظة عربية
     // console.log(auth);
     const [type, token] = auth.split(' ');          // 'Bearer <token>'
     // console.log(type, token);
@@ -11,15 +11,15 @@ const requireAuth = (req, res, next) => {
       return res.status(401).json({ code: 'NO_TOKEN', message: 'Missing Authorization Bearer token' });
     }
 
-    // אימות הטוקן עם הסוד ACCESS
+    // ملاحظة عربية
     const payload = jwt.verify(token, process.env.JWT_ACCESS_SECRET, {
-      algorithms: ['HS256'],                         // אלגוריתם חתימה
-      clockTolerance: 5,                             // "סקיו" קטן לשעון
+      algorithms: ['HS256'],                         // ملاحظة عربية
+      clockTolerance: 5,                             // ملاحظة عربية
     });
     // console.log("payload",payload);
-    // שומר פרטים לשימוש בהמשך המסלול
+    // ملاحظة عربية
     req.user = { id: payload.id, tz: payload.tz, roles: payload.roles };
-    next();                                          // ממשיכים לראוטר הבא
+    next();                                          // ملاحظة عربية
   } catch (err) {
     if (err.name === 'TokenExpiredError') {
       return res.status(401).json({ code: 'TOKEN_EXPIRED', message: 'Access token expired' });
@@ -28,7 +28,7 @@ const requireAuth = (req, res, next) => {
   }
 }
 
-// בדיקת תפקידים (אפשר להעביר כמה תפקידים)
+// ملاحظة عربية
 const ADMIN_ROLES = new Set(["ادارة", "إدارة", "الادارة", "الإدارة", "Ø§Ø¯Ø§Ø±Ø©"]);
 
 function requireRole(...roles) {
@@ -49,7 +49,7 @@ function requireRole(...roles) {
     }
 
     if (!b) {
-      return res.status(403).json({ code: 'FORBIDDEN', message: 'אין הרשאה' });
+      return res.status(403).json({ code: 'FORBIDDEN', message: 'لا توجد صلاحية' });
     }
     next();
   };

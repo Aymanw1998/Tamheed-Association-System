@@ -1,6 +1,6 @@
 const api = require("../api");
 
-// Model definition - לא mongoose אלא הגדרה גנרית שנוכל להשתמש בה עם כל DB
+// ملاحظة عربية
 const LessonModelDef = {
     dbName: "tamheed_db",
 
@@ -21,11 +21,11 @@ const LessonModelDef = {
         },
         },
 
-        // במקום ObjectId
+        // ملاحظة عربية
         teacher: { type: "string", required: false, default: null },
         helper: { type: "string", required: false, default: null },
 
-        // במקום array של ObjectId
+        // ملاحظة عربية
         list_students: { type: "array", required: false, default: [] },
 
         room: { type: "string", required: true },
@@ -47,7 +47,7 @@ const LessonModelDef = {
 // Build for getting lessons
 /**
  *
- * @param {*} filter | אופציונלי - פילטר לקריאה
+ * ملاحظة عربية
  * @returns
  */
 LessonModelDef.get = async function (filter = {}) {
@@ -61,7 +61,7 @@ LessonModelDef.get = async function (filter = {}) {
 // Build for creating a lesson
 /**
  *
- * @param {*} data | אובייקט עם שדות השיעור ליצירה
+ * ملاحظة عربية
  * @returns
  */
 LessonModelDef.create = async function (data) {
@@ -75,8 +75,8 @@ LessonModelDef.create = async function (data) {
 // Build for updating a lesson
 /**
  *
- * @param {*} filter | אובייקט עם שדות לפילטר
- * @param {*} newData | אובייקט עם שדות לעדכון
+ * ملاحظة عربية
+ * ملاحظة عربية
  * @returns
  */
 LessonModelDef.update = async function (filter, newData) {
@@ -91,7 +91,7 @@ LessonModelDef.update = async function (filter, newData) {
 // Build for deleting a lesson
 /**
  *
- * @param {*} filter | אובייקט עם שדות לפילטר
+ * ملاحظة عربية
  * @returns
  */
 LessonModelDef.delete = async function (filter) {

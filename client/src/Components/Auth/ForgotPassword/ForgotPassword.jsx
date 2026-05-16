@@ -87,7 +87,7 @@ export default function ForgotPassword() {
                         type="otp"
                         value={otp}
                         onChange={(e) => setOtp(e.target.value)}
-                        placeholder="יدخل رقم التحقق (6 أرقام)"
+                        placeholder="أدخل رقم التحقق (6 أرقام)"
                         style={{ width: "100%", padding: 10, margin: "8px 0 12px" }}
                     />
                     <label>كلمة السر الجديدة</label>

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 
-// עדכן נתיב אם אצלך שונה:
+// ملاحظة عربية
 import { create, update, getUserById as getOne, /*softDelete,*/ deleteU, uploadPhoto, deletePhoto, viewPassword } from "../../WebServer/services/user/functionsUser.jsx";
 import styles from "./Profile.module.css";
 import { toast } from "../../ALERT/SystemToasts.jsx";
@@ -13,7 +13,7 @@ const Profile = ({parent = false}) => {
         password: "",
         firstname: "",
         lastname: "",
-        birth_date: "", // אם תרצה תאריך אמיתי: Date
+        birth_date: "", // ملاحظة عربية
         gender: "",
         phone: "",
         email: "",
@@ -28,7 +28,7 @@ const Profile = ({parent = false}) => {
         password: "",
         firstname: "",
         lastname: "",
-        birth_date: "", // אם תרצה תאריך אמיתי: Date
+        birth_date: "", // ملاحظة عربية
         gender: "",
         phone: "",
         email: "",
@@ -52,7 +52,7 @@ const Profile = ({parent = false}) => {
             //console.log("load training");
             setLoading(true);
             setErr(null);
-            const res = await getMe(); // מצפה ל-{ status, subs }
+            const res = await getMe(); // ملاحظة عربية
             if (res) {
                 const s = res;
                 delete s.password;
@@ -113,7 +113,7 @@ const Profile = ({parent = false}) => {
 
     const handleChange = async(e) => {
         const { name, value } = e.target;
-        // שמור כטקסט; נמיר למספרים בזמן שמירה
+        // ملاحظة عربية
         setForm((prev) => ({ ...prev, [name]: value }));
         const msg = await validate(name, value);
         setError((prev) => ({ ...prev, [name]: msg }));
@@ -123,25 +123,25 @@ const Profile = ({parent = false}) => {
         const tag = document.getElementsByName(name)[0];
         if(name === "tz"){
             if (value === "") {
-            tag?.style.setProperty('border', '2px solid red'); // או ישירות סטייל
-            return "מלאה שדה";
+            tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
+            return "املأ الحقل";
             } 
             else if(!isValidIsraeliId(value)){
-            tag?.style.setProperty('border', '2px solid red'); // או ישירות סטייל
-            return "תעודת זיהות לא חוקית"
+            tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
+            return "رقم الهوية غير صالح"
             }
-            tag?.style.setProperty('border', '2px solid green'); // או ישירות סטייל
+            tag?.style.setProperty('border', '2px solid green'); // ملاحظة عربية
             return ""
         }
 
         //fisrtname, lastname
         else if(['firstname', 'lastname', 'father_name', 'mother_name'].includes(name)){
             if (value === "") {
-            tag?.style.setProperty('border', '2px solid red'); // או ישירות סטייל
-            return "מלאה שדה";
+            tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
+            return "املأ الحقل";
             } 
             else{
-            tag?.style.setProperty('border', '2px solid green'); // או ישירות סטייל
+            tag?.style.setProperty('border', '2px solid green'); // ملاحظة عربية
             return ""
             }
         }
@@ -149,14 +149,14 @@ const Profile = ({parent = false}) => {
         //gender, role
         else if(['gender', 'roles'].includes(name)){
             if (name === 'gender' && !['ذكر' , 'انثى'].includes(value)) {
-            tag?.style.setProperty('border', '2px solid red'); // או ישירות סטייל
-            return "בחר מין";
+            tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
+            return "اختر الجنس";
             } else if (name === 'role' && !['ادارة', 'مرشد', 'مساعد'].includes(value)) {
-            tag?.style.setProperty('border', '2px solid red'); // או ישירות סטייל
-            return "בחר תפקיד";
+            tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
+            return "اختر الدور";
             }  
             else{
-            tag?.style.setProperty('border', '2px solid green'); // או ישירות סטייל
+            tag?.style.setProperty('border', '2px solid green'); // ملاحظة عربية
             return ""
             }
         }
@@ -168,29 +168,29 @@ const Profile = ({parent = false}) => {
                 const date = new Date(value); 
             }
             else {
-            tag?.style.setProperty('border', '2px solid red'); // או ישירות סטייל
-            return "בחר תאריך לידה";
+            tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
+            return "اختر تاريخ الميلاد";
             }
             } catch {
             //console.log("invalid date");
-            tag?.style.setProperty('border', '2px solid red'); // או ישירות סטייל
-            return "תאריך לא חוקי";
+            tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
+            return "تاريخ غير صالح";
             }
         }
 
         //phone, email, city, street
         else if (['father_phone', 'mother_phone', 'phone', 'email', 'city', 'street'].includes(name)){
             if (value === "") {
-            tag?.style.setProperty('border', '2px solid red'); // או ישירות סטייל
-            return "מלאה שדה";
+            tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
+            return "املأ الحقل";
             } 
             else{
-            tag?.style.setProperty('border', '2px solid green'); // או ישירות סטייל
+            tag?.style.setProperty('border', '2px solid green'); // ملاحظة عربية
             return ""
             }
         }
         else if (name === "roles") {
-            if (!value || value.length === 0) return "בחר לפחות תפקיד אחד";
+            if (!value || value.length === 0) return "اختر دورا واحدا على الأقل";
             return "";
         }
 
@@ -200,9 +200,9 @@ const Profile = ({parent = false}) => {
     const normalizePhoneToIntl = (val) => {
         if (!val) return '';
         let v = String(val).replace(/\D+/g, '');
-        // אם מתחיל ב-972 בלי +
+        // ملاحظة عربية
         if (v.startsWith('972')) v = '+' + v;
-        // אם מתחיל ב-0 ישראלי → +972
+        // ملاحظة عربية
         if (v.startsWith('0')) v = '+972' + v.slice(1);
         if (!v.startsWith('+')) v = '+' + v;
         return v;
@@ -239,7 +239,7 @@ const Profile = ({parent = false}) => {
 
             const res = await viewPassword(tzToFetch);
             if (!res?.ok) {
-                toast.warn(res?.message || "אי אפשר להציג סיסמה למשתמש הזה");
+                toast.warn(res?.message || "لا يمكن عرض كلمة المرور لهذا المستخدم");
                 return;
             }
 
@@ -255,11 +255,11 @@ const Profile = ({parent = false}) => {
             } else {
                 setShowPassword(false);
                 setForm((prev) => ({ ...prev, password: "" }));
-                toast.warn(res?.message || "לא התקבלה סיסמה");
+                toast.warn(res?.message || "لم يتم استلام كلمة مرور");
             }
         } catch (e) {
             console.error(e);
-            toast.error("שגיאה במשיכת סיסמה");
+            toast.error("خطأ في جلب كلمة المرور");
         } finally {
             setFetchingPassword(false);
         }
@@ -293,7 +293,7 @@ const Profile = ({parent = false}) => {
             }
             //console.log("payload", payload);  
             if(parent && !inviteToken){
-                toast.error("קישור הרשמה לא תקין");
+                toast.error("رابط التسجيل غير صالح");
                 return;
             }
             

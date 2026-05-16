@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-// עדכן נתיב אם אצלך שונה:
+// ملاحظة عربية
 import { create, update, getOne, /*softDelete,*/ deleteR } from "../../WebServer/services/report/functionsReport.jsx";
 import { getAll } from "../../WebServer/services/user/functionsUser.jsx";
 import styles from "./Report.module.css";
@@ -13,7 +13,7 @@ const MultiTagSelect = ({
   value = [],
   onChange,
   placeholder = "Type to search...",
-  allowCustom = false, // ✅ חדש
+  allowCustom = false, // ✅ عربيالأربعاءالسبت
 }) => {
   const [q, setQ] = useState("");
 
@@ -86,11 +86,11 @@ const MultiTagSelect = ({
         onKeyDown={(e) => {
           if (e.key === "Enter") {
             e.preventDefault();
-            if (canCreate) add(q);                 // ✅ טקסט חופשי
-            else if (filtered[0]) add(filtered[0].value); // אופציה ראשונה
+            if (canCreate) add(q);                 // ملاحظة عربية
+            else if (filtered[0]) add(filtered[0].value); // ملاحظة عربية
           }
           if (e.key === "Backspace" && !q && value.length) {
-            // נוחות: מחיקה מהירה
+            // ملاحظة عربية
             remove(value[value.length - 1]);
           }
         }}
@@ -124,7 +124,7 @@ const MultiTagSelect = ({
 
 const EditReport = ({parent = false}) => {
   const isAdmin = isStoredAdmin();
-  const params = useParams();              // "new" או _id
+  const params = useParams();              // "new" الأحدالجمعة _id
   const navigate = useNavigate();
 
   const id = parent ? "new" : params.id;
@@ -133,7 +133,7 @@ const EditReport = ({parent = false}) => {
 
   const [form, setForm] = useState({
     _id: "",
-    date: "", // אם תרצה תאריך אמיתי: Date
+    date: "", // ملاحظة عربية
     attendance: [],
     title: [],
     stitle: "",
@@ -144,7 +144,7 @@ const EditReport = ({parent = false}) => {
 
   const [users, setUsers] = useState([]);
   const [error, setError] = useState({
-    date: "", // אם תרצה תאריך אמיתי: Date
+    date: "", // ملاحظة عربية
     attendance: "",
     title: "",
     stitle: "",
@@ -186,7 +186,7 @@ const EditReport = ({parent = false}) => {
         console.log("load training");
         setLoading(true);
         setErr(null);
-        const res = await getAll(); // מצפה ל-{ status, subs }
+        const res = await getAll(); // ملاحظة عربية
         if(!res.ok) throw new Error(res.message);
         if (res) {
           const s = res.users.filter(u => u.roles.includes("ادارة"));
@@ -220,7 +220,7 @@ const EditReport = ({parent = false}) => {
 
   const handleChange = async(e) => {
     const { name, value } = e.target;
-    // שמור כטקסט; נמיר למספרים בזמן שמירה
+    // ملاحظة عربية
     setForm((prev) => ({ ...prev, [name]: value }));
     const msg = await validate(name, value);
     setError((prev) => ({ ...prev, [name]: msg }));
@@ -231,32 +231,32 @@ const EditReport = ({parent = false}) => {
     if(name === "tz"){
       console.log(isNew && value === "");
         if (value === "") {
-          tag?.style.setProperty('border', '2px solid red'); // או ישירות סטייל
-          return "מלאה שדה";
+          tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
+          return "املأ الحقل";
         } 
         else if(!isValidIsraeliId(value)){
-          tag?.style.setProperty('border', '2px solid red'); // או ישירות סטייל
-          return "תעודת זיהות לא חוקית"
+          tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
+          return "رقم الهوية غير صالح"
         }
         else if(isNew) {
           const data = parent ? {ok: false} : await getOne(value)
           if(data.ok){
-            tag?.style.setProperty('border', '2px solid red'); // או ישירות סטייל
-            return "תעודת זיהות קיימת במערכת"
+            tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
+            return "رقم الهوية موجود في النظام"
           } 
         }
-        tag?.style.setProperty('border', '2px solid green'); // או ישירות סטייל
+        tag?.style.setProperty('border', '2px solid green'); // ملاحظة عربية
         return ""
       }
 
       //fisrtname, lastname
       else if(['firstname', 'lastname', 'father_name', 'mother_name'].includes(name)){
         if (value === "") {
-          tag?.style.setProperty('border', '2px solid red'); // או ישירות סטייל
-          return "מלאה שדה";
+          tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
+          return "املأ الحقل";
         } 
         else{
-          tag?.style.setProperty('border', '2px solid green'); // או ישירות סטייל
+          tag?.style.setProperty('border', '2px solid green'); // ملاحظة عربية
           return ""
         }
       }
@@ -264,14 +264,14 @@ const EditReport = ({parent = false}) => {
       //gender, role
       else if(['gender', 'role'].includes(name)){
         if (name === 'gender' && !['ذكر' , 'انثى'].includes(value)) {
-          tag?.style.setProperty('border', '2px solid red'); // או ישירות סטייל
-          return "בחר מין";
-        } else if (isNew && name === 'role' && !['ادارة', 'מאמן', 'מתאמן'].includes(value)) {
-          tag?.style.setProperty('border', '2px solid red'); // או ישירות סטייל
-          return "בחר תפקיד";
+          tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
+          return "اختر الجنس";
+        } else if (isNew && name === 'role' && !['ادارة', 'مدرب', 'متدرب'].includes(value)) {
+          tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
+          return "اختر الدور";
         }  
         else{
-          tag?.style.setProperty('border', '2px solid green'); // או ישירות סטייל
+          tag?.style.setProperty('border', '2px solid green'); // ملاحظة عربية
           return ""
         }
       }
@@ -283,24 +283,24 @@ const EditReport = ({parent = false}) => {
             const date = new Date(value); 
           }
           else {
-          tag?.style.setProperty('border', '2px solid red'); // או ישירות סטייל
-          return "בחר תאריך לידה";
+          tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
+          return "اختر تاريخ الميلاد";
           }
         } catch {
           console.log("invalid date");
-          tag?.style.setProperty('border', '2px solid red'); // או ישירות סטייל
-          return "תאריך לא חוקי";
+          tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
+          return "تاريخ غير صالح";
         }
       }
 
       //phone, email, city, street
       else if (['father_phone', 'mother_phone', 'phone', 'email', 'city', 'street'].includes(name)){
         if (value === "") {
-          tag?.style.setProperty('border', '2px solid red'); // או ישירות סטייל
-          return "מלאה שדה";
+          tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
+          return "املأ الحقل";
         } 
         else{
-          tag?.style.setProperty('border', '2px solid green'); // או ישירות סטייל
+          tag?.style.setProperty('border', '2px solid green'); // ملاحظة عربية
           return ""
         }
       }
@@ -309,9 +309,9 @@ const EditReport = ({parent = false}) => {
   const normalizePhoneToIntl = (val) => {
     if (!val) return '';
     let v = String(val).replace(/\D+/g, '');
-    // אם מתחיל ב-972 בלי +
+    // ملاحظة عربية
     if (v.startsWith('972')) v = '+' + v;
-    // אם מתחיל ב-0 ישראלי → +972
+    // ملاحظة عربية
     if (v.startsWith('0')) v = '+972' + v.slice(1);
     if (!v.startsWith('+')) v = '+' + v;
     return v;
@@ -360,7 +360,7 @@ const EditReport = ({parent = false}) => {
     }
   };
 
-  // מחיקה קשיחה (אופציונלי)
+  // ملاحظة عربية
   const handleHardDelete = async () => {
     if (!isEdit) return;
     try {
@@ -374,12 +374,12 @@ const EditReport = ({parent = false}) => {
       toast.error(e.message || "❌ فشل العملية");
     }
   };
-  // במצב הורה – קודם בודקים טוקן
+  // ملاحظة عربية
   if (parent) {
     if (inviteStatus.checking) {
       return (
         <div className={styles.formContainer}>
-          בודק תוקף קישור ההרשמה...
+          جار فحص صلاحية رابط التسجيل...
         </div>
       );
     }
@@ -389,8 +389,8 @@ const EditReport = ({parent = false}) => {
           className={styles.formContainer}
           style={{ color: "#b91c1c", textAlign: "center" }}
         >
-          <h2>הקישור אינו תקף</h2>
-          <p>{inviteStatus.message || "אנא בקש/י קישור חדש מהמורה."}</p>
+          <h2>الرابط غير صالح</h2>
+          <p>{inviteStatus.message || "يرجى طلب رابط جديد من المعلم."}</p>
         </div>
       );
     }

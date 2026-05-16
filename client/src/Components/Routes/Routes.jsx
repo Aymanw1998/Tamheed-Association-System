@@ -30,7 +30,7 @@ import AttendancePage from '../Attendance/AttendancePage';
 import FilesPage from '../Files/FilesPage';
 
 function ProtectedLayout() {
-  // Header רק בדפים מוגנים
+  // ملاحظة عربية
   return (
     <div style={{ height: "100vh", width: "100vw" }}>
       <Header />
@@ -44,15 +44,15 @@ export default function CRoutes() {
   token && setAuthTokens(token);
   return (
     <Routes>
-      {/* ציבורי */}
+      {/* ملاحظة عربية */}
       <Route path="/" element={<PublicOnly/>} />
       <Route path="/login" element={<PublicOnly/>} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/parent-register" element={<EditStudent parent={true} />} />
-      {/* מוגן */}
+      {/* عربيالجمعةالثلاثاءعربي */}
       <Route element={<RequireAuth />}>
         <Route element={<ProtectedLayout />}>
-          {/* ادارة בלבד */}
+          {/* ادارة الاثنينعربيالاثنينالأربعاء */}
           {/* <Route element={<RoleGuard allows={['ادارة', 'مرشد', 'مساعد']} />}> */}
           <Route element={<RoleGuard allows={['ادارة']} />}>
           <Route path='/dashboard' element={<Dashboard />} />
@@ -76,7 +76,7 @@ export default function CRoutes() {
             <Route path="/profile" element={<Profile/>} />
           </Route>
 
-          {/* ברירת מחדל פנימית – אם נכנסו ל-root בעודך מחובר */}
+          {/* ملاحظة عربية */}
           {/* <Route path="/" element={<Navigate to="/calendar" replace />} /> */}
         </Route>
       </Route>

@@ -9,10 +9,10 @@ export function ConfirmProvider({ children }) {
   const [state, setState] = useState({
     open: false,
     options: {
-      title: 'אישור פעולה',
-      message: 'האם לבצע את הפעולה?',
-      confirmText: 'אישור',
-      cancelText: 'ביטול',
+      title: 'تأكيد العملية',
+      message: 'هل تريد تنفيذ العملية؟',
+      confirmText: 'تأكيد',
+      cancelText: 'إلغاء',
       danger: false,
     },
   });
@@ -33,7 +33,7 @@ export function ConfirmProvider({ children }) {
     setState((s) => ({ ...s, open: false }));
   }, []);
 
-  // 👇 חיבור ה-bus כאן – מובטח שבתוך ה-Provider
+  // ملاحظة عربية
   useEffect(() => {
     setGlobalAsk((opts) => confirm(opts));
     return () => setGlobalAsk(null);

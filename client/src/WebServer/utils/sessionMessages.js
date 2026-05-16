@@ -1,6 +1,6 @@
 export const SESSION_EXPIRED_KEY = 'SESSION_EXPIRED_REASON';
 
-export function markSessionExpired(reason = 'פג תוקף ההתחברות, אנא התחבר/י שוב') {
+export function markSessionExpired(reason = 'انتهت صلاحية تسجيل الدخول، يرجى تسجيل الدخول مرة أخرى') {
   try { sessionStorage.setItem(SESSION_EXPIRED_KEY, reason); } catch {}
 }
 

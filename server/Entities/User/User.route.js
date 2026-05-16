@@ -15,10 +15,10 @@ const upload = multer({ storage: storage });
 
 router.get('/public/:tz', getOneU);
 router.post("/changeStatus/:tz", changeRoom);
-// כל הנתיבים כאן מוגנים
+// ملاحظة عربية
 router.use(protect);
 
-// אדמין
+// الأحدالأربعاءجنس
 router.get('/', getAllU);
 router.get('/:tz', getOneU);
 router.get('/viewPassword/:tz', viewPassword);

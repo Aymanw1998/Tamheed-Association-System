@@ -10,31 +10,31 @@ const {
   getme,
   forgotPassword,
   resetPassword,
-} = require('./User.controller'); // שים לב לאותיות קטנות/גדולות במערכת קבצים לינוקס
+} = require('./User.controller'); // ملاحظة عربية
 
-const { requireAuth, requireRole } = require('../../middleware/authMiddleware'); // לא authMiddleware
+const { requireAuth, requireRole } = require('../../middleware/authMiddleware'); // عربيالأحد authMiddleware
 const { setEngine } = require('crypto');
 
 // ---------- Public ----------
 router.post('/register/', register);
 
-// התחברות – מחזיר access + מציב refresh בקוקי
+// ملاحظة عربية
 router.post('/login', login);
 
-// יציאה – מנקה הקוקי ומבטל refresh במסד
+// ملاحظة عربية
 router.post('/logout', requireAuth, logout);
 
 // ---------- Protected ----------
-// יציאה – מנקה הקוקי ומבטל refresh במסד
+// ملاحظة عربية
 router.post('/me', requireAuth, getme);
 
-// דוגמה להגנת תפקיד
+// ملاحظة عربية
 router.get('/admin/ping', requireAuth, requireRole('ادارة'), (req, res) => res.json({ ok: true }));
 
 // router.get('/see-password', requireAuth, viewPassword);
 
 router.use(cookieParser());
-// רענון – קורא מה-cookie, מנפיק access חדש, מסובב refresh
+// ملاحظة عربية
 router.post('/refresh', refreshAccessToken);
 
 router.post("/forgot-password", forgotPassword);

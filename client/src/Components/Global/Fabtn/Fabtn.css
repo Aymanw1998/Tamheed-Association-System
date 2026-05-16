@@ -1,8 +1,8 @@
-/* כפתור רודף (Floating Action Button) */
+/* ملاحظة عربية */
 .fab {
   position: fixed;
-  inset-inline-end: clamp(12px, 2.5vw, 24px);              /* RTL/LTR תואם */
-  bottom: calc(16px + env(safe-area-inset-bottom, 0px));   /* נוח גם ב-iOS */
+  inset-inline-end: clamp(12px, 2.5vw, 24px);              /* RTL/LTR عربيالجمعةالأحدعربي */
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));   /* عربيالجمعةعربي الثلاثاءعربي الاثنين-iOS */
   z-index: 9999999999999;
   background: #22c55e;
   color: #fff;

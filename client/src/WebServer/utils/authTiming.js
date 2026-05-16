@@ -1,4 +1,4 @@
-// פיענוח JWT ללא חבילות + חישוב exp/זמן שנותר
+// ملاحظة عربية
 
 function base64UrlDecode(input) {
   input = input.replace(/-/g, '+').replace(/_/g, '/');
@@ -7,7 +7,7 @@ function base64UrlDecode(input) {
   return atob(input);
 }
 
-// פענוח payload של JWT (בלי ספריות)
+// ملاحظة عربية
 function decodeJwtPayload(token) {
   if (!token || typeof token !== 'string' || !token.includes('.')) return null;
   try {
@@ -22,20 +22,20 @@ function decodeJwtPayload(token) {
   }
 }
 
-// exp בשניות → מילישניות
+// ملاحظة عربية
 export function getAccessExpiryMs(token) {
   const payload = decodeJwtPayload(token);
   return payload?.exp ? payload.exp * 1000 : 0;
 }
 
-// true אם הטוקן עדיין תקף (ברירת מחדל עם skew של דקה)
+// ملاحظة عربية
 export function isTokenValid(token, skewMs = 60_000) {
   const expMs = getAccessExpiryMs(token);
   if (!expMs) return false;
   return Date.now() + skewMs < expMs;
 }
 
-// כמה זמן נשאר עד פקיעה (מילישניות). 0 אם לא תקף/חסר.
+// ملاحظة عربية
 export function msUntilExpiry(token) {
   const expMs = getAccessExpiryMs(token);
   return Math.max(0, expMs - Date.now());
@@ -43,7 +43,7 @@ export function msUntilExpiry(token) {
 
 
 
-/** כמה ms נשארו לפני פקיעה (יכול להיות שלילי) */
+/* ملاحظة عربية */
 export function getRemainingMs(token) {
   const expMs = getAccessExpiryMs(token);
   return expMs - Date.now();

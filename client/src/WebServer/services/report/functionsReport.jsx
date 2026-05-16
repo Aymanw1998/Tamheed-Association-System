@@ -14,7 +14,7 @@ export const getAll = async() => {
 }
 
 /**
- * שליפת אימון בודד לפי ObjectId או שם
+ * ملاحظة عربية
  * @param {string} idOrName
  */
 export const getOne = async(idOrName) => {
@@ -30,7 +30,7 @@ export const getOne = async(idOrName) => {
 }
 
 /**
- * יצירת אימון חדש
+ * ملاحظة عربية
  * @param {{date: Date, attendance: [], title: [], info: String, createdBy: _id}} payload
  */
 
@@ -54,7 +54,7 @@ export const create = async(payload, {confirm = true} = {}) => {
 
 
 /**
- * עדכון אימון קיים (לפי Id או שם)
+ * ملاحظة عربية
  * @param {string} idOrName
  * @param {{date: Date, attendance: [], title: [], info: String, createdBy: _id}} patch
  */
@@ -77,7 +77,7 @@ export const update= async(idOrName, patch,{confirm = true} = {}) => {
 }
 
 /**
- * מחיקה (לפי Id או שם)
+ * ملاحظة عربية
  * @param {string} idOrName
  */
 export const deleteR= async(idOrName,{confirm = true} = {}) => {

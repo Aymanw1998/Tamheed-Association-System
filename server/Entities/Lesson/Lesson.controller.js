@@ -82,7 +82,7 @@ const getOne = async (req, res) => {
     const result = await LessonModelDef.get({ _id: id });
     console.log("getOne result:", result);
     if (!result?.result?.length) {
-      return res.status(404).json({ ok: false, message: "לא נמצא" });
+      return res.status(404).json({ ok: false, message: "غير موجود" });
     }
 
     const lesson = result.result[0];
@@ -158,7 +158,7 @@ const putOne = async (req, res) => {
 
     const existingRes = await LessonModelDef.get({ _id: id });
     if (!existingRes?.result?.length) {
-      return res.status(404).json({ ok: false, message: "לא נמצא" });
+      return res.status(404).json({ ok: false, message: "غير موجود" });
     }
 
     const current = existingRes.result[0];
@@ -395,7 +395,7 @@ module.exports = {
 //       return res.status(400).json({ ok: false, message: "invalid id" });
 
 //     const lesson = await Lesson.findById(id);
-//     if (!lesson) return res.status(404).json({ ok: false, message: "לא נמצא" });
+//     if (!lesson) return res.status(404).json({ ok: false, message: "غير موجود" });
 
 //     lesson.num_in_list = (lesson.list_students || []).length;
 //     return res.status(200).json({ ok: true, lesson });
@@ -498,7 +498,7 @@ module.exports = {
 //     const { id } = req.params;
 //     console.log(req.body);
 //     const current = await Lesson.findById(id);
-//     if (!current) return res.status(404).json({ ok: false, message: "לא נמצא" });
+//     if (!current) return res.status(404).json({ ok: false, message: "غير موجود" });
 
 //     const next = buildLessonData({ ...current.toObject(), ...req.body });
 
@@ -576,7 +576,7 @@ module.exports = {
 //       return res.status(400).json({ ok: false, message: "invalid id" });
 
 //     const deleted = await Lesson.findByIdAndDelete(id);
-//     if (!deleted) return res.status(404).json({ ok: false, message: "לא נמצא" });
+//     if (!deleted) return res.status(404).json({ ok: false, message: "غير موجود" });
 
 //     await safeNotify({
 //       toRoles: ["ادارة"],
@@ -612,7 +612,7 @@ module.exports = {
 //       return res.status(400).json({ ok: false, message: "list_students is empty" });
 
 //     const lesson = await Lesson.findById(id);
-//     if (!lesson) return res.status(404).json({ ok: false, message: "לא נמצא" });
+//     if (!lesson) return res.status(404).json({ ok: false, message: "غير موجود" });
 
 //     const set = new Set((lesson.list_students || []).map(String));
 //     const toAdd = list_students.filter((t) => t != null && !set.has(String(t)));
@@ -649,7 +649,7 @@ module.exports = {
 //       return res.status(400).json({ ok: false, message: "list_students is empty" });
 
 //     const lesson = await Lesson.findById(id);
-//     if (!lesson) return res.status(404).json({ ok: false, message: "לא נמצא" });
+//     if (!lesson) return res.status(404).json({ ok: false, message: "غير موجود" });
 
 //     const removeSet = new Set(trainees.map(String));
 //     const before = (lesson.list_students || []).length;
@@ -713,7 +713,7 @@ module.exports = {
 
 //     const sourceLessons = await Lesson.find(filterFrom).lean();
 //     if (!sourceLessons.length) {
-//       return res.status(200).json({ ok: true, copied: 0, skipped: 0, message: "אין שיעורים בחודש המקור" });
+// ملاحظة عربية
 //     }
 
 //     const filterTo = { "date.month": toMonth, "date.year": toYear };
@@ -759,7 +759,7 @@ module.exports = {
 //     }
 
 //     if (!ops.length) {
-//       return res.status(200).json({ ok: true, copied: 0, skipped, removed, message: "אין מה לעדכן" });
+// ملاحظة عربية
 //     }
 
 //     const result = await Lesson.bulkWrite(ops, { ordered: false });

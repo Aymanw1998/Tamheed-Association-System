@@ -1,4 +1,4 @@
-/* עוטף כללי של הדף */
+/* ملاحظة عربية */
 .scheduleContainer {
   direction: rtl;
   padding: 20px;
@@ -9,7 +9,7 @@
   box-shadow: white 0 0 0 4px, var(--shadow);
 }
 
-/* כותרת */
+/* ملاحظة عربية */
 .title {
   text-align: center;
   font-weight: 800;
@@ -17,7 +17,7 @@
   margin-bottom: 18px;
 }
 
-/* --- כפתורים עליונים --- */
+/* ملاحظة عربية */
 .monthControls {
   display: flex;
   justify-content: center;
@@ -46,19 +46,19 @@
 }
 .addBtn:hover { filter: brightness(1.03); }
 
-/* --- Grid של הלוח (דסקטופ) --- */
+/* ملاحظة عربية */
 .desktopView { display: block; }
 .mobileView  { display: none; }
 
 .timelineGrid {
   display: grid;
-  grid-template-columns: 110px repeat(7, 1fr);  /* תוויות שעות + 5 ימים */
-  grid-template-rows: 52px 960px;               /* כותרות ימים + גוף (08–22 = 14h * 60px/h + שוליים) */
+  grid-template-columns: 110px repeat(7, 1fr);  /* عربيالجمعةالجمعةعربيالجمعةعربي ساعات + 5 أيام */
+  grid-template-rows: 52px 960px;               /* ملاحظة عربية */
   column-gap: 18px;
   row-gap: 20px;
 }
 
-/* כותרות ימים */
+/* ملاحظة عربية */
 .headerSpacer {}
 .dayHeader {
   display: grid;
@@ -73,14 +73,14 @@
   box-shadow: inset 0 1px 0 rgba(255,255,255,.5), var(--shadow);
 }
 
-/* עמודת תוויות שעות */
+/* ملاحظة عربية */
 .hoursGutter {
   position: relative;
   border-radius: 14px;
   background:
       repeating-linear-gradient(
         to bottom,
-        rgba(143, 225, 228, 0.1) 0 1px,            /* קו כל חצי שעה */
+        rgba(143, 225, 228, 0.1) 0 1px,            /* ملاحظة عربية */
         transparent 1px 30px
       ),
       linear-gradient(150deg, #df9458, #f7e81c);  
@@ -88,7 +88,7 @@
   overflow: hidden;
 }
 
-/* קווי שעה */
+/* عربيالجمعةالجمعةعربي ساعة */
 .hourLine {
   position: absolute;
   inset-inline: 0;
@@ -104,7 +104,7 @@
   font-weight: 800;
 }
 
-/* עמודת יום */
+/* ملاحظة عربية */
 .dayCol {
   position: relative;
   border-radius: 14px;
@@ -112,7 +112,7 @@
   background:
     repeating-linear-gradient(
       to bottom,
-      rgba(149, 216, 163, 0.1) 0 1px,            /* קו כל חצי שעה */
+      rgba(149, 216, 163, 0.1) 0 1px,            /* ملاحظة عربية */
       transparent 1px 30px
     ),
     linear-gradient(150deg, #1e7cf8, #115ef8);
@@ -120,7 +120,7 @@
   box-shadow: var(--shadow);
 }
 
-/* שיעור */
+/* درس */
 .lessonBlock {
   position: absolute;
   inset-inline: 8px;
@@ -140,7 +140,7 @@
 .lessonBlock:hover { transform: translateY(-1px); box-shadow: 0 10px 26px rgba(2,132,199,.33); }
 .lessonBlock:active { cursor: grabbing; }
 
-/* טקסט בפנים */
+/* ملاحظة عربية */
 .lessonTitle {
   font-weight: 800;
   margin-bottom: 2px;
@@ -153,7 +153,7 @@
   color: var(--muted);
 }
 
-/* אינדיקטור 'עכשיו' (לא חובה; אפשר להוסיף div עם המחלקה הזו) */
+/* ملاحظة عربية */
 .nowLine {
   position: absolute;
   left: 0; right: 0;
@@ -162,7 +162,7 @@
   box-shadow: 0 0 18px rgba(239,68,68,.6);
 }
 
-/* --- מצב טעינה --- */
+/* ملاحظة عربية */
 .loaderWrap {
   display: grid;
   grid-template-columns: 110px repeat(5, 1fr);
@@ -181,7 +181,7 @@
   100% { background-position: 0 0; }
 }
 
-/* ====== מובייל ====== */
+/* ملاحظة عربية */
 @media (max-width: 900px) {
   .desktopView { display: none; }
   .mobileView  { display: block; }
@@ -198,7 +198,7 @@
   .lessonCard p { margin: .25rem 0; }
 }
 
-/* עוגן FAB */
+/* عربيالجمعةالثلاثاءعربي FAB */
 .fabAnchor { display: block; height: 1px; width: 1px; }
 
 

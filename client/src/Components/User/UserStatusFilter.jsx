@@ -6,15 +6,15 @@ import styles from "./UserStatusFilter.module.css";
 
 
 /**
-* UserStatusFilter – Segmented control (3 מצבים) בעברית עם RTL
+* ملاحظة عربية
 *
 * Props:
-* - value?: "active" | "pending" | "inactive" // נשלט
-* - defaultValue?: "active" | "pending" | "inactive" // לא נשלט (ברירת מחדל: "active")
+* ملاحظة عربية
+* ملاحظة عربية
 * - onChange?: (next) => void
 * - counts?: { active?: number; pending?: number; inactive?: number }
 * - disabled?: boolean
-* - compact?: boolean // מרווחים קטנים יותר
+* ملاحظة عربية
 * - className?: string
 */
 export default function UserStatusFilter({
@@ -26,7 +26,7 @@ export default function UserStatusFilter({
     const current = isControlled ? value : internal;
 
 
-    // שומר על פתיחה תמידית במצב "active" אלא אם נשלח defaultValue אחר
+    // ملاحظة عربية
     useEffect(()=>{ if(!isControlled) setInternal(defaultValue); }, [defaultValue, isControlled]);
 
 
@@ -47,7 +47,7 @@ export default function UserStatusFilter({
     }
 
 
-    // תמיכה במקלדת: חיצים ימין/שמאל + Home/End
+    // ملاحظة عربية
     useEffect(()=>{
         const el = rootRef.current; if(!el) return;
         const handler = (e)=>{
@@ -72,7 +72,7 @@ export default function UserStatusFilter({
         <div className={`${styles.wrapper} ${compact ? styles.compact : ""} ${disabled ? styles.disabled : ""} ${className}`}>
         <div ref={rootRef}
             role="tablist"
-            aria-label="סינון משתמשים לפי סטטוס"
+            aria-label="تصفية المستخدمين حسب الحالة"
             className={styles.group}
         >
             {buttons.map(({key, label, badge, color})=>{
@@ -93,7 +93,7 @@ export default function UserStatusFilter({
             })}
         </div>
 
-        {/* אזור תוכן סמוי לטובת a11y (לא חובה) */}
+        {/* ملاحظة عربية */}
         <div className={styles.srOnly} id={`${id}-active`} role="tabpanel" aria-labelledby="active" />
         <div className={styles.srOnly} id={`${id}-waiting`} role="tabpanel" aria-labelledby="waiting" />
         <div className={styles.srOnly} id={`${id}-noActive`} role="tabpanel" aria-labelledby="noActive" />

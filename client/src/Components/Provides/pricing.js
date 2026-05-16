@@ -1,6 +1,6 @@
-// 0=Sunday(א) ... 6=Saturday(ש)
+// 0=Sunday(الأحد) ... 6=Saturday(السبت)
 function endOfLastMonth(startDate, months) {
-  // אחרון של החודש האחרון: day=0 של (month + months)
+  // ملاحظة عربية
   return new Date(startDate.getFullYear(), startDate.getMonth() + months, 0);
 }
 
@@ -21,14 +21,14 @@ function countMeetingsBetween(start, end, daysOfWeekSet) {
 }
 
 /**
- * חישוב הצעת מחיר יחסית לפי מספר אימונים בפועל לעומת מלאים
+ * ملاحظة عربية
  * @param {Object} opts
- * @param {number} opts.planPrice   - מחיר החבילה המלא לכל התקופה (ללא חישוב חודשי)
- * @param {number} opts.months      - מספר חודשים (למשל 3)
- * @param {string|Date} opts.startDate - תאריך התחלה אמיתי (לדוגמה '2025-08-27')
- * @param {number[]} opts.daysOfWeek   - ימים בשבוע, 0=א' ... 6=ש' (לדוגמה [0,4] לא'+ה')
- * @param {number} [opts.roundTo=1]    - עיגול למחיר (1=שלם, 0.5 וכו')
- * @param {number} [opts.minFraction=0] - רצפה לאחוז תשלום (למשל 0.5 אם רוצים מינימום 50%)
+ * ملاحظة عربية
+ * ملاحظة عربية
+ * ملاحظة عربية
+ * @param {number[]} opts.daysOfWeek   - أيام الاثنينالسبتالاثنينالجمعةعربي, 0=الأحد' ... 6=السبت' (عربيالأربعاءالجمعةالثلاثاءعربيالخميس [0,4] عربيالأحد'+الخميس')
+ * ملاحظة عربية
+ * ملاحظة عربية
  */
 export function calcProratedQuote({
   planPrice,
@@ -43,16 +43,16 @@ export function calcProratedQuote({
     
   }
   const priceAllMonth = planPrice/months;
-  const periodEnd = endOfLastMonth(start, 1);       // סוף החודש האחרון
+  const periodEnd = endOfLastMonth(start, 1);       // ملاحظة عربية
   console.log("periodEnd", periodEnd);
-  const fullStart = firstOfMonth(start);                 // תחילת החודש הראשון
+  const fullStart = firstOfMonth(start);                 // ملاحظة عربية
   console.log("fullStart", fullStart);
   const daysSet = new Set(daysOfWeek); // [0..6]
   console.log("daysSet", daysSet);
   const meetingsFull   = countMeetingsBetween(fullStart,  periodEnd, daysSet);
   const meetingsActual = countMeetingsBetween(start,      periodEnd, daysSet);
   console.log("meetingsFull/Actual", meetingsFull, meetingsActual);
-  // הגנה מתמטית
+  // ملاحظة عربية
   if (meetingsFull <= 0 && start.getMonth() === new Date().getMonth()) {
     return {
       price: 0, fraction: 0,
@@ -70,7 +70,7 @@ export function calcProratedQuote({
   let fraction = meetingsActual / meetingsFull;
   if (minFraction > 0) fraction = Math.max(fraction, minFraction);
   console.log("raw fraction", fraction);
-  // עיגול למחיר נוח (ברירת מחדל לש"ח שלם)
+  // ملاحظة عربية
   console.log("fraction before round", priceAllMonth, fraction);
   const raw = priceAllMonth * fraction;
   console.log("roundTo", roundTo, raw);

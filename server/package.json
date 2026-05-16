@@ -10,7 +10,10 @@
     "data:clear": "node scripts/clearAllData.js --force",
     "data:audit": "node scripts/auditData.js",
     "data:seed": "node scripts/seedLoadData.js",
-    "data:admin": "node scripts/createAdminUser.js"
+    "data:admin": "node scripts/createAdminUser.js",
+    "storage:migrate-users": "node scripts/migrateUserStorageFolders.js",
+    "storage:sync-permissions": "node scripts/syncStoragePermissions.js",
+    "storage:sync-metadata": "node scripts/syncStorageMetadata.js"
   },
   "keywords": [],
   "author": "",

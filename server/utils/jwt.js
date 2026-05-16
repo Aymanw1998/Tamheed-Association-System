@@ -1,8 +1,8 @@
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 
-const ACCESS_TOKEN_TTL_SEC  = Number(process.env.JWT_ACCESS_TTL_SEC ||  1 * 24 * 60 * 60);   // 15 דק'
-const REFRESH_TOKEN_TTL_SEC = Number(process.env.JWT_REFRESH_TTL_SEC || 7 * 24 * 60 * 60); // 7 ימים
+const ACCESS_TOKEN_TTL_SEC  = Number(process.env.JWT_ACCESS_TTL_SEC ||  1 * 24 * 60 * 60);   // 15 الأربعاءعربي'
+const REFRESH_TOKEN_TTL_SEC = Number(process.env.JWT_REFRESH_TTL_SEC || 7 * 24 * 60 * 60); // 7 أيام
 
 exports.signAccessToken = (payload) => jwt.sign(payload, process.env.JWT_ACCESS_SECRET, { algorithm: 'HS256', expiresIn: ACCESS_TOKEN_TTL_SEC });
 

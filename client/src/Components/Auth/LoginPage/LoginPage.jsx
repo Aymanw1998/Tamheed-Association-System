@@ -37,15 +37,15 @@ export default function LoginPage() {
         }
         setLoading(true);
         try {
-            // login: שומר accessToken + isLoggedIn + role (לפי ה-services שלנו)
+            // ملاحظة عربية
             const me = await login(tz, password);
             console.log("Logged in user:", me);
-            // הודעת ברוך הבא (אופציונלי)
+            // ملاحظة عربية
             if (me?.firstname || me?.lastname) {
                 toast.success(`${[me.firstname, me.lastname].filter(Boolean).join(' ')}, مرحباً بك في النظام!`);
             }
 
-            // נווט חזרה לנתיב המבוקש או לדאשבורד
+            // ملاحظة عربية
             const from = location.state?.from?.pathname || '/dashboard';
             console.log("Navigating after login to:", from);
             navigate(from, { replace: true });
