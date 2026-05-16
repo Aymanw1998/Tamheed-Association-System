@@ -3,6 +3,7 @@ import styles from "./FilesPage.module.css";
 import { toast } from "../../ALERT/SystemToasts.jsx";
 import { API_BASE_URL } from "../../WebServer/services/api";
 import {
+  cancelStorageUpload,
   createStorageFolder,
   createStorageShareLink,
   deleteStorageFile,
@@ -229,6 +230,7 @@ export default function FilesPage() {
   const [contextMenu, setContextMenu] = useState(null);
   const [storageStats, setStorageStats] = useState(null);
   const [uploadProgress, setUploadProgress] = useState(null);
+  const [currentUploadSession, setCurrentUploadSession] = useState(null);
 
   const loadShareUsers = async () => {
     setUsersLoading(true);
@@ -506,6 +508,9 @@ export default function FilesPage() {
             phase: "retrying-chunks",
           });
         },
+        onUploadSession: (session) => {
+          setCurrentUploadSession(session);
+        },
         onUploadProgress: (event) => {
           const total = event.total || file.size || 0;
           const loaded = event.loaded || 0;
@@ -537,6 +542,7 @@ export default function FilesPage() {
       }
 
       setUploadProgress((prev) => prev ? { ...prev, loaded: prev.total, percent: 100, phase: "done" } : prev);
+      setCurrentUploadSession(null);
       setError("");
       loadFiles({ silentError: true });
       notifyActionTime("تم رفع الملف خلال", startedAt);
@@ -545,6 +551,7 @@ export default function FilesPage() {
       setError(err?.response?.data?.message || err.message || "تعذر رفع الملف");
     } finally {
       setUploading(false);
+      setCurrentUploadSession(null);
       window.setTimeout(() => setUploadProgress(null), 900);
       if (inputRef.current) inputRef.current.value = "";
     }
@@ -556,6 +563,22 @@ export default function FilesPage() {
     setContextMenu(null);
     if (isSharedView) return;
     uploadFile(event.dataTransfer.files?.[0]);
+  };
+
+  const cancelCurrentUpload = async () => {
+    const uploadId = currentUploadSession?.uploadId;
+    if (!uploadId) return;
+
+    try {
+      await cancelStorageUpload(uploadId);
+      setUploading(false);
+      setCurrentUploadSession(null);
+      setUploadProgress(null);
+      setItems((prev) => prev.filter((item) => !item._tempKey));
+      toast.success("تم إلغاء الرفع");
+    } catch (err) {
+      setError(err?.response?.data?.message || err.message || "تعذر إلغاء الرفع");
+    }
   };
 
   const closeContextMenu = () => setContextMenu(null);
@@ -600,6 +623,11 @@ export default function FilesPage() {
   const handleDelete = async (file) => {
     if (isSharedView) return;
     closeContextMenu();
+
+    if (uploading) {
+      setError("يوجد رفع نشط الآن. ألغ الرفع أو انتظر حتى يكتمل قبل الحذف.");
+      return;
+    }
 
     const filename = file.path || file.filename || file.name;
     if (!filename) return;
@@ -853,6 +881,11 @@ export default function FilesPage() {
             </div>
             <div className={styles.uploadProgressMeta}>
               <span>{formatBytes(uploadProgress.loaded)} / {formatBytes(uploadProgress.total)}</span>
+              {currentUploadSession?.uploadId && (
+                <button type="button" className={styles.cancelUploadBtn} onClick={cancelCurrentUpload}>
+                  إلغاء الرفع
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -959,7 +992,7 @@ export default function FilesPage() {
                         <button disabled={Boolean(pending)} onClick={() => setShareModalFile(file)}>مشاركة</button>
                         <button disabled={Boolean(pending)} onClick={() => handleCreateShareLink(file)}>رابط</button>
                         <button disabled={Boolean(pending)} onClick={() => handleRename(file)}>إعادة تسمية</button>
-                        <button disabled={Boolean(pending)} className={styles.deleteBtn} onClick={() => handleDelete(file)}>حذف</button>
+                        <button disabled={Boolean(pending) || uploading} className={styles.deleteBtn} onClick={() => handleDelete(file)}>حذف</button>
                       </>
                     )}
                   </div>

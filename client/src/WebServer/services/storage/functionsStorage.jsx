@@ -2,6 +2,7 @@ import api, { API_BASE_URL } from "../api";
 
 const trimSlashes = (value = "") => String(value).replace(/^\/+|\/+$/g, "");
 const CHUNK_SIZE = 50 * 1024 * 1024;
+const UPLOAD_SESSION_PREFIX = "tamheed.storageUpload.";
 
 const shouldRetryWithChunks = (error) => {
   const status = error?.response?.status;
@@ -170,10 +171,83 @@ const createUploadId = (file) => {
   return `${Date.now()}-${randomId}-${file.name}`.replace(/[^a-zA-Z0-9._-]/g, "_");
 };
 
+const getUploadSessionKey = (file, path = "") =>
+  `${UPLOAD_SESSION_PREFIX}${trimSlashes(path)}:${file.name}:${file.size}:${file.lastModified || 0}`;
+
+const readStoredUploadSession = (file, path = "") => {
+  try {
+    const raw = localStorage.getItem(getUploadSessionKey(file, path));
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
+
+const writeStoredUploadSession = (file, path = "", session = {}) => {
+  localStorage.setItem(getUploadSessionKey(file, path), JSON.stringify({
+    ...session,
+    fileName: session.fileName || file.name,
+    fileSize: file.size,
+    lastModified: file.lastModified || 0,
+    path: path || "",
+    updatedAt: new Date().toISOString(),
+  }));
+};
+
+const removeStoredUploadSession = (file, path = "") => {
+  localStorage.removeItem(getUploadSessionKey(file, path));
+};
+
+const removeStoredUploadSessionById = (uploadId = "") => {
+  const keys = [];
+  for (let index = 0; index < localStorage.length; index += 1) {
+    const key = localStorage.key(index);
+    if (key?.startsWith(UPLOAD_SESSION_PREFIX)) keys.push(key);
+  }
+
+  keys.forEach((key) => {
+      try {
+        const session = JSON.parse(localStorage.getItem(key) || "{}");
+        if (session.uploadId === uploadId) {
+          localStorage.removeItem(key);
+        }
+      } catch {
+        localStorage.removeItem(key);
+      }
+    });
+};
+
+export const getStorageUploadStatus = async (uploadId) => {
+  const { data } = await api.get("/storage/upload-status", {
+    params: { uploadId },
+    timeout: 60 * 1000,
+  });
+  return data;
+};
+
+export const cancelStorageUpload = async (uploadId) => {
+  const { data } = await api.post("/storage/cancel-upload", { uploadId }, { timeout: 60 * 1000 });
+  removeStoredUploadSessionById(uploadId);
+  return data;
+};
+
 export const uploadLargeStorageFile = async (file, path = "", name = "", options = {}) => {
   const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
-  const uploadId = createUploadId(file);
   const fileName = name?.trim() || file.name;
+  const storedSession = readStoredUploadSession(file, path);
+  const uploadId = storedSession?.uploadId || createUploadId(file);
+  const session = {
+    ...(storedSession || {}),
+    uploadId,
+    fileName,
+    totalChunks,
+    chunkSize: CHUNK_SIZE,
+    path: path || "",
+    status: "uploading",
+  };
+
+  writeStoredUploadSession(file, path, session);
+  options.onUploadSession?.(session);
 
   console.info("[storage-upload] chunked:start", {
     uploadId,
@@ -182,9 +256,45 @@ export const uploadLargeStorageFile = async (file, path = "", name = "", options
     path,
     chunkSize: CHUNK_SIZE,
     totalChunks,
+    resumed: Boolean(storedSession?.uploadId),
   });
 
-  for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex += 1) {
+  let missingChunks = Array.from({ length: totalChunks }, (_, index) => index);
+  let receivedChunks = [];
+
+  try {
+    const status = await getStorageUploadStatus(uploadId);
+    if (status?.status === "completed") {
+      removeStoredUploadSession(file, path);
+    } else if (Array.isArray(status?.missingChunks) && status.totalChunks === totalChunks) {
+      missingChunks = status.missingChunks.map(Number).filter((index) => Number.isInteger(index));
+      receivedChunks = (status.receivedChunks || []).map(Number).filter((index) => Number.isInteger(index));
+    }
+    console.info("[storage-upload] status:success", {
+      uploadId,
+      receivedChunks: receivedChunks.length,
+      missingChunks: missingChunks.length,
+      status: status?.status,
+    });
+  } catch (error) {
+    console.warn("[storage-upload] status:error", {
+      uploadId,
+      status: error?.response?.status,
+      message: error?.response?.data?.message || error?.message,
+    });
+  }
+
+  if (missingChunks.length === 0) {
+    options.onUploadProgress?.({
+      loaded: file.size,
+      total: file.size,
+      percent: 99,
+      chunkIndex: totalChunks - 1,
+      totalChunks,
+    });
+  }
+
+  for (const chunkIndex of missingChunks) {
     const start = chunkIndex * CHUNK_SIZE;
     const end = Math.min(file.size, start + CHUNK_SIZE);
     const chunk = file.slice(start, end);
@@ -196,6 +306,7 @@ export const uploadLargeStorageFile = async (file, path = "", name = "", options
     formData.append("chunkIndex", String(chunkIndex));
     formData.append("totalChunks", String(totalChunks));
     formData.append("path", path || "");
+    formData.append("chunkSize", String(CHUNK_SIZE));
 
     console.info("[storage-upload] chunk:start", {
       uploadId,
@@ -212,7 +323,7 @@ export const uploadLargeStorageFile = async (file, path = "", name = "", options
         timeout: 30 * 60 * 1000,
         onUploadProgress: (event) => {
           const chunkLoaded = event.loaded || 0;
-          const loaded = Math.min(file.size, start + chunkLoaded);
+          const loaded = Math.min(file.size, (receivedChunks.length * CHUNK_SIZE) + chunkLoaded);
           const percent = file.size ? Math.min(99, Math.round((loaded / file.size) * 100)) : 0;
 
           options.onUploadProgress?.({
@@ -234,6 +345,12 @@ export const uploadLargeStorageFile = async (file, path = "", name = "", options
       });
       throw error;
     }
+    receivedChunks.push(chunkIndex);
+    writeStoredUploadSession(file, path, {
+      ...session,
+      receivedChunks,
+      status: "uploading",
+    });
 
     console.info("[storage-upload] chunk:success", {
       uploadId,
@@ -243,9 +360,9 @@ export const uploadLargeStorageFile = async (file, path = "", name = "", options
     });
 
     options.onUploadProgress?.({
-      loaded: Math.min(file.size, end),
+      loaded: Math.min(file.size, receivedChunks.length * CHUNK_SIZE),
       total: file.size,
-      percent: file.size ? Math.min(99, Math.round((end / file.size) * 100)) : 0,
+      percent: file.size ? Math.min(99, Math.round(((receivedChunks.length * CHUNK_SIZE) / file.size) * 100)) : 0,
       chunkIndex,
       totalChunks,
     });
@@ -262,6 +379,7 @@ export const uploadLargeStorageFile = async (file, path = "", name = "", options
       path: path || "",
       mimeType: file.type || "",
       size: file.size,
+      chunkSize: CHUNK_SIZE,
     },
     { timeout: 30 * 60 * 1000 }
   );
@@ -273,6 +391,7 @@ export const uploadLargeStorageFile = async (file, path = "", name = "", options
     size: data?.size || data?.file?.size,
   });
 
+  removeStoredUploadSession(file, path);
   return data;
 };
 

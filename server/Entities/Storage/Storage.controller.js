@@ -32,6 +32,8 @@ const STORAGE_SHARE_LINK_SECRET =
 const STORAGE_SHARE_LINK_TTL = process.env.STORAGE_SHARE_LINK_TTL || "30d";
 const CLIENT_APP_URL = (process.env.CLIENT_URL || "").replace(/\/+$/, "");
 const MAX_CHUNKS_PER_UPLOAD = Number(process.env.STORAGE_MAX_UPLOAD_CHUNKS || 2000);
+const UPLOAD_SESSION_DIR = process.env.STORAGE_UPLOAD_SESSION_DIR || path.join(process.cwd(), "storage-upload-sessions");
+const UPLOAD_SESSION_TTL_MS = Number(process.env.STORAGE_UPLOAD_SESSION_TTL_HOURS || 24) * 60 * 60 * 1000;
 
 const ADMIN_ROLES = new Set(["ادارة", "إدارة", "الادارة", "الإدارة", "admin", "administrator"]);
 
@@ -54,6 +56,8 @@ const safeFileName = (value = "file") => {
   const basename = path.basename(String(value || "file")).trim() || "file";
   return basename.replace(/[^\p{L}\p{N}._ -]/gu, "_").replace(/\s+/g, " ").slice(0, 180);
 };
+
+fs.mkdirSync(UPLOAD_SESSION_DIR, { recursive: true });
 
 const getErrorMessage = (error) => {
     console.log("Storage error:", { error });
@@ -81,6 +85,91 @@ const getFormLength = (form) =>
       resolve(error ? null : length);
     });
   });
+
+const getUploadSessionPath = (uploadId = "") => path.join(UPLOAD_SESSION_DIR, `${safeUploadId(uploadId)}.json`);
+
+const readUploadSession = async (uploadId = "") => {
+  const safeId = safeUploadId(uploadId);
+  if (!safeId) return null;
+
+  try {
+    const raw = await fs.promises.readFile(getUploadSessionPath(safeId), "utf8");
+    return JSON.parse(raw);
+  } catch (error) {
+    if (error.code === "ENOENT") return null;
+    throw error;
+  }
+};
+
+const writeUploadSession = async (session = {}) => {
+  const uploadId = safeUploadId(session.uploadId);
+  if (!uploadId) throw new Error("invalid uploadId");
+
+  const receivedChunks = Array.from(new Set((session.receivedChunks || []).map(Number)))
+    .filter((index) => Number.isInteger(index) && index >= 0)
+    .sort((a, b) => a - b);
+  const now = new Date().toISOString();
+  const nextSession = {
+    ...session,
+    uploadId,
+    receivedChunks,
+    createdAt: session.createdAt || now,
+    updatedAt: now,
+  };
+
+  await fs.promises.mkdir(UPLOAD_SESSION_DIR, { recursive: true });
+  await fs.promises.writeFile(getUploadSessionPath(uploadId), JSON.stringify(nextSession, null, 2));
+  return nextSession;
+};
+
+const removeUploadSession = async (uploadId = "") => {
+  const safeId = safeUploadId(uploadId);
+  if (!safeId) return;
+  await fs.promises.unlink(getUploadSessionPath(safeId)).catch((error) => {
+    if (error.code !== "ENOENT") throw error;
+  });
+};
+
+const getMissingChunks = (receivedChunks = [], totalChunks = 0) => {
+  const receivedSet = new Set(receivedChunks.map(Number));
+  const missing = [];
+
+  for (let index = 0; index < totalChunks; index += 1) {
+    if (!receivedSet.has(index)) missing.push(index);
+  }
+
+  return missing;
+};
+
+const cleanupOldUploadSessions = async () => {
+  const now = Date.now();
+  const entries = await fs.promises.readdir(UPLOAD_SESSION_DIR, { withFileTypes: true }).catch(() => []);
+
+  await Promise.all(entries
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".json"))
+    .map(async (entry) => {
+      const fullPath = path.join(UPLOAD_SESSION_DIR, entry.name);
+      try {
+        const raw = await fs.promises.readFile(fullPath, "utf8");
+        const session = JSON.parse(raw);
+        const updatedAt = new Date(session.updatedAt || session.createdAt || 0).getTime();
+        if (session.status !== "completed" && Number.isFinite(updatedAt) && now - updatedAt > UPLOAD_SESSION_TTL_MS) {
+          await fs.promises.unlink(fullPath);
+          await axios.post(`${STORAGE_API_BASE_URL}/cancel-upload`, { uploadId: session.uploadId }, { timeout: 60 * 1000 }).catch(() => null);
+        }
+      } catch (error) {
+        console.warn("[storage] upload-session:cleanup:error", {
+          file: entry.name,
+          message: error.message,
+        });
+      }
+    }));
+};
+
+setInterval(cleanupOldUploadSessions, 60 * 60 * 1000).unref?.();
+cleanupOldUploadSessions().catch((error) => {
+  console.warn("[storage] upload-session:startup-cleanup:error", error.message);
+});
 
 const isAdminUser = (user = {}) => {
   return (user.roles || []).some((role) => ADMIN_ROLES.has(String(role).trim()));
@@ -1282,14 +1371,16 @@ const uploadChunk = async (req, res) => {
     }
 
     const uploadId = safeUploadId(req.body.uploadId);
+    const fileName = safeFileName(req.body.fileName || "file");
     const chunkIndex = Number(req.body.chunkIndex);
     const totalChunks = Number(req.body.totalChunks);
+    const chunkSize = Number(req.body.chunkSize || req.file?.size || 0);
     console.info("[storage] upload-chunk:received", {
       uploadId,
       chunkIndex,
       totalChunks,
       size: req.file?.size,
-      fileName: req.body.fileName,
+      fileName,
       path: req.body.path || req.body.folder || "",
       userTz: req.user?.tz,
     });
@@ -1309,6 +1400,23 @@ const uploadChunk = async (req, res) => {
     }
 
     const scope = await getStorageScope(req, "create", req.body.path || req.body.folder || "");
+    const previousSession = await readUploadSession(uploadId);
+    if (previousSession?.status === "canceled") {
+      return res.status(409).json({ ok: false, success: false, message: "upload was canceled" });
+    }
+
+    await writeUploadSession({
+      ...(previousSession || {}),
+      uploadId,
+      fileName,
+      totalChunks,
+      chunkSize,
+      path: scope.folder,
+      targetPath: req.body.path || req.body.folder || "",
+      status: "uploading",
+      userId: String(req.user?._id || req.user?.tz || ""),
+      receivedChunks: previousSession?.receivedChunks || [],
+    });
     console.info("[storage] upload-chunk:forward", {
       uploadId,
       chunkIndex,
@@ -1328,9 +1436,10 @@ const uploadChunk = async (req, res) => {
     form.append("folder", scope.folder);
     form.append("path", scope.folder);
     form.append("uploadId", uploadId);
-    form.append("fileName", safeFileName(req.body.fileName || "file"));
+    form.append("fileName", fileName);
     form.append("chunkIndex", String(chunkIndex));
     form.append("totalChunks", String(totalChunks));
+    form.append("chunkSize", String(chunkSize));
 
     const formLength = await getFormLength(form);
     const { data } = await axios.post(`${STORAGE_API_BASE_URL}/upload-chunk`, form, {
@@ -1347,6 +1456,21 @@ const uploadChunk = async (req, res) => {
       chunkIndex,
       totalChunks,
       response: data,
+    });
+    const currentSession = await readUploadSession(uploadId);
+    const receivedChunks = new Set(currentSession?.receivedChunks || []);
+    receivedChunks.add(chunkIndex);
+    await writeUploadSession({
+      ...(currentSession || {}),
+      uploadId,
+      fileName,
+      totalChunks,
+      chunkSize,
+      path: scope.folder,
+      targetPath: req.body.path || req.body.folder || "",
+      status: "uploading",
+      userId: String(req.user?._id || req.user?.tz || ""),
+      receivedChunks: Array.from(receivedChunks),
     });
 
     return res.json({
@@ -1366,6 +1490,116 @@ const uploadChunk = async (req, res) => {
       uploadId: req.body?.uploadId,
       chunkIndex: req.body?.chunkIndex,
       userTz: req.user?.tz,
+    });
+    return res.status(error?.response?.status || error.status || 500).json({
+      ok: false,
+      success: false,
+      message: getErrorMessage(error),
+    });
+  }
+};
+
+const getUploadStatus = async (req, res) => {
+  try {
+    const uploadId = safeUploadId(req.query.uploadId || req.body?.uploadId);
+    if (!uploadId) {
+      return res.status(400).json({ ok: false, success: false, message: "uploadId is required" });
+    }
+
+    const localSession = await readUploadSession(uploadId);
+    let remoteStatus = null;
+
+    try {
+      const { data } = await axios.get(`${STORAGE_API_BASE_URL}/upload-status`, {
+        params: { uploadId },
+        timeout: 60 * 1000,
+      });
+      remoteStatus = data;
+    } catch (error) {
+      if (error?.response?.status && error.response.status !== 404) {
+        console.warn("[storage] upload-status:global-error", {
+          uploadId,
+          status: error.response.status,
+          message: getErrorMessage(error),
+        });
+      }
+    }
+
+    const totalChunks = Number(remoteStatus?.totalChunks ?? localSession?.totalChunks ?? 0) || 0;
+    const receivedChunks = Array.from(new Set([
+      ...((localSession?.receivedChunks || []).map(Number)),
+      ...((remoteStatus?.receivedChunks || []).map(Number)),
+    ])).filter((index) => Number.isInteger(index) && index >= 0).sort((a, b) => a - b);
+    const missingChunks = remoteStatus?.missingChunks || getMissingChunks(receivedChunks, totalChunks);
+    const status = remoteStatus?.status || localSession?.status || "not_found";
+
+    return res.json({
+      ok: true,
+      success: true,
+      uploadId,
+      fileName: remoteStatus?.fileName || localSession?.fileName || "",
+      totalChunks,
+      chunkSize: Number(remoteStatus?.chunkSize ?? localSession?.chunkSize ?? 0) || 0,
+      path: remoteStatus?.path || localSession?.path || "",
+      receivedChunks,
+      missingChunks,
+      status,
+      createdAt: remoteStatus?.createdAt || localSession?.createdAt || null,
+      updatedAt: remoteStatus?.updatedAt || localSession?.updatedAt || null,
+    });
+  } catch (error) {
+    console.error("[storage] upload-status:error", {
+      uploadId: req.query?.uploadId || req.body?.uploadId,
+      message: getErrorMessage(error),
+    });
+    return res.status(error?.response?.status || error.status || 500).json({
+      ok: false,
+      success: false,
+      message: getErrorMessage(error),
+    });
+  }
+};
+
+const cancelUpload = async (req, res) => {
+  try {
+    const uploadId = safeUploadId(req.body?.uploadId || req.query?.uploadId);
+    if (!uploadId) {
+      return res.status(400).json({ ok: false, success: false, message: "uploadId is required" });
+    }
+
+    const session = await readUploadSession(uploadId);
+    await writeUploadSession({
+      ...(session || {}),
+      uploadId,
+      status: "canceled",
+      receivedChunks: session?.receivedChunks || [],
+    });
+
+    let remote = null;
+    try {
+      const { data } = await axios.post(`${STORAGE_API_BASE_URL}/cancel-upload`, { uploadId }, { timeout: 60 * 1000 });
+      remote = data;
+    } catch (error) {
+      if (error?.response?.status && error.response.status !== 404) {
+        console.warn("[storage] cancel-upload:global-error", {
+          uploadId,
+          status: error.response.status,
+          message: getErrorMessage(error),
+        });
+      }
+    }
+
+    return res.json({
+      ok: true,
+      success: true,
+      uploadId,
+      status: "canceled",
+      remote,
+    });
+  } catch (error) {
+    console.error("[storage] cancel-upload:error", {
+      uploadId: req.body?.uploadId || req.query?.uploadId,
+      message: getErrorMessage(error),
     });
     return res.status(error?.response?.status || error.status || 500).json({
       ok: false,
@@ -1430,6 +1664,17 @@ const mergeChunks = async (req, res) => {
       fileName: data?.fileName || data?.filename || fileName,
       relativePath: data?.relativePath,
       size: data?.size,
+    });
+    const previousSession = await readUploadSession(uploadId);
+    await writeUploadSession({
+      ...(previousSession || {}),
+      uploadId,
+      fileName,
+      totalChunks,
+      chunkSize: Number(previousSession?.chunkSize || req.body.chunkSize || 0) || 0,
+      path: previousSession?.path || req.body.path || req.body.folder || "",
+      status: "completed",
+      receivedChunks: Array.from({ length: totalChunks }, (_, index) => index),
     });
     const storageRelativePath = normalizeRelativePath(
       data?.relativePath
@@ -2276,6 +2521,8 @@ module.exports = {
   listStorage,
   getStorageStats,
   getSignedOpenLink,
+  getUploadStatus,
+  cancelUpload,
   uploadChunk,
   mergeChunks,
   createShareLink,

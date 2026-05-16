@@ -4,6 +4,7 @@ const multer = require("multer");
 const os = require("os");
 const path = require("path");
 const {
+  cancelUpload,
   createFolder,
   createShareLink,
   deleteEntry,
@@ -12,6 +13,7 @@ const {
   getSharedLinkOpenLink,
   getStorageStats,
   getSignedOpenLink,
+  getUploadStatus,
   listSharedLinkItems,
   listStorage,
   mergeChunks,
@@ -87,6 +89,8 @@ router.get("/share-link/:token", requireAuth, getShareLinkInfo);
 router.get("/share-link/:token/items", requireAuth, listSharedLinkItems);
 router.post("/share-link/:token/open-link", requireAuth, getSharedLinkOpenLink);
 router.post("/folder", requireAuth, createFolder);
+router.get("/upload-status", requireAuth, getUploadStatus);
+router.post("/cancel-upload", requireAuth, express.json({ limit: "1mb" }), cancelUpload);
 router.post("/upload-chunk", requireAuth, chunkUpload.single("chunk"), uploadChunk);
 router.post("/merge-chunks", requireAuth, express.json({ limit: "5mb" }), mergeChunks);
 router.post("/upload", requireAuth, uploadSingleFile, uploadFile);

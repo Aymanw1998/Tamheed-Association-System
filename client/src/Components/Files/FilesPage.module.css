@@ -152,6 +152,7 @@
 .uploadProgressMeta {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   gap: 12px;
   font-size: 13px;
   font-weight: 800;
@@ -183,6 +184,21 @@
   border-radius: inherit;
   background: linear-gradient(90deg, #0b63ce 0%, #22c55e 100%);
   transition: width 160ms ease;
+}
+
+.cancelUploadBtn {
+  border: 1px solid #ffd0cc;
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: #fff5f4;
+  color: #b42318;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.cancelUploadBtn:hover {
+  background: #ffe9e7;
 }
 
 .syncNotice {
