@@ -162,6 +162,13 @@
   color: #0b63ce;
 }
 
+.uploadProgressActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
 .uploadProgressName {
   overflow: hidden;
   color: #475467;

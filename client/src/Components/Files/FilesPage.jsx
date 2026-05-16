@@ -886,7 +886,14 @@ export default function FilesPage() {
                       ? `جار رفع الجزء ${uploadProgress.phase.split("-")[1]} من ${uploadProgress.phase.split("-")[2]}`
                       : "جار رفع الملف..."}
               </strong>
-              <span>{uploadProgress.percent}%</span>
+              <div className={styles.uploadProgressActions}>
+                <span>{uploadProgress.percent}%</span>
+                {uploading && uploadProgress.phase !== "done" && (
+                  <button type="button" className={styles.cancelUploadBtn} onClick={cancelCurrentUpload}>
+                    إلغاء الرفع
+                  </button>
+                )}
+              </div>
             </div>
             <div className={styles.uploadProgressName}>{uploadProgress.fileName}</div>
             <div className={styles.uploadProgressBar} aria-label="تقدم رفع الملف">
@@ -894,11 +901,6 @@ export default function FilesPage() {
             </div>
             <div className={styles.uploadProgressMeta}>
               <span>{formatBytes(uploadProgress.loaded)} / {formatBytes(uploadProgress.total)}</span>
-              {uploading && uploadProgress.phase !== "done" && (
-                <button type="button" className={styles.cancelUploadBtn} onClick={cancelCurrentUpload}>
-                  إلغاء الرفع
-                </button>
-              )}
             </div>
           </div>
         )}
