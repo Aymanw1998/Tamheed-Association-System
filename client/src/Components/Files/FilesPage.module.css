@@ -178,6 +178,34 @@
   white-space: nowrap;
 }
 
+.uploadList {
+  display: grid;
+  gap: 10px;
+}
+
+.uploadItem {
+  display: grid;
+  gap: 7px;
+  border: 1px solid #d6e6fb;
+  border-radius: 8px;
+  padding: 9px 10px;
+  background: #ffffff;
+}
+
+.uploadItemTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.uploadError {
+  color: #b42318;
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .uploadProgressBar {
   height: 10px;
   overflow: hidden;

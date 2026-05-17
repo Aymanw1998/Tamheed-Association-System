@@ -48,7 +48,6 @@ export const getUserById = async (tzOrId, {publicMode = false} = {}) => {
     const res = publicMode ? await publicApi.get(`/user/public/${tzOrId}`) : await api.get(`/user/${tzOrId}`);
     const {status, data} = res;
     if (![200,201].includes(status) || !data?.ok) throw new Error('لا يوجد مستخدم بالمعرف ' + tzOrId);
-    console.log("getUserById", data);
     return {ok: true, user: normalizeUser(data.user)};
   } catch (err) {
     return {ok: false, message: err.response.data.message || err.message || 'حدث خطأ أثناء العملية.'};
@@ -64,7 +63,6 @@ export const create = async (payload, {confirm = true} = {}) => {
             }
         }
   try {
-    console.log("create user payload", payload);
     const {status, data} = await api.post("/user/", payload);
     if (![200,201].includes(status) || !data?.ok) throw new Error('لم يتم إنشاء المستخدم');
     return { ok: true, user: extractUser(data) };
@@ -91,7 +89,6 @@ export const update = async (tz, petch, {confirm = true} = {}) => {
 };
 
 export const uploadPhoto = async(tz, file) => {
-    console.log("uploadPhoto student", tz, file);
     try{
         const formData = new FormData();
         formData.append('file', file);
@@ -109,7 +106,6 @@ export const uploadPhoto = async(tz, file) => {
 
 export const deletePhoto = async(tz) => {
     try {
-      console.log("deletePhoto user", tz);
         const { data, status } = await api.delete(`/user/photo/${encodeURIComponent(tz)}`);
         if (![200,201].includes(status) || !data?.ok) throw new Error(data?.message || 'لم يتم حذف الصورة');
         return {ok: true, photo: data.photo};
@@ -120,7 +116,6 @@ export const deletePhoto = async(tz) => {
 
 /* ملاحظة عربية */
 export const deleteU = async (tz, from, {confirm = true} = {}) => {
-  console.log("deleteUser", tz, from);
   if(confirm) {
             const ok = await ask("delete");
             if(!ok) {
@@ -156,7 +151,6 @@ export const removeSub = async (_userId) => {
   try {
     const {status, data} = await api.post(`/user/removeSub/${_userId}`);
     if (![200,201].includes(status) || !data?.ok) throw new Error('لم تتم إزالة اشتراك المستخدم');
-    console.log("removeSub", status, data);
     return { ok: true, user: extractUser(data) };
   } catch (err) {
     const msg = err?.response?.data?.message || err.message || "خطأ في إزالة الاشتراك";
@@ -166,12 +160,10 @@ export const removeSub = async (_userId) => {
 export const viewPassword = async (tz) => {
   try {
     const {status, data} = await api.get(`/user/viewPassword/${tz}`);
-    console.log(status, data);
     if (![200,201].includes(status) || !data?.ok) throw new Error('لا يمكن عرض كلمة المرور');
     return data;
   }
   catch (err) {
-    console.log("viewPassword err", err);
     return err.response.data;
   }
 };

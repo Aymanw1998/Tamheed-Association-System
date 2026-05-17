@@ -24,7 +24,10 @@ const STORAGE_FILE_ACCESS_PARAM = process.env.CENTRAL_STORAGE_FILE_ACCESS_PARAM 
 const STORAGE_SIGNED_URL_SECRET =
   process.env.STORAGE_SIGNED_URL_SECRET ||
   process.env.JWT_ACCESS_SECRET ||
-  "storage-temp-secret";
+  (process.env.NODE_ENV === "production" ? "" : "storage-temp-secret");
+if (!STORAGE_SIGNED_URL_SECRET) {
+  throw new Error("Missing STORAGE_SIGNED_URL_SECRET or JWT_ACCESS_SECRET");
+}
 const STORAGE_SIGNED_URL_TTL = process.env.STORAGE_SIGNED_URL_TTL || "2m";
 const STORAGE_SHARE_LINK_SECRET =
   process.env.STORAGE_SHARE_LINK_SECRET ||

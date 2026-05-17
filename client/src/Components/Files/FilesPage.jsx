@@ -206,12 +206,18 @@ const pendingLabel = {
   renaming: "جار التسمية",
 };
 
+const MAX_PARALLEL_UPLOADS = 2;
+const activeUploadStatuses = new Set(["queued", "uploading", "chunking", "processing"]);
+
 export default function FilesPage() {
   const inputRef = useRef(null);
   const refreshTimerRef = useRef(null);
   const contextMenuRef = useRef(null);
-  const uploadAbortRef = useRef(null);
-  const uploadCanceledRef = useRef(false);
+  const uploadControllersRef = useRef(new Map());
+  const uploadSessionsRef = useRef(new Map());
+  const uploadCanceledRef = useRef(new Set());
+  const uploadJobsRef = useRef([]);
+  const activeUploadCountRef = useRef(0);
   const shareToken = useMemo(() => readShareToken(), []);
   const currentUserId = useMemo(() => String(getStoredUserId() || "").trim(), []);
   const isSharedView = Boolean(shareToken);
@@ -231,8 +237,7 @@ export default function FilesPage() {
   const [sharedUsersMap, setSharedUsersMap] = useState({});
   const [contextMenu, setContextMenu] = useState(null);
   const [storageStats, setStorageStats] = useState(null);
-  const [uploadProgress, setUploadProgress] = useState(null);
-  const [currentUploadSession, setCurrentUploadSession] = useState(null);
+  const [uploadQueue, setUploadQueue] = useState([]);
 
   const loadShareUsers = async () => {
     setUsersLoading(true);
@@ -462,109 +467,152 @@ export default function FilesPage() {
     toast.success(`${label}: ${formatted}`);
   };
 
-  const uploadFile = async (file) => {
-    if (!file || isSharedView) return;
+  const syncUploadQueue = (updater) => {
+    const next = typeof updater === "function" ? updater(uploadJobsRef.current) : updater;
+    uploadJobsRef.current = next;
+    setUploadQueue(next);
+    setUploading(next.some((job) => activeUploadStatuses.has(job.status)));
+  };
 
-    const customName = window.prompt("اسم الملف", file.name);
-    if (customName === null) {
-      if (inputRef.current) inputRef.current.value = "";
-      return;
-    }
+  const updateUploadJob = (jobId, patch) => {
+    syncUploadQueue((prev) => prev.map((job) => job.id === jobId ? { ...job, ...patch } : job));
+  };
 
+  const getUploadPhase = (event, percent) => {
+    if (percent >= 99) return "processing";
+    if (event.totalChunks) return "chunking";
+    return "uploading";
+  };
+
+  const runUploadJob = async (job) => {
     const abortController = new AbortController();
-    uploadAbortRef.current = abortController;
-    uploadCanceledRef.current = false;
+    uploadControllersRef.current.set(job.id, abortController);
+    uploadCanceledRef.current.delete(job.id);
 
-    setUploading(true);
-    setError("");
-    setUploadProgress({
-      fileName: customName.trim() || file.name,
-      loaded: 0,
-      total: file.size || 0,
-      percent: 0,
-      phase: "uploading",
-    });
     const startedAt = performance.now();
-    const pendingName = customName.trim() || file.name;
     const pendingUpload = {
-      _tempKey: `upload-${Date.now()}-${file.name}`,
-      name: pendingName,
-      displayName: pendingName,
-      filename: joinStoragePath(currentPath, pendingName),
-      path: joinStoragePath(currentPath, pendingName),
-      size: file.size || 0,
-      type: file.type || "",
+      _tempKey: job.id,
+      name: job.fileName,
+      displayName: job.fileName,
+      filename: joinStoragePath(job.path, job.fileName),
+      path: joinStoragePath(job.path, job.fileName),
+      size: job.file.size || 0,
+      type: job.file.type || "",
       date: new Date().toISOString(),
       isDirectory: false,
       _pending: "uploading",
       _uploadPercent: 0,
     };
     const pendingKey = getItemKey(pendingUpload);
+
+    updateUploadJob(job.id, { status: "uploading", phase: "uploading", percent: 0, loaded: 0 });
     setItems((prev) => upsertItem(prev, pendingUpload));
 
     try {
-      const uploadResult = await uploadStorageFileAuto(file, currentPath, customName.trim(), {
+      const uploadResult = await uploadStorageFileAuto(job.file, job.path, job.fileName, {
+        signal: abortController.signal,
         onFallbackToChunks: () => {
+          updateUploadJob(job.id, { status: "chunking", phase: "retrying-chunks", percent: 0, loaded: 0 });
           setItems((prev) => upsertItem(prev, { ...pendingUpload, _pending: "chunking", _uploadPercent: 0 }));
-          setUploadProgress({
-            fileName: customName.trim() || file.name,
-            loaded: 0,
-            total: file.size || 0,
-            percent: 0,
-            phase: "retrying-chunks",
-          });
         },
         onUploadSession: (session) => {
-          setCurrentUploadSession(session);
+          uploadSessionsRef.current.set(job.id, session);
+          updateUploadJob(job.id, { uploadId: session.uploadId });
         },
-        signal: abortController.signal,
         onUploadProgress: (event) => {
-          const total = event.total || file.size || 0;
+          const total = event.total || job.file.size || 0;
           const loaded = event.loaded || 0;
           const percent = event.percent ?? (total ? Math.min(99, Math.round((loaded / total) * 100)) : 0);
+          const phase = getUploadPhase(event, percent);
 
-          setUploadProgress({
-            fileName: customName.trim() || file.name,
+          updateUploadJob(job.id, {
+            status: phase,
+            phase: event.totalChunks ? `chunk-${event.chunkIndex + 1}-${event.totalChunks}` : phase,
             loaded,
             total,
             percent,
-            phase: percent >= 99 ? "processing" : event.totalChunks ? `chunk-${event.chunkIndex + 1}-${event.totalChunks}` : "uploading",
           });
           setItems((prev) => upsertItem(prev, {
             ...pendingUpload,
-            _pending: percent >= 99 ? "processing" : event.totalChunks ? "chunking" : "uploading",
+            _pending: phase,
             _uploadPercent: percent,
           }));
         },
       });
+
       const uploadedItem = normalizeUploadResultItem(uploadResult, {
-        name: customName.trim() || file.name,
-        path: currentPath,
-        size: file.size || 0,
-        type: file.type || "",
+        name: job.fileName,
+        path: job.path,
+        size: job.file.size || 0,
+        type: job.file.type || "",
       });
 
       if (getItemKey(uploadedItem)) {
         setItems((prev) => upsertItem(removeItemByKey(prev, pendingKey), uploadedItem));
       }
 
-      setUploadProgress((prev) => prev ? { ...prev, loaded: prev.total, percent: 100, phase: "done" } : prev);
-      setCurrentUploadSession(null);
-      setError("");
+      updateUploadJob(job.id, { status: "done", phase: "done", loaded: job.file.size || 0, percent: 100 });
       loadFiles({ silentError: true });
-      notifyActionTime("تم رفع الملف خلال", startedAt);
+      notifyActionTime("تم الرفع بنجاح خلال", startedAt);
+
+      window.setTimeout(() => {
+        syncUploadQueue((prev) => prev.filter((item) => item.id !== job.id));
+      }, 1400);
     } catch (err) {
       setItems((prev) => removeItemByKey(prev, pendingKey));
-      if (!uploadCanceledRef.current) {
-      setError(err?.response?.data?.message || err.message || "تعذر رفع الملف");
+      if (uploadCanceledRef.current.has(job.id)) {
+        updateUploadJob(job.id, { status: "canceled", phase: "canceled", percent: 0 });
+        window.setTimeout(() => {
+          syncUploadQueue((prev) => prev.filter((item) => item.id !== job.id));
+        }, 900);
+      } else {
+        updateUploadJob(job.id, {
+          status: "error",
+          phase: "error",
+          error: err?.response?.data?.message || err.message || "تعذر رفع الملف",
+        });
       }
     } finally {
-      setUploading(false);
-      setCurrentUploadSession(null);
-      uploadAbortRef.current = null;
-      window.setTimeout(() => setUploadProgress(null), 900);
+      uploadControllersRef.current.delete(job.id);
+      uploadSessionsRef.current.delete(job.id);
+      activeUploadCountRef.current = Math.max(0, activeUploadCountRef.current - 1);
+      processUploadQueue();
       if (inputRef.current) inputRef.current.value = "";
     }
+  };
+
+  const processUploadQueue = () => {
+    while (activeUploadCountRef.current < MAX_PARALLEL_UPLOADS) {
+      const nextJob = uploadJobsRef.current.find((job) => job.status === "queued");
+      if (!nextJob) break;
+
+      activeUploadCountRef.current += 1;
+      updateUploadJob(nextJob.id, { status: "uploading", phase: "uploading" });
+      runUploadJob(nextJob);
+    }
+  };
+
+  const enqueueUploads = (files = []) => {
+    if (isSharedView) return;
+    const acceptedFiles = files.filter(Boolean);
+    if (!acceptedFiles.length) return;
+
+    setError("");
+    const createdAt = Date.now();
+    const jobs = acceptedFiles.map((file, index) => ({
+      id: `upload-${createdAt}-${index}-${file.name}`,
+      file,
+      fileName: file.name,
+      path: currentPath,
+      loaded: 0,
+      total: file.size || 0,
+      percent: 0,
+      phase: "queued",
+      status: "queued",
+    }));
+
+    syncUploadQueue((prev) => [...prev, ...jobs]);
+    window.setTimeout(processUploadQueue, 0);
   };
 
   const handleDrop = (event) => {
@@ -572,23 +620,23 @@ export default function FilesPage() {
     setDragActive(false);
     setContextMenu(null);
     if (isSharedView) return;
-    uploadFile(event.dataTransfer.files?.[0]);
+    enqueueUploads(Array.from(event.dataTransfer.files || []));
   };
 
-  const cancelCurrentUpload = async () => {
-    const uploadId = currentUploadSession?.uploadId;
-    uploadCanceledRef.current = true;
-    uploadAbortRef.current?.abort();
+  const cancelUploadJob = async (jobId) => {
+    uploadCanceledRef.current.add(jobId);
+    uploadControllersRef.current.get(jobId)?.abort();
 
+    const session = uploadSessionsRef.current.get(jobId);
     try {
-      if (uploadId) {
-        await cancelStorageUpload(uploadId);
+      if (session?.uploadId) {
+        await cancelStorageUpload(session.uploadId);
       }
-      setUploading(false);
-      setCurrentUploadSession(null);
-      setUploadProgress(null);
-      setItems((prev) => prev.filter((item) => !item._tempKey));
-      toast.success("تم إلغاء الرفع");
+      updateUploadJob(jobId, { status: "canceled", phase: "canceled" });
+      setItems((prev) => prev.filter((item) => item._tempKey !== jobId));
+      window.setTimeout(() => {
+        syncUploadQueue((prev) => prev.filter((item) => item.id !== jobId));
+      }, 900);
     } catch (err) {
       setError(err?.response?.data?.message || err.message || "تعذر إلغاء الرفع");
     }
@@ -852,10 +900,10 @@ export default function FilesPage() {
 
           {!isSharedView && (
             <div className={styles.actions}>
-              <button className={styles.secondaryBtn} onClick={loadFiles} disabled={loading || uploading}>
+              <button className={styles.secondaryBtn} onClick={loadFiles} disabled={loading}>
                 تحديث
               </button>
-              <button className={styles.secondaryBtn} onClick={createFolder} disabled={loading || uploading}>
+              <button className={styles.secondaryBtn} onClick={createFolder} disabled={loading}>
                 مجلد جديد
               </button>
               <label className={styles.primaryBtn}>
@@ -864,43 +912,62 @@ export default function FilesPage() {
                   ref={inputRef}
                   className={styles.fileInput}
                   type="file"
-                  onChange={(event) => uploadFile(event.target.files?.[0])}
-                  disabled={uploading}
+                  multiple
+                  onChange={(event) => enqueueUploads(Array.from(event.target.files || []))}
                 />
               </label>
             </div>
           )}
         </header>
 
-        {uploadProgress && (
+        {!!uploadQueue.length && (
           <div className={styles.uploadProgress} role="status" aria-live="polite">
             <div className={styles.uploadProgressTop}>
-              <strong>
-                {uploadProgress.phase === "done"
-                  ? "اكتمل الرفع"
-                  : uploadProgress.phase === "processing"
-                    ? "جار تجميع الملف..."
-                    : uploadProgress.phase === "retrying-chunks"
-                      ? "فشل الرفع الكامل، جار التحويل إلى أجزاء..."
-                    : uploadProgress.phase?.startsWith("chunk-")
-                      ? `جار رفع الجزء ${uploadProgress.phase.split("-")[1]} من ${uploadProgress.phase.split("-")[2]}`
-                      : "جار رفع الملف..."}
-              </strong>
-              <div className={styles.uploadProgressActions}>
-                <span>{uploadProgress.percent}%</span>
-                {uploading && uploadProgress.phase !== "done" && (
-                  <button type="button" className={styles.cancelUploadBtn} onClick={cancelCurrentUpload}>
-                    إلغاء الرفع
-                  </button>
-                )}
-              </div>
+              <strong>Uploads</strong>
+              <span>{uploadQueue.filter((job) => activeUploadStatuses.has(job.status)).length} active</span>
             </div>
-            <div className={styles.uploadProgressName}>{uploadProgress.fileName}</div>
-            <div className={styles.uploadProgressBar} aria-label="تقدم رفع الملف">
-              <span style={{ width: `${uploadProgress.percent}%` }} />
-            </div>
-            <div className={styles.uploadProgressMeta}>
-              <span>{formatBytes(uploadProgress.loaded)} / {formatBytes(uploadProgress.total)}</span>
+            <div className={styles.uploadList}>
+              {uploadQueue.map((job) => {
+                const statusText = job.status === "queued"
+                  ? "Queued"
+                  : job.status === "done"
+                    ? "Done"
+                    : job.status === "canceled"
+                      ? "Canceled"
+                      : job.status === "error"
+                        ? "Error"
+                        : job.phase?.startsWith("chunk-")
+                          ? `Chunk ${job.phase.split("-")[1]} / ${job.phase.split("-")[2]}`
+                          : job.status === "processing"
+                            ? "Processing"
+                            : job.status === "chunking"
+                              ? "Chunk upload"
+                              : "Uploading";
+
+                return (
+                  <div className={styles.uploadItem} key={job.id}>
+                    <div className={styles.uploadItemTop}>
+                      <span className={styles.uploadProgressName}>{job.fileName}</span>
+                      <div className={styles.uploadProgressActions}>
+                        <span>{job.percent || 0}%</span>
+                        {activeUploadStatuses.has(job.status) && (
+                          <button type="button" className={styles.cancelUploadBtn} onClick={() => cancelUploadJob(job.id)}>
+                            إلغاء
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <div className={styles.uploadProgressBar} aria-label="تقدم رفع الملف">
+                      <span style={{ width: `${job.percent || 0}%` }} />
+                    </div>
+                    <div className={styles.uploadProgressMeta}>
+                      <span>{statusText}</span>
+                      <span>{formatBytes(job.loaded || 0)} / {formatBytes(job.total || 0)}</span>
+                    </div>
+                    {job.error && <div className={styles.uploadError}>{job.error}</div>}
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -916,8 +983,8 @@ export default function FilesPage() {
 
         {dragActive && !isSharedView && <div className={styles.dropOverlay}>اسحب الملف وأفلته هنا</div>}
         {error && <div className={styles.error}>{error}</div>}
-        {isRefreshing && <div className={styles.syncNotice}>??? ????? ???????...</div>}
-        {isInitialLoading && <div className={styles.empty}>??? ????? ???????...</div>}
+        {isRefreshing && <div className={styles.syncNotice}>جار تحديث الملفات...</div>}
+        {isInitialLoading && <div className={styles.empty}>جار تحميل الملفات...</div>}
 
         {!isInitialLoading && !filteredItems.length && (
           <div className={styles.empty}>لا توجد ملفات</div>

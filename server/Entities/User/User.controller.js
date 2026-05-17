@@ -175,8 +175,6 @@ async function getUserInRoomByTz(tz, room) {
   try{
     const result = await UserModelDef.get({ tz }, room).catch(() => null);
     const result2 = await UserModelDef.get({ _id: tz }, room).catch(() => null);
-    console.log(`getUserInRoomByTz - tz: ${tz}, room: ${room}, result:`, result);
-    console.log(`getUserInRoomByTz - tz: ${tz}, room: ${room}, result2:`, result2);
     if (result?.success && Array.isArray(result.result) && result.result.length > 0) {
       return result.result[0];
     }
@@ -428,7 +426,6 @@ const updateStoragePermissions = async (req, res) => {
 
 const deleteU = async (req, res) => {
   try {
-    console.log("deleteU called with:", req.params.tz);
     const tz = String(req.params.tz ?? "").trim();
     if (!tz) {
       return res.status(400).json({ ok: false, message: "tz is required" });
@@ -456,7 +453,7 @@ const deleteU = async (req, res) => {
 const register = async (req, res) => {
   try {
     const model = buildData(req.body);
-    const room = req.body?.room === "active" ? "active" : "waiting";
+    const room = "waiting";
     model.storageFolder = model.storageFolder || buildUserStorageFolder(model);
 
     if (!model.tz || !model.password) {
@@ -509,7 +506,6 @@ const register = async (req, res) => {
 /* ================= login ================= */
 const login = async (req, res) => {
   const { tz, password } = req.body || {};
-  console.log(tz, password);
   try {
     if (!tz || !password) {
       return res.status(400).json({
@@ -675,9 +671,7 @@ const refreshAccessToken = async (req, res) => {
 /* ================= logout ================= */
 const logout = async (req, res) => {
   try {
-    console.log("logout called for tz:", req.user?.tz);
     const token = req.cookies?.refresh;
-    console.log("refresh token on logout:", req.cookies, token);
     if (token) {
       try {
         const payload = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
@@ -735,6 +729,13 @@ const CheckPasswordisGood = async (req, res) => {
       return res.status(400).json({
         code: "BAD_INPUT",
         message: "Tz and password are required",
+      });
+    }
+
+    if (!canManageUserMedia(req, tz)) {
+      return res.status(403).json({
+        code: "FORBIDDEN",
+        message: "لا توجد صلاحية",
       });
     }
 
@@ -1138,7 +1139,6 @@ const deletePhoto = async (req, res) => {
     if (!canManageUserMedia(req, tz)) {
       return res.status(403).json({ ok: false, message: "لا توجد صلاحية" });
     }
-    console.log("Deleting photo for user:", user.tz, "Photo URL:", user.photo);
     if (user.photo) {
       try {
         await handleDeleteByUrl(user.photo);

@@ -1,5 +1,5 @@
 const router = require("express").Router();
-const { requireAuth } = require("../../middleware/authMiddleware");
+const { requireAuth, requireRole } = require("../../middleware/authMiddleware");
 
 const {
     getSheet,
@@ -8,7 +8,7 @@ const {
 } = require("./Attendance.controller");
 
 router.get("/sheet", requireAuth, getSheet);
-router.post("/bulk-save", requireAuth, bulkSave);
+router.post("/bulk-save", requireAuth, requireRole('ادارة', 'مرشد'), bulkSave);
 router.get("/dates", requireAuth, getLessonDates);
 
 module.exports = router;

@@ -6,7 +6,7 @@ export default function RoleGuard({ allows = [] }) {
   const roles = getStoredRoles();
   const isAllowed = Array.isArray(allows) && allows.some((role) => roles.includes(role));
   if(!isAllowed){
-      return <Navigate to="/dashboard" replace />;
+      return <Navigate to="/calendar" replace />;
   }
   return <Outlet />;
 }

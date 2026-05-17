@@ -55,4 +55,18 @@ function requireRole(...roles) {
   };
 }
 
-module.exports = { requireAuth, requireRole };
+function requireSelfOrRole(paramName = 'tz', ...roles) {
+  return (req, res, next) => {
+    const requestedIdentity = String(req.params?.[paramName] || '').trim();
+    const userId = String(req.user?.id || '').trim();
+    const userTz = String(req.user?.tz || '').trim();
+
+    if (requestedIdentity && (requestedIdentity === userTz || requestedIdentity === userId)) {
+      return next();
+    }
+
+    return requireRole(...roles)(req, res, next);
+  };
+}
+
+module.exports = { requireAuth, requireRole, requireSelfOrRole };

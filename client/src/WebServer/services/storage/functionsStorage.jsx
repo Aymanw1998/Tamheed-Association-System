@@ -50,15 +50,23 @@ export const getStorageDownloadUrl = (filename) => {
 
 export const openStorageFile = async (filename) => {
   const safeName = trimSlashes(filename);
+  const fileWindow = window.open("about:blank", "_blank", "noopener,noreferrer");
   const { data } = await api.post("/storage/open-link", {
     path: safeName,
   });
 
   if (!data?.url) {
+    fileWindow?.close?.();
     throw new Error(data?.message || "تعذر إنشاء رابط فتح مؤقت");
   }
 
-  return window.open(data.url, "_blank", "noopener,noreferrer");
+  if (fileWindow) {
+    fileWindow.location.href = data.url;
+    return fileWindow;
+  }
+
+  window.location.href = data.url;
+  return null;
 };
 
 const normalizeFile = (file) => {
@@ -513,13 +521,21 @@ export const getStorageSharedEntries = async (token, path = "") => {
 };
 
 export const openSharedStorageFile = async (token, relativePath = "") => {
+  const fileWindow = window.open("about:blank", "_blank", "noopener,noreferrer");
   const { data } = await api.post(`/storage/share-link/${encodeURIComponent(token)}/open-link`, {
     path: trimSlashes(relativePath),
   });
 
   if (!data?.url) {
+    fileWindow?.close?.();
     throw new Error(data?.message || "تعذر إنشاء رابط فتح مؤقت");
   }
 
-  return window.open(data.url, "_blank", "noopener,noreferrer");
+  if (fileWindow) {
+    fileWindow.location.href = data.url;
+    return fileWindow;
+  }
+
+  window.location.href = data.url;
+  return null;
 };

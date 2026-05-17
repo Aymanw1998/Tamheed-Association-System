@@ -7,8 +7,10 @@ const errorHandler = (err, req, res, next) => {
     error.message = err.message;
 
     // Log to console for dev
-    console.log('name:::', err.name);
-    console.log(err);
+    if (process.env.NODE_ENV !== 'production') {
+        console.log('name:::', err.name);
+        console.log(err);
+    }
 
     // Mongoose bad ObjectId
     if (err.name === 'CastError') {

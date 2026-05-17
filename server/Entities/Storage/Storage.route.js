@@ -26,8 +26,10 @@ const {
   uploadFile,
 } = require("./Storage.controller");
 const { requireAuth } = require("../../middleware/authMiddleware");
+const { rateLimit } = require("../../middleware/rateLimit");
 
 const router = express.Router();
+const storageUploadRateLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 120, scope: "storage-upload" });
 const uploadTempDir = path.join(os.tmpdir(), "tamheed-storage-uploads");
 const configuredUploadMaxMb = Number(process.env.STORAGE_UPLOAD_MAX_MB || 2048);
 const uploadMaxMb = Number.isFinite(configuredUploadMaxMb)
@@ -91,9 +93,9 @@ router.post("/share-link/:token/open-link", requireAuth, getSharedLinkOpenLink);
 router.post("/folder", requireAuth, createFolder);
 router.get("/upload-status", requireAuth, getUploadStatus);
 router.post("/cancel-upload", requireAuth, express.json({ limit: "1mb" }), cancelUpload);
-router.post("/upload-chunk", requireAuth, chunkUpload.single("chunk"), uploadChunk);
-router.post("/merge-chunks", requireAuth, express.json({ limit: "5mb" }), mergeChunks);
-router.post("/upload", requireAuth, uploadSingleFile, uploadFile);
+router.post("/upload-chunk", requireAuth, storageUploadRateLimit, chunkUpload.single("chunk"), uploadChunk);
+router.post("/merge-chunks", requireAuth, storageUploadRateLimit, express.json({ limit: "5mb" }), mergeChunks);
+router.post("/upload", requireAuth, storageUploadRateLimit, uploadSingleFile, uploadFile);
 router.post("/share", requireAuth, shareEntry);
 router.post("/unshare", requireAuth, unshareEntry);
 router.patch("/rename", requireAuth, renameFile);

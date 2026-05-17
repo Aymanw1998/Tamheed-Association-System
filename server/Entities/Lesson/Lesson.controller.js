@@ -78,9 +78,7 @@ const getAll = async (req, res) => {
 const getOne = async (req, res) => {
   try {
     const { id } = req.params;
-    console.log("getOne called with id:", id);
     const result = await LessonModelDef.get({ _id: id });
-    console.log("getOne result:", result);
     if (!result?.result?.length) {
       return res.status(404).json({ ok: false, message: "غير موجود" });
     }

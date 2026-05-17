@@ -28,15 +28,15 @@ router.get('/query', getLessonsByQuery)
 router.get('/today', getLessonsByToDay);
 router.get('/:id', getOne);
 // ملاحظة عربية
-router.post('/addToList/:id', addToList);
-router.post('/removeFromList/:id', removeFromList);
+router.post('/addToList/:id', protectRole('ادارة', 'مرشد'), addToList);
+router.post('/removeFromList/:id', protectRole('ادارة', 'مرشد'), removeFromList);
 
 // ملاحظة عربية
 // router.use(protectRole('ادارة'));
 
-router.post('/', postOne);
-router.put('/:id', putOne);
-router.delete('/:id', deleteOne);
-router.post('/copy-month', copyMonth);
-router.delete('/delete-perMonth/:month/:year', deletePerMonth);
+router.post('/', protectRole('ادارة', 'مرشد'), postOne);
+router.put('/:id', protectRole('ادارة', 'مرشد'), putOne);
+router.delete('/:id', protectRole('ادارة'), deleteOne);
+router.post('/copy-month', protectRole('ادارة'), copyMonth);
+router.delete('/delete-perMonth/:month/:year', protectRole('ادارة'), deletePerMonth);
 module.exports = router;

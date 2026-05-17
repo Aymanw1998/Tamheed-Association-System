@@ -4,12 +4,8 @@ import api, { API_BASE_URL, setAuthTokens } from "../api";
 import { scheduleAccessRefresh, clearAccessRefresh } from "../../utils/accessScheduler";
 
 function markSignedIn(user, accessToken, expirationTime) {
-  console.log("user", user);
-  console.log("accessToken", accessToken);
-  console.log("expirationTime", expirationTime);
   setAuthTokens(accessToken, expirationTime);
   scheduleAccessRefresh(accessToken);
-  console.log("done save token");
   localStorage.setItem("isLoggedIn", "1");
   if (user?._id) localStorage.setItem("user_id", user._id);
   if (user?.roles) localStorage.setItem("roles", user.roles.join(","));
@@ -28,7 +24,6 @@ export async function register(payload) {
 
 export async function login(tz, password) {
   const { data, status } = await api.post("/auth/login", { tz, password }, { withCredentials: true });
-  console.log("login", status, data);
   if (![200, 201].includes(status) || !data?.ok) {
     throw new Error(data?.message || "تسجيل الدخول فشل");
   }
@@ -61,9 +56,7 @@ export async function getMe() {
       }
     );
 
-    console.log("res", res);
     const { data, status } = res;
-    console.log("getme", status, data, token);
 
     if (![200, 201].includes(status) || !data?.ok) {
       throw new Error(data?.message || "لا يمكن التعرف على المستخدم.");
@@ -71,7 +64,6 @@ export async function getMe() {
 
     return data.user;
   } catch (err) {
-    console.warn("err getme", err);
     return null;
   }
 }
@@ -91,7 +83,6 @@ export async function logout() {
 export async function forgotPassword(tz) {
   try {
     const { data, status } = await api.post("/auth/forgot-password", { tz }, { withCredentials: true });
-    console.log("forgotPassword", status, data);
     if (![200, 201].includes(status) || !data?.ok) {
       throw new Error(data?.message || "طلب إعادة تعيين كلمة السر فشل");
     }

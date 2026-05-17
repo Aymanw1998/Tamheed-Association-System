@@ -124,7 +124,7 @@ api.interceptors.response.use(
       isRefreshing = true;
       try {
         // ملاحظة عربية
-        const { data } = await axios.post(`${API_BASE_URL+ '/api'}/auth/refresh`, null, {
+        const { data } = await axios.post(`${API_BASE_URL}/auth/refresh`, null, {
           withCredentials: true,
         });
 

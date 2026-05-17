@@ -20,7 +20,7 @@ router.use(protect);
 // router.get('/public/:tz', getOneS);
 router.get('/', getAllS);
 router.get('/:tz', getOneS);
-router.post('/', protectRole('ادارة', ''), postS);
+router.post('/', protectRole('ادارة'), postS);
 router.put('/:tz', protectRole('ادارة', 'مرشد'), putS);
 router.delete('/photo/:tz', deletePhoto);
 router.delete('/:tz', protectRole('ادارة'), deleteS);

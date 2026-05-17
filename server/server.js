@@ -38,15 +38,17 @@ const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
       'https://tamheed-ramla.org',
       'https://www.tamheed-ramla.org',
       // ملاحظة عربية
-      /^http:\/\/10\.0\.0\.\d+3000$/, // ملاحظة عربية
+      /^http:\/\/10\.0\.0\.\d+:3000$/, // ملاحظة عربية
     ];
 
-const allowedOrigins = new Set(ALLOWED_ORIGINS);
+const stringAllowedOrigins = new Set(ALLOWED_ORIGINS.filter((origin) => typeof origin === 'string'));
+const patternAllowedOrigins = ALLOWED_ORIGINS.filter((origin) => origin instanceof RegExp);
 
 const corsOptions = {
   origin(origin, cb) {
     if (!origin) return cb(null, true);               // Postman/SSR
-    if (allowedOrigins.has(origin)) return cb(null, true);
+    if (stringAllowedOrigins.has(origin)) return cb(null, true);
+    if (patternAllowedOrigins.some((pattern) => pattern.test(origin))) return cb(null, true);
     return cb(new Error(`Not allowed by CORS: ${origin}`));
   },
   credentials: true,
@@ -86,7 +88,9 @@ app.use('/api/storage', require('./Entities/Storage/Storage.route'))
 
 
 //Dev logging middleware
-app.use(morgan('dev'));
+if (process.env.NODE_ENV !== 'production') {
+  app.use(morgan('dev'));
+}
 // Route middleware
 app.get('/', (req, res) => {console.log("Server is up and running");res.send('Server is up and running'); });
 
@@ -109,18 +113,19 @@ app.get('/api/health', (req, res) => res.json({ ok: true, ts: Date.now() }));
 app.get('/api/events', eventsHandler);
 
 // ملاحظة عربية
-app.get('/api/test-event', (req, res) => {
-  broadcast({ level: 'success', title: 'اختبار', message: 'حدث اختبار من الخادم' });
-  res.json({ ok: true });
-});
+if (process.env.NODE_ENV !== 'production') {
+  app.get('/api/test-event', (req, res) => {
+    broadcast({ level: 'success', title: 'اختبار', message: 'حدث اختبار من الخادم' });
+    res.json({ ok: true });
+  });
 
-// ملاحظة عربية
-app.get('/api/boom', (req, res, next) => {
-  const err = new Error('سقوط تجريبي');
-  err.status = 500;
-  err.code = 'BOOM_EXAMPLE';
-  next(err);
-});
+  app.get('/api/boom', (req, res, next) => {
+    const err = new Error('سقوط تجريبي');
+    err.status = 500;
+    err.code = 'BOOM_EXAMPLE';
+    next(err);
+  });
+}
 
 // ملاحظة عربية
 app.use(errorPublisher);
@@ -156,4 +161,3 @@ const StartServer = async () => {
   }
 }
 StartServer();
-
