@@ -15,7 +15,7 @@ const STORAGE_API_BASE_URL = (
 ).replace(/\/+$/, "");
 const STORAGE_FILE_BASE_URL = (
   process.env.CENTRAL_STORAGE_FILE_BASE_URL ||
-  STORAGE_API_BASE_URL
+  `${STORAGE_API_BASE_URL}/file`
 ).replace(/\/+$/, "");
 const STORAGE_FILE_ACCESS_MODE = String(
   process.env.CENTRAL_STORAGE_FILE_ACCESS_MODE || "path"
@@ -327,24 +327,28 @@ const getPublicStorageUrl = (relativePath = "") => {
 
 const buildCentralFileUrl = (relativePath = "", options = {}) => {
   const safePath = normalizeRelativePath(relativePath);
-  const encodedPath = safePath
-    .split("/")
-    .map((part) => encodeURIComponent(part))
-    .join("/");
-
-  if (STORAGE_FILE_ACCESS_MODE === "query") {
-    const url = new URL(STORAGE_FILE_BASE_URL);
-    url.searchParams.set(STORAGE_FILE_ACCESS_PARAM, safePath);
-    if (options.download) {
-      url.searchParams.set("download", "1");
+  const displayName = String(options.displayName || path.posix.basename(safePath) || "file").trim() || "file";
+  const token = jwt.sign(
+    {
+      path: safePath,
+      displayName,
+      download: Boolean(options.download),
+    },
+    STORAGE_SIGNED_URL_SECRET,
+    {
+      algorithm: "HS256",
+      expiresIn: STORAGE_SIGNED_URL_TTL,
     }
-    return url.toString();
+  );
+  const encodedName = encodeURIComponent(displayName);
+  const targetUrl = new URL(`${STORAGE_FILE_BASE_URL}/${encodedName}`);
+  targetUrl.searchParams.set("token", token);
+
+  if (options.download) {
+    targetUrl.searchParams.set("download", "1");
   }
 
-  const baseUrl = STORAGE_FILE_BASE_URL.replace(/\/+$/, "");
-  return options.download
-    ? `${baseUrl}/${encodedPath}?download=1`
-    : `${baseUrl}/${encodedPath}`;
+  return targetUrl.toString();
 };
 
 const getRequestApiBaseUrl = (req) => {
