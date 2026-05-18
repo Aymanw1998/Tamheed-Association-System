@@ -4,6 +4,45 @@ const trimSlashes = (value = "") => String(value).replace(/^\/+|\/+$/g, "");
 const CHUNK_SIZE = 50 * 1024 * 1024;
 const DIRECT_CHUNK_THRESHOLD = 90 * 1024 * 1024;
 const UPLOAD_SESSION_PREFIX = "tamheed.storageUpload.";
+let fileWindowCounter = 0;
+
+const openPendingFileWindow = () => {
+  const targetName = `tamheed-file-${Date.now()}-${fileWindowCounter += 1}`;
+  const fileWindow = window.open("about:blank", targetName);
+
+  if (!fileWindow) {
+    return { fileWindow: null, targetName };
+  }
+
+  try {
+    fileWindow.name = targetName;
+    fileWindow.opener = null;
+    fileWindow.document.open();
+    fileWindow.document.write("<!doctype html><title>Opening file...</title>");
+    fileWindow.document.close();
+  } catch {
+    // Some browsers restrict writes to new tabs. The window handle is still usable.
+  }
+
+  return { fileWindow, targetName };
+};
+
+const sendUrlToFileWindow = (fileWindow, targetName, url) => {
+  if (fileWindow && !fileWindow.closed) {
+    fileWindow.location.replace(url);
+    return fileWindow;
+  }
+
+  const link = document.createElement("a");
+  link.href = url;
+  link.target = targetName || "_blank";
+  link.rel = "noopener noreferrer";
+  link.style.display = "none";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  return null;
+};
 
 const shouldRetryWithChunks = (error) => {
   const status = error?.response?.status;
@@ -50,7 +89,7 @@ export const getStorageDownloadUrl = (filename) => {
 
 export const openStorageFile = async (filename) => {
   const safeName = trimSlashes(filename);
-  const fileWindow = window.open("about:blank", "_blank", "noopener,noreferrer");
+  const { fileWindow, targetName } = openPendingFileWindow();
   const { data } = await api.post("/storage/open-link", {
     path: safeName,
   });
@@ -60,13 +99,7 @@ export const openStorageFile = async (filename) => {
     throw new Error(data?.message || "تعذر إنشاء رابط فتح مؤقت");
   }
 
-  if (fileWindow) {
-    fileWindow.location.href = data.url;
-    return fileWindow;
-  }
-
-  window.location.href = data.url;
-  return null;
+  return sendUrlToFileWindow(fileWindow, targetName, data.url);
 };
 
 const normalizeFile = (file) => {
@@ -521,7 +554,7 @@ export const getStorageSharedEntries = async (token, path = "") => {
 };
 
 export const openSharedStorageFile = async (token, relativePath = "") => {
-  const fileWindow = window.open("about:blank", "_blank", "noopener,noreferrer");
+  const { fileWindow, targetName } = openPendingFileWindow();
   const { data } = await api.post(`/storage/share-link/${encodeURIComponent(token)}/open-link`, {
     path: trimSlashes(relativePath),
   });
@@ -531,11 +564,5 @@ export const openSharedStorageFile = async (token, relativePath = "") => {
     throw new Error(data?.message || "تعذر إنشاء رابط فتح مؤقت");
   }
 
-  if (fileWindow) {
-    fileWindow.location.href = data.url;
-    return fileWindow;
-  }
-
-  window.location.href = data.url;
-  return null;
+  return sendUrlToFileWindow(fileWindow, targetName, data.url);
 };
