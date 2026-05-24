@@ -40,6 +40,35 @@
   margin-inline-start: auto;
 }
 
+.languageSelectWrap,
+.mobileLanguageSelectWrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-color, #5b03fd);
+  font-size: 0.9rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.languageSelectWrap select,
+.mobileLanguageSelectWrap select {
+  min-height: 34px;
+  border: 1px solid rgba(91, 3, 253, 0.18);
+  border-radius: 8px;
+  padding: 6px 9px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #172554;
+  font: inherit;
+  outline: none;
+}
+
+.languageSelectWrap select:focus,
+.mobileLanguageSelectWrap select:focus {
+  border-color: #0ea5e9;
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.16);
+}
+
 .menuToggle {
   width: 10px;
   height: 10px;
@@ -178,6 +207,17 @@
     padding: 14px 12px;
     border-bottom: 1px solid rgba(91, 3, 253, 0.08);
     border-radius: 12px;
+  }
+
+  .mobileLanguageSelectWrap {
+    justify-content: space-between;
+    width: 100%;
+    padding: 12px;
+    border-bottom: 1px solid rgba(91, 3, 253, 0.08);
+  }
+
+  .mobileLanguageSelectWrap select {
+    min-width: 130px;
   }
 
   .mobileNav .logoutButton {

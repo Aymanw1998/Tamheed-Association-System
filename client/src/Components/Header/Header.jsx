@@ -1,12 +1,14 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import styles from "./Header.module.css";
 import LOGO from "../../images/logo.png";
 import { getMe, logout } from "../../WebServer/services/auth/fuctionsAuth";
 import { ask } from "../Provides/confirmBus";
+import { useI18n } from "../../i18n/I18nContext";
 
-const ADMIN_ROLES = ["ادارة", "إدارة", "الادارة", "الإدارة"];
-const STUDENT_ROLES = [...ADMIN_ROLES, "مرشد"];
+const ADMIN_ROLES = ["ادارة", "إدارة", "الادارة", "الإدارة", "Ø§Ø¯Ø§Ø±Ø©", "Ø¥Ø¯Ø§Ø±Ø©", "Ø§Ù„Ø§Ø¯Ø§Ø±Ø©", "Ø§Ù„Ø¥Ø¯Ø§Ø±Ø©"];
+const GUIDE_ROLES = ["مرشد", "Ù…Ø±Ø´Ø¯"];
+const STUDENT_ROLES = [...ADMIN_ROLES, ...GUIDE_ROLES];
 
 const normalizeRoles = (value) => {
   if (Array.isArray(value)) return value.filter(Boolean);
@@ -16,7 +18,7 @@ const normalizeRoles = (value) => {
     try {
       const parsed = JSON.parse(value);
       if (Array.isArray(parsed)) return parsed.filter(Boolean);
-    } catch (error) {
+    } catch {
       return [value];
     }
 
@@ -29,6 +31,7 @@ const normalizeRoles = (value) => {
 const hasAnyRole = (roles, allowedRoles) => allowedRoles.some((role) => roles.includes(role));
 
 export default function Header() {
+  const { dir, language, languages, setLanguage, t } = useI18n();
   const [user, setUser] = useState(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -38,8 +41,9 @@ export default function Header() {
 
   const roles = normalizeRoles(user?.roles || localStorage.getItem("roles"));
   const isAdmin = hasAnyRole(roles, ADMIN_ROLES);
+  const isGuide = hasAnyRole(roles, GUIDE_ROLES);
   const canViewStudents = hasAnyRole(roles, STUDENT_ROLES);
-  const primaryRole = roles[0] || "";
+  const displayRole = isAdmin ? t("roles.admin") : isGuide ? t("roles.guide") : t("roles.assistantGuide");
 
   const loadData = useCallback(async () => {
     try {
@@ -112,8 +116,21 @@ export default function Header() {
     navigate(to);
   };
 
+  const languageSelect = (className) => (
+    <label className={className}>
+      <span>{t("common.language")}</span>
+      <select value={language} onChange={(event) => setLanguage(event.target.value)}>
+        {Object.values(languages).map((item) => (
+          <option key={item.code} value={item.code}>
+            {item.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+
   return (
-    <header id="header" className={styles.header} ref={headerRef}>
+    <header id="header" className={styles.header} ref={headerRef} dir={dir}>
       <div className={styles.headerContent}>
         <img
           src={LOGO}
@@ -122,12 +139,13 @@ export default function Header() {
           onClick={(event) => onNavClick(event, "/")}
           style={{ cursor: "pointer" }}
         />
-        <span className={styles.title}>جمعية تمهيد - الرملة</span>
+        <span className={styles.title}>{t("appTitle")}</span>
         {user && !isMobile && (
           <div className={styles.userBadge}>
-            {user.firstname} {user.lastname} - {isAdmin ? "ادارة" : roles.includes("مرشد") ? "مرشد" : "مساعد مرشد"}
+            {user.firstname} {user.lastname} - {displayRole}
           </div>
         )}
+        {!isMobile && languageSelect(styles.languageSelectWrap)}
       </div>
 
       <div className={styles.headerContent}>
@@ -135,7 +153,7 @@ export default function Header() {
           <button
             type="button"
             className={styles.menuToggle}
-            aria-label="فتح القائمة"
+            aria-label={t("nav.openMenu")}
             aria-controls="main-nav"
             aria-expanded={menuOpen}
             onClick={(event) => {
@@ -150,7 +168,7 @@ export default function Header() {
         )}
         {user && isMobile && (
           <div className={styles.userBadge}>
-            {user.firstname} {user.lastname} - {primaryRole}
+            {user.firstname} {user.lastname} - {displayRole}
           </div>
         )}
       </div>
@@ -164,20 +182,21 @@ export default function Header() {
         data-open={isMobile ? menuOpen : true}
       >
         {isAdmin && (
-          <a href="/dashboard" onClick={(event) => onNavClick(event, "/dashboard")}>لوحة التحكم</a>
+          <a href="/dashboard" onClick={(event) => onNavClick(event, "/dashboard")}>{t("nav.dashboard")}</a>
         )}
-        <a href="/calendar" onClick={(event) => onNavClick(event, "/calendar")}>حضور وغياب</a>
+        <a href="/calendar" onClick={(event) => onNavClick(event, "/calendar")}>{t("nav.attendance")}</a>
         {canViewStudents && (
-          <a href="/students" onClick={(event) => onNavClick(event, "/students")}>قائمة الطلاب</a>
+          <a href="/students" onClick={(event) => onNavClick(event, "/students")}>{t("nav.students")}</a>
         )}
         {isAdmin && (
-          <a href="/users" onClick={(event) => onNavClick(event, "/users")}>قائمة المستخدمين</a>
+          <a href="/users" onClick={(event) => onNavClick(event, "/users")}>{t("nav.users")}</a>
         )}
-        <a href="/lessons" onClick={(event) => onNavClick(event, "/lessons")}>قائمة الدروس</a>
-        <a href="/reports" onClick={(event) => onNavClick(event, "/reports")}>قائمة التقارير</a>
-        <a href="/files" onClick={(event) => onNavClick(event, "/files")}>مدير الملفات</a>
-        <a href="/profile" onClick={(event) => onNavClick(event, "/profile")}>ملف شخصي</a>
-        <button type="button" onClick={handleLogout} className={styles.logoutButton} title="خروج">خروج</button>
+        <a href="/lessons" onClick={(event) => onNavClick(event, "/lessons")}>{t("nav.lessons")}</a>
+        <a href="/reports" onClick={(event) => onNavClick(event, "/reports")}>{t("nav.reports")}</a>
+        <a href="/files" onClick={(event) => onNavClick(event, "/files")}>{t("nav.files")}</a>
+        <a href="/profile" onClick={(event) => onNavClick(event, "/profile")}>{t("nav.profile")}</a>
+        {isMobile && languageSelect(styles.mobileLanguageSelectWrap)}
+        <button type="button" onClick={handleLogout} className={styles.logoutButton} title={t("nav.logout")}>{t("nav.logout")}</button>
       </nav>
     </header>
   );

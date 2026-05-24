@@ -14,6 +14,7 @@ const cors = require('cors');
 const mongoose = require('mongoose');
 const axios = require('axios');
 const {logger} = require('./middleware/logger');
+const aiRoutes = require('./routes/ai.routes');
 
 
 const crypto = require("crypto")
@@ -81,6 +82,7 @@ app.use('/api/student', require('./Entities/Student/Student.route'))
 app.use('/api/inviteToken', require('./Entities/InviteToken/InviteToken.route'))
 app.use('/api/report', require('./Entities/Report/Report.route'));
 app.use('/api/storage', require('./Entities/Storage/Storage.route'))
+app.use("/api/ai", aiRoutes);
 // **********************************AUTO_PROCCESS ***************************
 // ملاحظة عربية
 // cron.schedule("* * * * *", runDailyJobs, { timezone: "Asia/Jerusalem" });

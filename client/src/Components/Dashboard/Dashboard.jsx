@@ -6,6 +6,7 @@ import { deleteS as deleteStudent, getAll as getAllStudents, update as updateStu
 import { getAllLesson, getLessonsToday } from "../../WebServer/services/lesson/functionsLesson.jsx";
 import { getAll as getAllReports } from "../../WebServer/services/report/functionsReport.jsx";
 import { toast } from "../../ALERT/SystemToasts.jsx";
+import { isStoredAdmin } from "../../utils/session";
 
 const formatLessonTime = (lesson) => {
   const start = Number(lesson?.date?.startMin);
@@ -17,6 +18,7 @@ const formatLessonTime = (lesson) => {
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const isAdmin = useMemo(() => isStoredAdmin(), []);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState("");
   const [error, setError] = useState("");
@@ -36,8 +38,8 @@ export default function Dashboard() {
         setLoading(true);
         setError("");
 
-        const [usersRes, studentsRes, lessonsRes, reportsRes, todayLessonsRes] = await Promise.all([
-          getAllUsers(),
+        const [usersResult, studentsResult, lessonsResult, reportsResult, todayLessonsResult] = await Promise.allSettled([
+          isAdmin ? getAllUsers() : Promise.resolve({ ok: true, users: [] }),
           getAllStudents(),
           getAllLesson(),
           getAllReports(),
@@ -45,6 +47,11 @@ export default function Dashboard() {
         ]);
 
         if (cancelled) return;
+        const usersRes = usersResult.status === "fulfilled" ? usersResult.value : {};
+        const studentsRes = studentsResult.status === "fulfilled" ? studentsResult.value : {};
+        const lessonsRes = lessonsResult.status === "fulfilled" ? lessonsResult.value : {};
+        const reportsRes = reportsResult.status === "fulfilled" ? reportsResult.value : {};
+        const todayLessonsRes = todayLessonsResult.status === "fulfilled" ? todayLessonsResult.value : {};
 
         setData({
           users: usersRes?.ok ? usersRes.users || [] : [],
@@ -68,7 +75,7 @@ export default function Dashboard() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [isAdmin]);
 
   const summary = useMemo(() => {
     const activeUsers = data.users.filter((user) => user.room === "active").length;

@@ -6,7 +6,6 @@ const path = require("path");
 const {
   cancelUpload,
   createFolder,
-  createShareLink,
   deleteEntry,
   getShareStatus,
   getShareLinkInfo,
@@ -86,7 +85,6 @@ router.get("/open-signed", openSignedEntry);
 router.get("/download-signed", openSignedEntry);
 router.post("/open-link", requireAuth, getSignedOpenLink);
 router.get("/share-status", requireAuth, getShareStatus);
-router.post("/share-link", requireAuth, createShareLink);
 router.get("/share-link/:token", requireAuth, getShareLinkInfo);
 router.get("/share-link/:token/items", requireAuth, listSharedLinkItems);
 router.post("/share-link/:token/open-link", requireAuth, getSharedLinkOpenLink);

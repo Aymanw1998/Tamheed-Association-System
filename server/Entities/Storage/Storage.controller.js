@@ -899,28 +899,67 @@ const syncStorageViewPermissionsForUser = async (user = {}, preloadedSharedItems
     ? preloadedSharedItems
     : await filterExistingSharedItems(await getSharedStorageItemsForUser(existingUser));
 
-  const nextView = Array.from(
-    new Set(
-      sharedItems
-        .map((item) => getClientRelativePath(item?.relativePath || ""))
-        .map((entry) => normalizeRelativePath(entry))
-        .filter(Boolean)
-        .sort()
-    )
-  );
+  const userIdentifiers = [
+    String(existingUser?._id || "").trim(),
+    String(existingUser?.tz || "").trim(),
+  ].filter(Boolean);
+  const nextSharedPermissions = {
+    view: new Set(),
+    create: new Set(),
+    update: new Set(),
+    delete: new Set(),
+  };
+
+  sharedItems.forEach((item) => {
+    const clientPath = normalizeRelativePath(getClientRelativePath(item?.relativePath || ""));
+    if (!clientPath) return;
+
+    const share = (Array.isArray(item?.sharedWith) ? item.sharedWith : []).find((entry) =>
+      userIdentifiers.includes(String(entry?.userId || "").trim())
+    );
+    const role = getShareRole(share?.role || "read");
+
+    nextSharedPermissions.view.add(clientPath);
+    if (role === "write" || role === "manage") {
+      nextSharedPermissions.create.add(clientPath);
+      nextSharedPermissions.update.add(clientPath);
+    }
+    if (role === "manage") {
+      nextSharedPermissions.delete.add(clientPath);
+    }
+  });
+
+  const nextView = Array.from(nextSharedPermissions.view).sort();
+  const nextCreate = Array.from(nextSharedPermissions.create).sort();
+  const nextUpdate = Array.from(nextSharedPermissions.update).sort();
+  const nextDelete = Array.from(nextSharedPermissions.delete).sort();
 
   const currentPermissions = existingUser.storagePermissions || {};
   const currentView = Array.isArray(currentPermissions.view)
     ? currentPermissions.view.map((entry) => normalizeRelativePath(entry)).filter(Boolean).sort()
     : [];
+  const currentCreate = Array.isArray(currentPermissions.create)
+    ? currentPermissions.create.map((entry) => normalizeRelativePath(entry)).filter(Boolean).sort()
+    : [];
+  const currentUpdate = Array.isArray(currentPermissions.update)
+    ? currentPermissions.update.map((entry) => normalizeRelativePath(entry)).filter(Boolean).sort()
+    : [];
+  const currentDelete = Array.isArray(currentPermissions.delete)
+    ? currentPermissions.delete.map((entry) => normalizeRelativePath(entry)).filter(Boolean).sort()
+    : [];
   const nextPermissions = {
     view: nextView,
-    create: Array.isArray(currentPermissions.create) ? currentPermissions.create : [],
-    update: Array.isArray(currentPermissions.update) ? currentPermissions.update : [],
-    delete: Array.isArray(currentPermissions.delete) ? currentPermissions.delete : [],
+    create: nextCreate,
+    update: nextUpdate,
+    delete: nextDelete,
   };
 
-  if (!arraysEqual(currentView, nextView)) {
+  if (
+    !arraysEqual(currentView, nextView) ||
+    !arraysEqual(currentCreate, nextCreate) ||
+    !arraysEqual(currentUpdate, nextUpdate) ||
+    !arraysEqual(currentDelete, nextDelete)
+  ) {
     await UserModelDef.update(
       { tz: existingUser.tz },
       { storagePermissions: nextPermissions },
@@ -1951,7 +1990,7 @@ const shareEntry = async (req, res) => {
       ""
     );
     const targetTz = String(req.body?.targetTz || req.body?.tz || "").trim();
-    const role = "read";
+    const role = getShareRole(req.body?.role || "read");
 
     if (!requestedRelativePath) {
       return res.status(400).json({
@@ -1973,6 +2012,7 @@ const shareEntry = async (req, res) => {
       String(scope.user?._id || "").trim(),
       String(scope.user?.tz || "").trim(),
     ].filter(Boolean);
+    const canManageSharedItem = hasSharedPermission(scope.user, "delete", requestedRelativePath);
 
     let metadata = await getStorageMetadataByPath(storageRelativePath);
     if (!metadata) {
@@ -1988,10 +2028,10 @@ const shareEntry = async (req, res) => {
     }
 
     const ownerId = String(metadata?.ownerId || "").trim();
-    if (!scope.isAdmin && ownerId && !ownerIdentifiers.includes(ownerId)) {
+    if (!scope.isAdmin && ownerId && !ownerIdentifiers.includes(ownerId) && !canManageSharedItem) {
       return res.status(403).json({
         success: false,
-        message: "Only the owner can share this item",
+        message: "Only the owner or a manager can share this item",
       });
     }
 
@@ -2178,68 +2218,6 @@ const unshareEntry = async (req, res) => {
   }
 };
 
-const createShareLink = async (req, res) => {
-  try {
-    const requestedRelativePath = normalizeRelativePath(
-      req.body?.relativePath ||
-      req.body?.path ||
-      req.body?.filename ||
-      ""
-    );
-
-    if (!requestedRelativePath) {
-      return res.status(400).json({
-        success: false,
-        message: "relativePath is required",
-      });
-    }
-
-    const scope = await getStorageScope(req, "view", requestedRelativePath);
-    const storageRelativePath = normalizeRelativePath(scope.folder);
-    let metadata = await getStorageMetadataByPath(storageRelativePath);
-
-    if (!metadata) {
-      metadata = await ensureStorageMetadataRecord({
-        type: req.body?.isDirectory ? "folder" : "file",
-        name: req.body?.name || path.posix.basename(storageRelativePath),
-        ownerId: scope.user?._id || scope.user?.tz || req.user?.tz || "",
-        relativePath: storageRelativePath,
-        url: req.body?.url || null,
-        mimeType: req.body?.mimeType || "",
-        size: req.body?.size ?? null,
-      });
-    }
-
-    const token = signStorageShareLinkToken({
-      path: storageRelativePath,
-      type: metadata?.type || (req.body?.isDirectory ? "folder" : "file"),
-      name: metadata?.name || path.posix.basename(storageRelativePath),
-      mode: "view",
-    });
-
-    const clientBaseUrl = getClientAppBaseUrl(req);
-    const shareUrl = `${clientBaseUrl}/files?shareToken=${encodeURIComponent(token)}`;
-
-    return res.json({
-      success: true,
-      ok: true,
-      url: shareUrl,
-      token,
-      expiresIn: STORAGE_SHARE_LINK_TTL,
-      item: {
-        type: metadata?.type || "file",
-        name: metadata?.name || path.posix.basename(storageRelativePath),
-        path: getClientRelativePath(storageRelativePath),
-      },
-    });
-  } catch (error) {
-    return res.status(error?.response?.status || error.status || 500).json({
-      success: false,
-      message: getErrorMessage(error),
-    });
-  }
-};
-
 const getShareLinkInfo = async (req, res) => {
   try {
     const token = String(req.params?.token || "").trim();
@@ -2373,16 +2351,17 @@ const getSharedLinkOpenLink = async (req, res) => {
     const requestedSubPath = normalizeRelativePath(req.body?.path || req.query?.path || "");
     const targetPath = resolveSharedLinkTargetPath(payload, requestedSubPath);
     const displayName = path.posix.basename(targetPath);
+    const download = req.body?.download === true || req.query?.download === "1";
     const signedFileToken = signStorageAccessToken({
       path: targetPath,
-      download: false,
+      download,
       displayName,
       sharedLink: true,
     });
     return res.json({
       success: true,
       ok: true,
-      url: buildTamheedSignedFileUrl(req, signedFileToken),
+      url: buildTamheedSignedFileUrl(req, signedFileToken, { download }),
     });
   } catch (error) {
     const status =
@@ -2548,7 +2527,6 @@ module.exports = {
   cancelUpload,
   uploadChunk,
   mergeChunks,
-  createShareLink,
   getShareStatus,
   unshareEntry,
   getShareLinkInfo,

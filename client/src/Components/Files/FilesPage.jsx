@@ -5,8 +5,9 @@ import { API_BASE_URL } from "../../WebServer/services/api";
 import {
   cancelStorageUpload,
   createStorageFolder,
-  createStorageShareLink,
   deleteStorageFile,
+  downloadSharedStorageFile,
+  downloadStorageFile,
   getStorageEntries,
   getStorageShareStatus,
   getStorageShareLinkInfo,
@@ -21,6 +22,7 @@ import {
 } from "../../WebServer/services/storage/functionsStorage";
 import { getAll as getAllUsers } from "../../WebServer/services/user/functionsUser";
 import { getStoredUserId } from "../../utils/session";
+import { useI18n } from "../../i18n/I18nContext";
 
 const formatBytes = (bytes) => {
   if (bytes === null || bytes === undefined || Number.isNaN(Number(bytes))) return "-";
@@ -39,11 +41,11 @@ const formatBytes = (bytes) => {
   return `${size.toFixed(size >= 10 ? 1 : 2)} ${units[unit]}`;
 };
 
-const formatDate = (value) => {
+const formatDate = (value, locale = "ar") => {
   if (!value) return "-";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "-";
-  return date.toLocaleString("ar", {
+  return date.toLocaleString(locale, {
     year: "numeric",
     month: "numeric",
     day: "numeric",
@@ -208,8 +210,17 @@ const pendingLabel = {
 
 const MAX_PARALLEL_UPLOADS = 2;
 const activeUploadStatuses = new Set(["queued", "uploading", "chunking", "processing"]);
+const shareRoleOptions = [
+  { value: "read", label: "قراءة" },
+  { value: "write", label: "تعديل" },
+  { value: "manage", label: "تعديل ومشاركة" },
+];
+
+const getShareRoleLabel = (role = "read") =>
+  shareRoleOptions.find((option) => option.value === role)?.label || shareRoleOptions[0].label;
 
 export default function FilesPage() {
+  const { dir, language, t } = useI18n();
   const inputRef = useRef(null);
   const refreshTimerRef = useRef(null);
   const contextMenuRef = useRef(null);
@@ -234,6 +245,7 @@ export default function FilesPage() {
   const [users, setUsers] = useState([]);
   const [usersLoading, setUsersLoading] = useState(false);
   const [userSearch, setUserSearch] = useState("");
+  const [shareRole, setShareRole] = useState("read");
   const [sharedUsersMap, setSharedUsersMap] = useState({});
   const [contextMenu, setContextMenu] = useState(null);
   const [storageStats, setStorageStats] = useState(null);
@@ -325,6 +337,7 @@ export default function FilesPage() {
 
   useEffect(() => {
     if (shareModalFile) {
+      setShareRole("read");
       loadShareUsers();
     }
   }, [shareModalFile]);
@@ -644,9 +657,9 @@ export default function FilesPage() {
 
   const closeContextMenu = () => setContextMenu(null);
 
-  const getContextMenuPosition = (x = 0, y = 0, canManageItem = false) => {
+  const getContextMenuPosition = (x = 0, y = 0, hasExtraActions = false) => {
     const menuWidth = 220;
-    const menuHeight = canManageItem ? 220 : 72;
+    const menuHeight = hasExtraActions ? 220 : 112;
     const safeX = Math.max(12, Math.min(x, window.innerWidth - menuWidth - 12));
     const safeY = Math.max(12, Math.min(y, window.innerHeight - menuHeight - 12));
     return { x: safeX, y: safeY };
@@ -655,13 +668,15 @@ export default function FilesPage() {
   const openContextMenu = (event, file) => {
     event.preventDefault();
     event.stopPropagation();
-    const canManageItem = !isSharedView && !file.shared;
-    const position = getContextMenuPosition(event.clientX, event.clientY, canManageItem);
+    const canEditItem = !isSharedView && (!file.shared || ["write", "manage"].includes(file.sharedRole));
+    const canManageItem = !isSharedView && (!file.shared || file.sharedRole === "manage");
+    const position = getContextMenuPosition(event.clientX, event.clientY, canEditItem || canManageItem);
 
     setContextMenu({
       x: position.x,
       y: position.y,
       file,
+      canEditItem,
       canManageItem,
     });
   };
@@ -670,13 +685,15 @@ export default function FilesPage() {
     event.preventDefault();
     event.stopPropagation();
     const rect = event.currentTarget.getBoundingClientRect();
-    const canManageItem = !isSharedView && !file.shared;
-    const position = getContextMenuPosition(rect.left, rect.bottom + 6, canManageItem);
+    const canEditItem = !isSharedView && (!file.shared || ["write", "manage"].includes(file.sharedRole));
+    const canManageItem = !isSharedView && (!file.shared || file.sharedRole === "manage");
+    const position = getContextMenuPosition(rect.left, rect.bottom + 6, canEditItem || canManageItem);
 
     setContextMenu({
       x: position.x,
       y: position.y,
       file,
+      canEditItem,
       canManageItem,
     });
   };
@@ -751,45 +768,41 @@ export default function FilesPage() {
     }
   };
 
-  const handleCreateShareLink = async (file) => {
-    if (isSharedView) return;
-    closeContextMenu();
-
-    try {
-      const result = await createStorageShareLink(file);
-      if (!result?.url) {
-        throw new Error(result?.message || "تعذر إنشاء رابط المشاركة");
-      }
-
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(result.url);
-        toast.success("تم نسخ رابط المشاركة");
-      } else {
-        window.prompt("انسخ رابط المشاركة", result.url);
-      }
-    } catch (err) {
-      setError(err?.response?.data?.message || err.message || "تعذر إنشاء رابط المشاركة");
-    }
-  };
-
   const submitShareToUser = async (user) => {
     if (!shareModalFile) return;
 
     try {
-      const isAlreadyShared = Boolean(sharedUsersMap[String(user.tz || "").trim()]);
+      const existingShare = sharedUsersMap[String(user.tz || "").trim()];
+      const isAlreadyShared = Boolean(existingShare);
 
-      if (isAlreadyShared) {
+      if (isAlreadyShared && existingShare.role === shareRole) {
         await unshareStorageEntry(shareModalFile, user.tz);
         toast.success("تم إلغاء المشاركة");
       } else {
-        await shareStorageEntry(shareModalFile, user.tz, "read");
-        toast.success("تمت مشاركة العنصر بنجاح");
+        await shareStorageEntry(shareModalFile, user.tz, shareRole);
+        toast.success(isAlreadyShared ? "تم تحديث صلاحية المشاركة" : "تمت مشاركة العنصر بنجاح");
       }
 
       await loadShareUsers();
       loadFiles({ silentError: true });
     } catch (err) {
       setError(err?.response?.data?.message || err.message || "تعذر مشاركة العنصر");
+    }
+  };
+
+  const downloadFile = async (file) => {
+    closeContextMenu();
+    const filename = file.path || file.filename || file.name;
+    if (!filename || file.isDirectory) return;
+
+    try {
+      if (isSharedView) {
+        await downloadSharedStorageFile(shareToken, filename);
+      } else {
+        await downloadStorageFile(filename);
+      }
+    } catch (err) {
+      setError(err?.response?.data?.message || err.message || "تعذر تحميل الملف");
     }
   };
 
@@ -863,7 +876,7 @@ export default function FilesPage() {
       onDragOver={(event) => event.preventDefault()}
       onDragLeave={() => setDragActive(false)}
       onDrop={handleDrop}
-      dir="rtl"
+      dir={dir}
     >
       <section className={styles.workspace}>
         <header className={styles.topbar}>
@@ -876,20 +889,20 @@ export default function FilesPage() {
                 </button>
               ))}
             </div>
-            <h2>{isSharedView ? "عرض مشترك" : "ملفات"}</h2>
+            <h2>{isSharedView ? t("files.sharedTitle") : t("files.title")}</h2>
             {!isSharedView && storageStats && (
               <div className={styles.storageStats}>
                 <div className={styles.storageStatsTop}>
-                  <strong>مساحة التخزين</strong>
-                  <span>{storageUsagePercent}% قيد الاستخدام</span>
+                  <strong>{t("files.storage")}</strong>
+                  <span>{storageUsagePercent}% {t("files.used")}</span>
                 </div>
-                <div className={styles.storageBar} aria-label="مساحة التخزين قيد الاستخدام">
+                <div className={styles.storageBar} aria-label={t("files.storage")}>
                   <span style={{ width: `${storageUsagePercent}%` }} />
                 </div>
                 <div className={styles.storageStatsGrid}>
-                  <span>قيد الاستخدام: {formatBytes(storageUsedBytes)}</span>
-                  <span>متاح: {formatBytes(storageFreeBytes)}</span>
-                  <span>إجمالي المساحة: {formatBytes(storageTotalBytes)}</span>
+                  <span>{t("files.used")}: {formatBytes(storageUsedBytes)}</span>
+                  <span>{t("files.available")}: {formatBytes(storageFreeBytes)}</span>
+                  <span>{t("files.total")}: {formatBytes(storageTotalBytes)}</span>
                 </div>
               </div>
             )}
@@ -901,13 +914,13 @@ export default function FilesPage() {
           {!isSharedView && (
             <div className={styles.actions}>
               <button className={styles.secondaryBtn} onClick={loadFiles} disabled={loading}>
-                تحديث
+                {t("files.refresh")}
               </button>
               <button className={styles.secondaryBtn} onClick={createFolder} disabled={loading}>
-                مجلد جديد
+                {t("files.newFolder")}
               </button>
               <label className={styles.primaryBtn}>
-                {uploading ? "جار الرفع..." : "رفع ملف"}
+                {uploading ? t("files.uploading") : t("files.uploadFile")}
                 <input
                   ref={inputRef}
                   className={styles.fileInput}
@@ -977,21 +990,21 @@ export default function FilesPage() {
             className={styles.searchInput}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="ابحث في الملفات..."
+            placeholder={t("files.search")}
           />
         </div>
 
-        {dragActive && !isSharedView && <div className={styles.dropOverlay}>اسحب الملف وأفلته هنا</div>}
+        {dragActive && !isSharedView && <div className={styles.dropOverlay}>{t("files.dropHere")}</div>}
         {error && <div className={styles.error}>{error}</div>}
-        {isRefreshing && <div className={styles.syncNotice}>جار تحديث الملفات...</div>}
-        {isInitialLoading && <div className={styles.empty}>جار تحميل الملفات...</div>}
+        {isRefreshing && <div className={styles.syncNotice}>{t("files.refreshing")}</div>}
+        {isInitialLoading && <div className={styles.empty}>{t("files.loading")}</div>}
 
         {!isInitialLoading && !filteredItems.length && (
-          <div className={styles.empty}>لا توجد ملفات</div>
+          <div className={styles.empty}>{t("files.noFiles")}</div>
         )}
 
         {!isInitialLoading && !!filteredItems.length && (
-          <div className={styles.cardsGrid}>
+          <div className={styles.cardsGrid} data-label={t("files.foldersAndFiles")}>
             {explorerItems.map((file) => {
               const displayName = getDisplayName(file);
               const type = getType(file);
@@ -999,7 +1012,8 @@ export default function FilesPage() {
               const extension = file.isDirectory
                 ? "DIR"
                 : typeMeta.badge || getExtension(file.filename).toUpperCase() || "FILE";
-              const canManageItem = !isSharedView && !file.shared;
+              const canEditItem = !isSharedView && (!file.shared || ["write", "manage"].includes(file.sharedRole));
+              const canManageItem = !isSharedView && (!file.shared || file.sharedRole === "manage");
               const pending = file._pending;
               const pendingText = pendingLabel[pending];
               const pendingPercent = Number(file._uploadPercent || 0);
@@ -1024,8 +1038,8 @@ export default function FilesPage() {
                       type="button"
                       className={styles.menuBtn}
                       onClick={(event) => openContextMenuByButton(event, file)}
-                      aria-label="خيارات الملف"
-                      title="خيارات الملف"
+                      aria-label={t("files.options")}
+                      title={t("files.options")}
                     >
                       ⋮
                     </button>
@@ -1054,27 +1068,31 @@ export default function FilesPage() {
                   )}
 
                   {file.ownerName && (
-                    <div className={styles.cardOwner}>المالك: {file.ownerName}</div>
+                    <div className={styles.cardOwner}>{t("files.owner")}: {file.ownerName}</div>
                   )}
 
                   <div className={styles.cardMeta}>
-                    <span>{file.isDirectory ? "مجلد" : typeMeta.label}</span>
+                    <span>{file.isDirectory ? t("files.folder") : typeMeta.label}</span>
                     <span>{formatBytes(file.size)}</span>
                   </div>
 
-                  <div className={styles.cardDate}>{formatDate(file.date)}</div>
+                  <div className={styles.cardDate}>{formatDate(file.date, language)}</div>
 
                   <div className={styles.cardActions}>
                     <button disabled={Boolean(pending)} onClick={() => (file.isDirectory ? openFolder(file) : openFile(file))}>
-                      {file.isDirectory ? "فتح" : "فتح"}
+                      {t("files.open")}
                     </button>
+                    {!file.isDirectory && (
+                      <button disabled={Boolean(pending)} onClick={() => downloadFile(file)}>
+                        {t("files.download")}
+                      </button>
+                    )}
 
-                    {canManageItem && (
+                    {(canEditItem || canManageItem) && (
                       <>
-                        <button disabled={Boolean(pending)} onClick={() => setShareModalFile(file)}>مشاركة</button>
-                        <button disabled={Boolean(pending)} onClick={() => handleCreateShareLink(file)}>رابط</button>
-                        <button disabled={Boolean(pending)} onClick={() => handleRename(file)}>إعادة تسمية</button>
-                        <button disabled={Boolean(pending) || uploading} className={styles.deleteBtn} onClick={() => handleDelete(file)}>حذف</button>
+                        {canManageItem && <button disabled={Boolean(pending)} onClick={() => setShareModalFile(file)}>{t("files.share")}</button>}
+                        {canEditItem && <button disabled={Boolean(pending)} onClick={() => handleRename(file)}>{t("files.rename")}</button>}
+                        {canManageItem && <button disabled={Boolean(pending) || uploading} className={styles.deleteBtn} onClick={() => handleDelete(file)}>{t("files.delete")}</button>}
                       </>
                     )}
                   </div>
@@ -1089,11 +1107,11 @@ export default function FilesPage() {
         <div className={styles.modalOverlay} onClick={() => setShareModalFile(null)}>
           <div className={styles.modalCard} onClick={(event) => event.stopPropagation()}>
             <div className={styles.modalHeader}>
-              <h3>مشاركة العنصر</h3>
+              <h3>{t("files.share")}</h3>
               <button className={styles.modalClose} onClick={() => setShareModalFile(null)}>×</button>
             </div>
             <p className={styles.modalHint}>
-              اختر المستخدم المطلوب. المشاركة للمستخدمين هي بصلاحية قراءة فقط للعنصر: {getDisplayName(shareModalFile)}
+              اختر المستخدم المطلوب وحدد صلاحية المشاركة للعنصر: {getDisplayName(shareModalFile)}
             </p>
             <div className={styles.modalControls}>
               <input
@@ -1102,6 +1120,15 @@ export default function FilesPage() {
                 onChange={(event) => setUserSearch(event.target.value)}
                 placeholder="ابحث بالاسم أو رقم الهوية..."
               />
+              <select
+                className={styles.roleSelect}
+                value={shareRole}
+                onChange={(event) => setShareRole(event.target.value)}
+              >
+                {shareRoleOptions.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
             </div>
             <div className={styles.userList}>
               {usersLoading && <div className={styles.empty}>جار تحميل المستخدمين...</div>}
@@ -1120,7 +1147,9 @@ export default function FilesPage() {
                   </span>
                   <small>
                     {user.tz}
-                    {sharedUsersMap[String(user.tz || "").trim()] ? " • اضغط لإلغاء المشاركة" : " • اضغط للمشاركة"}
+                    {sharedUsersMap[String(user.tz || "").trim()]
+                      ? ` • ${getShareRoleLabel(sharedUsersMap[String(user.tz || "").trim()]?.role)} • اضغط للتحديث أو الإلغاء`
+                      : " • اضغط للمشاركة"}
                   </small>
                 </button>
               ))}
@@ -1147,38 +1176,46 @@ export default function FilesPage() {
                 : openFile(contextMenu.file)
             }
           >
-            {contextMenu.file.isDirectory ? "فتح المجلد" : "فتح الملف"}
+            {contextMenu.file.isDirectory ? t("files.open") : t("files.open")}
           </button>
+          {!contextMenu.file.isDirectory && (
+            <button
+              className={styles.contextMenuItem}
+              onClick={() => downloadFile(contextMenu.file)}
+            >
+              {t("files.download")}
+            </button>
+          )}
 
-          {contextMenu.canManageItem && (
+          {(contextMenu.canEditItem || contextMenu.canManageItem) && (
             <>
-              <button
-                className={styles.contextMenuItem}
-                onClick={() => {
-                  setShareModalFile(contextMenu.file);
-                  closeContextMenu();
-                }}
-              >
-                مشاركة
-              </button>
-              <button
-                className={styles.contextMenuItem}
-                onClick={() => handleCreateShareLink(contextMenu.file)}
-              >
-                رابط مشاركة
-              </button>
-              <button
-                className={styles.contextMenuItem}
-                onClick={() => handleRename(contextMenu.file)}
-              >
-                تغيير الاسم
-              </button>
-              <button
-                className={`${styles.contextMenuItem} ${styles.contextMenuDanger}`}
-                onClick={() => handleDelete(contextMenu.file)}
-              >
-                حذف
-              </button>
+              {contextMenu.canManageItem && (
+                <button
+                  className={styles.contextMenuItem}
+                  onClick={() => {
+                    setShareModalFile(contextMenu.file);
+                    closeContextMenu();
+                  }}
+                >
+                  {t("files.share")}
+                </button>
+              )}
+              {contextMenu.canEditItem && (
+                <button
+                  className={styles.contextMenuItem}
+                  onClick={() => handleRename(contextMenu.file)}
+                >
+                  {t("files.rename")}
+                </button>
+              )}
+              {contextMenu.canManageItem && (
+                <button
+                  className={`${styles.contextMenuItem} ${styles.contextMenuDanger}`}
+                  onClick={() => handleDelete(contextMenu.file)}
+                >
+                  {t("files.delete")}
+                </button>
+              )}
             </>
           )}
         </div>

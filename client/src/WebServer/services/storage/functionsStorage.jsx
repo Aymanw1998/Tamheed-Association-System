@@ -44,6 +44,16 @@ const sendUrlToFileWindow = (fileWindow, targetName, url) => {
   return null;
 };
 
+const downloadFromUrl = (url) => {
+  const link = document.createElement("a");
+  link.href = url;
+  link.rel = "noopener noreferrer";
+  link.style.display = "none";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
 const shouldRetryWithChunks = (error) => {
   const status = error?.response?.status;
   const message = String(
@@ -100,6 +110,21 @@ export const openStorageFile = async (filename) => {
   }
 
   return sendUrlToFileWindow(fileWindow, targetName, data.url);
+};
+
+export const downloadStorageFile = async (filename) => {
+  const safeName = trimSlashes(filename);
+  const { data } = await api.post("/storage/open-link", {
+    path: safeName,
+    download: true,
+  });
+
+  if (!data?.url) {
+    throw new Error(data?.message || "تعذر إنشاء رابط تحميل مؤقت");
+  }
+
+  downloadFromUrl(data.url);
+  return data;
 };
 
 const normalizeFile = (file) => {
@@ -521,19 +546,6 @@ export const unshareStorageEntry = async (file, targetTz) => {
   return data;
 };
 
-export const createStorageShareLink = async (file) => {
-  const { data } = await api.post("/storage/share-link", {
-    relativePath: trimSlashes(file?.path || file?.filename || file?.name || ""),
-    name: file?.name || file?.filename || "",
-    isDirectory: Boolean(file?.isDirectory),
-    size: file?.size ?? null,
-    mimeType: file?.mimeType || file?.type || "",
-    url: file?.url || null,
-  });
-
-  return data;
-};
-
 export const getStorageShareLinkInfo = async (token) => {
   const { data } = await api.get(`/storage/share-link/${encodeURIComponent(token)}`);
   return data;
@@ -565,4 +577,18 @@ export const openSharedStorageFile = async (token, relativePath = "") => {
   }
 
   return sendUrlToFileWindow(fileWindow, targetName, data.url);
+};
+
+export const downloadSharedStorageFile = async (token, relativePath = "") => {
+  const { data } = await api.post(`/storage/share-link/${encodeURIComponent(token)}/open-link`, {
+    path: trimSlashes(relativePath),
+    download: true,
+  });
+
+  if (!data?.url) {
+    throw new Error(data?.message || "تعذر إنشاء رابط تحميل مؤقت");
+  }
+
+  downloadFromUrl(data.url);
+  return data;
 };

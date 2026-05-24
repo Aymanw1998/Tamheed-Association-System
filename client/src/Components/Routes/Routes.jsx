@@ -8,7 +8,6 @@ import RegisterPage from '../Auth/RegisterPage/RegisterPage';
 import Header from '../Header/Header';
 
 import RequireAuth from './RequireAuth';
-import RoleGuard from './RoleGuard';
 import PublicOnly from './PublicOnly';
 
 import ViewAllStudent from '../Student/ViewAllStudent';
@@ -28,6 +27,7 @@ import Profile from '../Profile/Profile';
 
 import AttendancePage from '../Attendance/AttendancePage';
 import FilesPage from '../Files/FilesPage';
+import FloatingAIButton from '../AI/FloatingAIButton';
 
 function ProtectedLayout() {
   // ملاحظة عربية
@@ -35,6 +35,7 @@ function ProtectedLayout() {
     <div style={{ height: "100vh", width: "100vw" }}>
       <Header />
       <Outlet />
+      <FloatingAIButton />
     </div>
   );
 }
@@ -54,9 +55,7 @@ export default function CRoutes() {
         <Route element={<ProtectedLayout />}>
           {/* ادارة الاثنينعربيالاثنينالأربعاء */}
           {/* <Route element={<RoleGuard allows={['ادارة', 'مرشد', 'مساعد']} />}> */}
-          <Route element={<RoleGuard allows={['ادارة']} />}>
           <Route path='/dashboard' element={<Dashboard />} />
-          </Route>
           <Route>
             <Route path="/calendar" element={<AttendancePage />} />
             
