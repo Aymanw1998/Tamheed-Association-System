@@ -7,6 +7,11 @@ router.post("/chat", async (req, res) => {
   try {
     const { message, context = {} } = req.body || {};
 
+    console.log("[Tamheed Server] Incoming /api/ai/chat request", {
+      message,
+      context,
+    });
+
     if (!message || !String(message).trim()) {
       return res.status(400).json({
         success: false,
@@ -17,6 +22,10 @@ router.post("/chat", async (req, res) => {
     const result = await askTamheedAI({
       message: String(message).trim(),
       context,
+    });
+
+    console.log("[Tamheed Server] Returning AI response to client", {
+      result,
     });
 
     return res.json(result);
