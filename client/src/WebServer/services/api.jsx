@@ -3,7 +3,8 @@ import axios from 'axios';
 import { markSessionExpired } from '../utils/sessionMessages'; // ملاحظة عربية
 import { getApiBaseUrl } from './apiBase';
 
-export const API_BASE_URL = `${process.env.REACT_APP_SERVER_URI || ''}`.replace(/\/+$/, '') + '/api';
+const FALLBACK_SERVER_URL = `${process.env.REACT_APP_SERVER_URI || ''}`.replace(/\/+$/, '');
+export let API_BASE_URL = `${FALLBACK_SERVER_URL}/api`;
 
 // ملاحظة عربية
 let accessToken = localStorage.getItem('accessToken') || null;
@@ -47,9 +48,14 @@ const api = axios.create({
 let inited = false;
 export const initApiBase = async () => {
   if (inited) return;
-  const baseUrl = await API_BASE_URL;
-  api.defaults.baseURL = baseUrl;
-  publicApi.defaults.baseURL = baseUrl;
+  const serverUrl = await getApiBaseUrl().catch(() => FALLBACK_SERVER_URL || '');
+  API_BASE_URL = `${String(serverUrl || FALLBACK_SERVER_URL || '').replace(/\/+$/, '')}/api`;
+  api.defaults.baseURL = API_BASE_URL;
+  publicApi.defaults.baseURL = API_BASE_URL;
+  console.log("[Tamheed Client] API base initialized", {
+    serverUrl,
+    apiBaseUrl: API_BASE_URL,
+  });
   inited = true;
 }
 

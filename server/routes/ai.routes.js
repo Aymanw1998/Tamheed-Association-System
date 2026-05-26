@@ -34,9 +34,12 @@ router.post("/chat", async (req, res) => {
     console.error("MESSAGE:", error?.message);
     console.error("RESPONSE:", error?.response?.data);
 
-    return res.status(502).json({
+    return res.status(error?.response?.status || 502).json({
       success: false,
-      message: "Global server AI endpoint is not available",
+      message:
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        "Global server AI endpoint is not available",
     });
   }
 });
