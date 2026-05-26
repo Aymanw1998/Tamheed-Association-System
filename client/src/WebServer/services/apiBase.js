@@ -37,7 +37,7 @@ export const getApiBaseUrl = async() => {
         return first;
     } catch{
         console.error("No API server found on LAN");
-        return "https://tamheed-ramla.org";
+        return "https://api.tamheed-ramla.org";
         //throw new Error("No API server found on LAN");
     }
 }
