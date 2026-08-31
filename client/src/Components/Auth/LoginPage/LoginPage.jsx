@@ -59,7 +59,7 @@ export default function LoginPage() {
 
     return (
         <div className={styles.container}>
-            <div className={styles.leftPanel} style={{backgroundColor: "#9BBFB6"}}>
+            <div className={styles.leftPanel}>
                 <div className={styles.welcomeText}>
                 <img src={LogoIMG} alt="جمعية تمهيد" />
                 </div>
@@ -71,9 +71,9 @@ export default function LoginPage() {
                     <input ref={tzRef} name="tz" type="text" placeholder="رقم الهوية" value={tz} onChange={(e)=>setTz(e.target.value)} onKeyDown={handleKeyDown} required />
                     <input ref={passwordRef} name="password" type="password" placeholder="كلمة المرور" value={password} onChange={(e)=>setPassword(e.target.value)} onKeyDown={handleKeyDown} required />
                     <a href="#" onClick={(e)=>{e.preventDefault(); setShowPopup(true);}}>نسيت كلمة المرور؟</a>
-                    <button type="submit" style={{backgroundColor: "#88f388ff", color: "#000"}} onClick={handleLogin}>{loading ? '...' : 'أدخل'}</button>
+                    <button type="submit" onClick={handleLogin}>{loading ? '...' : 'أدخل'}</button>
                     <hr />
-                    <button type="submit" style={{backgroundColor: "#4cfdfdff", color: "#000"}} onClick={()=>navigate("/register")}>{'تسجل كمستخدم'}</button>
+                    <button type="submit" className={styles.secondaryButton} onClick={()=>navigate("/register")}>{'تسجل كمستخدم'}</button>
                 </div>
             </div>
 
