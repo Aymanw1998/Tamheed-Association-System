@@ -83,6 +83,11 @@ app.use('/api/inviteToken', require('./Entities/InviteToken/InviteToken.route'))
 app.use('/api/report', require('./Entities/Report/Report.route'));
 app.use('/api/storage', require('./Entities/Storage/Storage.route'))
 app.use('/api/storage/google', require('./Entities/Storage/GoogleDrive.route'))
+// Local Google-Drive-backed replacement for the remote Central Storage
+// service that Storage.controller.js talks to (see CENTRAL_STORAGE_API_URL /
+// CENTRAL_STORAGE_FILE_BASE_URL in config/.env). Internal/trusted - no
+// per-request user auth, same as the remote service it replaces.
+app.use('/api/storage-backend', require('./Entities/Storage/CentralStorageBackend.route'))
 app.use("/api/ai", aiRoutes);
 // **********************************AUTO_PROCCESS ***************************
 const { startDailyAbsenceJob } = require('./utils/daily');
@@ -137,12 +142,19 @@ app.use(require("express").json({ limit: "50mb" }));
 const StartServer = async () => {
   try {
     await connectDB();
-    await ensureSystemAdmin();
     // **********************************END - ALERTS POPUP***************************
     const httpServer = http.createServer(app)
     const PORT = process.env.PORT || 5000;
     const NODE_ENV = process.env.NODE_ENV;
-    httpServer.listen(PORT,"0.0.0.0",console.log(`Server running in ${NODE_ENV} mode on port ${PORT}`.blue.bold));
+    await new Promise((resolve) => {
+      httpServer.listen(PORT, "0.0.0.0", () => {
+        console.log(`Server running in ${NODE_ENV} mode on port ${PORT}`.blue.bold);
+        resolve();
+      });
+    });
+    // Runs after listen() so any self-referencing HTTP calls it makes
+    // (e.g. storage folder provisioning) can actually reach this server.
+    await ensureSystemAdmin();
 
 
     // 1. Unhandled Promise Rejection (async errors)

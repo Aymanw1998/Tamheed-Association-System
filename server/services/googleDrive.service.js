@@ -146,16 +146,95 @@ async function ensureFolderPath(folderPath = "") {
   return { drive, parentId };
 }
 
+async function findChildFolder(drive, name, parentId) {
+  const safeName = String(name).replace(/'/g, "\\'");
+  const result = await drive.files.list({
+    q: `name = '${safeName}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false and '${parentId}' in parents`,
+    fields: "files(id, name)",
+    spaces: "drive",
+  });
+  return result.data.files?.[0]?.id || null;
+}
+
+// Like ensureFolderPath, but never creates anything. Returns null if any
+// segment is missing (used for read-only operations like listing).
+async function resolveFolderPath(folderPath = "") {
+  const drive = await getDriveClient();
+  const conn = await getConnection();
+  let parentId = conn?.rootFolderId || null;
+
+  if (!parentId) {
+    parentId = await findChildFolder(drive, ROOT_FOLDER_NAME, "root").catch(() => null);
+    if (!parentId) return { drive, folderId: null };
+  }
+
+  const segments = String(folderPath).split(/[\\/]/).filter(Boolean);
+  for (const segment of segments) {
+    parentId = await findChildFolder(drive, segment, parentId);
+    if (!parentId) return { drive, folderId: null };
+  }
+
+  return { drive, folderId: parentId };
+}
+
+async function listChildren(folderPath = "") {
+  const { drive, folderId } = await resolveFolderPath(folderPath);
+  if (!folderId) return [];
+
+  const files = [];
+  let pageToken;
+  do {
+    const result = await drive.files.list({
+      q: `'${folderId}' in parents and trashed = false`,
+      fields: "nextPageToken, files(id, name, mimeType, size, modifiedTime)",
+      spaces: "drive",
+      pageSize: 200,
+      pageToken,
+    });
+    files.push(...(result.data.files || []));
+    pageToken = result.data.nextPageToken;
+  } while (pageToken);
+
+  return files;
+}
+
+async function renameById(fileId, newName) {
+  const drive = await getDriveClient();
+  const updated = await drive.files.update({
+    fileId,
+    requestBody: { name: newName },
+    fields: "id, name",
+  });
+  return updated.data;
+}
+
+async function deleteById(fileId) {
+  const drive = await getDriveClient();
+  await drive.files.delete({ fileId });
+  return { deleted: true, fileId };
+}
+
+async function getStorageQuota() {
+  const drive = await getDriveClient();
+  const result = await drive.about.get({ fields: "storageQuota" });
+  const quota = result.data.storageQuota || {};
+  return {
+    limit: Number(quota.limit) || 0, // 0 = unlimited (Workspace) - caller should handle
+    usage: Number(quota.usage) || 0,
+  };
+}
+
 function toViewUrl(fileId) {
   return `https://lh3.googleusercontent.com/d/${fileId}`;
 }
 
-async function uploadFile({ buffer, name, mimeType, folderPath = "" }) {
+async function uploadFile({ buffer, body, name, mimeType, folderPath = "" }) {
   const { drive, parentId } = await ensureFolderPath(folderPath);
+  const mediaBody = body || Readable.from(buffer);
 
   const created = await drive.files.create({
     requestBody: { name, parents: [parentId] },
-    media: { mimeType: mimeType || "application/octet-stream", body: Readable.from(buffer) },
+    media: { mimeType: mimeType || "application/octet-stream", body: mediaBody },
     fields: "id, name, webViewLink",
   });
 
@@ -196,4 +275,11 @@ module.exports = {
   uploadFile,
   deleteFile,
   extractFileId,
+  ensureFolderPath,
+  resolveFolderPath,
+  listChildren,
+  renameById,
+  deleteById,
+  getStorageQuota,
+  toViewUrl,
 };
