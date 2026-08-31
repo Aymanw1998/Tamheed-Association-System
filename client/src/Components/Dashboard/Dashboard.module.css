@@ -1,107 +1,115 @@
 .page {
   min-height: calc(100vh - 86px);
-  padding: 20px;
-  background: #f6f8f7;
-  color: #17312a;
+  padding: var(--space-5);
+  background: var(--color-background);
+  color: var(--color-text-primary);
 }
 
 .header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 16px;
-  margin-bottom: 18px;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
 }
 
 .header h1 {
   margin: 0 0 6px;
-  font-size: 28px;
+  font-size: var(--fs-2xl);
 }
 
 .header p {
   margin: 0;
-  color: #61756e;
+  color: var(--color-text-secondary);
 }
 
 .links {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .links a {
   text-decoration: none;
-  color: #176b4d;
-  background: #ffffff;
-  border: 1px solid #dce8e2;
-  border-radius: 10px;
+  color: var(--color-primary-600);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
   padding: 10px 14px;
-  font-weight: 800;
+  font-weight: 600;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.links a:hover {
+  border-color: var(--color-primary-300);
+  box-shadow: var(--shadow-sm);
 }
 
 .error {
-  margin-bottom: 14px;
+  margin-bottom: var(--space-4);
   padding: 12px 14px;
-  border-radius: 12px;
-  background: #fde7e5;
-  color: #932b23;
+  border-radius: var(--radius-md);
+  background: var(--color-danger-100);
+  color: var(--color-danger-700);
 }
 
 .stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-  margin-bottom: 18px;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
 }
 
 .statCard {
-  background: #ffffff;
-  border: 1px solid #dce8e2;
-  border-radius: 16px;
-  padding: 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  box-shadow: var(--shadow-sm);
 }
 
 .statCard span {
   display: block;
-  color: #61756e;
-  font-size: 13px;
-  margin-bottom: 8px;
+  color: var(--color-text-secondary);
+  font-size: var(--fs-xs);
+  margin-bottom: var(--space-2);
 }
 
 .statCard strong {
-  font-size: 28px;
-  color: #176b4d;
+  font-size: var(--fs-2xl);
+  color: var(--color-primary-600);
 }
 
 .grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+  gap: var(--space-4);
 }
 
 .panel {
-  background: #ffffff;
-  border: 1px solid #dce8e2;
-  border-radius: 16px;
-  padding: 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  box-shadow: var(--shadow-sm);
 }
 
 .panelHeader {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: var(--space-3);
 }
 
 .panelHeader h2 {
   margin: 0;
-  font-size: 18px;
+  font-size: var(--fs-lg);
 }
 
 .panelHeader a {
   text-decoration: none;
-  color: #176b4d;
-  font-weight: 800;
+  color: var(--color-primary-600);
+  font-weight: 600;
 }
 
 .row {
@@ -109,14 +117,14 @@
   justify-content: space-between;
   align-items: center;
   gap: 10px;
-  padding: 12px 0;
-  border-top: 1px solid #eef3f0;
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--color-border);
 }
 
 .actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   flex-wrap: wrap;
 }
 
@@ -124,25 +132,32 @@
 .rejectBtn,
 .openBtn {
   border: 0;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   padding: 8px 12px;
-  font-weight: 800;
+  font-weight: 600;
   cursor: pointer;
+  transition: filter var(--transition-fast);
+}
+
+.approveBtn:hover,
+.rejectBtn:hover,
+.openBtn:hover {
+  filter: brightness(0.96);
 }
 
 .approveBtn {
-  background: #e7f7ee;
-  color: #176b4d;
+  background: var(--color-success-100);
+  color: var(--color-success-700);
 }
 
 .rejectBtn {
-  background: #fde7e5;
-  color: #932b23;
+  background: var(--color-danger-100);
+  color: var(--color-danger-700);
 }
 
 .openBtn {
-  background: #eef4ff;
-  color: #1d4ed8;
+  background: var(--color-info-100);
+  color: var(--color-info-700);
 }
 
 .approveBtn:disabled,
@@ -164,14 +179,14 @@
 
 .row span,
 .empty {
-  color: #61756e;
-  font-size: 14px;
+  color: var(--color-text-secondary);
+  font-size: var(--fs-sm);
 }
 
 .row em {
-  color: #176b4d;
+  color: var(--color-primary-600);
   font-style: normal;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 @media (max-width: 900px) {
@@ -186,7 +201,7 @@
 
 @media (max-width: 640px) {
   .page {
-    padding: 14px;
+    padding: var(--space-3);
   }
 
   .header {
