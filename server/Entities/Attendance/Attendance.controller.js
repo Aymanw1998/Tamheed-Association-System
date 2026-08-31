@@ -288,10 +288,78 @@ const getLessonDates = async (req, res) => {
   }
 };
 
+const ABSENT_STATUS = "غائب";
+
+async function runDailyAbsenceJob({ year, month, day, dow1to7 }) {
+  const dateKey = calcDateKey(year, month, day);
+
+  const lessonsResult = await LessonModelDef.get({ "date.day": dow1to7 }).catch((error) => {
+    logWithSource("Attendance.runDailyAbsenceJob.getLessons", error);
+    return null;
+  });
+
+  const lessons = Array.isArray(lessonsResult?.result) ? lessonsResult.result : [];
+  let createdAbsences = 0;
+
+  for (const lesson of lessons) {
+    const studentIds = (Array.isArray(lesson.list_students) ? lesson.list_students : []).map(
+      (id) => String(id)
+    );
+    if (!studentIds.length) continue;
+
+    const existingResult = await AttendanceModelDef.get({
+      lesson: String(lesson._id),
+      dateKey,
+    }).catch((error) => {
+      logWithSource("Attendance.runDailyAbsenceJob.getExisting", error);
+      return null;
+    });
+
+    const existingStudentIds = new Set(
+      (Array.isArray(existingResult?.result) ? existingResult.result : []).map((row) =>
+        String(row.student)
+      )
+    );
+
+    const missingStudentIds = studentIds.filter((id) => !existingStudentIds.has(id));
+    if (!missingStudentIds.length) continue;
+
+    await Promise.all(
+      missingStudentIds.map((studentId) =>
+        AttendanceModelDef.create({
+          lesson: String(lesson._id),
+          student: studentId,
+          year,
+          month,
+          day,
+          dateKey,
+          status: ABSENT_STATUS,
+          notes: "تم التحديد تلقائيًا كغائب لعدم تسجيل الحضور",
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }).catch((error) => {
+          logWithSource("Attendance.runDailyAbsenceJob.create", error);
+          return null;
+        })
+      )
+    );
+
+    createdAbsences += missingStudentIds.length;
+  }
+
+  logWithSource(
+    "Attendance.runDailyAbsenceJob",
+    `dateKey=${dateKey} lessonsChecked=${lessons.length} createdAbsences=${createdAbsences}`
+  );
+
+  return { ok: true, lessonsChecked: lessons.length, createdAbsences };
+}
+
 module.exports = {
   getSheet,
   bulkSave,
   getLessonDates,
+  runDailyAbsenceJob,
 };
 
 // OLD CODE - DO NOT SUGGEST CHANGES

@@ -1,12 +1,4 @@
-const fs = require("fs");
 const path = require("path");
-const crypto = require("crypto");
-
-const STORAGE_ROOT = process.env.FILE_STORAGE_ROOT 
-const PUBLIC_BASE_URL = process.env.FILE_PUBLIC_BASE_URL 
-function ensureDir(dirPath) {
-  fs.mkdirSync(dirPath, { recursive: true });
-}
 
 function safeSegment(value = "") {
   return String(value)
@@ -45,8 +37,8 @@ function buildRelativeDir(dbName, collection, folder = "") {
   return path.join(safeDbName, safeCollection);
 }
 
-const axios = require("axios");
-const FormData = require("form-data");
+const googleDrive = require("../../services/googleDrive.service");
+
 const buildPhotoName = (tz = "", file = {}) => {
   const ext = path.extname(file.originalname || "") || "";
   return `${tz || "person"}${ext}`;
@@ -72,63 +64,27 @@ async function handleUpload(file, dbName, collection, tz = "") {
       ? `${uploadFileName}${uploadExt}`
       : uploadFileName;
 
-    const form = new FormData();
-
-    form.append("file", file.buffer, {
-      filename: finalFileName,
-      contentType: file.mimetype || "application/octet-stream",
-      knownLength: file.size,
+    const uploaded = await googleDrive.uploadFile({
+      buffer: file.buffer,
+      name: finalFileName,
+      mimeType: file.mimetype,
+      folderPath: buildRelativeDir(dbName, collection),
     });
 
-    form.append("dbName", dbName);
-    form.append("collection", collection);
-
-    const response = await axios.post(
-      PUBLIC_BASE_URL + "/upload",
-      form,
-      {
-        headers: {
-          ...form.getHeaders(),
-          // ملاحظة عربية
-          // Authorization: `Bearer ${process.env.GLOBAL_SERVICE_TOKEN}`,
-        },
-        maxContentLength: Infinity,
-        maxBodyLength: Infinity,
-      }
-    );
-
-    return response.data;
+    // secure_url naming kept for compatibility with existing callers
+    // (User.controller.js / Student.controller.js read `.secure_url`).
+    return { secure_url: uploaded.viewUrl, public_id: uploaded.id };
   } catch (err) {
-    console.error(
-      "Remote upload error:",
-      err.response?.data || err.message || err
-    );
+    console.error("Google Drive upload error:", err.message || err);
     return null;
   }
 }
 async function handleDelete(filePathOrUrl) {
   try {
-    console.log("handleDelete called with:", filePathOrUrl);
     if (!filePathOrUrl) return null;
-
-    const response = await axios.delete(
-      PUBLIC_BASE_URL + "/delete",
-      {
-        data: {
-          url: filePathOrUrl,
-        },
-        headers: {
-          // Authorization: `Bearer ${process.env.GLOBAL_SERVICE_TOKEN}`,
-        },
-      }
-    );
-
-    return response.data;
+    return await googleDrive.deleteFile(filePathOrUrl);
   } catch (err) {
-    console.error(
-      "Remote delete error:",
-      err.response?.data || err.message || err
-    );
+    console.error("Google Drive delete error:", err.message || err);
     return null;
   }
 }

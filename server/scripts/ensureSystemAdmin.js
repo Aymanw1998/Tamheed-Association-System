@@ -12,6 +12,16 @@ const SYSTEM_ADMIN_STREET = String(process.env.SYSTEM_ADMIN_STREET || "").trim()
 const SYSTEM_ADMIN_GENDER = String(process.env.SYSTEM_ADMIN_GENDER || "ذكر").trim();
 const SYSTEM_ADMIN_STORAGE_FOLDER = String(process.env.SYSTEM_ADMIN_STORAGE_FOLDER || "system-admin").trim();
 
+async function safeEnsureUserStorageFolder(user) {
+  try {
+    await ensureUserStorageFolder(user);
+  } catch (error) {
+    console.warn(
+      `Skipping storage folder provisioning for system admin (remote storage unreachable): ${error.message}`
+    );
+  }
+}
+
 async function findUserByTzInRoom(tz, room) {
   const response = await UserModelDef.get({ tz }, room);
   if (response?.success && Array.isArray(response.result) && response.result.length > 0) {
@@ -47,7 +57,7 @@ async function ensureSystemAdmin() {
     };
 
     await UserModelDef.update({ tz: SYSTEM_ADMIN_TZ }, patch, "active");
-    await ensureUserStorageFolder({ ...activeUser, ...patch, tz: SYSTEM_ADMIN_TZ });
+    await safeEnsureUserStorageFolder({ ...activeUser, ...patch, tz: SYSTEM_ADMIN_TZ });
 
     console.log(`System admin already exists and was normalized: ${SYSTEM_ADMIN_TZ}`);
     return { ok: true, created: false, room: "active" };
@@ -74,7 +84,7 @@ async function ensureSystemAdmin() {
   };
 
   await UserModelDef.create(payload, "active");
-  await ensureUserStorageFolder(payload);
+  await safeEnsureUserStorageFolder(payload);
 
   console.log(`System admin user created successfully: ${SYSTEM_ADMIN_TZ}`);
   return { ok: true, created: true, room: "active" };

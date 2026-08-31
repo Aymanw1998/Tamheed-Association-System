@@ -82,10 +82,11 @@ app.use('/api/student', require('./Entities/Student/Student.route'))
 app.use('/api/inviteToken', require('./Entities/InviteToken/InviteToken.route'))
 app.use('/api/report', require('./Entities/Report/Report.route'));
 app.use('/api/storage', require('./Entities/Storage/Storage.route'))
+app.use('/api/storage/google', require('./Entities/Storage/GoogleDrive.route'))
 app.use("/api/ai", aiRoutes);
 // **********************************AUTO_PROCCESS ***************************
-// ملاحظة عربية
-// cron.schedule("* * * * *", runDailyJobs, { timezone: "Asia/Jerusalem" });
+const { startDailyAbsenceJob } = require('./utils/daily');
+startDailyAbsenceJob();
 // **********************************END - AUTO_PROCCESS ***************************
 
 
@@ -95,11 +96,6 @@ if (process.env.NODE_ENV !== 'production') {
 }
 // Route middleware
 app.get('/', (req, res) => {console.log("Server is up and running");res.send('Server is up and running'); });
-
-
-//must be after routes call
-//for catch 500-400 errors
-app.use(errorHandler);
 
 
 // **********************************ALERTS POPUP***************************
@@ -129,13 +125,18 @@ if (process.env.NODE_ENV !== 'production') {
   });
 }
 
-// ملاحظة عربية
+// errorPublisher must run before errorHandler: errorHandler sends the response
+// and doesn't call next(err), so anything registered after it never sees the error.
 app.use(errorPublisher);
+
+//must be after routes call and after errorPublisher
+//for catch 500-400 errors
+app.use(errorHandler);
+
 app.use(require("express").json({ limit: "50mb" }));
 const StartServer = async () => {
   try {
-    // ملاحظة عربية
-    // await connectDB();
+    await connectDB();
     await ensureSystemAdmin();
     // **********************************END - ALERTS POPUP***************************
     const httpServer = http.createServer(app)
