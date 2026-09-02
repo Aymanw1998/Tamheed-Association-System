@@ -31,3 +31,4 @@ dev-server.err.log
 dev-server.out.log
 rs-start.err.log
 rs-start.out.log
+.claude/
