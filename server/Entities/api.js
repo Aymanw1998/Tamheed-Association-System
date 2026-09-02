@@ -1,10 +1,13 @@
 // Generic data-access layer used by every Entities/*.model.js file
 // (create/read/update/delete against {dbName, collection}).
 //
-// This used to forward every call over HTTP to an external "Global Server".
+// This used to forward every call over HTTP to an external "Global Server",
+// throwing on failure (the remote api.js did `throw normalizeError(error)`).
 // It now talks directly to a local MongoDB instance via Mongoose, using one
-// schema-less model per collection, so every existing model/controller keeps
-// working unchanged - only this file's internals changed.
+// schema-less model per collection, but still throws on failure to match
+// that original contract - callers throughout the codebase are written
+// against it (bare `await X.create(...)` inside try/catch expecting the
+// catch to fire, or `.catch(() => null)` on `.get(...)` calls).
 const mongoose = require("mongoose");
 const connectDB = require("../config/db");
 
@@ -40,24 +43,17 @@ function toPlain(doc) {
 const api = {
   async create({ dbName, collection, data }) {
     await ensureConnected();
-    try {
-      const Model = getModel(dbName, collection);
-      const created = await Model.create(data);
-      return { success: true, result: toPlain(created) };
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
+    const Model = getModel(dbName, collection);
+    const created = await Model.create(data);
+    return { success: true, result: toPlain(created) };
   },
 
   async read({ dbName, collection, filter = {} }) {
     await ensureConnected();
-    try {
-      const Model = getModel(dbName, collection);
-      const docs = await Model.find(filter).lean();
-      return { success: true, result: docs.map(toPlain) };
-    } catch (error) {
-      return { success: false, error: error.message, result: [] };
-    }
+    const Model = getModel(dbName, collection);
+    const docs = await Model.find(filter).lean();
+    const result = docs.map(toPlain);
+    return { success: true, result, count: result.length };
   },
 
   // NOTE: upserts by design - most callers use this to set fields on a
@@ -65,28 +61,20 @@ const api = {
   // (Attendance bulkSave) rely on it creating the row if it's missing.
   async update({ dbName, collection, filter, newData }) {
     await ensureConnected();
-    try {
-      const Model = getModel(dbName, collection);
-      const updated = await Model.findOneAndUpdate(
-        filter,
-        { $set: newData },
-        { new: true, upsert: true, setDefaultsOnInsert: true }
-      ).lean();
-      return { success: true, result: toPlain(updated) };
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
+    const Model = getModel(dbName, collection);
+    const updated = await Model.findOneAndUpdate(
+      filter,
+      { $set: newData },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    ).lean();
+    return { success: true, result: toPlain(updated) };
   },
 
   async delete({ dbName, collection, filter }) {
     await ensureConnected();
-    try {
-      const Model = getModel(dbName, collection);
-      const result = await Model.deleteMany(filter);
-      return { success: true, result: { deletedCount: result.deletedCount } };
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
+    const Model = getModel(dbName, collection);
+    const result = await Model.deleteMany(filter);
+    return { success: true, result: { deletedCount: result.deletedCount } };
   },
 };
 

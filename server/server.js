@@ -85,8 +85,9 @@ app.use('/api/storage', require('./Entities/Storage/Storage.route'))
 app.use('/api/storage/google', require('./Entities/Storage/GoogleDrive.route'))
 // Local Google-Drive-backed replacement for the remote Central Storage
 // service that Storage.controller.js talks to (see CENTRAL_STORAGE_API_URL /
-// CENTRAL_STORAGE_FILE_BASE_URL in config/.env). Internal/trusted - no
-// per-request user auth, same as the remote service it replaces.
+// CENTRAL_STORAGE_FILE_BASE_URL in config/.env). Restricts callers to
+// loopback only (see the route file) since it's colocated on this public
+// app rather than on an isolated host like the remote service it replaces.
 app.use('/api/storage-backend', require('./Entities/Storage/CentralStorageBackend.route'))
 app.use("/api/ai", aiRoutes);
 // **********************************AUTO_PROCCESS ***************************

@@ -16,6 +16,24 @@ const googleDrive = require("../../services/googleDrive.service");
 
 const router = express.Router();
 
+// This backend is mounted on the same public Express app as every other
+// route (see server.js) and, unlike the remote service it replaces, isn't
+// isolated on a separate host - so it must enforce its own trust boundary.
+// Storage.controller.js's permission/ownership checks all happen one layer
+// up, before it calls here; nothing in these handlers re-checks them. Only
+// this server process itself (loopback) may call these endpoints, EXCEPT
+// /file/:name, which is reached by the end user's browser following a
+// redirect and is protected by its own signed, time-limited JWT instead.
+const LOOPBACK_ADDRESSES = new Set(["127.0.0.1", "::1", "::ffff:127.0.0.1"]);
+router.use((req, res, next) => {
+  if (req.path.startsWith("/file/")) return next();
+
+  const remoteAddress = req.socket?.remoteAddress || "";
+  if (LOOPBACK_ADDRESSES.has(remoteAddress)) return next();
+
+  return res.status(403).json({ success: false, error: "forbidden" });
+});
+
 const DEFAULT_DB_NAME = process.env.DB_NAME || "tamheed_db";
 const DEFAULT_COLLECTION = process.env.STORAGE_COLLECTION || "root";
 
