@@ -25,3 +25,9 @@ AccessKeyAWS
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# dev server run logs (not build output, just local noise)
+dev-server.err.log
+dev-server.out.log
+rs-start.err.log
+rs-start.out.log
