@@ -19,6 +19,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.125.0",
     "@faker-js/faker": "^9.8.0",
     "aws-sdk": "^2.1534.0",
     "axios": "^1.15.2",

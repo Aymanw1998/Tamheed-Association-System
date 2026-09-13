@@ -29,13 +29,17 @@ import AttendancePage from '../Attendance/AttendancePage';
 import FilesPage from '../Files/FilesPage';
 import FloatingAIButton from '../AI/FloatingAIButton';
 
+// Backend is wired up (server/services/ai.service.js), but the widget is
+// hidden until an ANTHROPIC_API_KEY is configured. Flip to true to show it.
+const AI_ENABLED = false;
+
 function ProtectedLayout() {
   // ملاحظة عربية
   return (
     <div style={{ height: "100vh", width: "100vw" }}>
       <Header />
       <Outlet />
-      <FloatingAIButton />
+      {AI_ENABLED && <FloatingAIButton />}
     </div>
   );
 }
