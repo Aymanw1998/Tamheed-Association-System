@@ -23,7 +23,7 @@ router.use(protect);
 // الأحدالأربعاءجنس
 router.get('/', protectRole('ادارة'), getAllU);
 router.get('/:tz', protectSelfOrRole('tz', 'ادارة'), getOneU);
-router.get('/viewPassword/:tz', viewPassword);
+router.get('/viewPassword/:tz', protectRole('ادارة'), viewPassword);
 
 router.post('/', protectRole('ادارة'), postU);
 router.post("/checkPasswordisGood", CheckPasswordisGood);
