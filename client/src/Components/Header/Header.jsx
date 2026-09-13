@@ -5,28 +5,10 @@ import LOGO from "../../images/logo.png";
 import { getMe, logout } from "../../WebServer/services/auth/fuctionsAuth";
 import { ask } from "../Provides/confirmBus";
 import { useI18n } from "../../i18n/I18nContext";
+import { ADMIN_ROLES, normalizeRoles } from "../../utils/session";
 
-const ADMIN_ROLES = ["ادارة", "إدارة", "الادارة", "الإدارة", "Ø§Ø¯Ø§Ø±Ø©", "Ø¥Ø¯Ø§Ø±Ø©", "Ø§Ù„Ø§Ø¯Ø§Ø±Ø©", "Ø§Ù„Ø¥Ø¯Ø§Ø±Ø©"];
-const GUIDE_ROLES = ["مرشد", "Ù…Ø±Ø´Ø¯"];
+const GUIDE_ROLES = ["مرشد", "مرشدة", "المرشد", "المرشدة"];
 const STUDENT_ROLES = [...ADMIN_ROLES, ...GUIDE_ROLES];
-
-const normalizeRoles = (value) => {
-  if (Array.isArray(value)) return value.filter(Boolean);
-  if (!value) return [];
-
-  if (typeof value === "string") {
-    try {
-      const parsed = JSON.parse(value);
-      if (Array.isArray(parsed)) return parsed.filter(Boolean);
-    } catch {
-      return [value];
-    }
-
-    return [value];
-  }
-
-  return [];
-};
 
 const hasAnyRole = (roles, allowedRoles) => allowedRoles.some((role) => roles.includes(role));
 

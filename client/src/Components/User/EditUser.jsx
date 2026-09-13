@@ -4,6 +4,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { create, update, getUserById as getOne, /*softDelete,*/ deleteU, uploadPhoto, changeStatus, viewPassword } from "../../WebServer/services/user/functionsUser.jsx";
 import styles from "./User.module.css";
 import { toast } from "../../ALERT/SystemToasts.jsx";
+import EyeIcon from "../UI/EyeIcon";
 
 const EditUser = () => {
   const params = useParams();              // "new" الأحدالجمعة _id
@@ -311,13 +312,17 @@ const EditUser = () => {
       if(!res.ok) throw new Error(res.message);
       toast.success(`✅ المستخدم ${isEdit ? 'حُديث' : 'حُفِظ'} بنجاح`);
 
-      const res2 = await uploadPhoto(form.tz, photo);
-      if(!res2) return;
-      if(!res2.ok) {
-        toast.warn("لم يتم تحميل صورة المستخدم: " + res2.message);
-      }
-      else{
-        toast.success("✅ تم تحميل صورة المستخدم بنجاح");
+      // Only re-upload when a new file was actually picked — the existing
+      // photo (loaded as a URL, not a File) must be left alone otherwise.
+      if (photo instanceof File) {
+        const res2 = await uploadPhoto(form.tz, photo);
+        if(!res2) return;
+        if(!res2.ok) {
+          toast.warn("لم يتم تحميل صورة المستخدم: " + res2.message);
+        }
+        else{
+          toast.success("✅ تم تحميل صورة المستخدم بنجاح");
+        }
       }
       navigate(-1);
     } catch (e) {
@@ -416,8 +421,10 @@ const EditUser = () => {
             }
           }}
           title={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
+          aria-label={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
+          aria-pressed={showPassword}
         >
-          {fetchingPassword ? '⏳' : (showPassword ? '🙈' : '👁️')}
+          <EyeIcon open={showPassword} />
         </button>
 
       </div>

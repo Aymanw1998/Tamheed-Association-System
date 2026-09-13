@@ -22,8 +22,8 @@ export default function StudentStatusFilter({
   const rootRef = useRef(null);
 
   const buttons = [
-    { key: "active", label: "مُفعاليّن", badge: counts?.active, color: "#8feba6ff" },
-    { key: "waiting", label: "مُنتظرين", badge: counts?.pending, color: "#e9f85eff" },
+    { key: "active", label: "مُفعاليّن", badge: counts?.active, color: "var(--color-success-100)" },
+    { key: "waiting", label: "مُنتظرين", badge: counts?.pending, color: "var(--color-warning-100)" },
   ];
 
   const select = (next) => {

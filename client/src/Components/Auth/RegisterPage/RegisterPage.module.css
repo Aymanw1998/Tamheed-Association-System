@@ -15,13 +15,13 @@
 
 .subsTable th,
 .subsTable td {
-  border: 1px solid #ccc;
+  border: 1px solid var(--color-border);
   padding: 10px;
   text-align: right;
 }
 
 .subsTable th {
-  background-color: #f2f2f2;
+  background-color: var(--color-primary-50);
   font-weight: bold;
 }
 
@@ -33,16 +33,16 @@
 
 .actionsButtons button {
   padding: 5px 10px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   border: none;
-  background-color: #007bff;
-  color: white;
+  background-color: var(--color-primary-500);
+  color: var(--color-text-on-primary);
   cursor: pointer;
-  transition: background-color 0.3s;
+  transition: background-color 0.2s;
 }
 
 .actionsButtons button:hover {
-  background-color: #0056b3;
+  background-color: var(--color-primary-600);
 }
 
 .formContainer {
@@ -61,19 +61,64 @@
 
 .formContainer input {
   padding: 10px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
   font-size: 1rem;
 }
 
 .formContainer button {
   align-self: flex-start;
   padding: 10px 20px;
-  background-color: green;
-  color: white;
+  background-color: var(--color-primary-500);
+  color: var(--color-text-on-primary);
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.formContainer button:hover {
+  background-color: var(--color-primary-600);
+}
+
+.fieldError {
+  display: block;
+  min-height: 1em;
+  margin-top: -8px;
+  font-size: var(--fs-xs);
+  color: var(--color-danger-600, var(--color-danger-700));
+}
+
+.passwordWrapper {
+  position: relative;
+  display: flex;
+}
+
+.passwordWrapper input {
+  width: 100%;
+  padding-inline-end: 40px;
+}
+
+.togglePassword {
+  position: absolute;
+  inset-inline-end: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.togglePassword:hover {
+  color: var(--color-primary-600);
+  background: var(--color-primary-50);
 }
 
 .buttonRow {
@@ -95,9 +140,9 @@
 
   .subsTable tr {
     margin-bottom: 1rem;
-    border: 1px solid #ccc;
-    border-radius: 6px;
-    background-color: #fff;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background-color: var(--color-surface);
     padding: 10px;
   }
 
@@ -113,6 +158,6 @@
     left: 10px;
     top: 10px;
     font-weight: bold;
-    color: #333;
+    color: var(--color-text-primary);
   }
 }

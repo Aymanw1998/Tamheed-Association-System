@@ -8,6 +8,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { login } from '../../../WebServer/services/auth/fuctionsAuth';
 import { toast } from '../../../ALERT/SystemToasts';
 import ForgotPassword from '../ForgotPassword/ForgotPassword';
+import EyeIcon from '../../UI/EyeIcon';
 
 export default function LoginPage() {
     const navigate = useNavigate();
@@ -16,13 +17,13 @@ export default function LoginPage() {
     const [showPopup, setShowPopup] = useState(false);
     const [tz, setTz] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [loading,  setLoading]  = useState(false);
 
     const tzRef = useRef(null);
     const passwordRef = useRef(null);
-    
+
     const handleKeyDown = (e) => {
-        console.log(e.target.name, e.key);
         if(e.target.name == "tz" && e.key == "Enter") {
             passwordRef.current.focus();
         }
@@ -37,17 +38,12 @@ export default function LoginPage() {
         }
         setLoading(true);
         try {
-            // ملاحظة عربية
             const me = await login(tz, password);
-            console.log("Logged in user:", me);
-            // ملاحظة عربية
             if (me?.firstname || me?.lastname) {
                 toast.success(`${[me.firstname, me.lastname].filter(Boolean).join(' ')}, مرحباً بك في النظام!`);
             }
 
-            // ملاحظة عربية
             const from = location.state?.from?.pathname || '/dashboard';
-            console.log("Navigating after login to:", from);
             navigate(from, { replace: true });
         } catch (err) {
             console.error('Login error:', err?.response?.data || err.message);
@@ -68,12 +64,38 @@ export default function LoginPage() {
                 <div className={styles.loginForm}>
                     <div className={`${styles.logo} ${styles.logoDisNone}`}><img src={LogoIMG}/></div>
                     <h2>سجل الدخول</h2>
-                    <input ref={tzRef} name="tz" type="text" placeholder="رقم الهوية" value={tz} onChange={(e)=>setTz(e.target.value)} onKeyDown={handleKeyDown} required />
-                    <input ref={passwordRef} name="password" type="password" placeholder="كلمة المرور" value={password} onChange={(e)=>setPassword(e.target.value)} onKeyDown={handleKeyDown} required />
-                    <a href="#" onClick={(e)=>{e.preventDefault(); setShowPopup(true);}}>نسيت كلمة المرور؟</a>
-                    <button type="submit" onClick={handleLogin}>{loading ? '...' : 'أدخل'}</button>
+
+                    <label className={styles.fieldLabel} htmlFor="login-tz">رقم الهوية</label>
+                    <input id="login-tz" ref={tzRef} name="tz" type="text" placeholder="رقم الهوية" value={tz} onChange={(e)=>setTz(e.target.value)} onKeyDown={handleKeyDown} required />
+
+                    <label className={styles.fieldLabel} htmlFor="login-password">كلمة المرور</label>
+                    <div className={styles.passwordWrapper}>
+                        <input
+                            id="login-password"
+                            ref={passwordRef}
+                            name="password"
+                            type={showPassword ? 'text' : 'password'}
+                            placeholder="كلمة المرور"
+                            value={password}
+                            onChange={(e)=>setPassword(e.target.value)}
+                            onKeyDown={handleKeyDown}
+                            required
+                        />
+                        <button
+                            type="button"
+                            className={styles.togglePassword}
+                            onClick={() => setShowPassword((value) => !value)}
+                            aria-label={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
+                            aria-pressed={showPassword}
+                        >
+                            <EyeIcon open={showPassword} />
+                        </button>
+                    </div>
+
+                    <button type="button" className={styles.forgotLink} onClick={() => setShowPopup(true)}>نسيت كلمة المرور؟</button>
+                    <button type="submit" onClick={handleLogin} disabled={loading}>{loading ? '...' : 'أدخل'}</button>
                     <hr />
-                    <button type="submit" className={styles.secondaryButton} onClick={()=>navigate("/register")}>{'تسجل كمستخدم'}</button>
+                    <button type="button" className={styles.secondaryButton} onClick={()=>navigate("/register")}>{'تسجل كمستخدم'}</button>
                 </div>
             </div>
 

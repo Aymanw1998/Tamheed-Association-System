@@ -1,49 +1,18 @@
-// 📁 src/components/user/EditUser.jsx
-import React, { useEffect, useMemo, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import {
-  getUserById,
-  createUser,
-} from '../../../WebServer/services/user/functionsUser';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { uploadPhoto } from '../../../WebServer/services/user/functionsUser';
 import styles from './RegisterPage.module.css';
 import { toast } from '../../../ALERT/SystemToasts';
 import { register } from '../../../WebServer/services/auth/fuctionsAuth';
+import EyeIcon from '../../UI/EyeIcon';
+import Button from '../../UI/Button';
 
-const initialUser = {
-  tz: '', password: '',
-  firstname: '', lastname: '', birth_date: '',
-  gender: '', phone: '', email: '',
-  city: window.innerWidth < 768 ? 'الرملة' : '', street: '', role: 'متدرب', wallet: 0,
-  subs: { id: null, start: { day: -1} },
-};
-
-const normalizePhoneToIntl = (val) => {
-  if (!val) return '';
-  let v = String(val).replace(/\D+/g, '');
-  // ملاحظة عربية
-  if (v.startsWith('972')) v = '+' + v;
-  // ملاحظة عربية
-  if (v.startsWith('0')) v = '+972' + v.slice(1);
-  if (!v.startsWith('+')) v = '+' + v;
-  return v;
-};
-
-const displayPhoneLocal = (val) => {
-  if (!val) return '';
-  let v = String(val);
-  if (v.startsWith('+972')) v = '0' + v.slice(4);
-  return v.replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3'); // 05x-xxx-xxxx
-};
-
+// This page only ever creates a brand-new account (see /register in
+// Routes.jsx) — editing an existing user is handled by a separate
+// EditUser page, so there is no "edit mode" here.
 export default function RegisterPage() {
-  
-    const params = useParams();              // "new" الأحدالجمعة _id
     const navigate = useNavigate();
-  
-    const id = "new";
-    const isEdit =false;
-    const isNew = !isEdit;
-  
+
     const [form, setForm] = useState({
       tz: "",
       password: "",
@@ -57,7 +26,7 @@ export default function RegisterPage() {
       street: "",
       roles: ["مرشد"],
     });
-    useEffect(()=>console.log("form", form), [form])
+    const isNew = true;
     const [photo, setPhoto] = useState(null);
     const [error, setError] = useState({
       tz: "",
@@ -72,38 +41,10 @@ export default function RegisterPage() {
       street: "",
       roles: "",
     })
-  
-    const [loading, setLoading] = useState(isEdit);
+
     const [saving, setSaving]   = useState(false);
-    const [err, setErr]         = useState(null);
     const [showPassword, setShowPassword] = useState(false);
-  
-    
-    useEffect(() => {
-      if (isNew) return;
-      (async () => {
-        try {
-          //console.log("load training");
-          setLoading(true);
-          setErr(null);
-          const res = await getOne(id); // ملاحظة عربية
-          if(!res.ok) throw new Error(res.message);
-          if (res) {
-            const s = res.user;
-            s.roles = s.roles.includes("ادارة") ? ["ادارة"] : (s.roles.includes("مرشد") ? ["مرشد"] : ["مساعد"]);
-            setForm(s);
-            setPhoto(s.photo || null);
-          } else {
-            setErr("المستخدم غير موجود");
-          }
-        } catch (e) {
-          setErr("خلل في جلب البيانات");
-        } finally {
-          setLoading(false);
-        }
-      })();
-    }, [id, isEdit]);
-  
+
     function isValidIsraeliId(id) {
       if (!/^\d{5,9}$/.test(id)) return false;
       id = id.padStart(9, "0");
@@ -133,89 +74,61 @@ export default function RegisterPage() {
     };
   
     const validate = async(name = null, value = null) => {
-      const tag = document.getElementsByName(name)[0];
       if(name === "tz"){
-        //console.log(isNew && value === "");
           if (value === "") {
-            tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
             return "املأ الحقل";
-          } 
+          }
           else if(!isValidIsraeliId(value)){
-            tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
             return "رقم الهوية غير صالح"
           }
-          else if(isNew) {
-            const data = parent ? {ok: false} : await getOne(value)
-            if(data.ok){
-              tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
-              return "رقم الهوية موجود في النظام"
-            } 
-          }
-          tag?.style.setProperty('border', '2px solid green'); // ملاحظة عربية
+          // Whether this tz already exists can only be confirmed by the
+          // (authenticated) server, which isn't reachable from this public
+          // registration form — the actual duplicate check happens on
+          // submit and surfaces as a toast from the register() call below.
           return ""
         }
-  
+
         //fisrtname, lastname
         else if(['firstname', 'lastname', 'father_name', 'mother_name'].includes(name)){
           if (value === "") {
-            tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
             return "املأ الحقل";
-          } 
-          else{
-            tag?.style.setProperty('border', '2px solid green'); // ملاحظة عربية
-            return ""
           }
+          return ""
         }
-  
+
         //gender, role
         else if(['gender', 'roles'].includes(name)){
           if (name === 'gender' && !['ذكر' , 'انثى'].includes(value)) {
-            tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
             return "اختر الجنس";
           } else if (isNew && name === 'role' && !['ادارة', 'مرشد', 'مساعد'].includes(value)) {
-            tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
             return "اختر الدور";
-          }  
-          else{
-            tag?.style.setProperty('border', '2px solid green'); // ملاحظة عربية
-            return ""
           }
+          return ""
         }
-  
+
         else if (name === "birth_date"){
-          try{
-            //console.log("birth_date", value, form.birth_date);
-            if(value !== ""){
-              const date = new Date(value); 
-            }
-            else {
-            tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
+          if(value === "") {
             return "اختر تاريخ الميلاد";
-            }
-          } catch {
-            //console.log("invalid date");
-            tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
+          }
+          if (Number.isNaN(new Date(value).getTime())) {
             return "تاريخ غير صالح";
           }
+          return "";
         }
-  
+
         //phone, email, city, street
         else if (['father_phone', 'mother_phone', 'phone', 'email', 'city', 'street'].includes(name)){
           if (value === "") {
-            tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
             return "املأ الحقل";
-          } 
-          else{
-            tag?.style.setProperty('border', '2px solid green'); // ملاحظة عربية
-            return ""
           }
+          return ""
         }
         else if (name === "roles") {
           if (!value || value.length === 0) return "اختر دورا واحدا على الأقل";
           return "";
         }
-  
-        return ""; 
+
+        return "";
     }
     const normalizePhoneToIntl = (val) => {
       if (!val) return '';
@@ -253,15 +166,11 @@ export default function RegisterPage() {
       let b = await validate();
       if (b) { toast.warn(b); return; }
       b = true
-      const ff = ['tz', 'firstname', 'lastname', 'birth_date', 'gender', 'phone', 'email', 'city', 'street', 'roles'];
-      for(const nameTag in ff){
-        const tag = document.getElementsByName(ff[nameTag])[0];
-        //console.log('Tag', tag, ff[nameTag]);
-        // //console.log('tag', tag, tag.name, tag.value);
-        const msg = await validate(tag.name, tag.value);
-        setError((prev) => ({ ...prev, [tag.name]: msg }));
-        // //console.log('msg', msg)
-        if(msg && msg !== ''){
+      const requiredFields = ['tz', 'firstname', 'lastname', 'birth_date', 'gender', 'phone', 'email', 'city', 'street', 'roles'];
+      for (const fieldName of requiredFields) {
+        const msg = await validate(fieldName, form[fieldName]);
+        setError((prev) => ({ ...prev, [fieldName]: msg }));
+        if (msg) {
           b = false;
         }
       }
@@ -269,11 +178,9 @@ export default function RegisterPage() {
       e.preventDefault();
       try {
         setSaving(true);
-        setErr(null);
-  
+
         const payload = { ...form };
-        //console.log("payload", payload);  
-        
+
         const res = await register(payload);
         if(!res)return;
         if(!res.ok) throw new Error(res.message);
@@ -297,34 +204,18 @@ export default function RegisterPage() {
       }
     };
   
-    if (loading) return <div className={styles.formContainer}>يتحدث...</div>;
-    if (err)      return <div className={styles.formContainer} style={{color:"#b91c1c"}}>{err}</div>;
-  
-    const toggleRole = (role, checked) => {
-      setForm((prev) => {
-        const current = prev.roles || [];
-  
-        return {
-          ...prev,
-          roles: checked
-            ? [...current, role]                         // إضافة
-            : current.filter((r) => r !== role),        // ملاحظة عربية
-        };
-      });
-    }
-  
     return (
       <div className={styles.formContainer}>
         <h2>اضافة مستخدم جديد</h2>
   
-        <label>رقم الهوية:</label>
-        <input name="tz" value={form.tz} onChange={onField} readOnly={!isNew} />
-        <label style={{color: "red"}}>{error.tz}</label>
-        <br />
+        <label htmlFor="reg-tz">رقم الهوية:</label>
+        <input id="reg-tz" name="tz" value={form.tz} onChange={onField} readOnly={!isNew} />
+        <span className={styles.fieldError}>{error.tz}</span>
   
-        <label>كلمة السر:</label>
+        <label htmlFor="reg-password">كلمة السر:</label>
         <div className={styles.passwordWrapper}>
           <input
+            id="reg-password"
             name="password"
             type={showPassword ? 'text' : 'password'}
             value={form.password || ''}
@@ -334,15 +225,17 @@ export default function RegisterPage() {
             type="button"
             className={styles.togglePassword}
             onClick={() => setShowPassword((s) => !s)}
+            aria-label={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
+            aria-pressed={showPassword}
           >
-            {showPassword ? '🙈' : '👁️'}
+            <EyeIcon open={showPassword} />
           </button>
         </div>
-        <label style={{color: "red"}}>{error.password}</label>
-        <br />
-        
-        <label>الادوار:</label>
+        <span className={styles.fieldError}>{error.password}</span>
+
+        <label htmlFor="reg-roles">الادوار:</label>
         <select
+          id="reg-roles"
           name="roles"
           value={form.roles[0]  || ""}
           onChange={(e) => {
@@ -353,66 +246,69 @@ export default function RegisterPage() {
           <option value="مرشد">مرشد</option>
           <option value="مساعد">مساعد</option>
         </select>
-        <label style={{color: "red"}}>{error.roles}</label>
-        <br />
-        
-        
-        <label>اسم المستخدم:</label>
+        <span className={styles.fieldError}>{error.roles}</span>
+
+        <label htmlFor="reg-firstname">اسم المستخدم:</label>
         <input
+          id="reg-firstname"
           name="firstname"
           value={form.firstname}
           onChange={handleChange}
           required
         />
-        <label style={{color: "red"}}>{error.firstname}</label>
-        <br />
-        <label>اسم العائلة:</label>
+        <span className={styles.fieldError}>{error.firstname}</span>
+
+        <label htmlFor="reg-lastname">اسم العائلة:</label>
         <input
+          id="reg-lastname"
           name="lastname"
           value={form.lastname}
           onChange={handleChange}
           required
         />
-        <label style={{color: "red"}}>{error.lastname}</label>
-        <br />
-        <label>تاريخ الميلاد:</label>
+        <span className={styles.fieldError}>{error.lastname}</span>
+
+        <label htmlFor="reg-birth_date">تاريخ الميلاد:</label>
         <input
+          id="reg-birth_date"
           name="birth_date"
           type="date"
           value={form.birth_date ? String(form.birth_date).slice(0, 10) : ''}
           onChange={onField}
         />
-        <label style={{color: "red"}}>{error.birth_date}</label>
-        <br />
-        <label>جنس:</label>
-        <select name="gender" value={form.gender} onChange={onField}>
+        <span className={styles.fieldError}>{error.birth_date}</span>
+
+        <label htmlFor="reg-gender">جنس:</label>
+        <select id="reg-gender" name="gender" value={form.gender} onChange={onField}>
           <option value="">اختار الجنس</option>
           <option value="ذكر">ذكر</option>
           <option value="انثى">انثى</option>
         </select>
-        <label style={{color: "red"}}>{error.gender}</label>
-        <br />
-        <label>هاتف:</label>
+        <span className={styles.fieldError}>{error.gender}</span>
+
+        <label htmlFor="reg-phone">هاتف:</label>
         <input
+          id="reg-phone"
           name="phone"
+          type="tel"
           value={displayPhoneLocal(form.phone)}
           onChange={(e)=>onPhoneChange('phone', e.target.value)}
           placeholder="052-123-4567"
         />
-        <label style={{color: "red"}}>{error.mother_phone}</label>
-        <br />
-        <label>بريد الكتروني:</label>
-        <input name="email" value={form.email} onChange={onField} />
-        <label style={{color: "red"}}>{error.email}</label>
-  
-        <label>بلد:</label>
-        <input name="city" value={form.city} onChange={onField} />
-        <label style={{color: "red"}}>{error.city}</label>
-  
-        <label>شارع السكن:</label>
-        <input name="street" value={form.street} onChange={onField} />
-        <label style={{color: "red"}}>{error.street}</label>
-  
+        <span className={styles.fieldError}>{error.phone}</span>
+
+        <label htmlFor="reg-email">بريد الكتروني:</label>
+        <input id="reg-email" name="email" type="email" value={form.email} onChange={onField} />
+        <span className={styles.fieldError}>{error.email}</span>
+
+        <label htmlFor="reg-city">بلد:</label>
+        <input id="reg-city" name="city" value={form.city} onChange={onField} />
+        <span className={styles.fieldError}>{error.city}</span>
+
+        <label htmlFor="reg-street">شارع السكن:</label>
+        <input id="reg-street" name="street" value={form.street} onChange={onField} />
+        <span className={styles.fieldError}>{error.street}</span>
+
         <div style={{ marginBottom: "16px" }}>
           <label>صورة المستخدم:</label>
           <button onClick={
@@ -438,8 +334,8 @@ export default function RegisterPage() {
         </div>
   
         <div className={styles.buttonRow} style={{ gap: 8, flexWrap: "wrap" }}>
-          <button type="submit" onClick={handleSubmit}>اضافة المستخدم</button>
-          <button type="button" style={{ background: "#6b7280", width: "100%" }} onClick={() => navigate(-1)}>الرجوع</button>
+          <Button type="submit" onClick={handleSubmit} loading={saving}>اضافة المستخدم</Button>
+          <Button type="button" variant="secondary" onClick={() => navigate(-1)}>الرجوع</Button>
         </div>
       </div>
     );

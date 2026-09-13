@@ -173,6 +173,44 @@ table {
   border-collapse: collapse;
 }
 
+/* Shared data-table look for the plain `<table className="table ...">`
+   markup used by the various "view all" list pages (students/users/reports).
+   Kept as a bare (non-module) class since those pages compose it with a
+   CSS-module class on the same element. */
+.table {
+  width: 100%;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-sm);
+}
+
+.table th {
+  background: var(--color-primary-50);
+  color: var(--color-text-secondary);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  text-align: start;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.table td {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+  font-size: var(--fs-sm);
+  color: var(--color-text-primary);
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.table tbody tr:hover {
+  background: var(--color-primary-50);
+}
+
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;

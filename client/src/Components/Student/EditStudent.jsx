@@ -6,10 +6,12 @@ import {getAll as getUsers} from "../../WebServer/services/user/functionsUser.js
 import styles from "./Student.module.css";
 import { toast } from "../../ALERT/SystemToasts";
 import {validate as validateINV, submit as submitFromParent} from "../../WebServer/services/inviteToken/functionInviteToken.jsx";
+import { isStoredAdmin } from "../../utils/session";
 
 const EditStudent = ({parent = false}) => {
   const params = useParams();              // "new" الأحدالجمعة _id
   const navigate = useNavigate();
+  const isAdmin = isStoredAdmin();
 
   const id = parent ? "new" : params.id;
   const isEdit =!parent && id !== "new";
@@ -40,6 +42,10 @@ const EditStudent = ({parent = false}) => {
   });
 
   const [photo, setPhoto] = useState(null);
+  // Tracks the photo that was actually on the server when the page loaded,
+  // so saving unrelated fields never touches it unless the admin explicitly
+  // picked a new file or removed it (see handleSubmit).
+  const [originalPhoto, setOriginalPhoto] = useState(null);
   const [error, setError] = useState({
     tz: "",
     firstname: "",
@@ -95,7 +101,6 @@ const EditStudent = ({parent = false}) => {
     if  (parent) return;
     (async () => {
       try {
-        console.log("load training");
         setLoading(true);
         setErr(null);
         const res = await getOne(id); // ملاحظة عربية
@@ -104,6 +109,7 @@ const EditStudent = ({parent = false}) => {
           const s = res.student;
           setForm(s);
           setPhoto(s.photo || null);
+          setOriginalPhoto(s.photo || null);
         } else {
           setErr("الطالب غير موجود");
         }
@@ -137,7 +143,6 @@ const EditStudent = ({parent = false}) => {
       try {
         setInviteStatus((prev) => ({ ...prev, checking: true }));
         const res = await validateINV(token);
-        console.log("validate invite token", res);
         // ملاحظة عربية
         if (!res.valid) {
           setInviteStatus({
@@ -168,7 +173,6 @@ const EditStudent = ({parent = false}) => {
       if (n > 9) n -= 9;
       sum += n;
     }
-    console.log("isValidIsraeliId", id, sum, sum % 10 === 0);
     return sum % 10 === 0;
   }
 
@@ -190,7 +194,6 @@ const EditStudent = ({parent = false}) => {
   const validate = async(name = null, value = null) => {
     const tag = document.getElementsByName(name)[0];
     if(name === "tz"){
-      console.log(isNew && value === "");
         if (value === "") {
           tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
           return "املأ الحقل";
@@ -239,7 +242,6 @@ const EditStudent = ({parent = false}) => {
 
       else if (name === "birth_date"){
         try{
-          console.log("birth_date", value, form.birth_date);
           if(value !== ""){
             const date = new Date(value); 
           }
@@ -248,7 +250,6 @@ const EditStudent = ({parent = false}) => {
           return "اختر تاريخ الميلاد";
           }
         } catch {
-          console.log("invalid date");
           tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
           return "تاريخ غير صالح";
         }
@@ -287,7 +288,6 @@ const EditStudent = ({parent = false}) => {
 
   const onField = async(e) => {
     const { name, value } = e.target;
-    console.log(`onField[${name}] = ${String(value)}`, value === '');
     setForm((prev) => ({ ...prev, [name]: value }));
     const msg = await validate(name, value)
     // console.log("msg", msg);
@@ -321,14 +321,12 @@ const EditStudent = ({parent = false}) => {
       setErr(null);
 
       const payload = { ...form };
-      console.log("data student", payload);
       if(parent && !inviteToken){
           toast.error("رابط التسجيل غير صالح");
           return;
       }
       else if(parent) {
         const res = await submitFromParent(inviteToken, payload);
-        console.log("submit from parent", res);
         if (!res || !res.ok) {
           throw new Error(res?.message || "فشل ارسال النموذج");
         }
@@ -347,24 +345,32 @@ const EditStudent = ({parent = false}) => {
         return;
       }
       
-      var bb = await handleDeletePhotoWithSave();
-      console.log("deletePhotoWithSave", bb);
-      if(bb) {
+      // Only touch the stored photo when the admin actually changed it —
+      // saving unrelated fields must never delete an untouched photo.
+      const photoWasRemoved = Boolean(originalPhoto) && photo === null;
+      const photoWasReplaced = photo instanceof File;
+
+      if (photoWasRemoved) {
+        const removed = await handleDeletePhotoWithSave();
+        if (removed) {
           payload.photo = null;
+        }
       }
+
       const res = isEdit ? await update(form.tz, payload): await create({...payload});
-      console.log("res", res);
       if(!res) return;
       if(!res.ok) throw new Error(res.message);
       toast.success(`✅ الطالب ${isEdit ? 'حُديث' : 'حُفِظ'} بنجاح`);
 
-      const res2 = await uploadPhoto(form.tz, photo);
-      if(!res2) return;
-      if(!res2.ok) {
-        toast.warn("لم يتم تحميل صورة الطالب: " + res2.message);
-      }
-      else{
-        toast.success("✅ تم تحميل صورة الطالب بنجاح");
+      if (photoWasReplaced) {
+        const res2 = await uploadPhoto(form.tz, photo);
+        if(!res2) return;
+        if(!res2.ok) {
+          toast.warn("لم يتم تحميل صورة الطالب: " + res2.message);
+        }
+        else{
+          toast.success("✅ تم تحميل صورة الطالب بنجاح");
+        }
       }
       navigate(-1);
     } catch (e) {
@@ -580,13 +586,13 @@ const EditStudent = ({parent = false}) => {
       {error.notes != "" && <label style={{color: "red"}}>{error.notes}</label>}
       <br />
 
-      {!parent && localStorage.getItem('roles').includes('ادارة') && teachers && teachers.length > 0 && <div className={styles.formControl}>
+      {!parent && isAdmin && teachers && teachers.length > 0 && <div className={styles.formControl}>
         <label>مرشد مسؤول:</label>
         <select
           name="main_teacher"
           value={form.main_teacher}
           onChange={handleChange}
-          disabled={!localStorage.getItem('roles').includes('ادارة')}
+          disabled={!isAdmin}
         >
           <option value="">اختار مرشد</option>
           {Array.isArray(teachers) &&

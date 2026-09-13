@@ -73,20 +73,64 @@
 }
 
 .loginForm input {
+  width: 100%;
   padding: 12px 14px;
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md);
   font-size: var(--fs-sm);
 }
 
-.loginForm .forgot {
+.fieldLabel {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  margin-bottom: -6px;
+}
+
+.passwordWrapper {
+  position: relative;
+  display: flex;
+}
+
+.passwordWrapper input {
+  padding-inline-end: 40px;
+}
+
+.togglePassword {
+  position: absolute;
+  inset-inline-end: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.togglePassword:hover {
+  color: var(--color-primary-600);
+  background: var(--color-primary-50);
+}
+
+.forgotLink {
+  align-self: flex-end;
+  background: none;
+  border: none;
+  padding: 0;
   text-align: right;
   font-size: var(--fs-xs);
   color: var(--color-primary-600);
   text-decoration: none;
+  cursor: pointer;
 }
 
-.loginForm .forgot:hover {
+.forgotLink:hover {
   text-decoration: underline;
 }
 
@@ -189,6 +233,7 @@
   left: 0;
   width: 100%;
   height: 100%;
+  padding: var(--space-4);
   background: rgba(6, 48, 44, 0.55);
   display: flex;
   justify-content: center;
@@ -200,9 +245,14 @@
   background: var(--color-surface);
   padding: var(--space-5);
   border-radius: var(--radius-lg);
-  min-width: 300px;
+  width: 100%;
+  max-width: 380px;
   box-shadow: var(--shadow-lg);
   animation: popupShow 0.25s ease;
+}
+
+.popup .closeButton {
+  margin-top: var(--space-3);
 }
 
 @keyframes popupShow {

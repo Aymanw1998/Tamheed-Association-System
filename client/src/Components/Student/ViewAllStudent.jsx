@@ -9,9 +9,13 @@ import { ask } from "../Provides/confirmBus.js";
 import { exportStudentPdf } from "../ExportPDF/ExportPDF.jsx";
 import { getStoredUserId, isStoredAdmin } from "../../utils/session.js";
 import StudentStatusFilter from "./StudentStatusFilter.jsx";
+import Button from "../UI/Button.jsx";
+import StatusBadge from "../UI/StatusBadge.jsx";
 
 const ACTIVE_STATUS = "عادي";
 const PENDING_STATUS = "ينتظر";
+
+const STATUS_TONE = { active: "success", waiting: "warning", noActive: "neutral" };
 
 const getStudentFilterKey = (student) => {
   const status = String(student?.status || "").trim();
@@ -201,55 +205,29 @@ const ViewAllStudent = () => {
   return (
     <div>
       <div>
-        <h1 style={{ textAlign: "center" }}>
+        <h1 className={styles.pageTitle}>
           {isAdmin ? "قائمة الطلاب" : "قائمة طلابي"}
         </h1>
 
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <div className={styles.toolbar}>
           <input
-            type="text"
+            type="search"
             placeholder="بحث..."
-            style={{
-              width: "80%",
-              padding: "10px",
-              margin: "10px",
-              marginBottom: "20px",
-              fontSize: "14px",
-              border: "1px solid #ccc",
-              borderRadius: "8px",
-            }}
+            aria-label="بحث في قائمة الطلاب"
+            className={styles.searchInput}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
 
           {isAdmin && (
-            <button
-              ref={addBtnRef}
-              id="page-add-student"
-              style={{
-                backgroundColor: "green",
-                padding: "0.5rem 1rem",
-                borderRadius: "0.5rem",
-                color: "white",
-              }}
-              onClick={handleAddStudent}
-            >
+            <Button ref={addBtnRef} id="page-add-student" onClick={handleAddStudent}>
               إضافة طالب جديد
-            </button>
+            </Button>
           )}
 
-          <button
-            style={{
-              backgroundColor: "#374151",
-              padding: "0.5rem 1rem",
-              borderRadius: "0.5rem",
-              color: "white",
-            }}
-            onClick={loadStudent}
-            disabled={loading}
-          >
+          <Button variant="secondary" onClick={loadStudent} loading={loading}>
             {loading ? "جاري التحديث" : "تحديث القائمة"}
-          </button>
+          </Button>
         </div>
 
         { isAdmin && <div style={{ marginTop: 12, marginBottom: 12 }}>
@@ -261,7 +239,7 @@ const ViewAllStudent = () => {
           />
         </div>}
 
-        <div style={{ marginTop: 8, opacity: 0.7 }}>
+        <div className={styles.summary}>
           مجموع: {sortedFilteredStudents.length} طالب{" "}
           {statusFilter === "active"
             ? "مُفعاليّن"
@@ -271,8 +249,8 @@ const ViewAllStudent = () => {
         </div>
       </div>
 
-      {err && <div style={{ marginTop: 12, color: "#b91c1c" }}>{err}</div>}
-      {!err && loading && <div style={{ marginTop: 12 }}>جاري تحديث البيانات</div>}
+      {err && <div className={styles.formError}>{err}</div>}
+      {!err && loading && <div className={styles.emptyState}>جاري تحديث البيانات</div>}
 
       {!loading && !err && (
         <table className={`table ${styles.subTable}`} style={{ marginTop: 12 }}>
@@ -298,88 +276,67 @@ const ViewAllStudent = () => {
                   <td data-label="اسم الأب">{student.father_name || "-"}</td>
                   <td data-label="العمر">{getAge(student.birth_date)}</td>
                   <td data-label="الجنس">{student.gender || "-"}</td>
-                  <td data-label="الحالة">{student.status || ACTIVE_STATUS}</td>
+                  <td data-label="الحالة">
+                    <StatusBadge tone={STATUS_TONE[getStudentFilterKey(student)]}>
+                      {student.status || ACTIVE_STATUS}
+                    </StatusBadge>
+                  </td>
                   <td data-label="للإجراءات">
-                    {student.status === ACTIVE_STATUS && (
-                      <>
-                        <button
-                          style={{
-                            backgroundColor: "#eab308",
-                            padding: "0.5rem 1rem",
-                            borderRadius: "0.5rem",
-                            color: "white",
-                            alignItems: "center",
-                          }}
+                    <div className={styles.rowActions}>
+                      {student.status === ACTIVE_STATUS && (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="warning"
+                            onClick={() => navigate(`/students/${student.tz}`)}
+                          >
+                            للتعديل
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => exportStudentPdf(student)}
+                          >
+                            تحميل ملف الطالب
+                          </Button>
+                        </>
+                      )}
+
+                      {student.status === PENDING_STATUS && (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="success"
+                            onClick={() => handleApproveStudent(student.tz)}
+                          >
+                            قبول
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            onClick={() => handleRejectStudent(student.tz)}
+                          >
+                            رفض
+                          </Button>
+                        </>
+                      )}
+
+                      {getStudentFilterKey(student) === "noActive" && (
+                        <Button
+                          size="sm"
+                          variant="secondary"
                           onClick={() => navigate(`/students/${student.tz}`)}
                         >
-                          للتعديل
-                        </button>
-                        <button
-                          style={{
-                            backgroundColor: "#2563eb",
-                            padding: "0.5rem 1rem",
-                            borderRadius: "0.5rem",
-                            color: "white",
-                            alignItems: "center",
-                          }}
-                          onClick={() => exportStudentPdf(student)}
-                        >
-                          تحميل ملف الطالب
-                        </button>
-                      </>
-                    )}
-
-                    {student.status === PENDING_STATUS && (
-                      <>
-                        <button
-                          style={{
-                            marginLeft: 8,
-                            backgroundColor: "green",
-                            padding: "0.5rem 1rem",
-                            borderRadius: "0.5rem",
-                            color: "white",
-                            alignItems: "center",
-                          }}
-                          onClick={() => handleApproveStudent(student.tz)}
-                        >
-                          قبول
-                        </button>
-                        <button
-                          style={{
-                            marginLeft: 8,
-                            backgroundColor: "red",
-                            padding: "0.5rem 1rem",
-                            borderRadius: "0.5rem",
-                            color: "white",
-                            alignItems: "center",
-                          }}
-                          onClick={() => handleRejectStudent(student.tz)}
-                        >
-                          رفض
-                        </button>
-                      </>
-                    )}
-
-                    {getStudentFilterKey(student) === "noActive" && (
-                      <button
-                        style={{
-                          backgroundColor: "#2563eb",
-                          padding: "0.5rem 1rem",
-                          borderRadius: "0.5rem",
-                          color: "white",
-                          alignItems: "center",
-                        }}
-                        onClick={() => navigate(`/students/${student.tz}`)}
-                      >
-                        عرض التفاصيل
-                      </button>
-                    )}
+                          عرض التفاصيل
+                        </Button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan={7} style={{ textAlign: "center", padding: 16 }}>
+                <td colSpan={7} className={styles.emptyState}>
                   لا يوجد طلاب في هذا القسم
                 </td>
               </tr>

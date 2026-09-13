@@ -23,6 +23,7 @@ import {
 import { getAll as getAllUsers } from "../../WebServer/services/user/functionsUser";
 import { getStoredUserId } from "../../utils/session";
 import { useI18n } from "../../i18n/I18nContext";
+import { ask } from "../Provides/confirmBus";
 
 const formatBytes = (bytes) => {
   if (bytes === null || bytes === undefined || Number.isNaN(Number(bytes))) return "-";
@@ -710,7 +711,8 @@ export default function FilesPage() {
     const filename = file.path || file.filename || file.name;
     if (!filename) return;
 
-    if (!window.confirm(`هل تريد حذف "${getDisplayName(file)}"؟`)) return;
+    const confirmed = await ask("delete", { message: `هل تريد حذف "${getDisplayName(file)}"؟` }).catch(() => false);
+    if (!confirmed) return;
 
     setError("");
     const startedAt = performance.now();

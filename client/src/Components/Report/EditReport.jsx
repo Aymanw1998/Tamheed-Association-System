@@ -5,7 +5,6 @@ import { create, update, getOne, /*softDelete,*/ deleteR } from "../../WebServer
 import { getAll } from "../../WebServer/services/user/functionsUser.jsx";
 import styles from "./Report.module.css";
 import { toast } from "../../ALERT/SystemToasts.jsx";
-import {validate as validateINV, submit as submitFromParent} from "../../WebServer/services/inviteToken/functionInviteToken.jsx";
 import { isStoredAdmin } from "../../utils/session";
 
 const MultiTagSelect = ({
@@ -162,7 +161,6 @@ const EditReport = ({parent = false}) => {
     if (!isEdit) return;
     (async () => {
       try {
-        console.log("load training");
         setLoading(true);
         setErr(null);
         const res = await getOne(id);
@@ -183,7 +181,6 @@ const EditReport = ({parent = false}) => {
 
   const getUsers = async () => {
       try {
-        console.log("load training");
         setLoading(true);
         setErr(null);
         const res = await getAll(); // ملاحظة عربية
@@ -213,7 +210,6 @@ const EditReport = ({parent = false}) => {
       if (n > 9) n -= 9;
       sum += n;
     }
-    console.log("isValidIsraeliId", id, sum, sum % 10 === 0);
     return sum % 10 === 0;
   }
 
@@ -229,7 +225,6 @@ const EditReport = ({parent = false}) => {
   const validate = async(name = null, value = null) => {
     const tag = document.getElementsByName(name)[0];
     if(name === "tz"){
-      console.log(isNew && value === "");
         if (value === "") {
           tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
           return "املأ الحقل";
@@ -278,7 +273,6 @@ const EditReport = ({parent = false}) => {
 
       else if (name === "birth_date"){
         try{
-          console.log("birth_date", value, form.birth_date);
           if(value !== ""){
             const date = new Date(value); 
           }
@@ -287,7 +281,6 @@ const EditReport = ({parent = false}) => {
           return "اختر تاريخ الميلاد";
           }
         } catch {
-          console.log("invalid date");
           tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
           return "تاريخ غير صالح";
         }
@@ -326,7 +319,6 @@ const EditReport = ({parent = false}) => {
 
   const onField = async(e) => {
     const { name, value } = e.target;
-    console.log(`onField[${name}] = ${String(value)}`, value === '');
     setForm((prev) => ({ ...prev, [name]: value }));
     const msg = await validate(name, value)
     // console.log("msg", msg);
@@ -347,7 +339,6 @@ const EditReport = ({parent = false}) => {
       const payload = { ...form };
       
       const res = isEdit ? await update(form._id, payload): await create({...payload});
-      console.log("res", res);
       if(!res) return;
       if(!res.ok) throw new Error(res.message);
       toast.success(`✅ التقرير ${isEdit ? 'حُديث' : 'حُفِظ'} بنجاح`);
@@ -374,28 +365,6 @@ const EditReport = ({parent = false}) => {
       toast.error(e.message || "❌ فشل العملية");
     }
   };
-  // ملاحظة عربية
-  if (parent) {
-    if (inviteStatus.checking) {
-      return (
-        <div className={styles.formContainer}>
-          جار فحص صلاحية رابط التسجيل...
-        </div>
-      );
-    }
-    if (!inviteStatus.valid) {
-      return (
-        <div
-          className={styles.formContainer}
-          style={{ color: "#b91c1c", textAlign: "center" }}
-        >
-          <h2>الرابط غير صالح</h2>
-          <p>{inviteStatus.message || "يرجى طلب رابط جديد من المعلم."}</p>
-        </div>
-      );
-    }
-  }
-
   if (loading) return <div className={styles.formContainer}>يتحدث...</div>;
   if (err)      return <div className={styles.formContainer} style={{color:"#b91c1c"}}>{err}</div>;
 
@@ -452,7 +421,7 @@ const EditReport = ({parent = false}) => {
       <label style={{color: "red"}}>{error.info}</label>
       <br />
       
-      {localStorage.getItem("roles").includes("ادارة") && <><label>الحاضرون:</label>
+      {isAdmin && <><label>الحاضرون:</label>
       <MultiTagSelect
         options={users.map(u => ({ label: `${u.firstname} ${u.lastname}`, value: u._id }))}
         value={form.attendance}

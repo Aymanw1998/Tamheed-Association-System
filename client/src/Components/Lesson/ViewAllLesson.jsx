@@ -6,6 +6,8 @@ import { useNavigate } from "react-router-dom";
 import Fabtn from "./../Global/Fabtn/Fabtn";
 import { toast } from "../../ALERT/SystemToasts";
 import { getStoredRoles, isStoredAdmin } from "../../utils/session";
+import { ask } from "../Provides/confirmBus";
+import Button from "../UI/Button";
 
 /* =======================
    Helpers
@@ -28,33 +30,18 @@ const getStart = (l) => l?.date?.startMin ?? ((l?.date?.hh ?? 8) * 60);
 const getEnd   = (l) => l?.date?.endMin   ?? (getStart(l) + 45);
 
 /* =======================
-   Build teacher name map
-======================= */
-async function fetchTeacherNames(lessons) {
-  const ids = Array.from(new Set((lessons || []).map(l => l?.teacher).filter(Boolean).map(String)));
-  const pairs = await Promise.all(ids.map(async (id) => {
-    try {
-      const res = await getUserById(id);
-      console.log("fetchTeacherNames", {id, res});
-      if (!res?.ok) throw 0;
-      const u = res.user || {};
-      console.log("fetchTeacherNames", {id, user: u});
-      return [id, [u.firstname, u.lastname].filter(Boolean).join(" ") || "غير معروف"];
-    } catch (err) {
-      console.log(`err`, `fetching teacher name for id ${id}`, err);
-      return [id, "خطأ"];
-    }
-  }));
-  return Object.fromEntries(pairs);
-}
-
-/* =======================
    Update lesson (shared)
 ======================= */
 async function saveReschedule({ lesson, newDay, newRoom, newStartMin, onReload }) {
   const dur = Math.max(1, getEnd(lesson) - getStart(lesson));
   const start = Math.max(BASE_MIN, Math.min(newStartMin, END_MIN - 1));
   const end = Math.min(start + dur, 24 * 60);
+
+  const confirmed = await ask("change", {
+    title: "نقل الدرس",
+    message: `نقل درس "${lesson.name}" إلى ${dayNames[(newDay || 1) - 1]} الساعة ${toHHMM(start)}؟`,
+  }).catch(() => false);
+  if (!confirmed) return;
 
   try {
     // ملاحظة عربية
@@ -95,7 +82,7 @@ function WeekTimeline({
   const byDay = useMemo(() => {
     const map = {1:[],2:[],3:[],4:[],5:[],6:[],7:[]};
     const uid = localStorage.getItem("user_id");
-    const roles = localStorage.getItem("roles") || "";
+    const roles = getStoredRoles();
 
     for (const l of (lessons || [])) {
       if (!l?.date) continue;
@@ -148,7 +135,7 @@ function WeekTimeline({
             className={styles.dayCol}
             onClick={(e) => {
               if (!canEdit) return;
-              if (!localStorage.getItem("roles")?.includes("ادارة")) return;
+              if (!isStoredAdmin()) return;
 
               const rect = e.currentTarget.getBoundingClientRect();
               const offsetY = e.clientY - rect.top;
@@ -157,11 +144,11 @@ function WeekTimeline({
               navigate(`/lessons/new?day=${day}&startMin=${clickedMin}`);
             }}
             onDragOver={(e) => {
-              if (canEdit && localStorage.getItem("roles")?.includes("ادارة")) e.preventDefault();
+              if (canEdit && isStoredAdmin()) e.preventDefault();
             }}
             onDrop={(e) => {
               if (!canEdit) return;
-              if (!localStorage.getItem("roles")?.includes("ادارة")) return;
+              if (!isStoredAdmin()) return;
 
               const lessonId = e.dataTransfer.getData("lesson-id");
               if (!lessonId) return;
@@ -191,9 +178,9 @@ function WeekTimeline({
                   key={l._id}
                   className={styles.lessonBlock}
                   style={{ top, height }}
-                  draggable={canEdit && localStorage.getItem("roles")?.includes("ادارة")}
+                  draggable={canEdit && isStoredAdmin()}
                   onClick={(ev) => {
-                    if (!localStorage.getItem("roles")?.includes("ادارة")) return;
+                    if (!isStoredAdmin()) return;
                     ev.stopPropagation();
                     navigate(`/lessons/${l._id}`);
                   }}
@@ -249,7 +236,7 @@ function DayRoomsTimeline({
 }) {
   const roomsList = useMemo(() => {
     const uid = localStorage.getItem("user_id");
-    const roles = localStorage.getItem("roles") || "";
+    const roles = getStoredRoles();
     const set = new Set();
 
     for (const l of (lessons || [])) {
@@ -270,7 +257,7 @@ function DayRoomsTimeline({
 
   const byRoom = useMemo(() => {
     const uid = localStorage.getItem("user_id");
-    const roles = localStorage.getItem("roles") || "";
+    const roles = getStoredRoles();
     const map = Object.fromEntries(roomsList.map(r => [r, []]));
 
     for (const l of (lessons || [])) {
@@ -321,7 +308,7 @@ function DayRoomsTimeline({
           className={styles.roomCol}
           onClick={(e) => {
             if (!canEdit) return;
-            if (!localStorage.getItem("roles")?.includes("ادارة")) return;
+            if (!isStoredAdmin()) return;
 
             const rect = e.currentTarget.getBoundingClientRect();
             const offsetY = e.clientY - rect.top;
@@ -330,11 +317,11 @@ function DayRoomsTimeline({
             navigate(`/lessons/new?day=${selectedDay}&room=${room}&startMin=${clickedMin}`);
           }}
           onDragOver={(e) => {
-            if (canEdit && localStorage.getItem("roles")?.includes("ادارة")) e.preventDefault();
+            if (canEdit && isStoredAdmin()) e.preventDefault();
           }}
           onDrop={(e) => {
             if (!canEdit) return;
-            if (!localStorage.getItem("roles")?.includes("ادارة")) return;
+            if (!isStoredAdmin()) return;
 
             const lessonId = e.dataTransfer.getData("lesson-id");
             if (!lessonId) return;
@@ -364,9 +351,9 @@ function DayRoomsTimeline({
                 key={l._id}
                 className={styles.lessonBlock}
                 style={{ top, height }}
-                draggable={canEdit && localStorage.getItem("roles")?.includes("ادارة")}
+                draggable={canEdit && isStoredAdmin()}
                 onClick={() => {
-                  if (!localStorage.getItem("roles")?.includes("ادارة")) return;
+                  if (!isStoredAdmin()) return;
                   navigate(`/lessons/${l._id}`);
                 }}
                 onDragStart={(e) => e.dataTransfer.setData("lesson-id", l._id)}
@@ -435,28 +422,13 @@ export default function ViewAllLesson() {
   }, [addBtnEl]);
 
 
-  // Month picker
-  const [monthOffset, setMonthOffset] = useState(Number(localStorage.getItem("monthOffset")) || 0);
-  const currentMonthInfo = useMemo(() => {
-    const d = new Date();
-    d.setMonth(d.getMonth() + monthOffset);
-    return {
-      label: `${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`,
-      month: d.getMonth() + 1,
-      year: d.getFullYear(),
-    };
-  }, [monthOffset]);
-
   const [canEdit, setCanEdit] = useState(true);
   useEffect(() => { localStorage.setItem("canEdit", String(canEdit)); }, [canEdit]);
 
   const [isLoading, setIsLoading] = useState(false);
   const [lessons, setLessons] = useState([]);
-  console.log("lessons", lessons);
   const [teachers, setTeachers] = useState([]);
-  console.log("teachers", teachers);
   const [teacherNames, setTeacherNames] = useState({});
-  console.log("teacherNames", teacherNames);
   // Tooltips
   const [tooltipInfo, setTooltipInfo] = useState({ show:false, content:"", x:0, y:0 });
 
@@ -512,7 +484,7 @@ export default function ViewAllLesson() {
   };
 
   useEffect(() => { loadTeachers(); }, []);
-  useEffect(() => { loadData(); }, [monthOffset]);
+  useEffect(() => { loadData(); }, []);
   useEffect(() => {
     const names = {};
     (teachers || []).forEach((teacher) => {
@@ -533,24 +505,19 @@ export default function ViewAllLesson() {
   const filteredLessons = useMemo(() => {
     const uid = localStorage.getItem("user_id");
     const rolesNow = getStoredRoles();
-    console.log("filteredLessons", lessons, filterDay, filterRoom, filterTeacher, showMyLessons);
     return (lessons || []).filter(l => {
       if (!l?.date) return false;
 
-      console.log("filtering day");
       // Filter day (global filter)
       if (filterDay !== 0 && Number(l.date.day) !== Number(filterDay)) return false;
 
-      console.log("filtering room");
       // Filter room
       const r = String(l?.room ?? 0);
       if (filterRoom !== "all" && r !== String(filterRoom)) return false;
 
-      console.log("filtering teacher");
       // Filter teacher
       if (filterTeacher !== "all" && String(l.teacher) !== String(filterTeacher)) return false;
-            
-      console.log("filtering Only my lessons (unless admin)", showMyLessons, !rolesNow.includes("ادارة"), rolesNow);
+
       // Only my lessons (unless admin)
       if (showMyLessons && !rolesNow.includes("ادارة")) {
         const isMine =
@@ -558,7 +525,6 @@ export default function ViewAllLesson() {
           (l.list_students || []).map(String).includes(String(uid));
         if (!isMine) return false;
       }
-      console.log("filtering search query");
       // search query by lesson name
       if (query.trim()) {
         const q = query.trim().toLowerCase();
@@ -620,7 +586,7 @@ export default function ViewAllLesson() {
             <select value={filterRoom} onChange={(e)=>setFilterRoom(e.target.value)}>
               <option value="all">كل</option>
               {roomOptions.map(r=>(
-                <option key={r} value={r}>{Number(r) === -1 ? "بدون غرفة" : `غرفة ${r}`}</option>
+                <option key={r} value={r}>{Number(r) === 0 ? "بدون غرفة" : `غرفة ${r}`}</option>
               ))}
             </select>
           </div>
@@ -634,29 +600,27 @@ export default function ViewAllLesson() {
               ))}
             </select>
           </div>
-          <input
-            type="text"
-            placeholder="بحث..."
-            style={{
-              width: "80%", padding: "10px", margin: "10px", marginBottom: "20px",fontSize: "14px", 
-              border: "1px solid #ccc",borderRadius: "8px"
-            }}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-          {isAdmin && 
-            <button 
+          <div className={styles.filterGroup}>
+            <label htmlFor="lesson-search">بحث</label>
+            <input
+              id="lesson-search"
+              type="search"
+              placeholder="اسم الدرس..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </div>
+          {isAdmin &&
+            <Button
             ref={addBtnRef}
             id="page-add-lesson"
-            style={{ backgroundColor: 'green', padding: '0.5rem 1rem', borderRadius: '0.5rem', color: 'white' }}
             onClick={()=>{
-              // ملاحظة عربية
               const day = viewMode === "dayRooms" ? selectedDay : (filterDay || 1);
-              navigate(`/lessons/new?day=${day}&month=${currentMonthInfo.month}&year=${currentMonthInfo.year}`);
+              navigate(`/lessons/new?day=${day}`);
             }}
           >
-            ➕ إضافة درس جديد
-          </button>}
+            + إضافة درس جديد
+          </Button>}
         </div>
       </div>
 
@@ -701,7 +665,7 @@ export default function ViewAllLesson() {
                 .sort((a,b) => (a.date.day - b.date.day) || (getStart(a) - getStart(b)))
                 .map(l => (
                   <div key={l._id} className={styles.lessonCard} onClick={()=>{
-                  if (!localStorage.getItem("roles")?.includes("ادارة")) return;
+                  if (!isStoredAdmin()) return;
                   navigate(`/lessons/${l._id}`);
                   }}>
                     <div><b>{l.name}</b></div>
@@ -740,9 +704,8 @@ export default function ViewAllLesson() {
         visible={showFab && isAdmin}
         label="إضافة درس"
         onClick={() => {
-          // ملاحظة عربية
           const day = viewMode === "dayRooms" ? selectedDay : (filterDay || 1);
-          navigate(`/lessons/new?day=${day}&month=${currentMonthInfo.month}&year=${currentMonthInfo.year}`);
+          navigate(`/lessons/new?day=${day}`);
         }}
       />
     </div>

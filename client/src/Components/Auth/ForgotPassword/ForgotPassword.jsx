@@ -1,5 +1,8 @@
 import React, { useState } from "react";
 import { forgotPassword, resetPassword } from "../../../WebServer/services/auth/fuctionsAuth.jsx";
+import styles from "./ForgotPassword.module.css";
+import Button from "../../UI/Button";
+import EyeIcon from "../../UI/EyeIcon";
 
 export default function ForgotPassword() {
     const [step, setStep] = useState(1); // 1: request reset, 2: enter OTP and new password
@@ -28,6 +31,9 @@ export default function ForgotPassword() {
     const [otp, setOtp] = useState("");
     const [newPassword, setNewPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
+    const [showNewPassword, setShowNewPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
     const handleResetPassword = async () => {
         setMsg("");
         if (!otp.trim() || otp.trim().length !== 6) return setMsg("الرجاء إدخال رمز التحقق الصحيح (6 أرقام).");
@@ -54,63 +60,98 @@ export default function ForgotPassword() {
             setLoading(false);
         }
     }
-        return (
-            <>
-            {step == 1 && 
-                <> 
-                <div style={{ maxWidth: 420, margin: "40px auto", padding: 16 }}>
-                    <p>ادخل رقم الهوية لنرسل رابط لإعادة تعيين كلمة السر </p>
-                    <form onSubmit={onSubmit}>
-                        <label>رقم الهوية</label>
-                        <input
-                            type="tz"
-                            value={tz}
-                            onChange={(e) => setTz(e.target.value)}
-                            placeholder="209138155"
-                            style={{ width: "100%", padding: 10, margin: "8px 0 12px" }}
-                        />
-                        <button disabled={loading} style={{ width: "100%", padding: 10 }}>
-                        {loading ? "يرسل..." : "ارسل رابط إعادة التعيين"}
-                        </button>
-                    </form>
-                    {msg && <div style={{ marginTop: 12 }}>{msg}</div>}
-                </div>
-            </>
-            }
-            {step == 2 && (
-                <div>
-                    <h2>ادخال المعلومات</h2>
-                    <h3>رقم الهوية {tz}</h3>
 
-                    <label>رقم التحقق</label>
-                    <input
-                        type="otp"
-                        value={otp}
-                        onChange={(e) => setOtp(e.target.value)}
-                        placeholder="أدخل رقم التحقق (6 أرقام)"
-                        style={{ width: "100%", padding: 10, margin: "8px 0 12px" }}
-                    />
-                    <label>كلمة السر الجديدة</label>
-                    <input
-                        type="password"
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                        placeholder="يكتب كلمة السر الجديدة"
-                        style={{ width: "100%", padding: 10, margin: "8px 0 12px" }}
-                    />
-                    <label>تأكيد كلمة السر الجديدة</label>
-                    <input
-                        type="password"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        placeholder="يؤكد كلمة السر الجديدة"
-                        style={{ width: "100%", padding: 10, margin: "8px 0 12px" }}
-                    />
-                    <button disabled={loading} style={{ width: "100%", padding: 10 }} onClick={handleResetPassword}>
-                        {loading ? "يعالج..." : "إعادة تعيين كلمة السر"}
-                    </button>
+    return (
+        <div className={styles.wrapper}>
+            {step === 1 && (
+                <>
+                    <p className={styles.intro}>ادخل رقم الهوية لنرسل رابط لإعادة تعيين كلمة السر</p>
+                    <form className={styles.wrapper} onSubmit={onSubmit}>
+                        <div className={styles.field}>
+                            <label htmlFor="fp-tz">رقم الهوية</label>
+                            <input
+                                id="fp-tz"
+                                type="text"
+                                inputMode="numeric"
+                                value={tz}
+                                onChange={(e) => setTz(e.target.value)}
+                                placeholder="209138155"
+                            />
+                        </div>
+                        <Button type="submit" className={styles.submit} loading={loading}>
+                            ارسل رابط إعادة التعيين
+                        </Button>
+                    </form>
+                    {msg && <p className={styles.message}>{msg}</p>}
+                </>
+            )}
+            {step === 2 && (
+                <div className={styles.wrapper}>
+                    <h3 className={styles.tzReminder}>رقم الهوية: <strong>{tz}</strong></h3>
+
+                    <div className={styles.field}>
+                        <label htmlFor="fp-otp">رقم التحقق</label>
+                        <input
+                            id="fp-otp"
+                            type="text"
+                            inputMode="numeric"
+                            value={otp}
+                            onChange={(e) => setOtp(e.target.value)}
+                            placeholder="أدخل رقم التحقق (6 أرقام)"
+                        />
+                    </div>
+
+                    <div className={styles.field}>
+                        <label htmlFor="fp-new-password">كلمة السر الجديدة</label>
+                        <div className={styles.passwordWrapper}>
+                            <input
+                                id="fp-new-password"
+                                type={showNewPassword ? "text" : "password"}
+                                value={newPassword}
+                                onChange={(e) => setNewPassword(e.target.value)}
+                                placeholder="يكتب كلمة السر الجديدة"
+                            />
+                            <button
+                                type="button"
+                                className={styles.togglePassword}
+                                onClick={() => setShowNewPassword((v) => !v)}
+                                aria-label={showNewPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
+                                aria-pressed={showNewPassword}
+                            >
+                                <EyeIcon open={showNewPassword} />
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className={styles.field}>
+                        <label htmlFor="fp-confirm-password">تأكيد كلمة السر الجديدة</label>
+                        <div className={styles.passwordWrapper}>
+                            <input
+                                id="fp-confirm-password"
+                                type={showConfirmPassword ? "text" : "password"}
+                                value={confirmPassword}
+                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                placeholder="يؤكد كلمة السر الجديدة"
+                            />
+                            <button
+                                type="button"
+                                className={styles.togglePassword}
+                                onClick={() => setShowConfirmPassword((v) => !v)}
+                                aria-label={showConfirmPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
+                                aria-pressed={showConfirmPassword}
+                            >
+                                <EyeIcon open={showConfirmPassword} />
+                            </button>
+                        </div>
+                    </div>
+
+                    <Button type="button" className={styles.submit} loading={loading} onClick={handleResetPassword}>
+                        إعادة تعيين كلمة السر
+                    </Button>
+
+                    {msg && <p className={styles.message}>{msg}</p>}
                 </div>
-        )}
-        </>
+            )}
+        </div>
     );
 }

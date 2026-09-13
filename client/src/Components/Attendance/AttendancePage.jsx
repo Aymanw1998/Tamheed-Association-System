@@ -5,6 +5,7 @@ import { getLessonsToday, getAllLesson as getAllLessons } from "../../WebServer/
 import { getAttendanceSheet, saveAttendanceSheet, getLessonDates } from "../../WebServer/services/attendance/functionsAttendance";
 import { toast } from "../../ALERT/SystemToasts";
 import { getStoredUserId, isStoredAdmin } from "../../utils/session";
+import { ask } from "../Provides/confirmBus";
 
 
 const pad2 = (n) => String(n).padStart(2, "0");
@@ -30,7 +31,7 @@ const StatusPill = ({ value, onChange }) => {
             key={s}
             type="button"
             className={`${styles.pill} ${value === s ? styles.pillActive : ""}`}
-            style={value === s ? { backgroundColor: s === "حاضر" ? "green" : s === "غائب" ? "red" : "orange" } : {} }
+            style={value === s ? { backgroundColor: s === "حاضر" ? "var(--color-success-500)" : s === "غائب" ? "var(--color-danger-500)" : "var(--color-warning-500)" } : {} }
             onClick={() => onChange(s)}
             >
             {s}
@@ -60,8 +61,6 @@ export default function AttendancePage() {
     const [date, setDate] = useState(todayObj(new Date())); // used in today tab
     const [historyDates, setHistoryDates] = useState([]); // dates for selected lesson
     const [selectedHistoryDate, setSelectedHistoryDate] = useState(null);
-    console.log("historyDates", historyDates);
-    console.log("selectedHistoryDate", selectedHistoryDate);
 
     // sheet
     const [sheet, setSheet] = useState(null);
@@ -71,14 +70,12 @@ export default function AttendancePage() {
     const [searchDate, setSearchDate] = useState("");
     const [searchLesson, setSearchLesson] = useState("");
     const preselectedLessonId = location.state?.lessonId || "";
-    const doChange = (setValue, value) => {
-        let b = true;
-        if(dirty){
-            if(window.confirm("هناك تغييرات غير محفوظة. هل أنت متأكد أنك تريد المتابعة دون حفظ؟")) {
-                b = true;
-            } else b = false;
+    const doChange = async (setValue, value) => {
+        if (dirty) {
+            const ok = await ask("navigate").catch(() => false);
+            if (!ok) return;
         }
-        if(b) setValue(value);
+        setValue(value);
     }
     // load left side
     useEffect(() => {
@@ -88,13 +85,11 @@ export default function AttendancePage() {
             if (tab === "today") {
             const r = await getLessonsToday();
             if (!r?.ok) throw new Error(r?.message || "failed");
-            console.log("lessons", r.lessons, localStorage.getItem("user_id"))
-            setTodayLessons(r.lessons.filter(l => localStorage.getItem("roles").includes("ادارة") || l.teacher?._id == localStorage.getItem("user_id")));
+            setTodayLessons(r.lessons.filter(l => isAdmin || String(l.teacher) === String(userId)));
             } else {
             const r = await getAllLessons();
             if (!r?.ok) throw new Error(r?.message || "failed");
-            console.log("lessons", r.lessons, localStorage.getItem("user_id"))
-            setAllLessons(r.lessons.filter(l => localStorage.getItem("roles").includes("ادارة") || l.teacher == localStorage.getItem("user_id")));
+            setAllLessons(r.lessons.filter(l => isAdmin || String(l.teacher) === String(userId)));
             }
         } catch (e) {
             toast?.error ? toast.error(e.message) : console.error(e);
@@ -230,13 +225,11 @@ export default function AttendancePage() {
         <div className={styles.topbar}>
             <h2 className={styles.title}>حضور وغياب</h2>
             <div className={styles.tabs}>
-            <button className={`${styles.tabBtn} ${tab === "today" ? styles.tabActive : ""}`} 
-            style={tab === "today" ? {backgroundColor: "green"} : {}}
+            <button className={`${styles.tabBtn} ${tab === "today" ? styles.tabActive : ""}`}
             onClick={() => doChange(setTab,"today")}>
                 درس اليوم
             </button>
-            <button className={`${styles.tabBtn} ${tab === "history" ? styles.tabActive : ""}`} 
-            style={tab === "history" ? {backgroundColor: "green"} : {}}
+            <button className={`${styles.tabBtn} ${tab === "history" ? styles.tabActive : ""}`}
             onClick={() => doChange(setTab,"history")}>
                 سجل الحضور السابق
             </button>
@@ -244,7 +237,7 @@ export default function AttendancePage() {
             <br/>
 
             <div className={styles.actions}>
-            <button className={styles.saveBtn} style={tab === "today" ?{backgroundColor: "green", color: "black"}: {backgroundColor: "yellow", color: "black"}} onClick={onSave} disabled={!sheet || loadingSheet || !dirty}>
+            <button className={styles.saveBtn} onClick={onSave} disabled={!sheet || loadingSheet || !dirty}>
                 حفظ
             </button>
             <span className={styles.miniInfo}>
@@ -317,8 +310,6 @@ export default function AttendancePage() {
                 ) : (
                     <div className={styles.datesList}>
                     {historyDates.filter(d => d.ymd.includes(searchDate)).map((d) => (
-                        <>
-                        {console.log("render history date", d.dateKey, selectedHistoryDate?.dateKey)}
                         <button
                         key={d.dateKey}
                         className={`${styles.tabBtn} ${String(selectedHistoryDate?.dateKey || "" ) == String(d.dateKey) ? styles.tabActive : ""}`}
@@ -326,7 +317,6 @@ export default function AttendancePage() {
                         >
                         {d.ymd}
                         </button>
-                        </>
                     ))}
                     {historyDates.length === 0 && <div className={styles.empty}>لا يوجد تواريخ مستقبلية</div>}
                     </div>

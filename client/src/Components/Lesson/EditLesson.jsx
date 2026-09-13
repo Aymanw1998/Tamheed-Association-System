@@ -12,17 +12,17 @@ import { toast } from '../../ALERT/SystemToasts';
 
 import { getAll as getAllS} from '../../WebServer/services/student/functionsStudent';
 import { getAll as getAllU } from '../../WebServer/services/user/functionsUser';
+import { isStoredAdmin } from '../../utils/session';
+import Button from '../UI/Button';
 const EditLesson = () => {
-  
+  const isAdmin = isStoredAdmin();
+
   const { id } = useParams(); // ملاحظة عربية
   
   const navigate = useNavigate();
-  const isNew = id === 'new';
   const searchParams = new URLSearchParams(window.location.search);
   const dayFromUrl = Number(searchParams.get('day'))+1 || 1;
   const hhFromUrl = (Number(searchParams.get('startMin'))/60) || 8;
-  const monthFromUrl = Number(searchParams.get('month')) || new Date().getMonth()+1;
-  const yearFromUrl = Number(searchParams.get('year')) || new Date().getFullYear();
 
   const [lesson, setLesson] = useState({
     name: '',
@@ -58,11 +58,9 @@ const EditLesson = () => {
 
   // handleChange عربيالسبتالأربعاءالجمعةعربي ساعات
   const handleTimeChange = (name, hhmm) => {
-    console.log("handleTimeChange", name, hhmm, toMin(hhmm));
     setLesson(prev => {
       let startMin = prev.date.startMin;
       let endMin   = prev.date.endMin;
-      console.log("before", startMin, endMin);
       if (name === 'start') {
         startMin = toMin(hhmm);
         if (endMin <= startMin) endMin = startMin + 45
@@ -74,11 +72,8 @@ const EditLesson = () => {
     });
   };
   const [students, setStudents] = useState([]);
-  useEffect(()=>console.log("students", students),[students]);
   const [teachers, setTeachers] = useState([]);
-  useEffect(()=>console.log("teachers", teachers),[teachers]);
   const [helpers, setHelpers] = useState([]);
-  useEffect(()=>console.log("helpers", helpers),[helpers]);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchTerm2, setSearchTerm2] = useState('');
   const [showTraineeModal, setShowTraineeModal] = useState(false);
@@ -97,26 +92,10 @@ const EditLesson = () => {
   const loadData = async () => {
     try {
       const usersRes = await getAllU();
-      console.log("usersRes", usersRes);
       if (usersRes?.ok) {
         const allUsers = usersRes.users || [];
         setTeachers(allUsers.filter((u) => u.roles.includes('مرشد')));
-        // setTrainers(allUsers.filter((u) => u.role === 'مدرب'));
-      } else{
-        throw new Error(usersRes?.message)
-      }
-    }
-    catch(err){
-      console.error(err.message)
-    }
-
-    try {
-      const usersRes = await getAllU();
-      console.log("usersRes", usersRes);
-      if (usersRes?.ok) {
-        const allUsers = usersRes.users || [];
         setHelpers(allUsers.filter((u) => u.roles.includes('مساعد')));
-        // setTrainers(allUsers.filter((u) => u.role === 'مدرب'));
       } else{
         throw new Error(usersRes?.message)
       }
@@ -125,15 +104,10 @@ const EditLesson = () => {
       console.error(err.message)
     }
     try{
-      // ملاحظة عربية
-      // await getAllLesson();
-
       if (id !== 'new') {
-        console.log("loading lesson with id", id);
         const resL = await getOneLesson(id);
         if(!resL.ok) throw new Error(resL.message);
         const l = resL.lesson;
-        console.log("llllllllll", l);
         if (l) {
           setLesson({...l, list_students: l.list_students.filter(t => t != null && t != undefined)});
         } else {
@@ -146,7 +120,6 @@ const EditLesson = () => {
     }
     try{
       const resT = await getAllS();
-      console.log("resT", resT);
       if(!resT.ok) throw new Error(resT.message);
       setStudents(resT.students);
     }
@@ -162,7 +135,6 @@ const EditLesson = () => {
   // ملاحظة عربية
   const handleChange = (e) => {
     const { name, value } = e.target;
-    console.log(name, value);
     if (name === 'day' || name === 'hh') {
       setLesson((prev) => ({
         ...prev,
@@ -174,53 +146,32 @@ const EditLesson = () => {
     setLesson((prev) => ({ ...prev, [name]: value }));
   };
 
-    const validateBeforeSave = async(name = null, value = null) => {
-        if(!name) {
-          // ملاحظة عربية
-          if (!lesson.name?.trim()) return 'اسم الدرس مطلوب';
-          const d = Number(lesson.date.day) ;
-          const start = Number(lesson.date.startMin);
-          const end = Number(lesson.date.endMin);
-          console.log("day,start,end", d, start, end);
-          if (Number.isNaN(d) || d < 1 || d > 7) return 'يوم غير صالح';
-          if (Number.isNaN(start) || start < 0 || start > 23 * 60) return 'ساعة بدء غير صالحة';
-          if (Number.isNaN(end) || end < start || end > 23 * 60) return 'ساعة انتهاء غير صالحة';
+    const validateBeforeSave = async() => {
+      if (!lesson.name?.trim()) return 'اسم الدرس مطلوب';
+      const d = Number(lesson.date.day);
+      const start = Number(lesson.date.startMin);
+      const end = Number(lesson.date.endMin);
+      if (Number.isNaN(d) || d < 1 || d > 7) return 'يوم غير صالح';
+      if (Number.isNaN(start) || start < 0 || start > 23 * 60) return 'ساعة بدء غير صالحة';
+      if (Number.isNaN(end) || end < start || end > 23 * 60) return 'ساعة انتهاء غير صالحة';
 
-        return null;
-      }
-      else{
-        const tag = document.getElementsByName(name)[0];
-        if(name === "name" && isNew && value === ""){
-          tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
-          return "املاء الخانة";
-        } else if(name === "name" && isNew) {
-          return "";
-        }
-    }
-  };
-  
+      return null;
+    };
 
-  // ملاحظة عربية
   const handleSave = async () => {
-    let b = await validateBeforeSave();
-    if (b) { toast.warn(b); return; }
-    for(const tag in [{'name': lesson.name} ,{'date.day': lesson.date.day},{'date.startMin': lesson.date.startMin}, {'date.endMin': lesson.date.endMin}]) {
-      validateBeforeSave(tag.key, tag.value);
-    }
+    const validationError = await validateBeforeSave();
+    if (validationError) { toast.warn(validationError); return; }
     try {
       const resL =
         id === 'new'
           ? await createLesson(lesson)
           : await updateLesson(id,lesson);
-      
+
       if (!resL) return;
       if (resL.ok) {
-        console.log(`✅ الدرس ${id === 'new'? 'تم الحفظ' : 'تم التحديث' }  بنجاح`, resL);
         toast.success(`✅ الدرس ${id === 'new'? 'حفظ' : 'حديث' }  بنجاح`);
         navigate(-1);
       } else {
-        // alert(resL.message || '❌ خطأ في الحفظ');
-        // console.warn(resL.message || '❌ خطأ في الحفظ');
         toast.warn(resL.message || '❌ خطأ في الحفظ');
       }
     } catch (e) {
@@ -236,7 +187,6 @@ const EditLesson = () => {
     try {
       const resDL = await deleteLesson(id);
       if(!resDL) return;
-      if("delete b", resDL);
       if (resDL.ok) {
         toast.success('✅ تم حذف الدرس');
         navigate(-1);
@@ -259,7 +209,7 @@ const EditLesson = () => {
   return (
     <div className={styles.editLessonContainer}>
       {
-      localStorage.getItem('roles').includes('ادارة') ? (
+      isAdmin ? (
       <center><h1>{id != "new" ? "تحديث بيانات الدرس" : "اضافة درس جديد"}</h1></center>
       ) : (
         <h2>معلومات الكرس</h2>
@@ -273,7 +223,7 @@ const EditLesson = () => {
           value={lesson.name}
           onChange={handleChange}
           placeholder="أدخل اسم الدرس"
-          disabled={!localStorage.getItem('roles').includes('ادارة')}
+          disabled={!isAdmin}
         />
         
         <label style={{color: "red"}}>{error.name}</label>
@@ -285,7 +235,7 @@ const EditLesson = () => {
           name="teacher"
           value={lesson.teacher}
           onChange={handleChange}
-          disabled={!localStorage.getItem('roles').includes('ادارة')}
+          disabled={!isAdmin}
         >
           <option value="">اختار مرشد</option>
           {Array.isArray(teachers) &&
@@ -304,7 +254,7 @@ const EditLesson = () => {
           name="helper"
           value={lesson.helper}
           onChange={handleChange}
-          disabled={!localStorage.getItem('roles').includes('ادارة')}
+          disabled={!isAdmin}
         >
           <option value="">اختار مساعد</option>
           {Array.isArray(helpers) &&
@@ -323,7 +273,7 @@ const EditLesson = () => {
           name="day"
           value={lesson.date.day}
           onChange={handleChange}
-          disabled={!localStorage.getItem('roles').includes('ادارة')}
+          disabled={!isAdmin}
         >
           {['الاحد', 'الاثنين', 'الثلاثاء', 'الاربعاء', 'الخميس','الجمعة','السبت'].map((d, i) => (
             <option value={i+1} key={i+1}>
@@ -341,7 +291,7 @@ const EditLesson = () => {
           name="room"
           value={lesson.room}
           onChange={handleChange}
-          disabled={!localStorage.getItem('roles').includes('ادارة')}
+          disabled={!isAdmin}
         >
           <option value="">اختار غرفة</option>
           {Array.from({length: 6}, (_, i)=>i+1).map((d, i) => (
@@ -359,7 +309,7 @@ const EditLesson = () => {
           type="time"
           value={toHHMM(lesson.date.startMin)}
           onChange={(e) => handleTimeChange('start', e.target.value)}
-          disabled={!localStorage.getItem('roles').includes('ادارة')}
+          disabled={!isAdmin}
         />
       </div>
       <div className={styles.formControl}>
@@ -368,13 +318,13 @@ const EditLesson = () => {
           type="time"
           value={toHHMM(lesson.date.endMin)}
           onChange={(e) => handleTimeChange('end', e.target.value)}
-          disabled={!localStorage.getItem('roles').includes('ادارة')}
+          disabled={!isAdmin}
         />
       </div>
 
       <h4> التلاميذ المتواجدون في الدرس: {lesson.list_students?.length || 0}</h4>
 
-      {localStorage.getItem('roles').includes('ادارة') && (
+      {isAdmin && (
         <>
           <input
             type="text"
@@ -383,12 +333,9 @@ const EditLesson = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
 
-          <button
-            style={{ backgroundColor: 'green', padding: '0.5rem 1rem', borderRadius: '0.5rem', color: 'white' }}
-            onClick={() => setShowTraineeModal(true)}
-          >
-            ➕ اضافة تلميذ
-          </button>
+          <Button onClick={() => setShowTraineeModal(true)}>
+            + اضافة تلميذ
+          </Button>
 
           <table className={styles.selectedTraineesTable}>
             <thead>
@@ -410,15 +357,15 @@ const EditLesson = () => {
           </table>
 
           <div className={styles.buttonRow} style={{ gap: 8, flexWrap: "wrap" }}>
-            <button type="button" onClick={handleSave} style={{width:"100%"}} >
+            <Button type="button" onClick={handleSave}>
               {id !== 'new' ? 'تعديل البيانات' : 'حفظ البيانات'}
-            </button>
+            </Button>
             {id !== 'new' && (
-              <button type="button" style={{ background: 'red', width:"100%" }} onClick={handleDelete}>
+              <Button type="button" variant="danger" onClick={handleDelete}>
               حذف
-              </button>
+              </Button>
             )}
-            <button type="button" style={{ background: "#6b7280", width: "100%" }} onClick={() => navigate(-1)}>الرجوع للقائمة</button>
+            <Button type="button" variant="secondary" onClick={() => navigate(-1)}>الرجوع للقائمة</Button>
           </div>
         </>
       )}

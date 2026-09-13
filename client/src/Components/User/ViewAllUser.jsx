@@ -7,6 +7,7 @@ import { toast } from "../../ALERT/SystemToasts.jsx";
 import UserStatusFilter from "./UserStatusFilter.jsx";
 import { exportUserPdf } from "../ExportPDF/ExportPDF.jsx";
 import { getStoredUserId, isStoredAdmin } from "../../utils/session";
+import Button from "../UI/Button.jsx";
 
 const ViewAllUser = () => {
   const isAdmin = isStoredAdmin();
@@ -187,41 +188,25 @@ const ViewAllUser = () => {
   return (
     <div>
       <div>
-        <h1 style={{ textAlign: "center" }}>قائمة المستخدمين</h1>
+        <h1 className={styles.pageTitle}>قائمة المستخدمين</h1>
 
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <div className={styles.toolbar}>
           <input
-            type="text"
+            type="search"
             placeholder="بحث..."
-            style={{
-              width: "80%",
-              padding: "10px",
-              margin: "10px",
-              marginBottom: "20px",
-              fontSize: "14px",
-              border: "1px solid #ccc",
-              borderRadius: "8px",
-            }}
+            aria-label="بحث في قائمة المستخدمين"
+            className={styles.searchInput}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
 
-          <button
-            ref={addBtnRef}
-            id="page-add-user"
-            style={{ backgroundColor: "green", padding: "0.5rem 1rem", borderRadius: "0.5rem", color: "white" }}
-            onClick={handleAddUser}
-          >
+          <Button ref={addBtnRef} id="page-add-user" onClick={handleAddUser}>
             إضافة مستخدم جديد
-          </button>
+          </Button>
 
-          <button
-            style={{ backgroundColor: "#374151", padding: "0.5rem 1rem", borderRadius: "0.5rem", color: "white" }}
-            onClick={loadUsers}
-            disabled={loading}
-          >
+          <Button variant="secondary" onClick={loadUsers} loading={loading}>
             {loading ? "جاري التحديث" : "تحديث القائمة"}
-          </button>
+          </Button>
         </div>
 
         <div style={{ marginTop: 12, marginBottom: 12 }}>
@@ -233,19 +218,13 @@ const ViewAllUser = () => {
           />
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
+        <div className={styles.filterRow}>
           <label htmlFor="role-filter" style={{ fontWeight: 600 }}>فلترة حسب الدور</label>
           <select
             id="role-filter"
             value={roleFilter}
             onChange={(e) => setRoleFilter(e.target.value)}
-            style={{
-              minWidth: 220,
-              padding: "10px 12px",
-              borderRadius: "10px",
-              border: "1px solid #ccc",
-              backgroundColor: "#fff",
-            }}
+            className={styles.filterSelect}
           >
             <option value="all">كل الأدوار</option>
             {roleOptions.map((role) => (
@@ -256,15 +235,15 @@ const ViewAllUser = () => {
           </select>
         </div>
 
-        <div style={{ marginTop: 8, opacity: 0.7 }}>
+        <div className={styles.summary}>
           مجموع: {sortedFilteredUsers.length} مستخدمين{" "}
           {status === "active" ? "مُفاعلين" : status === "pending" ? "بالانتظار" : "حسابات موقوفة"}
           {roleFilter !== "all" ? ` - ${roleFilter}` : ""}
         </div>
       </div>
 
-      {err && <div style={{ marginTop: 12, color: "#b91c1c" }}>{err}</div>}
-      {!err && loading && <div style={{ marginTop: 12 }}>جاري تحديث البيانات</div>}
+      {err && <div className={styles.formError}>{err}</div>}
+      {!err && loading && <div className={styles.emptyState}>جاري تحديث البيانات</div>}
 
       {!loading && !err && (
         <table className={`table ${styles.subTable}`} style={{ marginTop: 12 }}>
@@ -289,63 +268,47 @@ const ViewAllUser = () => {
                   </td>
                   <td data-label="الجنس">{user.gender || "-"}</td>
                   <td data-label="الدور">{(Array.isArray(user.roles) ? user.roles : []).join(", ") || "-"}</td>
-                  <td data-label="للمعلومات">
-                    {user.room !== "waiting" && user.room !== "noActive" && (
-                      <>
-                        <button
-                          style={{ backgroundColor: "yellow", padding: "0.5rem 1rem", borderRadius: "0.5rem", color: "white", alignItems: "center" }}
-                          onClick={() => navigate(`/users/${user.tz}`)}
-                        >
-                          للتعديل
-                        </button>
-                        <button
-                          style={{ backgroundColor: "blue", padding: "0.5rem 1rem", borderRadius: "0.5rem", color: "white", alignItems: "center" }}
-                          onClick={() => exportUserPdf(user)}
-                        >
-                          تحميل ملف المستخدم
-                        </button>
-                      </>
-                    )}
+                  <td data-label="للإجراءات">
+                    <div className={styles.rowActions}>
+                      {user.room !== "waiting" && user.room !== "noActive" && (
+                        <>
+                          <Button size="sm" variant="warning" onClick={() => navigate(`/users/${user.tz}`)}>
+                            للتعديل
+                          </Button>
+                          <Button size="sm" variant="secondary" onClick={() => exportUserPdf(user)}>
+                            تحميل ملف المستخدم
+                          </Button>
+                        </>
+                      )}
 
-                    {user.room === "waiting" && (
-                      <>
-                        <button
-                          style={{ backgroundColor: "green", padding: "0.5rem 1rem", borderRadius: "0.5rem", color: "white", alignItems: "center" }}
-                          onClick={async () => onWaitingToActive(user)}
-                        >
-                          موافقة
-                        </button>
-                        <button
-                          style={{ backgroundColor: "red", padding: "0.5rem 1rem", borderRadius: "0.5rem", color: "white", alignItems: "center" }}
-                          onClick={() => handleDeleteUser(user, "waiting")}
-                        >
-                          حذف
-                        </button>
-                      </>
-                    )}
+                      {user.room === "waiting" && (
+                        <>
+                          <Button size="sm" variant="success" onClick={() => onWaitingToActive(user)}>
+                            موافقة
+                          </Button>
+                          <Button size="sm" variant="danger" onClick={() => handleDeleteUser(user, "waiting")}>
+                            حذف
+                          </Button>
+                        </>
+                      )}
 
-                    {user.room === "noActive" && (
-                      <>
-                        <button
-                          style={{ backgroundColor: "green", padding: "0.5rem 1rem", borderRadius: "0.5rem", color: "white", alignItems: "center" }}
-                          onClick={async () => onNoActiveToActive(user)}
-                        >
-                          تفعيل
-                        </button>
-                        <button
-                          style={{ backgroundColor: "red", padding: "0.5rem 1rem", borderRadius: "0.5rem", color: "white", alignItems: "center" }}
-                          onClick={() => handleDeleteUser(user, "noActive")}
-                        >
-                          حذف
-                        </button>
-                      </>
-                    )}
+                      {user.room === "noActive" && (
+                        <>
+                          <Button size="sm" variant="success" onClick={() => onNoActiveToActive(user)}>
+                            تفعيل
+                          </Button>
+                          <Button size="sm" variant="danger" onClick={() => handleDeleteUser(user, "noActive")}>
+                            حذف
+                          </Button>
+                        </>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan={7} style={{ textAlign: "center", padding: 16 }}>
+                <td colSpan={6} className={styles.emptyState}>
                   لا يوجد بيانات لإظهارها
                 </td>
               </tr>
