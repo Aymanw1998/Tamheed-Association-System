@@ -228,6 +228,24 @@ function toViewUrl(fileId) {
   return `https://lh3.googleusercontent.com/d/${fileId}`;
 }
 
+// The stored refresh token stops working periodically (7-day expiry while the
+// OAuth consent screen is in "Testing" mode, manual revocation, etc.) and
+// googleapis then throws a bare "invalid_grant" — meaningless to an end user.
+// Every route that talks to Drive should pass its catch-block error through
+// this so people see an actionable message instead of an OAuth error code.
+const DRIVE_RECONNECT_MESSAGE =
+  "انتهى الاتصال مع Google Drive أو تم إلغاؤه. على المدير فتح /api/storage/google/connect من المتصفح لإعادة الربط.";
+
+function translateDriveError(err) {
+  const raw = String(err?.message || err?.response?.data?.error || "");
+  if (raw.includes("invalid_grant")) {
+    const friendly = new Error(DRIVE_RECONNECT_MESSAGE);
+    friendly.code = "GOOGLE_DRIVE_DISCONNECTED";
+    return friendly;
+  }
+  return err;
+}
+
 async function uploadFile({ buffer, body, name, mimeType, folderPath = "" }) {
   const { drive, parentId } = await ensureFolderPath(folderPath);
   const mediaBody = body || Readable.from(buffer);
@@ -282,4 +300,5 @@ module.exports = {
   deleteById,
   getStorageQuota,
   toViewUrl,
+  translateDriveError,
 };

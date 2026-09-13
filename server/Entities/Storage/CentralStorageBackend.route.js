@@ -84,7 +84,7 @@ router.post("/folder", express.json(), async (req, res) => {
     await googleDrive.ensureFolderPath(storagePath);
     return res.json({ success: true, folder: storagePath });
   } catch (error) {
-    return res.status(500).json({ success: false, error: error.message });
+    return res.status(500).json({ success: false, error: googleDrive.translateDriveError(error).message });
   }
 });
 
@@ -97,7 +97,7 @@ router.get("/list", async (req, res) => {
     const items = children.map((file) => driveFileToItem(file, storagePath));
     return res.json({ success: true, items });
   } catch (error) {
-    return res.status(500).json({ success: false, error: error.message, items: [] });
+    return res.status(500).json({ success: false, error: googleDrive.translateDriveError(error).message, items: [] });
   }
 });
 
@@ -118,7 +118,7 @@ router.get("/stats", async (req, res) => {
       tamheedUsedBytes,
     });
   } catch (error) {
-    return res.status(500).json({ success: false, error: error.message });
+    return res.status(500).json({ success: false, error: googleDrive.translateDriveError(error).message });
   }
 });
 
@@ -150,7 +150,7 @@ router.post("/upload", singleUpload.single("file"), async (req, res) => {
       mimetype: req.file.mimetype,
     });
   } catch (error) {
-    return res.status(500).json({ success: false, error: error.message });
+    return res.status(500).json({ success: false, error: googleDrive.translateDriveError(error).message });
   } finally {
     if (req.file?.path) fs.promises.unlink(req.file.path).catch(() => {});
   }
@@ -236,7 +236,7 @@ router.post("/merge-chunks", express.json(), async (req, res) => {
       size: stat.size,
     });
   } catch (error) {
-    return res.status(500).json({ success: false, error: error.message });
+    return res.status(500).json({ success: false, error: googleDrive.translateDriveError(error).message });
   } finally {
     await fs.promises.rm(chunkDir(uploadId), { recursive: true, force: true }).catch(() => {});
     await fs.promises.unlink(mergedPath).catch(() => {});
@@ -319,7 +319,7 @@ router.delete("/delete", express.json(), async (req, res) => {
     await googleDrive.deleteById(target.fileId);
     return res.json({ success: true, deleted: true });
   } catch (error) {
-    return res.status(500).json({ success: false, error: error.message });
+    return res.status(500).json({ success: false, error: googleDrive.translateDriveError(error).message });
   }
 });
 
@@ -348,7 +348,7 @@ router.patch("/rename", express.json(), async (req, res) => {
       url: target.isDirectory ? null : googleDrive.toViewUrl(target.fileId),
     });
   } catch (error) {
-    return res.status(500).json({ success: false, error: error.message });
+    return res.status(500).json({ success: false, error: googleDrive.translateDriveError(error).message });
   }
 });
 
@@ -370,7 +370,7 @@ router.get("/file/:name", async (req, res) => {
     return res.redirect(302, googleDrive.toViewUrl(target.fileId));
   } catch (error) {
     const status = error?.name === "TokenExpiredError" || error?.name === "JsonWebTokenError" ? 401 : 500;
-    return res.status(status).json({ success: false, error: error.message });
+    return res.status(status).json({ success: false, error: googleDrive.translateDriveError(error).message });
   }
 });
 
