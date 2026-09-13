@@ -1,5 +1,6 @@
 // middleware/authRequired.js
 const jwt = require('jsonwebtoken');  // ملاحظة عربية
+const { repairMisencodedText } = require('../utils/textEncoding');
 
 const requireAuth = (req, res, next) => {
   try {
@@ -28,20 +29,16 @@ const requireAuth = (req, res, next) => {
   }
 }
 
-// ملاحظة عربية
-const ADMIN_ROLES = new Set(["ادارة", "إدارة", "الادارة", "الإدارة", "Ø§Ø¯Ø§Ø±Ø©"]);
+const ADMIN_ROLES = new Set(["ادارة", "إدارة", "الادارة", "الإدارة"]);
 
 function requireRole(...roles) {
   return (req, res, next) => {
-    // console.log("roles", roles);
-    // console.log("user", req.user);
-    // console.log("roles", req.user.roles);
-    req.user.roles = req.user.roles || [];
+    req.user.roles = (req.user.roles || []).map((role) => repairMisencodedText(String(role).trim()));
     let b = false;
     for (let r of roles) {
       if (
         req.user.roles.includes(r) ||
-        (ADMIN_ROLES.has(r) && req.user.roles.some((role) => ADMIN_ROLES.has(String(role).trim())))
+        (ADMIN_ROLES.has(r) && req.user.roles.some((role) => ADMIN_ROLES.has(role)))
       ) {
         b = true;
         break;

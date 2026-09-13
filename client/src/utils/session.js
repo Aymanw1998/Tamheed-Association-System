@@ -1,18 +1,22 @@
+import { repairMisencodedText } from "./textEncoding";
+
 export const ADMIN_ROLES = ["ادارة", "إدارة", "الادارة", "الإدارة"];
 
+const repairRole = (role) => repairMisencodedText(String(role || "").trim());
+
 export const normalizeRoles = (value) => {
-  if (Array.isArray(value)) return value.filter(Boolean);
+  if (Array.isArray(value)) return value.filter(Boolean).map(repairRole);
   if (!value) return [];
 
   if (typeof value === "string") {
     try {
       const parsed = JSON.parse(value);
-      if (Array.isArray(parsed)) return parsed.filter(Boolean);
+      if (Array.isArray(parsed)) return parsed.filter(Boolean).map(repairRole);
     } catch (error) {
-      return [value];
+      return [repairRole(value)];
     }
 
-    return [value];
+    return [repairRole(value)];
   }
 
   return [];

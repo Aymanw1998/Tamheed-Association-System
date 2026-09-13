@@ -1,7 +1,9 @@
+const { repairMisencodedText } = require('./textEncoding');
+
 const LEVEL = { view: 1, edit: 2, manage: 3 };
 
 function canByRole({ role, required, visibility, acl = [] }) {
-    if (role === "ادارة") return true;
+    if (repairMisencodedText(String(role || "").trim()) === "ادارة") return true;
 
     if (!LEVEL[required]) return false;
 
