@@ -12,6 +12,10 @@ import StudentStatusFilter from "./StudentStatusFilter.jsx";
 import Button from "../UI/Button.jsx";
 import StatusBadge from "../UI/StatusBadge.jsx";
 
+// Mirrors PARENT_INVITE_ENABLED in server.js — the invite endpoints are
+// unmounted there, so offering the parent-link option would just fail.
+const PARENT_INVITE_ENABLED = false;
+
 const ACTIVE_STATUS = "عادي";
 const PENDING_STATUS = "ينتظر";
 
@@ -143,6 +147,11 @@ const ViewAllStudent = () => {
   }, [students, searchTerm, statusFilter]);
 
   const handleAddStudent = async () => {
+    if (!PARENT_INVITE_ENABLED) {
+      navigate("/students/new");
+      return;
+    }
+
     let toParent;
 
     try {
