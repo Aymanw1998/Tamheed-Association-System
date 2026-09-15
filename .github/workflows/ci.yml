@@ -26,6 +26,11 @@ jobs:
         env:
           CI: false
           REACT_APP_SERVER_URI: http://localhost:5000
+      - name: Client regression tests
+        run: npm test
+        working-directory: client
+        env:
+          CI: true
 
   server-check:
     name: Server syntax check
@@ -44,4 +49,7 @@ jobs:
         run: |
           find . -name "*.js" -not -path "./node_modules/*" -print0 \
             | xargs -0 -n1 node --check
+        working-directory: server
+      - name: Server regression tests
+        run: npm test
         working-directory: server

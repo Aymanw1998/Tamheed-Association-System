@@ -15,6 +15,7 @@ const {
 } = require("../../utils/jwt");
 
 const { logWithSource } = require("../../middleware/logger");
+const { repairMisencodedText } = require("../../utils/textEncoding");
 
 const {
   encryptPassword,
@@ -86,6 +87,10 @@ const buildUserPhotoName = (user = {}, file = {}) => {
 
 /* ================= Constants ================= */
 const ROOMS = ["active", "waiting", "noActive"];
+const SELF_EDIT_FIELDS = new Set([
+  "firstname", "lastname", "birth_date", "gender", "phone", "email",
+  "city", "street", "password", "photo",
+]);
 const MAX_ATTEMPTS = 5;
 const LOCK_MIN = 10;
 
@@ -368,11 +373,26 @@ const putU = async (req, res) => {
       return res.status(400).json({ ok: false, message: "tz required" });
     }
 
-    const room = req.body?.room && ROOMS.includes(req.body.room)
+    const roles = Array.isArray(req.user?.roles) ? req.user.roles : [];
+    const isAdmin = roles.some((role) =>
+      ADMIN_ROLES.has(repairMisencodedText(String(role).trim()))
+    );
+    if (!isAdmin && tz !== String(req.user?.tz ?? "").trim()) {
+      return res.status(403).json({ ok: false, code: "FORBIDDEN", message: "لا توجد صلاحية" });
+    }
+
+    const room = isAdmin && req.body?.room && ROOMS.includes(req.body.room)
       ? req.body.room
       : "active";
 
     const newData = removeEmpty(buildData(req.body));
+    if (!isAdmin) {
+      // The profile form sends back account metadata from getMe. Only editable
+      // profile fields may reach storage; authority and session state are server-owned.
+      for (const field of Object.keys(newData)) {
+        if (!SELF_EDIT_FIELDS.has(field)) delete newData[field];
+      }
+    }
 
     const updated = await UserModelDef.update({ tz }, newData, room);
 

@@ -4,6 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "test": "npm run test --prefix server && npm run test --prefix client",
+    "verify": "npm test && npm run build --prefix client",
     "setup": "node scripts/setup.js",
     "start": "concurrently \"npm run server\" \"npm run client\"",
     "server": "cd server && npm start",

@@ -132,6 +132,7 @@ api.interceptors.response.use(
         // ملاحظة عربية
         const { data } = await axios.post(`${API_BASE_URL}/auth/refresh`, null, {
           withCredentials: true,
+          timeout: 15000,
         });
 
         if (!data?.accessToken) {
@@ -167,7 +168,8 @@ api.interceptors.response.use(
     ) {
       hardResetToLogin('انتهت صلاحية الرمز');
     }
-    if (status === 403 && ['BLOCKED', 'FORBIDDEN'].includes(code)) {
+    // A denied operation does not invalidate an otherwise valid session.
+    if (status === 403 && code === 'BLOCKED') {
       hardResetToLogin('لا توجد صلاحية لهذا الحساب');
     }
 

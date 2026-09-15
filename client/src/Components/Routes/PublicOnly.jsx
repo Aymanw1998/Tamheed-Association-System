@@ -51,7 +51,7 @@ export default function PublicOnly() {
         const { data } = await axios.post(
           `${API_BASE_URL}/auth/refresh`,
           {},
-          { withCredentials: true }
+          { withCredentials: true, timeout: 15000 }
         );
 
         if (!cancel && data?.accessToken && !navigatingRef.current) {

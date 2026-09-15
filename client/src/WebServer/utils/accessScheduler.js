@@ -30,7 +30,7 @@ export function scheduleAccessRefresh(accessToken, skewMs = 60_000) {
     }
 
     try {
-      const { data } = await axios.post(`${API_BASE_URL}/auth/refresh`, null, { withCredentials: true });
+      const { data } = await axios.post(`${API_BASE_URL}/auth/refresh`, null, { withCredentials: true, timeout: 15000 });
       if (data?.accessToken) {
         setAuthTokens(data.accessToken, data.expirationTime);
 

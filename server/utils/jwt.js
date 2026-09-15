@@ -12,15 +12,19 @@ exports.computeAccessExpMsFromNow = () => Date.now() + ACCESS_TOKEN_TTL_SEC * 10
 
 exports.sha256 = (str) => crypto.createHash('sha256').update(String(str)).digest('hex');
 
-exports.setRefreshCookie = (res, token) => {
+const refreshCookieOptions = () => {
   const isProd = process.env.NODE_ENV === 'production';
-  res.cookie("refresh", token, {
+  return {
     httpOnly: true,
     secure: isProd,                 // prod فقط
     sameSite: isProd ? "None" : "Lax",
     path: "/",
     domain: isProd ? ".tamheed-ramla.org" : undefined,
-  });
+  };
 };
 
-exports.clearRefreshCookie = (res) => res.clearCookie('refresh', { path: '/' });
+exports.setRefreshCookie = (res, token) => {
+  res.cookie("refresh", token, refreshCookieOptions());
+};
+
+exports.clearRefreshCookie = (res) => res.clearCookie('refresh', refreshCookieOptions());
