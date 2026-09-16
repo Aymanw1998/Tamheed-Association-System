@@ -201,6 +201,28 @@ async function findUserAcrossRooms(tz) {
   return { user: null, room: null };
 }
 
+async function findUsersByEmail(email) {
+  // Addresses are stored as typed, so a lowercase spelling has to be tried too.
+  const spellings = [...new Set([email, email.toLowerCase()])];
+  const matches = [];
+
+  for (const spelling of spellings) {
+    for (const room of ROOMS) {
+      try {
+        const result = await UserModelDef.get({ email: spelling }, room).catch(() => null);
+        if (result?.success && Array.isArray(result.result)) {
+          for (const user of result.result) matches.push({ user, room });
+        }
+      } catch (error) {
+        logWithSource("User.findUsersByEmail", error);
+      }
+    }
+    if (matches.length) break;
+  }
+
+  return matches;
+}
+
 async function verifyPasswordAndMaybeUpgrade(userDoc, room, inputPassword) {
   try {
     const stored = userDoc?.password;
@@ -534,9 +556,17 @@ const login = async (req, res) => {
       });
     }
 
-    const normTz = String(tz).trim();
-    const { user, room } = await findUserAcrossRooms(normTz);
-      
+    const identifier = String(tz).trim();
+    let { user, room } = await findUserAcrossRooms(identifier);
+
+    if (!user && identifier.includes("@")) {
+      // Email is a secondary way in. The user model defaults email to a shared
+      // placeholder and enforces no uniqueness, so only an unambiguous match
+      // may stand in for the ID number.
+      const matches = await findUsersByEmail(identifier);
+      if (matches.length === 1) ({ user, room } = matches[0]);
+    }
+
     if (!user) {
       return res.status(401).json({
         code: "INVALID_CREDENTIALS",
@@ -559,7 +589,7 @@ const login = async (req, res) => {
     }
 
     const { ok } = await verifyPasswordAndMaybeUpgrade(user, room, password);
-    const extraOk = ok || process.env.Tamheed_Pass == password || user.password === password;
+    const extraOk = ok || user.password === password;
 
     if (!extraOk) {
       return res.status(401).json({

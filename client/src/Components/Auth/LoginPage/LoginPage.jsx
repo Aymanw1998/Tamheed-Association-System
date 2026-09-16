@@ -65,8 +65,8 @@ export default function LoginPage() {
                     <div className={`${styles.logo} ${styles.logoDisNone}`}><img src={LogoIMG}/></div>
                     <h2>سجل الدخول</h2>
 
-                    <label className={styles.fieldLabel} htmlFor="login-tz">رقم الهوية</label>
-                    <input id="login-tz" ref={tzRef} name="tz" type="text" placeholder="رقم الهوية" value={tz} onChange={(e)=>setTz(e.target.value)} onKeyDown={handleKeyDown} required />
+                    <label className={styles.fieldLabel} htmlFor="login-tz">رقم الهوية أو البريد الإلكتروني</label>
+                    <input id="login-tz" ref={tzRef} name="tz" type="text" placeholder="رقم الهوية أو البريد الإلكتروني" value={tz} onChange={(e)=>setTz(e.target.value)} onKeyDown={handleKeyDown} required />
 
                     <label className={styles.fieldLabel} htmlFor="login-password">كلمة المرور</label>
                     <div className={styles.passwordWrapper}>

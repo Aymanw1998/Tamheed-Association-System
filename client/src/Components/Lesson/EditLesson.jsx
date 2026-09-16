@@ -12,7 +12,7 @@ import { toast } from '../../ALERT/SystemToasts';
 
 import { getAll as getAllS} from '../../WebServer/services/student/functionsStudent';
 import { getAll as getAllU } from '../../WebServer/services/user/functionsUser';
-import { isStoredAdmin } from '../../utils/session';
+import { isStoredAdmin, normalizeRoles, ADMIN_ROLES } from '../../utils/session';
 import Button from '../UI/Button';
 const EditLesson = () => {
   const isAdmin = isStoredAdmin();
@@ -94,8 +94,12 @@ const EditLesson = () => {
       const usersRes = await getAllU();
       if (usersRes?.ok) {
         const allUsers = usersRes.users || [];
-        setTeachers(allUsers.filter((u) => u.roles.includes('مرشد')));
-        setHelpers(allUsers.filter((u) => u.roles.includes('مساعد')));
+        // Administrators run lessons too, so they belong in the same picker.
+        setTeachers(allUsers.filter((u) => {
+          const roles = normalizeRoles(u.roles);
+          return roles.includes('مرشد') || roles.some((r) => ADMIN_ROLES.includes(r));
+        }));
+        setHelpers(allUsers.filter((u) => normalizeRoles(u.roles).includes('مساعد')));
       } else{
         throw new Error(usersRes?.message)
       }
