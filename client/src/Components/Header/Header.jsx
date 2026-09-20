@@ -163,9 +163,7 @@ export default function Header() {
         className={`${styles.navbarV} ${isMobile ? styles.mobileNav : ""}`}
         data-open={isMobile ? menuOpen : true}
       >
-        {isAdmin && (
-          <a href="/dashboard" onClick={(event) => onNavClick(event, "/dashboard")}>{t("nav.dashboard")}</a>
-        )}
+        <a href="/dashboard" onClick={(event) => onNavClick(event, "/dashboard")}>{t("nav.dashboard")}</a>
         <a href="/calendar" onClick={(event) => onNavClick(event, "/calendar")}>{t("nav.attendance")}</a>
         {canViewStudents && (
           <a href="/students" onClick={(event) => onNavClick(event, "/students")}>{t("nav.students")}</a>

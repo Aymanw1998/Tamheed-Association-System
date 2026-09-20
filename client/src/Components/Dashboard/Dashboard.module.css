@@ -80,6 +80,17 @@
   color: var(--color-primary-600);
 }
 
+.statCard strong.statValueFailed {
+  color: var(--color-danger-700);
+}
+
+.statHint {
+  display: block;
+  margin-top: 4px;
+  font-size: var(--fs-xs);
+  color: var(--color-danger-700);
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

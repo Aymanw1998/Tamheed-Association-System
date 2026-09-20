@@ -6,7 +6,17 @@ import { deleteS as deleteStudent, getAll as getAllStudents, update as updateStu
 import { getAllLesson, getLessonsToday } from "../../WebServer/services/lesson/functionsLesson.jsx";
 import { getAll as getAllReports } from "../../WebServer/services/report/functionsReport.jsx";
 import { toast } from "../../ALERT/SystemToasts.jsx";
-import { isStoredAdmin } from "../../utils/session";
+import { getStoredUserId, hasStoredRole, isStoredAdmin } from "../../utils/session";
+
+// The bootstrap system-admin account (see server/scripts/ensureSystemAdmin.js)
+// isn't a real member of the association - it, and whoever is currently
+// viewing the dashboard, shouldn't count toward "المستخدمون".
+const SYSTEM_ADMIN_TZ = "000000000";
+
+// Matches Header.jsx's GUIDE_ROLES - a مرشد can approve a pending student
+// (PUT /student/:tz) but only ادارة can reject/delete one, so the dashboard
+// needs to tell "guide" apart from "assistant" (مساعد), who can do neither.
+const GUIDE_ROLES = ["مرشد", "مرشدة", "المرشد", "المرشدة"];
 
 const formatLessonTime = (lesson) => {
   const start = Number(lesson?.date?.startMin);
@@ -19,6 +29,9 @@ const formatLessonTime = (lesson) => {
 export default function Dashboard() {
   const navigate = useNavigate();
   const isAdmin = useMemo(() => isStoredAdmin(), []);
+  const isGuide = useMemo(() => hasStoredRole(...GUIDE_ROLES), []);
+  const canApproveStudents = isAdmin || isGuide;
+  const canRejectStudents = isAdmin;
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState("");
   const [error, setError] = useState("");
@@ -29,6 +42,9 @@ export default function Dashboard() {
     reports: [],
     todayLessons: [],
   });
+  // Which stat cards reflect a fetch that actually failed, vs. a genuine
+  // zero - a silent failure here used to render as an indistinguishable "0".
+  const [loadFailed, setLoadFailed] = useState({ users: false, students: false, todayLessons: false, reports: false });
 
   useEffect(() => {
     let cancelled = false;
@@ -53,12 +69,25 @@ export default function Dashboard() {
         const reportsRes = reportsResult.status === "fulfilled" ? reportsResult.value : {};
         const todayLessonsRes = todayLessonsResult.status === "fulfilled" ? todayLessonsResult.value : {};
 
+        const currentUserId = String(getStoredUserId() || "");
+        const users = (usersRes?.ok ? usersRes.users || [] : []).filter(
+          (user) => String(user?.tz ?? "") !== SYSTEM_ADMIN_TZ && String(user?._id ?? "") !== currentUserId
+        );
+
         setData({
-          users: usersRes?.ok ? usersRes.users || [] : [],
+          users,
           students: studentsRes?.ok ? studentsRes.students || [] : [],
           lessons: lessonsRes?.ok ? lessonsRes.lessons || [] : [],
           reports: reportsRes?.ok ? reportsRes.reports || [] : [],
           todayLessons: todayLessonsRes?.ok ? todayLessonsRes.lessons || [] : [],
+        });
+        setLoadFailed({
+          // Non-admins deliberately skip the users fetch (see the Promise.resolve
+          // above) - that's not a failure, only an actual !ok response is.
+          users: isAdmin && !usersRes?.ok,
+          students: !studentsRes?.ok,
+          todayLessons: !todayLessonsRes?.ok,
+          reports: !reportsRes?.ok,
         });
       } catch (err) {
         if (!cancelled) {
@@ -78,16 +107,28 @@ export default function Dashboard() {
   }, [isAdmin]);
 
   const summary = useMemo(() => {
-    const activeUsers = data.users.filter((user) => user.room === "active").length;
-    const waitingUsers = data.users.filter((user) => user.room === "waiting").length;
+    const cards = [];
 
-    return [
-      { label: "المستخدمون", value: activeUsers },
-      { label: "بانتظار الموافقة", value: waitingUsers },
-      { label: "الطلاب", value: data.students.length },
-      { label: "الدروس اليوم", value: data.todayLessons.length },
-    ];
-  }, [data]);
+    // Managing accounts (the count itself, and approving/rejecting them) is
+    // an admin-only capability - showing it to a guide/assistant would just
+    // be a permanently-empty, non-actionable number.
+    if (isAdmin) {
+      const activeUsers = data.users.filter((user) => user.room === "active").length;
+      const waitingUsers = data.users.filter((user) => user.room === "waiting").length;
+      cards.push(
+        { label: "المستخدمون", value: activeUsers, failed: loadFailed.users },
+        { label: "بانتظار الموافقة", value: waitingUsers, failed: loadFailed.users }
+      );
+    }
+
+    cards.push(
+      { label: "الطلاب", value: data.students.length, failed: loadFailed.students },
+      { label: "الدروس اليوم", value: data.todayLessons.length, failed: loadFailed.todayLessons },
+      { label: "التقارير", value: data.reports.length, failed: loadFailed.reports }
+    );
+
+    return cards;
+  }, [data, loadFailed, isAdmin]);
 
   const waitingUsers = useMemo(
     () => data.users.filter((user) => user.room === "waiting").slice(0, 5),
@@ -208,7 +249,7 @@ export default function Dashboard() {
           <p>عرض سريع وبسيط لأهم بيانات النظام.</p>
         </div>
         <div className={styles.links}>
-          <Link to="/users">المستخدمون</Link>
+          {isAdmin && <Link to="/users">المستخدمون</Link>}
           <Link to="/students">الطلاب</Link>
           <Link to="/lessons">الدروس</Link>
           <Link to="/reports">التقارير</Link>
@@ -221,89 +262,98 @@ export default function Dashboard() {
         {summary.map((item) => (
           <div key={item.label} className={styles.statCard}>
             <span>{item.label}</span>
-            <strong>{loading ? "..." : item.value}</strong>
+            <strong className={!loading && item.failed ? styles.statValueFailed : ""}>
+              {loading ? "..." : item.failed ? "-" : item.value}
+            </strong>
+            {!loading && item.failed && <small className={styles.statHint}>تعذر تحميل هذه البيانات</small>}
           </div>
         ))}
       </div>
 
       <div className={styles.grid}>
-        <section className={styles.panel}>
-          <div className={styles.panelHeader}>
-            <h2>بانتظار الموافقة</h2>
-            <Link to="/users">فتح</Link>
-          </div>
-          {loading ? (
-            <p className={styles.empty}>جاري التحميل...</p>
-          ) : waitingUsers.length ? (
-            waitingUsers.map((user) => (
-              <div key={`${user.tz}-${user.room}`} className={styles.row}>
-                <div>
-                  <strong>{user.firstname || "-"} {user.lastname || ""}</strong>
-                  <span>{user.tz}</span>
+        {isAdmin && (
+          <section className={styles.panel}>
+            <div className={styles.panelHeader}>
+              <h2>بانتظار الموافقة</h2>
+              <Link to="/users">فتح</Link>
+            </div>
+            {loading ? (
+              <p className={styles.empty}>جاري التحميل...</p>
+            ) : waitingUsers.length ? (
+              waitingUsers.map((user) => (
+                <div key={`${user.tz}-${user.room}`} className={styles.row}>
+                  <div>
+                    <strong>{user.firstname || "-"} {user.lastname || ""}</strong>
+                    <span>{user.tz}</span>
+                  </div>
+                  <div className={styles.actions}>
+                    <button
+                      type="button"
+                      className={styles.approveBtn}
+                      disabled={actionLoading === `user-approve-${user.tz}`}
+                      onClick={() => handleApproveUser(user)}
+                    >
+                      قبول
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.rejectBtn}
+                      disabled={actionLoading === `user-reject-${user.tz}`}
+                      onClick={() => handleRejectUser(user)}
+                    >
+                      رفض
+                    </button>
+                  </div>
                 </div>
-                <div className={styles.actions}>
-                  <button
-                    type="button"
-                    className={styles.approveBtn}
-                    disabled={actionLoading === `user-approve-${user.tz}`}
-                    onClick={() => handleApproveUser(user)}
-                  >
-                    قبول
-                  </button>
-                  <button
-                    type="button"
-                    className={styles.rejectBtn}
-                    disabled={actionLoading === `user-reject-${user.tz}`}
-                    onClick={() => handleRejectUser(user)}
-                  >
-                    رفض
-                  </button>
-                </div>
-              </div>
-            ))
-          ) : (
-            <p className={styles.empty}>لا يوجد مستخدمون بانتظار الموافقة.</p>
-          )}
-        </section>
+              ))
+            ) : (
+              <p className={styles.empty}>لا يوجد مستخدمون بانتظار الموافقة.</p>
+            )}
+          </section>
+        )}
 
-        <section className={styles.panel}>
-          <div className={styles.panelHeader}>
-            <h2>طلاب بانتظار الموافقة</h2>
-            <Link to="/students">فتح</Link>
-          </div>
-          {loading ? (
-            <p className={styles.empty}>جاري التحميل...</p>
-          ) : pendingStudents.length ? (
-            pendingStudents.map((student) => (
-              <div key={student.tz} className={styles.row}>
-                <div>
-                  <strong>{student.firstname || "-"} {student.lastname || ""}</strong>
-                  <span>{student.tz}</span>
+        {canApproveStudents && (
+          <section className={styles.panel}>
+            <div className={styles.panelHeader}>
+              <h2>طلاب بانتظار الموافقة</h2>
+              <Link to="/students">فتح</Link>
+            </div>
+            {loading ? (
+              <p className={styles.empty}>جاري التحميل...</p>
+            ) : pendingStudents.length ? (
+              pendingStudents.map((student) => (
+                <div key={student.tz} className={styles.row}>
+                  <div>
+                    <strong>{student.firstname || "-"} {student.lastname || ""}</strong>
+                    <span>{student.tz}</span>
+                  </div>
+                  <div className={styles.actions}>
+                    <button
+                      type="button"
+                      className={styles.approveBtn}
+                      disabled={actionLoading === `student-approve-${student.tz}`}
+                      onClick={() => handleApproveStudent(student)}
+                    >
+                      قبول
+                    </button>
+                    {canRejectStudents && (
+                      <button
+                        type="button"
+                        className={styles.rejectBtn}
+                        disabled={actionLoading === `student-reject-${student.tz}`}
+                        onClick={() => handleRejectStudent(student)}
+                      >
+                        رفض
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <div className={styles.actions}>
-                  <button
-                    type="button"
-                    className={styles.approveBtn}
-                    disabled={actionLoading === `student-approve-${student.tz}`}
-                    onClick={() => handleApproveStudent(student)}
-                  >
-                    قبول
-                  </button>
-                  <button
-                    type="button"
-                    className={styles.rejectBtn}
-                    disabled={actionLoading === `student-reject-${student.tz}`}
-                    onClick={() => handleRejectStudent(student)}
-                  >
-                    رفض
-                  </button>
-                </div>
-              </div>
-            ))
-          ) : (
-            <p className={styles.empty}>لا يوجد طلاب بانتظار الموافقة.</p>
-          )}
-        </section>
+              ))
+            ) : (
+              <p className={styles.empty}>لا يوجد طلاب بانتظار الموافقة.</p>
+            )}
+          </section>
+        )}
 
         <section className={styles.panel}>
           <div className={styles.panelHeader}>

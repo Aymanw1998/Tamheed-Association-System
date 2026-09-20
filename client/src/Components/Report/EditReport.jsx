@@ -199,8 +199,12 @@ const EditReport = ({parent = false}) => {
   }
 
   useEffect(() => {
+    // GET /user/ is admin-only and its result is only used for the
+    // admin-only "attendance" field below - skip it for other roles so a
+    // 403 here doesn't block the rest of the form via the shared err state.
+    if (!isAdmin) return;
     getUsers();
-  }, []);
+  }, [isAdmin]);
   function isValidIsraeliId(id) {
     if (!/^\d{5,9}$/.test(id)) return false;
     id = id.padStart(9, "0");

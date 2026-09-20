@@ -5,8 +5,8 @@ const router = express.Router();
 
 router.get("/", requireAuth, getAll);
 router.get("/:id", requireAuth, getById);
-router.post("/", requireAuth, requireRole('ادارة', 'مرشد'), post);
-router.put("/:id", requireAuth, requireRole('ادارة', 'مرشد'), put);
+router.post("/", requireAuth, requireRole('ادارة', 'مرشد', 'مساعد'), post);
+router.put("/:id", requireAuth, requireRole('ادارة', 'مرشد', 'مساعد'), put);
 router.delete("/:id", requireAuth, requireRole('ادارة'), remove);
 
 module.exports = router;

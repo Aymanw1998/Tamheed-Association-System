@@ -46,12 +46,6 @@ const PAGE_CSS = `
 
   h1{ text-align:center; margin: 3mm 0 4mm; font-size: 30px; font-weight: 800; color:#0d3040; }
 
-  .meta-strip{ display:flex; flex-wrap: wrap; justify-content:center; gap: 3mm; margin: 0 0 6mm; }
-  .meta-chip{
-    background:#eaf5f9; border:1px solid #cfe6f0; color:#164d63; border-radius: 999px;
-    padding: 2.6mm 4mm; font-size: 20px; font-weight:600;
-  }
-
   .continued-head{ display:flex; align-items:center; justify-content:space-between; margin: 0 0 5mm; }
   .continued-title{ font-size: 20px; font-weight:800; color:#0d3040; }
   .continued-date{ font-size: 14px; color:#566268; }
@@ -92,25 +86,24 @@ const letterheadHtml = () => `
   <div class="accent-bar"></div>
 `;
 
-const footerHtml = (pageNum, totalPages, generatedAt) => `
+const footerHtml = (pageNum, totalPages, dateLabel, authorLabel) => `
   <div class="doc-footer">
     <div class="footer-line"></div>
     <div class="footer-row">
       <span>جمعية تمهيد - الرملة</span>
+      <span>${authorLabel}</span>
       <span>${pageNum}/${totalPages}</span>
-      <span>${escapeHtml(generatedAt)}</span>
+      <span>تاريخ الإنشاء: ${escapeHtml(dateLabel)}</span>
     </div>
     <div class="footer-note">هذه الوثيقة صادرة عبر نظام إدارة جمعية تمهيد وتعتبر وثيقة داخلية سرية</div>
   </div>
 `;
 
-// First page: full title/meta/chips header, then as much body text as fits.
-const firstPageBodyHtml = ({ stitle, dateLabel, authorLabel, chips, users, infoChunk }) => `
+// First page: full title/chips header, then as much body text as fits.
+// Creation date/author now live in the footer (footerHtml) on every page
+// instead of a header chip here.
+const firstPageBodyHtml = ({ stitle, chips, users, infoChunk }) => `
   <h1>${escapeHtml(stitle || "")}</h1>
-  <div class="meta-strip">
-    <span class="meta-chip">تاريخ التقرير: ${escapeHtml(dateLabel)}</span>
-    <span class="meta-chip">${authorLabel}</span>
-  </div>
   ${chips && chips.length > 0 ? `
     <div class="section">
       <div class="section-title">عناوين ثانوية</div>
@@ -151,7 +144,7 @@ const measurePageBudget = (bodyHtmlBuilder, params) => {
     <div class="pdf-page">
       ${letterheadHtml()}
       <div class="wrap">${bodyHtmlBuilder({ ...params, infoChunk: "" })}</div>
-      ${footerHtml(1, 1, "00/00/0000 - 00:00:00")}
+      ${footerHtml(1, 1, params.dateLabel || "00/00/0000 00:00", params.authorLabel || "")}
     </div>
   `;
   document.body.appendChild(probe);
@@ -196,13 +189,12 @@ export const exportReportPdf = async (report, user) => {
   }
 
   const safeDate = report?.date ? new Date(report.date) : new Date();
-  const now = new Date();
   const fileName = `report-${(report?.stitle ?? "new")
     .toString()
     .replace(/[\\/:*?"<>|]/g, "-")}-${safeDate.getDate()}-${safeDate.getMonth() + 1}-${safeDate.getFullYear()}.pdf`;
 
   const authorName = `${user?.firstname ?? ""} ${user?.lastname ?? ""}`.trim();
-  const dateLabel = safeDate.toLocaleDateString("en-GB");
+  const dateLabel = `${safeDate.toLocaleDateString("en-GB")} ${safeDate.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`;
   const authorLabel = `أُعِدّ بواسطة: ${escapeHtml(authorName || "-")}${user?.tz ? ` ${escapeHtml(user.tz)}` : ""}`;
   const chipsHtml = (report?.title ?? []).length
     ? (report?.title ?? []).map((t) => `<span class="chip">${escapeHtml(t)}</span>`).join("")
@@ -219,7 +211,6 @@ export const exportReportPdf = async (report, user) => {
         .filter(Boolean)
         .join("")
     : "";
-  const generatedAt = `${now.toLocaleDateString("en-GB")} - ${now.toLocaleTimeString("en-GB")}`;
 
   // ✅ حاوية مؤقتة (مخفية) لكل عمليات القياس والتحويل
   const container = document.createElement("div");
@@ -240,6 +231,7 @@ export const exportReportPdf = async (report, user) => {
     const continuedBudget = measurePageBudget(continuedPageBodyHtml, {
       stitle: report?.stitle,
       dateLabel,
+      authorLabel,
     });
 
     const measureEl = document.createElement("div");
@@ -277,7 +269,7 @@ export const exportReportPdf = async (report, user) => {
           <div class="pdf-page">
             ${letterheadHtml()}
             <div class="wrap">${body}</div>
-            ${footerHtml(i + 1, totalPages, generatedAt)}
+            ${footerHtml(i + 1, totalPages, dateLabel, authorLabel)}
           </div>
         `;
       })

@@ -13,6 +13,7 @@ const os = require("os");
 const path = require("path");
 const { StorageModelDef } = require("./Storage.model");
 const googleDrive = require("../../services/googleDrive.service");
+const { repairMisencodedText } = require("../../utils/textEncoding");
 
 const router = express.Router();
 
@@ -132,6 +133,9 @@ router.post("/upload", singleUpload.single("file"), async (req, res) => {
     const { dbName, collection, folder } = req.body || {};
     if (!req.file) return res.status(400).json({ success: false, error: "file is required" });
 
+    // This hop re-parses a fresh multipart body (forwarded by Storage.controller.js),
+    // so the filename= header is subject to the same latin1 mojibake as the first hop.
+    req.file.originalname = repairMisencodedText(req.file.originalname);
     const storageFolder = joinStoragePath(dbName, collection, folder);
     const stream = fs.createReadStream(req.file.path);
     const uploaded = await googleDrive.uploadFile({
@@ -367,7 +371,11 @@ router.get("/file/:name", async (req, res) => {
       return res.status(404).json({ success: false, error: "file not found" });
     }
 
-    return res.redirect(302, googleDrive.toViewUrl(target.fileId));
+    const driveUrl = payload?.download
+      ? googleDrive.toDriveDownloadUrl(target.fileId)
+      : googleDrive.toDriveViewUrl(target.fileId);
+
+    return res.redirect(302, driveUrl);
   } catch (error) {
     const status = error?.name === "TokenExpiredError" || error?.name === "JsonWebTokenError" ? 401 : 500;
     return res.status(status).json({ success: false, error: googleDrive.translateDriveError(error).message });

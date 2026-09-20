@@ -228,6 +228,19 @@ function toViewUrl(fileId) {
   return `https://lh3.googleusercontent.com/d/${fileId}`;
 }
 
+// lh3.googleusercontent.com only ever renders a flattened preview image, so a
+// multi-page file (PDF, Office doc) opened through it shows one static page
+// with no way to scroll/page through the rest. Drive's own viewer page
+// handles pagination, zoom, etc. natively, so the "open file" route sends
+// people there instead - same file, opened through the storage's Drive.
+function toDriveViewUrl(fileId) {
+  return `https://drive.google.com/file/d/${fileId}/view`;
+}
+
+function toDriveDownloadUrl(fileId) {
+  return `https://drive.google.com/uc?export=download&id=${fileId}`;
+}
+
 // The stored refresh token stops working periodically (7-day expiry while the
 // OAuth consent screen is in "Testing" mode, manual revocation, etc.) and
 // googleapis then throws a bare "invalid_grant" — meaningless to an end user.
@@ -300,5 +313,7 @@ module.exports = {
   deleteById,
   getStorageQuota,
   toViewUrl,
+  toDriveViewUrl,
+  toDriveDownloadUrl,
   translateDriveError,
 };

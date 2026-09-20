@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getAll } from "../../WebServer/services/report/functionsReport.jsx";
 import { getAll as getUsers } from "../../WebServer/services/user/functionsUser.jsx";
+import { getMe } from "../../WebServer/services/auth/fuctionsAuth.jsx";
 import styles from "./Report.module.css";
 import Fabtn from "../Global/Fabtn/Fabtn.jsx";
 import { exportReportPdf } from "./ExportPDF.jsx";
@@ -56,7 +57,9 @@ const toDate = (value) => {
 const formatDate = (value) => {
   const date = toDate(value);
   if (!date) return "";
-  return date.toLocaleDateString("en-GB");
+  const datePart = date.toLocaleDateString("en-GB");
+  const timePart = date.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  return `${datePart} ${timePart}`;
 };
 
 const dayName = (value) => {
@@ -116,7 +119,13 @@ const ViewAllReport = () => {
     setErr(null);
 
     try {
-      const [usersResponse, reportsResponse] = await Promise.all([getUsers(), getAll()]);
+      // GET /user/ (the full list) is admin-only. Non-admins only ever see
+      // their own reports (server-scoped), so their own profile - fetched
+      // through the self-accessible /auth/me - is all "صاحب التقرير" needs.
+      const loadOwners = isAdmin
+        ? getUsers()
+        : getMe().then((user) => ({ ok: Boolean(user), users: user ? [user] : [] }));
+      const [usersResponse, reportsResponse] = await Promise.all([loadOwners, getAll()]);
       if (!reportsResponse?.ok) throw new Error(reportsResponse?.message || "Load failed");
 
       const usersById = usersResponse?.ok
@@ -136,7 +145,7 @@ const ViewAllReport = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isAdmin]);
 
   useEffect(() => {
     loadReport();

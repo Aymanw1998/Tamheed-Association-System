@@ -38,7 +38,6 @@ installSafeStorageDefaults();
 window.onerror = (m, s, l, c, e) => console.error("[window.onerror]", m, e);
 window.onunhandledrejection = (e) => console.error("[unhandledrejection]", e.reason || e);
 
-initApiBase().then(() => {}).catch((err) => {console.error("Error initializing API base URL:", err);});
 function DevToastPing() {
   const { push } = useToast();
   useEffect(() => {
@@ -47,30 +46,42 @@ function DevToastPing() {
   return null;
 }
 
-const root = ReactDOM.createRoot(document.getElementById("root"));
-root.render(
-  <ConfirmProvider>
-    <ToastProvider rtl baseZIndex={999999}>
-      <AppErrorBoundary>
-        <App />
-      </AppErrorBoundary>
+// Every page's first mount fires data-fetching requests (Header's getMe(),
+// each route's own load effect, etc.) immediately on render. Rendering
+// before initApiBase() resolves let those requests go out with no baseURL
+// set yet, resolving against the page's own origin instead of the API
+// server and failing outright (visible as a burst of 404s against
+// localhost:3000 followed by the real, working requests against the actual
+// API host) - components then had no way to know their very first fetch was
+// against the wrong server. Wait for it here instead of racing it.
+initApiBase()
+  .catch((err) => console.error("Error initializing API base URL:", err))
+  .finally(() => {
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(
+      <ConfirmProvider>
+        <ToastProvider rtl baseZIndex={999999}>
+          <AppErrorBoundary>
+            <App />
+          </AppErrorBoundary>
 
-      {/* <SystemStatusWatcher
-        options={{
-          healthUrl: `/health`,
-          intervalMs: 5000,
-          getToken: () => localStorage.getItem("accessToken"),
-          warnBeforeExpirySec: 300,
-        }}
-      /> */}
+          {/* <SystemStatusWatcher
+            options={{
+              healthUrl: `/health`,
+              intervalMs: 5000,
+              getToken: () => localStorage.getItem("accessToken"),
+              warnBeforeExpirySec: 300,
+            }}
+          /> */}
 
-      {/* <SystemEventSubscriber/> */}
+          {/* <SystemEventSubscriber/> */}
 
-      <StatusBadge />
+          <StatusBadge />
 
-      <DevToastPing />
-    </ToastProvider>
-  </ConfirmProvider>
-);
+          <DevToastPing />
+        </ToastProvider>
+      </ConfirmProvider>
+    );
 
-reportWebVitals();
+    reportWebVitals();
+  });

@@ -6,6 +6,7 @@ const path = require("path");
 const { UserModelDef } = require("../User/User.model");
 const { StorageModelDef } = require("./Storage.model");
 const { broadcast } = require("../../utils/sse");
+const { repairMisencodedText } = require("../../utils/textEncoding");
 
 const STORAGE_DB_NAME = process.env.DB_NAME || "tamheed_db";
 const STORAGE_COLLECTION = process.env.STORAGE_COLLECTION || "root";
@@ -1341,6 +1342,9 @@ const uploadFile = async (req, res) => {
       return res.status(400).json({ success: false, message: "No file uploaded" });
     }
     const scope = await getStorageScope(req, "create", req.body.path || req.body.folder || req.query.path || "");
+    // multer/busboy decode the multipart filename= header as latin1 by default,
+    // so any non-ASCII original name (Hebrew/Arabic, etc.) arrives mojibake'd.
+    req.file.originalname = repairMisencodedText(req.file.originalname);
     const uploadName = normalizeUploadFileName(
       req.body.name || req.body.filename || "",
       req.file.originalname

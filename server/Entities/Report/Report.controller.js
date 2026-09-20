@@ -1,5 +1,18 @@
 const { ReportModelDef } = require("./Report.model.js");
 const { logWithSource } = require("../../middleware/logger.js");
+const { repairMisencodedText } = require("../../utils/textEncoding.js");
+
+const ADMIN_ROLES = new Set(["ادارة", "إدارة", "الادارة", "الإدارة"]);
+
+function isAdminUser(user = {}) {
+  return (user.roles || []).some((role) => ADMIN_ROLES.has(repairMisencodedText(String(role || "").trim())));
+}
+
+function isReportOwner(user = {}, report = {}) {
+  const createdBy = String(report?.createdBy || "").trim();
+  if (!createdBy) return false;
+  return createdBy === String(user?.id || "").trim() || createdBy === String(user?.tz || "").trim();
+}
 
 /* ===================== optional notifications ===================== */
 let notify = null;
@@ -72,7 +85,11 @@ const getAll = async (req, res) => {
     if (type) filter.type = type;
 
     const result = await ReportModelDef.get(filter);
-    const reports = Array.isArray(result?.result) ? result.result : [];
+    let reports = Array.isArray(result?.result) ? result.result : [];
+
+    if (!isAdminUser(req.user)) {
+      reports = reports.filter((report) => isReportOwner(req.user, report));
+    }
 
     reports.sort((a, b) => {
       const ad = new Date(a.createdAt || a.date || 0).getTime();
@@ -115,6 +132,14 @@ const getById = async (req, res) => {
       });
     }
 
+    if (!isAdminUser(req.user) && !isReportOwner(req.user, report)) {
+      return res.status(403).json({
+        ok: false,
+        code: "FORBIDDEN",
+        message: "لا توجد صلاحية",
+      });
+    }
+
     return res.status(200).json({
       ok: true,
       report: sanitize(report),
@@ -132,7 +157,7 @@ const getById = async (req, res) => {
 // POST /api/reports
 const post = async (req, res) => {
   try {
-    const { date, attendance, title, stitle, info, createdBy, type } = req.body;
+    const { date, attendance, title, stitle, info, type } = req.body;
 
     if (!info || String(info).trim() === "") {
       return res.status(400).json({
@@ -148,7 +173,10 @@ const post = async (req, res) => {
       stitle: stitle || "",
       info: String(info),
       type: type || undefined,
-      createdBy: createdBy || req.user?._id || req.user?.tz || null,
+      // The author is always the authenticated caller - a client-supplied
+      // createdBy would let anyone attribute a report to someone else and
+      // would break the ownership checks in getAll/getById/put below.
+      createdBy: req.user?.id || req.user?.tz || null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -209,6 +237,14 @@ const put = async (req, res) => {
       return res.status(404).json({
         ok: false,
         message: "Not found",
+      });
+    }
+
+    if (!isAdminUser(req.user) && !isReportOwner(req.user, existing)) {
+      return res.status(403).json({
+        ok: false,
+        code: "FORBIDDEN",
+        message: "لا توجد صلاحية",
       });
     }
 
