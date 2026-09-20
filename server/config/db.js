@@ -2,10 +2,9 @@ const mongoose = require('mongoose');
 require('colors');
 const { logWithSource } = require('../middleware/logger');
 
-const DEFAULT_MONGO_URI = 'mongodb://127.0.0.1:27017/tamheed_db';
 
 const connectDB = async () => {
-    const uri = process.env.MONGO_URI || DEFAULT_MONGO_URI;
+    const uri = process.env.MONGO_URI;
     try{
         console.log("Connecting to MongoDB...".yellow);
         const conn = await mongoose.connect(uri);

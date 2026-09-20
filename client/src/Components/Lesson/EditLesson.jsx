@@ -21,7 +21,7 @@ const EditLesson = () => {
   
   const navigate = useNavigate();
   const searchParams = new URLSearchParams(window.location.search);
-  const dayFromUrl = Number(searchParams.get('day'))+1 || 1;
+  const dayFromUrl = Number(searchParams.get('day')) || 1;
   const hhFromUrl = (Number(searchParams.get('startMin'))/60) || 8;
 
   const [lesson, setLesson] = useState({

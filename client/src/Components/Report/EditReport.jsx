@@ -186,7 +186,7 @@ const EditReport = ({parent = false}) => {
         const res = await getAll(); // ملاحظة عربية
         if(!res.ok) throw new Error(res.message);
         if (res) {
-          const s = res.users.filter(u => u.roles.includes("ادارة"));
+          const s = res.users;
           setUsers(s);
         } else {
           setErr("الاداريين غير موجود");
@@ -330,7 +330,7 @@ const EditReport = ({parent = false}) => {
     if (b) { toast.warn(b); return; }
     b = true
     
-    if(form.title.length === 0 || form.info === "") return toast.warn("فحص الحقول المطلوبة");
+    if(form.stitle.length === 0 || form.info === "") return toast.warn("فحص الحقول المطلوبة");
     e.preventDefault();
     try {
       setSaving(true);
@@ -372,7 +372,7 @@ const EditReport = ({parent = false}) => {
     <div className={styles.formContainer}>
       <center><h1>{isEdit ? "تحديث بيانات التقرير" : "اضافة تقرير جديد"}</h1></center>
 
-      <label>عنوان التقرير:</label>
+      <label>عنوان التقرير:<span style={{color: "red"}}>*</span></label>
       <input
         type="text"
         name="stitle"
@@ -399,7 +399,7 @@ const EditReport = ({parent = false}) => {
       <label style={{color: "red"}}>{error.title}</label>
       <br />
 
-      <label>صلب الموضوع:</label>
+      <label>صلب الموضوع:<span style={{color: "red"}}>*</span></label>
       <textarea
         name="info"
         value={form.info}
