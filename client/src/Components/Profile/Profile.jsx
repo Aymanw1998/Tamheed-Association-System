@@ -6,6 +6,7 @@ import styles from "./Profile.module.css";
 import { toast } from "../../ALERT/SystemToasts.jsx";
 import {validate as validateINV, submit as submitFromParent} from "../../WebServer/services/inviteToken/functionInviteToken.jsx";
 import { getMe } from "../../WebServer/services/auth/fuctionsAuth.jsx";
+import { photoAction } from "../../utils/photoChange";
 
 const Profile = ({parent = false}) => {
     const [form, setForm] = useState({
@@ -23,6 +24,9 @@ const Profile = ({parent = false}) => {
     });
 
     const [photo, setPhoto] = useState(null);
+    // The photo link currently stored on the server; saving only touches it
+    // when a new file was picked or the photo was removed.
+    const [originalPhoto, setOriginalPhoto] = useState(null);
     const [error, setError] = useState({
         tz: "",
         password: "",
@@ -62,6 +66,7 @@ const Profile = ({parent = false}) => {
                 delete s.roles;
                 setForm(s);
                 setPhoto(s.photo || null);
+                setOriginalPhoto(s.photo || null);
                 setStoredPasswordValue("");
                 setPasswordAlgo("");
             } else {
@@ -297,17 +302,21 @@ const Profile = ({parent = false}) => {
                 return;
             }
             
-            var bb = await handleDeletePhotoWithSave();
-            console.log("deletePhotoWithSave", bb);
-            if(bb) {
-                payload.photo = null;
-            }
+            // The photo only changes through its own endpoints, which keep the
+            // stored link and the Drive file in sync, and only when the user
+            // actually picked a new file or removed it.
+            delete payload.photo;
+            const photoChange = photoAction(originalPhoto, photo);
+
             const res = await update(form.tz, payload);
             if(!res) return;
             if(!res.ok) throw new Error(res.message);
             toast.success(`✅ الملف الشخصي تم تحديثه بنجاح`);
 
-            if (photo instanceof File) {
+            if (photoChange === "remove" && await handleDeletePhotoWithSave()) {
+                setOriginalPhoto(null);
+            }
+            if (photoChange === "upload") {
                 const res2 = await uploadPhoto(form.tz, photo);
                 if(!res2) return;
                 if(!res2.ok) {
@@ -315,6 +324,7 @@ const Profile = ({parent = false}) => {
                 }
                 else{
                     setPhoto(res2.photo || null);
+                    setOriginalPhoto(res2.photo || null);
                     toast.success("✅ تم تحميل صورة بنجاح");
                 }
             }

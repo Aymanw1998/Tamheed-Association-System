@@ -418,3 +418,66 @@ dialog and an end-to-end export from a logged-in list page were not exercised
 this session).
 
 **Delivery state:** Local changes only; no commit or push.
+
+## 2026-09-23 - Photo change/remove on save, Drive-safe replacement (Claude implemented)
+
+**Request:** in the user/student edit screens the photo can be changed or
+removed; on save a removed photo is deleted from the DB and from Google Drive.
+The owner approved the full design (client + server).
+
+**Findings before the change:**
+
+- [Profile.jsx](../client/src/Components/Profile/Profile.jsx) called the
+  photo-delete endpoint on every save, so saving any profile field deleted the
+  user's photo from Drive and the DB.
+- [EditUser.jsx](../client/src/Components/User/EditUser.jsx) had no way to
+  remove a photo, and showed "تعديل الاختيار" even with no photo
+  (`photo != ""` is true for `null`).
+- Both `uploadPhoto` handlers deleted the old Drive file before uploading the
+  new one. When the upload failed, the record kept pointing at a deleted Drive
+  file, which renders as a broken ("blocked") image.
+- Every form save sent the form's copy of `photo` back through `PUT`, so a
+  stale form could restore a link to an already-deleted Drive file.
+- `DELETE /api/student/photo/:tz` had no role guard (any signed-in user,
+  including مساعد), while upload is ادارة/مرشد only.
+
+**Changes:**
+
+- New [photoChange.js](../client/src/utils/photoChange.js): `photoAction`
+  returns `keep` / `remove` / `upload` from the loaded link and the form state.
+- EditUser, EditStudent and Profile: remove `photo` from the save payload;
+  after a successful save, call the photo delete endpoint only for `remove`
+  and upload only for `upload`. EditUser gets a "حذف الصورة" button and the
+  label fix; Profile tracks the stored link after save.
+- [User.controller.js](../server/Entities/User/User.controller.js) and
+  [Student.controller.js](../server/Entities/Student/Student.controller.js)
+  `uploadPhoto`: upload first, return 502 with the current photo untouched if
+  Drive fails, store the new link, then delete the old Drive file.
+- [Student.route.js](../server/Entities/Student/Student.route.js): photo
+  delete now requires ادارة or مرشد.
+
+**Tests (written first and watched failing):**
+[photo-storage.test.js](../server/test/photo-storage.test.js) - failed upload
+keeps the photo and its Drive file; the new link is stored before the old file
+is deleted (users and students); only ادارة/مرشد reach student photo delete.
+[photoChange.test.js](../client/src/utils/photoChange.test.js) - six keep /
+remove / upload cases, including an untouched photo (the Profile bug).
+
+**Verification:** `npm run verify` passed: 21 server tests (16 existing + 5
+new), 10 client tests (4 existing + 6 new), client production build. The
+screens were not exercised in a browser: the local server cannot reach MongoDB
+Atlas from this machine (IP not on the Atlas access list), so no sign-in was
+possible. No real Drive upload or delete was performed.
+
+**Remaining limitations:** `handleDeleteByUrl` swallows Drive errors, so if
+Drive is disconnected a removed photo is cleared from the DB while its Drive
+file stays (orphaned, not broken). Existing records that already point at
+deleted Drive files are not repaired by this change.
+
+**Codex connection:** `codex` is not on `PATH` in this session and no peer
+session is registered. No review request has been sent and no Codex response
+has been received or claimed.
+
+**Pending review:** Codex review of the changed files above is outstanding.
+
+**Delivery state:** Local changes only; no commit, push, or deployment.

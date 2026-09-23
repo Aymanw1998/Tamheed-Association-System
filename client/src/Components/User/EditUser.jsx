@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 // ملاحظة عربية
-import { create, update, getUserById as getOne, /*softDelete,*/ deleteU, uploadPhoto, changeStatus, viewPassword } from "../../WebServer/services/user/functionsUser.jsx";
+import { create, update, getUserById as getOne, /*softDelete,*/ deleteU, uploadPhoto, deletePhoto, changeStatus, viewPassword } from "../../WebServer/services/user/functionsUser.jsx";
 import styles from "./User.module.css";
 import { toast } from "../../ALERT/SystemToasts.jsx";
 import EyeIcon from "../UI/EyeIcon";
+import { photoAction } from "../../utils/photoChange";
 
 const EditUser = () => {
   const params = useParams();              // "new" الأحدالجمعة _id
@@ -30,6 +31,9 @@ const EditUser = () => {
   });
 
   const [photo, setPhoto] = useState(null);
+  // The photo link stored on the server when the page loaded; saving only
+  // touches it when a new file was picked or the photo was removed.
+  const [originalPhoto, setOriginalPhoto] = useState(null);
   const [error, setError] = useState({
     tz: "",
     password: "",
@@ -68,6 +72,7 @@ const EditUser = () => {
           s.roles = s.roles.includes("ادارة") ? ["ادارة"] : (s.roles.includes("مرشد") ? ["مرشد"] : ["مساعد"]);
           setForm(s);
           setPhoto(s.photo || null);
+          setOriginalPhoto(s.photo || null);
           setStoredPasswordValue("");
           setPasswordAlgo("");
         } else {
@@ -307,14 +312,27 @@ const EditUser = () => {
       if (!passwordTouched || !form.password?.trim()) {
         delete payload.password;
       }
+      // The photo only changes through its own endpoints, which keep the
+      // stored link and the Drive file in sync.
+      delete payload.photo;
+      const photoChange = photoAction(originalPhoto, photo);
+
       const res = isEdit ? await update(form.tz, payload): await create({...payload});
       if(!res) return;
       if(!res.ok) throw new Error(res.message);
       toast.success(`✅ المستخدم ${isEdit ? 'حُديث' : 'حُفِظ'} بنجاح`);
 
-      // Only re-upload when a new file was actually picked — the existing
-      // photo (loaded as a URL, not a File) must be left alone otherwise.
-      if (photo instanceof File) {
+      if (photoChange === "remove") {
+        const res2 = await deletePhoto(form.tz);
+        if(!res2) return;
+        if(!res2.ok) {
+          toast.warn("لم يتم حذف صورة المستخدم: " + res2.message);
+        }
+        else{
+          toast.success("✅ تم حذف صورة المستخدم بنجاح");
+        }
+      }
+      if (photoChange === "upload") {
         const res2 = await uploadPhoto(form.tz, photo);
         if(!res2) return;
         if(!res2.ok) {
@@ -532,7 +550,12 @@ const EditUser = () => {
             input.capture = "environment";
             input.click();
           }
-        }> {photo != "" ? "تعديل الاختيار" : "اختر صورة"} </button>
+        }> {photo ? "تعديل الاختيار" : "اختر صورة"} </button>
+        {photo && (
+          <button type="button" onClick={() => setPhoto(null)} style={{ marginInlineStart: "8px" }}>
+            حذف الصورة
+          </button>
+        )}
         <br />
 
         {/* معاينة الصورة إذا موجودة */}

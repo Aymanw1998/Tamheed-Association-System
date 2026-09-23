@@ -22,7 +22,7 @@ router.get('/', getAllS);
 router.get('/:tz', getOneS);
 router.post('/', protectRole('ادارة'), postS);
 router.put('/:tz', protectRole('ادارة', 'مرشد'), putS);
-router.delete('/photo/:tz', deletePhoto);
+router.delete('/photo/:tz', protectRole('ادارة', 'مرشد'), deletePhoto);
 router.delete('/:tz', protectRole('ادارة'), deleteS);
 router.post('/upload-photo/:tz', protectRole('ادارة', 'مرشد'),upload.single('file'), uploadPhoto);
 

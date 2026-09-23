@@ -325,21 +325,29 @@ const uploadPhoto = async (req, res) => {
       });
     }
 
-    if (student.photo) {
-      await handleDeleteByUrl(student.photo);
-    }
-
     const uploaded = await handleUpload(
       req.file,
       StudentModelDef.dbName,
       StudentModelDef.collections.active,
       student.tz
     );
+    if (!uploaded?.secure_url) {
+      return res.status(502).json({
+        ok: false,
+        message: "تعذّر رفع الصورة إلى Google Drive، ولم تتغير الصورة الحالية",
+      });
+    }
 
     await StudentModelDef.update(
       { tz },
       { photo: uploaded.secure_url }
     );
+
+    // The previous Drive file is removed only after the new link is stored,
+    // so a failed upload never leaves the record pointing at a deleted file.
+    if (student.photo) {
+      await handleDeleteByUrl(student.photo);
+    }
 
     return res.status(200).json({
       ok: true,

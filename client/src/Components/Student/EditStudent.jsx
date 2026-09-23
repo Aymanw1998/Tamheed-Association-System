@@ -7,6 +7,7 @@ import styles from "./Student.module.css";
 import { toast } from "../../ALERT/SystemToasts";
 import {validate as validateINV, submit as submitFromParent} from "../../WebServer/services/inviteToken/functionInviteToken.jsx";
 import { isStoredAdmin } from "../../utils/session";
+import { photoAction } from "../../utils/photoChange";
 
 const EditStudent = ({parent = false}) => {
   const params = useParams();              // "new" الأحدالجمعة _id
@@ -345,24 +346,21 @@ const EditStudent = ({parent = false}) => {
         return;
       }
       
-      // Only touch the stored photo when the admin actually changed it —
-      // saving unrelated fields must never delete an untouched photo.
-      const photoWasRemoved = Boolean(originalPhoto) && photo === null;
-      const photoWasReplaced = photo instanceof File;
-
-      if (photoWasRemoved) {
-        const removed = await handleDeletePhotoWithSave();
-        if (removed) {
-          payload.photo = null;
-        }
-      }
+      // The photo only changes through its own endpoints, which keep the
+      // stored link and the Drive file in sync, and only when the admin
+      // actually picked a new file or removed it.
+      delete payload.photo;
+      const photoChange = photoAction(originalPhoto, photo);
 
       const res = isEdit ? await update(form.tz, payload): await create({...payload});
       if(!res) return;
       if(!res.ok) throw new Error(res.message);
       toast.success(`✅ الطالب ${isEdit ? 'حُديث' : 'حُفِظ'} بنجاح`);
 
-      if (photoWasReplaced) {
+      if (photoChange === "remove") {
+        await handleDeletePhotoWithSave();
+      }
+      if (photoChange === "upload") {
         const res2 = await uploadPhoto(form.tz, photo);
         if(!res2) return;
         if(!res2.ok) {

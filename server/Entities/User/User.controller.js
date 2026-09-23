@@ -1130,6 +1130,27 @@ const   uploadPhoto = async (req, res) => {
       return res.status(400).json({ ok: false, message: "file is required" });
     }
 
+    const uploaded = await handleUpload(
+      req.file,
+      process.env.DB_NAME,
+      UserModelDef.collections.active,
+      user.tz
+    );
+    if (!uploaded?.secure_url) {
+      return res.status(502).json({
+        ok: false,
+        message: "تعذّر رفع الصورة إلى Google Drive، ولم تتغير الصورة الحالية",
+      });
+    }
+
+    await UserModelDef.update(
+      { tz },
+      { photo: uploaded.secure_url },
+      "active"
+    );
+
+    // The previous Drive file is removed only after the new link is stored,
+    // so a failed upload never leaves the record pointing at a deleted file.
     if (user.photo) {
       try {
         await handleDeleteByUrl(user.photo);
@@ -1137,19 +1158,6 @@ const   uploadPhoto = async (req, res) => {
         logWithSource("User.uploadPhoto delete prev", e);
       }
     }
-
-    const uploaded = await handleUpload(
-      req.file,
-      process.env.DB_NAME,
-      UserModelDef.collections.active,
-      user.tz
-    );
-
-    await UserModelDef.update(
-      { tz },
-      { photo: uploaded.secure_url },
-      "active"
-    );
 
     await safeNotify({
       toRoles: ["ادارة"],
