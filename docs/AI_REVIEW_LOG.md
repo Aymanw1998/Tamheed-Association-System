@@ -389,3 +389,32 @@ cards and both panels as before.
 
 **Delivery state:** Local changes only; no commit, push, deployment, or
 unattended monitor was started.
+
+## 2026-09-23 - PDF preview before download/print (Claude implemented)
+
+**Request:** when exporting to PDF, first show a preview page with
+download/print buttons instead of saving immediately.
+
+**Changes:**
+
+- New [pdfPreview.js](../client/src/Components/ExportPDF/pdfPreview.js):
+  full-screen RTL overlay that shows the rendered page images, with
+  "تحميل PDF" (`pdf.save`), "طباعة" (prints the page images through a hidden
+  iframe with `@page A4, margin 0`), and "إغلاق" (also Escape / backdrop
+  click). Uses page images instead of an inline PDF iframe because mobile
+  browsers do not reliably display embedded PDFs.
+- [ExportPDF/ExportPDF.jsx](../client/src/Components/ExportPDF/ExportPDF.jsx)
+  (user/student) and [Report/ExportPDF.jsx](../client/src/Components/Report/ExportPDF.jsx):
+  collect each page's JPEG and call `showPdfPreview` instead of `pdf.save`.
+
+**Verification:** `npm run verify` passed (client build compiled). In the dev
+client, loaded the module through webpack and opened the preview with two test
+pages: overlay rendered with 2 pages and 3 buttons, download invoked `save`
+with the file name, Escape closed it and restored body scroll. The real print
+dialog and an end-to-end export from a logged-in list page were not exercised
+(needs a signed-in session).
+
+**Review:** Codex review requested - pending (no live Codex connection from
+this session).
+
+**Delivery state:** Local changes only; no commit or push.

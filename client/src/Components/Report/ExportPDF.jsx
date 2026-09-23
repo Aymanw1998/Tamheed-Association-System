@@ -1,6 +1,7 @@
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import LOGO from "../../images/logo.png";
+import { showPdfPreview } from "../ExportPDF/pdfPreview.js";
 import { getAll } from "../../WebServer/services/user/functionsUser";
 const escapeHtml = (str) =>
   String(str ?? "")
@@ -286,6 +287,7 @@ export const exportReportPdf = async (report, user) => {
     // stray near-blank final page. Capturing page-by-page sidesteps that.
     const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
     const pageEls = pdfRoot.querySelectorAll(".pdf-page");
+    const images = [];
     for (let i = 0; i < pageEls.length; i++) {
       const canvas = await html2canvas(pageEls[i], {
         scale: 2,
@@ -293,10 +295,11 @@ export const exportReportPdf = async (report, user) => {
         backgroundColor: "#ffffff",
       });
       const imgData = canvas.toDataURL("image/jpeg", 0.98);
+      images.push(imgData);
       if (i > 0) pdf.addPage();
       pdf.addImage(imgData, "JPEG", 0, 0, 210, 297);
     }
-    pdf.save(fileName);
+    showPdfPreview({ pdf, images, fileName, title: report?.stitle });
   } finally {
     document.body.removeChild(container);
   }

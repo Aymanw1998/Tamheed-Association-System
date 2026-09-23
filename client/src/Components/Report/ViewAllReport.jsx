@@ -445,7 +445,7 @@ const ViewAllReport = () => {
                       style={{ backgroundColor: "blue", padding: "0.5rem 1rem", borderRadius: "0.5rem", color: "white" }}
                       onClick={() => exportReportPdf(report, report.user)}
                     >
-                      تحميل ملف التقرير
+                      ملف التقرير
                     </button>
                   </td>
                 </tr>

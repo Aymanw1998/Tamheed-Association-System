@@ -306,7 +306,7 @@ const ViewAllStudent = () => {
                             variant="secondary"
                             onClick={() => exportStudentPdf(student)}
                           >
-                            تحميل ملف الطالب
+                            ملف الطالب
                           </Button>
                         </>
                       )}

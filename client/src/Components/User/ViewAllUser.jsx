@@ -276,7 +276,7 @@ const ViewAllUser = () => {
                             للتعديل
                           </Button>
                           <Button size="sm" variant="secondary" onClick={() => exportUserPdf(user)}>
-                            تحميل ملف المستخدم
+                            ملف المستخدم
                           </Button>
                         </>
                       )}

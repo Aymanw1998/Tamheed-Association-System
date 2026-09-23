@@ -1,6 +1,7 @@
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import LOGO from "../../images/logo.png";
+import { showPdfPreview } from "./pdfPreview.js";
 
 /* =======================
    Helpers
@@ -332,6 +333,7 @@ export const exportCardPdf = async ({
     // matches the number of page blocks exactly, with no blank pages.
     const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
     const pageEls = pdfRoot.querySelectorAll(".pdf-page");
+    const images = [];
     for (let i = 0; i < pageEls.length; i++) {
       const canvas = await html2canvas(pageEls[i], {
         scale: 2,
@@ -339,10 +341,11 @@ export const exportCardPdf = async ({
         backgroundColor: "#ffffff",
       });
       const imgData = canvas.toDataURL("image/jpeg", 0.98);
+      images.push(imgData);
       if (i > 0) pdf.addPage();
       pdf.addImage(imgData, "JPEG", 0, 0, 210, 297);
     }
-    pdf.save(fileName);
+    showPdfPreview({ pdf, images, fileName, title });
   } finally {
     document.body.removeChild(container);
   }
