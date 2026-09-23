@@ -1,0 +1,121 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.linkRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.linkInput {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-background);
+  color: var(--color-text-primary);
+  font-family: monospace;
+  font-size: var(--fs-xs);
+}
+
+.muted {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--fs-xs);
+}
+
+.error {
+  margin: 0;
+  color: var(--color-danger-700);
+}
+
+.usage {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.usage span,
+.usage small {
+  color: var(--color-text-secondary);
+  font-size: var(--fs-xs);
+}
+
+.usage strong {
+  font-size: var(--fs-2xl);
+  color: var(--color-primary-600);
+}
+
+.usage strong.full {
+  color: var(--color-danger-700);
+}
+
+.subTitle {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.attempts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.attempts li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--color-border);
+  font-size: var(--fs-xs);
+}
+
+.attempts li:last-child {
+  border-bottom: 0;
+}
+
+.attempts em {
+  color: var(--color-text-secondary);
+  font-style: normal;
+}
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(13, 48, 64, 0.55);
+}
+
+.dialog {
+  width: min(560px, 100%);
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.dialogHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-3);
+}
+
+.dialogHeader h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}

@@ -4,17 +4,12 @@ import { deleteS, getAll, update } from "../../WebServer/services/student/functi
 import styles from "./Student.module.css";
 import Fabtn from "../Global/Fabtn/Fabtn";
 import { toast } from "../../ALERT/SystemToasts";
-import { createLink } from "../../WebServer/services/inviteToken/functionInviteToken.jsx";
-import { ask } from "../Provides/confirmBus.js";
 import { exportStudentPdf } from "../ExportPDF/ExportPDF.jsx";
 import { getStoredUserId, isStoredAdmin } from "../../utils/session.js";
 import StudentStatusFilter from "./StudentStatusFilter.jsx";
 import Button from "../UI/Button.jsx";
 import StatusBadge from "../UI/StatusBadge.jsx";
-
-// Mirrors PARENT_INVITE_ENABLED in server.js — the invite endpoints are
-// unmounted there, so offering the parent-link option would just fail.
-const PARENT_INVITE_ENABLED = false;
+import { ParentLinkDialog } from "./ParentLinkPanel.jsx";
 
 const ACTIVE_STATUS = "عادي";
 const PENDING_STATUS = "ينتظر";
@@ -47,6 +42,7 @@ const ViewAllStudent = () => {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(null);
   const [showFab, setShowFab] = useState(false);
+  const [showParentLink, setShowParentLink] = useState(false);
   const [addBtnEl, setAddBtnEl] = useState(null);
 
   const addBtnRef = useCallback((node) => {
@@ -146,48 +142,10 @@ const ViewAllStudent = () => {
       });
   }, [students, searchTerm, statusFilter]);
 
-  const handleAddStudent = async () => {
-    if (!PARENT_INVITE_ENABLED) {
-      navigate("/students/new");
-      return;
-    }
-
-    let toParent;
-
-    try {
-      toParent = await ask("", {
-        title: "طريقة الإضافة",
-        message:
-          "كيف تفضلين إضافة الطالب؟\n\n" +
-          "(1) إرسال رابط تعبئة إلى ولي الأمر\n" +
-          "(2) أو إدخال يدوي عبر النظام",
-        confirmText: "إرسال رابط",
-        cancelText: "إضافة يدوية",
-      });
-    } catch (error) {
-      console.error("ask error:", error);
-      toast.error("نافذة التأكيد غير جاهزة الآن");
-      return;
-    }
-
-    if (!toParent) {
-      navigate("/students/new");
-      return;
-    }
-
-    const res = await createLink();
-    if (!res?.url) {
-      toast.error(res?.message || "تعذر إنشاء الرابط");
-      return;
-    }
-
-    try {
-      await navigator.clipboard.writeText(res.url);
-      toast.success("تم إنشاء الرابط ونسخه للحافظة");
-    } catch (error) {
-      toast.success("تم إنشاء الرابط");
-    }
+  const handleAddStudent = () => {
+    navigate("/students/new");
   };
+  const closeParentLink = useCallback(() => setShowParentLink(false), []);
 
   const handleApproveStudent = async (tz) => {
     const res = await update(tz, { status: ACTIVE_STATUS });
@@ -231,6 +189,12 @@ const ViewAllStudent = () => {
           {isAdmin && (
             <Button ref={addBtnRef} id="page-add-student" onClick={handleAddStudent}>
               إضافة طالب جديد
+            </Button>
+          )}
+
+          {isAdmin && (
+            <Button variant="secondary" onClick={() => setShowParentLink(true)}>
+              رابط تسجيل الأهل
             </Button>
           )}
 
@@ -362,6 +326,7 @@ const ViewAllStudent = () => {
           navigate("/students/new");
         }}
       />
+      {showParentLink && <ParentLinkDialog onClose={closeParentLink} />}
     </div>
   );
 };

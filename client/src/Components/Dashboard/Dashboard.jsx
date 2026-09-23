@@ -7,6 +7,7 @@ import { getAllLesson, getLessonsToday } from "../../WebServer/services/lesson/f
 import { getAll as getAllReports } from "../../WebServer/services/report/functionsReport.jsx";
 import { toast } from "../../ALERT/SystemToasts.jsx";
 import { getStoredUserId, hasStoredRole, isStoredAdmin } from "../../utils/session";
+import ParentLinkPanel from "../Student/ParentLinkPanel.jsx";
 
 // The bootstrap system-admin account (see server/scripts/ensureSystemAdmin.js)
 // isn't a real member of the association - it, and whoever is currently
@@ -352,6 +353,15 @@ export default function Dashboard() {
             ) : (
               <p className={styles.empty}>لا يوجد طلاب بانتظار الموافقة.</p>
             )}
+          </section>
+        )}
+
+        {isAdmin && (
+          <section className={styles.panel}>
+            <div className={styles.panelHeader}>
+              <h2>رابط تسجيل الأهل</h2>
+            </div>
+            <ParentLinkPanel />
           </section>
         )}
 

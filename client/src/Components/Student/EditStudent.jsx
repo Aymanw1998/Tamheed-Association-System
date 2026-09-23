@@ -74,13 +74,14 @@ const EditStudent = ({parent = false}) => {
   const [err, setErr]         = useState(null);
 
 
-  // ملاحظة عربية
-  const [inviteToken, setInviteToken] = useState(null);
+  // Parents arrive through the fixed registration link /register-student/:token.
+  const registrationToken = parent ? params.token : null;
   const [inviteStatus, setInviteStatus] = useState({
-    checking: parent,   // ملاحظة عربية
-    valid: !parent,     // ملاحظة عربية
-    message: "",
+    checking: parent,
+    valid: !parent,
+    open: true,
   });
+  const [submitted, setSubmitted] = useState(false);
 
   
   const [teachers, setTeachers] = useState(null);
@@ -125,45 +126,15 @@ const EditStudent = ({parent = false}) => {
     // ملاحظة عربية
   useEffect(() => {
     if (!parent) return;
-
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get("invite");
-
-    if (!token) {
-      setInviteStatus({
-        checking: false,
-        valid: false,
-        message: "رابط التسجيل غير صالح",
-      });
+    if (!registrationToken) {
+      setInviteStatus({ checking: false, valid: false, open: false });
       return;
     }
-
-    setInviteToken(token);
-
     (async () => {
-      try {
-        setInviteStatus((prev) => ({ ...prev, checking: true }));
-        const res = await validateINV(token);
-        // ملاحظة عربية
-        if (!res.valid) {
-          setInviteStatus({
-            checking: false,
-            valid: false,
-            message: res?.message || "الرابط غير صالح",
-          });
-        } else {
-          setInviteStatus({ checking: false, valid: true, message: "" });
-        }
-      } catch (e) {
-        console.error(e);
-        setInviteStatus({
-          checking: false,
-          valid: false,
-          message: "خطأ في فحص الرابط",
-        });
-      }
+      const res = await validateINV(registrationToken);
+      setInviteStatus({ checking: false, valid: res.valid, open: res.open });
     })();
-  }, [parent]);
+  }, [parent, registrationToken]);
 
   function isValidIsraeliId(id) {
     if (!/^\d{5,9}$/.test(id)) return false;
@@ -322,27 +293,16 @@ const EditStudent = ({parent = false}) => {
       setErr(null);
 
       const payload = { ...form };
-      if(parent && !inviteToken){
-          toast.error("رابط التسجيل غير صالح");
-          return;
-      }
-      else if(parent) {
-        const res = await submitFromParent(inviteToken, payload);
-        if (!res || !res.ok) {
-          throw new Error(res?.message || "فشل ارسال النموذج");
+      if (parent) {
+        const res = await submitFromParent(registrationToken, payload, photo);
+        if (!res.ok) {
+          if (res.code === "INTAKE_CLOSED") {
+            setInviteStatus({ checking: false, valid: true, open: false });
+            return;
+          }
+          throw new Error(res.code === "RATE_LIMITED" ? "حاولوا بعد ساعة" : res.message);
         }
-
-        toast.success("✅ تم ارسال تفاصيل الطالب بنجاح");
-        if(!photo) return;
-        const res2 = await uploadPhoto(form.tz, photo);
-        if(!res2) return;
-        if(!res2.ok) {
-          toast.warn("لم يتم تحميل صورة الطالب: " + res2.message);
-        }
-        else{
-          toast.success("✅ تم تحميل صورة الطالب بنجاح");
-        }
-        // ملاحظة عربية
+        setSubmitted(true);
         return;
       }
       
@@ -417,12 +377,25 @@ const EditStudent = ({parent = false}) => {
     }
     if (!inviteStatus.valid) {
       return (
-        <div
-          className={styles.formContainer}
-          style={{ color: "#b91c1c", textAlign: "center" }}
-        >
+        <div className={styles.formContainer} style={{ color: "#b91c1c", textAlign: "center" }}>
           <h2>الرابط غير صالح</h2>
-          <p>{inviteStatus.message || "يرجى طلب رابط جديد من المعلم."}</p>
+          <p>اطلبوا الرابط من الجمعية.</p>
+        </div>
+      );
+    }
+    if (!inviteStatus.open) {
+      return (
+        <div className={styles.formContainer} style={{ textAlign: "center" }}>
+          <h2>استقبال الطلبات متوقف مؤقتًا</h2>
+          <p>حاولوا بعد أيام.</p>
+        </div>
+      );
+    }
+    if (submitted) {
+      return (
+        <div className={styles.formContainer} style={{ textAlign: "center" }}>
+          <h2>تم استلام الطلب</h2>
+          <p>سنتواصل معكم قريبًا.</p>
         </div>
       );
     }
@@ -433,7 +406,7 @@ const EditStudent = ({parent = false}) => {
 
   return (
     <div className={styles.formContainer}>
-      <h2 style={{textAlign: "center"}}>{isEdit ? "تحديث بيانات الطالب" : "اضافة طالب جديد"}</h2>
+      <h2 style={{textAlign: "center"}}>{parent ? "طلب تسجيل طالب" : isEdit ? "تحديث بيانات الطالب" : "اضافة طالب جديد"}</h2>
 
       <label>رقم الهوية: <span style={{color: "red"}}>*</span></label>
       <input name="tz" value={form.tz} onChange={onField} readOnly={!isNew} />

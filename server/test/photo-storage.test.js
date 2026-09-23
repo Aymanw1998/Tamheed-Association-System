@@ -25,6 +25,11 @@ function createModel(records, events, extra = {}) {
       docs = docs.map((doc) => (matches(doc, filter) ? { ...doc, ...newData } : doc));
       return { success: true };
     },
+    async delete(filter) {
+      events.push(["db-delete", filter]);
+      docs = docs.filter((doc) => !matches(doc, filter));
+      return { success: true };
+    },
     snapshot: () => docs.map((doc) => ({ ...doc })),
   };
 }
@@ -221,4 +226,24 @@ test("only admins and guides can delete a student's photo", async () => {
     assert.equal(deleted, allowed, `roles ${roles.join(",")}`);
     assert.equal(res.statusCode, allowed ? 200 : 403, `roles ${roles.join(",")}`);
   }
+});
+
+test("deleting a student also deletes their photo from Drive", async () => {
+  const events = [];
+  const model = createModel(
+    [{ tz: "123456782", firstname: "Example", photo: OLD_PHOTO }],
+    events,
+    { dbName: "tamheed_db", collections: { active: "Students" } }
+  );
+  const { deleteS } = loadStudentController(model, createDriveStorage(events, null));
+  const res = createRes();
+
+  await deleteS({ params: { tz: "123456782" } }, res);
+
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(JSON.parse(JSON.stringify(events)), [
+    ["db-delete", { tz: "123456782" }],
+    ["drive-delete", OLD_PHOTO],
+  ]);
+  assert.equal(model.snapshot().length, 0);
 });

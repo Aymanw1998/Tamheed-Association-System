@@ -73,13 +73,9 @@ app.use(helmet({
 app.use(mongoSanitize()); // Sanitize data for privent NoSql injection attack
 app.use(xss()); // Prevent XSS attacks
 
-// Both endpoints below are reachable without authentication, so they stay
-// unmounted until that's fixed: /api/ai/chat bills a real Anthropic call per
-// request, and /api/inviteToken/create-link mints student-registration links.
-// Flipping a flag back on must be paired with adding auth to its routes, and
-// with the matching client-side flag.
+// /api/ai/chat is reachable without authentication and bills a real Anthropic
+// call per request, so it stays unmounted until its routes require auth.
 const AI_ENABLED = false;
-const PARENT_INVITE_ENABLED = false;
 
 // Routes
 app.use('/api/lesson', require('./Entities/Lesson/Lesson.route'));
@@ -87,9 +83,7 @@ app.use('/api/user', require('./Entities/User/User.route'));
 app.use('/api/auth', require('./Entities/User/Auth.route'))
 app.use('/api/attendance', require('./Entities/Attendance/Attendance.route'))
 app.use('/api/student', require('./Entities/Student/Student.route'))
-if (PARENT_INVITE_ENABLED) {
-  app.use('/api/inviteToken', require('./Entities/InviteToken/InviteToken.route'))
-}
+app.use('/api/inviteToken', require('./Entities/InviteToken/InviteToken.route'))
 app.use('/api/report', require('./Entities/Report/Report.route'));
 app.use('/api/storage', require('./Entities/Storage/Storage.route'))
 app.use('/api/storage/google', require('./Entities/Storage/GoogleDrive.route'))

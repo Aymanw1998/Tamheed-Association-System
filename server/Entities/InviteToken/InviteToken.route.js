@@ -1,15 +1,56 @@
 const express = require("express");
+const multer = require("multer");
 const router = express.Router();
 
 const {
-  createLink,
+  getLink,
+  rotateLink,
   validateToken,
-  submitInvite,
+  submitRegistration,
 } = require("./InviteToken.controller");
+const { requireAuth: protect, requireRole: protectRole } = require("../../middleware/authMiddleware");
+const { rateLimit } = require("../../middleware/rateLimit");
 
-router.post("/create-link", createLink);
-router.get("/validate/:token", validateToken);
-router.post("/submit/:token", submitInvite);
+const PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const photoUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+  fileFilter(req, file, cb) {
+    const allowed = PHOTO_TYPES.has(file.mimetype);
+    cb(allowed ? null : new Error("Unsupported photo type"), allowed);
+  },
+});
+
+// Multer errors (size, type, extra files) become one Arabic 400 instead of
+// the generic error handler's 500.
+const acceptPhoto = (req, res, next) => {
+  photoUpload.single("photo")(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({
+        ok: false,
+        code: "BAD_PHOTO",
+        message: "الصورة يجب أن تكون JPG أو PNG أو WEBP وحتى 5MB",
+      });
+    }
+    next();
+  });
+};
+
+router.get("/link", protect, protectRole("ادارة"), getLink);
+router.post("/link/rotate", protect, protectRole("ادارة"), rotateLink);
+
+// Public: parents open these from the shared link without logging in.
+router.get(
+  "/validate/:token",
+  rateLimit({ windowMs: 15 * 60 * 1000, max: 60, scope: "registration-validate" }),
+  validateToken
+);
+router.post(
+  "/submit/:token",
+  rateLimit({ windowMs: 60 * 60 * 1000, max: 3, scope: "registration-submit" }),
+  acceptPhoto,
+  submitRegistration
+);
 
 module.exports = router;
 

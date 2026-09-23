@@ -273,6 +273,13 @@ const deleteS = async (req, res) => {
 
     const deleted = await StudentModelDef.delete({ tz });
 
+    // Rejecting a waiting-list request or deleting a student also removes the
+    // photo from Drive, so no orphaned files stay behind.
+    const photo = existing.result[0]?.photo;
+    if (photo) {
+      await handleDeleteByUrl(photo);
+    }
+
     await safeNotify({
       toRoles: ["ادارة"],
       module: "STUDENTS",

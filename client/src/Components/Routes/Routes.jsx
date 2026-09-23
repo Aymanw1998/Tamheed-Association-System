@@ -53,7 +53,7 @@ export default function CRoutes() {
       <Route path="/" element={<PublicOnly/>} />
       <Route path="/login" element={<PublicOnly/>} />
       <Route path="/register" element={<RegisterPage />} />
-      <Route path="/parent-register" element={<EditStudent parent={true} />} />
+      <Route path="/register-student/:token" element={<EditStudent parent={true} />} />
       {/* عربيالجمعةالثلاثاءعربي */}
       <Route element={<RequireAuth />}>
         <Route element={<ProtectedLayout />}>

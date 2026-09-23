@@ -481,3 +481,88 @@ has been received or claimed.
 **Pending review:** Codex review of the changed files above is outstanding.
 
 **Delivery state:** Local changes only; no commit, push, or deployment.
+
+## 2026-09-23 - Fixed parent registration link into the waiting list (Claude implemented)
+
+**Request:** a fixed link the admins send to parents so they can add a child
+(with photo) to the students waiting list. The owner approved the design
+section by section. Spec:
+[2026-09-23-parent-registration-link-design.md](superpowers/specs/2026-09-23-parent-registration-link-design.md),
+plan: [2026-09-23-parent-registration-link.md](superpowers/plans/2026-09-23-parent-registration-link.md).
+
+**Rules (all enforced on the server):**
+
+- The secret token is stored once in `InviteToken` and changes only on admin
+  rotate.
+- Link management is ادارة only.
+- 30 parent requests per rolling 7 days, and 3 submissions per hour per
+  client address.
+- The ID number must pass the check digit. A known ID (active or waiting) is
+  not saved; it is logged to `RegistrationAttempts` for staff instead.
+- Parents always get the same reply. The photo (JPG/PNG/WEBP, 5MB or less) is
+  uploaded after replying, so neither the reply content nor its timing
+  reveals whether an ID is registered.
+- Status, source, and assigned guide are always set by the server.
+
+**Changes:**
+
+- Server:
+  - New [israeliId.js](../server/utils/israeliId.js) and
+    [RegistrationAttempt.model.js](../server/Entities/InviteToken/RegistrationAttempt.model.js).
+  - Rewrote [InviteToken.controller.js](../server/Entities/InviteToken/InviteToken.controller.js)
+    and the active routes in
+    [InviteToken.route.js](../server/Entities/InviteToken/InviteToken.route.js).
+    Old unauthenticated `create-link` removed.
+  - [server.js](../server/server.js): `PARENT_INVITE_ENABLED` removed; the
+    router is always mounted.
+  - [Student.controller.js](../server/Entities/Student/Student.controller.js)
+    `deleteS` now deletes the Drive photo, so rejecting a request cleans up.
+- Client:
+  - Rewrote [functionInviteToken.jsx](../client/src/WebServer/services/inviteToken/functionInviteToken.jsx).
+    Public calls use `publicApi`.
+  - [EditStudent.jsx](../client/src/Components/Student/EditStudent.jsx)
+    parent mode: token from `/register-student/:token`, one multipart
+    submit, and a received, closed, or invalid screen.
+  - [Routes.jsx](../client/src/Components/Routes/Routes.jsx): public route
+    replaces `/parent-register`.
+  - New [ParentLinkPanel.jsx](../client/src/Components/Student/ParentLinkPanel.jsx),
+    shown on the [Dashboard](../client/src/Components/Dashboard/Dashboard.jsx)
+    and as a dialog from
+    [ViewAllStudent.jsx](../client/src/Components/Student/ViewAllStudent.jsx),
+    where the old parent-link dialog was removed.
+
+**Tests (written first, each watched failing):**
+[parent-registration.test.js](../server/test/parent-registration.test.js)
+(16), [israeli-id.test.js](../server/test/israeli-id.test.js) (1), and one
+more in [photo-storage.test.js](../server/test/photo-storage.test.js).
+
+**Verification:**
+
+- `npm run verify` passed: 39 server tests (21 existing + 18 new), 10 client
+  tests, client production build. `node --check` passed on the touched
+  server files.
+- Against the owner's running dev servers:
+  - `/register-student/<wrong>` renders the invalid-link page without
+    redirecting to login.
+  - `GET /api/inviteToken/validate/<wrong>` returns `404 {"valid":false}`.
+  - `GET /api/inviteToken/link` without a token returns `401`.
+- Not exercised: the admin panel and a real submission with a Drive photo,
+  because no admin session is available to Claude. The owner is asked to run
+  one end-to-end check.
+
+**Known limits:**
+
+- The per-device limit keys on `X-Forwarded-For` like the existing
+  `rateLimit`, so it can be bypassed on purpose.
+- There are no push notifications; staff see refusals in the panel.
+- Concurrent submissions can slightly exceed 30.
+- Pre-existing unrelated dead code: `Profile.jsx` references an undefined
+  `inviteToken` behind a `parent` prop that is never set.
+
+**Codex connection:** not reachable from this session. No review request
+sent and no response claimed.
+
+**Pending review:** Codex review of the files above.
+
+**Delivery state:** Local changes only on `master`; no commit, push, or
+deployment.
