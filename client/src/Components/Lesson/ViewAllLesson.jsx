@@ -6,6 +6,9 @@ import { useNavigate } from "react-router-dom";
 import Fabtn from "./../Global/Fabtn/Fabtn";
 import { toast } from "../../ALERT/SystemToasts";
 import { getStoredRoles, isStoredAdmin } from "../../utils/session";
+import { roomLabel } from "../../utils/rooms";
+import { lessonDayOf } from "../../utils/lessonSchedule";
+import MobileLessonList from "./MobileLessonList";
 import { ask } from "../Provides/confirmBus";
 import Button from "../UI/Button";
 
@@ -196,7 +199,7 @@ function WeekTimeline({
                           <div><b>مرشد:</b> {teacherNames?.[l.teacher] || "..."}</div>
                           <div><b>ساعة:</b> {toHHMM(getStart(l))}–{toHHMM(getEnd(l))}</div>
                           <div><b>يوم:</b> {dayNames[(Number(l.date.day) || 1) - 1]}</div>
-                          <div><b>غرفة:</b> {Number(l?.room ?? 0) === 0 ? "لا يوجد" : l.room}</div>
+                          <div><b>المكان:</b> {roomLabel(l?.room)}</div>
                         </>
                       )
                     });
@@ -208,7 +211,7 @@ function WeekTimeline({
                   <div className={styles.lessonMeta}>
                     {toHHMM(getStart(l))}–{toHHMM(getEnd(l))}
                     {" · "}
-                    {Number(l?.room ?? 0) === 0 ? "بدون غرفة" : `غرفة ${l.room}`}
+                    {roomLabel(l?.room)}
                   </div>
                 </div>
               );
@@ -287,7 +290,7 @@ function DayRoomsTimeline({
       <div className={styles.headerSpacer} />
       {roomsList.map((r) => (
         <div key={r} className={styles.dayHeader}>
-          {Number(r) === 0 ? "بدون غرفة" : `غرفة ${r}`}
+          {roomLabel(r)}
         </div>
       ))}
 
@@ -368,7 +371,7 @@ function DayRoomsTimeline({
                         <div><b>مرشد:</b> {teacherNames?.[l.teacher] || "..."}</div>
                         <div><b>ساعة:</b> {toHHMM(getStart(l))}–{toHHMM(getEnd(l))}</div>
                         <div><b>يوم:</b> {dayNames[(Number(l.date.day) || 1) - 1]}</div>
-                        <div><b>غرفة:</b> {Number(room) === 0 ? "لا يوجد" : room}</div>
+                        <div><b>المكان:</b> {roomLabel(room)}</div>
                       </>
                     )
                   });
@@ -536,22 +539,53 @@ export default function ViewAllLesson() {
     });
   }, [lessons, filterDay, filterRoom, filterTeacher, showMyLessons, query]);
 
-  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  // Same breakpoint as .mobileView in ViewAllLesson.module.css.
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 900);
   useEffect(() => {
     const handleResize = () => {
-      const m = window.innerWidth <= 768;
+      const m = window.innerWidth <= 900;
       setIsMobile(m);
     };
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
+
+  const [showFilters, setShowFilters] = useState(false);
+  const activeFilterCount =
+    (filterRoom !== "all") + (filterTeacher !== "all") + (query.trim() !== "");
+  const [mobileDay, setMobileDay] = useState(() => lessonDayOf());
+
+  const newLessonDay = isMobile
+    ? mobileDay
+    : viewMode === "dayRooms" ? selectedDay : (filterDay || 1);
+  const addButton = isAdmin && (
+    <Button
+      ref={addBtnRef}
+      id="page-add-lesson"
+      onClick={() => navigate(`/lessons/new?day=${newLessonDay}`)}
+    >
+      + إضافة درس جديد
+    </Button>
+  );
+
   return (
     <div>
       <h1 className={styles.title}>برنامج الدروس</h1>
 
       {/* ===== Filters + Controls ===== */}
       <div className={styles.controlsBar}>
-        <div className={styles.controlsCenter}>
+        {isMobile && (
+          <button
+            type="button"
+            className={styles.filterToggle}
+            aria-expanded={showFilters}
+            onClick={() => setShowFilters((open) => !open)}
+          >
+            {showFilters ? "إخفاء الفلترة" : "فلترة"}
+            {activeFilterCount > 0 && <span className={styles.filterCount}>{activeFilterCount}</span>}
+          </button>
+        )}
+        {(!isMobile || showFilters) && <div className={styles.controlsCenter}>
           {!isMobile && <div className={styles.filterGroup}>
             <label>نوع الجدول</label>
             <select value={viewMode} onChange={(e) => setViewMode(e.target.value)}>
@@ -571,7 +605,7 @@ export default function ViewAllLesson() {
             </div>
           )}
 
-          {viewMode !== "dayRooms" && <div className={styles.filterGroup}>
+          {viewMode !== "dayRooms" && !isMobile && <div className={styles.filterGroup}>
             <label>يوم مختار</label>
             <select value={filterDay} onChange={(e)=>setFilterDay(Number(e.target.value))}>
               <option value={0}>كل</option>
@@ -582,11 +616,11 @@ export default function ViewAllLesson() {
           </div>}
 
           <div className={styles.filterGroup}>
-            <label>غرفة</label>
+            <label>المكان</label>
             <select value={filterRoom} onChange={(e)=>setFilterRoom(e.target.value)}>
               <option value="all">كل</option>
               {roomOptions.map(r=>(
-                <option key={r} value={r}>{Number(r) === 0 ? "بدون غرفة" : `غرفة ${r}`}</option>
+                <option key={r} value={r}>{roomLabel(r)}</option>
               ))}
             </select>
           </div>
@@ -610,18 +644,9 @@ export default function ViewAllLesson() {
               onChange={(e) => setQuery(e.target.value)}
             />
           </div>
-          {isAdmin &&
-            <Button
-            ref={addBtnRef}
-            id="page-add-lesson"
-            onClick={()=>{
-              const day = viewMode === "dayRooms" ? selectedDay : (filterDay || 1);
-              navigate(`/lessons/new?day=${day}`);
-            }}
-          >
-            + إضافة درس جديد
-          </Button>}
-        </div>
+          {!isMobile && addButton}
+        </div>}
+        {isMobile && addButton}
       </div>
 
       {/* ===== Calendar (ONE) ===== */}
@@ -658,23 +683,14 @@ export default function ViewAllLesson() {
             )}
           </div>
 
-          {/* ملاحظة عربية */}
           <div className={styles.mobileView}>
-            <div style={{ padding: 10 }}>
-              {(filteredLessons || [])
-                .sort((a,b) => (a.date.day - b.date.day) || (getStart(a) - getStart(b)))
-                .map(l => (
-                  <div key={l._id} className={styles.lessonCard} onClick={()=>{
-                  if (!isStoredAdmin()) return;
-                  navigate(`/lessons/${l._id}`);
-                  }}>
-                    <div><b>{l.name}</b></div>
-                    <div>{dayNames[(Number(l?.date?.day) || 1) - 1]} · {toHHMM(getStart(l))}–{toHHMM(getEnd(l))}</div>
-                    <div>{Number(l?.room ?? 0) === 0 ? "بدون غرفة" : `غرفة ${l.room}`}</div>
-                    <div>{teacherNames?.[l.teacher] || ""}</div>
-                  </div>
-                ))}
-            </div>
+            <MobileLessonList
+              lessons={filteredLessons}
+              day={mobileDay}
+              onDayChange={setMobileDay}
+              teacherNames={teacherNames}
+              onOpen={isAdmin ? (l) => navigate(`/lessons/${l._id}`) : undefined}
+            />
           </div>
         </>
       )}
@@ -703,10 +719,7 @@ export default function ViewAllLesson() {
         anchor="#page-add-lesson"
         visible={showFab && isAdmin}
         label="إضافة درس"
-        onClick={() => {
-          const day = viewMode === "dayRooms" ? selectedDay : (filterDay || 1);
-          navigate(`/lessons/new?day=${day}`);
-        }}
+        onClick={() => navigate(`/lessons/new?day=${newLessonDay}`)}
       />
     </div>
   );

@@ -473,8 +473,13 @@ const deleteU = async (req, res) => {
       return res.status(400).json({ ok: false, message: "tz is required" });
     }
 
-    const from = String(req.query?.from ?? req.body?.from ?? "active");
-    const room = ROOMS.includes(from) ? from : "active";
+    // The route is DELETE /user/:tz/:from, so the room arrives as a path
+    // parameter. An unknown room is refused rather than defaulting to "active",
+    // which silently left waiting/disabled users in place.
+    const room = String(req.params.from ?? req.query?.from ?? req.body?.from ?? "active").trim();
+    if (!ROOMS.includes(room)) {
+      return res.status(400).json({ ok: false, message: "room must be active, waiting or noActive" });
+    }
 
     const deleted = await UserModelDef.delete({ tz }, room);
 

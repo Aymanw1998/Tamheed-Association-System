@@ -1,6 +1,5 @@
 // accessScheduler.js
-import axios from 'axios';
-import { API_BASE_URL, setAuthTokens } from '../services/api';
+import { refreshSession, setAuthTokens } from '../services/api';
 import { getAccessExpiryMs } from './authTiming';
 import { getLogoutDeadline } from './logoutScheduler';
 
@@ -30,7 +29,7 @@ export function scheduleAccessRefresh(accessToken, skewMs = 60_000) {
     }
 
     try {
-      const { data } = await axios.post(`${API_BASE_URL}/auth/refresh`, null, { withCredentials: true, timeout: 15000 });
+      const data = await refreshSession();
       if (data?.accessToken) {
         setAuthTokens(data.accessToken, data.expirationTime);
 

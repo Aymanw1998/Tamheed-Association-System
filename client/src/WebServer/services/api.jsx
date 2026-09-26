@@ -2,9 +2,18 @@
 import axios from 'axios';
 import { markSessionExpired } from '../utils/sessionMessages'; // ملاحظة عربية
 import { getApiBaseUrl } from './apiBase';
+import { singleFlight } from '../utils/singleFlight';
 
 const FALLBACK_SERVER_URL = `${process.env.REACT_APP_SERVER_URI || ''}`.replace(/\/+$/, '');
 export let API_BASE_URL = `${FALLBACK_SERVER_URL}/api`;
+
+// Every refresh in the app goes through here, so overlapping callers share one
+// request instead of racing the server's rotating refresh cookie.
+export const refreshSession = singleFlight(() =>
+  axios
+    .post(`${API_BASE_URL}/auth/refresh`, null, { withCredentials: true, timeout: 15000 })
+    .then((res) => res.data)
+);
 
 // ملاحظة عربية
 let accessToken = localStorage.getItem('accessToken') || null;
@@ -130,10 +139,7 @@ api.interceptors.response.use(
       isRefreshing = true;
       try {
         // ملاحظة عربية
-        const { data } = await axios.post(`${API_BASE_URL}/auth/refresh`, null, {
-          withCredentials: true,
-          timeout: 15000,
-        });
+        const data = await refreshSession();
 
         if (!data?.accessToken) {
           throw new Error('No accessToken from refresh');

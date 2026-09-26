@@ -22,7 +22,7 @@ export default function StudentStatusFilter({
   const rootRef = useRef(null);
 
   const buttons = [
-    { key: "active", label: "مُفعاليّن", badge: counts?.active, color: "var(--color-success-100)" },
+    { key: "active", label: "مسجل", badge: counts?.active, color: "var(--color-success-100)" },
     { key: "waiting", label: "مُنتظرين", badge: counts?.pending, color: "var(--color-warning-100)" },
   ];
 

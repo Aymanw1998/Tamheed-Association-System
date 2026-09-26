@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 // ملاحظة عربية
 import { create, update, getUserById as getOne, /*softDelete,*/ deleteU, uploadPhoto, deletePhoto, viewPassword } from "../../WebServer/services/user/functionsUser.jsx";
 import styles from "./Profile.module.css";
+import sectionStyles from "../UI/FormSection.module.css";
 import { toast } from "../../ALERT/SystemToasts.jsx";
 import {validate as validateINV, submit as submitFromParent} from "../../WebServer/services/inviteToken/functionInviteToken.jsx";
 import { getMe } from "../../WebServer/services/auth/fuctionsAuth.jsx";
@@ -344,114 +345,111 @@ const Profile = ({parent = false}) => {
         <div className={styles.formContainer}>
         <h2>الملف الشخصي</h2>
 
-        <label>رقم الهوية:</label>
-        <input name="tz" value={form.tz} onChange={onField} readOnly={true} />
-        <label style={{color: "red"}}>{error.tz}</label>
-        <br />
+        <fieldset className={sectionStyles.formSection}>
+            <legend>بيانات الحساب</legend>
+            <label>رقم الهوية:</label>
+            <input name="tz" value={form.tz} onChange={onField} readOnly={true} />
+            <label style={{color: "red"}}>{error.tz}</label>
 
-        <label>كلمة السر:</label>
-        <div className={styles.passwordWrapper}>
-            <input
-                name="password"
-                type={showPassword ? "text" : "password"}
-                value={form.password || ""}
-                onChange={onField}
-                placeholder="*******"
-            />
-            <button
-                type="button"
-                className={styles.togglePassword}
-                disabled={fetchingPassword}
-                onClick={async () => {
-                    if (!showPassword) {
-                        if (!form.password?.trim() || !passwordTouched) {
-                            await handleFetchPassword();
-                        }
-                        setShowPassword(true);
-                        return;
-                    }
-
-                    setShowPassword(false);
-                    if (!passwordTouched) {
-                        setForm((prev) => ({ ...prev, password: "" }));
-                    }
-                }}
-                title={showPassword ? "إخفاء كلمة السر" : "إظهار كلمة السر"}
-            >
-                {fetchingPassword ? "⏳" : (showPassword ? "🙈" : "👁️")}
-            </button>
-        </div>
-        {/* {!!storedPasswordValue && (
-            <>
-                <label>القيمة المحفوظة ({passwordAlgo || "stored"}):</label>
-                <textarea
-                    readOnly
-                    value={storedPasswordValue}
-                    style={{ width: "100%", minHeight: "90px", direction: "ltr" }}
+            <label>كلمة السر:</label>
+            <div className={styles.passwordWrapper}>
+                <input
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    value={form.password || ""}
+                    onChange={onField}
+                    placeholder="*******"
                 />
-                <small style={{ color: "#374151", display: "block", marginTop: "4px" }}>
-                    لتغيير كلمة السر عدل الحقل الأعلى ثم اضغط حفظ. سيتم حفظها مشفرة تلقائياً.
-                </small>
-            </>
-        )} */}
-        <label style={{color: "red"}}>{error.password}</label>
-        <br />
+                <button
+                    type="button"
+                    className={styles.togglePassword}
+                    disabled={fetchingPassword}
+                    onClick={async () => {
+                        if (!showPassword) {
+                            if (!form.password?.trim() || !passwordTouched) {
+                                await handleFetchPassword();
+                            }
+                            setShowPassword(true);
+                            return;
+                        }
 
-        <label>اسمي:</label>
-        <input
-            name="firstname"
-            value={form.firstname}
-            onChange={handleChange}
-            required
-        />
-        <label style={{color: "red"}}>{error.firstname}</label>
-        <br />
-        <label>اسم العائلة:</label>
-        <input
-            name="lastname"
-            value={form.lastname}
-            onChange={handleChange}
-            required
-        />
-        <label style={{color: "red"}}>{error.lastname}</label>
-        <br />
-        <label>تاريخ الميلاد:</label>
-        <input
-            name="birth_date"
-            type="date"
-            value={form.birth_date ? String(form.birth_date).slice(0, 10) : ''}
-            onChange={onField}
-        />
-        <label style={{color: "red"}}>{error.birth_date}</label>
-        <br />
-        <label>جنس:</label>
-        <select name="gender" value={form.gender} onChange={onField}>
-            <option value="">اختار الجنس</option>
-            <option value="ذكر">ذكر</option>
-            <option value="انثى">انثى</option>
-        </select>
-        <label style={{color: "red"}}>{error.gender}</label>
-        <br />
-        <label>هاتف:</label>
-        <input
-            name="phone"
-            value={displayPhoneLocal(form.phone)}
-            onChange={(e)=>onPhoneChange('phone', e.target.value)}
-            placeholder="052-123-4567"
-        />
-        <label style={{color: "red"}}>{error.mother_phone}</label>
-        <br />
-        <label>بريد الكتروني:</label>
-        <input name="email" value={form.email} onChange={onField} />
-        <label style={{color: "red"}}>{error.email}</label>
+                        setShowPassword(false);
+                        if (!passwordTouched) {
+                            setForm((prev) => ({ ...prev, password: "" }));
+                        }
+                    }}
+                    title={showPassword ? "إخفاء كلمة السر" : "إظهار كلمة السر"}
+                >
+                    {fetchingPassword ? "⏳" : (showPassword ? "🙈" : "👁️")}
+                </button>
+            </div>
+            {/* {!!storedPasswordValue && (
+                <>
+                    <label>القيمة المحفوظة ({passwordAlgo || "stored"}):</label>
+                    <textarea
+                        readOnly
+                        value={storedPasswordValue}
+                        style={{ width: "100%", minHeight: "90px", direction: "ltr" }}
+                    />
+                    <small style={{ color: "#374151", display: "block", marginTop: "4px" }}>
+                        لتغيير كلمة السر عدل الحقل الأعلى ثم اضغط حفظ. سيتم حفظها مشفرة تلقائياً.
+                    </small>
+                </>
+            )} */}
+            <label style={{color: "red"}}>{error.password}</label>
+        </fieldset>
 
-        <label>بلد:</label>
-        <input name="city" value={form.city} onChange={onField} />
-        <label style={{color: "red"}}>{error.city}</label>
+        <fieldset className={sectionStyles.formSection}>
+            <legend>البيانات الشخصية</legend>
+            <label>اسمي:</label>
+            <input name="firstname" value={form.firstname} onChange={handleChange} required />
+            <label style={{color: "red"}}>{error.firstname}</label>
 
-        <label>شارع السكن:</label>
-        <input name="street" value={form.street} onChange={onField} />
-        <label style={{color: "red"}}>{error.street}</label>
+            <label>اسم العائلة:</label>
+            <input name="lastname" value={form.lastname} onChange={handleChange} required />
+            <label style={{color: "red"}}>{error.lastname}</label>
+
+            <label>تاريخ الميلاد:</label>
+            <input
+                name="birth_date"
+                type="date"
+                value={form.birth_date ? String(form.birth_date).slice(0, 10) : ''}
+                onChange={onField}
+            />
+            <label style={{color: "red"}}>{error.birth_date}</label>
+
+            <label>جنس:</label>
+            <select name="gender" value={form.gender} onChange={onField}>
+                <option value="">اختار الجنس</option>
+                <option value="ذكر">ذكر</option>
+                <option value="انثى">انثى</option>
+            </select>
+            <label style={{color: "red"}}>{error.gender}</label>
+        </fieldset>
+
+        <fieldset className={sectionStyles.formSection}>
+            <legend>السكن والتواصل</legend>
+            <label>مدينة السكن:</label>
+            <input name="city" value={form.city} onChange={onField} />
+            <label style={{color: "red"}}>{error.city}</label>
+
+            <label>شارع السكن:</label>
+            <input name="street" value={form.street} onChange={onField} />
+            <label style={{color: "red"}}>{error.street}</label>
+
+            <label>هاتف:</label>
+            <input
+                name="phone"
+                value={displayPhoneLocal(form.phone)}
+                onChange={(e)=>onPhoneChange('phone', e.target.value)}
+                placeholder="052-123-4567"
+            />
+            <label style={{color: "red"}}>{error.phone}</label>
+
+            <label>بريد الكتروني:</label>
+            <input name="email" value={form.email} onChange={onField} />
+            <label style={{color: "red"}}>{error.email}</label>
+        </fieldset>
 
         <div style={{ marginBottom: "16px" }}>
             <label>صورة المستخدم:</label>

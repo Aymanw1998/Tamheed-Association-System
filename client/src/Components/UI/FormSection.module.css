@@ -1,0 +1,61 @@
+/* Grouped form sections shared by the student, user and profile forms. */
+.formSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.formSection legend {
+  padding: 0 var(--space-2);
+  color: var(--color-primary-700);
+  font-weight: 700;
+  font-size: var(--fs-lg);
+}
+
+.formSection label {
+  margin-top: var(--space-2);
+}
+
+.formSection select {
+  padding: 10px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  font-size: 1rem;
+}
+
+.optionalTag {
+  margin-inline-start: var(--space-2);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--color-background);
+  color: var(--color-text-secondary);
+  font-size: var(--fs-xs);
+  font-weight: 400;
+}
+
+.parentRow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+@media (max-width: 600px) {
+  .parentRow {
+    grid-template-columns: 1fr;
+  }
+}
+
+.formSection textarea {
+  padding: 10px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1.6;
+  resize: vertical;
+}

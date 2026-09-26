@@ -232,3 +232,55 @@
     text-align: center;
   }
 }
+
+/* Today's lessons: finished ones fade, the running one is highlighted. */
+.rowDone {
+  opacity: 0.55;
+}
+
+.rowNow {
+  margin-inline: calc(-1 * var(--space-2));
+  padding-inline: var(--space-2);
+  border-radius: var(--radius-md);
+  background: var(--color-primary-50);
+}
+
+.lessonTagNow,
+.lessonTagNext {
+  margin-inline-start: var(--space-2);
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  vertical-align: middle;
+}
+
+.lessonTagNow {
+  background: var(--color-success-100);
+  color: var(--color-success-700);
+}
+
+.lessonTagNext {
+  background: var(--color-primary-100);
+  color: var(--color-primary-700);
+}
+
+.upcomingTitle {
+  margin: var(--space-4) 0 var(--space-2);
+  color: var(--color-text-secondary);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.moreLink {
+  display: inline-block;
+  margin-top: var(--space-2);
+  font-size: var(--fs-sm);
+}
+
+/* Today's lessons: three rows visible (about 64px each), the rest scroll. */
+.lessonScroll {
+  max-height: calc(3 * 64px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}

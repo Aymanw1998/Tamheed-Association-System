@@ -35,7 +35,7 @@ export default function UserStatusFilter({
 
 
     const buttons = [
-        { key: "active", label: "مُفعالين", badge: counts?.active, color: '#8feba6ff' },
+        { key: "active", label: "مسجل", badge: counts?.active, color: '#8feba6ff' },
         { key: "waiting", label: "مُنتظرين", badge: counts?.pending, color: '#e9f85eff' },
         { key: "noActive",label: "مُعطل", badge: counts?.inactive, color: '#eea3a3ff' },
     ];

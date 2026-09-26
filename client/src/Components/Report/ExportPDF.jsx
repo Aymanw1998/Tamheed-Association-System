@@ -2,6 +2,7 @@ import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import LOGO from "../../images/logo.png";
 import { showPdfPreview } from "../ExportPDF/pdfPreview.js";
+import { SHOW_REPORT_ATTENDEES } from "./reportOptions";
 import { getAll } from "../../WebServer/services/user/functionsUser";
 const escapeHtml = (str) =>
   String(str ?? "")
@@ -181,12 +182,15 @@ const fitTokenCount = (measureEl, tokens, startIdx, maxHeight) => {
 };
 
 export const exportReportPdf = async (report, user) => {
+  // The user list is only needed to name the attendees.
   let users = [];
-  try {
-    const res = await getAll();
-    users = res?.ok ? res.users : [];
-  } catch (error) {
-    console.error("Error fetching users:", error);
+  if (SHOW_REPORT_ATTENDEES) {
+    try {
+      const res = await getAll();
+      users = res?.ok ? res.users : [];
+    } catch (error) {
+      console.error("Error fetching users:", error);
+    }
   }
 
   const safeDate = report?.date ? new Date(report.date) : new Date();
@@ -201,7 +205,7 @@ export const exportReportPdf = async (report, user) => {
     ? (report?.title ?? []).map((t) => `<span class="chip">${escapeHtml(t)}</span>`).join("")
     : ``;
   const attendanceIds = report?.attendance ?? [];
-  const usersHtml = attendanceIds.length > 0 && users.length > 0
+  const usersHtml = SHOW_REPORT_ATTENDEES && attendanceIds.length > 0 && users.length > 0
     ? attendanceIds
         .map((_id) => {
           const attendee = users.find((u) => u._id === _id);

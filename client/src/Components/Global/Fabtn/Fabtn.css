@@ -3,7 +3,7 @@
   position: fixed;
   inset-inline-end: clamp(12px, 2.5vw, 24px);              /* RTL/LTR عربيالجمعةالأحدعربي */
   bottom: calc(16px + env(safe-area-inset-bottom, 0px));   /* عربيالجمعةعربي الثلاثاءعربي الاثنين-iOS */
-  z-index: 9999999999999;
+  z-index: 900; /* below the header, dialogs (1000) and the PDF preview (10000) */
   background: #22c55e;
   color: #fff;
   font-weight: 700;

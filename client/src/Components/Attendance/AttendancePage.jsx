@@ -5,6 +5,8 @@ import { getLessonsToday, getAllLesson as getAllLessons } from "../../WebServer/
 import { getAttendanceSheet, saveAttendanceSheet, getLessonDates } from "../../WebServer/services/attendance/functionsAttendance";
 import { toast } from "../../ALERT/SystemToasts";
 import { getStoredUserId, isStoredAdmin } from "../../utils/session";
+import { roomLabel } from "../../utils/rooms";
+import { attendanceDateLabel } from "../../utils/attendanceDates";
 import { ask } from "../Provides/confirmBus";
 
 
@@ -46,7 +48,7 @@ export default function AttendancePage() {
     const isAdmin = isStoredAdmin();
     const userId = getStoredUserId();
     const [tab, setTab] = useState("today"); // today | history
-    useEffect(() => {setSearchDate("");setSearchLesson("")}, [tab]);
+    useEffect(() => {setSearchLesson("")}, [tab]);
     // left lists
     const [todayLessons, setTodayLessons] = useState([]);
     const [allLessons, setAllLessons] = useState([]);
@@ -67,16 +69,35 @@ export default function AttendancePage() {
     const [dirty, setDirty] = useState(false);
 
     //searchText
-    const [searchDate, setSearchDate] = useState("");
     const [searchLesson, setSearchLesson] = useState("");
     const preselectedLessonId = location.state?.lessonId || "";
+    // Returns whether the change went ahead (false if the user kept unsaved edits).
     const doChange = async (setValue, value) => {
         if (dirty) {
             const ok = await ask("navigate").catch(() => false);
-            if (!ok) return;
+            if (!ok) return false;
         }
         setValue(value);
+        return true;
     }
+
+    // Phones show one step at a time: the lesson list, then the attendance
+    // sheet. In history, picking a lesson first opens a date chooser.
+    const [isMobile, setIsMobile] = useState(() => window.matchMedia("(max-width: 900px)").matches);
+    useEffect(() => {
+        const query = window.matchMedia("(max-width: 900px)");
+        const onChange = (e) => setIsMobile(e.matches);
+        query.addEventListener("change", onChange);
+        return () => query.removeEventListener("change", onChange);
+    }, []);
+    const [mobileView, setMobileView] = useState("lessons"); // lessons | sheet
+    const [dateModalOpen, setDateModalOpen] = useState(false);
+    useEffect(() => {
+        if (!dateModalOpen) return undefined;
+        const onKey = (e) => { if (e.key === "Escape") setDateModalOpen(false); };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, [dateModalOpen]);
     // load left side
     useEffect(() => {
         const load = async () => {
@@ -104,6 +125,8 @@ export default function AttendancePage() {
         setDirty(false);
         setHistoryDates([]);
         setSelectedHistoryDate(null);
+        setMobileView("lessons");
+        setDateModalOpen(false);
     }, [tab]);
 
     useEffect(() => {
@@ -111,6 +134,7 @@ export default function AttendancePage() {
         const lesson = todayLessons.find((item) => String(item?._id || "") === String(preselectedLessonId));
         if (!lesson) return;
         openLessonToday(lesson);
+        setMobileView("sheet");
     }, [tab, preselectedLessonId, todayLessons, loadingLeft]);
 
     const openLessonToday = async (lesson) => {
@@ -214,6 +238,29 @@ export default function AttendancePage() {
 
     const leftLessons = tab === "today" ? todayLessons : allLessons;
 
+    const pickLesson = async (lesson) => {
+        if (tab === "today") {
+            if (await doChange(openLessonToday, lesson)) setMobileView("sheet");
+            return;
+        }
+        if (await doChange(openLessonHistory, lesson) && isMobile) setDateModalOpen(true);
+    };
+
+    const pickDate = async (dateObj) => {
+        if (!(await doChange(openHistoryDate, dateObj))) return;
+        setDateModalOpen(false);
+        setMobileView("sheet");
+    };
+
+    const backToLessons = async () => {
+        if (dirty) {
+            const ok = await ask("navigate").catch(() => false);
+            if (!ok) return;
+            setDirty(false);
+        }
+        setMobileView("lessons");
+    };
+
     const headerDateText = useMemo(() => {
         
         if (tab === "today") return ymd(date);
@@ -222,7 +269,7 @@ export default function AttendancePage() {
 
     return (
         <div className={styles.page} dir="rtl">
-        <div className={styles.topbar}>
+        {!(isMobile && mobileView === "sheet") && <div className={styles.topbar}>
             <h2 className={styles.title}>حضور وغياب</h2>
             <div className={styles.tabs}>
             <button className={`${styles.tabBtn} ${tab === "today" ? styles.tabActive : ""}`}
@@ -234,17 +281,7 @@ export default function AttendancePage() {
                 سجل الحضور السابق
             </button>
             </div>
-            <br/>
-
-            <div className={styles.actions}>
-            <button className={styles.saveBtn} onClick={onSave} disabled={!sheet || loadingSheet || !dirty}>
-                حفظ
-            </button>
-            <span className={styles.miniInfo}>
-                {dirty ? "يوجد بيانات لم تُحفظ" : ""}
-            </span>
-            </div>
-        </div>
+        </div>}
 
         <div className={styles.body}>
             {tab === "today" && (<>
@@ -266,7 +303,7 @@ export default function AttendancePage() {
             </>
             )}
             {/* LEFT */}
-            <div className={styles.left}>
+            {!(isMobile && mobileView === "sheet") && <div className={styles.left}>
             <div className={styles.leftHeader}>
                 <div className={styles.leftTitle}>
                 {tab === "today" ? "دروس اليوم - " + `${ymd(date)}` : "كل الدروس"}
@@ -276,57 +313,74 @@ export default function AttendancePage() {
 
             <div className={styles.lessonList}>
                 <div className={styles.filterGroup}>
-                    <label>بحث: </label>
-                    <input value={searchLesson} onChange={(e)=>setSearchLesson(e.target.value)} placeholder="اسم الدرس" />
+                    <label htmlFor="attendance-lesson-search">بحث: </label>
+                    <input id="attendance-lesson-search" value={searchLesson} onChange={(e)=>setSearchLesson(e.target.value)} placeholder="اسم الدرس" />
                 </div>
+                {/* Scrolls after three lessons so the sheet stays in view. */}
+                <div className={styles.lessonScroll}>
                 {leftLessons.filter(l => l.name.includes(searchLesson)).map((l) => (
                 <button
                     key={l._id}
                     className={`${styles.lessonCard} ${selectedLesson?._id === l._id ? styles.lessonActive : ""}`}
-                    onClick={() => (tab === "today" ? doChange(openLessonToday,l) : doChange(openLessonHistory,l))}
+                    onClick={() => pickLesson(l)}
                 >
                     <div className={styles.lessonName}>{l.name}</div>
                     <div className={styles.lessonMeta}>
                     <span>{toHHMM(l.date?.startMin)} - {toHHMM(l.date?.endMin)}</span>
-                    <span>• غرفة {l.room}</span>
+                    <span>• {roomLabel(l.room)}</span>
                     </div>
                 </button>
                 ))}
                 {!loadingLeft && leftLessons.length === 0 && (
-                <div className={styles.empty}>لا يوجد دروس في هذا اليوم</div>
+                <div className={styles.empty}>{tab === "today" ? "لا يوجد دروس في هذا اليوم" : "لا يوجد دروس"}</div>
                 )}
+                </div>
             </div>
 
-            {/* HISTORY: dates list */}
-            {tab === "history" && selectedLesson && (
+            {/* HISTORY: pick one of the dates that already have attendance (phones use the date window) */}
+            {tab === "history" && selectedLesson && !isMobile && (
                 <div className={styles.datesPanel}>
-                <b className={styles.leftTitle}>تواريخ: </b>
-                <div className={styles.filterGroup}>
-                    <label>بحث: </label>
-                    <input value={searchDate} onChange={(e)=>setSearchDate(e.target.value)} placeholder="dd/mm/yyyy" />
-                </div>
+                <label className={styles.leftTitle} htmlFor="attendance-date">التاريخ:</label>
                 {loadingSheet && historyDates.length === 0 ? (
                     <div className={styles.small}>جلب البيانات...</div>
+                ) : historyDates.length === 0 ? (
+                    <div className={styles.empty}>لا يوجد حضور مسجّل لهذا الدرس بعد</div>
                 ) : (
-                    <div className={styles.datesList}>
-                    {historyDates.filter(d => d.ymd.includes(searchDate)).map((d) => (
-                        <button
-                        key={d.dateKey}
-                        className={`${styles.tabBtn} ${String(selectedHistoryDate?.dateKey || "" ) == String(d.dateKey) ? styles.tabActive : ""}`}
-                        onClick={() => doChange(openHistoryDate,d)}
-                        >
-                        {d.ymd}
-                        </button>
+                    <select
+                    id="attendance-date"
+                    className={styles.dateSelect}
+                    value={selectedHistoryDate ? String(selectedHistoryDate.dateKey) : ""}
+                    onChange={(e) => {
+                        const picked = historyDates.find((d) => String(d.dateKey) === e.target.value);
+                        if (picked) pickDate(picked);
+                    }}
+                    >
+                    <option value="" disabled>اختر تاريخ ({historyDates.length})</option>
+                    {historyDates.map((d) => (
+                        <option key={d.dateKey} value={String(d.dateKey)}>
+                        {attendanceDateLabel(d)}
+                        </option>
                     ))}
-                    {historyDates.length === 0 && <div className={styles.empty}>لا يوجد تواريخ مستقبلية</div>}
-                    </div>
+                    </select>
                 )}
                 </div>
             )}
-            </div>
+            </div>}
 
             {/* RIGHT */}
-            <div className={styles.right}>
+            {!(isMobile && mobileView === "lessons") && <div className={styles.right}>
+            {isMobile && (
+                <div className={styles.mobileBar}>
+                <button type="button" className={styles.backBtn} onClick={backToLessons}>
+                    → الدروس
+                </button>
+                {tab === "history" && selectedLesson && (
+                    <button type="button" className={styles.changeDateBtn} onClick={() => setDateModalOpen(true)}>
+                    تغيير التاريخ
+                    </button>
+                )}
+                </div>
+            )}
             {!selectedLesson && (
                 <div className={styles.placeholder}>
                 {tab === "today" ? "اختيار درس اولا " : "اختيار درس وتاريخ اولا"}
@@ -349,7 +403,7 @@ export default function AttendancePage() {
                     <div>
                     <div className={styles.sheetTitle}>{sheet.lessonName}</div>
                     <div className={styles.sheetSub}>
-                        {headerDateText} • غرفة {sheet.room} • {sheet.teacherName || ""}
+                        {headerDateText} • {roomLabel(sheet.room)} • {sheet.teacherName || ""}
                     </div>
                     </div>
 
@@ -434,17 +488,61 @@ export default function AttendancePage() {
                 </div>
 
 
+                {/* Save sits with the sheet it saves and stays visible while scrolling. */}
                 <div className={styles.footer}>
                     <div className={styles.counts}>
                     حاضر: {sheet.items.filter(x => x.status === "حاضر").length} •{" "}
                     متأخر: {sheet.items.filter(x => x.status === "متأخر").length} •{" "}
-                    غائب: {sheet.items.filter(x => x.status === "غائب").length} •{" "}
+                    غائب: {sheet.items.filter(x => x.status === "غائب").length}
+                    </div>
+                    <div className={styles.actions}>
+                    {dirty && <span className={styles.miniInfo}>يوجد بيانات لم تُحفظ</span>}
+                    <button className={styles.saveBtn} onClick={onSave} disabled={loadingSheet || !dirty}>
+                        حفظ
+                    </button>
                     </div>
                 </div>
                 </div>
             )}
-            </div>
+            </div>}
         </div>
+
+        {/* Phones: choose the date after tapping a lesson in history. */}
+        {dateModalOpen && selectedLesson && (
+            <div className={styles.dateModalOverlay} onClick={() => setDateModalOpen(false)}>
+            <div
+                className={styles.dateModal}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="attendance-date-title"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <h3 id="attendance-date-title" className={styles.dateModalTitle}>اختر تاريخ</h3>
+                <div className={styles.small}>{selectedLesson.name}</div>
+                {loadingSheet && historyDates.length === 0 ? (
+                <div className={styles.small}>جلب البيانات...</div>
+                ) : historyDates.length === 0 ? (
+                <div className={styles.empty}>لا يوجد حضور مسجّل لهذا الدرس بعد</div>
+                ) : (
+                <div className={styles.dateOptions}>
+                    {historyDates.map((d) => (
+                    <button
+                        key={d.dateKey}
+                        type="button"
+                        className={`${styles.dateOption} ${String(selectedHistoryDate?.dateKey || "") === String(d.dateKey) ? styles.dateOptionActive : ""}`}
+                        onClick={() => pickDate(d)}
+                    >
+                        {attendanceDateLabel(d)}
+                    </button>
+                    ))}
+                </div>
+                )}
+                <button type="button" className={styles.dateModalClose} onClick={() => setDateModalOpen(false)}>
+                إلغاء
+                </button>
+            </div>
+            </div>
+        )}
         </div>
     );
 }

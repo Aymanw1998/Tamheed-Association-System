@@ -1,6 +1,7 @@
 import { repairMisencodedText } from "./textEncoding";
 
 export const ADMIN_ROLES = ["ادارة", "إدارة", "الادارة", "الإدارة"];
+export const GUIDE_ROLES = ["مرشد", "مرشدة", "المرشد", "المرشدة"];
 
 const repairRole = (role) => repairMisencodedText(String(role || "").trim());
 
@@ -13,13 +14,22 @@ export const normalizeRoles = (value) => {
       const parsed = JSON.parse(value);
       if (Array.isArray(parsed)) return parsed.filter(Boolean).map(repairRole);
     } catch (error) {
-      return [repairRole(value)];
+      // Not JSON: older logins stored roles as "a,b".
     }
 
-    return [repairRole(value)];
+    return value.split(",").map(repairRole).filter(Boolean);
   }
 
   return [];
+};
+
+// Saves who is signed in for the pages that check roles. Called on login and
+// after every /auth/me check, so a session restored from the refresh cookie
+// (after local storage was cleared) gets its roles back.
+export const rememberSessionUser = (user) => {
+  if (!user) return;
+  if (user._id) localStorage.setItem("user_id", String(user._id));
+  if (Array.isArray(user.roles)) localStorage.setItem("roles", JSON.stringify(user.roles));
 };
 
 export const getStoredRoles = () => {

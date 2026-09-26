@@ -225,3 +225,11 @@
     justify-content: space-between;
   }
 }
+
+/* Phones get compact cards (MobileStudentList); wider screens keep the table. */
+.mobileOnly { display: none; }
+
+@media (max-width: 768px) {
+  .mobileOnly { display: block; }
+  .desktopOnly { display: none; }
+}

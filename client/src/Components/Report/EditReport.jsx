@@ -4,6 +4,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import { create, update, getOne, /*softDelete,*/ deleteR } from "../../WebServer/services/report/functionsReport.jsx";
 import { getAll } from "../../WebServer/services/user/functionsUser.jsx";
 import styles from "./Report.module.css";
+import sectionStyles from "../UI/FormSection.module.css";
+import { SHOW_REPORT_ATTENDEES } from "./reportOptions";
 import { toast } from "../../ALERT/SystemToasts.jsx";
 import { isStoredAdmin } from "../../utils/session";
 
@@ -202,7 +204,7 @@ const EditReport = ({parent = false}) => {
     // GET /user/ is admin-only and its result is only used for the
     // admin-only "attendance" field below - skip it for other roles so a
     // 403 here doesn't block the rest of the form via the shared err state.
-    if (!isAdmin) return;
+    if (!isAdmin || !SHOW_REPORT_ATTENDEES) return;
     getUsers();
   }, [isAdmin]);
   function isValidIsraeliId(id) {
@@ -376,64 +378,60 @@ const EditReport = ({parent = false}) => {
     <div className={styles.formContainer}>
       <center><h1>{isEdit ? "تحديث بيانات التقرير" : "اضافة تقرير جديد"}</h1></center>
 
-      <label>عنوان التقرير:<span style={{color: "red"}}>*</span></label>
-      <input
-        type="text"
-        name="stitle"
-        value={form.stitle}
-        onChange={handleChange}
-        required
-      />
-      <label style={{color: "red"}}>{error.stitle}</label>
-      <br />
-      
-      <label>عنوان ثانوي:</label>
-      <MultiTagSelect
-        options={[
-          { label: "تقرير عام", value: "تقرير عام" },
-          { label: "تقرير جمعية", value: "تقرير جمعية" },
-          { label: "تقرير مجموعات", value: "تقرير مجموعات" },
-          { label: "تقرير فعاليات", value: "تقرير فعاليات" },
-        ]}
-        value={form.title}
-        onChange={(vals) => setForm((prev) => ({ ...prev, title: vals }))}
-        placeholder="اختر عنوان التقرير..."
-        allowCustom={true}
-      />
-      <label style={{color: "red"}}>{error.title}</label>
-      <br />
+      <fieldset className={sectionStyles.formSection}>
+        <legend>بيانات التقرير</legend>
+        <label>عنوان التقرير:<span style={{color: "red"}}>*</span></label>
+        <input
+          type="text"
+          name="stitle"
+          value={form.stitle}
+          onChange={handleChange}
+          required
+        />
+        <label style={{color: "red"}}>{error.stitle}</label>
 
-      <label>صلب الموضوع:<span style={{color: "red"}}>*</span></label>
-      <textarea
-        name="info"
-        value={form.info}
-        rows={10}
-        style={{
-          width: "100%",
-          minHeight: 220,
-          padding: 14,
-          fontSize: 16,
-          lineHeight: 1.6,
-          borderRadius: 12,
-          border: "1px solid #ccc",
-          resize: "vertical",
-          fontFamily: "inherit",
-        }}
-        onChange={handleChange}
-        required
-      />
-      <label style={{color: "red"}}>{error.info}</label>
-      <br />
-      
-      {isAdmin && <><label>الحاضرون:</label>
-      <MultiTagSelect
-        options={users.map(u => ({ label: `${u.firstname} ${u.lastname}`, value: u._id }))}
-        value={form.attendance}
-        onChange={(vals) => setForm((prev) => ({ ...prev, attendance: vals }))}
-        placeholder="اختر الحاضرين..."
-      />
-      <label style={{color: "red"}}>{error.attendance}</label>
-      <br /></>}
+        <label>عنوان ثانوي:</label>
+        <MultiTagSelect
+          options={[
+            { label: "تقرير عام", value: "تقرير عام" },
+            { label: "تقرير جمعية", value: "تقرير جمعية" },
+            { label: "تقرير مجموعات", value: "تقرير مجموعات" },
+            { label: "تقرير فعاليات", value: "تقرير فعاليات" },
+          ]}
+          value={form.title}
+          onChange={(vals) => setForm((prev) => ({ ...prev, title: vals }))}
+          placeholder="اختر عنوان التقرير..."
+          allowCustom={true}
+        />
+        <label style={{color: "red"}}>{error.title}</label>
+      </fieldset>
+
+      <fieldset className={sectionStyles.formSection}>
+        <legend>صلب الموضوع <span style={{color: "red"}}>*</span></legend>
+        <textarea
+          name="info"
+          aria-label="صلب الموضوع"
+          value={form.info}
+          rows={10}
+          style={{ minHeight: 220 }}
+          onChange={handleChange}
+          required
+        />
+        <label style={{color: "red"}}>{error.info}</label>
+      </fieldset>
+
+      {isAdmin && SHOW_REPORT_ATTENDEES && (
+        <fieldset className={sectionStyles.formSection}>
+          <legend>الحاضرون</legend>
+          <MultiTagSelect
+            options={users.map(u => ({ label: `${u.firstname} ${u.lastname}`, value: u._id }))}
+            value={form.attendance}
+            onChange={(vals) => setForm((prev) => ({ ...prev, attendance: vals }))}
+            placeholder="اختر الحاضرين..."
+          />
+          <label style={{color: "red"}}>{error.attendance}</label>
+        </fieldset>
+      )}
       <div className={styles.buttonRow} style={{ gap: 8, flexWrap: "wrap" }}>
         <button type="submit" onClick={handleSubmit} style={{width:"100%"}}>
           {saving ? "حفظ..." : parent ? "ارسال التفاصيل" : (isEdit ? "تعديل البيانات" : "اضافة التقرير")}

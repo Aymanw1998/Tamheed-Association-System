@@ -1,12 +1,12 @@
 // RequireAuth.jsx
 import React, { useEffect, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import axios from 'axios';
-import { API_BASE_URL, setAuthTokens } from '../../WebServer/services/api';
+import { refreshSession, setAuthTokens } from '../../WebServer/services/api';
 import { scheduleAccessRefresh } from '../../WebServer/utils/accessScheduler';
 import { getAccessExpiryMs } from '../../WebServer/utils/authTiming';
 import { getLogoutDeadline, scheduleAutoLogout } from '../../WebServer/utils/logoutScheduler';
 import { getMe } from '../../WebServer/services/auth/fuctionsAuth';
+import { rememberSessionUser } from '../../utils/session';
 
 const SKEW_MS = 60_000;
 
@@ -27,11 +27,7 @@ export default function RequireAuth() {
         // ملاحظة عربية
         if (!valid) {
           try {
-            const { data } = await axios.post(
-              `${API_BASE_URL}/auth/refresh`,
-              {},
-              { withCredentials: true, timeout: 15000 }
-            );
+            const data = await refreshSession();
 
             if (data?.accessToken) {
               setAuthTokens(data.accessToken, data.expirationTime);
@@ -66,6 +62,7 @@ export default function RequireAuth() {
           navigate('/', { replace: true, state: { from: location } });
           return;
         }
+        rememberSessionUser(me);
       } finally {
         if (alive) setChecking(false);
       }

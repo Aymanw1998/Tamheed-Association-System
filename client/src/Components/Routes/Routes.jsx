@@ -9,6 +9,7 @@ import Header from '../Header/Header';
 
 import RequireAuth from './RequireAuth';
 import PublicOnly from './PublicOnly';
+import RoleGuard from './RoleGuard';
 
 import ViewAllStudent from '../Student/ViewAllStudent';
 import EditStudent from '../Student/EditStudent';
@@ -58,9 +59,8 @@ export default function CRoutes() {
       <Route element={<RequireAuth />}>
         <Route element={<ProtectedLayout />}>
           {/* ادارة الاثنينعربيالاثنينالأربعاء */}
-          {/* <Route element={<RoleGuard allows={['ادارة', 'مرشد', 'مساعد']} />}> */}
           <Route path='/dashboard' element={<Dashboard />} />
-          <Route>
+          <Route element={<RoleGuard />}>
             <Route path="/calendar" element={<AttendancePage />} />
             
             <Route path="/students" element={<ViewAllStudent />} />
@@ -79,8 +79,7 @@ export default function CRoutes() {
             <Route path="/profile" element={<Profile/>} />
           </Route>
 
-          {/* ملاحظة عربية */}
-          {/* <Route path="/" element={<Navigate to="/calendar" replace />} /> */}
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Route>
       </Route>
     </Routes>

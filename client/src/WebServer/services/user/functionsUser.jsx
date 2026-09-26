@@ -115,7 +115,8 @@ export const deletePhoto = async(tz) => {
 }
 
 /* ملاحظة عربية */
-export const deleteU = async (tz, from, {confirm = true} = {}) => {
+// `from` is the room the user is in; the edit page only shows active users.
+export const deleteU = async (tz, from = "active", {confirm = true} = {}) => {
   if(confirm) {
             const ok = await ask("delete");
             if(!ok) {

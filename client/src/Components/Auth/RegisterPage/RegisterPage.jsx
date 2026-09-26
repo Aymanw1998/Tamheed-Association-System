@@ -242,7 +242,6 @@ export default function RegisterPage() {
             setForm((prev) => ({ ...prev, roles: [e.target.value] }));
           }}
         >
-          <option value="ادارة">ادارة</option>
           <option value="مرشد">مرشد</option>
           <option value="مساعد">مساعد</option>
         </select>

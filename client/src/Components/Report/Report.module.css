@@ -123,3 +123,63 @@
       display: inline-block;
   }
 }
+/* List page, matching the students and users lists. */
+.pageTitle { text-align: center; }
+
+.toolbar {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: var(--space-4);
+}
+
+.searchInput {
+  flex: 1 1 260px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-sm);
+}
+
+.summary {
+  margin: 0 0 var(--space-3);
+  color: var(--color-text-secondary);
+  font-size: var(--fs-sm);
+}
+
+.rowActions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.tagList {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.tag {
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--color-primary-50);
+  color: var(--color-primary-700);
+  font-size: var(--fs-xs);
+}
+
+.formError {
+  margin-top: var(--space-3);
+  color: var(--color-danger-700);
+}
+
+.sortable { cursor: pointer; }
+
+/* Phones get compact cards; wider screens keep the table. */
+.mobileOnly { display: none; }
+
+@media (max-width: 768px) {
+  .mobileOnly { display: block; }
+  .desktopOnly { display: none; }
+}

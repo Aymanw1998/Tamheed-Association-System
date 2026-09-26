@@ -8,6 +8,7 @@ import UserStatusFilter from "./UserStatusFilter.jsx";
 import { exportUserPdf } from "../ExportPDF/ExportPDF.jsx";
 import { getStoredUserId, isStoredAdmin } from "../../utils/session";
 import Button from "../UI/Button.jsx";
+import MobileUserList from "./MobileUserList.jsx";
 
 const ViewAllUser = () => {
   const isAdmin = isStoredAdmin();
@@ -236,8 +237,8 @@ const ViewAllUser = () => {
         </div>
 
         <div className={styles.summary}>
-          مجموع: {sortedFilteredUsers.length} مستخدمين{" "}
-          {status === "active" ? "مُفاعلين" : status === "pending" ? "بالانتظار" : "حسابات موقوفة"}
+          مجموع: {sortedFilteredUsers.length}{" "}
+          {status === "active" ? "مستخدم مسجل" : status === "pending" ? "مستخدمين بالانتظار" : "مستخدمين حسابات موقوفة"}
           {roleFilter !== "all" ? ` - ${roleFilter}` : ""}
         </div>
       </div>
@@ -246,7 +247,19 @@ const ViewAllUser = () => {
       {!err && loading && <div className={styles.emptyState}>جاري تحديث البيانات</div>}
 
       {!loading && !err && (
-        <table className={`table ${styles.subTable}`} style={{ marginTop: 12 }}>
+        <div className={styles.mobileOnly}>
+          <MobileUserList
+            users={sortedFilteredUsers}
+            onOpen={(user) => navigate(`/users/${user.tz}`)}
+            onPdf={exportUserPdf}
+            onActivate={(user) => (user.room === "waiting" ? onWaitingToActive(user) : onNoActiveToActive(user))}
+            onDelete={(user) => handleDeleteUser(user, user.room)}
+          />
+        </div>
+      )}
+
+      {!loading && !err && (
+        <table className={`table ${styles.subTable} ${styles.desktopOnly}`} style={{ marginTop: 12 }}>
           <thead>
             <tr>
               <th>رقم الهوية</th>

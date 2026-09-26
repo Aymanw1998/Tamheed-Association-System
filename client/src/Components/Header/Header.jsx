@@ -5,9 +5,8 @@ import LOGO from "../../images/logo.png";
 import { getMe, logout } from "../../WebServer/services/auth/fuctionsAuth";
 import { ask } from "../Provides/confirmBus";
 import { useI18n } from "../../i18n/I18nContext";
-import { ADMIN_ROLES, normalizeRoles } from "../../utils/session";
+import { ADMIN_ROLES, GUIDE_ROLES, normalizeRoles } from "../../utils/session";
 
-const GUIDE_ROLES = ["مرشد", "مرشدة", "المرشد", "المرشدة"];
 const STUDENT_ROLES = [...ADMIN_ROLES, ...GUIDE_ROLES];
 
 const hasAnyRole = (roles, allowedRoles) => allowedRoles.some((role) => roles.includes(role));

@@ -3,8 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import LoginPage from '../Auth/LoginPage/LoginPage';
 
-import axios from 'axios';
-import { API_BASE_URL, setAuthTokens } from '../../WebServer/services/api';
+import { refreshSession, setAuthTokens } from '../../WebServer/services/api';
 import { scheduleAccessRefresh } from '../../WebServer/utils/accessScheduler';
 import { getAccessExpiryMs } from '../../WebServer/utils/authTiming';
 import { getLogoutDeadline, scheduleAutoLogout } from '../../WebServer/utils/logoutScheduler';
@@ -48,11 +47,7 @@ export default function PublicOnly() {
 
       // ملاحظة عربية
       try {
-        const { data } = await axios.post(
-          `${API_BASE_URL}/auth/refresh`,
-          {},
-          { withCredentials: true, timeout: 15000 }
-        );
+        const data = await refreshSession();
 
         if (!cancel && data?.accessToken && !navigatingRef.current) {
           setAuthTokens(data.accessToken, data.expirationTime);

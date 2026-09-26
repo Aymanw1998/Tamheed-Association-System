@@ -1,0 +1,137 @@
+.wrap {
+  padding: var(--space-2) var(--space-3) var(--space-7);
+}
+
+.days {
+  display: flex;
+  gap: var(--space-2);
+  overflow-x: auto;
+  padding-bottom: var(--space-2);
+  scrollbar-width: none;
+}
+
+.days::-webkit-scrollbar {
+  display: none;
+}
+
+.day {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.daySelected {
+  background: var(--color-primary-600);
+  border-color: var(--color-primary-600);
+  color: var(--color-text-on-primary);
+}
+
+.dayCount {
+  min-width: 20px;
+  padding: 0 6px;
+  border-radius: var(--radius-full);
+  background: var(--color-primary-50);
+  color: var(--color-primary-700);
+  font-size: var(--fs-xs);
+  line-height: 20px;
+  text-align: center;
+}
+
+.daySelected .dayCount {
+  background: var(--color-primary-700);
+  color: var(--color-text-on-primary);
+}
+
+.note {
+  margin: var(--space-1) 0 var(--space-3);
+  color: var(--color-text-secondary);
+  font-size: var(--fs-sm);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.time {
+  display: flex;
+  flex-direction: column;
+  padding-top: var(--space-3);
+  color: var(--color-text-primary);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.time small {
+  color: var(--color-text-muted);
+  font-weight: 400;
+  font-size: var(--fs-xs);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  color: inherit;
+  font: inherit;
+  text-align: start;
+}
+
+.cardButton {
+  cursor: pointer;
+}
+
+.cardButton:active {
+  background: var(--color-primary-50);
+}
+
+.name {
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px var(--space-3);
+  color: var(--color-text-secondary);
+  font-size: var(--fs-sm);
+}
+
+.place {
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--color-background);
+  color: var(--color-text-secondary);
+  font-size: var(--fs-xs);
+}
+
+.placeNamed {
+  background: var(--color-success-100);
+  color: var(--color-success-700);
+}

@@ -10,6 +10,7 @@ import StudentStatusFilter from "./StudentStatusFilter.jsx";
 import Button from "../UI/Button.jsx";
 import StatusBadge from "../UI/StatusBadge.jsx";
 import { ParentLinkDialog } from "./ParentLinkPanel.jsx";
+import MobileStudentList from "./MobileStudentList.jsx";
 
 const ACTIVE_STATUS = "عادي";
 const PENDING_STATUS = "ينتظر";
@@ -215,7 +216,7 @@ const ViewAllStudent = () => {
         <div className={styles.summary}>
           مجموع: {sortedFilteredStudents.length} طالب{" "}
           {statusFilter === "active"
-            ? "مُفعاليّن"
+            ? "مسجل"
             : statusFilter === "waiting"
             ? "بانتظار الموافقة"
             : "غير فعالين"}
@@ -226,7 +227,21 @@ const ViewAllStudent = () => {
       {!err && loading && <div className={styles.emptyState}>جاري تحديث البيانات</div>}
 
       {!loading && !err && (
-        <table className={`table ${styles.subTable}`} style={{ marginTop: 12 }}>
+        <div className={styles.mobileOnly}>
+          <MobileStudentList
+            students={sortedFilteredStudents}
+            statusOf={getStudentFilterKey}
+            toneOf={(student) => STATUS_TONE[getStudentFilterKey(student)]}
+            onOpen={(student) => navigate(`/students/${student.tz}`)}
+            onPdf={exportStudentPdf}
+            onApprove={(student) => handleApproveStudent(student.tz)}
+            onReject={(student) => handleRejectStudent(student.tz)}
+          />
+        </div>
+      )}
+
+      {!loading && !err && (
+        <table className={`table ${styles.subTable} ${styles.desktopOnly}`} style={{ marginTop: 12 }}>
           <thead>
             <tr>
               <th>رقم الهوية</th>

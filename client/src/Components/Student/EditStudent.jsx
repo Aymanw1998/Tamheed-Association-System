@@ -4,10 +4,12 @@ import { useParams, useNavigate } from "react-router-dom";
 import { create, update, getOne, /*softDelete,*/ deleteS, uploadPhoto, deletePhoto } from "../../WebServer/services/student/functionsStudent.jsx";
 import {getAll as getUsers} from "../../WebServer/services/user/functionsUser.jsx"
 import styles from "./Student.module.css";
+import sectionStyles from "../UI/FormSection.module.css";
 import { toast } from "../../ALERT/SystemToasts";
 import {validate as validateINV, submit as submitFromParent} from "../../WebServer/services/inviteToken/functionInviteToken.jsx";
 import { isStoredAdmin } from "../../utils/session";
 import { photoAction } from "../../utils/photoChange";
+import { isRequiredStudentField } from "../../utils/studentForm";
 
 const EditStudent = ({parent = false}) => {
   const params = useParams();              // "new" الأحدالجمعة _id
@@ -185,8 +187,15 @@ const EditStudent = ({parent = false}) => {
         return ""
       }
 
+      // Optional text fields (parents, phone, email) may stay empty.
+      else if (['father_name', 'mother_name', 'father_phone', 'mother_phone', 'phone', 'email'].includes(name)
+        && !isRequiredStudentField(name)) {
+        tag?.style.removeProperty('border');
+        return "";
+      }
+
       //fisrtname, lastname
-      else if(['firstname', 'lastname', 'father_name', 'mother_name'].includes(name)){
+      else if(['firstname', 'lastname'].includes(name)){
         if (value === "") {
           tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
           return "املأ الحقل";
@@ -227,8 +236,8 @@ const EditStudent = ({parent = false}) => {
         }
       }
 
-      //phone, email, city, street
-      else if (['father_phone', 'mother_phone', 'phone', 'email', 'city', 'street'].includes(name)){
+      //city, street
+      else if (['city', 'street'].includes(name)){
         if (value === "") {
           tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
           return "املأ الحقل";
@@ -275,7 +284,7 @@ const EditStudent = ({parent = false}) => {
     let b = await validate();
     if (b) { toast.warn(b); return; }
     b = true
-    const ff = ['tz', 'firstname', 'lastname', 'birth_date', 'gender','layer', 'school', 'health_status', 'city', 'street', 'father_name', 'mother_name', 'father_phone', 'mother_phone', 'father_work', 'mother_work'];
+    const ff = ['tz', 'firstname', 'lastname', 'birth_date', 'gender', 'city', 'street', 'school', 'layer', 'health_status'];
     for(const nameTag in ff){
       const tag = document.getElementsByName(ff[nameTag])[0];
       // console.log('tag', tag, tag.name, tag.value);
@@ -408,174 +417,130 @@ const EditStudent = ({parent = false}) => {
     <div className={styles.formContainer}>
       <h2 style={{textAlign: "center"}}>{parent ? "طلب تسجيل طالب" : isEdit ? "تحديث بيانات الطالب" : "اضافة طالب جديد"}</h2>
 
-      <label>رقم الهوية: <span style={{color: "red"}}>*</span></label>
-      <input name="tz" value={form.tz} onChange={onField} readOnly={!isNew} />
-      {error.tz != "" && <label style={{color: "red"}}>{error.tz}</label>}
-      <br />
-      <label>اسم الطالب: <span style={{color: "red"}}>*</span></label>
-      <input
-        name="firstname"
-        value={form.firstname}
-        onChange={handleChange}
-        required
-      />
-      {error.firstname != "" && <label style={{color: "red"}}>{error.firstname}</label>}
-      <br />
-      <label>اسم العائلة: <span style={{color: "red"}}>*</span></label>
-      <input
-        name="lastname"
-        value={form.lastname}
-        onChange={handleChange}
-        required
-      />
-      {error.lastname != "" &&<label style={{color: "red"}}>{error.lastname}</label>}
-      <br />
+      <fieldset className={sectionStyles.formSection}>
+        <legend>بيانات الطالب</legend>
+        <label>رقم الهوية: <span style={{color: "red"}}>*</span></label>
+        <input name="tz" value={form.tz} onChange={onField} readOnly={!isNew} />
+        {error.tz != "" && <label style={{color: "red"}}>{error.tz}</label>}
 
-      <label>تاريخ الميلاد: <span style={{color: "red"}}>*</span></label>
-      <input
-        name="birth_date"
-        type="date"
-        value={form.birth_date ? String(form.birth_date).slice(0, 10) : ''}
-        onChange={onField}
-      />
-      {error.birth_date != "" && <label style={{color: "red"}}>{error.birth_date}</label>}
-      <br />
-      <label>جنس: <span style={{color: "red"}}>*</span></label>
-      <select name="gender" value={form.gender} onChange={onField}>
-        <option value="">اختار الجنس</option>
-        <option value="ذكر">ذكر</option>
-        <option value="انثى">انثى</option>
-      </select>
-      {error.gender != "" && <label style={{color: "red"}}>{error.gender}</label>}
-      <br />
-          <label>هاتف:</label>
-      <input
-        name="phone"
-        value={displayPhoneLocal(form.phone)}
-        onChange={(e)=>onPhoneChange('phone', e.target.value)}
-        placeholder="052-123-4567"
-      />
-      {error.phone != "" && <label style={{color: "red"}}>{error.phone}</label>}
-      <br />
-      <label>صف: <span style={{color: "red"}}>*</span></label>
-      <input
-        name="layer"
-        value={form.layer}
-        onChange={handleChange}
-        required
-      />
-      { error.layer != "" && <label style={{color: "red"}}>{error.layer}</label>}
-      <br />
-      <label>مدرسة: <span style={{color: "red"}}>*</span></label>
-      <input
-        name="school"
-        value={form.school}
-        onChange={handleChange}
-        required
-      />
-      {error.school != "" && <label style={{color: "red"}}>{error.school}</label>}
-      <br />
-      <label> الاب <span style={{color: "red"}}>*</span></label>
-      <input
-        name="father_name"
-        value={form.father_name}
-        onChange={handleChange}
-        placeholder="اسم الاب"
-        required
-      />
-      <input
-        name="father_phone"
-        value={displayPhoneLocal(form.father_phone)}
-        onChange={(e) => onPhoneChange('father_phone', e.target.value)}
-        placeholder="052-123-4567"
-      />
-      <input
-        name="father_work"
-        value={form.father_work}
-        onChange={handleChange}
-        placeholder="عمل الاب"
-        required
-      />
-      {error.father_name != "" && <label style={{color: "red"}}>{error.father_name}</label>}
-      {error.father_work != "" && <label style={{color: "red"}}>{error.father_work}</label>}
-      {error.father_phone != "" && <label style={{color: "red"}}>{error.father_phone}</label>}
-      <br />
-      
-      <label> الام <span style={{color: "red"}}>*</span></label>
-      <input
-        name="mother_name"
-        value={form.mother_name}
-        onChange={handleChange}
-        placeholder="اسم الام"
-        required
-      />
-      <input
-        name="mother_phone"
-        value={displayPhoneLocal(form.mother_phone)}
-        onChange={(e) => onPhoneChange('mother_phone', e.target.value)}
-        placeholder="052-123-4567"
-      />
-      <input
-        name="mother_work"
-        value={form.mother_work}
-        onChange={handleChange}
-        placeholder="عمل الام"
-        required
-      />
-      {error.mother_name != "" && <label style={{color: "red"}}>{error.mother_name}</label>}
-      {error.mother_work != "" && <label style={{color: "red"}}>{error.mother_work}</label>}
-      {error.mother_phone != "" && <label style={{color: "red"}}>{error.mother_phone}</label>}
-      <br />
-      <label>الحالة الصحية: <span style={{color: "red"}}>*</span></label>
-      <input
-        name="health_status"
-        value={form.health_status}
-        onChange={handleChange}
-        required
-      />
-      {error.health_status != "" &&<label style={{color: "red"}}>{error.health_status}</label>}
-      <br />
-      <label>بريد الكتروني:</label>
-      <input name="email" value={form.email} onChange={onField} />
-      {error.email !="" && <label style={{color: "red"}}>{error.email}</label>}
-      <br />
-      <label>شارع السكن: <span style={{color: "red"}}>*</span></label>
-      <input name="street" value={form.street} onChange={onField} />
-      {error.street != "" && <label style={{color: "red"}}>{error.street}</label>}
-      <br />
-      <label>مدينة السكن: <span style={{color: "red"}}>*</span></label>
-      <input name="city" value={form.city} onChange={onField} />
-      {error.city != "" && <label style={{color: "red"}}>{error.city}</label>}
-      <br />
-      <label>ملاحظات:</label>
-      <input
-        name="notes"
-        value={form.notes}
-        onChange={handleChange}
-        required
-      />
-      {error.notes != "" && <label style={{color: "red"}}>{error.notes}</label>}
-      <br />
+        <label>اسم الطالب: <span style={{color: "red"}}>*</span></label>
+        <input name="firstname" value={form.firstname} onChange={handleChange} required />
+        {error.firstname != "" && <label style={{color: "red"}}>{error.firstname}</label>}
 
-      {!parent && isAdmin && teachers && teachers.length > 0 && <div className={styles.formControl}>
-        <label>مرشد مسؤول:</label>
-        <select
-          name="main_teacher"
-          value={form.main_teacher}
-          onChange={handleChange}
-          disabled={!isAdmin}
-        >
-          <option value="">اختار مرشد</option>
-          {Array.isArray(teachers) &&
-            teachers.map((t) => (
-              <option key={t._id} value={t._id}>
-                {t.firstname} {t.lastname}
-              </option>
-            ))}
+        <label>اسم العائلة: <span style={{color: "red"}}>*</span></label>
+        <input name="lastname" value={form.lastname} onChange={handleChange} required />
+        {error.lastname != "" && <label style={{color: "red"}}>{error.lastname}</label>}
+
+        <label>تاريخ الميلاد: <span style={{color: "red"}}>*</span></label>
+        <input
+          name="birth_date"
+          type="date"
+          value={form.birth_date ? String(form.birth_date).slice(0, 10) : ''}
+          onChange={onField}
+        />
+        {error.birth_date != "" && <label style={{color: "red"}}>{error.birth_date}</label>}
+
+        <label>جنس: <span style={{color: "red"}}>*</span></label>
+        <select name="gender" value={form.gender} onChange={onField}>
+          <option value="">اختار الجنس</option>
+          <option value="ذكر">ذكر</option>
+          <option value="انثى">انثى</option>
         </select>
-      </div> }
-      
+        {error.gender != "" && <label style={{color: "red"}}>{error.gender}</label>}
+      </fieldset>
 
+      <fieldset className={sectionStyles.formSection}>
+        <legend>السكن والتواصل</legend>
+        <label>مدينة السكن: <span style={{color: "red"}}>*</span></label>
+        <input name="city" value={form.city} onChange={onField} />
+        {error.city != "" && <label style={{color: "red"}}>{error.city}</label>}
+
+        <label>شارع السكن: <span style={{color: "red"}}>*</span></label>
+        <input name="street" value={form.street} onChange={onField} />
+        {error.street != "" && <label style={{color: "red"}}>{error.street}</label>}
+
+        <label>هاتف:</label>
+        <input
+          name="phone"
+          value={displayPhoneLocal(form.phone)}
+          onChange={(e)=>onPhoneChange('phone', e.target.value)}
+          placeholder="052-123-4567"
+        />
+        {error.phone != "" && <label style={{color: "red"}}>{error.phone}</label>}
+
+        <label>بريد الكتروني:</label>
+        <input name="email" value={form.email} onChange={onField} />
+        {error.email !="" && <label style={{color: "red"}}>{error.email}</label>}
+      </fieldset>
+
+      <fieldset className={sectionStyles.formSection}>
+        <legend>الدراسة</legend>
+        <label>مدرسة: <span style={{color: "red"}}>*</span></label>
+        <input name="school" value={form.school} onChange={handleChange} required />
+        {error.school != "" && <label style={{color: "red"}}>{error.school}</label>}
+
+        <label>صف: <span style={{color: "red"}}>*</span></label>
+        <input name="layer" value={form.layer} onChange={handleChange} required />
+        {error.layer != "" && <label style={{color: "red"}}>{error.layer}</label>}
+
+        {!parent && isAdmin && teachers && teachers.length > 0 && <>
+          <label>مرشد مسؤول:</label>
+          <select
+            name="main_teacher"
+            value={form.main_teacher || ""}
+            onChange={handleChange}
+            disabled={!isAdmin}
+          >
+            <option value="">اختار مرشد</option>
+            {Array.isArray(teachers) &&
+              teachers.map((t) => (
+                <option key={t._id} value={t._id}>
+                  {t.firstname} {t.lastname}
+                </option>
+              ))}
+          </select>
+        </>}
+      </fieldset>
+
+      <fieldset className={sectionStyles.formSection}>
+        <legend>الأهل <span className={sectionStyles.optionalTag}>اختياري</span></legend>
+        <label>الأب:</label>
+        <div className={sectionStyles.parentRow}>
+          <input name="father_name" value={form.father_name} onChange={handleChange} placeholder="اسم الاب" />
+          <input
+            name="father_phone"
+            value={displayPhoneLocal(form.father_phone)}
+            onChange={(e) => onPhoneChange('father_phone', e.target.value)}
+            placeholder="052-123-4567"
+          />
+          <input name="father_work" value={form.father_work} onChange={handleChange} placeholder="عمل الاب" />
+        </div>
+
+        <label>الأم:</label>
+        <div className={sectionStyles.parentRow}>
+          <input name="mother_name" value={form.mother_name} onChange={handleChange} placeholder="اسم الام" />
+          <input
+            name="mother_phone"
+            value={displayPhoneLocal(form.mother_phone)}
+            onChange={(e) => onPhoneChange('mother_phone', e.target.value)}
+            placeholder="052-123-4567"
+          />
+          <input name="mother_work" value={form.mother_work} onChange={handleChange} placeholder="عمل الام" />
+        </div>
+      </fieldset>
+
+      <fieldset className={sectionStyles.formSection}>
+        <legend>الصحة وملاحظات</legend>
+        <label>الحالة الصحية: <span style={{color: "red"}}>*</span></label>
+        <textarea name="health_status" rows={4} value={form.health_status || ""} onChange={handleChange} required />
+        {error.health_status != "" && <label style={{color: "red"}}>{error.health_status}</label>}
+
+        <label>ملاحظات:</label>
+        <textarea name="notes" rows={4} value={form.notes || ""} onChange={handleChange} />
+        {error.notes != "" && <label style={{color: "red"}}>{error.notes}</label>}
+      </fieldset>
+
+      
       <div style={{ marginBottom: "16px" }}>
         <label>صورة الطالب:</label>
         <button onClick={

@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 // ملاحظة عربية
 import { create, update, getUserById as getOne, /*softDelete,*/ deleteU, uploadPhoto, deletePhoto, changeStatus, viewPassword } from "../../WebServer/services/user/functionsUser.jsx";
 import styles from "./User.module.css";
+import sectionStyles from "../UI/FormSection.module.css";
 import { toast } from "../../ALERT/SystemToasts.jsx";
 import EyeIcon from "../UI/EyeIcon";
 import { photoAction } from "../../utils/photoChange";
@@ -400,144 +401,134 @@ const EditUser = () => {
     <div className={styles.formContainer}>
       <center><h1>{isEdit ? "تحديث بيانات المستخدم" : "اضافة مستخدم جديد"}</h1></center>
 
-      <label>رقم الهوية:<span style={{color: "red"}}>*</span></label>
-      <input name="tz" value={form.tz} onChange={onField} readOnly={!isNew} />
-      <label style={{color: "red"}}>{error.tz}</label>
-      <br />
+      <fieldset className={sectionStyles.formSection}>
+        <legend>بيانات الحساب</legend>
+        <label>رقم الهوية:<span style={{color: "red"}}>*</span></label>
+        <input name="tz" value={form.tz} onChange={onField} readOnly={!isNew} />
+        <label style={{color: "red"}}>{error.tz}</label>
 
-      <label>كلمة السر:</label>
-      <div className={styles.passwordWrapper}>
-        <input
-          name="password"
-          type={showPassword ? 'text' : 'password'}
-          value={form.password || ''}
-          onChange={onField}
-          placeholder={isNew ? '' : '*******'}
-        />
-        <button
-          type="button"
-          className={styles.togglePassword}
-          disabled={fetchingPassword}
-          onClick={async () => {
-            // ملاحظة عربية
-            if (!showPassword) {
-              // ملاحظة عربية
-              if (!form.password?.trim() || !passwordTouched) {
-                await handleFetchPassword();
-              }
-              setShowPassword(true);
-              return;
-            }
-
-            // ملاحظة عربية
-            setShowPassword(false);
-
-            // ملاحظة عربية
-            // ملاحظة عربية
-            if (!passwordTouched) {
-              setForm((prev) => ({ ...prev, password: '' }));
-            }
-          }}
-          title={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
-          aria-label={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
-          aria-pressed={showPassword}
-        >
-          <EyeIcon open={showPassword} />
-        </button>
-
-      </div>
-      {/* {!!storedPasswordValue && (
-        <>
-          <label>القيمة المحفوظة ({passwordAlgo || "stored"}):</label>
-          <textarea
-            readOnly
-            value={storedPasswordValue}
-            style={{ width: "100%", minHeight: "90px", direction: "ltr" }}
+        <label>كلمة السر:</label>
+        <div className={styles.passwordWrapper}>
+          <input
+            name="password"
+            type={showPassword ? 'text' : 'password'}
+            value={form.password || ''}
+            onChange={onField}
+            placeholder={isNew ? '' : '*******'}
           />
-          <small style={{ color: "#374151", display: "block", marginTop: "4px" }}>
-            لتغيير كلمة السر عدل الحقل الأعلى ثم اضغط حفظ. سيتم حفظها مشفرة تلقائياً.
-          </small>
-        </>
-      )} */}
-      <label style={{color: "red"}}>{error.password}</label>
-      <br />
-      
-      {/* <label>الادوار:</label>
-        <span><input type="checkbox" name="roles" value="ادارة" checked={form.roles.includes("ادارة")} onChange={(e) => toggleRole(e.target.value, e.target.checked)}/> ادارة</span>
-        <span><input type="checkbox" name="roles" value="مرشد" checked={form.roles.includes("مرشد")} onChange={(e) => toggleRole(e.target.value, e.target.checked)}/> مرشد</span>
-        <span><input type="checkbox" name="roles" value="مساعد" checked={form.roles.includes("مساعد")} onChange={(e) => toggleRole(e.target.value, e.target.checked)}/> مساعد</span>
-      <br /> */}
-      <label>الادوار:<span style={{color: "red"}}>*</span></label>
-      <select
-        name="roles"
-        value={form.roles[0]  || ""}
-        onChange={(e) => {
-          setForm((prev) => ({ ...prev, roles: [e.target.value] }));
-        }}
-      >
-        <option value="ادارة">ادارة</option>
-        <option value="مرشد">مرشد</option>
-        <option value="مساعد">مساعد</option>
-      </select>
-      <label style={{color: "red"}}>{error.roles}</label>
-      <br />
-      
-      
-      <label>اسم المستخدم:<span style={{color: "red"}}>*</span></label>
-      <input
-        name="firstname"
-        value={form.firstname}
-        onChange={handleChange}
-        required
-      />
-      <label style={{color: "red"}}>{error.firstname}</label>
-      <br />
-      <label>اسم العائلة:<span style={{color: "red"}}>*</span></label>
-      <input
-        name="lastname"
-        value={form.lastname}
-        onChange={handleChange}
-        required
-      />
-      <label style={{color: "red"}}>{error.lastname}</label>
-      <br />
-      <label>تاريخ الميلاد:<span style={{color: "red"}}>*</span></label>
-      <input
-        name="birth_date"
-        type="date"
-        value={form.birth_date ? String(form.birth_date).slice(0, 10) : ''}
-        onChange={onField}
-      />
-      <label style={{color: "red"}}>{error.birth_date}</label>
-      <br />
-      <label>جنس:<span style={{color: "red"}}>*</span></label>
-      <select name="gender" value={form.gender} onChange={onField}>
-        <option value="">اختار الجنس</option>
-        <option value="ذكر">ذكر</option>
-        <option value="انثى">انثى</option>
-      </select>
-      <label style={{color: "red"}}>{error.gender}</label>
-      <br />
-      <label>هاتف:<span style={{color: "red"}}>*</span></label>
-      <input
-        name="phone"
-        value={displayPhoneLocal(form.phone)}
-        onChange={(e)=>onPhoneChange('phone', e.target.value)}
-        placeholder="052-123-4567"
-      />
-      <label style={{color: "red"}}>{error.mother_phone}</label>
-      <br />
-      <label>بريد الكتروني:<span style={{color: "red"}}>*</span></label>
-      <input name="email" value={form.email} onChange={onField} />
-      <label style={{color: "red"}}>{error.email}</label>
+          <button
+            type="button"
+            className={styles.togglePassword}
+            disabled={fetchingPassword}
+            onClick={async () => {
+              // ملاحظة عربية
+              if (!showPassword) {
+                // ملاحظة عربية
+                if (!form.password?.trim() || !passwordTouched) {
+                  await handleFetchPassword();
+                }
+                setShowPassword(true);
+                return;
+              }
 
-      <label>بلد:</label>
-      <input name="city" value={form.city} onChange={onField} />
-      <label style={{color: "red"}}>{error.city}</label>
+              // ملاحظة عربية
+              setShowPassword(false);
 
-      <label>شارع السكن:</label>
-      <input name="street" value={form.street} onChange={onField} />
-      <label style={{color: "red"}}>{error.street}</label>
+              // ملاحظة عربية
+              // ملاحظة عربية
+              if (!passwordTouched) {
+                setForm((prev) => ({ ...prev, password: '' }));
+              }
+            }}
+            title={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
+            aria-label={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
+            aria-pressed={showPassword}
+          >
+            <EyeIcon open={showPassword} />
+          </button>
+
+        </div>
+        {/* {!!storedPasswordValue && (
+          <>
+            <label>القيمة المحفوظة ({passwordAlgo || "stored"}):</label>
+            <textarea
+              readOnly
+              value={storedPasswordValue}
+              style={{ width: "100%", minHeight: "90px", direction: "ltr" }}
+            />
+            <small style={{ color: "#374151", display: "block", marginTop: "4px" }}>
+              لتغيير كلمة السر عدل الحقل الأعلى ثم اضغط حفظ. سيتم حفظها مشفرة تلقائياً.
+            </small>
+          </>
+        )} */}
+        <label style={{color: "red"}}>{error.password}</label>
+
+        <label>الادوار:<span style={{color: "red"}}>*</span></label>
+        <select
+          name="roles"
+          value={form.roles[0]  || ""}
+          onChange={(e) => {
+            setForm((prev) => ({ ...prev, roles: [e.target.value] }));
+          }}
+        >
+          <option value="ادارة">ادارة</option>
+          <option value="مرشد">مرشد</option>
+          <option value="مساعد">مساعد</option>
+        </select>
+        <label style={{color: "red"}}>{error.roles}</label>
+      </fieldset>
+
+      <fieldset className={sectionStyles.formSection}>
+        <legend>البيانات الشخصية</legend>
+        <label>اسم المستخدم:<span style={{color: "red"}}>*</span></label>
+        <input name="firstname" value={form.firstname} onChange={handleChange} required />
+        <label style={{color: "red"}}>{error.firstname}</label>
+
+        <label>اسم العائلة:<span style={{color: "red"}}>*</span></label>
+        <input name="lastname" value={form.lastname} onChange={handleChange} required />
+        <label style={{color: "red"}}>{error.lastname}</label>
+
+        <label>تاريخ الميلاد:<span style={{color: "red"}}>*</span></label>
+        <input
+          name="birth_date"
+          type="date"
+          value={form.birth_date ? String(form.birth_date).slice(0, 10) : ''}
+          onChange={onField}
+        />
+        <label style={{color: "red"}}>{error.birth_date}</label>
+
+        <label>جنس:<span style={{color: "red"}}>*</span></label>
+        <select name="gender" value={form.gender} onChange={onField}>
+          <option value="">اختار الجنس</option>
+          <option value="ذكر">ذكر</option>
+          <option value="انثى">انثى</option>
+        </select>
+        <label style={{color: "red"}}>{error.gender}</label>
+      </fieldset>
+
+      <fieldset className={sectionStyles.formSection}>
+        <legend>السكن والتواصل</legend>
+        <label>مدينة السكن:</label>
+        <input name="city" value={form.city} onChange={onField} />
+        <label style={{color: "red"}}>{error.city}</label>
+
+        <label>شارع السكن:</label>
+        <input name="street" value={form.street} onChange={onField} />
+        <label style={{color: "red"}}>{error.street}</label>
+
+        <label>هاتف:<span style={{color: "red"}}>*</span></label>
+        <input
+          name="phone"
+          value={displayPhoneLocal(form.phone)}
+          onChange={(e)=>onPhoneChange('phone', e.target.value)}
+          placeholder="052-123-4567"
+        />
+        <label style={{color: "red"}}>{error.phone}</label>
+
+        <label>بريد الكتروني:<span style={{color: "red"}}>*</span></label>
+        <input name="email" value={form.email} onChange={onField} />
+        <label style={{color: "red"}}>{error.email}</label>
+      </fieldset>
 
       <div style={{ marginBottom: "16px" }}>
         <label>صورة المستخدم:</label>

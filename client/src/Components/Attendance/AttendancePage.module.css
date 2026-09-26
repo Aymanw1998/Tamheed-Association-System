@@ -355,3 +355,181 @@
   opacity: 0.6;
   margin-bottom: 4px;
 }
+
+/* ===== Lesson list: three lessons visible, the rest scroll ===== */
+.filterGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filterGroup input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  font: inherit;
+}
+
+.lessonScroll {
+  display: grid;
+  gap: 8px;
+  /* 3 cards (about 62px each) plus the two gaps between them. */
+  max-height: calc(3 * 62px + 2 * 8px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-inline-end: 2px;
+}
+
+.lessonCard {
+  min-height: 62px;
+  box-sizing: border-box;
+}
+
+/* ===== History: date dropdown ===== */
+.datesPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border-top: 1px solid var(--color-border);
+}
+
+.dateSelect {
+  padding: 10px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  font: inherit;
+}
+
+/* ===== Save bar at the bottom of the sheet ===== */
+.footer {
+  position: sticky;
+  bottom: 0;
+  padding: 10px 0;
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.miniInfo {
+  color: var(--color-warning-700);
+  font-size: var(--fs-sm);
+}
+
+/* ===== Phones: lessons, then the sheet ===== */
+@media (max-width: 900px) {
+  /* The lesson list is the whole first screen on phones. */
+  .lessonScroll {
+    max-height: none;
+    overflow: visible;
+  }
+}
+
+.mobileBar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding: 8px 0;
+  background: var(--color-background);
+}
+
+.backBtn,
+.changeDateBtn {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font: inherit;
+  cursor: pointer;
+}
+
+.changeDateBtn {
+  color: var(--color-primary-700);
+}
+
+/* ===== Date window (bottom sheet on phones) ===== */
+.dateModalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(17, 26, 32, 0.45);
+}
+
+.dateModal {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  max-width: 480px;
+  max-height: 75vh;
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-lg);
+}
+
+.dateModalTitle {
+  margin: 0;
+  font-size: var(--fs-lg);
+}
+
+.dateOptions {
+  display: grid;
+  gap: 8px;
+  overflow-y: auto;
+}
+
+.dateOption {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.dateOptionActive {
+  border-color: var(--color-primary-600);
+  background: var(--color-primary-50);
+  color: var(--color-primary-700);
+}
+
+.dateModalClose {
+  min-height: 44px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--color-background);
+  font: inherit;
+  cursor: pointer;
+}
+
+/* Keep the search box and cards inside the panel: a grid column otherwise
+   grows to the input's default width and overflows on narrow screens. */
+.lessonList,
+.lessonScroll {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.filterGroup input {
+  width: 100%;
+}

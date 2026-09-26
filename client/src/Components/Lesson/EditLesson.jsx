@@ -13,6 +13,9 @@ import { toast } from '../../ALERT/SystemToasts';
 import { getAll as getAllS} from '../../WebServer/services/student/functionsStudent';
 import { getAll as getAllU } from '../../WebServer/services/user/functionsUser';
 import { isStoredAdmin, normalizeRoles, ADMIN_ROLES } from '../../utils/session';
+import { ROOM_OPTIONS } from '../../utils/rooms';
+import sectionStyles from '../UI/FormSection.module.css';
+import LessonRoster from './LessonRoster';
 import Button from '../UI/Button';
 const EditLesson = () => {
   const isAdmin = isStoredAdmin();
@@ -74,9 +77,7 @@ const EditLesson = () => {
   const [students, setStudents] = useState([]);
   const [teachers, setTeachers] = useState([]);
   const [helpers, setHelpers] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [searchTerm2, setSearchTerm2] = useState('');
-  const [showTraineeModal, setShowTraineeModal] = useState(false);
+  const [allLessons, setAllLessons] = useState([]);
 
   // ملاحظة عربية
   useEffect(() => {
@@ -126,6 +127,8 @@ const EditLesson = () => {
       const resT = await getAllS();
       if(!resT.ok) throw new Error(resT.message);
       setStudents(resT.students);
+      const resAll = await getAllLesson();
+      if (resAll?.ok) setAllLessons(resAll.lessons || []);
     }
     catch(err){
       console.error(err.message)
@@ -202,14 +205,6 @@ const EditLesson = () => {
     }
   };
 
-  const filteredSelected = students
-    .filter((u) => lesson.list_students.includes(u._id))
-    .filter((u) => (u.firstname + u.lastname + u.tz).toLowerCase().includes(searchTerm.toLowerCase()));
-
-  const modalChoices = students.filter((u) =>
-    (u.firstname + ' ' + u.lastname + u.tz).toLowerCase().includes(searchTerm2.toLowerCase())
-  );
-
   return (
     <div className={styles.editLessonContainer}>
       {
@@ -219,201 +214,144 @@ const EditLesson = () => {
         <h2>معلومات الكرس</h2>
       )}
 
-      <div className={styles.formControl}>
-        <label>اسم الدرس:<span style={{color: "red"}}>*</span></label>
-        <input
-          type="text"
-          name="name"
-          value={lesson.name}
-          onChange={handleChange}
-          placeholder="أدخل اسم الدرس"
-          disabled={!isAdmin}
-        />
-        
-        <label style={{color: "red"}}>{error.name}</label>
-      </div>
-
-      <div className={styles.formControl}>
-        <label>مرشد:<span style={{color: "red"}}>*</span></label>
-        <select
-          name="teacher"
-          value={lesson.teacher}
-          onChange={handleChange}
-          disabled={!isAdmin}
-        >
-          <option value="">اختار مرشد</option>
-          {Array.isArray(teachers) &&
-            teachers.map((t) => (
-              <option key={t._id} value={t._id}>
-                {t.firstname} {t.lastname}
-              </option>
-            ))}
-        </select>
-        <label style={{color: "red"}}>{error.teacher}</label>
-      </div>
-        
-      <div className={styles.formControl}>
-        <label>مساعد:</label>
-        <select
-          name="helper"
-          value={lesson.helper}
-          onChange={handleChange}
-          disabled={!isAdmin}
-        >
-          <option value="">اختار مساعد</option>
-          {Array.isArray(helpers) &&
-            helpers.map((t) => (
-              <option key={t._id} value={t._id}>
-                {t.firstname} {t.lastname}
-              </option>
-            ))}
-        </select>
-        <label style={{color: "red"}}>{error.helper}</label>
-      </div>
-
-      <div className={styles.formControl}>
-        <label>اختر يوم للدرس:<span style={{color: "red"}}>*</span></label>
-        <select
-          name="day"
-          value={lesson.date.day}
-          onChange={handleChange}
-          disabled={!isAdmin}
-        >
-          {['الاحد', 'الاثنين', 'الثلاثاء', 'الاربعاء', 'الخميس','الجمعة','السبت'].map((d, i) => (
-            <option value={i+1} key={i+1}>
-              {d}
-            </option>
-          ))}
-        </select>
-        <label style={{color: "red"}}>{error.date.day}</label>
-      </div>
-
-
-      <div className={styles.formControl}>
-        <label>اختر غرفة للدرس:<span style={{color: "red"}}>*</span></label>
-        <select
-          name="room"
-          value={lesson.room}
-          onChange={handleChange}
-          disabled={!isAdmin}
-        >
-          <option value="">اختار غرفة</option>
-          {Array.from({length: 6}, (_, i)=>i+1).map((d, i) => (
-            <option value={i+1} key={i+1}>
-              {d}
-            </option>
-          ))}
-        </select>
-        <label style={{color: "red"}}>{error.date.day}</label>
-      </div>
-
-      <div className={styles.formControl}>
-        <label>ساعة البدء:<span style={{color: "red"}}>*</span></label>
-        <input
-          type="time"
-          value={toHHMM(lesson.date.startMin)}
-          onChange={(e) => handleTimeChange('start', e.target.value)}
-          disabled={!isAdmin}
-        />
-      </div>
-      <div className={styles.formControl}>
-        <label>ساعة الانتهاء:<span style={{color: "red"}}>*</span></label>
-        <input
-          type="time"
-          value={toHHMM(lesson.date.endMin)}
-          onChange={(e) => handleTimeChange('end', e.target.value)}
-          disabled={!isAdmin}
-        />
-      </div>
-
-      <h4> التلاميذ المتواجدون في الدرس: {lesson.list_students?.length || 0}</h4>
-
-      {isAdmin && (
-        <>
+      <fieldset className={sectionStyles.formSection}>
+        <legend>بيانات الدرس</legend>
+        <div className={styles.formControl}>
+          <label>اسم الدرس:<span style={{color: "red"}}>*</span></label>
           <input
             type="text"
-            placeholder="ابحث عن متدرب حسب الاسم أو رقم الهوية"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            name="name"
+            value={lesson.name}
+            onChange={handleChange}
+            placeholder="أدخل اسم الدرس"
+            disabled={!isAdmin}
           />
+          <label style={{color: "red"}}>{error.name}</label>
+        </div>
+      </fieldset>
 
-          <Button onClick={() => setShowTraineeModal(true)}>
-            + اضافة تلميذ
-          </Button>
+      <fieldset className={sectionStyles.formSection}>
+        <legend>الموعد والمكان</legend>
+        <div className={styles.formControl}>
+          <label>اختر يوم للدرس:<span style={{color: "red"}}>*</span></label>
+          <select
+            name="day"
+            value={lesson.date.day}
+            onChange={handleChange}
+            disabled={!isAdmin}
+          >
+            {['الاحد', 'الاثنين', 'الثلاثاء', 'الاربعاء', 'الخميس','الجمعة','السبت'].map((d, i) => (
+              <option value={i+1} key={i+1}>
+                {d}
+              </option>
+            ))}
+          </select>
+          <label style={{color: "red"}}>{error.date.day}</label>
+        </div>
 
-          <table className={styles.selectedTraineesTable}>
-            <thead>
-              <tr>
-                <th>رقم الهوية</th>
-                <th>اسم</th>
-                <th>العائلة</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredSelected.map((u) => (
-                <tr key={u._id}>
-                  <td>{u.tz}</td>
-                  <td>{u.firstname}</td>
-                  <td>{u.lastname}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          <div className={styles.buttonRow} style={{ gap: 8, flexWrap: "wrap" }}>
-            <Button type="button" onClick={handleSave}>
-              {id !== 'new' ? 'تعديل البيانات' : 'حفظ البيانات'}
-            </Button>
-            {id !== 'new' && (
-              <Button type="button" variant="danger" onClick={handleDelete}>
-              حذف
-              </Button>
-            )}
-            <Button type="button" variant="secondary" onClick={() => navigate(-1)}>الرجوع للقائمة</Button>
-          </div>
-        </>
-      )}
-
-      {showTraineeModal && (
-        <div className={styles.modalOverlay}>
-          <div className={styles.modalContent}>
-            <h4>إضافة متدربين</h4>
+        <div className={styles.timeRow}>
+          <div className={styles.formControl}>
+            <label>ساعة البدء:<span style={{color: "red"}}>*</span></label>
             <input
-              type="text"
-              placeholder="بحث حسب الاسم أو رقم الهوية"
-              value={searchTerm2}
-              onChange={(e) => setSearchTerm2(e.target.value)}
+              type="time"
+              value={toHHMM(lesson.date.startMin)}
+              onChange={(e) => handleTimeChange('start', e.target.value)}
+              disabled={!isAdmin}
             />
-
-            <div className={styles.traineesList}>
-              {modalChoices.map((trainee) => {
-                const alreadyInList = lesson.list_students.includes(trainee._id);
-                return (
-                  <label key={trainee._id} className={styles.traineeItem}>
-                    <input
-                      type="checkbox"
-                      checked={alreadyInList}
-                      onChange={(e) => {
-                        const { checked } = e.target;
-                        if (checked && lesson.list_students.length === Number(lesson.max_trainees)) {
-                          return toast.warn('وصلنا إلى الحد الأقصى للمشاركين في هذا الدرس');
-                        }
-                        setLesson((prev) => ({
-                          ...prev,
-                          list_students: checked
-                            ? [...prev.list_students, trainee._id]
-                            : prev.list_students.filter((tid) => tid !== trainee._id),
-                        }));
-                      }}
-                    />
-                    {trainee.firstname} {trainee.lastname} ({trainee.tz})
-                  </label>
-                );
-              })}
-            </div>
-
-            <button onClick={() => setShowTraineeModal(false)}>✔️ إغلاق</button>
           </div>
+          <div className={styles.formControl}>
+            <label>ساعة الانتهاء:<span style={{color: "red"}}>*</span></label>
+            <input
+              type="time"
+              value={toHHMM(lesson.date.endMin)}
+              onChange={(e) => handleTimeChange('end', e.target.value)}
+              disabled={!isAdmin}
+            />
+          </div>
+        </div>
+
+        <div className={styles.formControl}>
+          <label>المكان:<span style={{color: "red"}}>*</span></label>
+          <select
+            name="room"
+            value={lesson.room}
+            onChange={handleChange}
+            disabled={!isAdmin}
+          >
+            <option value="">اختار مكان</option>
+            {ROOM_OPTIONS.map(({ value, label }) => (
+              <option value={value} key={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+          <label style={{color: "red"}}>{error.room}</label>
+        </div>
+      </fieldset>
+
+      <fieldset className={sectionStyles.formSection}>
+        <legend>الطاقم</legend>
+        <div className={styles.formControl}>
+          <label>مرشد:<span style={{color: "red"}}>*</span></label>
+          <select
+            name="teacher"
+            value={lesson.teacher}
+            onChange={handleChange}
+            disabled={!isAdmin}
+          >
+            <option value="">اختار مرشد</option>
+            {Array.isArray(teachers) &&
+              teachers.map((t) => (
+                <option key={t._id} value={t._id}>
+                  {t.firstname} {t.lastname}
+                </option>
+              ))}
+          </select>
+          <label style={{color: "red"}}>{error.teacher}</label>
+        </div>
+
+        <div className={styles.formControl}>
+          <label>مساعد:</label>
+          <select
+            name="helper"
+            value={lesson.helper}
+            onChange={handleChange}
+            disabled={!isAdmin}
+          >
+            <option value="">اختار مساعد</option>
+            {Array.isArray(helpers) &&
+              helpers.map((t) => (
+                <option key={t._id} value={t._id}>
+                  {t.firstname} {t.lastname}
+                </option>
+              ))}
+          </select>
+          <label style={{color: "red"}}>{error.helper}</label>
+        </div>
+      </fieldset>
+
+      <fieldset className={sectionStyles.formSection}>
+        <legend>الطلاب في الدرس ({lesson.list_students?.length || 0})</legend>
+        <LessonRoster
+          lesson={lesson}
+          students={students}
+          allLessons={allLessons}
+          canEdit={isAdmin}
+          onChange={(ids) => setLesson((prev) => ({ ...prev, list_students: ids }))}
+        />
+      </fieldset>
+
+      {isAdmin && (
+        <div className={styles.buttonRow} style={{ gap: 8, flexWrap: "wrap" }}>
+          <Button type="button" onClick={handleSave}>
+            {id !== 'new' ? 'تعديل البيانات' : 'حفظ البيانات'}
+          </Button>
+          {id !== 'new' && (
+            <Button type="button" variant="danger" onClick={handleDelete}>
+            حذف
+            </Button>
+          )}
+          <Button type="button" variant="secondary" onClick={() => navigate(-1)}>الرجوع للقائمة</Button>
         </div>
       )}
     </div>

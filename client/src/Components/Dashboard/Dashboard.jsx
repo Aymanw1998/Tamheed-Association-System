@@ -3,21 +3,23 @@ import { Link, useNavigate } from "react-router-dom";
 import styles from "./Dashboard.module.css";
 import { changeStatus, deleteU as deleteUser, getAll as getAllUsers } from "../../WebServer/services/user/functionsUser.jsx";
 import { deleteS as deleteStudent, getAll as getAllStudents, update as updateStudent } from "../../WebServer/services/student/functionsStudent.jsx";
-import { getAllLesson, getLessonsToday } from "../../WebServer/services/lesson/functionsLesson.jsx";
+import { getAllLesson } from "../../WebServer/services/lesson/functionsLesson.jsx";
 import { getAll as getAllReports } from "../../WebServer/services/report/functionsReport.jsx";
 import { toast } from "../../ALERT/SystemToasts.jsx";
-import { getStoredUserId, hasStoredRole, isStoredAdmin } from "../../utils/session";
+import { GUIDE_ROLES, getStoredUserId, hasStoredRole, isStoredAdmin } from "../../utils/session";
 import ParentLinkPanel from "../Student/ParentLinkPanel.jsx";
+import { roomLabel } from "../../utils/rooms";
+import { dashboardLessons } from "../../utils/dashboardLessons";
+import { DAY_NAMES } from "../../utils/lessonSchedule";
 
 // The bootstrap system-admin account (see server/scripts/ensureSystemAdmin.js)
 // isn't a real member of the association - it, and whoever is currently
 // viewing the dashboard, shouldn't count toward "المستخدمون".
 const SYSTEM_ADMIN_TZ = "000000000";
 
-// Matches Header.jsx's GUIDE_ROLES - a مرشد can approve a pending student
-// (PUT /student/:tz) but only ادارة can reject/delete one, so the dashboard
-// needs to tell "guide" apart from "assistant" (مساعد), who can do neither.
-const GUIDE_ROLES = ["مرشد", "مرشدة", "المرشد", "المرشدة"];
+// A مرشد can approve a pending student (PUT /student/:tz) but only ادارة can
+// reject/delete one, so the dashboard needs to tell "guide" apart from
+// "assistant" (مساعد), who can do neither.
 
 const formatLessonTime = (lesson) => {
   const start = Number(lesson?.date?.startMin);
@@ -26,6 +28,9 @@ const formatLessonTime = (lesson) => {
   const minutes = String(start % 60).padStart(2, "0");
   return `${hours}:${minutes}`;
 };
+
+const moreLessonsLabel = (count) =>
+  count === 1 ? "ودرس آخر" : count === 2 ? "ودرسان آخران" : `و${count} دروس أخرى`;
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -41,11 +46,17 @@ export default function Dashboard() {
     students: [],
     lessons: [],
     reports: [],
-    todayLessons: [],
   });
   // Which stat cards reflect a fetch that actually failed, vs. a genuine
   // zero - a silent failure here used to render as an indistinguishable "0".
-  const [loadFailed, setLoadFailed] = useState({ users: false, students: false, todayLessons: false, reports: false });
+  const [loadFailed, setLoadFailed] = useState({ users: false, students: false, lessons: false, reports: false });
+
+  // Re-evaluated every minute so "now" and "next" move along with the clock.
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -55,12 +66,11 @@ export default function Dashboard() {
         setLoading(true);
         setError("");
 
-        const [usersResult, studentsResult, lessonsResult, reportsResult, todayLessonsResult] = await Promise.allSettled([
+        const [usersResult, studentsResult, lessonsResult, reportsResult] = await Promise.allSettled([
           isAdmin ? getAllUsers() : Promise.resolve({ ok: true, users: [] }),
           getAllStudents(),
           getAllLesson(),
           getAllReports(),
-          getLessonsToday(),
         ]);
 
         if (cancelled) return;
@@ -68,7 +78,6 @@ export default function Dashboard() {
         const studentsRes = studentsResult.status === "fulfilled" ? studentsResult.value : {};
         const lessonsRes = lessonsResult.status === "fulfilled" ? lessonsResult.value : {};
         const reportsRes = reportsResult.status === "fulfilled" ? reportsResult.value : {};
-        const todayLessonsRes = todayLessonsResult.status === "fulfilled" ? todayLessonsResult.value : {};
 
         const currentUserId = String(getStoredUserId() || "");
         const users = (usersRes?.ok ? usersRes.users || [] : []).filter(
@@ -80,14 +89,13 @@ export default function Dashboard() {
           students: studentsRes?.ok ? studentsRes.students || [] : [],
           lessons: lessonsRes?.ok ? lessonsRes.lessons || [] : [],
           reports: reportsRes?.ok ? reportsRes.reports || [] : [],
-          todayLessons: todayLessonsRes?.ok ? todayLessonsRes.lessons || [] : [],
         });
         setLoadFailed({
           // Non-admins deliberately skip the users fetch (see the Promise.resolve
           // above) - that's not a failure, only an actual !ok response is.
           users: isAdmin && !usersRes?.ok,
           students: !studentsRes?.ok,
-          todayLessons: !todayLessonsRes?.ok,
+          lessons: !lessonsRes?.ok,
           reports: !reportsRes?.ok,
         });
       } catch (err) {
@@ -107,6 +115,11 @@ export default function Dashboard() {
     };
   }, [isAdmin]);
 
+  const lessonPanel = useMemo(
+    () => dashboardLessons(data.lessons, now, { isAdmin, userId: getStoredUserId() }),
+    [data.lessons, now, isAdmin]
+  );
+
   const summary = useMemo(() => {
     const cards = [];
 
@@ -118,18 +131,18 @@ export default function Dashboard() {
       const waitingUsers = data.users.filter((user) => user.room === "waiting").length;
       cards.push(
         { label: "المستخدمون", value: activeUsers, failed: loadFailed.users },
-        { label: "بانتظار الموافقة", value: waitingUsers, failed: loadFailed.users }
+        { label: "مستخدمون بانتظار الموافقة", value: waitingUsers, failed: loadFailed.users }
       );
     }
 
     cards.push(
       { label: "الطلاب", value: data.students.length, failed: loadFailed.students },
-      { label: "الدروس اليوم", value: data.todayLessons.length, failed: loadFailed.todayLessons },
+      { label: "الدروس اليوم", value: lessonPanel.today.length, failed: loadFailed.lessons },
       { label: "التقارير", value: data.reports.length, failed: loadFailed.reports }
     );
 
     return cards;
-  }, [data, loadFailed, isAdmin]);
+  }, [data, loadFailed, isAdmin, lessonPanel]);
 
   const waitingUsers = useMemo(
     () => data.users.filter((user) => user.room === "waiting").slice(0, 5),
@@ -141,13 +154,6 @@ export default function Dashboard() {
     [data.students]
   );
 
-  const recentLessons = useMemo(
-    () =>
-      [...data.todayLessons]
-        .sort((a, b) => Number(a?.date?.startMin || 0) - Number(b?.date?.startMin || 0))
-        .slice(0, 5),
-    [data.todayLessons]
-  );
 
   const removeUserFromWaiting = (tz) => {
     setData((prev) => ({
@@ -234,7 +240,7 @@ export default function Dashboard() {
   };
 
   const openLessonAttendance = (lesson) => {
-    navigate("/dashboard", {
+    navigate("/calendar", {
       state: {
         lessonId: lesson?._id || "",
         lessonName: lesson?.name || "",
@@ -251,7 +257,7 @@ export default function Dashboard() {
         </div>
         <div className={styles.links}>
           {isAdmin && <Link to="/users">المستخدمون</Link>}
-          <Link to="/students">الطلاب</Link>
+          {canApproveStudents && <Link to="/students">الطلاب</Link>}
           <Link to="/lessons">الدروس</Link>
           <Link to="/reports">التقارير</Link>
         </div>
@@ -272,16 +278,14 @@ export default function Dashboard() {
       </div>
 
       <div className={styles.grid}>
-        {isAdmin && (
+        {/* Shown only while someone is actually waiting. */}
+        {isAdmin && !loading && waitingUsers.length > 0 && (
           <section className={styles.panel}>
             <div className={styles.panelHeader}>
-              <h2>بانتظار الموافقة</h2>
+              <h2>مستخدمون بانتظار الموافقة</h2>
               <Link to="/users">فتح</Link>
             </div>
-            {loading ? (
-              <p className={styles.empty}>جاري التحميل...</p>
-            ) : waitingUsers.length ? (
-              waitingUsers.map((user) => (
+            {waitingUsers.map((user) => (
                 <div key={`${user.tz}-${user.room}`} className={styles.row}>
                   <div>
                     <strong>{user.firstname || "-"} {user.lastname || ""}</strong>
@@ -306,23 +310,17 @@ export default function Dashboard() {
                     </button>
                   </div>
                 </div>
-              ))
-            ) : (
-              <p className={styles.empty}>لا يوجد مستخدمون بانتظار الموافقة.</p>
-            )}
+            ))}
           </section>
         )}
 
-        {canApproveStudents && (
+        {canApproveStudents && !loading && pendingStudents.length > 0 && (
           <section className={styles.panel}>
             <div className={styles.panelHeader}>
               <h2>طلاب بانتظار الموافقة</h2>
               <Link to="/students">فتح</Link>
             </div>
-            {loading ? (
-              <p className={styles.empty}>جاري التحميل...</p>
-            ) : pendingStudents.length ? (
-              pendingStudents.map((student) => (
+            {pendingStudents.map((student) => (
                 <div key={student.tz} className={styles.row}>
                   <div>
                     <strong>{student.firstname || "-"} {student.lastname || ""}</strong>
@@ -349,10 +347,7 @@ export default function Dashboard() {
                     )}
                   </div>
                 </div>
-              ))
-            ) : (
-              <p className={styles.empty}>لا يوجد طلاب بانتظار الموافقة.</p>
-            )}
+            ))}
           </section>
         )}
 
@@ -367,32 +362,69 @@ export default function Dashboard() {
 
         <section className={styles.panel}>
           <div className={styles.panelHeader}>
-            <h2>دروس اليوم</h2>
-            <Link to="/calendar">فتح</Link>
+            <h2>{isAdmin ? "دروس اليوم" : "دروسي اليوم"}</h2>
+            <Link to="/lessons">كل الدروس</Link>
           </div>
           {loading ? (
             <p className={styles.empty}>جاري التحميل...</p>
-          ) : recentLessons.length ? (
-            recentLessons.map((lesson) => (
-              <div key={lesson._id || lesson.name} className={styles.row}>
-                <div>
-                  <strong>{lesson.name || "درس"}</strong>
-                  <span>{lesson.room || "-"}</span>
-                </div>
-                <div className={styles.actions}>
-                  <em>{formatLessonTime(lesson)}</em>
-                  <button
-                    type="button"
-                    className={styles.openBtn}
-                    onClick={() => openLessonAttendance(lesson)}
-                  >
-                    دخول
-                  </button>
-                </div>
-              </div>
-            ))
           ) : (
-            <p className={styles.empty}>لا توجد دروس اليوم.</p>
+            <>
+              {lessonPanel.today.length === 0 && (
+                <p className={styles.empty}>لا توجد دروس اليوم.</p>
+              )}
+              {/* Three lessons visible; the rest scroll. */}
+              <div className={styles.lessonScroll}>
+              {lessonPanel.today.map(({ lesson, state }) => (
+                <div
+                  key={lesson._id || lesson.name}
+                  className={`${styles.row} ${state === "done" ? styles.rowDone : ""} ${state === "now" ? styles.rowNow : ""}`}
+                >
+                  <div>
+                    <strong>
+                      {lesson.name || "درس"}
+                      {state === "now" && <span className={styles.lessonTagNow}>الآن</span>}
+                      {state === "next" && <span className={styles.lessonTagNext}>التالي</span>}
+                    </strong>
+                    <span>{roomLabel(lesson.room)}</span>
+                  </div>
+                  <div className={styles.actions}>
+                    <em>{formatLessonTime(lesson)}</em>
+                    <button
+                      type="button"
+                      className={styles.openBtn}
+                      onClick={() => openLessonAttendance(lesson)}
+                    >
+                      دخول
+                    </button>
+                  </div>
+                </div>
+              ))}
+              </div>
+
+              {lessonPanel.upcoming && (
+                <>
+                  <h3 className={styles.upcomingTitle}>
+                    الدروس القادمة: {DAY_NAMES[lessonPanel.upcoming.day - 1]} ({lessonPanel.upcoming.lessons.length})
+                  </h3>
+                  {lessonPanel.upcoming.lessons.slice(0, 5).map((lesson) => (
+                    <div key={lesson._id || lesson.name} className={styles.row}>
+                      <div>
+                        <strong>{lesson.name || "درس"}</strong>
+                        <span>{roomLabel(lesson.room)}</span>
+                      </div>
+                      <div className={styles.actions}>
+                        <em>{formatLessonTime(lesson)}</em>
+                      </div>
+                    </div>
+                  ))}
+                  {lessonPanel.upcoming.lessons.length > 5 && (
+                    <Link to="/lessons" className={styles.moreLink}>
+                      {moreLessonsLabel(lessonPanel.upcoming.lessons.length - 5)} ←
+                    </Link>
+                  )}
+                </>
+              )}
+            </>
           )}
         </section>
       </div>

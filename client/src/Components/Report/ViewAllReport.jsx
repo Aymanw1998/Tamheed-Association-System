@@ -6,6 +6,9 @@ import { getMe } from "../../WebServer/services/auth/fuctionsAuth.jsx";
 import styles from "./Report.module.css";
 import Fabtn from "../Global/Fabtn/Fabtn.jsx";
 import { exportReportPdf } from "./ExportPDF.jsx";
+import Button from "../UI/Button.jsx";
+import PersonCard, { PersonCardList } from "../UI/PersonCard.jsx";
+import { joinParts } from "../../utils/personCard";
 
 const ADMIN_ROLES = ["ادارة", "إدارة", "الادارة", "الإدارة"];
 
@@ -91,7 +94,6 @@ const ViewAllReport = () => {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(null);
   const [filters, setFilters] = useState(resetFilters);
-  const [infoModal, setInfoModal] = useState({ open: false, title: "", info: "" });
 
   const addBtnRef = useCallback((node) => {
     setAddBtnEl(node);
@@ -250,83 +252,72 @@ const ViewAllReport = () => {
     setSortDir((current) => (sortField === field ? (current === "asc" ? "desc" : "asc") : "asc"));
   };
 
-  const openInfo = (report) => {
-    setInfoModal({
-      open: true,
-      title: (report.title ?? []).join(", "),
-      info: report.info ?? "",
-    });
-  };
+  const ownerName = (report) =>
+    report.user ? `${report.user.firstname ?? ""} ${report.user.lastname ?? ""}`.trim() : "";
 
-  const closeInfo = () => setInfoModal({ open: false, title: "", info: "" });
+  const sortMark = (field) => (sortField === field ? (sortDir === "asc" ? " ▲" : " ▼") : "");
 
   return (
     <div>
       <div>
-        <h1 style={{ textAlign: "center" }}>{isAdmin ? "قائمة التقارير" : "قائمة تقاريري"}</h1>
+        <h1 className={styles.pageTitle}>{isAdmin ? "قائمة التقارير" : "قائمة تقاريري"}</h1>
 
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <div className={styles.toolbar}>
           <input
-            type="text"
+            type="search"
             placeholder="بحث..."
-            style={{
-              width: "80%",
-              padding: "10px",
-              margin: "10px",
-              marginBottom: "20px",
-              fontSize: "14px",
-              border: "1px solid #ccc",
-              borderRadius: "8px",
-            }}
+            aria-label="بحث في التقارير"
+            className={styles.searchInput}
             value={searchTerm}
             onChange={(event) => setSearchTerm(event.target.value)}
           />
 
-          <button
-            ref={addBtnRef}
-            id="page-add-report"
-            style={{ backgroundColor: "green", padding: "0.5rem 1rem", borderRadius: "0.5rem", color: "white" }}
-            onClick={() => navigate("/reports/new")}
-          >
+          <Button ref={addBtnRef} id="page-add-report" onClick={() => navigate("/reports/new")}>
             اضافة تقرير جديد
-          </button>
+          </Button>
 
-          <button
-            style={{ backgroundColor: "#374151", padding: "0.5rem 1rem", borderRadius: "0.5rem", color: "white" }}
-            onClick={loadReport}
-            disabled={loading}
-          >
+          <Button variant="secondary" onClick={loadReport} loading={loading}>
             {loading ? "جاري التحديث" : "تحديث القائمة"}
-          </button>
+          </Button>
         </div>
 
-        <div style={{ marginTop: 8, opacity: 0.7 }}>
-          مجموع: {sortedFilteredReports.length} التقارير
-        </div>
+        <div className={styles.summary}>مجموع: {sortedFilteredReports.length} تقارير</div>
       </div>
 
-      {err && <div style={{ marginTop: 12, color: "#b91c1c" }}>{err}</div>}
-      {!err && loading && <div style={{ marginTop: 12 }}>جاري تحديث البيانات</div>}
+      {err && <div className={styles.formError}>{err}</div>}
+      {!err && loading && <div className={styles.summary}>جاري تحديث البيانات</div>}
 
       {!loading && !err && (
-        <table className={`table ${styles.subTable}`} style={{ marginTop: 12 }}>
+        <div className={styles.mobileOnly}>
+          <PersonCardList emptyText="لا يوجد بيانات لاظهارها">
+            {sortedFilteredReports.map((report) => (
+              <PersonCard
+                key={report._id}
+                initial={toDate(report.date)?.getDate() ?? "؟"}
+                name={report.stitle}
+                summary={joinParts([dayName(report.date), formatDate(report.date), ownerName(report)])}
+                tags={report.title ?? []}
+                onOpen={() => navigate(`/reports/${report._id}`)}
+                actions={
+                  <Button size="sm" variant="secondary" onClick={() => exportReportPdf(report, report.user)}>
+                    ملف التقرير
+                  </Button>
+                }
+              />
+            ))}
+          </PersonCardList>
+        </div>
+      )}
+
+      {!loading && !err && (
+        <table className={`table ${styles.subTable} ${styles.desktopOnly}`} style={{ marginTop: 12 }}>
           <thead>
             <tr>
-              <th style={{ cursor: "pointer" }} onClick={() => toggleSort("date")}>
-                تاريخ {sortField === "date" ? (sortDir === "asc" ? "▲" : "▼") : ""}
-              </th>
-              <th style={{ cursor: "pointer" }} onClick={() => toggleSort("day")}>
-                يوم {sortField === "day" ? (sortDir === "asc" ? "▲" : "▼") : ""}
-              </th>
-              <th style={{ cursor: "pointer" }} onClick={() => toggleSort("stitle")}>
-                اسم التقرير {sortField === "stitle" ? (sortDir === "asc" ? "▲" : "▼") : ""}
-              </th>
-              <th style={{ cursor: "pointer" }} onClick={() => toggleSort("title")}>
-                عناوين التقرير {sortField === "title" ? (sortDir === "asc" ? "▲" : "▼") : ""}
-              </th>
-              <th style={{ cursor: "pointer" }} onClick={() => toggleSort("createdBy")}>
-                صاحب التقرير {sortField === "createdBy" ? (sortDir === "asc" ? "▲" : "▼") : ""}
-              </th>
+              <th className={styles.sortable} onClick={() => toggleSort("date")}>تاريخ{sortMark("date")}</th>
+              <th className={styles.sortable} onClick={() => toggleSort("day")}>يوم{sortMark("day")}</th>
+              <th className={styles.sortable} onClick={() => toggleSort("stitle")}>اسم التقرير{sortMark("stitle")}</th>
+              <th className={styles.sortable} onClick={() => toggleSort("title")}>عناوين التقرير{sortMark("title")}</th>
+              <th className={styles.sortable} onClick={() => toggleSort("createdBy")}>صاحب التقرير{sortMark("createdBy")}</th>
               <th>العمليات</th>
             </tr>
 
@@ -335,12 +326,14 @@ const ViewAllReport = () => {
                 <div style={{ display: "flex", gap: 6 }}>
                   <input
                     type="date"
+                    aria-label="من تاريخ"
                     value={filters.dateFrom}
                     onChange={(event) => setFilters((current) => ({ ...current, dateFrom: event.target.value }))}
                     style={{ width: "48%" }}
                   />
                   <input
                     type="date"
+                    aria-label="إلى تاريخ"
                     value={filters.dateTo}
                     onChange={(event) => setFilters((current) => ({ ...current, dateTo: event.target.value }))}
                     style={{ width: "48%" }}
@@ -393,9 +386,9 @@ const ViewAllReport = () => {
               </th>
 
               <th>
-                <button onClick={() => setFilters(resetFilters)} style={{ width: "100%" }}>
-                  Reset
-                </button>
+                <Button size="sm" variant="secondary" onClick={() => setFilters(resetFilters)}>
+                  مسح الفلاتر
+                </Button>
               </th>
             </tr>
           </thead>
@@ -408,45 +401,24 @@ const ViewAllReport = () => {
                   <td data-label="يوم">{dayName(report.date)}</td>
                   <td data-label="اسم التقرير">{report.stitle}</td>
                   <td data-label="عناوين التقرير">
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-start" }}>
+                    <div className={styles.tagList}>
                       {(report.title ?? []).map((tag, index) => (
-                        <span
-                          key={`${report._id}-title-${index}`}
-                          style={{
-                            padding: "4px 10px",
-                            border: "1px solid #ddd",
-                            borderRadius: 999,
-                            fontSize: 12,
-                            background: "#f7f7f7",
-                          }}
-                        >
+                        <span key={`${report._id}-title-${index}`} className={styles.tag}>
                           {tag}
                         </span>
                       ))}
                     </div>
                   </td>
-                  <td data-label="صاحب التقرير">
-                    {report.user ? `${report.user.firstname ?? ""} ${report.user.lastname ?? ""}` : ""}
-                  </td>
+                  <td data-label="صاحب التقرير">{ownerName(report)}</td>
                   <td data-label="العمليات">
-                    <button
-                      style={{ backgroundColor: "yellow", padding: "0.5rem 1rem", borderRadius: "0.5rem", color: "white" }}
-                      onClick={() => navigate(`/reports/${report._id}`)}
-                    >
-                      للتعديل
-                    </button>
-                    <button
-                      style={{ backgroundColor: "#111827", padding: "0.5rem 1rem", borderRadius: "0.5rem", color: "white" }}
-                      onClick={() => openInfo(report)}
-                    >
-                      عرض المعلومات
-                    </button>
-                    <button
-                      style={{ backgroundColor: "blue", padding: "0.5rem 1rem", borderRadius: "0.5rem", color: "white" }}
-                      onClick={() => exportReportPdf(report, report.user)}
-                    >
-                      ملف التقرير
-                    </button>
+                    <div className={styles.rowActions}>
+                      <Button size="sm" variant="warning" onClick={() => navigate(`/reports/${report._id}`)}>
+                        للتعديل
+                      </Button>
+                      <Button size="sm" variant="secondary" onClick={() => exportReportPdf(report, report.user)}>
+                        ملف التقرير
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))
@@ -467,93 +439,6 @@ const ViewAllReport = () => {
         label="اضافة تقرير جديد"
         onClick={() => navigate("/reports/new")}
       />
-
-      {infoModal.open && (
-        <div
-          onClick={closeInfo}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.55)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 9999,
-            padding: 16,
-          }}
-        >
-          <div
-            onClick={(event) => event.stopPropagation()}
-            style={{
-              width: "min(900px, 95vw)",
-              maxHeight: "80vh",
-              background: "#fff",
-              borderRadius: 12,
-              overflow: "hidden",
-              boxShadow: "0 10px 30px rgba(0,0,0,0.25)",
-              direction: "rtl",
-            }}
-          >
-            <div
-              style={{
-                padding: "12px 16px",
-                borderBottom: "1px solid #e5e7eb",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: 12,
-              }}
-            >
-              <div>
-                <div style={{ fontWeight: 700 }}>تفاصيل التقرير</div>
-                <div style={{ fontSize: 12, opacity: 0.7 }}>{infoModal.title}</div>
-              </div>
-
-              <div style={{ display: "flex", gap: 8 }}>
-                <button
-                  onClick={() => navigator.clipboard?.writeText(infoModal.info || "")}
-                  style={{
-                    padding: "8px 12px",
-                    borderRadius: 8,
-                    border: "1px solid #e5e7eb",
-                    background: "#f9fafb",
-                    cursor: "pointer",
-                  }}
-                >
-                  نسخ
-                </button>
-
-                <button
-                  onClick={closeInfo}
-                  style={{
-                    padding: "8px 12px",
-                    borderRadius: 8,
-                    border: "none",
-                    background: "#ef4444",
-                    color: "white",
-                    cursor: "pointer",
-                  }}
-                >
-                  إغلاق
-                </button>
-              </div>
-            </div>
-
-            <div style={{ padding: 16, overflow: "auto", maxHeight: "calc(80vh - 60px)" }}>
-              <div
-                style={{
-                  whiteSpace: "pre-wrap",
-                  lineHeight: 1.7,
-                  fontSize: 14,
-                  color: "#111827",
-                }}
-              >
-                {infoModal.info || "لا يوجد معلومات"}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

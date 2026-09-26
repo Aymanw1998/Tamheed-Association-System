@@ -191,3 +191,15 @@
     /* width: 100%; */
     margin-left: 20px;
 }
+/* Start and end time side by side; stacked on narrow phones. */
+.timeRow {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+@media (max-width: 420px) {
+  .timeRow {
+    grid-template-columns: 1fr;
+  }
+}

@@ -566,3 +566,513 @@ sent and no response claimed.
 
 **Delivery state:** Local changes only on `master`; no commit, push, or
 deployment.
+
+## 2026-09-26 - Claude: startup fix in ensureSystemAdmin.js + manual end-to-end run
+
+**Change (Claude implementer):** [ensureSystemAdmin.js](../server/scripts/ensureSystemAdmin.js)
+lines 4-5. The owner's uncommitted edit had `String(process.env.SYSTEM_ADMIN_TZ;`
+(missing `)`), which crashes the server at start. Now
+`String(process.env.SYSTEM_ADMIN_TZ || "").trim()` and the same `|| ""` guard for
+`SYSTEM_ADMIN_PASSWORD`, so a missing value skips the bootstrap instead of
+creating an admin whose password is the string "undefined". Owner approved.
+
+**Verification:** `node --check` passed; `npm test` passed (39 server, 10 client).
+Manual run against the owner's dev servers (Atlas `tamheed_db`, owner-approved)
+exercised register, login gating, user create/edit, student create/edit, parent
+link submit + duplicate + invalid tz, approval, lesson create, attendance save and
+reload, report create + PDF preview, files list, profile edit, and guide-role
+access checks. Test records use tz prefix `99000` and `@example.com` emails.
+
+**Findings for follow-up (not changed):**
+- Passwords are stored with reversible AES-GCM and `GET /api/user/viewPassword/:tz`
+  returns them to admins; bcrypt hashing is safer.
+- `/users` has no client role guard (RoleGuard is commented out in Routes.jsx);
+  the server returns 403, but a guide sees an error page with an add button.
+- Files page uses `window.prompt()` for folder names.
+- `EditStudent` passes `null` as a select value (React warning).
+- Report PDF preview is overlapped by the floating add-report button.
+
+**Codex connection:** not reachable from this session. Review pending.
+
+## 2026-09-26 - Claude: route guard for every signed-in page
+
+**Owner request:** check permission on every link; without permission, go back
+to the dashboard. Resolves the `/users` finding in the entry above.
+
+**Change (Claude implementer):**
+- New [routeAccess.js](../client/src/utils/routeAccess.js): one rules table.
+  `/users*`, `/students/new`, `/lessons/new` are admin only; `/students*` is admin
+  or guide; every other signed-in page is open to all roles. Trailing slashes are
+  normalized. Rules follow what the menu and buttons already offer each role.
+- [RoleGuard.jsx](../client/src/Components/Routes/RoleGuard.jsx) now checks the
+  current path and redirects to `/dashboard`; it wraps all protected routes in
+  [Routes.jsx](../client/src/Components/Routes/Routes.jsx) except `/dashboard`.
+  Unknown signed-in paths also redirect to `/dashboard`.
+- `GUIDE_ROLES` moved to [session.js](../client/src/utils/session.js) and reused by
+  Header and Dashboard. The Dashboard "الطلاب" link is hidden from assistants.
+
+**Tests (written first, watched failing):**
+[routeAccess.test.js](../client/src/utils/routeAccess.test.js) (19).
+
+**Verification:** `npm run verify` passed (39 server, 29 client, build compiled).
+Live as guide: `/users`, `/users/:tz`, `/students/new`, `/lessons/new?day=7`, and an
+unknown path redirect to `/dashboard`; `/students/:tz` and `/reports/new` open.
+Live as assistant: `/students` and `/students/:tz` redirect; `/lessons` and
+`/calendar` open. Logged out, `/users` still goes to login. Admin paths are
+covered by unit tests only (owner's admin session was not available again).
+
+**Notes:**
+- Server allows a guide to POST lessons, but the UI only offers "add lesson" to
+  admins, so `/lessons/new` follows the UI. Owner may widen it.
+- `setUser` stores roles as `roles.join(",")`, and `normalizeRoles` does not split
+  commas, so a user with two roles would not match either. Single-role users are
+  unaffected.
+
+**Codex connection:** not reachable from this session. Review pending.
+
+## 2026-09-26 - Claude: named rooms 6-9 and bulk test data
+
+**Owner request:** room 6 becomes "المصلى", and add 7 "مقر قديم", 8 "الساحة",
+9 "التدريب الخارجي". Then add 30 users (5 ادارة, 20 مرشد, 5 مساعد), 100 students,
+and 30 lessons as admin.
+
+**Change (Claude implementer):**
+- New [rooms.js](../client/src/utils/rooms.js): `roomLabel(room)` and
+  `ROOM_OPTIONS` (1-9). Lessons still store the number, so existing room-6
+  lessons now show "المصلى" with no data migration.
+- Room text now comes from `roomLabel` in
+  [EditLesson.jsx](../client/src/Components/Lesson/EditLesson.jsx) (select offers 1-9),
+  [ViewAllLesson.jsx](../client/src/Components/Lesson/ViewAllLesson.jsx) (cards, day
+  columns, filter, tooltips; labels "غرفة:" became "المكان:"),
+  [AttendancePage.jsx](../client/src/Components/Attendance/AttendancePage.jsx), and
+  [Dashboard.jsx](../client/src/Components/Dashboard/Dashboard.jsx).
+- Server unchanged: `room` is a free string and conflicts compare by value.
+
+**Tests (written first, watched failing):**
+[rooms.test.js](../client/src/utils/rooms.test.js) (13).
+
+**Verification:** `npm run verify` passed (39 server, 42 client, build compiled).
+Live: the lesson form lists rooms 1-9 with names; the lessons filter and cards
+show the names.
+
+**Data (Atlas `tamheed_db`, owner-approved), sent from the owner's admin browser
+session to the same API endpoints the forms use:**
+- 30 active users, tz `991000001`-`991000290`, emails `user.<tz>@example.com`.
+  Random passwords are kept outside the repo in Claude's session scratchpad.
+- 100 active students, tz `992000000`-`992000992`, every field filled, each with
+  one of the 20 new guides as `main_teacher`.
+- 30 lessons Sunday-Friday 14:00-18:45, rooms 1-9, one new guide and one new
+  assistant each, 10 students each. No 409 conflicts.
+- User creation also creates a Google Drive folder per user (about 3 s each).
+
+**Codex connection:** not reachable from this session. Review pending.
+
+## 2026-09-26 - Claude: phone layouts for the lessons program and students list
+
+**Owner request:** a clear table design for phones, applied to lessons and students.
+
+**Change (Claude implementer):**
+- Lessons, at 900px or narrower (the existing `.mobileView` breakpoint; the JS
+  `isMobile` check moved from 768px to match):
+  - New [MobileLessonList.jsx](../client/src/Components/Lesson/MobileLessonList.jsx):
+    day chips with per-day counts, starting on today, and lessons sorted by start
+    time. Each card shows the place (named places in green), guide, and student
+    count. Only admins can open a lesson, as before.
+  - [ViewAllLesson.jsx](../client/src/Components/Lesson/ViewAllLesson.jsx): on phones
+    the filters fold behind a "فلترة" button with an active-filter count, the day
+    dropdown is replaced by the chips, and the add button uses the chosen day.
+    Desktop is unchanged.
+- Students, at 768px or narrower (the existing `.subTable` breakpoint):
+  - New [MobileStudentList.jsx](../client/src/Components/Student/MobileStudentList.jsx):
+    a compact card with initial, name, one line of grade, age, and father, and a
+    health note only when it isn't "سليم". Tapping opens the student; PDF and
+    approve/reject buttons stay. The desktop table is unchanged.
+- New helpers: [lessonSchedule.js](../client/src/utils/lessonSchedule.js),
+  [studentCard.js](../client/src/utils/studentCard.js), and `isNamedPlace` in
+  [rooms.js](../client/src/utils/rooms.js).
+
+**Tests (written first, watched failing):**
+[lessonSchedule.test.js](../client/src/utils/lessonSchedule.test.js) (14),
+[studentCard.test.js](../client/src/utils/studentCard.test.js) (11), and
+`isNamedPlace` cases in [rooms.test.js](../client/src/utils/rooms.test.js) (7).
+
+**Verification:** `npm run verify` passed (39 server, 73 client, build compiled
+with no warnings). Checked live at 375px: day chips switch days, filters open,
+student cards open the student. Checked at 1280px: both desktop views are
+unchanged.
+
+**Codex connection:** not reachable from this session. Review pending.
+
+## 2026-09-26 - Claude: restore roles when a session is restored
+
+**Found while opening the system for the owner:** signed in as System Admin
+(header correct), but local storage had no `roles`, `user_id`, or `isLoggedIn`,
+only a fresh `accessToken`. The dashboard showed the no-role view, and the new
+RoleGuard would have blocked admin pages.
+
+**Cause:** roles and user id were written only at login (`markSignedIn`).
+`hardResetToLogin` in `accessScheduler.js` clears all local storage when a
+refresh fails (likely here: two tabs refreshing with a rotating refresh cookie).
+RequireAuth then restores the session from the refresh cookie and `/auth/me`,
+but never writes the roles back.
+
+**Change (Claude implementer):**
+- [session.js](../client/src/utils/session.js): new `rememberSessionUser(user)`
+  stores `user_id` and roles as a JSON array. `normalizeRoles` now splits the
+  older comma-separated value, which fixes users with two roles.
+- [fuctionsAuth.jsx](../client/src/WebServer/services/auth/fuctionsAuth.jsx)
+  `markSignedIn` and [RequireAuth.jsx](../client/src/Components/Routes/RequireAuth.jsx)
+  (after every successful `/auth/me`) call it.
+
+**Tests (written first, watched failing):**
+[session.test.js](../client/src/utils/session.test.js) (5).
+
+**Verification:** `npm run verify` passed (39 server, 78 client, build compiled).
+Live: in the broken state, opening `/users` restored `roles` to `["ادارة"]`, and
+both `/users` and the admin dashboard rendered.
+
+**Not changed:** `hardResetToLogin` still clears storage on any refresh failure,
+including a temporary network error. Worth a separate look.
+
+**Codex connection:** not reachable from this session. Review pending.
+
+## 2026-09-26 - Claude: phone cards for the users list
+
+**Owner request:** give the users list the same phone design as the students.
+
+**Change (Claude implementer):**
+- New shared [PersonCard.jsx](../client/src/Components/UI/PersonCard.jsx)
+  (`PersonCard` and `PersonCardList`). Its CSS moved from the students list to
+  [PersonCard.module.css](../client/src/Components/UI/PersonCard.module.css).
+  `onOpen` is optional, so waiting people show as plain text.
+- [MobileStudentList.jsx](../client/src/Components/Student/MobileStudentList.jsx)
+  now uses it. Waiting students no longer open on tap, matching the table,
+  which has only approve/reject for them.
+- New [MobileUserList.jsx](../client/src/Components/User/MobileUserList.jsx):
+  initial, name, and one line of role, age, and city. Active users open on tap
+  and keep "ملف المستخدم"; waiting and disabled users show a status badge and
+  their activate/delete buttons.
+- [ViewAllUser.jsx](../client/src/Components/User/ViewAllUser.jsx) and
+  [User.module.css](../client/src/Components/User/User.module.css): cards at 768px
+  or narrower; the desktop table is unchanged.
+- `utils/studentCard.js` was renamed to [personCard.js](../client/src/utils/personCard.js)
+  (`studentInitial` became `personInitial`) and gained `userSummary`.
+
+**Tests (written first, watched failing):** 3 `userSummary` cases in
+[personCard.test.js](../client/src/utils/personCard.test.js).
+
+**Verification:** `npm run verify` passed (39 server, 81 client, build compiled).
+Live at 375px: user cards render, and tapping one opens `/users/:tz`. The students
+list still renders all 102 cards after the refactor. At 1280px the users table
+shows 34 rows and the cards are hidden.
+
+**Codex connection:** not reachable from this session. Review pending.
+
+## 2026-09-26 - Claude: grouped student form, optional parents, single-flight refresh
+
+**Owner request:** the teacher said city and street belong above the health
+status, and parent details must be optional.
+
+**Change 1 - student form (Claude implementer):**
+- [EditStudent.jsx](../client/src/Components/Student/EditStudent.jsx) is now five
+  fieldsets: student details; residence and contact (city, street, phone, email);
+  school (school, grade, responsible guide); parents, marked optional; health and
+  notes. The inputs and handlers are unchanged. The main-teacher select gets
+  `value || ""`, which removes the React null warning.
+- New [studentForm.js](../client/src/utils/studentForm.js): `isRequiredStudentField`.
+  Required: tz, names, birth date, gender, city, street. Parent fields, phone, and
+  email no longer show "املأ الحقل" when empty, and submit no longer checks them.
+  The server already required only tz and names.
+- Styles are in [Student.module.css](../client/src/Components/Student/Student.module.css).
+  The parent rows stack on phones.
+- School, grade, and health status keep their red star but are still not
+  enforced on submit (unchanged behavior).
+
+**Change 2 - forced logouts (found while verifying):** `/auth/refresh` rotates
+a single `refreshHash` per user, and five client paths called it independently
+(RequireAuth, PublicOnly, the api interceptor, accessScheduler, and
+`fuctionsAuth.refresh`). Two overlapping calls (for example React StrictMode's
+double effect in dev, or the scheduler plus RequireAuth) make the second call
+return `REFRESH_MISMATCH` and trigger `hardResetToLogin`. Observed: two back-to-back
+401 refreshes, then signed out.
+- New [singleFlight.js](../client/src/WebServer/utils/singleFlight.js) and
+  `refreshSession` in [api.jsx](../client/src/WebServer/services/api.jsx). All five
+  paths now share one in-flight request.
+
+**Tests (written first, watched failing):**
+[studentForm.test.js](../client/src/utils/studentForm.test.js) (16),
+[singleFlight.test.js](../client/src/WebServer/utils/singleFlight.test.js) (3).
+
+**Verification:** `npm run verify` passed (39 server, 100 client, build compiled).
+The live check of the grouped form was cut off when the session ended; it needs
+the owner to sign in again.
+
+**Remaining limits:** one refresh hash per user still means signing in to the
+same account in a second browser ends the first session, and two tabs can still
+race across tabs. A short server-side grace period for the previous hash would
+fix both.
+
+**Codex connection:** not reachable from this session. Review pending.
+
+## 2026-09-26 - Claude: health status and notes as 4-row text areas
+
+**Owner request:** health status and notes should each be a textarea with 4 rows.
+
+**Change (Claude implementer):** in [EditStudent.jsx](../client/src/Components/Student/EditStudent.jsx),
+`health_status` and `notes` are `<textarea rows={4}>` (value falls back to ""),
+styled in [Student.module.css](../client/src/Components/Student/Student.module.css)
+like the other fields, with vertical resize. This applies to the admin form and
+the parent link. The server already accepts up to 1000 characters for both.
+
+**Verification:** `npm run verify` passed (39 server, 100 client, build compiled).
+Live as admin on `/students/new`: five sections in order, both textareas have 4 rows,
+multi-line health text works. Required fields with empty parents passed
+validation and reached the confirm dialog; cancelled, and `GET /student/990000051`
+returns 404, so nothing was created. No test was added: markup only.
+
+**Codex connection:** not reachable from this session. Review pending.
+
+## 2026-09-26 - Claude: "مفعالين" label renamed to "مسجل"
+
+**Owner request:** replace "مفعالين" with "مسجل".
+
+**Change:** the active status label is now "مسجل" in
+[StudentStatusFilter.jsx](../client/src/Components/Student/StudentStatusFilter.jsx),
+[UserStatusFilter.jsx](../client/src/Components/User/UserStatusFilter.jsx), and the
+summary lines of [ViewAllStudent.jsx](../client/src/Components/Student/ViewAllStudent.jsx)
+("102 طالب مسجل") and [ViewAllUser.jsx](../client/src/Components/User/ViewAllUser.jsx)
+("34 مستخدم مسجل"; the noun is now singular to agree with the adjective).
+Text only; the data value `room: "active"` is unchanged.
+
+**Verification:** `npm run verify` passed (39 server, 100 client, build compiled),
+and both pages show the new text live.
+
+## 2026-09-26 - Claude: grouped user/profile/report/lesson forms, report list, lesson roster
+
+**Owner requests (in sequence):** group the user form like the student form;
+redesign reports inside and out; remove "عرض المعلومات"; hide report attendees for
+now; in lessons, improve adding and removing students (look at other apps) and
+group the fields.
+
+**Changes (Claude implementer):**
+- Shared [FormSection.module.css](../client/src/Components/UI/FormSection.module.css),
+  moved out of Student.module.css. The student, user, profile, report, and lesson
+  forms use it.
+- [EditUser.jsx](../client/src/Components/User/EditUser.jsx) and
+  [Profile.jsx](../client/src/Components/Profile/Profile.jsx): account; personal;
+  residence and contact (city and street first). "بلد" became "مدينة السكن".
+  Fixed the phone error label, which showed `error.mother_phone`.
+- [ViewAllReport.jsx](../client/src/Components/Report/ViewAllReport.jsx): toolbar,
+  table buttons, and tags now match the other lists; "Reset" became "مسح الفلاتر".
+  Phone cards use `PersonCard` (new `tags` prop). The "عرض المعلومات" modal and its
+  state were removed.
+- [EditReport.jsx](../client/src/Components/Report/EditReport.jsx): sections for
+  report details and body. Attendees are hidden in the form and the report PDF via
+  `SHOW_REPORT_ATTENDEES = false` in
+  [reportOptions.js](../client/src/Components/Report/reportOptions.js). Saved
+  attendance is kept, and the PDF no longer fetches `/user/` while hidden.
+- [Fabtn.css](../client/src/Components/Global/Fabtn/Fabtn.css): z-index
+  9999999999999 changed to 900, so the floating add button no longer covers the
+  PDF preview (10000), dialogs, or the header (1000).
+- Lessons: [EditLesson.jsx](../client/src/Components/Lesson/EditLesson.jsx) has
+  lesson, time and place, staff, and students sections. The modal checkbox picker
+  was replaced by [LessonRoster.jsx](../client/src/Components/Lesson/LessonRoster.jsx),
+  following the Google Classroom and transfer-list pattern. Search offers only
+  registered students not already added (up to 8, plus "add all"). Each row has
+  "إزالة" with an undo bar, and a warning shows when the student is in another
+  lesson on the same day at an overlapping time. Non-admins see the list read-only
+  (before, they saw only a count). Changes still apply on "حفظ البيانات".
+  Helpers are in [lessonRoster.js](../client/src/utils/lessonRoster.js).
+
+**Tests (written first, watched failing):**
+[lessonRoster.test.js](../client/src/utils/lessonRoster.test.js) (8) and a
+`joinParts` case in [personCard.test.js](../client/src/utils/personCard.test.js).
+
+**Verification:** `npm run verify` passed (39 server, 109 client, build compiled).
+Live: the user and profile forms show three sections; the reports list shows
+cards and no info button; the report form has no attendees. On lesson
+6ab7e57f…825, search found 992000604, and adding it after moving the start to
+15:00 showed "لديه درس آخر في نفس الوقت: رياضة - مجموعة أ". Remove and undo restored
+the order. Nothing was saved: the server still shows 10 students at 14:00.
+
+**Codex connection:** not reachable from this session. Review pending.
+
+## 2026-09-26 - Claude: dashboard lessons panel (today plus upcoming) and attendance link fix
+
+**Owner decision:** keep today's lessons on the dashboard, and add upcoming
+lessons when nothing is left today.
+
+**Change (Claude implementer):**
+- New [dashboardLessons.js](../client/src/utils/dashboardLessons.js). It marks
+  today's lessons as done, now, next, or later, using the device clock. Finished
+  lessons stay listed so attendance can still be taken after class. When nothing
+  is left today, it adds the nearest following day that has lessons (wrapping
+  around the week). Non-admins see only lessons where they are the teacher or
+  helper.
+- [Dashboard.jsx](../client/src/Components/Dashboard/Dashboard.jsx):
+  - The panel title is "دروس اليوم" for admins and "دروسي اليوم" for others. Rows
+    show "الآن" and "التالي" tags and fade when done, followed by a "الدروس القادمة"
+    list (5 lessons plus a "more" link to /lessons).
+  - The header link now goes to /lessons ("كل الدروس"). The stat card counts the
+    same list.
+  - The `getLessonsToday` request was dropped: it used the server's day, and the
+    full lesson list was already loaded. The panel re-renders every minute.
+- **Bug fix:** "دخول" navigated to `/dashboard` (commit f2db306 had replaced the
+  route), so it did nothing. It now goes to `/calendar` with `state.lessonId`,
+  which AttendancePage already reads.
+
+**Tests (written first, watched failing):**
+[dashboardLessons.test.js](../client/src/utils/dashboardLessons.test.js) (7).
+
+**Verification:** `npm run verify` passed (39 server, 116 client, build compiled).
+Live on Saturday at 20:42: today's 16:00 lesson is shown faded, followed by
+"الدروس القادمة: الاحد (6)" with 5 rows and "ودرس آخر". "دخول" opened /calendar with
+that lesson selected and its saved attendance (1 present, 1 late).
+
+**Codex connection:** not reachable from this session. Review pending.
+
+## 2026-09-26 - Claude: dashboard waiting panels only when needed
+
+**Owner request:** hide the waiting panel when nobody is waiting, and rename
+"بانتظار الموافقة" to "مستخدمون بانتظار الموافقة". The owner typed "ببانتظار"; it is
+written with a single ب.
+
+**Change:** in [Dashboard.jsx](../client/src/Components/Dashboard/Dashboard.jsx),
+the users panel and the students panel render only after loading and only when
+their list is non-empty; their empty-state texts were removed. The users panel
+title and stat card are now "مستخدمون بانتظار الموافقة".
+
+**Verification:** `npm run verify` passed (39 server, 116 client, build compiled).
+Live: with nobody waiting, neither panel shows and the card reads 0. A temporary
+test user (990000069) registered through `/api/auth/register` made the panel
+appear with the card at 1. Rejecting it from the panel removed the panel at once.
+
+**Correction (same session):** a later server check showed 990000069 was still
+in the waiting room. See the next entry: the delete endpoint never used the room.
+
+## 2026-09-26 - Claude: DELETE /user/:tz/:from ignored the room
+
+**Found while verifying the waiting panel:** rejecting a waiting user returned
+200, but the user stayed in the waiting room. The route is
+`DELETE /user/:tz/:from`, but `deleteU` read only `req.query.from` and
+`req.body.from`, so the room always defaulted to "active". Rejecting waiting users
+and deleting disabled users never worked; the dashboard only removed the row from
+its own state.
+
+**Change (Claude implementer):**
+- [User.controller.js](../server/Entities/User/User.controller.js) `deleteU` reads
+  `req.params.from` first and returns 400 for an unknown room instead of falling
+  back to "active".
+- [functionsUser.jsx](../client/src/WebServer/services/user/functionsUser.jsx):
+  `deleteU(tz, from = "active")`. EditUser's "حذف الحساب" calls `deleteU(form.tz)`,
+  which used to request `/user/<tz>/undefined` and worked only through the old
+  fallback.
+
+**Tests (written first, watched failing):**
+[user-delete.test.js](../server/test/user-delete.test.js) (4). Before the fix,
+the waiting and noActive cases deleted from "active", and an unknown room
+returned 200.
+
+**Verification:** the new test file passes. The live re-check is blocked: the
+admin session in the pane ended, because `/auth/refresh` returned 401 even
+before the server restart. The cause could not be confirmed from the logs; one
+explanation is that the same account signed in elsewhere, since the server keeps
+one refresh hash per user. Test user 990000069 is still in the waiting room.
+
+**Codex connection:** not reachable from this session. Review pending.
+
+## 2026-09-26 - Claude: attendance page layout, date dropdown, scrolling lesson lists
+
+**Owner request:** fix the order of "حضور وغياب" together with "سجل الحضور السابق",
+make the lesson list scroll with 3 lessons visible, use a dropdown for dates, and
+make today's lessons on the dashboard scroll too.
+
+**Change (Claude implementer):**
+- [AttendancePage.jsx](../client/src/Components/Attendance/AttendancePage.jsx):
+  - "حفظ" and the unsaved-changes hint moved from the top bar (where they sat before
+    any lesson was chosen) to a sticky footer on the sheet, next to the counts.
+  - Both tabs: the lesson search stays above a list limited to three cards that
+    scrolls.
+  - History: the date buttons and their text search became one `<select>`
+    ("اختر تاريخ (n)", newest first), labelled with the weekday, for example
+    "السبت 26/09/2026". The wrong empty text "لا يوجد تواريخ مستقبلية" is now
+    "لا يوجد حضور مسجّل لهذا الدرس بعد". The unused `searchDate` state was removed.
+- New [attendanceDates.js](../client/src/utils/attendanceDates.js) (`attendanceDateLabel`).
+- Styles in [AttendancePage.module.css](../client/src/Components/Attendance/AttendancePage.module.css).
+- [Dashboard.jsx](../client/src/Components/Dashboard/Dashboard.jsx): today's lesson
+  rows sit in a scroll box about three rows tall.
+
+**Tests (written first, watched failing):**
+[attendanceDates.test.js](../client/src/utils/attendanceDates.test.js) (4).
+
+**Verification:** `npm run verify` passed (43 server, 120 client, build compiled).
+Live, signed in as test admin 991000001 (the pane's session had ended again):
+history lists 32 lessons with exactly 3 visible (client height 202px); choosing
+"درس تجريبي - رياضيات" gives a dropdown with "السبت 26/09/2026", and choosing it
+loads the sheet with "حاضر: 1 • متأخر: 1" and the save button in the footer.
+
+**Codex connection:** not reachable from this session. Review pending.
+
+## 2026-09-26 - Claude: attendance on phones - lessons, date window, then students
+
+**Owner request:** on phones, tapping a lesson should open a window to choose the
+date, then move from the lesson list to the students list.
+
+**Change (Claude implementer):** [AttendancePage.jsx](../client/src/Components/Attendance/AttendancePage.jsx)
+at 900px or narrower (the page's existing breakpoint, tracked with `matchMedia`):
+- Step 1 shows only the tabs and the lesson list, which now uses the full screen
+  (the three-card limit applies on desktop only).
+- In "درس اليوم", tapping a lesson opens the sheet. In "سجل الحضور السابق", it opens a
+  bottom-sheet dialog of recorded dates (with weekday). It closes on "إلغاء",
+  on a backdrop tap, or with Escape, and picking a date opens the sheet.
+- Step 2 is the sheet with a sticky bar: "→ الدروس", plus "تغيير التاريخ" in
+  history. Going back with unsaved changes asks first, using the existing
+  "navigate" confirm. A lesson preselected from the dashboard opens straight
+  into the sheet.
+- `doChange` now returns whether it went ahead, so views only switch after the
+  user confirms.
+- Desktop keeps the side-by-side layout and the date `<select>`.
+- Also fixed: on narrow screens the search box and cards overflowed their panel
+  by a few pixels (grid column sized to the input's default width); now
+  `minmax(0, 1fr)`.
+
+**Verification:** `npm run verify` passed (43 server, 120 client, build compiled).
+Live at 375px as test admin 991000001:
+- The history tab showed only the list (32 lessons). Tapping "درس تجريبي - رياضيات"
+  opened the date window, and choosing "السبت 26/09/2026" opened the sheet with 2
+  students.
+- Changing a status and pressing back asked for confirmation: "الغاء" stayed,
+  "نعم" returned to the list. The server still has حاضر and متأخر, so nothing
+  was saved.
+- In the today tab, tapping a lesson went straight to the sheet.
+- At 1280px both panels, the date select, and 3 visible cards are unchanged.
+
+No unit test was added: this is view wiring; the date label logic is already
+covered.
+
+**Codex connection:** not reachable from this session. Review pending.
+
+## 2026-09-26 - Claude: lesson roster - add-student window, scrolling, enrolled search
+
+**Owner request:** adding a student opens a window listing students not in the
+lesson, with scrolling and search; the enrolled list scrolls after 3 students,
+and its search looks only among enrolled students.
+
+**Change:** [LessonRoster.jsx](../client/src/Components/Lesson/LessonRoster.jsx)
+now has a search over enrolled students (`filterRosterStudents`), a list about
+three rows tall that scrolls, and a "+ إضافة طالب" dialog (bottom sheet on phones).
+The dialog lists every registered student not in the lesson, with search, an
+"added" counter, "add all results", and "تم". Escape or a backdrop tap closes it.
+Undo, conflict warnings, and saving on "حفظ البيانات" are unchanged.
+[lessonRoster.js](../client/src/utils/lessonRoster.js) gained `filterRosterStudents`.
+
+**Tests (written first, watched failing):** 2 new cases in
+[lessonRoster.test.js](../client/src/utils/lessonRoster.test.js).
+
+**Verification:** `npm run verify` passed. Live on lesson 6ab7e57f…825: 3 of 10
+enrolled students visible; "ليان" filtered to one; the dialog listed 92 students;
+searching 992000604 and adding it kept the dialog open with "أُضيف 1". The list
+did not scroll at first, so it was given an explicit max-height and re-checked.
+Nothing was saved (the server still has 10 students).
+
+**Codex connection:** not reachable from this session. Review pending.

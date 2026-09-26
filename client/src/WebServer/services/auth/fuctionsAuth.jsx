@@ -1,14 +1,14 @@
 // AUTH services
 import axios from "axios";
-import api, { API_BASE_URL, setAuthTokens } from "../api";
+import api, { API_BASE_URL, refreshSession, setAuthTokens } from "../api";
 import { scheduleAccessRefresh, clearAccessRefresh } from "../../utils/accessScheduler";
+import { rememberSessionUser } from "../../../utils/session";
 
 function markSignedIn(user, accessToken, expirationTime) {
   setAuthTokens(accessToken, expirationTime);
   scheduleAccessRefresh(accessToken);
   localStorage.setItem("isLoggedIn", "1");
-  if (user?._id) localStorage.setItem("user_id", user._id);
-  if (user?.roles) localStorage.setItem("roles", user.roles.join(","));
+  rememberSessionUser(user);
 }
 
 export async function register(payload) {
@@ -34,8 +34,8 @@ export async function login(tz, password) {
 }
 
 export async function refresh() {
-  const { data, status } = await api.post("/auth/refresh", null, { withCredentials: true });
-  if (![200, 201].includes(status) || !data?.ok || !data?.accessToken) {
+  const data = await refreshSession();
+  if (!data?.ok || !data?.accessToken) {
     throw new Error("الدخول منتهي الصلاحية، الرجاء تسجيل الدخول مرة أخرى.");
   }
 
