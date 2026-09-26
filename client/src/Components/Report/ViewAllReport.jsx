@@ -321,7 +321,7 @@ const ViewAllReport = () => {
               <th>العمليات</th>
             </tr>
 
-            <tr>
+            {/* <tr>
               <th>
                 <div style={{ display: "flex", gap: 6 }}>
                   <input
@@ -390,7 +390,7 @@ const ViewAllReport = () => {
                   مسح الفلاتر
                 </Button>
               </th>
-            </tr>
+            </tr> */}
           </thead>
 
           <tbody>

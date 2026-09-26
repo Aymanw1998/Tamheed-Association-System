@@ -98,7 +98,7 @@ const EditLesson = () => {
         // Administrators run lessons too, so they belong in the same picker.
         setTeachers(allUsers.filter((u) => {
           const roles = normalizeRoles(u.roles);
-          return roles.includes('مرشد') || roles.some((r) => ADMIN_ROLES.includes(r));
+          return (roles.includes('مرشد') || roles.some((r) => ADMIN_ROLES.includes(r))) && u.tz != "000000000";
         }));
         setHelpers(allUsers.filter((u) => normalizeRoles(u.roles).includes('مساعد')));
       } else{
@@ -155,6 +155,8 @@ const EditLesson = () => {
 
     const validateBeforeSave = async() => {
       if (!lesson.name?.trim()) return 'اسم الدرس مطلوب';
+      if (!lesson.teacher) return 'المرشد مطلوب';
+      if (!lesson.room || lesson.room === '-1') return 'المكان مطلوب';
       const d = Number(lesson.date.day);
       const start = Number(lesson.date.startMin);
       const end = Number(lesson.date.endMin);

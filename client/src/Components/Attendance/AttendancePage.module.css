@@ -468,7 +468,7 @@
   inset: 0;
   z-index: 1100;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: center;
   background: rgba(17, 26, 32, 0.45);
 }
