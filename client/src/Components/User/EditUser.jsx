@@ -7,8 +7,13 @@ import sectionStyles from "../UI/FormSection.module.css";
 import { toast } from "../../ALERT/SystemToasts.jsx";
 import EyeIcon from "../UI/EyeIcon";
 import { photoAction } from "../../utils/photoChange";
+import { useI18n } from "../../i18n/I18nContext";
+
+// Vehicles & trailers section; mirrors PERMISSIONS in server/utils/vehicleRules.js.
+const VEHICLE_PERMISSIONS = ["view", "edit", "compliance", "documents", "archive"];
 
 const EditUser = () => {
+  const { t } = useI18n();
   const params = useParams();              // "new" الأحدالجمعة _id
   const navigate = useNavigate();
 
@@ -381,8 +386,20 @@ const EditUser = () => {
     }
   }
 
-  if (loading) return <div className={styles.formContainer}>يتحدث...</div>;
+  if (loading) return <div className={styles.formContainer}>جارٍ تحميل البيانات…</div>;
   if (err)      return <div className={styles.formContainer} style={{color:"#b91c1c"}}>{err}</div>;
+
+  const toggleVehiclePermission = (permission, checked) => {
+    setForm((prev) => {
+      const current = prev.vehiclePermissions || [];
+      return {
+        ...prev,
+        vehiclePermissions: checked
+          ? [...new Set([...current, permission])]
+          : current.filter((item) => item !== permission),
+      };
+    });
+  };
 
   const toggleRole = (role, checked) => {
     setForm((prev) => {
@@ -476,6 +493,24 @@ const EditUser = () => {
           <option value="مساعد">مساعد</option>
         </select>
         <label style={{color: "red"}}>{error.roles}</label>
+
+        {form.roles[0] !== "ادارة" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }} role="group" aria-labelledby="vehicle-permissions-title">
+            <strong id="vehicle-permissions-title">{t("vehicles.permissionsTitle")}</strong>
+            <small>{t("vehicles.permissionsHint")}</small>
+            {VEHICLE_PERMISSIONS.map((permission) => (
+              <label key={permission} htmlFor={`vehicle-perm-${permission}`} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <input
+                  id={`vehicle-perm-${permission}`}
+                  type="checkbox"
+                  checked={(form.vehiclePermissions || []).includes(permission)}
+                  onChange={(event) => toggleVehiclePermission(permission, event.target.checked)}
+                />
+                {t(`vehicles.perm.${permission}`)}
+              </label>
+            ))}
+          </div>
+        )}
       </fieldset>
 
       <fieldset className={sectionStyles.formSection}>

@@ -3,7 +3,9 @@ import { useNavigate } from "react-router-dom";
 import styles from "./Header.module.css";
 import LOGO from "../../images/logo.png";
 import { getMe, logout } from "../../WebServer/services/auth/fuctionsAuth";
+import { getMyPermissions } from "../../WebServer/services/vehicle/functionsVehicle";
 import { ask } from "../Provides/confirmBus";
+import { getUnsavedChanges } from "../../utils/unsavedChanges";
 import { useI18n } from "../../i18n/I18nContext";
 import { ADMIN_ROLES, GUIDE_ROLES, normalizeRoles } from "../../utils/session";
 
@@ -16,6 +18,7 @@ export default function Header() {
   const [user, setUser] = useState(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [canViewVehicles, setCanViewVehicles] = useState(false);
   const navigate = useNavigate();
   const headerRef = useRef(null);
   const navRef = useRef(null);
@@ -39,6 +42,17 @@ export default function Header() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // The vehicles link appears only for people the server allows to view them.
+  useEffect(() => {
+    let live = true;
+    getMyPermissions().then((res) => {
+      if (live) setCanViewVehicles(Boolean(res.ok && res.permissions?.includes("view")));
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
 
   useEffect(() => {
     const handleResize = () => {
@@ -71,6 +85,7 @@ export default function Header() {
     /^\/students\/(new|[^/]+)$/,
     /^\/users\/(new|[^/]+)$/,
     /^\/lessons\/(new|[^/]+)$/,
+    /^\/vehicles\/(new|[^/]+)$/,
     /^\/subs\/(new|[^/]+)$/,
     /^\/selectSubfor\/[^/]+$/,
     /^\/regnextmonth$/,
@@ -90,8 +105,10 @@ export default function Header() {
 
     const onEditPage = EDIT_PATTERNS.some((pattern) => pattern.test(window.location.pathname));
     if (onEditPage) {
-      const ok = await ask("navigate");
-      if (!ok) return;
+      if (getUnsavedChanges() !== false) {
+        const ok = await ask("navigate");
+        if (!ok) return;
+      }
     }
 
     navigate(to);
@@ -171,6 +188,9 @@ export default function Header() {
           <a href="/users" onClick={(event) => onNavClick(event, "/users")}>{t("nav.users")}</a>
         )}
         <a href="/lessons" onClick={(event) => onNavClick(event, "/lessons")}>{t("nav.lessons")}</a>
+        {canViewVehicles && (
+          <a href="/vehicles" onClick={(event) => onNavClick(event, "/vehicles")}>{t("nav.vehicles")}</a>
+        )}
         <a href="/reports" onClick={(event) => onNavClick(event, "/reports")}>{t("nav.reports")}</a>
         <a href="/files" onClick={(event) => onNavClick(event, "/files")}>{t("nav.files")}</a>
         <a href="/profile" onClick={(event) => onNavClick(event, "/profile")}>{t("nav.profile")}</a>

@@ -28,6 +28,8 @@ import Profile from '../Profile/Profile';
 
 import AttendancePage from '../Attendance/AttendancePage';
 import FilesPage from '../Files/FilesPage';
+import ViewAllVehicle from '../Vehicle/ViewAllVehicle';
+import EditVehicle from '../Vehicle/EditVehicle';
 import FloatingAIButton from '../AI/FloatingAIButton';
 
 // Backend is wired up (server/services/ai.service.js), but the widget is
@@ -74,6 +76,9 @@ export default function CRoutes() {
 
             <Route path="/reports" element={<ViewAllReport/>} />
             <Route path="/reports/:id" element={<EditReport/>} />
+
+            <Route path="/vehicles" element={<ViewAllVehicle/>} />
+            <Route path="/vehicles/:id" element={<EditVehicle/>} />
 
             <Route path="/files" element={<FilesPage/>} />
             <Route path="/profile" element={<Profile/>} />

@@ -75,6 +75,7 @@ test("self-edit saves profile fields while ignoring authority and session metada
       main_lesson: "another-lesson",
       storageFolder: "another-users-folder",
       storagePermissions: { view: ["*"], create: ["*"], update: ["*"], delete: ["*"] },
+      vehiclePermissions: ["view", "edit", "compliance", "documents", "archive"],
       googleDrive: { refreshToken: "injected-token" },
       refreshHash: "injected-hash",
       resetOtpHash: "injected-otp",

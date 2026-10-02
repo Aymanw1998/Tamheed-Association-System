@@ -1,5 +1,6 @@
 const api = require("../api");
 const { encryptPassword, isEncrypted } = require('./passwordCrypto');
+const { sanitizeVehiclePermissions } = require('../../utils/vehicleRules');
 const isBcryptHash = (val) =>
   typeof val === 'string' && /^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/.test(val);
 
@@ -38,6 +39,14 @@ const UserModelDef = {
       },
     },
     roles: { type: 'array', required: false, default: [] },
+    // Vehicles & trailers section: none of these is implied by a role. Only an
+    // administrator can grant them (see utils/vehicleRules PERMISSIONS).
+    vehiclePermissions: {
+      type: 'array',
+      required: false,
+      default: [],
+      transform: (value) => sanitizeVehiclePermissions(value),
+    },
     main_lesson: { type: 'string', required: false, default: null },
     storageFolder: { type: 'string', required: false, default: null },
     storagePermissions: {

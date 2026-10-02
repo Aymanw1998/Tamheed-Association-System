@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useUnsavedChanges } from '../../utils/unsavedChanges';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   getOneLesson,
@@ -78,6 +79,8 @@ const EditLesson = () => {
   const [teachers, setTeachers] = useState([]);
   const [helpers, setHelpers] = useState([]);
   const [allLessons, setAllLessons] = useState([]);
+  const [loaded, setLoaded] = useState(false);
+  useUnsavedChanges(lesson, loaded);
 
   // ملاحظة عربية
   useEffect(() => {
@@ -136,7 +139,8 @@ const EditLesson = () => {
   };
 
   useEffect(() => {
-    loadData();
+    setLoaded(false);
+    loadData().finally(() => setLoaded(true));
   }, [id]);
 
   // ملاحظة عربية
@@ -219,10 +223,11 @@ const EditLesson = () => {
       <fieldset className={sectionStyles.formSection}>
         <legend>بيانات الدرس</legend>
         <div className={styles.formControl}>
-          <label>اسم الدرس:<span style={{color: "red"}}>*</span></label>
+          <label htmlFor="lesson-name">اسم الدرس:<span style={{color: "red"}}>*</span></label>
           <input
             type="text"
             name="name"
+            id="lesson-name"
             value={lesson.name}
             onChange={handleChange}
             placeholder="أدخل اسم الدرس"
@@ -235,9 +240,10 @@ const EditLesson = () => {
       <fieldset className={sectionStyles.formSection}>
         <legend>الموعد والمكان</legend>
         <div className={styles.formControl}>
-          <label>اختر يوم للدرس:<span style={{color: "red"}}>*</span></label>
+          <label htmlFor="lesson-day">اختر يوم للدرس:<span style={{color: "red"}}>*</span></label>
           <select
             name="day"
+            id="lesson-day"
             value={lesson.date.day}
             onChange={handleChange}
             disabled={!isAdmin}
@@ -253,19 +259,21 @@ const EditLesson = () => {
 
         <div className={styles.timeRow}>
           <div className={styles.formControl}>
-            <label>ساعة البدء:<span style={{color: "red"}}>*</span></label>
+            <label htmlFor="lesson-start">ساعة البدء:<span style={{color: "red"}}>*</span></label>
             <input
               type="time"
               value={toHHMM(lesson.date.startMin)}
+            id="lesson-start"
               onChange={(e) => handleTimeChange('start', e.target.value)}
               disabled={!isAdmin}
             />
           </div>
           <div className={styles.formControl}>
-            <label>ساعة الانتهاء:<span style={{color: "red"}}>*</span></label>
+            <label htmlFor="lesson-end">ساعة الانتهاء:<span style={{color: "red"}}>*</span></label>
             <input
               type="time"
               value={toHHMM(lesson.date.endMin)}
+            id="lesson-end"
               onChange={(e) => handleTimeChange('end', e.target.value)}
               disabled={!isAdmin}
             />
@@ -273,9 +281,10 @@ const EditLesson = () => {
         </div>
 
         <div className={styles.formControl}>
-          <label>المكان:<span style={{color: "red"}}>*</span></label>
+          <label htmlFor="lesson-room">المكان:<span style={{color: "red"}}>*</span></label>
           <select
             name="room"
+            id="lesson-room"
             value={lesson.room}
             onChange={handleChange}
             disabled={!isAdmin}
@@ -294,9 +303,10 @@ const EditLesson = () => {
       <fieldset className={sectionStyles.formSection}>
         <legend>الطاقم</legend>
         <div className={styles.formControl}>
-          <label>مرشد:<span style={{color: "red"}}>*</span></label>
+          <label htmlFor="lesson-teacher">مرشد:<span style={{color: "red"}}>*</span></label>
           <select
             name="teacher"
+            id="lesson-teacher"
             value={lesson.teacher}
             onChange={handleChange}
             disabled={!isAdmin}
@@ -305,7 +315,7 @@ const EditLesson = () => {
             {Array.isArray(teachers) &&
               teachers.map((t) => (
                 <option key={t._id} value={t._id}>
-                  {t.firstname} {t.lastname}
+                  {t.firstname} {t.lastname}{t.tz ? ` (${String(t.tz).slice(-4)})` : ''}
                 </option>
               ))}
           </select>
@@ -313,9 +323,10 @@ const EditLesson = () => {
         </div>
 
         <div className={styles.formControl}>
-          <label>مساعد:</label>
+          <label htmlFor="lesson-helper">مساعد:</label>
           <select
             name="helper"
+            id="lesson-helper"
             value={lesson.helper}
             onChange={handleChange}
             disabled={!isAdmin}
@@ -324,7 +335,7 @@ const EditLesson = () => {
             {Array.isArray(helpers) &&
               helpers.map((t) => (
                 <option key={t._id} value={t._id}>
-                  {t.firstname} {t.lastname}
+                  {t.firstname} {t.lastname}{t.tz ? ` (${String(t.tz).slice(-4)})` : ''}
                 </option>
               ))}
           </select>

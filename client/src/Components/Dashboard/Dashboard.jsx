@@ -8,6 +8,7 @@ import { getAll as getAllReports } from "../../WebServer/services/report/functio
 import { toast } from "../../ALERT/SystemToasts.jsx";
 import { GUIDE_ROLES, getStoredUserId, hasStoredRole, isStoredAdmin } from "../../utils/session";
 import ParentLinkPanel from "../Student/ParentLinkPanel.jsx";
+import VehicleAlerts from "../Vehicle/VehicleAlerts.jsx";
 import { roomLabel } from "../../utils/rooms";
 import { dashboardLessons } from "../../utils/dashboardLessons";
 import { DAY_NAMES } from "../../utils/lessonSchedule";
@@ -278,6 +279,7 @@ export default function Dashboard() {
       </div>
 
       <div className={styles.grid}>
+        <VehicleAlerts />
         {/* Shown only while someone is actually waiting. */}
         {isAdmin && !loading && waitingUsers.length > 0 && (
           <section className={styles.panel}>

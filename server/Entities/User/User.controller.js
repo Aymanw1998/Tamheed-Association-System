@@ -147,6 +147,10 @@ function buildData(body = {}) {
     main_lesson: body.main_lesson ?? null,
     storageFolder: body.storageFolder,
     storagePermissions: body.storagePermissions,
+    // Administrators only: putU drops everything outside SELF_EDIT_FIELDS for
+    // non-admins, so a user cannot grant this to themselves.
+    // The model keeps only known permission names.
+    vehiclePermissions: Array.isArray(body.vehiclePermissions) ? body.vehiclePermissions : undefined,
 
     refreshHash: body.refreshHash,
     resetOtpHash: body.resetOtpHash,

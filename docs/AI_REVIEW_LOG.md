@@ -1076,3 +1076,154 @@ did not scroll at first, so it was given an explicit max-height and re-checked.
 Nothing was saved (the server still has 10 students).
 
 **Codex connection:** not reachable from this session. Review pending.
+
+## 2026-10-02 - Claude: GPT-6 ASTRA UI review - triage and fixes
+
+**Source:** an external UI pass with an administrator account (read-only, nothing
+saved). Each finding was checked against the code before any change.
+
+**Fixed:**
+- Unsaved-changes warning on a pristine lesson form: `Header.jsx` asked on every
+  edit-page path. New [unsavedChanges.js](../client/src/utils/unsavedChanges.js)
+  lets a page report dirty state; `EditLesson.jsx` reports it (baseline taken after
+  load). Pages that don't report yet (students, users, subs, next-month) still ask
+  every time, as before.
+- Duplicate mentor/helper names: options now end with the last 4 digits of the ID
+  number.
+- Form labels in `EditLesson.jsx` now use `htmlFor`/`id`.
+- Wording: "يتحدث..." became "جارٍ تحميل البيانات…" in four pages; the leave-page
+  message in `confirmBus.js` was rewritten.
+- `apiBase.js`: "No API server found on LAN" is now `console.warn` (the code falls
+  back to the production URL, so it was never a failure).
+
+**Not fixed, needs data inspection:** `???? ?????` in the dashboard's rejected
+requests looks like text stored as literal question marks; the client cannot
+recover it.
+
+**Still open:** label binding in the student, user, profile and report forms;
+dirty tracking for those pages.
+
+**Verification:** `npm run verify` passed (122 tests, client build compiled).
+
+**Codex connection:** not reachable from this session. Review pending.
+
+## 2026-10-02 - Claude: vehicles & trailers section ("المركبات والمقطورات")
+
+**Owner request:** a new section for vehicles and trailers: licence, annual test
+(טסט), several insurance policies, documents, in-app alerts, separate
+permissions, change log, archive instead of delete; manual entry first.
+
+**Design decisions:**
+- Permissions: the app only has roles, so five vehicle permissions
+  (view, edit, compliance, documents, archive) are stored on the user
+  (`vehiclePermissions`) and granted by an administrator in the user form.
+  Administrators hold all; guides/assistants hold none by default; nothing works
+  without `view`. Enforced per route in `Vehicle.controller.js` from the
+  database, never from the token alone. The field is outside `SELF_EDIT_FIELDS`
+  (test added).
+- Documents: the existing `googleDrive.uploadFile` makes files public to anyone
+  with the link, which is wrong here. New `uploadPrivateFile` and `downloadStream`
+  in `googleDrive.service.js`; files are streamed through the API after a
+  permission check, type is decided from the file bytes (PDF/JPG/PNG/WEBP,
+  10MB), the stored name is generated, and the Drive id is never sent to the
+  browser. Replaced documents are kept and marked superseded.
+- Alerts are derived from the data on each request (30/14/7 days, expired,
+  missing), so nothing duplicates and a renewal clears them. The lead times are
+  a constant (no settings store exists). Administrators and anyone with `view`
+  see all; an assigned person sees only their vehicles.
+- Dates are `YYYY-MM-DD` text; "today" is Asia/Jerusalem. The next test date is
+  never computed; payment never implies validity; a future policy is not active
+  and a cancelled one never is.
+- Official data (data.gov.il) is only a placeholder (`vehicleLookup.service.js`);
+  no dataset or field names were assumed.
+
+**Tests:** `vehicle-rules`, `vehicle-controller`, `vehicle-files` (server),
+`vehicleDisplay` (client), plus a self-grant case in
+`user-profile-authorization.test.js`. `npm run verify` passed (server 92, client
+134, build compiled).
+
+**Live check:** not against the real database (the local `.env` points at a
+remote cluster, and server start also runs `ensureSystemAdmin`). Instead the real
+controller, routes and auth middleware ran behind a throwaway in-memory server
+and the real client was driven in the browser: list, filters, file page, policy
+add, upload (fake PDF refused, real accepted), unsaved-changes warning, Hebrew,
+phone width, permission box in the user form.
+
+**Codex connection:** not reachable from this session. Review pending.
+
+**Follow-up 2026-10-02 - official data (data.gov.il) for vehicles:** implemented in
+`server/services/vehicleLookup.service.js` (route `GET /api/vehicle/official-lookup/:plate`,
+needs `edit`, rate limited) and `client/.../Vehicle/OfficialLookup.jsx`. Field names
+were checked against the live datastore response (resource `053cea08-...`). The
+result is a pending-review proposal with source and fetch time; only make, model,
+year, colour and chassis are proposable, and a value already recorded is replaced
+only if the user ticks it. The dataset's date fields (`tokef_dt`,
+`mivchan_acharon_dt`) have no published definition, so they are shown as source
+information and never mapped to licence/test dates. Applied fields are recorded in
+the change log with source and time. Any failure returns "unavailable" and manual
+entry is unaffected. Tests: `vehicle-lookup.test.js` (stubbed HTTP), 2 controller
+cases, 1 client case; one read-only live call succeeded. `npm run verify` passed
+(server 100, client 135). Codex review pending.
+
+**Follow-up 2026-10-02 - permanent vehicle delete (owner request):** `DELETE /api/vehicle/:id`,
+administrators only (not a delegable permission), plate typed back as confirmation. Drive
+files and the vehicle's Drive folder are removed first; if any file fails nothing else is
+deleted (retry-safe, a missing file counts as done). Then the change log and the vehicle
+(licences, tests, policies, document records) are deleted. One content-free `delete`
+marker (plate, who, when, document count) is kept in `VehicleAudit` for accountability.
+Archive remains the default non-destructive option. Tests: 3 controller cases.
+`npm run verify` passed (server 103, client 135). Not driven in the browser. Codex review pending.
+
+**Follow-up 2026-10-02 - documents inside each section:** each licence, test and policy
+record now shows its own attached documents (view/download) with an upload in place
+(`RecordDocuments.jsx`, linked via `linkedType`/`linkedId`; same server rules and
+permissions as the Documents tab, which still lists everything). Also fixed a crash
+after saving a NEW vehicle (page stayed mounted with `vehicle = null` while the address
+changed; now the saved vehicle is stored before navigating, plus a loading guard).
+Driven in the browser against the in-memory harness on isolated ports. `npm run verify`
+passed. Codex review pending.
+
+**Follow-up 2026-10-02 - attachments strip (replaces the per-record boxes):** each section
+tab (basic, trailer, licence, test, insurance) now has one slim "attachments" line
+(`AttachmentsBar.jsx`): small chips for the section's files (click to view, arrow to
+download) and a single "+ attach" button that uploads as soon as a file is chosen. Files
+belong to the section (`linkedType`, empty `linkedId` allowed on the server; test added);
+the Documents tab still lists everything and handles replacement. Same permissions and file
+rules. Driven in the browser against the in-memory harness. `npm run verify` passed
+(server 104, client 135). Codex review pending.
+
+**Follow-up 2026-10-02 - optional file names, rename and delete files:** a file now has an
+optional display name (`title`, max 100; asked in a small window when attaching, changeable
+later; the Drive name stays generated). `PUT/DELETE /api/vehicle/:id/documents/:docId`
+(permission `documents`, not on archived vehicles). Delete removes the Drive file first and
+the record only if that succeeded (a missing file counts as done); deleting a version that
+replaced an older one makes the older one current again. Both actions are in the change log.
+Tests: 4 controller cases. Driven in the browser against the in-memory harness (attach with
+name, rename, delete). `npm run verify` passed (server 108, client 135). Codex review pending.
+
+**Follow-up 2026-10-02 - download name and phone layout of the attachments strip:** downloads
+are named "<plate> - <your name or type>.<ext>" (`buildDownloadName`, tested) instead of the
+internal generated name. On phones the strip is a rounded box with the title and attach
+button on the first line, then one file per line (name truncated with an ellipsis, date, icons);
+checked at 375px in the browser against the in-memory harness, no horizontal overflow.
+
+**Follow-up 2026-10-02 - tabs on phones:** at 600px and below the file page tabs wrap into
+buttons (three per row, active one filled) instead of a sideways-scrolling bar; all seven are
+visible at once. Checked at 375px in the browser, no horizontal overflow.
+
+**Follow-up 2026-10-02 - pill tabs (replaces the previous phone tab layout):** file page tabs are
+rounded pills with a small count badge (licences, tests, policies, documents), selected one
+highlighted, wrapping onto several lines on phones instead of scrolling. Checked on desktop and
+at 375px in the browser, no horizontal overflow.
+
+**Follow-up 2026-10-02 - compact vehicles list on phones (<=600px):** page header without the long
+description and with a compact add button; the five counters are small pills in a wrapping row; the
+filters are search + three selects in one row; each card puts a date and its status badge on one line
+(card height about 280px). First vehicle now starts near the top. Checked at 375px, no horizontal overflow.
+
+**Follow-up 2026-10-02 - permanent delete leaves nothing behind:** the content-free `delete` marker
+that was kept in `VehicleAudit` is removed, per the owner's explicit "delete every record" request.
+Verified that the real model/api layer deletes by string `_id` and deletes the audit records
+(throwaway database on the local mongod, dropped afterwards; Atlas and tamheed_db untouched).
+A marker created by the earlier version stays in an already-used database until removed by hand
+(`VehicleAudit` documents with `action: "delete"`).

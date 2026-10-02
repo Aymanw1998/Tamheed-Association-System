@@ -1,5 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 
+import { vehicleStrings } from "./vehicleStrings";
+
 const LANGUAGE_KEY = "tamheed_language";
 
 export const languages = {
@@ -232,6 +234,12 @@ const translations = {
     },
   },
 };
+
+// The vehicles section keeps its (large) text in its own file.
+for (const code of Object.keys(translations)) {
+  translations[code].vehicles = vehicleStrings[code];
+  translations[code].nav.vehicles = vehicleStrings[code].navTitle;
+}
 
 const I18nContext = createContext(null);
 

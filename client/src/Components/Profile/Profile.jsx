@@ -337,7 +337,7 @@ const Profile = ({parent = false}) => {
         }
     };
 
-    if (loading) return <div className={styles.formContainer}>يتحدث...</div>;
+    if (loading) return <div className={styles.formContainer}>جارٍ تحميل البيانات…</div>;
     if (err)      return <div className={styles.formContainer} style={{color:"#b91c1c"}}>{err}</div>;
 
 

@@ -214,6 +214,19 @@ async function deleteById(fileId) {
   return { deleted: true, fileId };
 }
 
+// Removes a Drive file or folder; a file that is already gone counts as done,
+// so a retry after a partial failure can finish the job.
+async function deleteByIdIfExists(fileId) {
+  try {
+    await deleteById(fileId);
+    return { deleted: true };
+  } catch (err) {
+    const code = err?.code || err?.response?.status;
+    if (code === 404 || code === "404") return { deleted: false, missing: true };
+    throw err;
+  }
+}
+
 async function getStorageQuota() {
   const drive = await getDriveClient();
   const result = await drive.about.get({ fields: "storageQuota" });
@@ -280,6 +293,26 @@ async function uploadFile({ buffer, body, name, mimeType, folderPath = "" }) {
   return { id: fileId, name: created.data.name, viewUrl: toViewUrl(fileId) };
 }
 
+// Same as uploadFile but WITHOUT the "anyone with the link" permission: the
+// file is reachable only through the Drive account itself, so the app must
+// stream it to signed-in users after its own permission check. Used for
+// documents (licences, insurance, receipts), never for photos.
+async function uploadPrivateFile({ buffer, name, mimeType, folderPath = "" }) {
+  const { drive, parentId } = await ensureFolderPath(folderPath);
+  const created = await drive.files.create({
+    requestBody: { name, parents: [parentId] },
+    media: { mimeType: mimeType || "application/octet-stream", body: Readable.from(buffer) },
+    fields: "id, name",
+  });
+  return { id: created.data.id, name: created.data.name };
+}
+
+async function downloadStream(fileId) {
+  const drive = await getDriveClient();
+  const response = await drive.files.get({ fileId, alt: "media" }, { responseType: "stream" });
+  return response.data;
+}
+
 function extractFileId(urlOrId = "") {
   const str = String(urlOrId);
   const byQuery = str.match(/[?&]id=([^&]+)/);
@@ -304,6 +337,8 @@ module.exports = {
   handleOAuthCallback,
   getStatus,
   uploadFile,
+  uploadPrivateFile,
+  downloadStream,
   deleteFile,
   extractFileId,
   ensureFolderPath,
@@ -311,6 +346,7 @@ module.exports = {
   listChildren,
   renameById,
   deleteById,
+  deleteByIdIfExists,
   getStorageQuota,
   toViewUrl,
   toDriveViewUrl,
