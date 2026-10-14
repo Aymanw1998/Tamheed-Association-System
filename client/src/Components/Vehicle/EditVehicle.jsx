@@ -19,6 +19,7 @@ import StatusBadge from "../UI/StatusBadge.jsx";
 import Field from "./Field.jsx";
 import VehicleRecords from "./VehicleRecords.jsx";
 import OfficialLookup from "./OfficialLookup.jsx";
+import DocumentScan from "./DocumentScan.jsx";
 import AttachmentsBar from "./AttachmentsBar.jsx";
 import { VehicleDocuments, VehicleHistory } from "./VehicleDocuments.jsx";
 import useVehiclePermissions from "./useVehiclePermissions";
@@ -370,6 +371,9 @@ export default function EditVehicle() {
                   error={errors.plate} required disabled={fieldsDisabled} inputMode="text" autoComplete="off" dir="ltr" />
                 <Field id="v-nickname" label={t("vehicles.f.nickname")} value={form.nickname} onChange={setField("nickname")} disabled={fieldsDisabled} />
                 {editing && <OfficialLookup form={form} onApply={applyImport} />}
+                {isNew && access.can("compliance") && (
+                  <DocumentScan target="vehicle" draft={form} onApply={(next) => setForm((prev) => ({ ...prev, ...next }))} />
+                )}
                 <Field id="v-type" type="select" label={t("vehicles.f.type")} value={form.type} onChange={setField("type")}
                   options={typeOptions} error={errors.type} required disabled={fieldsDisabled} />
                 <Field id="v-classification" label={t("vehicles.f.classification")} value={form.classification} onChange={setField("classification")} disabled={fieldsDisabled} />

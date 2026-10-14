@@ -53,13 +53,15 @@ test("daysBetween counts whole calendar days across month and DST boundaries", (
 
 test("expiryStatus: valid through the end date, expired the day after", () => {
   assert.equal(rules.expiryStatus("2026-10-02", TODAY).state, "due");
-  assert.equal(rules.expiryStatus("2026-10-02", TODAY).bucket, 7);
+  assert.equal(rules.expiryStatus("2026-10-02", TODAY).bucket, 0);
   assert.equal(rules.expiryStatus("2026-10-01", TODAY).state, "expired");
 });
 
-test("expiryStatus buckets at 30, 14 and 7 days and is ok beyond", () => {
+test("expiryStatus buckets at 60, 30, 14 and 7 days and is ok beyond", () => {
   assert.equal(rules.expiryStatus("2026-11-01", TODAY).bucket, 30);
-  assert.equal(rules.expiryStatus("2026-11-02", TODAY).state, "ok");
+  assert.equal(rules.expiryStatus("2026-11-02", TODAY).bucket, 60);
+  assert.equal(rules.expiryStatus("2026-12-01", TODAY).bucket, 60);
+  assert.equal(rules.expiryStatus("2026-12-02", TODAY).state, "ok");
   assert.equal(rules.expiryStatus("2026-10-16", TODAY).bucket, 14);
   assert.equal(rules.expiryStatus("2026-10-17", TODAY).bucket, 30);
   assert.equal(rules.expiryStatus("2026-10-09", TODAY).bucket, 7);
@@ -288,4 +290,41 @@ test("diffFields reports only the values that changed", () => {
   assert.deepEqual(rules.diffFields(before, after, ["plate", "trailer.brakes", "notes"]), [
     { field: "trailer.brakes", from: "no", to: "yes" },
   ]);
+});
+
+test("alert thresholds start 60 days ahead and mark the end day as due0", () => {
+  const status = (due) => rules.expiryStatus(due, "2026-10-14");
+  assert.deepEqual(rules.DEFAULT_ALERT_DAYS, [60, 30, 14, 7, 0]);
+  assert.equal(status("2026-12-20").state, "ok"); // 67 days
+  assert.equal(status("2026-12-13").bucket, 60); // 60 days
+  assert.equal(status("2026-11-13").bucket, 30); // 30 days
+  assert.equal(status("2026-10-21").bucket, 7);
+  assert.equal(status("2026-10-14").bucket, 0); // ends today, still valid
+  assert.equal(status("2026-10-13").state, "expired");
+});
+
+test("an expired insurance alert carries the latest expired end date", () => {
+  const vehicle = {
+    _id: "v1", plate: "1234567", status: "active",
+    policies: [
+      { startDate: "2025-01-01", endDate: "2025-12-31" },
+      { startDate: "2026-01-01", endDate: "2026-09-30" },
+    ],
+  };
+  const alert = rules.buildAlerts(vehicle, "2026-10-14").find((a) => a.kind === "insurance");
+  assert.equal(alert.level, "expired");
+  assert.equal(alert.dueDate, "2026-09-30");
+  assert.equal(alert.daysLeft, -14);
+});
+
+test("an expired policy next to an active one produces no insurance alert", () => {
+  const vehicle = {
+    _id: "v2", plate: "7654321", status: "active",
+    policies: [
+      { startDate: "2025-01-01", endDate: "2025-12-31" },
+      { startDate: "2026-01-01", endDate: "2027-06-30" },
+    ],
+  };
+  const kinds = rules.buildAlerts(vehicle, "2026-10-14").map((a) => a.kind);
+  assert.ok(!kinds.includes("insurance"));
 });

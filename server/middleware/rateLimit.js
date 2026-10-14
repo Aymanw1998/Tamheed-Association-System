@@ -5,10 +5,11 @@ const getClientKey = (req, scope) => {
   return `${scope}:${forwarded || req.ip || req.socket?.remoteAddress || "unknown"}`;
 };
 
-const rateLimit = ({ windowMs = 60 * 1000, max = 60, scope = "global" } = {}) => {
+const rateLimit = ({ windowMs = 60 * 1000, max = 60, scope = "global", keyFn } = {}) => {
   return (req, res, next) => {
     const now = Date.now();
-    const key = getClientKey(req, scope);
+    const custom = typeof keyFn === "function" ? keyFn(req) : null;
+    const key = custom ? `${scope}:${custom}` : getClientKey(req, scope);
     const bucket = buckets.get(key);
 
     if (!bucket || bucket.resetAt <= now) {

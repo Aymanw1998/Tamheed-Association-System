@@ -68,6 +68,18 @@ export const uploadVehicleDocument = (id, { file, kind, linkedType, linkedId, re
   );
 };
 
+export const extractVehicleDocument = (file, { vehicleId = "", expected = "any" } = {}) => {
+  const form = new FormData();
+  form.append("file", file);
+  if (vehicleId) form.append("vehicleId", vehicleId);
+  form.append("expected", expected);
+  return call(() =>
+    api.post(`${namespace}/extract`, form, { headers: { "Content-Type": "multipart/form-data" }, timeout: 75000 })
+  );
+};
+
+export const getExtractStatus = () => call(() => api.get(`${namespace}/extract/status`));
+
 export const updateDocumentTitle = (id, docId, title) =>
   call(() => api.put(`${base(id)}/documents/${encodeURIComponent(docId)}`, { title }));
 export const deleteDocument = (id, docId) =>

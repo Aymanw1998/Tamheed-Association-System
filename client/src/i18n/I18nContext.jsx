@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 
 import { vehicleStrings } from "./vehicleStrings";
+import { noticeStrings } from "./noticeStrings";
 
 const LANGUAGE_KEY = "tamheed_language";
 
@@ -239,6 +240,8 @@ const translations = {
 for (const code of Object.keys(translations)) {
   translations[code].vehicles = vehicleStrings[code];
   translations[code].nav.vehicles = vehicleStrings[code].navTitle;
+  translations[code].notices = noticeStrings[code];
+  translations[code].nav.notices = noticeStrings[code].navTitle;
 }
 
 const I18nContext = createContext(null);

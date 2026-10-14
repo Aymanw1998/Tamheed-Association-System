@@ -1,0 +1,36 @@
+// Text for the administrators' notices board. Merged in I18nContext.
+export const noticeStrings = {
+  ar: {
+    navTitle: "لوحة الإعلانات", title: "لوحة الإعلانات", bell: "إعلانات غير مقروءة: {n}",
+    filters: { all: "الكل", unread: "غير المقروءة", category: "الفئة", severity: "الأهمية", status: "الحالة" },
+    category: { vehicle: "المركبات", system: "النظام", manual: "رسالة إدارة" },
+    severity: { critical: "حرج", important: "مهم", info: "معلومة" },
+    cols: { severity: "الأهمية", title: "العنوان", category: "الفئة", date: "التاريخ", author: "الكاتب", status: "الحالة" },
+    read: "مقروء", unread: "جديد", markRead: "تعليم كمقروء", markAll: "تعليم الكل كمقروء", archive: "أرشفة", archiveConfirm: "أرشفة هذا الإعلان لكل المدراء؟", open: "فتح",
+    system: "النظام", empty: "لا توجد إعلانات", newTitle: "إعلان جديد للإدارة",
+    f: { title: "العنوان", body: "النص", severity: "الأهمية" }, publish: "نشر",
+    runCheck: "تشغيل فحص المركبات الآن", runDone: "اكتمل الفحص: {n} إعلانات جديدة", published: "تم نشر الإعلان",
+  },
+  he: {
+    navTitle: "לוח הודעות", title: "לוח הודעות", bell: "הודעות שלא נקראו: {n}",
+    filters: { all: "הכל", unread: "לא נקראו", category: "קטגוריה", severity: "חשיבות", status: "סטטוס" },
+    category: { vehicle: "רכבים", system: "מערכת", manual: "הודעת הנהלה" },
+    severity: { critical: "קריטי", important: "חשוב", info: "מידע" },
+    cols: { severity: "חשיבות", title: "כותרת", category: "קטגוריה", date: "תאריך", author: "כותב", status: "סטטוס" },
+    read: "נקרא", unread: "חדש", markRead: "סמן כנקרא", markAll: "סמן הכל כנקרא", archive: "העבר לארכיון", archiveConfirm: "להעביר את ההודעה לארכיון עבור כל המנהלים?", open: "פתח",
+    system: "מערכת", empty: "אין הודעות", newTitle: "הודעה חדשה להנהלה",
+    f: { title: "כותרת", body: "תוכן", severity: "חשיבות" }, publish: "פרסם",
+    runCheck: "הרץ בדיקת רכבים עכשיו", runDone: "הבדיקה הסתיימה: {n} הודעות חדשות", published: "ההודעה פורסמה",
+  },
+  en: {
+    navTitle: "Notices", title: "Notices board", bell: "Unread notices: {n}",
+    filters: { all: "All", unread: "Unread", category: "Category", severity: "Severity", status: "Status" },
+    category: { vehicle: "Vehicles", system: "System", manual: "Management message" },
+    severity: { critical: "Critical", important: "Important", info: "Info" },
+    cols: { severity: "Severity", title: "Title", category: "Category", date: "Date", author: "Author", status: "Status" },
+    read: "Read", unread: "New", markRead: "Mark as read", markAll: "Mark all as read", archive: "Archive", archiveConfirm: "Archive this notice for all administrators?", open: "Open",
+    system: "System", empty: "No notices", newTitle: "New notice for management",
+    f: { title: "Title", body: "Text", severity: "Severity" }, publish: "Publish",
+    runCheck: "Run vehicle check now", runDone: "Check finished: {n} new notices", published: "Notice published",
+  },
+};

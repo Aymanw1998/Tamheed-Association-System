@@ -102,6 +102,7 @@ app.use('/api/student', require('./Entities/Student/Student.route'))
 app.use('/api/inviteToken', require('./Entities/InviteToken/InviteToken.route'))
 app.use('/api/report', require('./Entities/Report/Report.route'));
 app.use('/api/vehicle', require('./Entities/Vehicle/Vehicle.route'));
+app.use('/api/notices', require('./Entities/Notice/Notice.route'));
 app.use('/api/storage', require('./Entities/Storage/Storage.route'))
 app.use('/api/storage/google', require('./Entities/Storage/GoogleDrive.route'))
 // Local Google-Drive-backed replacement for the remote Central Storage
@@ -116,6 +117,8 @@ if (AI_ENABLED) {
 // **********************************AUTO_PROCCESS ***************************
 const { startDailyAbsenceJob } = require('./utils/daily');
 startDailyAbsenceJob();
+const { startVehicleExpiryJob, catchUpVehicleExpiryCheck } = require('./services/vehicleExpiryJob');
+startVehicleExpiryJob();
 // **********************************END - AUTO_PROCCESS ***************************
 
 
@@ -179,6 +182,9 @@ const StartServer = async () => {
     // Runs after listen() so any self-referencing HTTP calls it makes
     // (e.g. storage folder provisioning) can actually reach this server.
     await ensureSystemAdmin();
+    await require('./Entities/Notice/Notice.model').ensureNoticeIndexes()
+      .catch((err) => console.error('Notice index:', err.message));
+    catchUpVehicleExpiryCheck().catch((err) => console.error('Vehicle expiry catch-up:', err.message));
 
 
     // 1. Unhandled Promise Rejection (async errors)

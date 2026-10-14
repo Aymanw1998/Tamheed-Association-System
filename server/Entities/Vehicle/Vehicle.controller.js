@@ -849,7 +849,7 @@ const downloadDocument = async (req, res) => {
 
 // ----------------------------------------------------------------- alerts/audit
 
-const SEVERITY = { expired: 0, due7: 1, due14: 2, due30: 3, missing: 4 };
+const SEVERITY = { expired: 0, due0: 1, due7: 2, due14: 3, due30: 4, due60: 5, missing: 6 };
 
 const getAlerts = async (req, res) => {
   try {

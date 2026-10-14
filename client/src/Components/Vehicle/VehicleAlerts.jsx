@@ -9,7 +9,7 @@ import styles from "./Vehicle.module.css";
 import dashboardStyles from "../Dashboard/Dashboard.module.css";
 
 const MAX_SHOWN = 6;
-const LEVEL_TONE = { expired: "danger", due7: "danger", due14: "warning", due30: "warning", missing: "neutral" };
+const LEVEL_TONE = { expired: "danger", due0: "danger", due7: "danger", due14: "warning", due30: "warning", due60: "neutral", missing: "neutral" };
 
 // Dashboard panel: the server returns only the alerts this person is entitled
 // to (everything for administrators and anyone allowed to view vehicles, just

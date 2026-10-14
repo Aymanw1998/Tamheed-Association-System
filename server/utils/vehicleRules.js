@@ -18,7 +18,7 @@ const DOCUMENT_KINDS = ["license", "policy", "test", "receipt", "other"];
 
 // Alert lead times in days. The app has no settings store yet, so these are a
 // constant; every function that uses them also accepts an override.
-const DEFAULT_ALERT_DAYS = [30, 14, 7];
+const DEFAULT_ALERT_DAYS = [60, 30, 14, 7, 0];
 
 const PERMISSIONS = ["view", "edit", "compliance", "documents", "archive"];
 
@@ -143,7 +143,12 @@ function insuranceSummary(policies = [], today) {
   const has = (status) => withStatus.some((item) => item.status === status);
   if (has("future")) return { status: "future", policy: null, endDate: null };
   if (has("incomplete")) return { status: "incomplete", policy: null, endDate: null };
-  if (has("expired")) return { status: "expired", policy: null, endDate: null };
+  if (has("expired")) {
+    const latest = withStatus
+      .filter((item) => item.status === "expired")
+      .reduce((best, item) => (item.policy.endDate > best.policy.endDate ? item : best));
+    return { status: "expired", policy: latest.policy, endDate: latest.policy.endDate };
+  }
   if (has("cancelled")) return { status: "cancelled", policy: null, endDate: null };
   return { status: "none", policy: null, endDate: null };
 }
@@ -198,7 +203,9 @@ function summarizeVehicle(vehicle = {}, today, alertDays = DEFAULT_ALERT_DAYS) {
       endDate: insurance.endDate || "",
       ...(insurance.status === "active"
         ? expiryStatus(insurance.endDate, today, alertDays)
-        : { state: insurance.status === "expired" ? "expired" : "unknown", daysLeft: null, bucket: null }),
+        : insurance.status === "expired"
+          ? { state: "expired", daysLeft: daysBetween(today, insurance.endDate), bucket: null }
+          : { state: "unknown", daysLeft: null, bucket: null }),
     },
   };
 }
@@ -236,10 +243,8 @@ function buildAlerts(vehicle = {}, today, alertDays = DEFAULT_ALERT_DAYS) {
 
   push("license", summary.license.validUntil, summary.license);
   push("test", summary.test.dueDate, summary.test, { source: summary.test.source });
-  if (summary.insurance.status === "active") {
+  if (summary.insurance.status === "active" || summary.insurance.status === "expired") {
     push("insurance", summary.insurance.endDate, summary.insurance);
-  } else if (summary.insurance.status === "expired") {
-    push("insurance", "", { state: "expired", daysLeft: null });
   } else {
     push("insurance", "", { state: "unknown", daysLeft: null });
   }

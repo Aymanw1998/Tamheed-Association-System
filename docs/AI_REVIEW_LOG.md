@@ -1227,3 +1227,81 @@ Verified that the real model/api layer deletes by string `_id` and deletes the a
 (throwaway database on the local mongod, dropped afterwards; Atlas and tamheed_db untouched).
 A marker created by the earlier version stays in an already-used database until removed by hand
 (`VehicleAudit` documents with `action: "delete"`).
+
+## 2026-10-14 - Claude: vehicle document reading, nightly expiry check and administrators' notices
+
+**Owner request:** read vehicle licences and insurance policies with Claude as a reviewed
+proposal (never saved automatically), check vehicle documents every night, and tell the
+administrators through an in-app notices board with an unread bell, plus an email digest.
+
+**Implementation:** spec `docs/superpowers/specs/2026-10-14-vehicle-docs-expiry-notices-design.md`,
+plan `docs/superpowers/plans/2026-10-14-vehicle-docs-expiry-notices.md` (Tasks 1-9). Local
+commits on `feature/vehicle-docs-notices`, range `51d88bf..HEAD`.
+
+**Changes (files changed in the range, 36, plus this commit):**
+- `client/src/Components/Header/Header.jsx`
+- `client/src/Components/Notice/Notice.module.css`
+- `client/src/Components/Notice/NoticeBell.jsx`
+- `client/src/Components/Notice/NoticesBoard.jsx`
+- `client/src/Components/Routes/Routes.jsx`
+- `client/src/Components/Vehicle/DocumentScan.jsx`
+- `client/src/Components/Vehicle/EditVehicle.jsx`
+- `client/src/Components/Vehicle/VehicleAlerts.jsx`
+- `client/src/Components/Vehicle/VehicleRecords.jsx`
+- `client/src/WebServer/services/notice/functionsNotice.jsx`
+- `client/src/WebServer/services/vehicle/functionsVehicle.jsx`
+- `client/src/i18n/I18nContext.jsx`
+- `client/src/i18n/noticeStrings.js`
+- `client/src/i18n/vehicleStrings.js`
+- `client/src/utils/routeAccess.js`
+- `client/src/utils/routeAccess.test.js`
+- `client/src/utils/vehicleScan.js`
+- `client/src/utils/vehicleScan.test.js`
+- `server/Entities/Notice/Notice.controller.js`
+- `server/Entities/Notice/Notice.model.js`
+- `server/Entities/Notice/Notice.route.js`
+- `server/Entities/Notice/Notice.service.js`
+- `server/Entities/Vehicle/Vehicle.controller.js`
+- `server/Entities/Vehicle/Vehicle.route.js`
+- `server/Entities/Vehicle/VehicleExtract.controller.js`
+- `server/server.js`
+- `server/services/vehicleDocExtract.service.js`
+- `server/services/vehicleExpiryJob.js`
+- `server/test/notice-controller.test.js`
+- `server/test/vehicle-doc-extract.test.js`
+- `server/test/vehicle-expiry-job.test.js`
+- `server/test/vehicle-notices.test.js`
+- `server/test/vehicle-rules.test.js`
+- `server/utils/sendEmail.js`
+- `server/utils/vehicleNotices.js`
+- `server/utils/vehicleRules.js`
+- `server/config/.env.example` (this commit: AI and SMTP notes)
+- `docs/AI_REVIEW_LOG.md` (this entry)
+
+**Verification** (in the worktree; the root `npm run verify` client Jest script finds no tests
+because the path contains ".claude", so its three parts were run separately):
+- `npm test --prefix server`: tests 140, pass 140, fail 0.
+- client `CI=true npx react-scripts test --watchAll=false --testMatch "**/*.test.js"`:
+  Test Suites 14 passed, 14 total; Tests 139 passed, 139 total.
+- `npm run build --prefix client`: Compiled successfully.
+- Manual nightly-check proof (run the check from `/notices` as an administrator, see 0 new
+  notices on a second press): NOT run, it needs a signed-in administrator.
+
+**Claude - Codex review request:** Requesting Codex review of the range above.
+
+Review Focus:
+1. A vehicle with an expired policy and a newer valid policy must produce no insurance alert.
+2. Server restarted twice on the same day after 01:00 must not run the catch-up twice or
+   duplicate notices.
+3. Claude returning an invalid date (2026-02-30) or swapped start/end must arrive as null +
+   warning, never pre-filled.
+4. SMTP missing or one admin with a bad email: notices still created, other admins still mailed.
+5. A non-admin with vehicle "compliance" permission may extract documents but gets 403 on every
+   /api/notices route.
+
+**Unverified:** no live Claude API call (no ANTHROPIC_API_KEY; the model id `claude-opus-5-5`
+and the nullable JSON-schema shape are unverified live); no real email sent; no signed-in
+browser check of the notices page, the bell, or the scan UI.
+
+**Delivery state:** local commits on `feature/vehicle-docs-notices` only; nothing pushed; the
+final squash to master awaits the owner's approved commit message. Codex review pending.

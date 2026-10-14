@@ -7,6 +7,7 @@ import { getMyPermissions } from "../../WebServer/services/vehicle/functionsVehi
 import { ask } from "../Provides/confirmBus";
 import { getUnsavedChanges } from "../../utils/unsavedChanges";
 import { useI18n } from "../../i18n/I18nContext";
+import NoticeBell from "../Notice/NoticeBell";
 import { ADMIN_ROLES, GUIDE_ROLES, normalizeRoles } from "../../utils/session";
 
 const STUDENT_ROLES = [...ADMIN_ROLES, ...GUIDE_ROLES];
@@ -147,6 +148,7 @@ export default function Header() {
       </div>
 
       <div className={styles.headerContent}>
+        {isAdmin && <NoticeBell onOpen={(event) => onNavClick(event, "/notices")} />}
         {isMobile && (
           <button
             type="button"
@@ -186,6 +188,9 @@ export default function Header() {
         )}
         {isAdmin && (
           <a href="/users" onClick={(event) => onNavClick(event, "/users")}>{t("nav.users")}</a>
+        )}
+        {isAdmin && (
+          <a href="/notices" onClick={(event) => onNavClick(event, "/notices")}>{t("nav.notices")}</a>
         )}
         <a href="/lessons" onClick={(event) => onNavClick(event, "/lessons")}>{t("nav.lessons")}</a>
         {canViewVehicles && (

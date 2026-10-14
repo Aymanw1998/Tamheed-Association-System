@@ -11,6 +11,9 @@ const { requirePermission: can } = controller;
 // Each lookup makes an outbound request, so keep it modest.
 const lookupRateLimit = rateLimit({ windowMs: 60 * 1000, max: 20, scope: "vehicle-lookup" });
 const uploadRateLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 60, scope: "vehicle-upload" });
+// Each extraction is a paid Claude call; keep it modest.
+const extractRateLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 20, scope: "vehicle-extract", keyFn: (req) => req.actor?.id });
+const { extractDocument } = require("./VehicleExtract.controller").defaultController();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_DOCUMENT_BYTES, files: 1 } });
 const uploadOne = (req, res, next) =>
   upload.single("file")(req, res, (error) => {
@@ -31,6 +34,10 @@ router.get("/alerts", controller.attachActor, controller.getAlerts);
 
 router.get("/responsibles", can("edit"), controller.listResponsibles);
 router.get("/official-lookup/:plate", can("edit"), lookupRateLimit, controller.officialLookup);
+router.get("/extract/status", can("compliance"), (req, res) =>
+  res.json({ ok: true, available: Boolean(process.env.ANTHROPIC_API_KEY) })
+);
+router.post("/extract", can("compliance"), extractRateLimit, uploadOne, extractDocument);
 
 router.get("/", can("view"), controller.getAll);
 router.post("/", can("edit"), controller.create);

@@ -33,6 +33,15 @@ const sendResetPasswordEmail = async (to, otp) => {
         html,
     });
 }
+const smtpConfigured = () => Boolean(process.env.SMTP_SERVER && process.env.SMTP_PORT && process.env.SMTP_FROM);
+
+const sendNoticeDigestEmail = async (to, { subject, html, text }) => {
+    const transporter = createTransporter();
+    await transporter.sendMail({ from: process.env.SMTP_FROM, to, subject, html, text });
+};
+
 module.exports = {
     sendResetPasswordEmail,
+    sendNoticeDigestEmail,
+    smtpConfigured,
 };

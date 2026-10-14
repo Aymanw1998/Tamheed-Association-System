@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { licenseApi, policyApi, setNextTestDate, testApi } from "../../WebServer/services/vehicle/functionsVehicle.jsx";
+import { licenseApi, policyApi, setNextTestDate, testApi, uploadVehicleDocument } from "../../WebServer/services/vehicle/functionsVehicle.jsx";
 import { useI18n } from "../../i18n/I18nContext";
 import { toast } from "../../ALERT/SystemToasts";
 import Button from "../UI/Button.jsx";
 import StatusBadge from "../UI/StatusBadge.jsx";
 import Field from "./Field.jsx";
 import AttachmentsBar from "./AttachmentsBar.jsx";
+import DocumentScan from "./DocumentScan.jsx";
 import {
   expiryText,
   expiryTone,
@@ -94,7 +95,7 @@ const PAYLOAD_NUMBERS = new Set(["feeAmount", "cost", "deductible", "minDriverAg
 
 const sameDraft = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
-function RecordForm({ kind, config, vehicleId, record, onSaved, onCancel, onDirty }) {
+function RecordForm({ kind, config, vehicleId, record, canAttach, onSaved, onCancel, onDirty }) {
   const { t } = useI18n();
   const editing = Boolean(record);
   const initial = useMemo(() => (record ? draftFrom(config, record) : emptyDraft(config)), [config, record]);
@@ -102,6 +103,8 @@ function RecordForm({ kind, config, vehicleId, record, onSaved, onCancel, onDirt
   const [reason, setReason] = useState("");
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
+  const [scanFile, setScanFile] = useState(null);
+  const [attach, setAttach] = useState(true);
 
   const dirty = !sameDraft(draft, initial) || reason !== "";
   useEffect(() => {
@@ -130,20 +133,44 @@ function RecordForm({ kind, config, vehicleId, record, onSaved, onCancel, onDirt
     const res = editing
       ? await config.api.update(vehicleId, record.id, payload)
       : await config.api.add(vehicleId, payload);
-    setSaving(false);
     if (!res.ok) {
+      setSaving(false);
       setErrors(res.errors || {});
       return toast.warn(res.message);
     }
+    // `saving` stays true through the scanned-file upload so Save cannot be
+    // clicked twice; onSaved closes the form.
     toast.success(t("vehicles.recordSaved"));
+    let latest = res.vehicle;
+    if (!editing && scanFile && canAttach && attach) {
+      // The add response is { vehicle } with the new record last in its list.
+      const list = res.vehicle?.[config.list] || [];
+      const newest = list[list.length - 1];
+      const uploaded = await uploadVehicleDocument(vehicleId, { file: scanFile, kind: kind, linkedType: kind, linkedId: newest?.id });
+      if (uploaded.ok) latest = uploaded.vehicle || latest;
+      else toast.warn(uploaded.message);
+    }
     onDirty?.(false);
-    onSaved(res.vehicle);
+    onSaved(latest);
   };
 
   const idPrefix = `${kind}-${record?.id || "new"}`;
   return (
     <form className={styles.inlineForm} onSubmit={submit} noValidate>
       <div className={styles.formGrid}>
+        {!editing && (kind === "license" || kind === "policy") && (
+          <DocumentScan
+            target={kind}
+            vehicleId={vehicleId}
+            draft={draft}
+            onApply={(next, file) => { setDraft((prev) => ({ ...prev, ...next })); setScanFile(file || null); setAttach(true); }}
+          />
+        )}
+        {scanFile && canAttach && (
+          <label className={styles.fieldHint}>
+            <input type="checkbox" checked={attach} onChange={(e) => setAttach(e.target.checked)} /> {t("vehicles.scan.attach")}: {scanFile.name}
+          </label>
+        )}
         {config.fields
           .filter((field) => !(field.addOnly && editing))
           .filter((field) => !field.showWhen || field.showWhen(draft))
@@ -348,6 +375,7 @@ export default function VehicleRecords({ kind, vehicle, canEdit, canAccessDocs, 
           kind={kind}
           config={config}
           vehicleId={vehicle._id}
+          canAttach={Boolean(canUploadDocs) && !archived}
           onSaved={saved}
           onCancel={() => setMode(null)}
           onDirty={reportDirty}
@@ -412,6 +440,7 @@ export default function VehicleRecords({ kind, vehicle, canEdit, canAccessDocs, 
                   config={config}
                   vehicleId={vehicle._id}
                   record={record}
+                  canAttach={Boolean(canUploadDocs) && !archived}
                   onSaved={saved}
                   onCancel={() => setMode(null)}
                   onDirty={reportDirty}
