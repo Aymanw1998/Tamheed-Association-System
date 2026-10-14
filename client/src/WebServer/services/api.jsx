@@ -1,11 +1,13 @@
 // src/WebServer/services/api.js
 import axios from 'axios';
 import { markSessionExpired } from '../utils/sessionMessages'; // ملاحظة عربية
-import { getApiBaseUrl } from './apiBase';
 import { singleFlight } from '../utils/singleFlight';
 
-const FALLBACK_SERVER_URL = `${process.env.REACT_APP_SERVER_URI || ''}`.replace(/\/+$/, '');
-export let API_BASE_URL = `${FALLBACK_SERVER_URL}/api`;
+// The API is always reached on the same origin as the page: in development the
+// CRA dev server proxies /api to the local server (see "proxy" in package.json),
+// and in production the server (or a reverse proxy) serves the app and /api from
+// one host, so no server URL is configured and no CORS is involved.
+export const API_BASE_URL = '/api';
 
 // Every refresh in the app goes through here, so overlapping callers share one
 // request instead of racing the server's rotating refresh cookie.
@@ -42,31 +44,17 @@ export function getAuthToken() {
 }
 
 export const publicApi = axios.create({
-  // baseURL: API_BASE_URL+ '/api',
+  baseURL: API_BASE_URL,
   headers: { 'Content-Type': 'application/json' },
   withCredentials: false,
   timeout: 15000,
 });
 const api = axios.create({
-  // baseURL: API_BASE_URL+ '/api',
+  baseURL: API_BASE_URL,
   headers: { 'Content-Type': 'application/json' },
   withCredentials: false, // ملاحظة عربية
   timeout: 15000,
 });
-
-let inited = false;
-export const initApiBase = async () => {
-  if (inited) return;
-  const serverUrl = await getApiBaseUrl().catch(() => FALLBACK_SERVER_URL || '');
-  API_BASE_URL = `${String(serverUrl || FALLBACK_SERVER_URL || '').replace(/\/+$/, '')}/api`;
-  api.defaults.baseURL = API_BASE_URL;
-  publicApi.defaults.baseURL = API_BASE_URL;
-  console.log("[Tamheed Client] API base initialized", {
-    serverUrl,
-    apiBaseUrl: API_BASE_URL,
-  });
-  inited = true;
-}
 
 // ملاحظة عربية
 function hardResetToLogin(reason = 'انتهت صلاحية تسجيل الدخول، يرجى تسجيل الدخول مرة أخرى') {

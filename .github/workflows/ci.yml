@@ -25,7 +25,6 @@ jobs:
         working-directory: client
         env:
           CI: false
-          REACT_APP_SERVER_URI: http://localhost:5000
       - name: Client regression tests
         run: npm test
         working-directory: client

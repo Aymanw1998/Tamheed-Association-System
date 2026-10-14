@@ -17,6 +17,7 @@ const {logger} = require('./middleware/logger');
 const aiRoutes = require('./routes/ai.routes');
 
 
+const path = require('path');
 const crypto = require("crypto")
 //Lod env vars
 dotenv.config({path: './config/.env'});
@@ -26,32 +27,36 @@ const app = express();
 app.use(logger);
 
 
-// VERY TOP, right after app = express()
-// ملاحظة عربية
-const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim())
-  : [
-      'http://localhost:3000',
-      'http://10.0.0.30:3000',
-      'http://192.168.169.221:3000',
-      'http://tamheed-ramla.org',
-      'http://www.tamheed-ramla.org',
-      'https://tamheed-ramla.org',
-      'https://www.tamheed-ramla.org',
-      // ملاحظة عربية
-      /^http:\/\/10\.0\.0\.\d+:3000$/, // ملاحظة عربية
-    ];
+// The client calls /api on its own origin (dev: CRA proxy, production: this
+// server serves the built app), so same-origin requests need no configuration
+// and work for any host or IP. ALLOWED_ORIGINS only lists extra *cross-origin*
+// callers; by default that is just the local dev server.
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000,http://127.0.0.1:3000')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+const allowedOrigins = new Set(ALLOWED_ORIGINS);
 
-const stringAllowedOrigins = new Set(ALLOWED_ORIGINS.filter((origin) => typeof origin === 'string'));
-const patternAllowedOrigins = ALLOWED_ORIGINS.filter((origin) => origin instanceof RegExp);
+const isSameOrigin = (req, origin) => {
+  try {
+    // Behind a proxy the original host is in X-Forwarded-Host, but a proxy that
+    // doesn't rewrite Origin (or rewrites it to its own target, as CRA's dev
+    // proxy does) leaves it matching Host instead - accept either.
+    const originHost = new URL(origin).host;
+    return [req.get('x-forwarded-host'), req.get('host')].some((host) => host && host === originHost);
+  } catch {
+    return false;
+  }
+};
+
+app.use((req, res, next) => {
+  const origin = req.get('origin');
+  if (!origin || isSameOrigin(req, origin) || allowedOrigins.has(origin)) return next();
+  return res.status(403).json({ code: 'CORS_ORIGIN_DENIED', message: `Origin not allowed: ${origin}` });
+});
 
 const corsOptions = {
-  origin(origin, cb) {
-    if (!origin) return cb(null, true);               // Postman/SSR
-    if (stringAllowedOrigins.has(origin)) return cb(null, true);
-    if (patternAllowedOrigins.some((pattern) => pattern.test(origin))) return cb(null, true);
-    return cb(new Error(`Not allowed by CORS: ${origin}`));
-  },
+  origin: true, // the guard above already rejected unknown origins
   credentials: true,
   methods: ['GET','POST','PUT','DELETE','OPTIONS','PATCH'],
   allowedHeaders: ['Content-Type','Authorization','X-Requested-With'],
@@ -60,6 +65,17 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions)); // preflight
 app.set('trust proxy', 1); // ملاحظة عربية
+
+// Optional: serve the built client from this same server (SERVE_CLIENT=true),
+// so opening http://<server-ip>:<port> loads the app and /api on one origin.
+// Mounted before helmet so the CRA bundle isn't subject to helmet's default CSP.
+if (process.env.SERVE_CLIENT === 'true') {
+  const clientBuild = path.join(__dirname, '..', 'client', 'build');
+  app.use(express.static(clientBuild));
+  app.get(/^\/(?!api(\/|$)).*/, (req, res, next) =>
+    req.accepts('html') ? res.sendFile(path.join(clientBuild, 'index.html')) : next()
+  );
+}
 
 //Middleware to parse JSON requests
 app.use(express.json());
