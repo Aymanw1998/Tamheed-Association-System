@@ -1,0 +1,45 @@
+import { useI18n } from "../../i18n/I18nContext";
+import { PRIVACY_CONTACT, PRIVACY_CONTENT, PRIVACY_UPDATED } from "../../utils/privacyContent";
+import styles from "./PrivacyPage.module.css";
+
+// Public page (no sign-in): Google's OAuth consent screen links here.
+export default function PrivacyPage() {
+  const { language, setLanguage, languages, dir } = useI18n();
+  const page = PRIVACY_CONTENT[language] || PRIVACY_CONTENT.ar;
+  const fill = (text) => text.replace("{contact}", PRIVACY_CONTACT);
+
+  return (
+    <main className={styles.page} dir={dir}>
+      <nav className={styles.languages} aria-label="Language">
+        {Object.values(languages).map((meta) => (
+          <button
+            key={meta.code}
+            type="button"
+            onClick={() => setLanguage(meta.code)}
+            aria-pressed={meta.code === language}
+            className={meta.code === language ? styles.active : ""}
+          >
+            {meta.label}
+          </button>
+        ))}
+      </nav>
+
+      <h1>{page.title}</h1>
+      <p className={styles.updated}>
+        {page.updated}: {PRIVACY_UPDATED}
+      </p>
+      <p>{page.intro}</p>
+
+      {page.sections.map((section) => (
+        <section key={section.heading}>
+          <h2>{section.heading}</h2>
+          <ul>
+            {section.items.map((item) => (
+              <li key={item}>{fill(item)}</li>
+            ))}
+          </ul>
+        </section>
+      ))}
+    </main>
+  );
+}

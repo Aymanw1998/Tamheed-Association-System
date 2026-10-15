@@ -32,6 +32,7 @@ import FilesPage from '../Files/FilesPage';
 import ViewAllVehicle from '../Vehicle/ViewAllVehicle';
 import EditVehicle from '../Vehicle/EditVehicle';
 import FloatingAIButton from '../AI/FloatingAIButton';
+import PrivacyPage from '../Privacy/PrivacyPage';
 
 // Backend is wired up (server/services/ai.service.js), but the widget is
 // hidden until an ANTHROPIC_API_KEY is configured. Flip to true to show it.
@@ -57,6 +58,7 @@ export default function CRoutes() {
       <Route path="/" element={<PublicOnly/>} />
       <Route path="/login" element={<PublicOnly/>} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/privacy" element={<PrivacyPage />} />
       <Route path="/register-student/:token" element={<EditStudent parent={true} />} />
       {/* عربيالجمعةالثلاثاءعربي */}
       <Route element={<RequireAuth />}>
