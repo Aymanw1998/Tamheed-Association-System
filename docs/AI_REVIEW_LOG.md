@@ -1305,3 +1305,42 @@ browser check of the notices page, the bell, or the scan UI.
 
 **Delivery state:** local commits on `feature/vehicle-docs-notices` only; nothing pushed; the
 final squash to master awaits the owner's approved commit message. Codex review pending.
+
+## 2026-10-15: System-account-only Google Drive connection
+
+**Owner request:** Only the system account (SYSTEM_ADMIN_TZ) may connect or
+change the app's single Google Drive account, from a button inside the system;
+other administrators only see which account is connected.
+
+**Problem found:** `GET /api/storage/google/connect` and `/callback` required no
+authentication. Anyone could open the public connect link and replace the app's
+Drive account with their own, silently redirecting every later upload
+(student photos, vehicle documents, staff files) to that account.
+
+**Changes:**
+
+- `server/utils/driveConnectState.js` (new): in-memory, single-use OAuth `state`
+  values bound to the requesting user, valid for 10 minutes.
+- `server/Entities/Storage/GoogleDrive.route.js`: removed the open `GET /connect`;
+  added `POST /connect-url` (requireAuth + system account: token tz equals
+  SYSTEM_ADMIN_TZ; unset matches nobody) that returns Google's
+  consent URL with a fresh state; `/callback` accepts only an issued, unexpired,
+  unused state and redirects to `/files?drive=connected|denied|error`;
+  `/status` also returns `canConnect`.
+- `server/services/googleDrive.service.js`: `getAuthUrl(state)` forwards the state.
+- `client/src/Components/Files/DriveConnection.jsx` (new), `FilesPage.jsx`,
+  `functionsStorage.jsx`, `I18nContext.jsx`: administrators see the connected
+  account on the Files page; only the system account gets the connect/change
+  button (confirm on change).
+- `server/test/drive-connect.test.js` (new): 8 tests.
+
+**Verification:** server 151/151, client 14 suites / 139 tests, client build
+compiled. Not verified live: the local server could not reach Atlas (IP not on
+the Atlas access list), and no real Google consent flow was run.
+
+**Requesting Codex review.** Focus: state cannot be forged, replayed or used
+after 10 minutes; the system-account check on `/connect-url`; no remaining
+unauthenticated path that writes the Drive connection; behaviour behind more
+than one server process (state is in memory).
+
+**Delivery state:** uncommitted local changes; commit awaits the owner's message.

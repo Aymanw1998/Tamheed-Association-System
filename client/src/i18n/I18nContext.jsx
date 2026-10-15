@@ -61,6 +61,7 @@ const translations = {
     },
     files: {
       title: "ملفات",
+      drive: { title: "Google Drive", connectedAs: "متصل بالحساب: {email}", notConnected: "غير متصل، الملفات والصور لن تُحفظ", connect: "ربط حساب Google Drive", replace: "تغيير الحساب", replaceConfirm: "تغيير حساب Drive للنظام كله؟ الملفات الجديدة ستُحفظ في الحساب الجديد.", done: "تم ربط Google Drive", denied: "رابط الربط غير صالح أو منتهي، حاول مرة أخرى من داخل النظام", error: "تعذّر ربط Google Drive، حاول مرة أخرى", startFailed: "تعذّر بدء الربط", systemOnly: "ربط الحساب أو تغييره متاح لحساب النظام فقط" },
       sharedTitle: "عرض مشترك",
       refresh: "تحديث",
       newFolder: "مجلد جديد",
@@ -135,6 +136,7 @@ const translations = {
     },
     files: {
       title: "קבצים",
+      drive: { title: "Google Drive", connectedAs: "מחובר לחשבון: {email}", notConnected: "לא מחובר, קבצים ותמונות לא יישמרו", connect: "חיבור חשבון Google Drive", replace: "החלפת חשבון", replaceConfirm: "להחליף את חשבון ה-Drive של כל המערכת? קבצים חדשים יישמרו בחשבון החדש.", done: "Google Drive חובר", denied: "קישור החיבור לא תקף או שפג, נסה שוב מתוך המערכת", error: "החיבור ל-Google Drive נכשל, נסה שוב", startFailed: "לא ניתן להתחיל את החיבור", systemOnly: "חיבור או החלפת החשבון זמינים לחשבון המערכת בלבד" },
       sharedTitle: "תצוגה משותפת",
       refresh: "רענון",
       newFolder: "תיקייה חדשה",
@@ -209,6 +211,7 @@ const translations = {
     },
     files: {
       title: "Files",
+      drive: { title: "Google Drive", connectedAs: "Connected account: {email}", notConnected: "Not connected, files and photos will not be saved", connect: "Connect Google Drive account", replace: "Change account", replaceConfirm: "Change the Drive account for the whole system? New files will be saved to the new account.", done: "Google Drive connected", denied: "The connect link is invalid or expired, start again from inside the system", error: "Connecting Google Drive failed, try again", startFailed: "Could not start the connection", systemOnly: "Only the system account can connect or change the account" },
       sharedTitle: "Shared view",
       refresh: "Refresh",
       newFolder: "New folder",

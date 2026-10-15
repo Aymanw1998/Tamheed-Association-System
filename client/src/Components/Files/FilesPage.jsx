@@ -24,6 +24,7 @@ import { getAll as getAllUsers } from "../../WebServer/services/user/functionsUs
 import { getStoredUserId } from "../../utils/session";
 import { useI18n } from "../../i18n/I18nContext";
 import { ask } from "../Provides/confirmBus";
+import DriveConnection from "./DriveConnection";
 
 const formatBytes = (bytes) => {
   if (bytes === null || bytes === undefined || Number.isNaN(Number(bytes))) return "-";
@@ -892,6 +893,7 @@ export default function FilesPage() {
               ))}
             </div>
             <h2>{isSharedView ? t("files.sharedTitle") : t("files.title")}</h2>
+            {!isSharedView && <DriveConnection />}
             {!isSharedView && storageStats && (
               <div className={styles.storageStats}>
                 <div className={styles.storageStatsTop}>

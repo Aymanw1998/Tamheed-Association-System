@@ -1,6 +1,6 @@
 // Google Drive-backed storage. One Drive account is connected (via OAuth) for
 // the whole app - not per Tamheed user - see GoogleDrive.route.js for the
-// one-time /connect flow. The refresh token + cached folder ids are kept in
+// admin-only connect flow. The refresh token + cached folder ids are kept in
 // the local MongoDB (same generic CRUD used by every other Entity).
 const { google } = require("googleapis");
 const { Readable } = require("stream");
@@ -47,12 +47,13 @@ async function saveConnection(patch) {
   });
 }
 
-function getAuthUrl() {
+function getAuthUrl(state) {
   const oauth2Client = getOAuth2Client();
   return oauth2Client.generateAuthUrl({
     access_type: "offline",
     prompt: "consent",
     scope: SCOPES,
+    state,
   });
 }
 
@@ -92,7 +93,7 @@ async function getStatus() {
 async function getDriveClient() {
   const conn = await getConnection();
   if (!conn?.refreshToken) {
-    throw new Error("Google Drive is not connected yet. Open /api/storage/google/connect first.");
+    throw new Error("Google Drive is not connected yet. An administrator must connect it from the Files page.");
   }
 
   const oauth2Client = getOAuth2Client();

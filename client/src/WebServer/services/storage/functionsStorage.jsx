@@ -592,3 +592,15 @@ export const downloadSharedStorageFile = async (token, relativePath = "") => {
   downloadFromUrl(data.url);
   return data;
 };
+
+// The app's single Google Drive connection (administrators connect it).
+export const getDriveStatus = async () => {
+  const { data } = await api.get("/storage/google/status");
+  return data;
+};
+
+// Returns Google's consent URL with a one-time state issued for this admin.
+export const getDriveConnectUrl = async () => {
+  const { data } = await api.post("/storage/google/connect-url", {});
+  return data?.url || "";
+};

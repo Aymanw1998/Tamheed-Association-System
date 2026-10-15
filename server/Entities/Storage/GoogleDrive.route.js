@@ -1,44 +1,72 @@
-// One-time admin flow to link the app to a single Google Drive account.
-// /connect and /callback are plain browser navigations (not fetch calls), so
-// they can't carry an Authorization: Bearer header - keep that in mind if you
-// add auth here later; for now this is meant to be run locally/by an admin.
+// Links the whole app to a single Google Drive account. Only the system
+// account (SYSTEM_ADMIN_TZ, created by scripts/ensureSystemAdmin.js) may start
+// the flow - not every administrator: the app asks for a connect URL (POST,
+// with the usual Bearer token) and gets back Google's consent URL carrying a
+// one-time state. Google's callback is a plain browser redirect, so it is
+// accepted only with a state this server issued, once, within 10 minutes.
 const express = require("express");
-const router = express.Router();
-const { requireAuth } = require("../../middleware/authMiddleware");
-const googleDrive = require("../../services/googleDrive.service");
 
-router.get("/connect", (req, res) => {
-  try {
-    const url = googleDrive.getAuthUrl();
-    res.redirect(url);
-  } catch (err) {
-    res.status(500).send(`Failed to start Google Drive connection: ${err.message}`);
-  }
-});
+const DONE_PATH = "/files?drive=";
 
-router.get("/callback", async (req, res) => {
-  try {
-    const { code, error } = req.query;
-    if (error) return res.status(400).send(`Google returned an error: ${error}`);
-    if (!code) return res.status(400).send("Missing code");
+// The signed access token carries tz, so this needs no database read.
+// An unset SYSTEM_ADMIN_TZ matches nobody.
+function isSystemAccount(user, systemTz = process.env.SYSTEM_ADMIN_TZ) {
+  const expected = String(systemTz || "").trim();
+  return Boolean(expected) && String(user?.tz || "").trim() === expected;
+}
 
-    const { email } = await googleDrive.handleOAuthCallback(String(code));
-    res.send(
-      `<html><body style="font-family:sans-serif;text-align:center;margin-top:60px">` +
-        `<h2>Google Drive connected</h2><p>${email}</p><p>You can close this tab.</p></body></html>`
-    );
-  } catch (err) {
-    res.status(500).send(`<html><body><h2>Failed to connect</h2><pre>${err.message}</pre></body></html>`);
-  }
-});
+function createGoogleDriveRouter({ drive, state, requireAuth, isSystemAccount: isSystem = isSystemAccount }) {
+  const router = express.Router();
 
-router.get("/status", requireAuth, async (req, res) => {
-  try {
-    const status = await googleDrive.getStatus();
-    res.json({ ok: true, ...status });
-  } catch (err) {
-    res.status(500).json({ ok: false, message: err.message });
-  }
-});
+  const requireSystemAccount = (req, res, next) =>
+    isSystem(req.user)
+      ? next()
+      : res.status(403).json({ code: "FORBIDDEN", message: "ربط Google Drive متاح لحساب النظام فقط" });
 
-module.exports = router;
+  router.post("/connect-url", requireAuth, requireSystemAccount, (req, res) => {
+    try {
+      const token = state.issue(req.user?.id);
+      return res.json({ ok: true, url: drive.getAuthUrl(token) });
+    } catch (err) {
+      return res.status(500).json({ ok: false, message: err.message });
+    }
+  });
+
+  router.get("/callback", async (req, res) => {
+    const { code, error, state: stateToken } = req.query;
+    if (!state.consume(String(stateToken || ""))) return res.redirect(`${DONE_PATH}denied`);
+    if (error || !code) return res.redirect(`${DONE_PATH}error`);
+    try {
+      await drive.handleOAuthCallback(String(code));
+      return res.redirect(`${DONE_PATH}connected`);
+    } catch (err) {
+      console.error("[GoogleDrive] connect failed:", err.message);
+      return res.redirect(`${DONE_PATH}error`);
+    }
+  });
+
+  router.get("/status", requireAuth, async (req, res) => {
+    try {
+      const status = await drive.getStatus();
+      return res.json({ ok: true, ...status, canConnect: isSystem(req.user) });
+    } catch (err) {
+      return res.status(500).json({ ok: false, message: err.message });
+    }
+  });
+
+  return router;
+}
+
+function defaultRouter() {
+  const { requireAuth } = require("../../middleware/authMiddleware");
+  const { createDriveConnectState } = require("../../utils/driveConnectState");
+  return createGoogleDriveRouter({
+    drive: require("../../services/googleDrive.service"),
+    state: createDriveConnectState(),
+    requireAuth,
+  });
+}
+
+module.exports = defaultRouter();
+module.exports.createGoogleDriveRouter = createGoogleDriveRouter;
+module.exports.isSystemAccount = isSystemAccount;
