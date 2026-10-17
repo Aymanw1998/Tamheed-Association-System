@@ -46,8 +46,6 @@ const Profile = ({parent = false}) => {
     const [err, setErr]         = useState(null);
     const [showPassword, setShowPassword] = useState(false);
     const [fetchingPassword, setFetchingPassword] = useState(false);
-    const [storedPasswordValue, setStoredPasswordValue] = useState("");
-    const [passwordAlgo, setPasswordAlgo] = useState("");
     const [passwordTouched, setPasswordTouched] = useState(false);
 
 
@@ -68,8 +66,6 @@ const Profile = ({parent = false}) => {
                 setForm(s);
                 setPhoto(s.photo || null);
                 setOriginalPhoto(s.photo || null);
-                setStoredPasswordValue("");
-                setPasswordAlgo("");
             } else {
             setErr("خلل في جلب البيانات");
             }
@@ -249,20 +245,10 @@ const Profile = ({parent = false}) => {
                 return;
             }
 
-            setStoredPasswordValue(
-                String(res.encryptedPassword || res.hashedPassword || res.storedPassword || "")
-            );
-            setPasswordAlgo(String(res.algo || ""));
-
-            if (typeof res.password === "string") {
-                setForm((prev) => ({ ...prev, password: res.password }));
-                setShowPassword(true);
-                setPasswordTouched(false);
-            } else {
-                setShowPassword(false);
-                setForm((prev) => ({ ...prev, password: "" }));
-                toast.warn(res?.message || "لم يتم استلام كلمة مرور");
-            }
+            // The server only reports whether a password is set, never its value.
+            setShowPassword(false);
+            setForm((prev) => ({ ...prev, password: "" }));
+            toast.info(res.hasPassword ? "كلمة المرور محددة (لا يمكن عرضها). أدخل كلمة مرور جديدة لتغييرها." : "لم يتم تحديد كلمة مرور لهذا المستخدم");
         } catch (e) {
             console.error(e);
             toast.error("خطأ في جلب كلمة المرور");
@@ -383,19 +369,6 @@ const Profile = ({parent = false}) => {
                     {fetchingPassword ? "⏳" : (showPassword ? "🙈" : "👁️")}
                 </button>
             </div>
-            {/* {!!storedPasswordValue && (
-                <>
-                    <label>القيمة المحفوظة ({passwordAlgo || "stored"}):</label>
-                    <textarea
-                        readOnly
-                        value={storedPasswordValue}
-                        style={{ width: "100%", minHeight: "90px", direction: "ltr" }}
-                    />
-                    <small style={{ color: "#374151", display: "block", marginTop: "4px" }}>
-                        لتغيير كلمة السر عدل الحقل الأعلى ثم اضغط حفظ. سيتم حفظها مشفرة تلقائياً.
-                    </small>
-                </>
-            )} */}
             <label style={{color: "red"}}>{error.password}</label>
         </fieldset>
 

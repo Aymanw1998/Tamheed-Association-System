@@ -70,6 +70,32 @@ const api = {
     return { success: true, result: toPlain(updated) };
   },
 
+  // Atomic $inc on an existing document. Never upserts; result is null when
+  // nothing matches. Returns the document as it is after the increment.
+  async increment({ dbName, collection, filter, field, by = 1 }) {
+    await ensureConnected();
+    const Model = getModel(dbName, collection);
+    const updated = await Model.findOneAndUpdate(
+      filter,
+      { $inc: { [field]: by } },
+      { new: true }
+    ).lean();
+    return { success: true, result: toPlain(updated) };
+  },
+
+  // Like update() but never creates a document: used for conditional writes
+  // where the filter itself is the guard (result is null if it did not match).
+  async updateExisting({ dbName, collection, filter, newData }) {
+    await ensureConnected();
+    const Model = getModel(dbName, collection);
+    const updated = await Model.findOneAndUpdate(
+      filter,
+      { $set: newData },
+      { new: true }
+    ).lean();
+    return { success: true, result: toPlain(updated) };
+  },
+
   async delete({ dbName, collection, filter }) {
     await ensureConnected();
     const Model = getModel(dbName, collection);

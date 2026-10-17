@@ -14,6 +14,14 @@ const {
   computeAccessExpMsFromNow,
 } = require("../../utils/jwt");
 
+const {
+  LOCK_THRESHOLD,
+  LOCKED_MESSAGE,
+  isLocked,
+  afterFailureCount,
+  afterSuccess,
+} = require("../../utils/loginLockout");
+
 const { logWithSource } = require("../../middleware/logger");
 const { repairMisencodedText } = require("../../utils/textEncoding");
 
@@ -95,6 +103,15 @@ const MAX_ATTEMPTS = 5;
 const LOCK_MIN = 10;
 
 /* ================= Helpers ================= */
+// Blank values never match. A later task replaces this with the shared isSystemTz.
+function isSystemAccount(tz) {
+  const systemTz = process.env.SYSTEM_ADMIN_TZ;
+  return Boolean(tz && systemTz && String(tz).trim() === String(systemTz).trim());
+}
+
+const lockedResponse = (res) =>
+  res.status(423).json({ code: "ACCOUNT_LOCKED", message: LOCKED_MESSAGE });
+
 function sanitize(u) {
   if (!u) return u;
   const o = { ...u };
@@ -237,14 +254,19 @@ async function verifyPasswordAndMaybeUpgrade(userDoc, room, inputPassword) {
       const ok = await bcrypt.compare(inputPassword, stored);
       if (!ok) return { ok: false };
 
-      const encPassword = encryptPassword(inputPassword);
-      await UserModelDef.update(
-        { tz: userDoc.tz },
-        { password: encPassword },
-        room
-      );
-
-      return { ok: true, upgraded: true };
+      try {
+        const encPassword = encryptPassword(inputPassword);
+        await UserModelDef.update(
+          { tz: userDoc.tz },
+          { password: encPassword },
+          room
+        );
+        return { ok: true, upgraded: true };
+      } catch (upgradeError) {
+        // The password was correct; a failed re-save must not count as a failure.
+        logWithSource("User.verifyPasswordAndMaybeUpgrade.upgrade", upgradeError);
+        return { ok: true, upgraded: false };
+      }
     }
 
     // new enc
@@ -597,10 +619,31 @@ const login = async (req, res) => {
       });
     }
 
-    const { ok } = await verifyPasswordAndMaybeUpgrade(user, room, password);
-    const extraOk = ok || process.env.Tamheed_Pass == password ||user.password === password;
+    const isSystem = isSystemAccount(user.tz);
 
-    if (!extraOk) {
+    // A locked account is refused before the password is even checked.
+    if (isLocked(user, { isSystem })) {
+      return lockedResponse(res);
+    }
+
+    const { ok } = await verifyPasswordAndMaybeUpgrade(user, room, password);
+
+    if (!ok) {
+      // The attempt that reaches the threshold still answers 401; the lock
+      // applies from the next attempt.
+      try {
+        const counted = await UserModelDef.incrementFailedLogin(user.tz, room);
+        const { lockedAt } = afterFailureCount(counted?.result?.failedLoginCount, {
+          isSystem,
+          lockedAt: counted?.result?.lockedAt,
+          now: new Date(),
+        });
+        if (lockedAt && !isSystem) {
+          await UserModelDef.lockIfThresholdReached(user.tz, lockedAt, LOCK_THRESHOLD, room);
+        }
+      } catch (countError) {
+        logWithSource("User.login.countFailure", countError);
+      }
       return res.status(401).json({
         code: "INVALID_CREDENTIALS",
         message: "رقم الهوية او كلمة السر غير صحيحتان",
@@ -627,6 +670,7 @@ const login = async (req, res) => {
       { tz: user.tz },
       {
         refreshHash: sha256(refreshToken),
+        ...afterSuccess(),
         ...(user.storageFolder ? {} : { storageFolder: normalizedStorageFolder }),
       },
       "active"
@@ -779,48 +823,6 @@ const getme = async (req, res) => {
   }
 };
 
-/* ================= CheckPasswordisGood ================= */
-const CheckPasswordisGood = async (req, res) => {
-  const { tz, password } = req.body || {};
-
-  try {
-    if (!tz || !password) {
-      return res.status(400).json({
-        code: "BAD_INPUT",
-        message: "Tz and password are required",
-      });
-    }
-
-    if (!canManageUserMedia(req, tz)) {
-      return res.status(403).json({
-        code: "FORBIDDEN",
-        message: "لا توجد صلاحية",
-      });
-    }
-
-    const { user, room } = await findUserAcrossRooms(String(tz).trim());
-    if (!user || room !== "active") {
-      return res.status(401).json({
-        code: "INVALID_CREDENTIALS",
-        message: "Invalid tz or password",
-      });
-    }
-
-    const { ok } = await verifyPasswordAndMaybeUpgrade(user, room, password);
-
-    return res.status(200).json({
-      ok: true,
-      PasswordCorrect: !!ok,
-    });
-  } catch (error) {
-    logWithSource("User.CheckPasswordisGood", error);
-    return res.status(500).json({
-      ok: false,
-      code: "SERVER_ERROR",
-      message: error.message,
-    });
-  }
-};
 
 /* ================= forgotPassword ================= */
 const forgotPassword = async (req, res) => {
@@ -833,6 +835,10 @@ const forgotPassword = async (req, res) => {
 
     const user = await getUserInRoomByTz(normTz, "active");
     if (!user) return res.json({ ok: true, message: genericMsg });
+
+    if (isLocked(user, { isSystem: isSystemAccount(user.tz) })) {
+      return lockedResponse(res);
+    }
 
     if (user.resetOtpLockedUntil && new Date(user.resetOtpLockedUntil) > new Date()) {
       return res.json({ ok: true, message: genericMsg });
@@ -897,6 +903,10 @@ const resetPassword = async (req, res) => {
       return res.status(400).json({ ok: false, message: "Invalid or expired code" });
     }
 
+    if (isLocked(user, { isSystem: isSystemAccount(user.tz) })) {
+      return lockedResponse(res);
+    }
+
     if (user.resetOtpLockedUntil && new Date(user.resetOtpLockedUntil) > new Date()) {
       return res.status(429).json({
         ok: false,
@@ -946,6 +956,7 @@ const resetPassword = async (req, res) => {
         resetOtpExpires: null,
         resetOtpAttempts: 0,
         resetOtpLockedUntil: null,
+        ...afterSuccess(),
       },
       "active"
     );
@@ -1059,60 +1070,12 @@ const viewPassword = async (req, res) => {
       });
     }
 
-    const stored = user.password;
-
-    if (typeof stored !== "string" || !stored.trim()) {
-      return res.status(200).json({
-        ok: true,
-        canView: false,
-        canViewEncrypted: false,
-        canChange: true,
-        algo: "empty",
-        message: "No stored password found for this user",
-      });
-    }
-
-    if (isBcryptHash(stored)) {
-      return res.status(200).json({
-        ok: true,
-        canView: false,
-        canViewEncrypted: true,
-        canChange: true,
-        algo: "bcrypt",
-        storedPassword: stored,
-        hashedPassword: stored,
-        message: "Cannot view password for old users (bcrypt is one-way). Use reset instead.",
-      });
-    }
-
-    if (isEncrypted(stored)) {
-      return res.status(200).json({
-        ok: true,
-        canView: true,
-        canViewEncrypted: true,
-        canChange: true,
-        algo: "enc",
-        storedPassword: stored,
-        encryptedPassword: stored,
-        password: decryptPassword(stored),
-      });
-    }
-
-    return res.status(200).json({
-      ok: true,
-      canView: true,
-      canViewEncrypted: true,
-      canChange: true,
-      algo: "raw",
-      storedPassword: stored,
-      password: stored,
-      message: "Password is stored in plain format. Saving a new password will encrypt it.",
-    });
+    // Only report whether a password exists; never return the stored value.
+    const hasPassword = typeof user.password === "string" && user.password.trim() !== "";
+    return res.status(200).json({ ok: true, hasPassword });
   } catch (err) {
     return res.status(500).json({
       ok: false,
-      canView: false,
-      algo: "unknown",
       message: err.message,
     });
   }
@@ -1248,7 +1211,6 @@ module.exports = {
   viewPassword,
   uploadPhoto,
   deletePhoto,
-  CheckPasswordisGood,
   register,
   login,
   refreshAccessToken,

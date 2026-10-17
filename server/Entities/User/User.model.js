@@ -63,6 +63,8 @@ const UserModelDef = {
     resetOtpHash: { type: 'string', required: false, default: null },
     resetOtpExpires: { type: 'date', required: false, default: null },
     resetOtpAttempts: { type: 'number', required: false, default: 0 },
+    failedLoginCount: { type: 'number', required: false, default: 0 },
+    lockedAt: { type: 'date', required: false, default: null },
     resetOtpLockedUntil: { type: 'date', required: false, default: null },
 
     createdAt: {
@@ -141,6 +143,28 @@ UserModelDef.update = async function (filter, newData, collection = 'active') {
     collection: this.collections[collection] || this.collections.active,
     filter,
     newData: transformedData
+  });
+};
+
+// Atomically add 1 to failedLoginCount and return the updated user.
+UserModelDef.incrementFailedLogin = async function (tz, collection = 'active') {
+  return await api.increment({
+    dbName: this.dbName,
+    collection: this.collections[collection] || this.collections.active,
+    filter: { tz },
+    field: 'failedLoginCount',
+    by: 1,
+  });
+};
+
+// Set lockedAt only if the account is not locked yet and the counter has
+// reached the threshold (the filter is the guard; never upserts).
+UserModelDef.lockIfThresholdReached = async function (tz, lockedAt, threshold, collection = 'active') {
+  return await api.updateExisting({
+    dbName: this.dbName,
+    collection: this.collections[collection] || this.collections.active,
+    filter: { tz, lockedAt: null, failedLoginCount: { $gte: threshold } },
+    newData: { lockedAt },
   });
 };
 

@@ -1344,3 +1344,61 @@ unauthenticated path that writes the Drive connection; behaviour behind more
 than one server process (state is in memory).
 
 **Delivery state:** uncommitted local changes; commit awaits the owner's message.
+
+## 2026-10-17: Permissions project, Phase 1 (login backdoors and lockout)
+
+**Owner request:** Hybrid permissions design approved
+(`docs/superpowers/specs/2026-10-17-hybrid-permissions-design.md`, plan
+`docs/superpowers/plans/2026-10-17-hybrid-permissions.md`). Phase 1 = security
+fixes and locking an account after 5 failed sign-ins.
+
+**Problems found:** `login` accepted a master password from the environment and
+the stored password value itself as a password; `viewPassword` showed admins the
+stored value, so any admin could sign in as any user, including the system
+account. `POST /api/user/checkPasswordisGood` let an admin test any user's
+password with no limit.
+
+**Changes:**
+
+- `server/Entities/User/User.controller.js`: `login` accepts only a verified
+  password; lock check (423 `ACCOUNT_LOCKED`) before verification; failure count
+  is incremented atomically and the lock set by a conditional update; the system
+  account (SYSTEM_ADMIN_TZ) is never locked; forgot/reset password refused for
+  locked accounts with no email; reset clears the counter; `viewPassword` returns
+  only `{ ok, hasPassword }`; `CheckPasswordisGood` removed.
+- `server/utils/loginLockout.js` (new), `server/Entities/User/User.model.js`
+  (`failedLoginCount`, `lockedAt`, atomic increment and conditional lock),
+  `server/Entities/api.js` (`increment` with `$inc`, no upsert).
+- `server/Entities/User/User.route.js`: photo upload/delete limited to self or
+  admin; `checkPasswordisGood` route removed.
+- `server/scripts/unlockUser.js` (`npm run user:unlock -- <tz>`) and
+  `server/scripts/encryptPlainPasswords.js` (`npm run users:encrypt-plain-passwords`,
+  dry-run counts only; `--apply` re-saves plain-text passwords in the protected
+  format).
+- Client: `ForgotPassword.jsx` shows the locked message; `EditUser.jsx`,
+  `Profile.jsx` no longer read or log password values.
+- Tests: `login-security.test.js`, `login-lockout.test.js`,
+  `user-scripts.test.js` (new); loaders updated in `photo-storage`,
+  `user-delete`, `user-profile-authorization` tests.
+
+**Process:** each task implemented by a fresh Claude subagent and reviewed by a
+separate one; a final Phase 1 review found 5 issues (removed endpoint, atomic
+counter, unlock script, plain-text passwords, gate); all fixed and re-reviewed.
+
+**Verification:** `npm run verify`: server 180/180, client 15 suites / 141
+tests, client build compiled. Not verified: no live database or real sign-in
+was used; neither script has been run against a database.
+
+**Before deploying:** run `npm run users:encrypt-plain-passwords` (dry run) and,
+if it reports any, `-- --apply`; otherwise those users cannot sign in. The master
+password from the environment no longer works, so the system account's real
+password must be known. Until the unlock screen (Phase 4), locked users are
+unlocked with `npm run user:unlock -- <tz>` on the server.
+
+**Requesting Codex review.** No live Codex connection from this session; this
+entry is the handoff. Focus: no remaining path that accepts a password without
+verification or bypasses the lock; atomic counter and conditional lock under
+parallel attempts; the system account can never be locked; the two scripts
+cannot corrupt already-protected passwords.
+
+**Delivery state:** uncommitted local changes; commit awaits the owner's message.

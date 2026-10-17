@@ -22,6 +22,7 @@ function loadController() {
     "../../utils/sendEmail": {},
     "../../utils/jwt": {},
     "../../utils/textEncoding": require("../utils/textEncoding"),
+    "../../utils/loginLockout": require("../utils/loginLockout"),
     "../../middleware/logger": { logWithSource() {} },
     "./passwordCrypto": {},
     "../UploadFile/file": {},

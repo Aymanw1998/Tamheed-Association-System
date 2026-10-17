@@ -74,6 +74,7 @@ function loadUserController(model, storage) {
     "../../utils/sendEmail": {},
     "../../utils/jwt": {},
     "../../utils/textEncoding": require("../utils/textEncoding"),
+    "../../utils/loginLockout": require("../utils/loginLockout"),
     "../../middleware/logger": { logWithSource() {} },
     "./passwordCrypto": {},
     "../UploadFile/file": storage,
@@ -225,6 +226,7 @@ test("only admins and guides can delete a student's photo", async () => {
 
     assert.equal(deleted, allowed, `roles ${roles.join(",")}`);
     assert.equal(res.statusCode, allowed ? 200 : 403, `roles ${roles.join(",")}`);
+    if (!allowed) assert.equal(res.body?.code, "FORBIDDEN", `roles ${roles.join(",")}`);
   }
 });
 

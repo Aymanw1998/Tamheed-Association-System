@@ -60,8 +60,6 @@ const EditUser = () => {
   const [fetchingPassword, setFetchingPassword] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [passwordTouched, setPasswordTouched] = useState(false);
-  const [storedPasswordValue, setStoredPasswordValue] = useState("");
-  const [passwordAlgo, setPasswordAlgo] = useState("");
 
 
   useEffect(() => {
@@ -79,8 +77,6 @@ const EditUser = () => {
           setForm(s);
           setPhoto(s.photo || null);
           setOriginalPhoto(s.photo || null);
-          setStoredPasswordValue("");
-          setPasswordAlgo("");
         } else {
           setErr("المستخدم غير موجود");
         }
@@ -255,7 +251,6 @@ const EditUser = () => {
     if (!tzToFetch) return;
 
     const res = await viewPassword(tzToFetch);
-    console.log('Password fetch response:', res);
 
     // bcrypt / cannot view
     if (!res?.ok) {
@@ -263,24 +258,10 @@ const EditUser = () => {
       return;
     }
 
-    setStoredPasswordValue(
-      String(res.encryptedPassword || res.hashedPassword || res.storedPassword || '')
-    );
-    setPasswordAlgo(String(res.algo || ''));
-
-    if (typeof res.password === 'string') {
-      setForm((prev) => ({ ...prev, password: res.password }));
-      setShowPassword(true);
-
-      // ملاحظة عربية
-      setPasswordTouched(false);
-
-      // ملاحظة عربية
-    } else {
-      setShowPassword(false);
-      setForm((prev) => ({ ...prev, password: '' }));
-      toast.warn(res?.message || 'لم يتم استلام كلمة مرور');
-    }
+    // The server only reports whether a password is set, never its value.
+    setShowPassword(false);
+    setForm((prev) => ({ ...prev, password: '' }));
+    toast.info(res.hasPassword ? 'كلمة المرور محددة (لا يمكن عرضها). أدخل كلمة مرور جديدة لتغييرها.' : 'لم يتم تحديد كلمة مرور لهذا المستخدم');
   } catch (e) {
     console.error(e);
     toast.error('❌ خطأ في جلب كلمة المرور');
@@ -465,19 +446,6 @@ const EditUser = () => {
           </button>
 
         </div>
-        {/* {!!storedPasswordValue && (
-          <>
-            <label>القيمة المحفوظة ({passwordAlgo || "stored"}):</label>
-            <textarea
-              readOnly
-              value={storedPasswordValue}
-              style={{ width: "100%", minHeight: "90px", direction: "ltr" }}
-            />
-            <small style={{ color: "#374151", display: "block", marginTop: "4px" }}>
-              لتغيير كلمة السر عدل الحقل الأعلى ثم اضغط حفظ. سيتم حفظها مشفرة تلقائياً.
-            </small>
-          </>
-        )} */}
         <label style={{color: "red"}}>{error.password}</label>
 
         <label>الادوار:<span style={{color: "red"}}>*</span></label>
