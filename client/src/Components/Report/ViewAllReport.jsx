@@ -9,26 +9,9 @@ import { exportReportPdf } from "./ExportPDF.jsx";
 import Button from "../UI/Button.jsx";
 import PersonCard, { PersonCardList } from "../UI/PersonCard.jsx";
 import { joinParts } from "../../utils/personCard";
+import { canStored } from "../../utils/session";
 
-const ADMIN_ROLES = ["ادارة", "إدارة", "الادارة", "الإدارة"];
 
-const normalizeRoles = (value) => {
-  if (Array.isArray(value)) return value.filter(Boolean);
-  if (!value) return [];
-
-  if (typeof value === "string") {
-    try {
-      const parsed = JSON.parse(value);
-      if (Array.isArray(parsed)) return parsed.filter(Boolean);
-    } catch (error) {
-      return [value];
-    }
-
-    return [value];
-  }
-
-  return [];
-};
 
 const toDate = (value) => {
   if (!value) return null;
@@ -82,8 +65,8 @@ const resetFilters = {
 
 const ViewAllReport = () => {
   const navigate = useNavigate();
-  const roles = normalizeRoles(localStorage.getItem("roles"));
-  const isAdmin = ADMIN_ROLES.some((role) => roles.includes(role));
+  const isAdmin = canStored("reports.viewAll");
+  const canListUsers = canStored("users.view");
 
   const [showFab, setShowFab] = useState(false);
   const [addBtnEl, setAddBtnEl] = useState(null);
@@ -124,7 +107,7 @@ const ViewAllReport = () => {
       // GET /user/ (the full list) is admin-only. Non-admins only ever see
       // their own reports (server-scoped), so their own profile - fetched
       // through the self-accessible /auth/me - is all "صاحب التقرير" needs.
-      const loadOwners = isAdmin
+      const loadOwners = isAdmin && canListUsers
         ? getUsers()
         : getMe().then((user) => ({ ok: Boolean(user), users: user ? [user] : [] }));
       const [usersResponse, reportsResponse] = await Promise.all([loadOwners, getAll()]);

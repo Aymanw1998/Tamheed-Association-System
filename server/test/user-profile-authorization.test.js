@@ -3,9 +3,12 @@ const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 const vm = require("node:vm");
+const { actorFor } = require("./helpers/actors");
 
 // Load the real handler with inert dependencies: importing the application
 // normally initializes database, storage, email, and logging integrations.
+const STORED_TARGET = { tz: "self-user", role: "مساعد", roles: ["مساعد"] };
+
 function loadController() {
   const updates = [];
   const dependencies = {
@@ -14,6 +17,11 @@ function loadController() {
     path,
     "./User.model": {
       UserModelDef: {
+        // The edited user, as stored, in whichever room is asked for.
+        async get(filter) {
+          const hit = filter.tz === STORED_TARGET.tz;
+          return { success: true, count: hit ? 1 : 0, result: hit ? [STORED_TARGET] : [] };
+        },
         async update(filter, data, room) {
           updates.push({ filter, data, room });
           return { success: true };
@@ -23,6 +31,7 @@ function loadController() {
     "../../utils/sendEmail": {},
     "../../utils/jwt": {},
     "../../utils/textEncoding": require("../utils/textEncoding"),
+    "../../utils/permissions": require("../utils/permissions"),
     "../../utils/loginLockout": require("../utils/loginLockout"),
     "../../middleware/logger": { logWithSource() {} },
     "./passwordCrypto": {},
@@ -49,7 +58,8 @@ async function updateUser({ user, body, tz = "self-user" }) {
     status(code) { this.statusCode = code; return this; },
     json(value) { this.body = value; return this; },
   };
-  await putU({ params: { tz }, user, body }, res);
+  // The route runs loadActor first; req.actor is built from the same user.
+  await putU({ params: { tz }, user, actor: user && actorFor(user), body }, res);
   // Convert objects created in the VM into this test's realm for strict equality.
   return { res, updates: JSON.parse(JSON.stringify(updates)) };
 }
@@ -122,7 +132,8 @@ for (const role of ["ادارة", " إدارة ", "الادارة", "الإدا�
     });
     assert.equal(res.statusCode, 200);
     const { room, ...data } = body;
-    assert.deepEqual(updates, [{ filter: { tz: "self-user" }, data, room }]);
+    // The legacy roles list also sets the single role that access is read from.
+    assert.deepEqual(updates, [{ filter: { tz: "self-user" }, data: { ...data, role: "مساعد" }, room }]);
   });
 }
 
@@ -132,7 +143,8 @@ test("administrator can manage their own account through the route's self branch
     body: { roles: ["ادارة", "مرشد"] },
   });
   assert.equal(res.statusCode, 200);
-  assert.deepEqual(updates[0].data, { roles: ["ادارة", "مرشد"] });
+  // Only the highest role is kept, as the single role.
+  assert.deepEqual(updates[0].data, { roles: ["ادارة"], role: "ادارة" });
 });
 
 test("non-administrators cannot update another identity even if the handler is called directly", async () => {

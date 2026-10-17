@@ -7,34 +7,31 @@ const {
 } = require('./User.controller');
 
 // alias
-const {
-  requireAuth: protect,
-  requireRole: protectRole,
-  requireSelfOrRole: protectSelfOrRole,
-} = require('../../middleware/authMiddleware');
+const { requireAuth: protect } = require('../../middleware/authMiddleware');
+const { loadActor, requirePermission, requireSelfOr } = require('../../middleware/permissionMiddleware');
 const mongoose = require('mongoose');
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
 
 // ملاحظة عربية
-router.use(protect);
+router.use(protect, loadActor);
 
 // الأحدالأربعاءجنس
-router.get('/', protectRole('ادارة'), getAllU);
-router.get('/:tz', protectSelfOrRole('tz', 'ادارة'), getOneU);
-router.get('/viewPassword/:tz', protectRole('ادارة'), viewPassword);
+router.get('/', requirePermission('users.view'), getAllU);
+router.get('/:tz', requireSelfOr('tz', 'users.view'), getOneU);
+router.get('/viewPassword/:tz', requirePermission('users.passwords'), viewPassword);
 
-router.post('/', protectRole('ادارة'), postU);
-router.post("/changeStatus/:tz", protectRole('ادارة'), changeRoom);
-router.post('/upload-photo/:tz', protectSelfOrRole('tz', 'ادارة'), upload.single('file'), uploadPhoto);
+router.post('/', requirePermission('users.create'), postU);
+router.post("/changeStatus/:tz", requirePermission('users.approve'), changeRoom);
+router.post('/upload-photo/:tz', requireSelfOr('tz', 'users.edit'), upload.single('file'), uploadPhoto);
 
-router.patch('/:tz/storage-permissions', protectRole('ادارة'), updateStoragePermissions);
+router.patch('/:tz/storage-permissions', requirePermission('files.manageAll'), updateStoragePermissions);
 
-router.put('/:tz', protectSelfOrRole('tz', 'ادارة'), putU);
+router.put('/:tz', requireSelfOr('tz', 'users.edit'), putU);
 
-router.delete('/photo/:tz', protectSelfOrRole('tz', 'ادارة'), deletePhoto);
-router.delete('/:tz/:from', protectRole('ادارة'), deleteU);
+router.delete('/photo/:tz', requireSelfOr('tz', 'users.edit'), deletePhoto);
+router.delete('/:tz/:from', requirePermission('users.delete'), deleteU);
 
 
 module.exports = router;

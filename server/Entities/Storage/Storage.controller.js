@@ -7,6 +7,7 @@ const { UserModelDef } = require("../User/User.model");
 const { StorageModelDef } = require("./Storage.model");
 const { broadcast } = require("../../utils/sse");
 const { repairMisencodedText } = require("../../utils/textEncoding");
+const { can } = require("../../utils/permissions");
 
 const STORAGE_DB_NAME = process.env.DB_NAME || "tamheed_db";
 const STORAGE_COLLECTION = process.env.STORAGE_COLLECTION || "root";
@@ -38,8 +39,6 @@ const CLIENT_APP_URL = (process.env.CLIENT_URL || "").replace(/\/+$/, "");
 const MAX_CHUNKS_PER_UPLOAD = Number(process.env.STORAGE_MAX_UPLOAD_CHUNKS || 2000);
 const UPLOAD_SESSION_DIR = process.env.STORAGE_UPLOAD_SESSION_DIR || path.join(process.cwd(), "storage-upload-sessions");
 const UPLOAD_SESSION_TTL_MS = Number(process.env.STORAGE_UPLOAD_SESSION_TTL_HOURS || 24) * 60 * 60 * 1000;
-
-const ADMIN_ROLES = new Set(["ادارة", "إدارة", "الادارة", "الإدارة", "admin", "administrator"]);
 
 const normalizeRelativePath = (value = "") => {
   return String(value)
@@ -174,10 +173,6 @@ setInterval(cleanupOldUploadSessions, 60 * 60 * 1000).unref?.();
 cleanupOldUploadSessions().catch((error) => {
   console.warn("[storage] upload-session:startup-cleanup:error", error.message);
 });
-
-const isAdminUser = (user = {}) => {
-  return (user.roles || []).some((role) => ADMIN_ROLES.has(String(role).trim()));
-};
 
 const getActiveUserByTz = async (tz) => {
   const result = await UserModelDef.get({ tz }, "active");
@@ -423,11 +418,12 @@ const hasAnySharedAccess = (user = {}, requestedPath = "") => {
 };
 
 const getStorageScope = async (req, action = "view", requestedPath = "") => {
-  const dbUser = await getActiveUserByTz(req.user?.tz);
-  const user = dbUser || { tz: req.user?.tz, roles: req.user?.roles || [] };
+  // req.actor (permissionMiddleware.loadActor) already holds the active user.
+  const user = req.actor?.user || (await getActiveUserByTz(req.user?.tz)) || { tz: req.user?.tz };
   const requested = getClientRelativePath(requestedPath);
 
-  if (isAdminUser(user)) {
+  // files.manageAll: every user's folders, past the per-path permissions.
+  if (can(req.actor?.permissions, "files.manageAll")) {
     return { user, isAdmin: true, folder: requested, userRoot: "" };
   }
 

@@ -1,6 +1,5 @@
 // middleware/authRequired.js
 const jwt = require('jsonwebtoken');  // ملاحظة عربية
-const { repairMisencodedText } = require('../utils/textEncoding');
 
 const requireAuth = (req, res, next) => {
   try {
@@ -29,41 +28,4 @@ const requireAuth = (req, res, next) => {
   }
 }
 
-const ADMIN_ROLES = new Set(["ادارة", "إدارة", "الادارة", "الإدارة"]);
-
-function requireRole(...roles) {
-  return (req, res, next) => {
-    req.user.roles = (req.user.roles || []).map((role) => repairMisencodedText(String(role).trim()));
-    let b = false;
-    for (let r of roles) {
-      if (
-        req.user.roles.includes(r) ||
-        (ADMIN_ROLES.has(r) && req.user.roles.some((role) => ADMIN_ROLES.has(role)))
-      ) {
-        b = true;
-        break;
-      }
-    }
-
-    if (!b) {
-      return res.status(403).json({ code: 'FORBIDDEN', message: 'لا توجد صلاحية' });
-    }
-    next();
-  };
-}
-
-function requireSelfOrRole(paramName = 'tz', ...roles) {
-  return (req, res, next) => {
-    const requestedIdentity = String(req.params?.[paramName] || '').trim();
-    const userId = String(req.user?.id || '').trim();
-    const userTz = String(req.user?.tz || '').trim();
-
-    if (requestedIdentity && (requestedIdentity === userTz || requestedIdentity === userId)) {
-      return next();
-    }
-
-    return requireRole(...roles)(req, res, next);
-  };
-}
-
-module.exports = { requireAuth, requireRole, requireSelfOrRole };
+module.exports = { requireAuth };

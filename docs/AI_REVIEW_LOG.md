@@ -1402,3 +1402,60 @@ parallel attempts; the system account can never be locked; the two scripts
 cannot corrupt already-protected passwords.
 
 **Delivery state:** uncommitted local changes; commit awaits the owner's message.
+
+## 2026-10-17: Permissions project, Phase 2 (permission engine, migration, guards)
+
+**Scope:** plan Tasks 3–7 (`docs/superpowers/plans/2026-10-17-hybrid-permissions.md`).
+Access now comes from permission keys computed as role defaults plus
+per-account grants minus revokes, read from the database on every request
+(not from the JWT). Role defaults equal what each role can do today.
+
+**Changes:**
+
+- `server/utils/permissions.js`: permission tree (incl. new leaves
+  `vehicles.delete`, `lessons.viewAll`), role defaults, `effectivePermissions`,
+  `can`, `resolveRole`, `normalizeRole` (Arabic spelling variants and misencoded
+  text), `isSystemTz`, `applyLegacyEditToPermissions`. Legacy `canByRole` removed.
+- `server/middleware/permissionMiddleware.js` (new): `loadActor` (401 if not
+  active, 423 if locked), `requirePermission`, `requireSelfOr`, `actorLabel`.
+- `requireRole`, `requireSelfOrRole`, `ADMIN_ROLES` and every `isAdminUser` copy
+  removed; every route in `server/Entities/*/*.route.js` guarded by a key;
+  `server/test/route-guards.test.js` lists the public routes.
+- Intended changes: `viewPassword` needs `users.passwords` (system-granted only);
+  permanent vehicle delete needs `vehicles.delete`; notice audience = holders of
+  `notices.view`; users without a recognised role lose view access (fail-closed);
+  AI chat needs sign-in and `ai.use`.
+- Edit-user screen: role and vehicle-permission edits now update `role` and
+  `permissionGrants` (demotion clears special permissions); `storagePermissions`
+  through `PUT /user/:tz` needs `files.manageAll`.
+- `server/scripts/migratePermissions.js` (`npm run permissions:migrate`):
+  dry-run by default, `--apply` writes; before/after safety check per user;
+  lists users with no or unknown role.
+- `/api/auth/me` returns `role` and `permissions`; the client hides UI by key
+  (`client/src/utils/permissionKeys.js`, `session.js`, `routeAccess.js`,
+  `lessonVisibility.js`, 11 components).
+
+**Process:** each task built by a fresh Claude subagent and reviewed by a
+separate one (Tasks 4, 5, 7 needed one fix round each); final Phase 2 review
+found one critical issue (edit-user role/vehicle changes ignored after
+migration) and four minors; all fixed and re-reviewed.
+
+**Verification:** `npm run verify`: server 253/253, client 17 suites / 154
+tests, client build compiled. Not verified: no live database, no browser check
+of the changed screens, migration not run against any data.
+
+**Deploy order (required):** run `npm run permissions:migrate` (dry run) on the
+server, fix any users listed with no/unknown role, then
+`npm run permissions:migrate -- --apply` before or together with this server
+code. Without it, guides/assistants with vehicle rights lose them.
+
+**Known open items (later phases):** public `register` still accepts role,
+vehicle and storage fields from the request body (Task 11); any `users.edit`
+holder can set roles (rank rules in Task 10); `PUT /user/:tz` admin path can
+still write session/reset fields (pre-existing).
+
+**Requesting Codex review.** No live Codex connection from this session; this
+entry is the handoff. Focus: no route more open than before; no path where JWT
+roles grant access; migration safety; the edit-user role/vehicle translation.
+
+**Delivery state:** uncommitted local changes; commit awaits the owner's message.

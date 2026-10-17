@@ -4,6 +4,8 @@ const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 const vm = require("node:vm");
+const { actorFor } = require("./helpers/actors");
+const { requirePermission } = require("../middleware/permissionMiddleware");
 
 // Real controller logic, in-memory stand-ins for the database, Drive and the
 // user collection, so nothing touches production services.
@@ -32,15 +34,19 @@ function createStore(seed = []) {
 
 const ADMIN = { _id: "1".padStart(24, "c"), tz: "111111118", firstname: "Ad", lastname: "Min", roles: ["ادارة"] };
 const GUIDE = { _id: "2".padStart(24, "c"), tz: "222222226", firstname: "Gui", lastname: "De", roles: ["مرشد"] };
-const VIEWER = { _id: "3".padStart(24, "c"), tz: "333333334", firstname: "Vi", lastname: "Ewer", roles: ["مرشد"], vehiclePermissions: ["view"] };
-const DOCS = { _id: "4".padStart(24, "c"), tz: "444444442", firstname: "Do", lastname: "Cs", roles: ["مساعد"], vehiclePermissions: ["view", "documents"] };
+const VIEWER = { _id: "3".padStart(24, "c"), tz: "333333334", firstname: "Vi", lastname: "Ewer", roles: ["مرشد"], permissionGrants: ["vehicles.view"] };
+const DOCS = { _id: "4".padStart(24, "c"), tz: "444444442", firstname: "Do", lastname: "Cs", roles: ["مساعد"], permissionGrants: ["vehicles.view", "vehicles.documents"] };
+// All five delegable vehicle permissions (what migration can grant at most).
+const FIVE = { _id: "6".padStart(24, "c"), tz: "666666668", firstname: "Fi", lastname: "Ve", roles: ["مرشد"], permissionGrants: ["vehicles.view", "vehicles.edit", "vehicles.compliance", "vehicles.documents", "vehicles.archive"] };
+// Every delegable vehicle permission except archive.
+const FOUR = { _id: "5".padStart(24, "c"), tz: "555555550", firstname: "Fo", lastname: "Ur", roles: ["مرشد"], permissionGrants: ["vehicles.view", "vehicles.edit", "vehicles.compliance", "vehicles.documents"] };
 
 const lookupStub = { lookupByPlate: async (plate) => ({ available: true, found: false, reason: "stub", plate }) };
 
 function setup({ vehicles = [] } = {}) {
   const vehicleStore = createStore(vehicles);
   const auditStore = createStore();
-  const userStore = createStore([ADMIN, GUIDE, VIEWER, DOCS]);
+  const userStore = createStore([ADMIN, GUIDE, VIEWER, DOCS, FOUR, FIVE]);
   const uploads = [];
   const drive = {
     async uploadPrivateFile(args) {
@@ -71,6 +77,7 @@ function setup({ vehicles = [] } = {}) {
     "../../middleware/logger.js": { logWithSource() {} },
     "../../utils/textEncoding.js": require("../utils/textEncoding"),
     "../../utils/vehicleRules.js": require("../utils/vehicleRules"),
+    "../../utils/permissions.js": require("../utils/permissions"),
     "../../utils/vehicleFiles.js": require("../utils/vehicleFiles"),
     "../../services/vehicleLookup.service.js": lookupStub,
   };
@@ -105,13 +112,14 @@ function createRes() {
   };
 }
 
-const as = (user, extra = {}) => ({ user: { id: user._id, tz: user.tz, roles: user.roles }, params: {}, query: {}, body: {}, ...extra });
+// The route runs loadActor first; req.actor is built from the same DB user.
+const as = (user, extra = {}) => ({ user: { id: user._id, tz: user.tz, roles: user.roles }, actor: actorFor(user), params: {}, query: {}, body: {}, ...extra });
 
 async function guard(controller, permission, user) {
   const req = as(user);
   const res = createRes();
   let passed = false;
-  await controller.requirePermission(permission)(req, res, () => { passed = true; });
+  await controller.requireVehiclePermission(permission)(req, res, () => { passed = true; });
   return { passed, res, req };
 }
 
@@ -138,12 +146,14 @@ test("permissions are enforced on the server for every role", async () => {
   assert.equal((await guard(controller, "archive", DOCS)).passed, false);
 });
 
-test("a signed-in token for a user that no longer exists is refused", async () => {
+// A token for a user who no longer exists gets 401 NO_ACTIVE from loadActor
+// (permission-middleware.test.js); the guard itself also refuses without an actor.
+test("without a loaded actor the guard refuses, whatever the token says", async () => {
   const { controller } = setup();
   const req = { user: { id: "x", tz: "999999999", roles: ["ادارة"] }, params: {}, query: {}, body: {} };
   const res = createRes();
   let passed = false;
-  await controller.requirePermission("view")(req, res, () => { passed = true; });
+  await controller.requireVehiclePermission("view")(req, res, () => { passed = true; });
   assert.equal(passed, false);
   assert.equal(res.statusCode, 403);
 });
@@ -381,12 +391,10 @@ test("alerts: administrators see all, an assigned user only their vehicles", asy
 
   const guideReq = as(GUIDE);
   const guideRes = createRes();
-  await controller.attachActor(guideReq, createRes(), () => {});
   await controller.getAlerts(guideReq, guideRes);
   assert.deepEqual([...new Set(guideRes.body.alerts.map((alert) => alert.plate))], ["1111111"]);
 
   const viewerReq = as(VIEWER);
-  await controller.attachActor(viewerReq, createRes(), () => {});
   const viewerRes = createRes();
   await controller.getAlerts(viewerReq, viewerRes);
   assert.equal(new Set(viewerRes.body.alerts.map((alert) => alert.plate)).size, 2, "a viewer sees every vehicle's alerts");
@@ -497,10 +505,10 @@ test("getMyPermissions reports what the caller may do", async () => {
   const { controller } = setup();
   for (const [user, expected] of [[ADMIN, ["view", "edit", "compliance", "documents", "archive"]], [GUIDE, []], [DOCS, ["view", "documents"]]]) {
     const req = as(user);
-    await controller.attachActor(req, createRes(), () => {});
     const res = createRes();
     await controller.getMyPermissions(req, res);
     assert.deepEqual(res.body.permissions, expected);
+    assert.equal(res.body.isAdmin, user === ADMIN, "isAdmin means may delete");
   }
 });
 
@@ -542,17 +550,19 @@ async function adminDelete(controller, id, body) {
   return { res };
 }
 
-test("deletion is limited to administrators, even with every delegable permission", async () => {
+test("deletion needs vehicles.delete: admins only, even with every delegable permission", async () => {
   const { controller } = setup();
-  for (const user of [GUIDE, VIEWER, DOCS]) {
+  assert.equal(controller.DELETE_KEY, "vehicles.delete");
+  const deleteGuard = requirePermission(controller.DELETE_KEY);
+  for (const user of [GUIDE, VIEWER, DOCS, FOUR, FIVE]) {
     const res = createRes();
     let passed = false;
-    await controller.requireAdmin(as(user), res, () => { passed = true; });
+    await deleteGuard(as(user), res, () => { passed = true; });
     assert.equal(passed, false);
     assert.equal(res.statusCode, 403);
   }
   let adminPassed = false;
-  await controller.requireAdmin(as(ADMIN), createRes(), () => { adminPassed = true; });
+  await deleteGuard(as(ADMIN), createRes(), () => { adminPassed = true; });
   assert.equal(adminPassed, true);
 });
 

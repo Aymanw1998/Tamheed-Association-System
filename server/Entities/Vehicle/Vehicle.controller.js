@@ -3,8 +3,8 @@ const { VehicleModelDef, VehicleAuditDef } = require("./Vehicle.model.js");
 const { UserModelDef } = require("../User/User.model.js");
 const googleDrive = require("../../services/googleDrive.service.js");
 const { logWithSource } = require("../../middleware/logger.js");
-const { repairMisencodedText } = require("../../utils/textEncoding.js");
 const rules = require("../../utils/vehicleRules.js");
+const { can } = require("../../utils/permissions.js");
 const { inspectDocument, buildDocumentName } = require("../../utils/vehicleFiles.js");
 const { lookupByPlate } = require("../../services/vehicleLookup.service.js");
 
@@ -25,68 +25,20 @@ const fail = (res, status, message, extra = {}) => send(res, status, { ok: false
 
 const personName = (user = {}) =>
   [user.firstname, user.lastname].filter(Boolean).join(" ").trim() || String(user.tz || "");
+const actorName = (actor = {}) => actor.name || String(actor.tz || "");
 
-// The signed-in user is re-read from the database for every request: roles and
-// vehicle permissions can be changed at any time and the token may be stale.
-async function loadActor(req) {
-  const tz = String(req.user?.tz || "").trim();
-  if (!tz) return null;
-  const found = await UserModelDef.get({ tz }).catch(() => null);
-  const user = found?.result?.[0];
-  if (!user) return null;
-  return {
-    id: String(user._id),
-    tz: String(user.tz),
-    name: personName(user),
-    roles: (Array.isArray(user.roles) ? user.roles : []).map((role) =>
-      repairMisencodedText(String(role).trim())
-    ),
-    vehiclePermissions: rules.sanitizeVehiclePermissions(user.vehiclePermissions),
-  };
+// Route guard. req.actor is loaded fresh from the database for every request
+// by permissionMiddleware.loadActor; nothing works without vehicles.view.
+function requireVehiclePermission(permission) {
+  return (req, res, next) =>
+    rules.hasVehiclePermission(req.actor, permission)
+      ? next()
+      : fail(res, 403, "لا توجد صلاحية", { code: "FORBIDDEN" });
 }
 
-// Route guard: the permission is enforced here, on the server.
-function requirePermission(permission) {
-  return async (req, res, next) => {
-    try {
-      const actor = await loadActor(req);
-      if (!actor || !rules.hasVehiclePermission(actor, permission)) {
-        return fail(res, 403, "لا توجد صلاحية", { code: "FORBIDDEN" });
-      }
-      req.actor = actor;
-      return next();
-    } catch (err) {
-      logWithSource("Vehicle.requirePermission", err);
-      return fail(res, 500, SERVER_ERROR);
-    }
-  };
-}
-
-// Permanent deletion is not one of the delegable vehicle permissions.
-async function requireAdmin(req, res, next) {
-  try {
-    const actor = await loadActor(req);
-    if (!actor || !rules.isAdminUser(actor)) return fail(res, 403, "لا توجد صلاحية", { code: "FORBIDDEN" });
-    req.actor = actor;
-    return next();
-  } catch (err) {
-    logWithSource("Vehicle.requireAdmin", err);
-    return fail(res, 500, SERVER_ERROR);
-  }
-}
-
-// For routes any signed-in user may call (their own permissions and alerts).
-async function attachActor(req, res, next) {
-  try {
-    const actor = await loadActor(req);
-    if (!actor) return fail(res, 403, "لا توجد صلاحية", { code: "FORBIDDEN" });
-    req.actor = actor;
-    return next();
-  } catch (err) {
-    logWithSource("Vehicle.attachActor", err);
-    return fail(res, 500, SERVER_ERROR);
-  }
-}
+// Permanent deletion is not one of the delegable vehicle permissions: only
+// vehicles.delete (admin role default, or a grant) allows it.
+const DELETE_KEY = "vehicles.delete";
 
 async function findVehicle(id) {
   if (!OBJECT_ID.test(String(id || ""))) return null;
@@ -101,7 +53,7 @@ async function audit(vehicle, actor, action, { changes = [], reason = "", detail
       plate: vehicle.plate,
       action,
       by: actor.id,
-      byName: actor.name,
+      byName: actorName(actor),
       at: new Date().toISOString(),
       changes,
       reason: clean(reason, 500),
@@ -243,7 +195,8 @@ const getMyPermissions = async (req, res) => {
   const { actor } = req;
   return send(res, 200, {
     ok: true,
-    isAdmin: rules.isAdminUser(actor),
+    // Kept as "isAdmin" for the client: it means "may delete permanently".
+    isAdmin: can(actor?.permissions, DELETE_KEY),
     permissions: rules.PERMISSIONS.filter((permission) => rules.hasVehiclePermission(actor, permission)),
   });
 };
@@ -450,7 +403,7 @@ function applyRecordPatch(record, patch, { fields, guarded, reason, actor }) {
     if (JSON.stringify(incoming) === JSON.stringify(before)) continue;
     next[field] = incoming;
     if (guarded.includes(field) && before !== "") {
-      corrections.push({ at: new Date().toISOString(), by: actor.id, byName: actor.name, field, from: before, to: incoming, reason });
+      corrections.push({ at: new Date().toISOString(), by: actor.id, byName: actorName(actor), field, from: before, to: incoming, reason });
     }
   }
   next.corrections = [...(record.corrections || []), ...corrections];
@@ -547,7 +500,7 @@ function addRecordHandler(kind) {
         ...data,
         corrections: [],
         recordedBy: req.actor.id,
-        recordedByName: req.actor.name,
+        recordedByName: actorName(req.actor),
         recordedAt: new Date().toISOString(),
       };
       const patch = { [config.list]: [...(vehicle[config.list] || []), record] };
@@ -734,7 +687,7 @@ const uploadDocument = async (req, res) => {
       linkedId: LINK_TYPES[linkedType] ? linkedId : "",
       replacesId,
       uploadedBy: req.actor.id,
-      uploadedByName: req.actor.name,
+      uploadedByName: actorName(req.actor),
       uploadedAt: now,
       supersededAt: "",
     };
@@ -858,7 +811,7 @@ const getAlerts = async (req, res) => {
     const all = (found?.result || []).flatMap((vehicle) => rules.buildAlerts(vehicle, today));
     const alerts = rules.hasVehiclePermission(req.actor, "view")
       ? all
-      : rules.filterAlertsForUser(all, { id: req.actor.id, roles: req.actor.roles });
+      : rules.filterAlertsForUser(all, req.actor);
     alerts.sort((a, b) => SEVERITY[a.level] - SEVERITY[b.level] || (a.daysLeft ?? 0) - (b.daysLeft ?? 0));
     return send(res, 200, { ok: true, today, alerts });
   } catch (err) {
@@ -889,9 +842,8 @@ const officialLookup = async (req, res) => {
 };
 
 module.exports = {
-  requirePermission,
-  requireAdmin,
-  attachActor,
+  requireVehiclePermission,
+  DELETE_KEY,
   getMyPermissions,
   listResponsibles,
   getAll,

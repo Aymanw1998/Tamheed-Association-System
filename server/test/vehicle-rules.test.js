@@ -196,7 +196,7 @@ test("a future-only policy raises a missing-cover alert instead of looking cover
   assert.equal(alerts[0].level, "missing");
 });
 
-test("filterAlertsForUser: administrators see all, others only their assigned vehicles", () => {
+test("filterAlertsForUser: vehicles.view sees all, others only their assigned vehicles", () => {
   const alerts = [
     { key: "a", responsibleId: "u1" },
     { key: "b", responsibleId: "u2" },
@@ -205,25 +205,40 @@ test("filterAlertsForUser: administrators see all, others only their assigned ve
   assert.equal(rules.filterAlertsForUser(alerts, { id: "x", roles: ["ادارة"] }).length, 3);
   assert.deepEqual(rules.filterAlertsForUser(alerts, { id: "u1", roles: ["مرشد"] }).map((a) => a.key), ["a"]);
   assert.deepEqual(rules.filterAlertsForUser(alerts, { roles: ["مرشد"] }), []);
+  // A granted viewer sees every alert; an admin with vehicles revoked only theirs.
+  assert.equal(rules.filterAlertsForUser(alerts, { id: "u2", roles: ["مرشد"], permissionGrants: ["vehicles.view"] }).length, 3);
+  assert.deepEqual(rules.filterAlertsForUser(alerts, { id: "u2", roles: ["ادارة"], permissionRevokes: ["vehicles.view"] }).map((a) => a.key), ["b"]);
 });
 
-test("hasVehiclePermission: admin has all, others need explicit grants and view", () => {
+test("hasVehiclePermission: admin role defaults hold all, others need explicit grants and view", () => {
   const admin = { roles: ["ادارة"] };
   const guide = { roles: ["مرشد"] };
   for (const permission of rules.PERMISSIONS) {
     assert.equal(rules.hasVehiclePermission(admin, permission), true);
     assert.equal(rules.hasVehiclePermission(guide, permission), false);
   }
-  const viewer = { roles: ["مرشد"], vehiclePermissions: ["view"] };
+  const viewer = { roles: ["مرشد"], permissionGrants: ["vehicles.view"] };
   assert.equal(rules.hasVehiclePermission(viewer, "view"), true);
   assert.equal(rules.hasVehiclePermission(viewer, "edit"), false);
   // Edit without view does not work: you cannot change what you cannot see.
-  const editorOnly = { roles: ["مرشد"], vehiclePermissions: ["edit"] };
+  const editorOnly = { roles: ["مرشد"], permissionGrants: ["vehicles.edit"] };
   assert.equal(rules.hasVehiclePermission(editorOnly, "edit"), false);
-  const editor = { roles: ["مرشد"], vehiclePermissions: ["view", "edit"] };
+  const editor = { roles: ["مرشد"], permissionGrants: ["vehicles.view", "vehicles.edit"] };
   assert.equal(rules.hasVehiclePermission(editor, "edit"), true);
   assert.equal(rules.hasVehiclePermission(editor, "archive"), false);
   assert.equal(rules.hasVehiclePermission(admin, "unknown"), false);
+  // Revoking view from an administrator takes every vehicle permission away.
+  const blindAdmin = { roles: ["ادارة"], permissionRevokes: ["vehicles.view"] };
+  for (const permission of rules.PERMISSIONS) assert.equal(rules.hasVehiclePermission(blindAdmin, permission), false);
+});
+
+test("hasVehiclePermission accepts a permission Set or a loaded actor", () => {
+  assert.equal(rules.hasVehiclePermission(new Set(["vehicles.view", "vehicles.edit"]), "edit"), true);
+  assert.equal(rules.hasVehiclePermission(new Set(["vehicles.edit"]), "edit"), false);
+  const actor = { roles: [], permissions: new Set(["vehicles.view", "vehicles.archive"]) };
+  assert.equal(rules.hasVehiclePermission(actor, "archive"), true);
+  assert.equal(rules.hasVehiclePermission(actor, "documents"), false);
+  assert.equal(rules.hasVehiclePermission(undefined, "view"), false);
 });
 
 test("sanitizeVehiclePermissions keeps only known permissions", () => {
@@ -327,4 +342,9 @@ test("an expired policy next to an active one produces no insurance alert", () =
   };
   const kinds = rules.buildAlerts(vehicle, "2026-10-14").map((a) => a.kind);
   assert.ok(!kinds.includes("insurance"));
+});
+
+test("delete is not a delegable vehicle permission: legacy lists drop it", () => {
+  assert.deepEqual(rules.sanitizeVehiclePermissions(["view", "delete"]), ["view"]);
+  assert.equal(rules.PERMISSIONS.includes("delete"), false);
 });

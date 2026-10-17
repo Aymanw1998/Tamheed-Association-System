@@ -1,5 +1,5 @@
 // Nightly check (01:00 Asia/Jerusalem): every non-archived vehicle's licence,
-// test and insurance. New stages become notices for the administrators and
+// test and insurance. New stages become notices for everyone with notices.view and
 // one digest email each. Dependencies are injectable for tests.
 const cron = require("node-cron");
 const rules = require("../utils/vehicleRules");
@@ -22,7 +22,7 @@ function createDeps() {
     },
     existingDedupKeys: () => notices.existingDedupKeys("vehicle:"),
     publishNotice: (n) => notices.publishNotice(n),
-    listAdmins: () => notices.listAdmins(),
+    listRecipients: () => notices.listNoticeRecipients(),
     smtpConfigured: mail.smtpConfigured,
     sendDigest: (to, digest) => mail.sendNoticeDigestEmail(to, digest),
     async findRun(job, date) {
@@ -69,13 +69,13 @@ async function runVehicleExpiryCheck({ now = new Date(), trigger = "cron", deps 
 
     if (fresh.length && deps.smtpConfigured()) {
       const digest = buildDigest(fresh);
-      for (const admin of await deps.listAdmins()) {
+      for (const recipient of await deps.listRecipients()) {
         try {
-          await deps.sendDigest(admin.email, digest);
+          await deps.sendDigest(recipient.email, digest);
           result.emailed += 1;
         } catch (err) {
           result.emailErrors += 1;
-          deps.log("email failed", admin.id, err?.message);
+          deps.log("email failed", recipient.id, err?.message);
         }
       }
     }

@@ -7,7 +7,7 @@ import styles from "./Report.module.css";
 import sectionStyles from "../UI/FormSection.module.css";
 import { SHOW_REPORT_ATTENDEES } from "./reportOptions";
 import { toast } from "../../ALERT/SystemToasts.jsx";
-import { isStoredAdmin } from "../../utils/session";
+import { canStored } from "../../utils/session";
 
 const MultiTagSelect = ({
   options = [],
@@ -124,7 +124,7 @@ const MultiTagSelect = ({
 
 
 const EditReport = ({parent = false}) => {
-  const isAdmin = isStoredAdmin();
+  const isAdmin = canStored("users.view"); // lists users for the attendees field
   const params = useParams();              // "new" الأحدالجمعة _id
   const navigate = useNavigate();
 

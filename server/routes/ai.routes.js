@@ -1,9 +1,12 @@
 ﻿const express = require("express");
 const { askTamheedAI } = require("../services/ai.service");
+const { requireAuth } = require("../middleware/authMiddleware");
+const { loadActor, requirePermission } = require("../middleware/permissionMiddleware");
 
 const router = express.Router();
 
-router.post("/chat", async (req, res) => {
+// Each call bills a real Anthropic request: signed-in users with ai.use only.
+router.post("/chat", requireAuth, loadActor, requirePermission("ai.use"), async (req, res) => {
   try {
     const { message, context = {} } = req.body || {};
 

@@ -3,6 +3,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 const vm = require("node:vm");
+const { actorFor } = require("./helpers/actors");
 
 const OLD_PHOTO = "https://lh3.googleusercontent.com/d/old-file";
 const NEW_PHOTO = "https://lh3.googleusercontent.com/d/new-file";
@@ -74,6 +75,7 @@ function loadUserController(model, storage) {
     "../../utils/sendEmail": {},
     "../../utils/jwt": {},
     "../../utils/textEncoding": require("../utils/textEncoding"),
+    "../../utils/permissions": require("../utils/permissions"),
     "../../utils/loginLockout": require("../utils/loginLockout"),
     "../../middleware/logger": { logWithSource() {} },
     "./passwordCrypto": {},
@@ -127,9 +129,11 @@ const ENTITIES = [
   },
 ];
 
+const photoUser = { tz: "123456782", roles: ["ادارة"] };
 const photoRequest = () => ({
   params: { tz: "123456782" },
-  user: { tz: "123456782", roles: ["ادارة"] },
+  user: photoUser,
+  actor: actorFor(photoUser),
   file: { buffer: Buffer.from("image"), originalname: "photo.jpg", mimetype: "image/jpeg" },
 });
 
@@ -164,15 +168,18 @@ for (const entity of ENTITIES) {
   });
 }
 
-// Loads the real Student router with the real role middleware, recording
-// each route's handler chain instead of mounting it on an Express app.
+// Loads the real Student router with the real permission middleware,
+// recording each route's handler chain (router.use middleware first) instead
+// of mounting it on an Express app. The request is already authenticated, and
+// the actor is built from req.user as loadActor would from the database.
 function loadStudentRoutes(controller) {
   const routes = [];
+  const uses = [];
   const record = (method) => (routePath, ...handlers) => {
-    routes.push({ method, path: routePath, handlers });
+    routes.push({ method, path: routePath, handlers: [...uses, ...handlers] });
   };
   const router = {
-    use() {},
+    use(...handlers) { uses.push(...handlers); },
     get: record("get"),
     post: record("post"),
     put: record("put"),
@@ -186,7 +193,8 @@ function loadStudentRoutes(controller) {
     multer,
     mongoose: {},
     "./Student.controller": controller,
-    "../../middleware/authMiddleware": require("../middleware/authMiddleware"),
+    "../../middleware/authMiddleware": { requireAuth: (req, res, next) => next() },
+    "../../middleware/permissionMiddleware": require("./helpers/actors").permissionMiddlewareStub(),
   });
   return routes;
 }

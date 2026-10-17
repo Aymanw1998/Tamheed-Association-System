@@ -17,26 +17,26 @@ const {
 } = require('./Lesson.controller');
 
 // ملاحظة عربية
-const { requireAuth: protect, requireRole: protectRole } = require('../../middleware/authMiddleware');
+const { requireAuth: protect } = require('../../middleware/authMiddleware');
+const { loadActor, requirePermission } = require('../../middleware/permissionMiddleware');
 
 // ملاحظة عربية
-router.use(protect);
+router.use(protect, loadActor);
 
 // ملاحظة عربية
-router.get('/', getAll);
-router.get('/query', getLessonsByQuery)
-router.get('/today', getLessonsByToDay);
-router.get('/:id', getOne);
+router.get('/', requirePermission('lessons.view'), getAll);
+router.get('/query', requirePermission('lessons.view'), getLessonsByQuery);
+router.get('/today', requirePermission('lessons.view'), getLessonsByToDay);
+router.get('/:id', requirePermission('lessons.view'), getOne);
 // ملاحظة عربية
-router.post('/addToList/:id', protectRole('ادارة', 'مرشد'), addToList);
-router.post('/removeFromList/:id', protectRole('ادارة', 'مرشد'), removeFromList);
+router.post('/addToList/:id', requirePermission('lessons.roster'), addToList);
+router.post('/removeFromList/:id', requirePermission('lessons.roster'), removeFromList);
 
 // ملاحظة عربية
-// router.use(protectRole('ادارة'));
 
-router.post('/', protectRole('ادارة', 'مرشد'), postOne);
-router.put('/:id', protectRole('ادارة', 'مرشد'), putOne);
-router.delete('/:id', protectRole('ادارة'), deleteOne);
-router.post('/copy-month', protectRole('ادارة'), copyMonth);
-router.delete('/delete-perMonth/:month/:year', protectRole('ادارة'), deletePerMonth);
+router.post('/', requirePermission('lessons.create'), postOne);
+router.put('/:id', requirePermission('lessons.edit'), putOne);
+router.delete('/:id', requirePermission('lessons.delete'), deleteOne);
+router.post('/copy-month', requirePermission('lessons.copyMonth'), copyMonth);
+router.delete('/delete-perMonth/:month/:year', requirePermission('lessons.copyMonth'), deletePerMonth);
 module.exports = router;

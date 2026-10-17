@@ -8,7 +8,8 @@ const {
   validateToken,
   submitRegistration,
 } = require("./InviteToken.controller");
-const { requireAuth: protect, requireRole: protectRole } = require("../../middleware/authMiddleware");
+const { requireAuth: protect } = require("../../middleware/authMiddleware");
+const { loadActor, requirePermission } = require("../../middleware/permissionMiddleware");
 const { rateLimit } = require("../../middleware/rateLimit");
 
 const PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -36,8 +37,8 @@ const acceptPhoto = (req, res, next) => {
   });
 };
 
-router.get("/link", protect, protectRole("ادارة"), getLink);
-router.post("/link/rotate", protect, protectRole("ادارة"), rotateLink);
+router.get("/link", protect, loadActor, requirePermission("students.parentLink"), getLink);
+router.post("/link/rotate", protect, loadActor, requirePermission("students.parentLink"), rotateLink);
 
 // Public: parents open these from the shared link without logging in.
 router.get(

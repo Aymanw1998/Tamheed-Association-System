@@ -5,7 +5,7 @@ import styles from "./Student.module.css";
 import Fabtn from "../Global/Fabtn/Fabtn";
 import { toast } from "../../ALERT/SystemToasts";
 import { exportStudentPdf } from "../ExportPDF/ExportPDF.jsx";
-import { getStoredUserId, isStoredAdmin } from "../../utils/session.js";
+import { canStored, getStoredUserId } from "../../utils/session.js";
 import StudentStatusFilter from "./StudentStatusFilter.jsx";
 import Button from "../UI/Button.jsx";
 import StatusBadge from "../UI/StatusBadge.jsx";
@@ -34,7 +34,9 @@ const getAge = (birthDate) => {
 
 const ViewAllStudent = () => {
   const navigate = useNavigate();
-  const isAdmin = isStoredAdmin();
+  const isAdmin = canStored("students.viewAll");
+  const canCreateStudents = canStored("students.create");
+  const canParentLink = canStored("students.parentLink");
   const userId = getStoredUserId();
 
   const [students, setStudents] = useState([]);
@@ -187,13 +189,13 @@ const ViewAllStudent = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
 
-          {isAdmin && (
+          {canCreateStudents && (
             <Button ref={addBtnRef} id="page-add-student" onClick={handleAddStudent}>
               إضافة طالب جديد
             </Button>
           )}
 
-          {isAdmin && (
+          {canParentLink && (
             <Button variant="secondary" onClick={() => setShowParentLink(true)}>
               رابط تسجيل الأهل
             </Button>
@@ -335,7 +337,7 @@ const ViewAllStudent = () => {
 
       <Fabtn
         anchor="#page-add-student"
-        visible={showFab && isAdmin}
+        visible={showFab && canCreateStudents}
         label="اضافة طالب جديد"
         onClick={() => {
           navigate("/students/new");

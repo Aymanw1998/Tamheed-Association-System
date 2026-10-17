@@ -4,7 +4,7 @@ import { useLocation } from "react-router-dom";
 import { getLessonsToday, getAllLesson as getAllLessons } from "../../WebServer/services/lesson/functionsLesson";
 import { getAttendanceSheet, saveAttendanceSheet, getLessonDates } from "../../WebServer/services/attendance/functionsAttendance";
 import { toast } from "../../ALERT/SystemToasts";
-import { getStoredUserId, isStoredAdmin } from "../../utils/session";
+import { canStored, getStoredUserId } from "../../utils/session";
 import { roomLabel } from "../../utils/rooms";
 import { attendanceDateLabel } from "../../utils/attendanceDates";
 import { ask } from "../Provides/confirmBus";
@@ -45,7 +45,7 @@ const StatusPill = ({ value, onChange }) => {
 
 export default function AttendancePage() {
     const location = useLocation();
-    const isAdmin = isStoredAdmin();
+    const canSeeAllLessons = canStored("lessons.viewAll"); // UI filter only: lessons of every teacher
     const userId = getStoredUserId();
     const [tab, setTab] = useState("today"); // today | history
     useEffect(() => {setSearchLesson("")}, [tab]);
@@ -106,11 +106,11 @@ export default function AttendancePage() {
             if (tab === "today") {
             const r = await getLessonsToday();
             if (!r?.ok) throw new Error(r?.message || "failed");
-            setTodayLessons(r.lessons.filter(l => isAdmin || String(l.teacher) === String(userId)));
+            setTodayLessons(r.lessons.filter(l => canSeeAllLessons || String(l.teacher) === String(userId)));
             } else {
             const r = await getAllLessons();
             if (!r?.ok) throw new Error(r?.message || "failed");
-            setAllLessons(r.lessons.filter(l => isAdmin || String(l.teacher) === String(userId)));
+            setAllLessons(r.lessons.filter(l => canSeeAllLessons || String(l.teacher) === String(userId)));
             }
         } catch (e) {
             toast?.error ? toast.error(e.message) : console.error(e);

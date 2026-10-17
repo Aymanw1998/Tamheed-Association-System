@@ -1,12 +1,13 @@
 const { ReportModelDef } = require("./Report.model.js");
 const { logWithSource } = require("../../middleware/logger.js");
-const { repairMisencodedText } = require("../../utils/textEncoding.js");
+const { can } = require("../../utils/permissions.js");
 
-const ADMIN_ROLES = new Set(["ادارة", "إدارة", "الادارة", "الإدارة"]);
+// req.actor comes from permissionMiddleware.loadActor.
+const actorCan = (req, key) => can(req.actor?.permissions, key);
 
-function isAdminUser(user = {}) {
-  return (user.roles || []).some((role) => ADMIN_ROLES.has(repairMisencodedText(String(role || "").trim())));
-}
+// Editing someone else's report needs reports.editAll; your own, reports.editOwn.
+const canEditReport = (req, report) =>
+  actorCan(req, "reports.editAll") || (actorCan(req, "reports.editOwn") && isReportOwner(req.user, report));
 
 function isReportOwner(user = {}, report = {}) {
   const createdBy = String(report?.createdBy || "").trim();
@@ -87,7 +88,7 @@ const getAll = async (req, res) => {
     const result = await ReportModelDef.get(filter);
     let reports = Array.isArray(result?.result) ? result.result : [];
 
-    if (!isAdminUser(req.user)) {
+    if (!actorCan(req, "reports.viewAll")) {
       reports = reports.filter((report) => isReportOwner(req.user, report));
     }
 
@@ -132,7 +133,7 @@ const getById = async (req, res) => {
       });
     }
 
-    if (!isAdminUser(req.user) && !isReportOwner(req.user, report)) {
+    if (!actorCan(req, "reports.viewAll") && !isReportOwner(req.user, report)) {
       return res.status(403).json({
         ok: false,
         code: "FORBIDDEN",
@@ -240,7 +241,7 @@ const put = async (req, res) => {
       });
     }
 
-    if (!isAdminUser(req.user) && !isReportOwner(req.user, existing)) {
+    if (!canEditReport(req, existing)) {
       return res.status(403).json({
         ok: false,
         code: "FORBIDDEN",

@@ -6,12 +6,12 @@ import Fabtn from "../Global/Fabtn/Fabtn.jsx";
 import { toast } from "../../ALERT/SystemToasts.jsx";
 import UserStatusFilter from "./UserStatusFilter.jsx";
 import { exportUserPdf } from "../ExportPDF/ExportPDF.jsx";
-import { getStoredUserId, isStoredAdmin } from "../../utils/session";
+import { canStored, getStoredUserId } from "../../utils/session";
 import Button from "../UI/Button.jsx";
 import MobileUserList from "./MobileUserList.jsx";
 
 const ViewAllUser = () => {
-  const isAdmin = isStoredAdmin();
+  const canCreateUsers = canStored("users.create");
   const userId = getStoredUserId();
   const navigate = useNavigate();
 
@@ -332,7 +332,7 @@ const ViewAllUser = () => {
 
       <Fabtn
         anchor="#page-add-user"
-        visible={showFab && isAdmin}
+        visible={showFab && canCreateUsers}
         label="اضافة مستخدم جديد"
         onClick={() => {
           navigate("/users/new");

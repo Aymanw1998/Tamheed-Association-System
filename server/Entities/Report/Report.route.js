@@ -1,12 +1,16 @@
 const express = require('express');
 const { getAll, getById, post, put, remove} = require("./Report.controller.js");
-const { requireAuth, requireRole } = require("../../middleware/authMiddleware.js");
+const { requireAuth } = require("../../middleware/authMiddleware.js");
+const { loadActor, requirePermission } = require("../../middleware/permissionMiddleware.js");
 const router = express.Router();
 
-router.get("/", requireAuth, getAll);
-router.get("/:id", requireAuth, getById);
-router.post("/", requireAuth, requireRole('ادارة', 'مرشد', 'مساعد'), post);
-router.put("/:id", requireAuth, requireRole('ادارة', 'مرشد', 'مساعد'), put);
-router.delete("/:id", requireAuth, requireRole('ادارة'), remove);
+router.use(requireAuth, loadActor);
+
+// Reads are filtered per caller in the controller (reports.viewAll).
+router.get("/", getAll);
+router.get("/:id", getById);
+router.post("/", requirePermission("reports.create"), post);
+router.put("/:id", requirePermission("reports.editOwn", "reports.editAll"), put);
+router.delete("/:id", requirePermission("reports.delete"), remove);
 
 module.exports = router;

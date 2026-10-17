@@ -3,6 +3,10 @@ const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 const vm = require("node:vm");
+const { actorFor } = require("./helpers/actors");
+
+// The route runs loadActor first; build the same req.actor from the user.
+const withActor = (req) => ({ ...req, actor: actorFor(req.user) });
 
 // In-memory stand-in for ReportModelDef's generic Mongo-backed CRUD, so these
 // tests exercise the real controller logic (Report.controller.js) without a
@@ -43,7 +47,7 @@ function loadController(reportModel) {
   const dependencies = {
     "./Report.model.js": { ReportModelDef: reportModel },
     "../../middleware/logger.js": { logWithSource() {} },
-    "../../utils/textEncoding.js": require("../utils/textEncoding"),
+    "../../utils/permissions.js": require("../utils/permissions"),
     "../Notification/Notification.controller": {},
   };
   const filename = path.join(__dirname, "../Entities/Report/Report.controller.js");
@@ -74,15 +78,15 @@ test("getAll returns every report to an admin but only the caller's own reports 
   const { getAll } = loadController(model);
 
   const adminRes = createRes();
-  await getAll({ query: {}, user: { id: "user-admin", roles: ["ادارة"] } }, adminRes);
+  await getAll(withActor({ query: {}, user: { id: "user-admin", roles: ["ادارة"] } }), adminRes);
   assert.equal(adminRes.body.reports.length, 2);
 
   const guideRes = createRes();
-  await getAll({ query: {}, user: { id: "user-a", roles: ["مرشد"] } }, guideRes);
+  await getAll(withActor({ query: {}, user: { id: "user-a", roles: ["مرشد"] } }), guideRes);
   assert.deepEqual(guideRes.body.reports.map((report) => report.createdBy), ["user-a"]);
 
   const assistantRes = createRes();
-  await getAll({ query: {}, user: { id: "user-b", roles: ["مساعد"] } }, assistantRes);
+  await getAll(withActor({ query: {}, user: { id: "user-b", roles: ["مساعد"] } }), assistantRes);
   assert.deepEqual(assistantRes.body.reports.map((report) => report.createdBy), ["user-b"]);
 });
 
@@ -93,15 +97,15 @@ test("getById rejects a guide/assistant reading a report they do not own", async
   const { getById } = loadController(model);
 
   const forbidden = createRes();
-  await getById({ params: { id: "report-0" }, user: { id: "user-b", roles: ["مساعد"] } }, forbidden);
+  await getById(withActor({ params: { id: "report-0" }, user: { id: "user-b", roles: ["مساعد"] } }), forbidden);
   assert.equal(forbidden.statusCode, 403);
 
   const ownerOk = createRes();
-  await getById({ params: { id: "report-0" }, user: { id: "user-a", roles: ["مرشد"] } }, ownerOk);
+  await getById(withActor({ params: { id: "report-0" }, user: { id: "user-a", roles: ["مرشد"] } }), ownerOk);
   assert.equal(ownerOk.statusCode, 200);
 
   const adminOk = createRes();
-  await getById({ params: { id: "report-0" }, user: { id: "user-admin", roles: ["ادارة"] } }, adminOk);
+  await getById(withActor({ params: { id: "report-0" }, user: { id: "user-admin", roles: ["ادارة"] } }), adminOk);
   assert.equal(adminOk.statusCode, 200);
 });
 
@@ -110,10 +114,10 @@ test("post ignores a client-supplied createdBy and attributes the report to the 
   const { post } = loadController(model);
 
   const res = createRes();
-  await post({
+  await post(withActor({
     body: { info: "new report", createdBy: "someone-else" },
     user: { id: "user-a", tz: "tz-a", roles: ["مساعد"] },
-  }, res);
+  }), res);
 
   assert.equal(res.statusCode, 201);
   const [stored] = model.snapshot();
@@ -127,29 +131,50 @@ test("put rejects a guide/assistant editing a report they do not own, and applie
   const { put } = loadController(model);
 
   const forbidden = createRes();
-  await put({
+  await put(withActor({
     params: { id: "report-0" },
     body: { info: "hijacked" },
     user: { id: "user-b", roles: ["مساعد"] },
-  }, forbidden);
+  }), forbidden);
   assert.equal(forbidden.statusCode, 403);
   assert.equal(model.snapshot()[0].info, "original");
 
   const ownerRes = createRes();
-  await put({
+  await put(withActor({
     params: { id: "report-0" },
     body: { info: "updated by owner" },
     user: { id: "user-a", roles: ["مرشد"] },
-  }, ownerRes);
+  }), ownerRes);
   assert.equal(ownerRes.statusCode, 200);
   assert.equal(model.snapshot()[0].info, "updated by owner");
 
   const adminRes = createRes();
-  await put({
+  await put(withActor({
     params: { id: "report-0" },
     body: { info: "updated by admin" },
     user: { id: "user-admin", roles: ["ادارة"] },
-  }, adminRes);
+  }), adminRes);
   assert.equal(adminRes.statusCode, 200);
   assert.equal(model.snapshot()[0].info, "updated by admin");
+});
+
+test("permissions, not role names, decide: a granted viewAll sees every report, a revoked editOwn cannot edit even their own", async () => {
+  const model = createReportModel([
+    { createdBy: "user-a", info: "a1", title: [], attendance: [] },
+    { createdBy: "user-b", info: "b1", title: [], attendance: [] },
+  ]);
+  const { getAll, put } = loadController(model);
+
+  const granted = createRes();
+  await getAll(withActor({ query: {}, user: { id: "user-a", roles: ["مساعد"], permissionGrants: ["reports.viewAll"] } }), granted);
+  assert.equal(granted.body.reports.length, 2);
+
+  const revoked = createRes();
+  await put(withActor({
+    params: { id: "report-0" },
+    body: { info: "changed" },
+    user: { id: "user-a", roles: ["مرشد"], permissionRevokes: ["reports.editOwn"] },
+  }), revoked);
+  assert.equal(revoked.statusCode, 403);
+  assert.equal(model.snapshot()[0].info, "a1");
 });

@@ -62,7 +62,8 @@ export async function getMe() {
       throw new Error(data?.message || "لا يمكن التعرف على المستخدم.");
     }
 
-    return data.user;
+    // Keep what the server granted next to the user so the app can hide UI.
+    return data.user ? { ...data.user, role: data.role, permissions: data.permissions } : data.user;
   } catch (err) {
     return null;
   }

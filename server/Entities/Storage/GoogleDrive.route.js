@@ -5,14 +5,15 @@
 // one-time state. Google's callback is a plain browser redirect, so it is
 // accepted only with a state this server issued, once, within 10 minutes.
 const express = require("express");
+const { isSystemTz } = require("../../utils/permissions");
 
 const DONE_PATH = "/files?drive=";
 
 // The signed access token carries tz, so this needs no database read.
-// An unset SYSTEM_ADMIN_TZ matches nobody.
+// An unset SYSTEM_ADMIN_TZ matches nobody. Kept as an exported name over the
+// shared isSystemTz rule.
 function isSystemAccount(user, systemTz = process.env.SYSTEM_ADMIN_TZ) {
-  const expected = String(systemTz || "").trim();
-  return Boolean(expected) && String(user?.tz || "").trim() === expected;
+  return isSystemTz(user?.tz, systemTz);
 }
 
 function createGoogleDriveRouter({ drive, state, requireAuth, isSystemAccount: isSystem = isSystemAccount }) {

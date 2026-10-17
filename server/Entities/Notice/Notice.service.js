@@ -1,7 +1,6 @@
 const { NoticeModelDef } = require("./Notice.model.js");
 const { UserModelDef } = require("../User/User.model.js");
-const rules = require("../../utils/vehicleRules.js");
-const { repairMisencodedText } = require("../../utils/textEncoding.js");
+const { can, effectivePermissions, isSystemTz } = require("../../utils/permissions.js");
 
 const OBJECT_ID = /^[a-f0-9]{24}$/i;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -85,17 +84,18 @@ async function archiveNotice(id, actor) {
   return { ...notice, ...patch };
 }
 
-async function listAdmins() {
-  const found = await UserModelDef.get({});
+// Who receives board items by email: active users whose effective permissions
+// include notices.view.
+async function listNoticeRecipients() {
+  const found = await UserModelDef.get({}, "active");
   return (found?.result || [])
+    .filter((user) => can(effectivePermissions(user, { isSystem: isSystemTz(user.tz) }), "notices.view"))
     .map((user) => ({
       id: String(user._id),
       name: [user.firstname, user.lastname].filter(Boolean).join(" ").trim(),
       email: String(user.email || "").trim(),
-      roles: (Array.isArray(user.roles) ? user.roles : []).map((r) => repairMisencodedText(String(r).trim())),
     }))
-    .filter((user) => rules.isAdminUser(user) && EMAIL.test(user.email) && user.email !== "test@test.com")
-    .map(({ id, name, email }) => ({ id, name, email }));
+    .filter((user) => EMAIL.test(user.email) && user.email !== "test@test.com");
 }
 
-module.exports = { publishNotice, existingDedupKeys, listNotices, countUnread, markRead, markAllRead, archiveNotice, listAdmins };
+module.exports = { publishNotice, existingDedupKeys, listNotices, countUnread, markRead, markAllRead, archiveNotice, listNoticeRecipients };

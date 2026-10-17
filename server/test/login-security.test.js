@@ -11,8 +11,8 @@ const FAKE_HASH = bcrypt.hashSync("real-pass", 4);
 
 // Load the real controller with inert dependencies (same approach as
 // user-profile-authorization.test.js).
-function loadController(storedPassword = FAKE_HASH) {
-  const user = { _id: "id-1", tz: "1", roles: [], password: storedPassword };
+function loadController(storedPassword = FAKE_HASH, extra = {}) {
+  const user = { _id: "id-1", tz: "1", roles: [], password: storedPassword, ...extra };
   const dependencies = {
     bcryptjs: bcrypt,
     jsonwebtoken: {},
@@ -36,6 +36,7 @@ function loadController(storedPassword = FAKE_HASH) {
       computeAccessExpMsFromNow: () => 1000,
     },
     "../../utils/textEncoding": require("../utils/textEncoding"),
+    "../../utils/permissions": require("../utils/permissions"),
     "../../utils/loginLockout": require("../utils/loginLockout"),
     "../../middleware/logger": { logWithSource() {} },
     "./passwordCrypto": {
@@ -131,6 +132,9 @@ function startPhotoApp(userTz) {
   const auth = require("../middleware/authMiddleware");
   const originalRequireAuth = auth.requireAuth;
   auth.requireAuth = (req, res, next) => { req.user = { id: "u", tz: userTz, roles: ["مرشد"] }; next(); };
+  const pm = require("../middleware/permissionMiddleware");
+  const originalLoadActor = pm.loadActor;
+  pm.loadActor = require("./helpers/actors").tokenLoadActor;
 
   const controllerPath = require.resolve("../Entities/User/User.controller");
   const routePath = require.resolve("../Entities/User/User.route");
@@ -150,6 +154,7 @@ function startPhotoApp(userTz) {
   delete require.cache[routePath];
   delete require.cache[controllerPath];
   auth.requireAuth = originalRequireAuth;
+  pm.loadActor = originalLoadActor;
 
   const app = express();
   app.use("/user", router);
@@ -159,7 +164,7 @@ function startPhotoApp(userTz) {
   );
 }
 
-test("photo upload for another user needs admin", async () => {
+test("photo upload for another user needs users.edit", async () => {
   const { server, hits, base } = await startPhotoApp("1");
   try {
     const other = await fetch(`${base}/upload-photo/2`, { method: "POST" });
@@ -173,7 +178,7 @@ test("photo upload for another user needs admin", async () => {
   }
 });
 
-test("photo delete for another user needs admin", async () => {
+test("photo delete for another user needs users.edit", async () => {
   const { server, hits, base } = await startPhotoApp("1");
   try {
     const other = await fetch(`${base}/photo/2`, { method: "DELETE" });
@@ -195,5 +200,36 @@ test("the password-guessing endpoint is gone", async () => {
     assert.equal(res.status, 404);
   } finally {
     server.close();
+  }
+});
+
+// ---- getme ----
+
+test("getme adds the resolved role and the effective permissions", async () => {
+  const { getme } = loadController(FAKE_HASH, { roles: ["مرشد"], permissionGrants: ["vehicles.view"] });
+  const res = makeRes();
+  await getme({ user: { tz: "1" } }, res);
+  assert.equal(res.statusCode, 200);
+  const body = JSON.parse(JSON.stringify(res.body));
+  assert.equal(body.ok, true);
+  assert.equal(body.user.tz, "1");
+  assert.equal(body.user.password, undefined);
+  assert.equal(body.role, "مرشد");
+  assert.ok(body.permissions.includes("students.edit"));
+  assert.ok(body.permissions.includes("vehicles.view"));
+  assert.ok(!body.permissions.includes("students.delete"));
+});
+
+test("getme gives the system account every permission", async () => {
+  const saved = process.env.SYSTEM_ADMIN_TZ;
+  process.env.SYSTEM_ADMIN_TZ = "1";
+  try {
+    const { getme } = loadController(FAKE_HASH, { role: "ادارة" });
+    const res = makeRes();
+    await getme({ user: { tz: "1" } }, res);
+    const { ALL_KEYS } = require("../utils/permissions");
+    assert.deepEqual([...res.body.permissions].sort(), [...ALL_KEYS].sort());
+  } finally {
+    if (saved === undefined) delete process.env.SYSTEM_ADMIN_TZ; else process.env.SYSTEM_ADMIN_TZ = saved;
   }
 });

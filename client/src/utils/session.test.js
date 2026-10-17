@@ -1,4 +1,4 @@
-import { getStoredRoles, getStoredUserId, rememberSessionUser } from "./session";
+import { canStored, getStoredPermissions, getStoredRoles, getStoredUserId, rememberSessionUser } from "./session";
 
 beforeEach(() => localStorage.clear());
 
@@ -30,4 +30,33 @@ test("a missing user leaves the stored values alone", () => {
   rememberSessionUser({ _id: "u1", roles: ["مرشد"] });
   rememberSessionUser(null);
   expect(getStoredRoles()).toEqual(["مرشد"]);
+});
+
+test("permissions and role are stored when the server returns them", () => {
+  rememberSessionUser({ _id: "u1", roles: ["مرشد"], permissions: ["students.view"], role: "مرشد" });
+  expect(getStoredPermissions()).toEqual(["students.view"]);
+  expect(canStored("students.view")).toBe(true);
+  expect(canStored("students.edit")).toBe(false);
+});
+
+test("permissions can also arrive on the user object", () => {
+  rememberSessionUser({ _id: "u1", permissions: ["users.view"], role: "ادارة" });
+  expect(canStored("users.view")).toBe(true);
+  expect(localStorage.getItem("role")).toBe("ادارة");
+});
+
+test("canStored on a module needs every leaf", () => {
+  const leaves = ["students.view", "students.viewAll", "students.create", "students.edit", "students.delete", "students.photo"];
+  rememberSessionUser({ _id: "u1", permissions: leaves });
+  expect(canStored("students")).toBe(false);
+  rememberSessionUser({ _id: "u1", permissions: [...leaves, "students.parentLink"] });
+  expect(canStored("students")).toBe(true);
+});
+
+test("legacy storage with roles only has no permissions and does not crash", () => {
+  localStorage.setItem("roles", JSON.stringify(["ادارة"]));
+  expect(getStoredPermissions()).toEqual([]);
+  expect(canStored("users.view")).toBe(false);
+  localStorage.setItem("permissions", "not json");
+  expect(getStoredPermissions()).toEqual([]);
 });

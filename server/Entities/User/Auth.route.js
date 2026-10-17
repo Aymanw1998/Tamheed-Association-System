@@ -12,7 +12,8 @@ const {
   resetPassword,
 } = require('./User.controller'); // ملاحظة عربية
 
-const { requireAuth, requireRole } = require('../../middleware/authMiddleware'); // عربيالأحد authMiddleware
+const { requireAuth } = require('../../middleware/authMiddleware'); // عربيالأحد authMiddleware
+const { loadActor, requirePermission } = require('../../middleware/permissionMiddleware');
 const { rateLimit } = require('../../middleware/rateLimit');
 const { setEngine } = require('crypto');
 
@@ -30,10 +31,12 @@ router.post('/logout', requireAuth, logout);
 
 // ---------- Protected ----------
 // ملاحظة عربية
+// No loadActor here: getme answers USER_NOT_FOUND for a user who left the
+// active room, which the client uses to reset to the login page.
 router.post('/me', requireAuth, getme);
 
 // ملاحظة عربية
-router.get('/admin/ping', requireAuth, requireRole('ادارة'), (req, res) => res.json({ ok: true }));
+router.get('/admin/ping', requireAuth, loadActor, requirePermission('users.view'), (req, res) => res.json({ ok: true }));
 
 // router.get('/see-password', requireAuth, viewPassword);
 

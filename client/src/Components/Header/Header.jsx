@@ -8,9 +8,7 @@ import { ask } from "../Provides/confirmBus";
 import { getUnsavedChanges } from "../../utils/unsavedChanges";
 import { useI18n } from "../../i18n/I18nContext";
 import NoticeBell from "../Notice/NoticeBell";
-import { ADMIN_ROLES, GUIDE_ROLES, normalizeRoles } from "../../utils/session";
-
-const STUDENT_ROLES = [...ADMIN_ROLES, ...GUIDE_ROLES];
+import { ADMIN_ROLES, GUIDE_ROLES, canStored, normalizeRoles } from "../../utils/session";
 
 const hasAnyRole = (roles, allowedRoles) => allowedRoles.some((role) => roles.includes(role));
 
@@ -25,9 +23,12 @@ export default function Header() {
   const navRef = useRef(null);
 
   const roles = normalizeRoles(user?.roles || localStorage.getItem("roles"));
+  // Role names only pick the label; the links follow stored permissions.
   const isAdmin = hasAnyRole(roles, ADMIN_ROLES);
   const isGuide = hasAnyRole(roles, GUIDE_ROLES);
-  const canViewStudents = hasAnyRole(roles, STUDENT_ROLES);
+  const canViewStudents = canStored("students.view");
+  const canViewUsers = canStored("users.view");
+  const canViewNotices = canStored("notices.view");
   const displayRole = isAdmin ? t("roles.admin") : isGuide ? t("roles.guide") : t("roles.assistantGuide");
 
   const loadData = useCallback(async () => {
@@ -148,7 +149,7 @@ export default function Header() {
       </div>
 
       <div className={styles.headerContent}>
-        {isAdmin && <NoticeBell onOpen={(event) => onNavClick(event, "/notices")} />}
+        {canViewNotices && <NoticeBell onOpen={(event) => onNavClick(event, "/notices")} />}
         {isMobile && (
           <button
             type="button"
@@ -186,10 +187,10 @@ export default function Header() {
         {canViewStudents && (
           <a href="/students" onClick={(event) => onNavClick(event, "/students")}>{t("nav.students")}</a>
         )}
-        {isAdmin && (
+        {canViewUsers && (
           <a href="/users" onClick={(event) => onNavClick(event, "/users")}>{t("nav.users")}</a>
         )}
-        {isAdmin && (
+        {canViewNotices && (
           <a href="/notices" onClick={(event) => onNavClick(event, "/notices")}>{t("nav.notices")}</a>
         )}
         <a href="/lessons" onClick={(event) => onNavClick(event, "/lessons")}>{t("nav.lessons")}</a>

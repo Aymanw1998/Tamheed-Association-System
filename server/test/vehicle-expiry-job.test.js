@@ -16,7 +16,7 @@ function fakeDeps({ vehicles = [], admins = [{ id: "a", name: "A", email: "a@x.o
       if (notices.some((x) => x.dedupKey === n.dedupKey)) return { created: false };
       notices.push(n); return { created: true, notice: n };
     },
-    async listAdmins() { return admins; },
+    async listRecipients() { return admins; },
     smtpConfigured: () => smtp,
     async sendDigest(to, digest) { if (to === failEmailFor) throw new Error("smtp down"); mails.push({ to, digest }); },
     async findRun(jobName, date) { return runs.find((r) => r.job === jobName && r.date === date) || null; },

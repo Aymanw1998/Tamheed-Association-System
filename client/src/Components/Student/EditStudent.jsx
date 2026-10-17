@@ -7,14 +7,14 @@ import styles from "./Student.module.css";
 import sectionStyles from "../UI/FormSection.module.css";
 import { toast } from "../../ALERT/SystemToasts";
 import {validate as validateINV, submit as submitFromParent} from "../../WebServer/services/inviteToken/functionInviteToken.jsx";
-import { isStoredAdmin } from "../../utils/session";
+import { canStored } from "../../utils/session";
 import { photoAction } from "../../utils/photoChange";
 import { isRequiredStudentField } from "../../utils/studentForm";
 
 const EditStudent = ({parent = false}) => {
   const params = useParams();              // "new" الأحدالجمعة _id
   const navigate = useNavigate();
-  const isAdmin = isStoredAdmin();
+  const isAdmin = canStored("students.edit") && canStored("users.view"); // may pick the responsible guide
 
   const id = parent ? "new" : params.id;
   const isEdit =!parent && id !== "new";

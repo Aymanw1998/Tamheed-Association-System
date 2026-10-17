@@ -6,7 +6,7 @@ import { deleteS as deleteStudent, getAll as getAllStudents, update as updateStu
 import { getAllLesson } from "../../WebServer/services/lesson/functionsLesson.jsx";
 import { getAll as getAllReports } from "../../WebServer/services/report/functionsReport.jsx";
 import { toast } from "../../ALERT/SystemToasts.jsx";
-import { GUIDE_ROLES, getStoredUserId, hasStoredRole, isStoredAdmin } from "../../utils/session";
+import { canStored, getStoredUserId } from "../../utils/session";
 import ParentLinkPanel from "../Student/ParentLinkPanel.jsx";
 import VehicleAlerts from "../Vehicle/VehicleAlerts.jsx";
 import { roomLabel } from "../../utils/rooms";
@@ -35,10 +35,14 @@ const moreLessonsLabel = (count) =>
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const isAdmin = useMemo(() => isStoredAdmin(), []);
-  const isGuide = useMemo(() => hasStoredRole(...GUIDE_ROLES), []);
-  const canApproveStudents = isAdmin || isGuide;
-  const canRejectStudents = isAdmin;
+  const canViewUsers = useMemo(() => canStored("users.view"), []);
+  const canSeeAllLessons = useMemo(() => canStored("lessons.viewAll"), []);
+  const canParentLink = useMemo(() => canStored("students.parentLink"), []);
+  const canViewStudents = useMemo(() => canStored("students.view"), []);
+  const canApproveStudents = useMemo(() => canStored("students.edit"), []);
+  const canApproveUsers = useMemo(() => canStored("users.approve"), []);
+  const canRejectUsers = useMemo(() => canStored("users.delete"), []);
+  const canRejectStudents = useMemo(() => canStored("students.delete"), []);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState("");
   const [error, setError] = useState("");
@@ -68,7 +72,7 @@ export default function Dashboard() {
         setError("");
 
         const [usersResult, studentsResult, lessonsResult, reportsResult] = await Promise.allSettled([
-          isAdmin ? getAllUsers() : Promise.resolve({ ok: true, users: [] }),
+          canViewUsers ? getAllUsers() : Promise.resolve({ ok: true, users: [] }),
           getAllStudents(),
           getAllLesson(),
           getAllReports(),
@@ -94,7 +98,7 @@ export default function Dashboard() {
         setLoadFailed({
           // Non-admins deliberately skip the users fetch (see the Promise.resolve
           // above) - that's not a failure, only an actual !ok response is.
-          users: isAdmin && !usersRes?.ok,
+          users: canViewUsers && !usersRes?.ok,
           students: !studentsRes?.ok,
           lessons: !lessonsRes?.ok,
           reports: !reportsRes?.ok,
@@ -114,11 +118,11 @@ export default function Dashboard() {
     return () => {
       cancelled = true;
     };
-  }, [isAdmin]);
+  }, [canViewUsers]);
 
   const lessonPanel = useMemo(
-    () => dashboardLessons(data.lessons, now, { isAdmin, userId: getStoredUserId() }),
-    [data.lessons, now, isAdmin]
+    () => dashboardLessons(data.lessons, now, { isAdmin: canSeeAllLessons, userId: getStoredUserId() }),
+    [data.lessons, now, canSeeAllLessons]
   );
 
   const summary = useMemo(() => {
@@ -127,7 +131,7 @@ export default function Dashboard() {
     // Managing accounts (the count itself, and approving/rejecting them) is
     // an admin-only capability - showing it to a guide/assistant would just
     // be a permanently-empty, non-actionable number.
-    if (isAdmin) {
+    if (canViewUsers) {
       const activeUsers = data.users.filter((user) => user.room === "active").length;
       const waitingUsers = data.users.filter((user) => user.room === "waiting").length;
       cards.push(
@@ -143,7 +147,7 @@ export default function Dashboard() {
     );
 
     return cards;
-  }, [data, loadFailed, isAdmin, lessonPanel]);
+  }, [data, loadFailed, canViewUsers, lessonPanel]);
 
   const waitingUsers = useMemo(
     () => data.users.filter((user) => user.room === "waiting").slice(0, 5),
@@ -257,8 +261,8 @@ export default function Dashboard() {
           <p>عرض سريع وبسيط لأهم بيانات النظام.</p>
         </div>
         <div className={styles.links}>
-          {isAdmin && <Link to="/users">المستخدمون</Link>}
-          {canApproveStudents && <Link to="/students">الطلاب</Link>}
+          {canViewUsers && <Link to="/users">المستخدمون</Link>}
+          {canViewStudents && <Link to="/students">الطلاب</Link>}
           <Link to="/lessons">الدروس</Link>
           <Link to="/reports">التقارير</Link>
         </div>
@@ -281,7 +285,7 @@ export default function Dashboard() {
       <div className={styles.grid}>
         <VehicleAlerts />
         {/* Shown only while someone is actually waiting. */}
-        {isAdmin && !loading && waitingUsers.length > 0 && (
+        {canViewUsers && !loading && waitingUsers.length > 0 && (
           <section className={styles.panel}>
             <div className={styles.panelHeader}>
               <h2>مستخدمون بانتظار الموافقة</h2>
@@ -294,29 +298,33 @@ export default function Dashboard() {
                     <span>{user.tz}</span>
                   </div>
                   <div className={styles.actions}>
-                    <button
-                      type="button"
-                      className={styles.approveBtn}
-                      disabled={actionLoading === `user-approve-${user.tz}`}
-                      onClick={() => handleApproveUser(user)}
-                    >
-                      قبول
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.rejectBtn}
-                      disabled={actionLoading === `user-reject-${user.tz}`}
-                      onClick={() => handleRejectUser(user)}
-                    >
-                      رفض
-                    </button>
+                    {canApproveUsers && (
+                      <button
+                        type="button"
+                        className={styles.approveBtn}
+                        disabled={actionLoading === `user-approve-${user.tz}`}
+                        onClick={() => handleApproveUser(user)}
+                      >
+                        قبول
+                      </button>
+                    )}
+                    {canRejectUsers && (
+                      <button
+                        type="button"
+                        className={styles.rejectBtn}
+                        disabled={actionLoading === `user-reject-${user.tz}`}
+                        onClick={() => handleRejectUser(user)}
+                      >
+                        رفض
+                      </button>
+                    )}
                   </div>
                 </div>
             ))}
           </section>
         )}
 
-        {canApproveStudents && !loading && pendingStudents.length > 0 && (
+        {canViewStudents && !loading && pendingStudents.length > 0 && (
           <section className={styles.panel}>
             <div className={styles.panelHeader}>
               <h2>طلاب بانتظار الموافقة</h2>
@@ -329,14 +337,16 @@ export default function Dashboard() {
                     <span>{student.tz}</span>
                   </div>
                   <div className={styles.actions}>
-                    <button
-                      type="button"
-                      className={styles.approveBtn}
-                      disabled={actionLoading === `student-approve-${student.tz}`}
-                      onClick={() => handleApproveStudent(student)}
-                    >
-                      قبول
-                    </button>
+                    {canApproveStudents && (
+                      <button
+                        type="button"
+                        className={styles.approveBtn}
+                        disabled={actionLoading === `student-approve-${student.tz}`}
+                        onClick={() => handleApproveStudent(student)}
+                      >
+                        قبول
+                      </button>
+                    )}
                     {canRejectStudents && (
                       <button
                         type="button"
@@ -353,7 +363,7 @@ export default function Dashboard() {
           </section>
         )}
 
-        {isAdmin && (
+        {canParentLink && (
           <section className={styles.panel}>
             <div className={styles.panelHeader}>
               <h2>رابط تسجيل الأهل</h2>
@@ -364,7 +374,7 @@ export default function Dashboard() {
 
         <section className={styles.panel}>
           <div className={styles.panelHeader}>
-            <h2>{isAdmin ? "دروس اليوم" : "دروسي اليوم"}</h2>
+            <h2>{canSeeAllLessons ? "دروس اليوم" : "دروسي اليوم"}</h2>
             <Link to="/lessons">كل الدروس</Link>
           </div>
           {loading ? (

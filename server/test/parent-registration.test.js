@@ -331,6 +331,7 @@ function loadRoutes({ multerError = null } = {}) {
       submitRegistration: handler("submitRegistration"),
     },
     "../../middleware/authMiddleware": require("../middleware/authMiddleware"),
+    "../../middleware/permissionMiddleware": require("./helpers/actors").permissionMiddlewareStub(),
     "../../middleware/rateLimit": require("../middleware/rateLimit"),
   });
   const find = (method, routePath) => routes.find((r) => r.method === method && r.path === routePath);

@@ -22,8 +22,14 @@ const {
   afterSuccess,
 } = require("../../utils/loginLockout");
 
+const {
+  isSystemTz,
+  can,
+  effectivePermissions,
+  resolveRole,
+  applyLegacyEditToPermissions,
+} = require("../../utils/permissions");
 const { logWithSource } = require("../../middleware/logger");
-const { repairMisencodedText } = require("../../utils/textEncoding");
 
 const {
   encryptPassword,
@@ -37,8 +43,6 @@ const {
   ensureUserStorageFolder,
   syncStorageViewPermissionsForUser,
 } = require("../Storage/Storage.controller");
-
-const ADMIN_ROLES = new Set(["ادارة", "إدارة", "الادارة", "الإدارة", "Ø§Ø¯Ø§Ø±Ø©", "admin", "administrator"]);
 
 /* ================= Notifications (optional) ================= */
 let notify = null;
@@ -72,11 +76,15 @@ const safeSyncStoragePermissions = async (user) => {
   }
 };
 
-const canManageUserMedia = (req, tz) => {
-  const roles = req.user?.roles || [];
-  const isAdmin = roles.some((role) => ADMIN_ROLES.has(String(role).trim()));
-  return isAdmin || String(req.user?.tz || "").trim() === String(tz || "").trim();
+// req.actor comes from permissionMiddleware.loadActor. Self means the same tz
+// (the update filters below are by tz).
+const isSelfTz = (req, tz) => {
+  const own = String(req.actor?.tz ?? "").trim();
+  return Boolean(own) && own === String(tz ?? "").trim();
 };
+
+const canManageUserMedia = (req, tz) =>
+  can(req.actor?.permissions, "users.edit") || isSelfTz(req, tz);
 
 const buildUserPhotoName = (user = {}, file = {}) => {
   const parts = [
@@ -103,12 +111,6 @@ const MAX_ATTEMPTS = 5;
 const LOCK_MIN = 10;
 
 /* ================= Helpers ================= */
-// Blank values never match. A later task replaces this with the shared isSystemTz.
-function isSystemAccount(tz) {
-  const systemTz = process.env.SYSTEM_ADMIN_TZ;
-  return Boolean(tz && systemTz && String(tz).trim() === String(systemTz).trim());
-}
-
 const lockedResponse = (res) =>
   res.status(423).json({ code: "ACCOUNT_LOCKED", message: LOCKED_MESSAGE });
 
@@ -178,6 +180,17 @@ function buildData(body = {}) {
     photo: body.photo,
     googleDrive: body.googleDrive,
   };
+}
+
+// Access comes from `role` and `permissionGrants`; the user screen still sends
+// legacy `roles` and `vehiclePermissions`, so translate them for the admin path.
+const hasLegacyPermissionFields = (body = {}) =>
+  Array.isArray(body.roles) || Array.isArray(body.vehiclePermissions);
+
+// Folder permissions follow the PATCH /storage-permissions rule.
+function dropStorageUnlessAllowed(req, data) {
+  if (!can(req.actor?.permissions, "files.manageAll")) delete data.storagePermissions;
+  return data;
 }
 
 function removeEmpty(obj = {}) {
@@ -367,7 +380,8 @@ const getOneU = async (req, res) => {
 
 const postU = async (req, res) => {
   try {
-    const model = buildData(req.body);
+    const model = dropStorageUnlessAllowed(req, buildData(req.body));
+    Object.assign(model, applyLegacyEditToPermissions({}, req.body || {}));
     const room = req.body?.room && ROOMS.includes(req.body.room)
       ? req.body.room
       : "active";
@@ -421,11 +435,8 @@ const putU = async (req, res) => {
       return res.status(400).json({ ok: false, message: "tz required" });
     }
 
-    const roles = Array.isArray(req.user?.roles) ? req.user.roles : [];
-    const isAdmin = roles.some((role) =>
-      ADMIN_ROLES.has(repairMisencodedText(String(role).trim()))
-    );
-    if (!isAdmin && tz !== String(req.user?.tz ?? "").trim()) {
+    const isAdmin = can(req.actor?.permissions, "users.edit");
+    if (!isAdmin && !isSelfTz(req, tz)) {
       return res.status(403).json({ ok: false, code: "FORBIDDEN", message: "لا توجد صلاحية" });
     }
 
@@ -439,6 +450,16 @@ const putU = async (req, res) => {
       // profile fields may reach storage; authority and session state are server-owned.
       for (const field of Object.keys(newData)) {
         if (!SELF_EDIT_FIELDS.has(field)) delete newData[field];
+      }
+    } else {
+      dropStorageUnlessAllowed(req, newData);
+      if (hasLegacyPermissionFields(req.body)) {
+        // Demotion and the vehicle grants depend on what is stored now.
+        const existing = await getUserInRoomByTz(tz, room);
+        if (!existing) {
+          return res.status(404).json({ ok: false, message: "User not found" });
+        }
+        Object.assign(newData, applyLegacyEditToPermissions(existing, req.body));
       }
     }
 
@@ -619,7 +640,7 @@ const login = async (req, res) => {
       });
     }
 
-    const isSystem = isSystemAccount(user.tz);
+    const isSystem = isSystemTz(user.tz, process.env.SYSTEM_ADMIN_TZ);
 
     // A locked account is refused before the password is even checked.
     if (isLocked(user, { isSystem })) {
@@ -810,9 +831,14 @@ const getme = async (req, res) => {
       return res.status(401).json({ code: "USER_NOT_FOUND" });
     }
 
+    // The app shows and hides features from these; the server still checks
+    // every request.
+    const permissions = effectivePermissions(user, { isSystem: isSystemTz(user.tz) });
     return res.status(200).json({
       ok: true,
       user: sanitize(user),
+      role: resolveRole(user),
+      permissions: [...permissions],
     });
   } catch (err) {
     logWithSource("User.getme", err);
@@ -836,7 +862,7 @@ const forgotPassword = async (req, res) => {
     const user = await getUserInRoomByTz(normTz, "active");
     if (!user) return res.json({ ok: true, message: genericMsg });
 
-    if (isLocked(user, { isSystem: isSystemAccount(user.tz) })) {
+    if (isLocked(user, { isSystem: isSystemTz(user.tz, process.env.SYSTEM_ADMIN_TZ) })) {
       return lockedResponse(res);
     }
 
@@ -903,7 +929,7 @@ const resetPassword = async (req, res) => {
       return res.status(400).json({ ok: false, message: "Invalid or expired code" });
     }
 
-    if (isLocked(user, { isSystem: isSystemAccount(user.tz) })) {
+    if (isLocked(user, { isSystem: isSystemTz(user.tz, process.env.SYSTEM_ADMIN_TZ) })) {
       return lockedResponse(res);
     }
 

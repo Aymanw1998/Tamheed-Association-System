@@ -15,6 +15,7 @@
     "storage:sync-permissions": "node scripts/syncStoragePermissions.js",
     "storage:sync-metadata": "node scripts/syncStorageMetadata.js",
     "user:unlock": "node scripts/unlockUser.js",
+    "permissions:migrate": "node scripts/migratePermissions.js",
     "users:encrypt-plain-passwords": "node scripts/encryptPlainPasswords.js"
   },
   "keywords": [],

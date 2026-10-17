@@ -1,5 +1,6 @@
 const router = require("express").Router();
-const { requireAuth, requireRole } = require("../../middleware/authMiddleware");
+const { requireAuth } = require("../../middleware/authMiddleware");
+const { loadActor, requirePermission } = require("../../middleware/permissionMiddleware");
 
 const {
     getSheet,
@@ -7,8 +8,10 @@ const {
     getLessonDates,
 } = require("./Attendance.controller");
 
-router.get("/sheet", requireAuth, getSheet);
-router.post("/bulk-save", requireAuth, requireRole('ادارة', 'مرشد'), bulkSave);
-router.get("/dates", requireAuth, getLessonDates);
+router.use(requireAuth, loadActor);
+
+router.get("/sheet", requirePermission("attendance.view"), getSheet);
+router.post("/bulk-save", requirePermission("attendance.record"), bulkSave);
+router.get("/dates", requirePermission("attendance.view"), getLessonDates);
 
 module.exports = router;

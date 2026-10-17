@@ -13,15 +13,15 @@ import { toast } from '../../ALERT/SystemToasts';
 
 import { getAll as getAllS} from '../../WebServer/services/student/functionsStudent';
 import { getAll as getAllU } from '../../WebServer/services/user/functionsUser';
-import { isStoredAdmin, normalizeRoles, ADMIN_ROLES } from '../../utils/session';
+import { canStored, normalizeRoles, ADMIN_ROLES } from '../../utils/session';
 import { ROOM_OPTIONS } from '../../utils/rooms';
 import sectionStyles from '../UI/FormSection.module.css';
 import LessonRoster from './LessonRoster';
 import Button from '../UI/Button';
 const EditLesson = () => {
-  const isAdmin = isStoredAdmin();
-
   const { id } = useParams(); // ملاحظة عربية
+  const isAdmin = canStored(id === "new" ? "lessons.create" : "lessons.edit");
+  const canDelete = canStored("lessons.delete");
   
   const navigate = useNavigate();
   const searchParams = new URLSearchParams(window.location.search);
@@ -359,7 +359,7 @@ const EditLesson = () => {
           <Button type="button" onClick={handleSave}>
             {id !== 'new' ? 'تعديل البيانات' : 'حفظ البيانات'}
           </Button>
-          {id !== 'new' && (
+          {id !== 'new' && canDelete && (
             <Button type="button" variant="danger" onClick={handleDelete}>
             حذف
             </Button>

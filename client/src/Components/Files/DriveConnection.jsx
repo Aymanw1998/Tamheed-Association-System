@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { getDriveConnectUrl, getDriveStatus } from "../../WebServer/services/storage/functionsStorage";
 import { toast } from "../../ALERT/SystemToasts.jsx";
 import { useI18n } from "../../i18n/I18nContext";
-import { isStoredAdmin } from "../../utils/session";
+import { canStored } from "../../utils/session";
 import { ask } from "../Provides/confirmBus";
 import Button from "../UI/Button.jsx";
 import StatusBadge from "../UI/StatusBadge.jsx";
@@ -30,7 +30,7 @@ export default function DriveConnection() {
   const { t } = useI18n();
   const [status, setStatus] = useState(null);
   const [busy, setBusy] = useState(false);
-  const isAdmin = isStoredAdmin();
+  const isAdmin = canStored("files.manageAll"); // the server still reports canConnect for the system account
 
   useEffect(() => {
     if (!isAdmin) return;

@@ -6,6 +6,8 @@
 // timezone), and "today" is always the calendar date in Asia/Jerusalem, so a
 // document never shifts a day because of UTC.
 
+const { can, effectivePermissions } = require("./permissions");
+
 const TIME_ZONE = "Asia/Jerusalem";
 
 const VEHICLE_TYPES = ["vehicle", "trailer"];
@@ -22,23 +24,17 @@ const DEFAULT_ALERT_DAYS = [60, 30, 14, 7, 0];
 
 const PERMISSIONS = ["view", "edit", "compliance", "documents", "archive"];
 
-const ADMIN_ROLE_NAMES = new Set(["ادارة", "إدارة", "الادارة", "الإدارة"]);
-
 // ---------------------------------------------------------------- permissions
 
-const isAdminUser = (user = {}) =>
-  (Array.isArray(user.roles) ? user.roles : []).some((role) =>
-    ADMIN_ROLE_NAMES.has(String(role).trim())
-  );
-
-// Administrators hold every vehicle permission. Everyone else needs each one
-// granted explicitly, and nothing works without "view": you cannot change what
-// you are not allowed to see.
-function hasVehiclePermission(user = {}, permission) {
-  if (!PERMISSIONS.includes(permission)) return false;
-  if (isAdminUser(user)) return true;
-  const granted = Array.isArray(user.vehiclePermissions) ? user.vehiclePermissions : [];
-  return granted.includes("view") && granted.includes(permission);
+// `subject` is a permission Set, a loaded actor (req.actor, with .permissions)
+// or a user record. Nothing works without vehicles.view: you cannot change
+// what you are not allowed to see.
+function hasVehiclePermission(subject, permission) {
+  if (!subject || !PERMISSIONS.includes(permission)) return false;
+  const set = subject instanceof Set ? subject
+    : subject.permissions instanceof Set ? subject.permissions
+    : effectivePermissions(subject);
+  return can(set, "vehicles.view") && can(set, `vehicles.${permission}`);
 }
 
 function sanitizeVehiclePermissions(value) {
@@ -251,10 +247,10 @@ function buildAlerts(vehicle = {}, today, alertDays = DEFAULT_ALERT_DAYS) {
   return alerts;
 }
 
-// Administrators see every alert; the person assigned to a vehicle sees only
-// the alerts for it.
+// Whoever holds vehicles.view sees every alert; the person assigned to a
+// vehicle sees only the alerts for it.
 function filterAlertsForUser(alerts = [], user = {}) {
-  if (isAdminUser(user)) return alerts;
+  if (hasVehiclePermission(user, "view")) return alerts;
   const userId = String(user.id || user._id || "");
   if (!userId) return [];
   return alerts.filter((alert) => alert.responsibleId && alert.responsibleId === userId);
@@ -399,7 +395,6 @@ module.exports = {
   DOCUMENT_KINDS,
   DEFAULT_ALERT_DAYS,
   PERMISSIONS,
-  isAdminUser,
   hasVehiclePermission,
   sanitizeVehiclePermissions,
   normalizePlate,

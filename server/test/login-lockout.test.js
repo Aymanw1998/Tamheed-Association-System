@@ -99,6 +99,7 @@ function loadController({ user, room = "active", env = {}, ...opts } = {}) {
       computeAccessExpMsFromNow: () => 1000,
     },
     "../../utils/textEncoding": require("../utils/textEncoding"),
+    "../../utils/permissions": require("../utils/permissions"),
     "../../utils/loginLockout": require("../utils/loginLockout"),
     "../../middleware/logger": { logWithSource() {} },
     "./passwordCrypto": {

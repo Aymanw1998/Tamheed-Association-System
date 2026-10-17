@@ -1,7 +1,4 @@
 const service = require("./Notice.service.js");
-const { UserModelDef } = require("../User/User.model.js");
-const rules = require("../../utils/vehicleRules.js");
-const { repairMisencodedText } = require("../../utils/textEncoding.js");
 const { logWithSource } = require("../../middleware/logger.js");
 const { runVehicleExpiryCheck } = require("../../services/vehicleExpiryJob.js");
 
@@ -10,25 +7,7 @@ const SEVERITIES = ["critical", "important", "info"];
 const CATEGORIES = ["vehicle", "system", "manual"];
 const fail = (res, status, message, extra = {}) => res.status(status).json({ ok: false, message, ...extra });
 
-// Roles are re-read from the database: the token may be stale.
-async function requireAdmin(req, res, next) {
-  try {
-    const tz = String(req.user?.tz || "").trim();
-    const found = tz ? await UserModelDef.get({ tz }) : null;
-    const user = found?.result?.[0];
-    const actor = user && {
-      id: String(user._id),
-      name: [user.firstname, user.lastname].filter(Boolean).join(" ").trim(),
-      roles: (Array.isArray(user.roles) ? user.roles : []).map((r) => repairMisencodedText(String(r).trim())),
-    };
-    if (!actor || !rules.isAdminUser(actor)) return fail(res, 403, "لا توجد صلاحية", { code: "FORBIDDEN" });
-    req.actor = actor;
-    return next();
-  } catch (err) {
-    logWithSource("Notice.requireAdmin", err);
-    return fail(res, 500, SERVER_ERROR);
-  }
-}
+// Access is checked in Notice.route.js; req.actor comes from loadActor.
 
 const handle = (name, fn) => async (req, res) => {
   try {
@@ -91,4 +70,4 @@ const runVehicleCheck = handle("runVehicleCheck", async (req, res) => {
   return res.status(200).json({ ok: true, ...result });
 });
 
-module.exports = { requireAdmin, list, unreadCount, create, read, readAll, archive, runVehicleCheck };
+module.exports = { list, unreadCount, create, read, readAll, archive, runVehicleCheck };
