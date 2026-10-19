@@ -15,15 +15,6 @@ import { roomLabel } from "../../utils/rooms";
 import { dashboardLessons } from "../../utils/dashboardLessons";
 import { DAY_NAMES } from "../../utils/lessonSchedule";
 
-// The bootstrap system-admin account (see server/scripts/ensureSystemAdmin.js)
-// isn't a real member of the association - it, and whoever is currently
-// viewing the dashboard, shouldn't count toward "المستخدمون".
-const SYSTEM_ADMIN_TZ = "000000000";
-
-// A مرشد can approve a pending student (PUT /student/:tz) but only ادارة can
-// reject/delete one, so the dashboard needs to tell "guide" apart from
-// "assistant" (مساعد), who can do neither.
-
 const formatLessonTime = (lesson) => {
   const start = Number(lesson?.date?.startMin);
   if (!Number.isFinite(start)) return "-";
@@ -43,6 +34,8 @@ export default function Dashboard() {
   const canSeeAllLessons = useMemo(() => canStored("lessons.viewAll"), []);
   const canParentLink = useMemo(() => canStored("students.parentLink"), []);
   const canViewStudents = useMemo(() => canStored("students.view"), []);
+  // Approving and rejecting pending students/users each follow their own
+  // permission; the server checks every request.
   const canApproveStudents = useMemo(() => canStored("students.edit"), []);
   const canApproveUsers = useMemo(() => canStored("users.approve"), []);
   const canRejectUsers = useMemo(() => canStored("users.delete"), []);
@@ -88,9 +81,11 @@ export default function Dashboard() {
         const lessonsRes = lessonsResult.status === "fulfilled" ? lessonsResult.value : {};
         const reportsRes = reportsResult.status === "fulfilled" ? reportsResult.value : {};
 
+        // The system account never reaches the client (GET /user leaves it
+        // out); the viewer doesn't count toward "المستخدمون".
         const currentUserId = String(getStoredUserId() || "");
         const users = (usersRes?.ok ? usersRes.users || [] : []).filter(
-          (user) => String(user?.tz ?? "") !== SYSTEM_ADMIN_TZ && String(user?._id ?? "") !== currentUserId
+          (user) => String(user?._id ?? "") !== currentUserId
         );
 
         setData({

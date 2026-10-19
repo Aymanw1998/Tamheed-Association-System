@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 
 // ملاحظة عربية
-import { create, update, getUserById as getOne, /*softDelete,*/ deleteU, uploadPhoto, deletePhoto, viewPassword } from "../../WebServer/services/user/functionsUser.jsx";
+import { create, update, getUserById as getOne, /*softDelete,*/ deleteU, uploadPhoto, deletePhoto } from "../../WebServer/services/user/functionsUser.jsx";
 import styles from "./Profile.module.css";
 import sectionStyles from "../UI/FormSection.module.css";
 import { toast } from "../../ALERT/SystemToasts.jsx";
@@ -10,6 +10,7 @@ import { getMe } from "../../WebServer/services/auth/fuctionsAuth.jsx";
 import { photoAction } from "../../utils/photoChange";
 import { getStoredPermissions } from "../../utils/session";
 import MyPermissions from "./MyPermissions.jsx";
+import ChangeOwnPassword from "./ChangeOwnPassword.jsx";
 
 const Profile = ({parent = false}) => {
     const [form, setForm] = useState({
@@ -46,9 +47,6 @@ const Profile = ({parent = false}) => {
     const [loading, setLoading] = useState(false);
     const [saving, setSaving]   = useState(false);
     const [err, setErr]         = useState(null);
-    const [showPassword, setShowPassword] = useState(false);
-    const [fetchingPassword, setFetchingPassword] = useState(false);
-    const [passwordTouched, setPasswordTouched] = useState(false);
     const [myPermissions, setMyPermissions] = useState(getStoredPermissions);
 
 
@@ -231,7 +229,6 @@ const Profile = ({parent = false}) => {
         const { name, value } = e.target;
         //console.log(`onField[${name}] = ${String(value)}`, value === '');
         setForm((prev) => ({ ...prev, [name]: value }));
-        if (name === "password") setPasswordTouched(true);
         const msg = await validate(name, value)
         // //console.log("msg", msg);
         setError((prev) => ({ ...prev, [name]: msg }));
@@ -241,30 +238,6 @@ const Profile = ({parent = false}) => {
         const local = text.replace(/[^\d-]/g, '');
         const intl = normalizePhoneToIntl(local);
         setForm((prev) => ({ ...prev, [tag]: intl }));
-    };
-
-    const handleFetchPassword = async () => {
-        try {
-            setFetchingPassword(true);
-            const tzToFetch = String(form.tz || "").trim();
-            if (!tzToFetch) return;
-
-            const res = await viewPassword(tzToFetch);
-            if (!res?.ok) {
-                toast.warn(res?.message || "لا يمكن عرض كلمة المرور لهذا المستخدم");
-                return;
-            }
-
-            // The server only reports whether a password is set, never its value.
-            setShowPassword(false);
-            setForm((prev) => ({ ...prev, password: "" }));
-            toast.info(res.hasPassword ? "كلمة المرور محددة (لا يمكن عرضها). أدخل كلمة مرور جديدة لتغييرها." : "لم يتم تحديد كلمة مرور لهذا المستخدم");
-        } catch (e) {
-            console.error(e);
-            toast.error("خطأ في جلب كلمة المرور");
-        } finally {
-            setFetchingPassword(false);
-        }
     };
 
     const handleSubmit = async (e) => {
@@ -290,9 +263,8 @@ const Profile = ({parent = false}) => {
             setErr(null);
 
             const payload = { ...form };
-            if (!passwordTouched || !form.password?.trim()) {
-                delete payload.password;
-            }
+            // One's own password changes only in the "change password" section.
+            delete payload.password;
             //console.log("payload", payload);  
             if(parent && !inviteToken){
                 toast.error("رابط التسجيل غير صالح");
@@ -347,40 +319,9 @@ const Profile = ({parent = false}) => {
             <input name="tz" value={form.tz} onChange={onField} readOnly={true} />
             <label style={{color: "red"}}>{error.tz}</label>
 
-            <label>كلمة السر:</label>
-            <div className={styles.passwordWrapper}>
-                <input
-                    name="password"
-                    type={showPassword ? "text" : "password"}
-                    value={form.password || ""}
-                    onChange={onField}
-                    placeholder="*******"
-                />
-                <button
-                    type="button"
-                    className={styles.togglePassword}
-                    disabled={fetchingPassword}
-                    onClick={async () => {
-                        if (!showPassword) {
-                            if (!form.password?.trim() || !passwordTouched) {
-                                await handleFetchPassword();
-                            }
-                            setShowPassword(true);
-                            return;
-                        }
-
-                        setShowPassword(false);
-                        if (!passwordTouched) {
-                            setForm((prev) => ({ ...prev, password: "" }));
-                        }
-                    }}
-                    title={showPassword ? "إخفاء كلمة السر" : "إظهار كلمة السر"}
-                >
-                    {fetchingPassword ? "⏳" : (showPassword ? "🙈" : "👁️")}
-                </button>
-            </div>
-            <label style={{color: "red"}}>{error.password}</label>
         </fieldset>
+
+        <ChangeOwnPassword />
 
         <fieldset className={sectionStyles.formSection}>
             <legend>البيانات الشخصية</legend>

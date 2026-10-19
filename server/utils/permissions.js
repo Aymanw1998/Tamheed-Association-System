@@ -119,7 +119,19 @@ function isSystemTz(tz, systemTz = process.env.SYSTEM_ADMIN_TZ) {
   return Boolean(expected) && actual === expected;
 }
 
+// How a stored record names who acted: the system account is always
+// "system" / "النظام", never its tz, id or personal name.
+const SYSTEM_ACTOR = "system";
+const SYSTEM_ACTOR_NAME = "النظام";
+const actorRef = (actor, ref) => (actor?.isSystem ? SYSTEM_ACTOR : ref);
+const actorDisplayName = (actor) =>
+  (actor?.isSystem ? SYSTEM_ACTOR_NAME : actor?.name || String(actor?.tz || ""));
+
 module.exports = {
+  SYSTEM_ACTOR,
+  SYSTEM_ACTOR_NAME,
+  actorRef,
+  actorDisplayName,
   PERMISSION_TREE,
   ROLE_RANK,
   ROLE_DEFAULTS,

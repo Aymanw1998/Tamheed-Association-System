@@ -78,6 +78,7 @@ function loadController(users, overrides = {}) {
     "../../utils/permissionRules": require("../utils/permissionRules"),
     "../../utils/israeliId": require("../utils/israeliId"),
     "../../utils/loginLockout": require("../utils/loginLockout"),
+    "../../utils/systemPassword": require("../utils/systemPassword"),
     "../../middleware/logger": { logWithSource() {} },
     "./passwordCrypto": {
       encryptPassword: (v) => `enc:${v}`,
@@ -871,12 +872,17 @@ test("putU: a users.passwords holder, and the system, may set another user's pas
   }
 });
 
-test("putU: a user may still change his own password", async () => {
+// One's own password changes only through POST /api/auth/change-password
+// (current password required); putU drops it from a self edit.
+test("putU: a self edit cannot change one's own password", async () => {
+  const before = PW_GUIDE.password;
   const { res: out, users } = await call("putU", PW_GUIDE, {
     params: { tz: PW_GUIDE.tz }, body: { password: "new-placeholder" },
   }, pwSeed(PW_GUIDE));
   assert.equal(out.statusCode, 200);
-  assert.equal(stored(users, PW_GUIDE.tz).password, "new-placeholder");
+  assert.notEqual(stored(users, PW_GUIDE.tz).password, "new-placeholder");
+  assert.equal(stored(users, PW_GUIDE.tz).password, before);
+  assert.equal(stored(users, PW_GUIDE.tz).passwordChangedAt, undefined);
 });
 
 // 2. One person, one record: tz is unique across rooms, ignoring leading zeros.

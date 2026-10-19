@@ -4,6 +4,7 @@ const { UserModelDef } = require("../User/User.model");
 const { StudentModelDef } = require("../Student/Student.model");
 const { logWithSource } = require("../../middleware/logger");
 const { audit } = require("../../utils/audit");
+const { isSystemTz, SYSTEM_ACTOR_NAME } = require("../../utils/permissions");
 
 const DEFAULT_STATUS = "حاضر";
 
@@ -11,6 +12,8 @@ const calcDateKey = (y, m, d) => y * 10000 + m * 100 + d;
 
 function teacherName(teacher) {
   if (!teacher) return "";
+  // A lesson pointing at the system account shows "النظام", never its name.
+  if (isSystemTz(teacher.tz)) return SYSTEM_ACTOR_NAME;
   if (teacher.name) return teacher.name;
   return `${teacher.firstname || ""} ${teacher.lastname || ""}`.trim();
 }

@@ -40,8 +40,16 @@ const sendNoticeDigestEmail = async (to, { subject, html, text }) => {
     await transporter.sendMail({ from: process.env.SMTP_FROM, to, subject, html, text });
 };
 
+// The system account's mailbox (SYSTEM_ADMIN_EMAIL): temporary passwords and
+// failed sign-in alerts. Callers never log the message body.
+const sendSystemAdminEmail = async (to, { subject, html, text }) => {
+    const transporter = createTransporter();
+    await transporter.sendMail({ from: process.env.SMTP_FROM, to, subject, html, text });
+};
+
 module.exports = {
     sendResetPasswordEmail,
     sendNoticeDigestEmail,
+    sendSystemAdminEmail,
     smtpConfigured,
 };

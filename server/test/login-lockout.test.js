@@ -104,6 +104,7 @@ function loadController({ user, room = "active", env = {}, ...opts } = {}) {
     "../../utils/permissionRules": require("../utils/permissionRules"),
     "../../utils/israeliId": require("../utils/israeliId"),
     "../../utils/loginLockout": require("../utils/loginLockout"),
+    "../../utils/systemPassword": require("../utils/systemPassword"),
     "../../middleware/logger": { logWithSource() {} },
     "./passwordCrypto": {
       encryptPassword: (v) => `enc:${v}`,

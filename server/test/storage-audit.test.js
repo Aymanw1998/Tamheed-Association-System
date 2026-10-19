@@ -25,9 +25,10 @@ function createStore(seed = []) {
 const ADMIN = { _id: "a".repeat(24), tz: "100000009", firstname: "Ad", lastname: "Min", roles: ["ادارة"] };
 const OTHER = { _id: "b".repeat(24), tz: "200000008", firstname: "Oth", lastname: "Er", roles: ["مرشد"] };
 
-function setup(seed = []) {
+function setup(seed = [], { extraUsers = [] } = {}) {
+  const broadcasts = [];
   const storage = createStore(seed);
-  const users = { async get(filter = {}) { return { success: true, result: [ADMIN, OTHER].filter((u) => !filter.tz || u.tz === filter.tz).filter((u) => !filter._id || u._id === filter._id) }; }, async update() { return { success: true }; } };
+  const users = { async get(filter = {}) { return { success: true, result: [ADMIN, OTHER, ...extraUsers].filter((u) => !filter.tz || u.tz === filter.tz).filter((u) => !filter._id || u._id === filter._id) }; }, async update() { return { success: true }; } };
   const calls = [];
   const axios = {
     async post(url, body) { calls.push(["post", url, body]); return { data: { success: true, filename: body?.fileName, relativePath: "" } }; },
@@ -43,7 +44,7 @@ function setup(seed = []) {
     path,
     "../User/User.model": { UserModelDef: users },
     "./Storage.model": { StorageModelDef: storage },
-    "../../utils/sse": { broadcast() {} },
+    "../../utils/sse": { broadcast(...args) { broadcasts.push(args); } },
     "../../utils/textEncoding": require("../utils/textEncoding"),
     "../../utils/permissions": require("../utils/permissions"),
     "../../utils/permissionRules": require("../utils/permissionRules"),
@@ -61,7 +62,7 @@ function setup(seed = []) {
       return dependencies[name];
     },
   }, { filename });
-  return { controller: module.exports, storage, audit, calls };
+  return { controller: module.exports, storage, audit, calls, broadcasts };
 }
 
 const req = (body = {}) => ({ user: { tz: ADMIN.tz, roles: ADMIN.roles }, actor: actorFor(ADMIN), body, params: {}, query: {} });
@@ -135,4 +136,48 @@ test("deleting, sharing and unsharing are recorded", async () => {
   const count = audit.calls.length;
   await controller.shareEntry(req({ relativePath: "docs/a.pdf" }), createRes());
   assert.equal(audit.calls.length, count);
+});
+
+/* ================= the system account ================= */
+
+// A synthetic, checksum-valid ID number (not a real person).
+const SYSTEM_TZ = "000000026";
+const SYS = { _id: "e".repeat(24), tz: SYSTEM_TZ, firstname: "Sys", lastname: "Tem", roles: [] };
+
+async function withSystemTz(fn) {
+  const had = Object.hasOwn(process.env, "SYSTEM_ADMIN_TZ");
+  const previous = process.env.SYSTEM_ADMIN_TZ;
+  process.env.SYSTEM_ADMIN_TZ = SYSTEM_TZ;
+  try { return await fn(); } finally { if (had) process.env.SYSTEM_ADMIN_TZ = previous; else delete process.env.SYSTEM_ADMIN_TZ; }
+}
+
+test("sharing with or unsharing from the system account is 404 and writes nothing", async () => {
+  await withSystemTz(async () => {
+    const seed = [{ type: "file", name: "a.pdf", relativePath: "tamheed_db/root/docs/a.pdf", ownerId: ADMIN._id, sharedWith: [] }];
+    const { controller, storage, audit, broadcasts } = setup(seed, { extraUsers: [SYS] });
+    for (const handler of ["shareEntry", "unshareEntry"]) {
+      const out = createRes();
+      await controller[handler](req({ relativePath: "docs/a.pdf", targetTz: SYSTEM_TZ, role: "read" }), out);
+      assert.equal(out.statusCode, 404, handler);
+      assert.equal(out.body.message, "Target user not found");
+      assert.ok(!JSON.stringify(out.body).includes(SYSTEM_TZ));
+    }
+    assert.deepEqual(JSON.parse(JSON.stringify(storage.all()[0].sharedWith)), []);
+    assert.equal(audit.calls.length, 0);
+    assert.equal(broadcasts.length, 0);
+  });
+});
+
+test("share status never lists the system account", async () => {
+  await withSystemTz(async () => {
+    // The view scope resolves this path without the storage root prefix.
+    const seed = [{ type: "file", name: "a.pdf", relativePath: "docs/a.pdf", ownerId: ADMIN._id,
+      sharedWith: [{ userId: SYS._id, role: "read" }, { userId: OTHER._id, role: "read" }] }];
+    const { controller } = setup(seed, { extraUsers: [SYS] });
+    const out = createRes();
+    await controller.getShareStatus({ ...req(), query: { relativePath: "docs/a.pdf" } }, out);
+    assert.equal(out.statusCode, 200);
+    const listed = JSON.parse(JSON.stringify(out.body.sharedWith));
+    assert.deepEqual(listed.map((u) => u.tz), [OTHER.tz]);
+  });
 });

@@ -9,6 +9,8 @@ import { login } from '../../../WebServer/services/auth/fuctionsAuth';
 import { toast } from '../../../ALERT/SystemToasts';
 import ForgotPassword from '../ForgotPassword/ForgotPassword';
 import EyeIcon from '../../UI/EyeIcon';
+import ForcedPasswordChange from '../ForcedPasswordChange/ForcedPasswordChange';
+import { useI18n } from '../../../i18n/I18nContext';
 
 export default function LoginPage() {
     const navigate = useNavigate();
@@ -19,6 +21,10 @@ export default function LoginPage() {
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [loading,  setLoading]  = useState(false);
+    // Set when the login answered mustChangePassword: { token, currentPassword }.
+    // Held in memory only; until the change succeeds only that form is shown.
+    const [forced, setForced] = useState(null);
+    const { t } = useI18n();
 
     const tzRef = useRef(null);
     const passwordRef = useRef(null);
@@ -39,18 +45,43 @@ export default function LoginPage() {
         setLoading(true);
         try {
             const me = await login(tz, password);
-            if (me?.firstname || me?.lastname) {
-                toast.success(`${[me.firstname, me.lastname].filter(Boolean).join(' ')}, مرحباً بك في النظام!`);
+            if (me?.mustChangePassword) {
+                setForced({ token: me.accessToken, currentPassword: password });
+                return;
             }
-
-            const from = location.state?.from?.pathname || '/dashboard';
-            navigate(from, { replace: true });
+            finishLogin(me);
         } catch (err) {
             console.error('Login error:', err?.response?.data || err.message);
             toast.error(err?.response?.data?.message || err.message || 'فشل تسجيل الدخول. الرجاء المحاولة مرة أخرى.');
         } finally {
         setLoading(false);
         }
+    };
+
+    function finishLogin(me) {
+        if (me?.firstname || me?.lastname) {
+            toast.success(`${[me.firstname, me.lastname].filter(Boolean).join(' ')}, مرحباً بك في النظام!`);
+        }
+        const from = location.state?.from?.pathname || '/dashboard';
+        navigate(from, { replace: true });
+    }
+
+    // After the forced change, sign in normally with the new password.
+    const afterForcedChange = async (newPassword) => {
+        toast.success(t('passwordChange.success'));
+        setForced(null);
+        setPassword('');
+        try {
+            finishLogin(await login(tz, newPassword));
+        } catch (err) {
+            // The password did change; the user can sign in with it by hand.
+            toast.error(err?.response?.data?.message || err.message || 'فشل تسجيل الدخول. الرجاء المحاولة مرة أخرى.');
+        }
+    };
+
+    const cancelForcedChange = () => {
+        setForced(null);
+        setPassword('');
     };
 
     return (
@@ -61,6 +92,14 @@ export default function LoginPage() {
                 </div>
             </div>
             <div className={styles.rightPanel}>
+                {forced ? (
+                    <ForcedPasswordChange
+                        token={forced.token}
+                        currentPassword={forced.currentPassword}
+                        onChanged={afterForcedChange}
+                        onCancel={cancelForcedChange}
+                    />
+                ) : (
                 <div className={styles.loginForm}>
                     <div className={`${styles.logo} ${styles.logoDisNone}`}><img src={LogoIMG}/></div>
                     <h2>سجل الدخول</h2>
@@ -97,6 +136,7 @@ export default function LoginPage() {
                     <hr />
                     <button type="button" className={styles.secondaryButton} onClick={()=>navigate("/register")}>{'تسجل كمستخدم'}</button>
                 </div>
+                )}
             </div>
 
             {showPopup && (

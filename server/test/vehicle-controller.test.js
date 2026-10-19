@@ -44,10 +44,10 @@ const FOUR = { _id: "5".padStart(24, "c"), tz: "555555550", firstname: "Fo", las
 
 const lookupStub = { lookupByPlate: async (plate) => ({ available: true, found: false, reason: "stub", plate }) };
 
-function setup({ vehicles = [] } = {}) {
+function setup({ vehicles = [], extraUsers = [] } = {}) {
   const vehicleStore = createStore(vehicles);
   const auditStore = createStore();
-  const userStore = createStore([ADMIN, GUIDE, VIEWER, DOCS, FOUR, FIVE]);
+  const userStore = createStore([ADMIN, GUIDE, VIEWER, DOCS, FOUR, FIVE, ...extraUsers]);
   const uploads = [];
   const audit = auditStub();
   const drive = {
@@ -742,4 +742,58 @@ test("vehicle writes are also recorded in the central audit log, next to the veh
   const [deleted] = audit.find({ module: "vehicles", action: "delete", targetId: id });
   assert.ok(deleted, "delete recorded");
   assert.equal(deleted.after, null);
+});
+
+/* ================= the system account ================= */
+
+// A synthetic, checksum-valid ID number (not a real person).
+const SYSTEM_TZ = "000000026";
+const SYS = { _id: "9".padStart(24, "c"), tz: SYSTEM_TZ, firstname: "Sys", lastname: "Tem", roles: [] };
+
+async function withSystemTz(fn) {
+  const had = Object.hasOwn(process.env, "SYSTEM_ADMIN_TZ");
+  const previous = process.env.SYSTEM_ADMIN_TZ;
+  process.env.SYSTEM_ADMIN_TZ = SYSTEM_TZ;
+  try { return await fn(); } finally { if (had) process.env.SYSTEM_ADMIN_TZ = previous; else delete process.env.SYSTEM_ADMIN_TZ; }
+}
+
+test("the system account is never offered or accepted as a vehicle responsible", async () => {
+  await withSystemTz(async () => {
+    const { controller } = setup({ extraUsers: [SYS] });
+    const list = createRes();
+    await controller.listResponsibles(as(ADMIN), list);
+    assert.equal(list.statusCode, 200);
+    assert.ok(!list.body.users.some((u) => u.id === SYS._id));
+    assert.ok(list.body.users.some((u) => u.id === GUIDE._id));
+
+    const chosen = await createVehicle(controller, { plate: "7654321", responsibleId: SYS._id });
+    assert.equal(chosen.statusCode, 400);
+    assert.ok(chosen.body.errors.responsibleId);
+  });
+});
+
+test("what the system does to a vehicle is stored as \"system\" / \"النظام\"", async () => {
+  await withSystemTz(async () => {
+    const { controller, vehicleStore, auditStore } = setup({ extraUsers: [SYS] });
+    const asSystem = { ...as(SYS), actor: actorFor(SYS, { isSystem: true }) };
+    const created = createRes();
+    await controller.create({ ...asSystem, body: { plate: "12-345-67", type: "vehicle", make: "Toyota" } }, created);
+    assert.equal(created.statusCode, 201);
+    const id = created.body.vehicle._id;
+    const updated = createRes();
+    await controller.update({ ...asSystem, params: { id }, body: { make: "Brenderup" } }, updated);
+    assert.equal(updated.statusCode, 200);
+    await controller.archive({ ...asSystem, params: { id }, body: { reason: "sold" } }, createRes());
+
+    const [vehicle] = vehicleStore.all();
+    assert.equal(vehicle.createdBy, "system");
+    assert.equal(vehicle.updatedBy, "system");
+    assert.equal(vehicle.archivedBy, "system");
+    for (const entry of auditStore.all()) {
+      assert.equal(entry.by, "system");
+      assert.equal(entry.byName, "النظام");
+    }
+    const stored = JSON.stringify([vehicleStore.all(), auditStore.all()]);
+    assert.ok(!stored.includes(SYSTEM_TZ) && !stored.includes(SYS._id) && !stored.includes("Sys Tem"));
+  });
 });

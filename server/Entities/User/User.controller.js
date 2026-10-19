@@ -4,7 +4,8 @@ const path = require("path");
 
 const { UserModelDef } = require("./User.model");
 
-const { sendResetPasswordEmail } = require("../../utils/sendEmail");
+const sendEmail = require("../../utils/sendEmail");
+const { sendResetPasswordEmail } = sendEmail;
 const {
   signAccessToken,
   signRefreshToken,
@@ -26,6 +27,7 @@ const {
   ROLE_DEFAULTS,
   ROLE_RANK,
   isSystemTz,
+  actorRef,
   can,
   effectivePermissions,
   expandKeys,
@@ -39,6 +41,19 @@ const {
   canAssignRole,
   applyRoleChange,
 } = require("../../utils/permissionRules");
+const {
+  PASSWORD_CHANGE_SCOPE,
+  PASSWORD_CHANGE_TOKEN_TTL_SEC,
+  RECOVERY_MIN_FAILURES,
+  mustChangePassword,
+  tokenIsStale,
+  recoveryCoolingDown,
+  newPasswordProblem,
+  passwordProblemMessage,
+  isUsableSystemEmail,
+  lockoutAlertEmail,
+  resetSystemPassword,
+} = require("../../utils/systemPassword");
 const { logWithSource } = require("../../middleware/logger");
 const { isValidIsraeliId } = require("../../utils/israeliId");
 
@@ -118,7 +133,7 @@ const invalid = (res, code) => res.status(400).json({ ok: false, code });
 const isSystemUser = (user) => Boolean(user) && isSystemTz(user.tz);
 
 // Who changed permissions last; the system account's tz is never stored.
-const permissionEditor = (actor) => (actor?.isSystem ? "system" : String(actor?.tz || ""));
+const permissionEditor = (actor) => actorRef(actor, String(actor?.tz || ""));
 
 // Roles, grants, lockout and session state are server-owned: putU never takes
 // them from a request body (roles: PUT /:tz/role, grants: PUT /:tz/permissions).
@@ -127,7 +142,7 @@ const SERVER_OWNED_FIELDS = [
   "permissionsUpdatedAt", "permissionsUpdatedBy",
   // A user is never renamed, and the folder and Drive link are server-derived.
   "tz", "storageFolder", "googleDrive",
-  "failedLoginCount", "lockedAt", "passwordChangedAt",
+  "failedLoginCount", "lockedAt", "passwordChangedAt", "recoveredAt",
   "refreshHash", "resetOtpHash", "resetOtpExpires", "resetOtpAttempts", "resetOtpLockedUntil",
 ];
 const stripServerOwned = (data) => {
@@ -186,11 +201,78 @@ const buildUserPhotoName = (user = {}, file = {}) => {
   return `${baseName}${ext}`;
 };
 
+/* ================= System account mailbox ================= */
+// SYSTEM_ADMIN_EMAIL lives only in the server env. Null when it cannot be used.
+function systemMailbox() {
+  const email = String(process.env.SYSTEM_ADMIN_EMAIL || "").trim();
+  if (!isUsableSystemEmail(email)) return null;
+  if (typeof sendEmail.smtpConfigured === "function" && !sendEmail.smtpConfigured()) return null;
+  return email;
+}
+
+// Every 5th consecutive failure on the system account (spec الجزء 6). Never
+// throws: a failed alert must not change the sign-in answer.
+async function sendLockoutAlert(failedLoginCount) {
+  try {
+    const to = systemMailbox();
+    if (!to) {
+      logWithSource("User.lockoutAlert", new Error("SYSTEM_ADMIN_EMAIL or SMTP not configured; alert not sent"));
+      return;
+    }
+    await sendEmail.sendSystemAdminEmail(to, lockoutAlertEmail(failedLoginCount));
+  } catch (error) {
+    logWithSource("User.lockoutAlert", error);
+  }
+}
+
+// A wrong password (sign-in or change-password): atomic +1, lock at 5 for
+// everyone but the system account, alert email every 5th for the system
+// account. Never throws.
+async function countFailedSignIn(req, user, room, isSystem) {
+  try {
+    const counted = await UserModelDef.incrementFailedLogin(user.tz, room);
+    const { lockedAt, alertSystem } = afterFailureCount(counted?.result?.failedLoginCount, {
+      isSystem,
+      lockedAt: counted?.result?.lockedAt,
+      now: new Date(),
+    });
+    // The count comes from an atomic increment, so exactly one request sees
+    // each multiple of 5. Not awaited: SMTP must not delay the answer.
+    if (alertSystem) void sendLockoutAlert(counted?.result?.failedLoginCount);
+    if (lockedAt && !isSystem) {
+      const locked = await UserModelDef.lockIfThresholdReached(user.tz, lockedAt, LOCK_THRESHOLD, room);
+      // Only the request that actually set the lock records it.
+      if (locked?.result) {
+        await recordUser({ actor: { isSystem: true }, ip: req.ip }, "lock",
+          { tz: user.tz, firstname: user.firstname, lastname: user.lastname, lockedAt: null },
+          { tz: user.tz, firstname: user.firstname, lastname: user.lastname, lockedAt: locked.result.lockedAt ?? lockedAt });
+      }
+    }
+  } catch (countError) {
+    logWithSource("User.countFailedSignIn", countError);
+  }
+}
+
+const staleResponse = (res) =>
+  res.status(401).json({ code: "TOKEN_STALE", message: "انتهت الجلسة بعد تغيير كلمة المرور" });
+
+// A full session (access token + refresh cookie) for a user in the active room.
+async function issueSession(res, user) {
+  const claims = { id: user._id?.toString?.() || String(user._id || ""), tz: user.tz, roles: user.roles || [], room: "active" };
+  const accessToken = signAccessToken(claims);
+  const refreshToken = signRefreshToken(claims);
+  await UserModelDef.update({ tz: user.tz }, { refreshHash: sha256(refreshToken) }, "active");
+  setRefreshCookie(res, refreshToken);
+  return { accessToken, expirationTime: computeAccessExpMsFromNow() };
+}
+
 /* ================= Constants ================= */
 const ROOMS = ["active", "waiting", "noActive"];
+// No "password": one's own password changes only through
+// POST /api/auth/change-password (current password required).
 const SELF_EDIT_FIELDS = new Set([
   "firstname", "lastname", "birth_date", "gender", "phone", "email",
-  "city", "street", "password", "photo",
+  "city", "street", "photo",
 ]);
 const MAX_ATTEMPTS = 5;
 const LOCK_MIN = 10;
@@ -314,8 +396,9 @@ function sameTzFilter(tz) {
   return { tz: { $regex: `^0*${escapeRegex(digits)}$` } };
 }
 
+// A failed read throws: treating it as "absent" would let a duplicate through.
 async function tzExistsInRoom(tz, room) {
-  const found = await UserModelDef.get(sameTzFilter(tz), room).catch(() => null);
+  const found = await UserModelDef.get(sameTzFilter(tz), room);
   return Boolean(found?.success && Array.isArray(found.result) && found.result.length > 0);
 }
 
@@ -407,7 +490,8 @@ const getAllU = async (req, res) => {
 
       if (result?.success && Array.isArray(result.result)) {
         users = users.concat(
-          result.result.map((u) => ({
+          // The system account is never listed.
+          result.result.filter((u) => !isSystemUser(u)).map((u) => ({
             ...sanitize(u),
             room,
           }))
@@ -439,19 +523,13 @@ const getOneU = async (req, res) => {
     for (const room of ROOMS) {
       const result = await UserModelDef.get({ tz: tzOrId }, room).catch(() => null);
       const result2 = await UserModelDef.get({ _id: tzOrId }, room).catch(() => null);
-      if (result?.success && Array.isArray(result.result) && result.result.length > 0) {
-        return res.status(200).json({
-          ok: true,
-          user: sanitize(result.result[0]),
-          room,
-        });
-      }
-      if (result2?.success && Array.isArray(result2.result) && result2.result.length > 0) {
-        return res.status(200).json({
-          ok: true,
-          user: sanitize(result2.result[0]),
-          room,
-        });
+      const found = [result, result2]
+        .map((r) => (r?.success && Array.isArray(r.result) ? r.result[0] : null))
+        .find(Boolean);
+      if (found) {
+        // The system account answers as missing to everyone but itself.
+        if (isSystemUser(found) && !isSelfTz(req, found.tz)) break;
+        return res.status(200).json({ ok: true, user: sanitize(found), room });
       }
     }
 
@@ -567,11 +645,18 @@ const putU = async (req, res) => {
       for (const field of Object.keys(newData)) {
         if (!SELF_EDIT_FIELDS.has(field)) delete newData[field];
       }
+      // The system account's mail goes to SYSTEM_ADMIN_EMAIL only; its stored
+      // email is not editable.
+      if (req.actor?.isSystem || isSystemTz(tz)) delete newData.email;
       existing = await getUserInRoomByTz(tz, room);
     } else {
       dropStorageUnlessAllowed(req, newData);
-      // Another user's password: only the system or a users.passwords holder.
-      if (!can(req.actor, "users.passwords")) delete newData.password;
+      // Another user's password, or the email a password reset is sent to:
+      // only the system or a users.passwords holder.
+      if (!can(req.actor, "users.passwords")) {
+        delete newData.password;
+        delete newData.email;
+      }
       existing = await getUserInRoomByTz(tz, room);
       if (!existing || isSystemUser(existing)) return notFound(res);
       if (!canManageTarget(req.actor, existing)) return forbidden(res);
@@ -579,6 +664,8 @@ const putU = async (req, res) => {
     // The URL may name the user by _id; the update (which upserts) goes by the
     // stored tz, so it never creates a stray record.
     if (!existing) return notFound(res);
+    // A password set for another user (users.passwords) ends their sessions.
+    if (isAdmin && newData.password) newData.passwordChangedAt = new Date();
 
     const updated = await UserModelDef.update({ tz: existing.tz }, newData, room);
     await recordUser(req, userEditAction(existing, newData), existing, { ...(existing || { tz }), ...newData });
@@ -692,7 +779,14 @@ const register = async (req, res) => {
       return res.status(400).json({ message: "tz/password required" });
     }
 
-    const existingRoom = await roomHoldingTz(model.tz);
+    let existingRoom;
+    try {
+      existingRoom = await roomHoldingTz(model.tz);
+    } catch (error) {
+      // Unknown is not "absent": never register on a failed check.
+      logWithSource("User.register.roomHoldingTz", error);
+      return res.status(500).json({ message: "خطأ في الخادم" });
+    }
     if (existingRoom) {
       return res.status(400).json({
         message: existingRoom === "waiting" ? "المستخدم في غرفة الانتظار حتى يتم قُبُلهُ" : "المستخدم موجود",
@@ -785,29 +879,25 @@ const login = async (req, res) => {
     if (!ok) {
       // The attempt that reaches the threshold still answers 401; the lock
       // applies from the next attempt.
-      try {
-        const counted = await UserModelDef.incrementFailedLogin(user.tz, room);
-        const { lockedAt } = afterFailureCount(counted?.result?.failedLoginCount, {
-          isSystem,
-          lockedAt: counted?.result?.lockedAt,
-          now: new Date(),
-        });
-        if (lockedAt && !isSystem) {
-          const locked = await UserModelDef.lockIfThresholdReached(user.tz, lockedAt, LOCK_THRESHOLD, room);
-          // Only the request that actually set the lock records it.
-          if (locked?.result) {
-            await recordUser({ actor: { isSystem: true }, ip: req.ip }, "lock",
-              { tz: user.tz, firstname: user.firstname, lastname: user.lastname, lockedAt: null },
-              { tz: user.tz, firstname: user.firstname, lastname: user.lastname, lockedAt: locked.result.lockedAt ?? lockedAt });
-          }
-        }
-      } catch (countError) {
-        logWithSource("User.login.countFailure", countError);
-      }
+      await countFailedSignIn(req, user, room, isSystem);
       return res.status(401).json({
         code: "INVALID_CREDENTIALS",
         message: "رقم الهوية او كلمة السر غير صحيحتان",
       });
+    }
+
+    // Expired system password: a short token that only change-password
+    // accepts, no refresh cookie, and any older refresh token is revoked.
+    if (mustChangePassword(user, { isSystem, now: new Date() })) {
+      const scopedToken = signAccessToken({
+        id: user._id?.toString?.() || String(user._id || ""),
+        tz: user.tz,
+        roles: user.roles || [],
+        room,
+        scope: PASSWORD_CHANGE_SCOPE,
+      }, { expiresInSec: PASSWORD_CHANGE_TOKEN_TTL_SEC });
+      await UserModelDef.update({ tz: user.tz }, { refreshHash: null, ...afterSuccess() }, "active");
+      return res.status(200).json({ ok: true, mustChangePassword: true, accessToken: scopedToken });
     }
 
     const accessToken = signAccessToken({
@@ -885,6 +975,18 @@ const refreshAccessToken = async (req, res) => {
         code: "REFRESH_MISMATCH",
         message: "Refresh not valid",
       });
+    }
+
+    // A refresh token signed before the last password change or recovery.
+    if (tokenIsStale(payload.iat, user)) {
+      clearRefreshCookie(res);
+      return staleResponse(res);
+    }
+
+    // A session older than the system password's 30 days cannot be extended.
+    if (mustChangePassword(user, { isSystem: isSystemTz(user.tz, process.env.SYSTEM_ADMIN_TZ), now: new Date() })) {
+      clearRefreshCookie(res);
+      return res.status(403).json({ code: "PASSWORD_CHANGE_REQUIRED", message: "يجب تغيير كلمة المرور أولًا" });
     }
 
     const newRefresh = signRefreshToken({
@@ -969,6 +1071,7 @@ const getme = async (req, res) => {
     if (!user) {
       return res.status(401).json({ code: "USER_NOT_FOUND" });
     }
+    if (tokenIsStale(req.user?.iat, user)) return staleResponse(res);
 
     // The app shows and hides features from these; the server still checks
     // every request.
@@ -1012,6 +1115,18 @@ const forgotPassword = async (req, res) => {
       return res.json({ ok: true, message: genericMsg });
     }
 
+    // The system account's code goes only to SYSTEM_ADMIN_EMAIL (spec الجزء 6),
+    // never to the stored profile email. Without a usable mailbox the answer
+    // is the same as a sent email; nothing is stored or sent.
+    let to = user.email;
+    if (isSystemTz(user.tz, process.env.SYSTEM_ADMIN_TZ)) {
+      to = systemMailbox();
+      if (!to) {
+        logWithSource("User.forgotPassword", new Error("SYSTEM_ADMIN_EMAIL or SMTP not configured; system account reset code not sent"));
+        return res.json({ ok: true, message: genericMsg });
+      }
+    }
+
     const otp = generateOtp6();
 
     await UserModelDef.update(
@@ -1025,7 +1140,7 @@ const forgotPassword = async (req, res) => {
       "active"
     );
 
-    await sendResetPasswordEmail(user.email, otp);
+    await sendResetPasswordEmail(to, otp);
 
     await safeNotify({
       toRoles: ["ادارة"],
@@ -1075,6 +1190,12 @@ const resetPassword = async (req, res) => {
       return lockedResponse(res);
     }
 
+    const passwordProblem = newPasswordProblem(String(newPassword), null);
+    if (passwordProblem) {
+      // The reset form shows `message` as is.
+      return res.status(400).json({ ok: false, code: passwordProblem, message: passwordProblemMessage(passwordProblem) });
+    }
+
     if (user.resetOtpLockedUntil && new Date(user.resetOtpLockedUntil) > new Date()) {
       return res.status(429).json({
         ok: false,
@@ -1120,6 +1241,7 @@ const resetPassword = async (req, res) => {
       { tz: normTz },
       {
         password: encryptPassword(newPassword),
+        passwordChangedAt: new Date(),
         resetOtpHash: null,
         resetOtpExpires: null,
         resetOtpAttempts: 0,
@@ -1392,6 +1514,93 @@ const unlockUser = async (req, res) => {
   }
 };
 
+/* ================= changePassword ================= */
+// POST /api/auth/change-password { currentPassword, newPassword }: any
+// signed-in user, and the only route a "password-change" token reaches.
+// The current password is checked as at login; the new one must differ.
+const changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body || {};
+    if (typeof currentPassword !== "string" || !currentPassword || typeof newPassword !== "string" || !newPassword) {
+      return invalid(res, "BAD_INPUT");
+    }
+    const problem = newPasswordProblem(newPassword, currentPassword);
+    if (problem) return invalid(res, problem);
+
+    const user = req.actor?.user;
+    if (!user?.tz) return res.status(401).json({ code: "NO_ACTIVE" });
+    const isSystem = Boolean(req.actor?.isSystem);
+    if (isLocked(user, { isSystem })) return lockedResponse(res);
+
+    const { ok } = await verifyPasswordAndMaybeUpgrade(user, "active", currentPassword);
+    if (!ok) {
+      // Guessing here counts like guessing at the sign-in page.
+      await countFailedSignIn(req, user, "active", isSystem);
+      return invalid(res, "WRONG_PASSWORD");
+    }
+
+    const passwordChangedAt = new Date();
+    await UserModelDef.update(
+      { tz: user.tz },
+      { password: encryptPassword(newPassword), passwordChangedAt, ...afterSuccess() },
+      "active"
+    );
+    const who = { tz: user.tz, firstname: user.firstname, lastname: user.lastname };
+    await recordUser(req, "update",
+      { ...who, passwordChangedAt: user.passwordChangedAt ?? null },
+      { ...who, passwordChangedAt, password: "***" });
+
+    // Every older token is now stale; this session continues on new ones.
+    const session = await issueSession(res, user);
+    return res.status(200).json({ ok: true, ...session });
+  } catch (err) {
+    logWithSource("User.changePassword", err);
+    return res.status(500).json({ ok: false, code: "SERVER_ERROR" });
+  }
+};
+
+/* ================= recoverSystem ================= */
+// POST /api/user/system/recover (systemRecovery.reset). Only while the system
+// account has 3+ consecutive failed sign-ins. The temporary password goes to
+// SYSTEM_ADMIN_EMAIL only: it is never returned, logged or audited.
+const recoverSystem = async (req, res) => {
+  try {
+    const systemTz = String(process.env.SYSTEM_ADMIN_TZ || "").trim();
+    const system = systemTz ? await getUserInRoomByTz(systemTz, "active") : null;
+    if (!system || !isSystemTz(system.tz, systemTz)) return notFound(res);
+
+    if (recoveryCoolingDown(system)) {
+      return res.status(429).json({ ok: false, code: "RECOVERY_COOLDOWN" });
+    }
+    if ((Number(system.failedLoginCount) || 0) < RECOVERY_MIN_FAILURES) {
+      return res.status(409).json({ ok: false, code: "RECOVERY_NOT_ALLOWED" });
+    }
+
+    const to = systemMailbox();
+    if (!to) return res.status(503).json({ ok: false, code: "EMAIL_NOT_CONFIGURED" });
+
+    let outcome;
+    try {
+      outcome = await resetSystemPassword({
+        user: system,
+        model: UserModelDef,
+        email: to,
+        send: sendEmail.sendSystemAdminEmail,
+        encrypt: encryptPassword,
+      });
+    } catch (error) {
+      logWithSource("User.recoverSystem.reset", error);
+      return res.status(502).json({ ok: false, code: "EMAIL_FAILED" });
+    }
+
+    await recordUser(req, "system_recovery", outcome.before, outcome.after);
+    return res.status(200).json({ ok: true });
+  } catch (err) {
+    logWithSource("User.recoverSystem", err);
+    return res.status(500).json({ ok: false, code: "SERVER_ERROR" });
+  }
+};
+
 /* ================= viewPassword ================= */
 const viewPassword = async (req, res) => {
   try {
@@ -1404,7 +1613,7 @@ const viewPassword = async (req, res) => {
     }
 
     const user = await getUserInRoomByTz(tz, "active");
-    if (!user) {
+    if (!user || isSystemUser(user)) {
       return res.status(404).json({
         ok: false,
         message: "User not found",
@@ -1572,6 +1781,8 @@ module.exports = {
   unlockUser,
   forgotPassword,
   resetPassword,
+  changePassword,
+  recoverSystem,
 };
 
 // OLD CODE - DO NOT SUGGEST

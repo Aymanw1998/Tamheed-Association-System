@@ -54,6 +54,7 @@ const PUBLIC_ROUTES = {
 const ANY_ACTOR_ROUTES = {
   "Report/Report.route.js": ["GET /", "GET /:id"], // reports.viewAll checked in the controller
   "Vehicle/Vehicle.route.js": ["GET /me/permissions", "GET /alerts"], // own permissions / assigned vehicles
+  "User/Auth.route.js": ["POST /change-password"], // one's own password; checks the current one
 };
 
 const rel = (file) => path.relative(ENTITIES, file).split(path.sep).join("/").replace(/^\.\.\/routes\//, "routes/");
@@ -131,6 +132,7 @@ const EXACT_GUARDS = {
     "POST /changeStatus/:tz": "users.approve",
     "DELETE /:tz/:from": "users.delete",
     "POST /": "users.create",
+    "POST /system/recover": "systemRecovery.reset",
   },
   "Vehicle/Vehicle.route.js": { "DELETE /:id": "vehicles.delete" },
   "Notice/Notice.route.js": { "POST /:id/archive": "notices.post" },

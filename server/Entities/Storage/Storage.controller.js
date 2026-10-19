@@ -7,7 +7,7 @@ const { UserModelDef } = require("../User/User.model");
 const { StorageModelDef } = require("./Storage.model");
 const { broadcast } = require("../../utils/sse");
 const { repairMisencodedText } = require("../../utils/textEncoding");
-const { can } = require("../../utils/permissions");
+const { can, isSystemTz, SYSTEM_ACTOR_NAME } = require("../../utils/permissions");
 const { audit } = require("../../utils/audit");
 
 const STORAGE_DB_NAME = process.env.DB_NAME || "tamheed_db";
@@ -184,6 +184,12 @@ const getActiveUserByTz = async (tz) => {
   return null;
 };
 
+// A user one may share with: never the system account, which answers as missing.
+const getShareTargetByTz = async (tz) => {
+  const user = await getActiveUserByTz(tz);
+  return user && !isSystemTz(user.tz) ? user : null;
+};
+
 const getActiveUserByIdentifier = async (identifier) => {
   const safeIdentifier = String(identifier || "").trim();
   if (!safeIdentifier) return null;
@@ -202,6 +208,8 @@ const getActiveUserByIdentifier = async (identifier) => {
 };
 
 const buildUserDisplayName = (user = {}) => {
+  // Owner names shown in the file browser: the system account is "النظام".
+  if (isSystemTz(user.tz)) return SYSTEM_ACTOR_NAME;
   const fullName = [user.firstname, user.lastname]
     .map((value) => String(value || "").trim())
     .filter(Boolean)
@@ -2080,7 +2088,7 @@ const shareEntry = async (req, res) => {
       });
     }
 
-    const targetUser = await getActiveUserByTz(targetTz);
+    const targetUser = await getShareTargetByTz(targetTz);
     if (!targetUser) {
       return res.status(404).json({
         success: false,
@@ -2165,7 +2173,8 @@ const getShareStatus = async (req, res) => {
     const users = [];
     for (const entry of sharedWith) {
       const user = await getActiveUserByIdentifier(entry.userId);
-      if (user) {
+      // The system account is never listed.
+      if (user && !isSystemTz(user.tz)) {
         users.push({
           userId: String(user._id || entry.userId || "").trim(),
           tz: user.tz,
@@ -2224,7 +2233,7 @@ const unshareEntry = async (req, res) => {
       });
     }
 
-    const targetUser = await getActiveUserByTz(targetTz);
+    const targetUser = await getShareTargetByTz(targetTz);
     if (!targetUser) {
       return res.status(404).json({
         success: false,

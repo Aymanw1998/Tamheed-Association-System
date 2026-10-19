@@ -10,10 +10,11 @@ const {
   getme,
   forgotPassword,
   resetPassword,
+  changePassword,
 } = require('./User.controller'); // ملاحظة عربية
 
-const { requireAuth } = require('../../middleware/authMiddleware'); // عربيالأحد authMiddleware
-const { loadActor, requirePermission } = require('../../middleware/permissionMiddleware');
+const { requireAuth, requireAuthAllowingPasswordChange } = require('../../middleware/authMiddleware'); // عربيالأحد authMiddleware
+const { loadActor, loadActorAllowingPasswordChange, requirePermission } = require('../../middleware/permissionMiddleware');
 const { rateLimit } = require('../../middleware/rateLimit');
 const { setEngine } = require('crypto');
 
@@ -46,6 +47,16 @@ router.post('/refresh', rateLimit({ windowMs: 60 * 1000, max: 60, scope: "auth-r
 
 router.post("/forgot-password", passwordResetRateLimit, forgotPassword);
 router.post("/reset-password", passwordResetRateLimit, resetPassword);
+
+// Any signed-in user; the only route a "password-change" token (expired
+// system password) is accepted on. Rate-limited: it checks the current password.
+router.post(
+  "/change-password",
+  rateLimit({ windowMs: 15 * 60 * 1000, max: 10, scope: "password-change" }),
+  requireAuthAllowingPasswordChange,
+  loadActorAllowingPasswordChange,
+  changePassword,
+);
 
 router.get("/google")
 module.exports = router;

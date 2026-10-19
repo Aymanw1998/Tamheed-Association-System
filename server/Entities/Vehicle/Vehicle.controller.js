@@ -4,7 +4,7 @@ const { UserModelDef } = require("../User/User.model.js");
 const googleDrive = require("../../services/googleDrive.service.js");
 const { logWithSource } = require("../../middleware/logger.js");
 const rules = require("../../utils/vehicleRules.js");
-const { can } = require("../../utils/permissions.js");
+const { can, isSystemTz, actorRef, actorDisplayName } = require("../../utils/permissions.js");
 const { inspectDocument, buildDocumentName } = require("../../utils/vehicleFiles.js");
 const { lookupByPlate } = require("../../services/vehicleLookup.service.js");
 const { audit: auditLog } = require("../../utils/audit.js");
@@ -26,7 +26,9 @@ const fail = (res, status, message, extra = {}) => send(res, status, { ok: false
 
 const personName = (user = {}) =>
   [user.firstname, user.lastname].filter(Boolean).join(" ").trim() || String(user.tz || "");
-const actorName = (actor = {}) => actor.name || String(actor.tz || "");
+// Who acted, as stored: the system account is "system" / "النظام".
+const actorName = (actor = {}) => actorDisplayName(actor);
+const actorId = (actor = {}) => actorRef(actor, actor.id);
 
 // Route guard. req.actor is loaded fresh from the database for every request
 // by permissionMiddleware.loadActor; nothing works without vehicles.view.
@@ -63,7 +65,7 @@ async function audit(vehicle, req, action, { changes = [], reason = "", details 
       vehicleId: String(vehicle._id),
       plate: vehicle.plate,
       action,
-      by: actor.id,
+      by: actorId(actor),
       byName: actorName(actor),
       at: new Date().toISOString(),
       changes,
@@ -78,7 +80,7 @@ async function audit(vehicle, req, action, { changes = [], reason = "", details 
 }
 
 async function saveVehicle(vehicle, patch, actor) {
-  const data = { ...patch, updatedBy: actor.id, updatedAt: new Date().toISOString() };
+  const data = { ...patch, updatedBy: actorId(actor), updatedAt: new Date().toISOString() };
   await VehicleModelDef.update({ _id: String(vehicle._id) }, data);
   return { ...vehicle, ...data };
 }
@@ -128,7 +130,9 @@ function toClientVehicle(vehicle, today, userNames = new Map()) {
 async function loadUserNames() {
   const found = await UserModelDef.get({}).catch(() => null);
   const names = new Map();
-  for (const user of found?.result || []) names.set(String(user._id), personName(user));
+  for (const user of found?.result || []) {
+    names.set(String(user._id), isSystemTz(user.tz) ? actorDisplayName({ isSystem: true }) : personName(user));
+  }
   return names;
 }
 
@@ -192,7 +196,9 @@ function readImportSource(value) {
 async function checkResponsible(responsibleId) {
   if (!responsibleId) return "";
   const found = await UserModelDef.get({ _id: responsibleId }).catch(() => null);
-  return found?.result?.length ? "" : "المسؤول المختار غير موجود";
+  // The system account is never a responsible.
+  const user = (found?.result || []).find((u) => !isSystemTz(u.tz));
+  return user ? "" : "المسؤول المختار غير موجود";
 }
 
 async function plateInUse(plate, exceptId = "") {
@@ -216,7 +222,7 @@ const listResponsibles = async (req, res) => {
   try {
     const found = await UserModelDef.get({});
     const users = (found?.result || [])
-      .filter((user) => String(user.tz) !== "000000000")
+      .filter((user) => !isSystemTz(user.tz))
       .map((user) => ({
         id: String(user._id),
         name: personName(user),
@@ -273,9 +279,9 @@ const create = async (req, res) => {
       nextTestDate: "",
       policies: [],
       documents: [],
-      createdBy: req.actor.id,
+      createdBy: actorId(req.actor),
       createdAt: now,
-      updatedBy: req.actor.id,
+      updatedBy: actorId(req.actor),
       updatedAt: now,
     });
     const vehicle = created.result;
@@ -332,7 +338,7 @@ const archive = async (req, res) => {
     const reason = clean(req.body?.reason, 500);
     const saved = await saveVehicle(
       vehicle,
-      { status: "archived", previousStatus: vehicle.status, archivedAt: new Date().toISOString(), archivedBy: req.actor.id },
+      { status: "archived", previousStatus: vehicle.status, archivedAt: new Date().toISOString(), archivedBy: actorId(req.actor) },
       req.actor
     );
     await audit(saved, req, "archive", { before: vehicle, reason, changes: [{ field: "status", from: vehicle.status, to: "archived" }] });
@@ -419,7 +425,7 @@ function applyRecordPatch(record, patch, { fields, guarded, reason, actor }) {
     if (JSON.stringify(incoming) === JSON.stringify(before)) continue;
     next[field] = incoming;
     if (guarded.includes(field) && before !== "") {
-      corrections.push({ at: new Date().toISOString(), by: actor.id, byName: actorName(actor), field, from: before, to: incoming, reason });
+      corrections.push({ at: new Date().toISOString(), by: actorId(actor), byName: actorName(actor), field, from: before, to: incoming, reason });
     }
   }
   next.corrections = [...(record.corrections || []), ...corrections];
@@ -515,7 +521,7 @@ function addRecordHandler(kind) {
         id: randomUUID(),
         ...data,
         corrections: [],
-        recordedBy: req.actor.id,
+        recordedBy: actorId(req.actor),
         recordedByName: actorName(req.actor),
         recordedAt: new Date().toISOString(),
       };
@@ -601,7 +607,7 @@ function retireRecordHandler(kind) {
       if (index < 0) return fail(res, 404, `${config.label} غير موجودة`);
       if (list[index][stampField]) return fail(res, 409, "تم إلغاؤها مسبقًا");
       const stamp = rules.todayInJerusalem();
-      const next = { ...list[index], [stampField]: stamp, [`${stampField.replace("At", "")}Reason`]: reason, [`${stampField.replace("At", "")}By`]: req.actor.id };
+      const next = { ...list[index], [stampField]: stamp, [`${stampField.replace("At", "")}Reason`]: reason, [`${stampField.replace("At", "")}By`]: actorId(req.actor) };
       const nextList = list.map((item, i) => (i === index ? next : item));
 
       const patch = { [config.list]: nextList };
@@ -702,7 +708,7 @@ const uploadDocument = async (req, res) => {
       linkedType,
       linkedId: LINK_TYPES[linkedType] ? linkedId : "",
       replacesId,
-      uploadedBy: req.actor.id,
+      uploadedBy: actorId(req.actor),
       uploadedByName: actorName(req.actor),
       uploadedAt: now,
       supersededAt: "",

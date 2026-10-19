@@ -119,7 +119,10 @@ const ViewAllReport = () => {
 
       const enrichedReports = (reportsResponse.reports || []).map((report) => ({
         ...report,
-        user: usersById[String(report.createdBy)] || null,
+        // Reports the system account wrote are shown as "النظام".
+        user: report.createdBy === "system"
+          ? { firstname: "النظام", lastname: "" }
+          : usersById[String(report.createdBy)] || null,
       }));
 
       setReports(enrichedReports);

@@ -71,11 +71,13 @@ function createGoogleDriveRouter({ drive, state, requireAuth, isSystemAccount: i
 
 function defaultRouter() {
   const { requireAuth } = require("../../middleware/authMiddleware");
+  // loadActor too: refuses stale (pre-password-change) and locked sessions.
+  const { loadActor } = require("../../middleware/permissionMiddleware");
   const { createDriveConnectState } = require("../../utils/driveConnectState");
   return createGoogleDriveRouter({
     drive: require("../../services/googleDrive.service"),
     state: createDriveConnectState(),
-    requireAuth,
+    requireAuth: [requireAuth, loadActor],
     audit: require("../../utils/audit").audit,
   });
 }

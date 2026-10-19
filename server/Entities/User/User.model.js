@@ -45,6 +45,8 @@ const UserModelDef = {
     permissionsUpdatedAt: { type: 'date', required: false },
     permissionsUpdatedBy: { type: 'string', required: false },
     passwordChangedAt: { type: 'date', required: false, default: null },
+    // Set by a system account recovery: ends older sessions, starts a cooldown.
+    recoveredAt: { type: 'date', required: false, default: null },
     // Vehicles & trailers section: none of these is implied by a role. Only an
     // administrator can grant them (see utils/vehicleRules PERMISSIONS).
     vehiclePermissions: {

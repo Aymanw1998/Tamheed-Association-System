@@ -1,5 +1,11 @@
 const { UserModelDef } = require("../Entities/User/User.model");
 const { ensureUserStorageFolder } = require("../Entities/Storage/Storage.controller");
+const { systemEmailWarning, passwordChangedAtPatch } = require("../utils/systemPassword");
+const { smtpConfigured } = require("../utils/sendEmail");
+
+// A date the 30-day rule always treats as expired: the first sign-in must
+// choose a new password (the bootstrap password lives in the env file).
+const FORCE_CHANGE = () => new Date(0);
 
 const SYSTEM_ADMIN_TZ = String(process.env.SYSTEM_ADMIN_TZ || "").trim();
 const SYSTEM_ADMIN_PASSWORD = String(process.env.SYSTEM_ADMIN_PASSWORD || "").trim();
@@ -37,6 +43,14 @@ async function ensureSystemAdmin() {
     return { ok: false, reason: "missing-config" };
   }
 
+  // Recovery and alert emails go only to this mailbox (spec الجزء 6).
+  const emailWarning = systemEmailWarning(SYSTEM_ADMIN_EMAIL);
+  if (emailWarning) console.warn(emailWarning);
+  if (!smtpConfigured()) {
+    console.warn("SMTP is not configured (SMTP_SERVER, SMTP_PORT, SMTP_FROM): system account recovery, reset codes "
+      + "and alert emails cannot be sent. Configure SMTP in server/config/.env and restart.");
+  }
+
   const [activeUser, waitingUser, inactiveUser] = await Promise.all([
     findUserByTzInRoom(SYSTEM_ADMIN_TZ, "active"),
     findUserByTzInRoom(SYSTEM_ADMIN_TZ, "waiting"),
@@ -54,6 +68,9 @@ async function ensureSystemAdmin() {
       gender: SYSTEM_ADMIN_GENDER,
       roles: ["ادارة"],
       storageFolder: activeUser.storageFolder || SYSTEM_ADMIN_STORAGE_FOLDER,
+      // An account without a valid date must change its password at the
+      // next sign-in; a valid date is kept.
+      ...passwordChangedAtPatch(activeUser, FORCE_CHANGE()),
     };
 
     await UserModelDef.update({ tz: SYSTEM_ADMIN_TZ }, patch, "active");
@@ -81,6 +98,7 @@ async function ensureSystemAdmin() {
     gender: SYSTEM_ADMIN_GENDER,
     roles: ["ادارة"],
     storageFolder: SYSTEM_ADMIN_STORAGE_FOLDER,
+    passwordChangedAt: FORCE_CHANGE(),
   };
 
   await UserModelDef.create(payload, "active");

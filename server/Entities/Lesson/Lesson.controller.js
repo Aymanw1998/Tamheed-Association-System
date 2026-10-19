@@ -1,6 +1,21 @@
 const { LessonModelDef } = require("./Lesson.model");
 const { logWithSource } = require("../../middleware/logger");
 const { audit } = require("../../utils/audit");
+const { UserModelDef } = require("../User/User.model");
+const { isSystemTz } = require("../../utils/permissions");
+
+// The system account is never a teacher or helper. A failed lookup throws
+// (500) rather than letting it through. Only a 24-hex ObjectId can name an
+// account, so other values are not looked up (that would be a CastError, 500).
+const OBJECT_ID = /^[0-9a-fA-F]{24}$/;
+async function namesSystemAccount(ids) {
+  for (const id of ids.filter((value) => value && OBJECT_ID.test(String(value)))) {
+    const found = await UserModelDef.get({ _id: String(id) }, "active");
+    if ((found?.result || []).some((user) => isSystemTz(user.tz))) return true;
+  }
+  return false;
+}
+const SYSTEM_STAFF = { ok: false, code: "INVALID_STAFF", message: "المرشد أو المساعد غير موجود" };
 
 /* ===================== optional notify ===================== */
 let notify = null;
@@ -145,6 +160,7 @@ const postOne = async (req, res) => {
     if (!model.name || !model.teacher) {
       return res.status(400).json({ ok: false, message: "missing fields" });
     }
+    if (await namesSystemAccount([model.teacher, model.helper])) return res.status(400).json(SYSTEM_STAFF);
 
     const sameDay = await LessonModelDef.get({ "date.day": model.date.day });
 
@@ -182,6 +198,7 @@ const putOne = async (req, res) => {
 
     const current = existingRes.result[0];
     const next = buildLesson({ ...current, ...req.body });
+    if (await namesSystemAccount([req.body?.teacher, req.body?.helper])) return res.status(400).json(SYSTEM_STAFF);
 
     const sameDay = await LessonModelDef.get({ "date.day": next.date.day });
 

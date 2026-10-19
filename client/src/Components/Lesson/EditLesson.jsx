@@ -99,9 +99,10 @@ const EditLesson = () => {
       if (usersRes?.ok) {
         const allUsers = usersRes.users || [];
         // Administrators run lessons too, so they belong in the same picker.
+        // The system account is never in the list (the server leaves it out).
         setTeachers(allUsers.filter((u) => {
           const roles = normalizeRoles(u.roles);
-          return (roles.includes('مرشد') || roles.some((r) => ADMIN_ROLES.includes(r))) && u.tz != "000000000";
+          return roles.includes('مرشد') || roles.some((r) => ADMIN_ROLES.includes(r));
         }));
         setHelpers(allUsers.filter((u) => normalizeRoles(u.roles).includes('مساعد')));
       } else{

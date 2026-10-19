@@ -1,8 +1,13 @@
-const { effectivePermissions, can, isSystemTz, resolveRole } = require("../utils/permissions");
+const {
+  effectivePermissions, can, isSystemTz, resolveRole, SYSTEM_ACTOR, SYSTEM_ACTOR_NAME,
+} = require("../utils/permissions");
 const { logWithSource } = require("./logger");
 const { LOCKED_MESSAGE, isLocked } = require("../utils/loginLockout");
+const { tokenIsStale } = require("../utils/systemPassword");
 
 const FORBIDDEN_BODY = { code: "FORBIDDEN", message: "لا توجد صلاحية" };
+const PASSWORD_CHANGE_SCOPE = "password-change";
+const PASSWORD_CHANGE_REQUIRED = { code: "PASSWORD_CHANGE_REQUIRED", message: "يجب تغيير كلمة المرور أولًا" };
 
 // Loaded lazily so requiring this file does not pull in the database layer.
 async function defaultFindActiveUserByTz(tz) {
@@ -15,13 +20,21 @@ async function defaultFindActiveUserByTz(tz) {
 }
 
 // Runs after requireAuth. The JWT outlives permission changes, so the user is
-// re-read from the active room on every request.
-function createLoadActor({ findActiveUserByTz, systemTz } = {}) {
+// re-read from the active room on every request. A "password-change" token
+// (expired system password) is refused unless allowPasswordChange is set.
+function createLoadActor({ findActiveUserByTz, systemTz, allowPasswordChange = false } = {}) {
   return async function loadActor(req, res, next) {
     try {
+      if (req.user?.scope && !(allowPasswordChange && req.user.scope === PASSWORD_CHANGE_SCOPE)) {
+        return res.status(403).json(PASSWORD_CHANGE_REQUIRED);
+      }
       const tz = req.user?.tz;
       const user = tz ? await findActiveUserByTz(tz) : null;
       if (!user) return res.status(401).json({ code: "NO_ACTIVE" });
+      // Signed before the last password change or recovery: that session ended.
+      if (tokenIsStale(req.user?.iat, user)) {
+        return res.status(401).json({ code: "TOKEN_STALE", message: "انتهت الجلسة بعد تغيير كلمة المرور" });
+      }
 
       const actorTz = String(user.tz || "");
       const isSystem = isSystemTz(actorTz, systemTz === undefined ? process.env.SYSTEM_ADMIN_TZ : systemTz);
@@ -50,6 +63,10 @@ function createLoadActor({ findActiveUserByTz, systemTz } = {}) {
 }
 
 const loadActor = createLoadActor({ findActiveUserByTz: defaultFindActiveUserByTz });
+// Only for POST /api/auth/change-password.
+const loadActorAllowingPasswordChange = createLoadActor({
+  findActiveUserByTz: defaultFindActiveUserByTz, allowPasswordChange: true,
+});
 
 function requirePermission(...keys) {
   return (req, res, next) => {
@@ -77,9 +94,9 @@ function requireSelfOr(paramName, ...keys) {
 }
 
 function actorLabel(actor) {
-  if (actor?.isSystem) return { actor: "system", actorName: "النظام" };
+  if (actor?.isSystem) return { actor: SYSTEM_ACTOR, actorName: SYSTEM_ACTOR_NAME };
   const tz = String(actor?.tz || "");
   return { actor: tz, actorName: actor?.name || tz };
 }
 
-module.exports = { createLoadActor, loadActor, requirePermission, requireSelfOr, isSelf, actorLabel };
+module.exports = { createLoadActor, loadActor, loadActorAllowingPasswordChange, requirePermission, requireSelfOr, isSelf, actorLabel };

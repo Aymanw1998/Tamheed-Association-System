@@ -1,6 +1,6 @@
 const { ReportModelDef } = require("./Report.model.js");
 const { logWithSource } = require("../../middleware/logger.js");
-const { can } = require("../../utils/permissions.js");
+const { can, actorRef } = require("../../utils/permissions.js");
 const { audit } = require("../../utils/audit.js");
 
 // req.actor comes from permissionMiddleware.loadActor.
@@ -185,7 +185,8 @@ const post = async (req, res) => {
       // The author is always the authenticated caller - a client-supplied
       // createdBy would let anyone attribute a report to someone else and
       // would break the ownership checks in getAll/getById/put below.
-      createdBy: req.user?.id || req.user?.tz || null,
+      // The system account is stored as "system", never by its id or tz.
+      createdBy: actorRef(req.actor, req.user?.id || req.user?.tz || null),
       createdAt: new Date(),
       updatedAt: new Date(),
     };

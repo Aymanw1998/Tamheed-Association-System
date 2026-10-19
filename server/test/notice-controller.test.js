@@ -3,7 +3,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 const vm = require("node:vm");
-const { permissionMiddlewareStub } = require("./helpers/actors");
+const { permissionMiddlewareStub, actorFor } = require("./helpers/actors");
 const { auditStub } = require("./helpers/auditStub");
 
 const ADMIN = { _id: "a".repeat(24), tz: "111111118", firstname: "Ad", lastname: "Min", roles: ["ادارة"], email: "admin@example.com" };
@@ -26,7 +26,7 @@ function load(file, dependencies) {
   return module.exports;
 }
 
-function setup() {
+function setup({ extraUsers = [] } = {}) {
   const rows = [];
   let next = 1;
   const matches = (doc, filter) => Object.entries(filter).every(([k, v]) =>
@@ -41,7 +41,7 @@ function setup() {
     },
     async update(filter, patch) { rows.forEach((r, i) => { if (matches(r, filter)) rows[i] = { ...r, ...structuredClone(patch) }; }); return { result: null }; },
   };
-  const users = [ADMIN, GUIDE, READER, REVOKED];
+  const users = [ADMIN, GUIDE, READER, REVOKED, ...extraUsers];
   const common = {
     "../User/User.model.js": { UserModelDef: { async get(f = {}) { return { result: users.filter((u) => !f.tz || u.tz === f.tz) }; } } },
     "../../utils/vehicleRules.js": require("../utils/vehicleRules"),
@@ -185,4 +185,39 @@ test("posting and archiving a notice are recorded in the audit log", async () =>
   await guarded(ctx, ADMIN, "create", { body: { title: "" } });
   await guarded(ctx, ADMIN, "archive", { params: { id } });
   assert.equal(ctx.audit.calls.length, count);
+});
+
+/* ================= the system account ================= */
+
+// A synthetic, checksum-valid ID number (not a real person).
+const SYSTEM_TZ = "000000026";
+const SYS = { _id: "e".repeat(24), tz: SYSTEM_TZ, firstname: "Sys", lastname: "Tem", roles: [], email: "system@example.com" };
+
+async function withSystemTz(fn) {
+  const had = Object.hasOwn(process.env, "SYSTEM_ADMIN_TZ");
+  const previous = process.env.SYSTEM_ADMIN_TZ;
+  process.env.SYSTEM_ADMIN_TZ = SYSTEM_TZ;
+  try { return await fn(); } finally { if (had) process.env.SYSTEM_ADMIN_TZ = previous; else delete process.env.SYSTEM_ADMIN_TZ; }
+}
+
+test("the system account is never a notice recipient", async () => {
+  await withSystemTz(async () => {
+    const { service } = setup({ extraUsers: [SYS] });
+    const recipients = JSON.parse(JSON.stringify(await service.listNoticeRecipients()));
+    assert.deepEqual(recipients.map((a) => a.email), ["admin@example.com", "reader@example.com"]);
+  });
+});
+
+test("a notice posted by the system is stored as \"system\" / \"النظام\" and read by its author", async () => {
+  await withSystemTz(async () => {
+    const ctx = setup({ extraUsers: [SYS] });
+    const out = res();
+    await ctx.controller.create({ ...as(SYS), actor: actorFor(SYS, { isSystem: true }), body: { title: "t", body: "b", severity: "info" } }, out);
+    assert.equal(out.statusCode, 201);
+    assert.equal(ctx.rows[0].createdBy, "system");
+    assert.equal(ctx.rows[0].createdByName, "النظام");
+    assert.deepEqual(JSON.parse(JSON.stringify(ctx.rows[0].readBy)), [SYS._id]);
+    assert.ok(!JSON.stringify(ctx.rows).includes(SYSTEM_TZ));
+    assert.ok(!JSON.stringify(ctx.rows).includes("Sys Tem"));
+  });
 });

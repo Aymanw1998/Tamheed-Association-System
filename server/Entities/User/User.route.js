@@ -4,12 +4,17 @@ const multer = require('multer');
 
 const {
   getAllU, uploadPhoto, deletePhoto, getOneU, putU, deleteU, postU, changeRoom, viewPassword, updateStoragePermissions,
-  getPermissions, putPermissions, putRole, unlockUser,
+  getPermissions, putPermissions, putRole, unlockUser, recoverSystem,
 } = require('./User.controller');
 
 // alias
 const { requireAuth: protect } = require('../../middleware/authMiddleware');
 const { loadActor, requirePermission, requireSelfOr } = require('../../middleware/permissionMiddleware');
+const { rateLimit } = require('../../middleware/rateLimit');
+
+// System account recovery emails a temporary password: at most 3 an hour.
+// Placed after the permission check, so non-holders never use up the budget.
+const recoverRateLimit = rateLimit({ windowMs: 60 * 60 * 1000, max: 3, scope: "system-recover" });
 const mongoose = require('mongoose');
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
@@ -26,6 +31,8 @@ router.get('/viewPassword/:tz', requirePermission('users.passwords'), viewPasswo
 router.get('/:tz/permissions', requirePermission('permissions.manage'), getPermissions);
 
 router.post('/', requirePermission('users.create'), postU);
+// Emails a temporary password to SYSTEM_ADMIN_EMAIL; never returns it.
+router.post('/system/recover', requirePermission('systemRecovery.reset'), recoverRateLimit, recoverSystem);
 router.post("/changeStatus/:tz", requirePermission('users.approve'), changeRoom);
 router.post('/:tz/unlock', requirePermission('users.unlock'), unlockUser);
 router.post('/upload-photo/:tz', requireSelfOr('tz', 'users.edit'), upload.single('file'), uploadPhoto);

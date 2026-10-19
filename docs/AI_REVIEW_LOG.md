@@ -1554,3 +1554,65 @@ changes the server accepts.
 
 **Delivery state:** committed by the agent with the owner's standing approval
 (2026-10-19); not pushed.
+
+## 2026-10-19: Permissions project, Phase 5 (system account)
+
+**Scope:** plan Tasks 13–14, plus two items carried from the Phase 4 review.
+
+**Changes:**
+
+- Carried fixes: changing another user's email needs `users.passwords` (it
+  was a way to take over an account through forgot-password); duplicate-ID
+  checks no longer pass silently on a database error.
+- Hidden system account (`SYSTEM_ADMIN_TZ`): left out of user lists and
+  lookups, pickers, vehicle responsibles, notice recipients, file sharing and
+  dashboard counts; lessons refuse it as teacher or helper; its actions are
+  stored and shown as "system" / "النظام" (`actorRef`, `actorDisplayName` in
+  `server/utils/permissions.js`).
+- Passwords: `POST /api/auth/change-password` is now the only way for anyone
+  to change their own password (current password, 8–128 characters, must
+  differ; wrong attempts count toward the lockout). Older sessions end when a
+  password changes or the system account is recovered.
+- System account: password must change every 30 days (and at the first
+  sign-in after deploy); recovery by a `systemRecovery.reset` holder only after
+  3+ failed sign-ins (rate limited, 10-minute cooldown) with a temporary
+  password emailed only to `SYSTEM_ADMIN_EMAIL`; IT script
+  `npm run system:recover`; alert email every 5th failed sign-in;
+  forgot-password for it goes only to `SYSTEM_ADMIN_EMAIL`.
+- Client: forced password-change screen, change-own-password form on the
+  profile, recovery button on the users page, reset-by-email shows the
+  password rule.
+- New: `server/utils/systemPassword.js`, `server/scripts/systemRecover.js`,
+  `client/src/Components/Auth/ForcedPasswordChange/`,
+  `client/src/Components/Profile/ChangeOwnPassword.jsx`,
+  `client/src/utils/passwordChange.js`, tests `system-account`,
+  `system-password`.
+
+**Process:** each task built by a fresh Claude subagent and reviewed by a
+separate one (both needed one fix round; Task 13's implementer was interrupted
+by a usage limit and resumed). The final Phase 5 review found that the system
+account's forgot-password went to a changeable address and that reset-by-email
+gave an unreadable error; both fixed and re-reviewed.
+
+**Verification:** `npm run verify`: server 437/437, client 21 suites / 201
+tests, client build compiled. Not verified: no browser check, no real email
+sent, no database.
+
+**Deploy steps for the owner:**
+1. In the server's environment (not in the repo) set `SYSTEM_ADMIN_EMAIL` to
+   the real mailbox and configure `SMTP_*`; the server warns at startup if
+   either is missing.
+2. After deploy, the system account must choose a new password at its first
+   sign-in, then every 30 days.
+3. Lost access: `npm run system:recover` on the server emails a temporary
+   password; if the mailbox itself is lost, change `SYSTEM_ADMIN_EMAIL`,
+   restart, then run the script.
+4. Users who change their password are signed out of their other tabs.
+
+**Requesting Codex review.** No live Codex connection from this session; this
+entry is the handoff. Focus: nobody but the owner can take over or lock out
+the system account; its ID, name and temporary password never leave the
+server except to its mailbox.
+
+**Delivery state:** committed by the agent with the owner's standing approval;
+not pushed.

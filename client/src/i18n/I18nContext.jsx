@@ -248,6 +248,8 @@ for (const code of Object.keys(translations)) {
   translations[code].nav.notices = noticeStrings[code].navTitle;
   translations[code].perms = accessStrings[code].perms;
   translations[code].audit = accessStrings[code].audit;
+  translations[code].passwordChange = accessStrings[code].passwordChange;
+  translations[code].systemRecovery = accessStrings[code].systemRecovery;
   translations[code].nav.audit = accessStrings[code].audit.navTitle;
 }
 

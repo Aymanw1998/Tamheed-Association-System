@@ -158,7 +158,7 @@ api.interceptors.response.use(
     // ملاحظة عربية
     if (
       status === 401 &&
-      ['NO_TOKEN', 'TOKEN_INVALID', 'USER_NOT_FOUND', 'REFRESH_FAILED', 'REFRESH_MISMATCH'].includes(code)
+      ['NO_TOKEN', 'TOKEN_INVALID', 'TOKEN_STALE', 'USER_NOT_FOUND', 'REFRESH_FAILED', 'REFRESH_MISMATCH'].includes(code)
     ) {
       hardResetToLogin('انتهت صلاحية الرمز');
     }

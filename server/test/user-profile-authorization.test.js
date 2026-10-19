@@ -36,6 +36,7 @@ function loadController() {
     "../../utils/permissionRules": require("../utils/permissionRules"),
     "../../utils/israeliId": require("../utils/israeliId"),
     "../../utils/loginLockout": require("../utils/loginLockout"),
+    "../../utils/systemPassword": require("../utils/systemPassword"),
     "../../middleware/logger": { logWithSource() {} },
     "./passwordCrypto": {},
     "../UploadFile/file": {},
@@ -102,9 +103,11 @@ test("self-edit saves profile fields while ignoring authority and session metada
     },
   });
   assert.equal(res.statusCode, 200);
+  // One's own password changes only through POST /api/auth/change-password.
+  const { password, ...profileWithoutPassword } = profile;
   assert.deepEqual(updates, [{
     filter: { tz: "self-user" },
-    data: { ...profile, birth_date: "2000-01-02T00:00:00.000Z" },
+    data: { ...profileWithoutPassword, birth_date: "2000-01-02T00:00:00.000Z" },
     room: "active",
   }]);
 });

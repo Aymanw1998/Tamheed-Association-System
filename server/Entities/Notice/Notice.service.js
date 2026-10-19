@@ -1,6 +1,6 @@
 const { NoticeModelDef } = require("./Notice.model.js");
 const { UserModelDef } = require("../User/User.model.js");
-const { can, effectivePermissions, isSystemTz } = require("../../utils/permissions.js");
+const { can, effectivePermissions, isSystemTz, actorRef } = require("../../utils/permissions.js");
 
 const OBJECT_ID = /^[a-f0-9]{24}$/i;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -8,7 +8,8 @@ const MAX_LIST = 200;
 
 const isDuplicate = (err) => err && (err.code === 11000 || /E11000/.test(String(err.message)));
 
-async function publishNotice({ title, body, category, severity, link = "", dedupKey = null, createdBy = "system", createdByName = "" }) {
+async function publishNotice({ title, body, category, severity, link = "", dedupKey = null, createdBy = "system", createdByName = "",
+  readBy = createdBy === "system" ? [] : [String(createdBy)] }) {
   if (dedupKey) {
     const found = await NoticeModelDef.get({ dedupKey });
     if (found?.result?.length) return { created: false, notice: found.result[0] };
@@ -16,7 +17,7 @@ async function publishNotice({ title, body, category, severity, link = "", dedup
   const data = {
     title, body, category, severity, link, createdBy, createdByName,
     createdAt: new Date().toISOString(),
-    readBy: createdBy === "system" ? [] : [String(createdBy)],
+    readBy,
     archivedAt: null, archivedBy: null,
   };
   if (dedupKey) data.dedupKey = dedupKey;
@@ -79,7 +80,7 @@ async function markAllRead(userId) {
 async function archiveNotice(id, actor) {
   const notice = await findNotice(id);
   if (!notice || notice.archivedAt) return null;
-  const patch = { archivedAt: new Date().toISOString(), archivedBy: String(actor.id) };
+  const patch = { archivedAt: new Date().toISOString(), archivedBy: actorRef(actor, String(actor.id)) };
   await NoticeModelDef.update({ _id: notice._id }, patch);
   return { ...notice, ...patch };
 }
@@ -89,7 +90,9 @@ async function archiveNotice(id, actor) {
 async function listNoticeRecipients() {
   const found = await UserModelDef.get({}, "active");
   return (found?.result || [])
-    .filter((user) => can(effectivePermissions(user, { isSystem: isSystemTz(user.tz) }), "notices.view"))
+    // The system account is never a recipient.
+    .filter((user) => !isSystemTz(user.tz))
+    .filter((user) => can(effectivePermissions(user), "notices.view"))
     .map((user) => ({
       id: String(user._id),
       name: [user.firstname, user.lastname].filter(Boolean).join(" ").trim(),

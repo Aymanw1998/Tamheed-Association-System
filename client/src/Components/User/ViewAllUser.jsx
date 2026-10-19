@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { changeStatus, deleteU, getAll, unlockUser } from "../../WebServer/services/user/functionsUser.jsx";
+import { changeStatus, deleteU, getAll, unlockUser, recoverSystemAccount } from "../../WebServer/services/user/functionsUser.jsx";
+import { recoveryResultKey } from "../../utils/passwordChange";
 import styles from "./User.module.css";
 import Fabtn from "../Global/Fabtn/Fabtn.jsx";
 import { toast } from "../../ALERT/SystemToasts.jsx";
@@ -20,6 +21,8 @@ const ViewAllUser = () => {
   const { pickRole, roleDialog } = useRolePicker();
   const canCreateUsers = canStored("users.create");
   const canUnlock = canStored("users.unlock");
+  const canRecoverSystem = canStored("systemRecovery.reset");
+  const [recovering, setRecovering] = useState(false);
   // Hides actions on users the viewer may not manage (self, equal or higher
   // rank); the server refuses them anyway.
   const viewer = getStoredViewer();
@@ -204,6 +207,31 @@ const ViewAllUser = () => {
     loadUsers();
   };
 
+  // Emails a temporary password to the system mailbox; the server allows it
+  // only after 3 failed system sign-ins and never returns the password.
+  const onRecoverSystem = async () => {
+    let ok = false;
+    try {
+      ok = await ask("change", {
+        title: t("systemRecovery.button"), message: t("systemRecovery.confirm"),
+        confirmText: t("systemRecovery.button"), cancelText: t("perms.cancel"),
+      });
+    } catch {
+      ok = false;
+    }
+    if (!ok) return;
+    setRecovering(true);
+    try {
+      const res = await recoverSystemAccount();
+      const key = recoveryResultKey(res);
+      const message = t(`systemRecovery.${key}`);
+      if (key === "sent") toast.success(message);
+      else toast.warn(message);
+    } finally {
+      setRecovering(false);
+    }
+  };
+
   const handleDeleteUser = async (user, from) => {
     try {
       const res = await deleteU(user.tz, from);
@@ -238,6 +266,12 @@ const ViewAllUser = () => {
           <Button variant="secondary" onClick={loadUsers} loading={loading}>
             {loading ? "جاري التحديث" : "تحديث القائمة"}
           </Button>
+
+          {canRecoverSystem && (
+            <Button variant="secondary" onClick={onRecoverSystem} loading={recovering}>
+              {t("systemRecovery.button")}
+            </Button>
+          )}
         </div>
 
         <div style={{ marginTop: 12, marginBottom: 12 }}>

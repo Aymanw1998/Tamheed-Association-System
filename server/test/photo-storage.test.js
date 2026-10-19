@@ -87,6 +87,7 @@ function loadUserController(model, storage, audit = auditStub()) {
     "../../utils/permissionRules": require("../utils/permissionRules"),
     "../../utils/israeliId": require("../utils/israeliId"),
     "../../utils/loginLockout": require("../utils/loginLockout"),
+    "../../utils/systemPassword": require("../utils/systemPassword"),
     "../../middleware/logger": { logWithSource() {} },
     "./passwordCrypto": {},
     "../UploadFile/file": storage,

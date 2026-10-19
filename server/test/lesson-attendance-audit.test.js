@@ -47,11 +47,13 @@ const ADMIN = { _id: "a".repeat(24), tz: "111111118", firstname: "Ad", lastname:
 const req = (extra = {}) => ({ user: { id: ADMIN._id, tz: ADMIN.tz, roles: ADMIN.roles }, actor: actorFor(ADMIN), params: {}, query: {}, body: {}, ...extra });
 const createRes = () => ({ statusCode: 200, status(c) { this.statusCode = c; return this; }, json(v) { this.body = v; return this; } });
 
-function lessonSetup(seed = []) {
+function lessonSetup(seed = [], users = []) {
   const lessons = createStore(seed);
   const audit = auditStub();
   const controller = load("Lesson/Lesson.controller.js", {
     "./Lesson.model": { LessonModelDef: lessons },
+    "../User/User.model": { UserModelDef: createStore(users) },
+    "../../utils/permissions": require("../utils/permissions"),
     "../../middleware/logger": { logWithSource() {} },
     "../Notification/Notification.controller": {},
     ...audit.deps,
@@ -106,6 +108,7 @@ test("attendance bulk-save writes one audit row per save with lesson, date and r
     "../Lesson/Lesson.model": { LessonModelDef: lessons },
     "../User/User.model": { UserModelDef: createStore() },
     "../Student/Student.model": { StudentModelDef: createStore() },
+    "../../utils/permissions": require("../utils/permissions"),
     "../../middleware/logger": { logWithSource() {} },
     ...audit.deps,
   });
@@ -134,4 +137,99 @@ test("attendance bulk-save writes one audit row per save with lesson, date and r
   await controller.bulkSave(req({ body: { lessonId: "lesson-1" } }), bad);
   assert.equal(bad.statusCode, 400);
   assert.equal(audit.calls.length, 1);
+});
+
+/* ================= the system account ================= */
+
+// A synthetic, checksum-valid ID number (not a real person).
+const SYSTEM_TZ = "000000026";
+const SYS = { _id: "e".repeat(24), tz: SYSTEM_TZ, firstname: "Sys", lastname: "Tem", roles: [] };
+const TEACHER = { _id: "t".repeat(24), tz: "222222226", firstname: "Te", lastname: "Acher", roles: ["مرشد"] };
+
+async function withSystemTz(fn) {
+  const had = Object.hasOwn(process.env, "SYSTEM_ADMIN_TZ");
+  const previous = process.env.SYSTEM_ADMIN_TZ;
+  process.env.SYSTEM_ADMIN_TZ = SYSTEM_TZ;
+  try { return await fn(); } finally { if (had) process.env.SYSTEM_ADMIN_TZ = previous; else delete process.env.SYSTEM_ADMIN_TZ; }
+}
+
+test("the system account cannot be a lesson teacher or helper", async () => {
+  await withSystemTz(async () => {
+    const lesson = { name: "Math", room: "1", date: { day: 2, startMin: 600, endMin: 645 } };
+    for (const role of ["teacher", "helper"]) {
+      const { controller, lessons, audit } = lessonSetup([], [SYS, TEACHER]);
+      const out = createRes();
+      await controller.postOne(req({ body: { ...lesson, teacher: TEACHER._id, [role]: SYS._id } }), out);
+      assert.equal(out.statusCode, 400, role);
+      assert.equal(lessons.all().length, 0);
+      assert.equal(audit.calls.length, 0);
+    }
+
+    const { controller, lessons } = lessonSetup([{ _id: "lesson-1", ...lesson, teacher: TEACHER._id, helper: null }], [SYS, TEACHER]);
+    for (const role of ["teacher", "helper"]) {
+      const out = createRes();
+      await controller.putOne(req({ params: { id: "lesson-1" }, body: { [role]: SYS._id } }), out);
+      assert.equal(out.statusCode, 400, role);
+    }
+    assert.equal(lessons.all()[0].teacher, TEACHER._id);
+    assert.equal(lessons.all()[0].helper, null);
+
+    const ok = createRes();
+    await controller.putOne(req({ params: { id: "lesson-1" }, body: { name: "Algebra" } }), ok);
+    assert.equal(ok.statusCode, 200);
+  });
+});
+
+test("an attendance sheet names a system teacher \"النظام\"", async () => {
+  await withSystemTz(async () => {
+    const controller = load("Attendance/Attendance.controller.js", {
+      "./Attendance.model": { AttendanceModelDef: createStore() },
+      "../Lesson/Lesson.model": { LessonModelDef: createStore([{ _id: "lesson-1", name: "Math", teacher: SYS._id, list_students: [], date: { day: 2 } }]) },
+      "../User/User.model": { UserModelDef: createStore([SYS]) },
+      "../Student/Student.model": { StudentModelDef: createStore() },
+      "../../utils/permissions": require("../utils/permissions"),
+      "../../middleware/logger": { logWithSource() {} },
+      ...auditStub().deps,
+    });
+    const out = createRes();
+    await controller.getSheet(req({ query: { lessonId: "lesson-1", year: 2026, month: 10, day: 17 } }), out);
+    assert.equal(out.statusCode, 200);
+    assert.equal(out.body.schema.teacherName, "النظام");
+    assert.ok(!JSON.stringify(out.body).includes(SYSTEM_TZ));
+  });
+});
+
+test("a teacher or helper value that is not an ObjectId is not looked up (no CastError, no 500)", async () => {
+  await withSystemTz(async () => {
+    // Like Mongoose: an _id filter that is not 24 hex characters throws a CastError.
+    const users = createStore([SYS, TEACHER]);
+    const strictUsers = {
+      ...users,
+      async get(filter = {}) {
+        if (filter._id !== undefined && !/^[0-9a-fA-F]{24}$/.test(String(filter._id))) {
+          const error = new Error(`Cast to ObjectId failed for value "${filter._id}"`);
+          error.name = "CastError";
+          throw error;
+        }
+        return users.get(filter);
+      },
+    };
+    const lessons = createStore();
+    const controller = load("Lesson/Lesson.controller.js", {
+      "./Lesson.model": { LessonModelDef: lessons },
+      "../User/User.model": { UserModelDef: strictUsers },
+      "../../utils/permissions": require("../utils/permissions"),
+      "../../middleware/logger": { logWithSource() {} },
+      "../Notification/Notification.controller": {},
+      ...auditStub().deps,
+    });
+    const lesson = { name: "Math", room: "1", date: { day: 2, startMin: 600, endMin: 645 } };
+    const out = createRes();
+    await controller.postOne(req({ body: { ...lesson, teacher: "not-an-object-id" } }), out);
+    assert.equal(out.statusCode, 201);
+
+    const blocked = createRes();
+    await controller.postOne(req({ body: { ...lesson, date: { day: 3, startMin: 600, endMin: 645 }, teacher: "not-an-object-id", helper: SYS._id } }), blocked);
+    assert.equal(blocked.statusCode, 400, "the system account is still refused");
+  });
 });

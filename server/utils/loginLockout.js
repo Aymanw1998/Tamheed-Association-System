@@ -20,7 +20,7 @@ function afterFailureCount(count, { isSystem, lockedAt: existingLockedAt = null,
   } else if (!lockedAt && failedLoginCount >= LOCK_THRESHOLD) {
     lockedAt = now;
   }
-  const alertSystem = Boolean(isSystem) && failedLoginCount % SYSTEM_ALERT_EVERY === 0;
+  const alertSystem = Boolean(isSystem) && failedLoginCount > 0 && failedLoginCount % SYSTEM_ALERT_EVERY === 0;
   return { failedLoginCount, lockedAt, alertSystem };
 }
 
@@ -32,7 +32,7 @@ function afterFailure(user, { isSystem, now = new Date() } = {}) {
   } else if (!lockedAt && failedLoginCount >= LOCK_THRESHOLD) {
     lockedAt = now;
   }
-  const alertSystem = Boolean(isSystem) && failedLoginCount % SYSTEM_ALERT_EVERY === 0;
+  const alertSystem = Boolean(isSystem) && failedLoginCount > 0 && failedLoginCount % SYSTEM_ALERT_EVERY === 0;
   return { failedLoginCount, lockedAt, alertSystem };
 }
 

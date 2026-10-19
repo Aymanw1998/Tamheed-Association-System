@@ -4,7 +4,10 @@ const crypto = require('crypto');
 const ACCESS_TOKEN_TTL_SEC  = Number(process.env.JWT_ACCESS_TTL_SEC ||  1 * 24 * 60 * 60);   // 15 الأربعاءعربي'
 const REFRESH_TOKEN_TTL_SEC = Number(process.env.JWT_REFRESH_TTL_SEC || 7 * 24 * 60 * 60); // 7 أيام
 
-exports.signAccessToken = (payload) => jwt.sign(payload, process.env.JWT_ACCESS_SECRET, { algorithm: 'HS256', expiresIn: ACCESS_TOKEN_TTL_SEC });
+// payload.scope (e.g. "password-change") limits what the token may do; see
+// middleware/authMiddleware.js. expiresInSec shortens a scoped token's life.
+exports.signAccessToken = (payload, { expiresInSec } = {}) =>
+  jwt.sign(payload, process.env.JWT_ACCESS_SECRET, { algorithm: 'HS256', expiresIn: expiresInSec || ACCESS_TOKEN_TTL_SEC });
 
 exports.signRefreshToken = (payload) => jwt.sign(payload, process.env.JWT_REFRESH_SECRET, { algorithm: 'HS256', expiresIn: REFRESH_TOKEN_TTL_SEC });
 

@@ -2,6 +2,7 @@ const service = require("./Notice.service.js");
 const { logWithSource } = require("../../middleware/logger.js");
 const { runVehicleExpiryCheck } = require("../../services/vehicleExpiryJob.js");
 const { audit } = require("../../utils/audit.js");
+const { actorRef, actorDisplayName } = require("../../utils/permissions.js");
 
 const SERVER_ERROR = "حدث خطأ غير متوقع، حاول مرة أخرى";
 const SEVERITIES = ["critical", "important", "info"];
@@ -44,7 +45,10 @@ const create = handle("create", async (req, res) => {
   if (!SEVERITIES.includes(severity)) errors.severity = "درجة الأهمية غير صحيحة";
   if (Object.keys(errors).length) return fail(res, 400, "يرجى تصحيح الحقول", { errors });
   const { notice } = await service.publishNotice({
-    title, body, severity, category: "manual", createdBy: req.actor.id, createdByName: req.actor.name,
+    title, body, severity, category: "manual",
+    // The system account is stored as "system" / "النظام"; its author has read it.
+    createdBy: actorRef(req.actor, req.actor.id), createdByName: actorDisplayName(req.actor),
+    readBy: [String(req.actor.id)],
   });
   await audit.record(req, {
     module: "notices", action: "create", targetType: "notice",

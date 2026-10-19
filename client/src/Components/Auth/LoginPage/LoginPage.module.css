@@ -282,3 +282,16 @@
   border-radius: var(--radius-md);
   cursor: pointer;
 }
+
+/* Forced password change (ForcedPasswordChange.jsx) */
+.formHint {
+  margin: 0;
+  font-size: var(--fs-xs);
+  color: var(--color-text-secondary);
+}
+
+.formError {
+  margin: 0;
+  font-size: var(--fs-xs);
+  color: var(--color-danger-700);
+}

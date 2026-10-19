@@ -41,6 +41,7 @@ function loadController(storedPassword = FAKE_HASH, extra = {}) {
     "../../utils/permissionRules": require("../utils/permissionRules"),
     "../../utils/israeliId": require("../utils/israeliId"),
     "../../utils/loginLockout": require("../utils/loginLockout"),
+    "../../utils/systemPassword": require("../utils/systemPassword"),
     "../../middleware/logger": { logWithSource() {} },
     "./passwordCrypto": {
       encryptPassword: (v) => `enc:${v}`,
@@ -151,7 +152,7 @@ function startPhotoApp(userTz) {
       getAllU: noop(), uploadPhoto: handler("upload"), deletePhoto: handler("delete"), getOneU: noop(),
       putU: noop(), deleteU: noop(), postU: noop(), changeRoom: noop(),
       viewPassword: noop(), updateStoragePermissions: noop(),
-      getPermissions: noop(), putPermissions: noop(), putRole: noop(), unlockUser: noop(),
+      getPermissions: noop(), putPermissions: noop(), putRole: noop(), unlockUser: noop(), recoverSystem: noop(),
     },
   };
   delete require.cache[routePath];

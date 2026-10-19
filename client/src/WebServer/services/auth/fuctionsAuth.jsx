@@ -1,8 +1,9 @@
 // AUTH services
 import axios from "axios";
-import api, { API_BASE_URL, refreshSession, setAuthTokens } from "../api";
+import api, { API_BASE_URL, publicApi, refreshSession, setAuthTokens } from "../api";
 import { scheduleAccessRefresh, clearAccessRefresh } from "../../utils/accessScheduler";
 import { rememberSessionUser } from "../../../utils/session";
+import { isForcedChange } from "../../../utils/passwordChange";
 
 function markSignedIn(user, accessToken, expirationTime) {
   setAuthTokens(accessToken, expirationTime);
@@ -22,10 +23,16 @@ export async function register(payload) {
   }
 }
 
+// Resolves to the user, or to { mustChangePassword: true, accessToken } when
+// the system account's password has expired. That token only works on
+// change-password, so it is kept in memory and never stored as the session.
 export async function login(tz, password) {
   const { data, status } = await api.post("/auth/login", { tz, password }, { withCredentials: true });
   if (![200, 201].includes(status) || !data?.ok) {
     throw new Error(data?.message || "تسجيل الدخول فشل");
+  }
+  if (isForcedChange(data)) {
+    return { mustChangePassword: true, accessToken: data.accessToken };
   }
 
   const { accessToken, expirationTime, user } = data;
@@ -82,6 +89,29 @@ export async function logout() {
   localStorage.clear();
   localStorage.setItem("LOGOUT_BROADCAST", String(Date.now()));
   window.location.assign("/");
+}
+
+// POST /auth/change-password. `token` is the limited token from login (forced
+// change); without it the stored session token is used, and the new session
+// the server returns replaces it (older tokens stop working). Throws with the
+// server's error code on .code.
+export async function changePassword(currentPassword, newPassword, token) {
+  const client = token ? publicApi : api;
+  const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+  let data;
+  try {
+    ({ data } = await client.post("/auth/change-password", { currentPassword, newPassword }, { headers }));
+  } catch (err) {
+    const status = err?.response?.status;
+    const code = status === 401 ? "EXPIRED" : status === 429 ? "RATE_LIMITED" : err?.response?.data?.code || "generic";
+    throw Object.assign(new Error(code), { code });
+  }
+  if (!data?.ok) throw Object.assign(new Error("generic"), { code: data?.code || "generic" });
+  if (!token && data.accessToken) {
+    setAuthTokens(data.accessToken, data.expirationTime);
+    scheduleAccessRefresh(data.accessToken);
+  }
+  return { ok: true };
 }
 
 export async function forgotPassword(tz) {

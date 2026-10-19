@@ -191,3 +191,6 @@ export const saveUserPermissions = (tz, { grants, revokes }) =>
 export const changeUserRole = (tz, role) => call(() => api.put(`${userPath(tz)}/role`, { role }));
 // users.unlock: clears the failed sign-in counter and the lock.
 export const unlockUser = (tz) => call(() => api.post(`${userPath(tz)}/unlock`, {}));
+// systemRecovery.reset: emails a temporary password to the system mailbox.
+// 409 RECOVERY_NOT_ALLOWED (under 3 failed sign-ins), 429 cooldown/rate limit.
+export const recoverSystemAccount = () => call(() => api.post("/user/system/recover", {}));

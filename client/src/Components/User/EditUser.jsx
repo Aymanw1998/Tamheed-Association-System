@@ -17,6 +17,7 @@ import PermissionsTab from "./PermissionsTab.jsx";
 import { permissionError, viewerAssignableRoles } from "./RolePickerDialog.jsx";
 import RecentChanges from "../Audit/RecentChanges.jsx";
 import tabStyles from "./PermissionsTab.module.css";
+import ChangeOwnPassword from "../Profile/ChangeOwnPassword.jsx";
 
 const safeAsk = async (options) => {
   try { return await ask("change", options); } catch { return false; }
@@ -85,7 +86,12 @@ const EditUser = () => {
   // only, the server decides.
   const canManage = isEdit && canManageTargetClient(getStoredViewer(), form);
   // Another user's password: only the system or a users.passwords holder.
-  const showPasswordField = isNew || isSelf || canStored("users.passwords");
+  // One's own password changes only through ChangeOwnPassword (current
+  // password required); the server ignores it in a self edit.
+  const showPasswordField = isNew || (!isSelf && canStored("users.passwords"));
+  // Another user's email (where a password reset is sent) follows the same
+  // rule; the server drops it otherwise.
+  const canEditEmail = isNew || isSelf || canStored("users.passwords");
   // Editing someone one may not manage is refused; the page is then read-only.
   const canSubmit = !isEdit || isSelf || canManage;
   const showTabs = isEdit && canManagePermissions;
@@ -309,7 +315,9 @@ const EditUser = () => {
     let b = await validate();
     if (b) { toast.warn(b); return; }
     b = true
-    const ff = ['tz', 'firstname', 'lastname', 'birth_date', 'gender', 'phone', 'email', 'city', 'street'];
+    // A read-only email (no users.passwords) is not sent, so it is not required.
+    const ff = ['tz', 'firstname', 'lastname', 'birth_date', 'gender', 'phone', 'email', 'city', 'street']
+      .filter((name) => name !== 'email' || canEditEmail);
     for(const nameTag in ff){
       const tag = document.getElementsByName(ff[nameTag])[0];
       //console.log('Tag', tag, ff[nameTag]);
@@ -331,9 +339,10 @@ const EditUser = () => {
       
       console.log("isEdit", isEdit);
       // ملاحظة عربية
-      if (!passwordTouched || !form.password?.trim()) {
+      if (isSelf || !passwordTouched || !form.password?.trim()) {
         delete payload.password;
       }
+      if (!canEditEmail) delete payload.email;
       // The photo only changes through its own endpoints, which keep the
       // stored link and the Drive file in sync.
       delete payload.photo;
@@ -527,6 +536,8 @@ const EditUser = () => {
         <label style={{color: "red"}}>{error.password}</label>
         </>)}
 
+        {isSelf && <ChangeOwnPassword />}
+
         {isNew && newUserRoles.length > 0 && (
           <>
             <label>{t("perms.role")}:</label>
@@ -623,7 +634,7 @@ const EditUser = () => {
         <label style={{color: "red"}}>{error.phone}</label>
 
         <label>بريد الكتروني:<span style={{color: "red"}}>*</span></label>
-        <input name="email" value={form.email} onChange={onField} />
+        <input name="email" value={form.email} onChange={onField} readOnly={!canEditEmail} />
         <label style={{color: "red"}}>{error.email}</label>
       </fieldset>
 

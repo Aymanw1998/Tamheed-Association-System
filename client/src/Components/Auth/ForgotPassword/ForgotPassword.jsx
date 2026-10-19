@@ -3,8 +3,11 @@ import { forgotPassword, resetPassword } from "../../../WebServer/services/auth/
 import styles from "./ForgotPassword.module.css";
 import Button from "../../UI/Button";
 import EyeIcon from "../../UI/EyeIcon";
+import { resetPasswordError } from "../../../utils/passwordChange";
+import { useI18n } from "../../../i18n/I18nContext";
 
 export default function ForgotPassword() {
+    const { t } = useI18n();
     const [step, setStep] = useState(1); // 1: request reset, 2: enter OTP and new password
     const [tz, setTz] = useState("");
     const [msg, setMsg] = useState("");
@@ -38,8 +41,9 @@ export default function ForgotPassword() {
     const handleResetPassword = async () => {
         setMsg("");
         if (!otp.trim() || otp.trim().length !== 6) return setMsg("الرجاء إدخال رمز التحقق الصحيح (6 أرقام).");
-        if (!newPassword) return setMsg("الرجاء إدخال كلمة السر الجديدة.");
-        if (newPassword !== confirmPassword) return setMsg("كلمتا السر غير متطابقتين.");
+        // Same 8-128 rule as the server (and the forced change), checked before sending.
+        const problem = resetPasswordError({ newPassword, confirmPassword });
+        if (problem) return setMsg(t(`passwordChange.errors.${problem}`, t("passwordChange.errors.generic")));
         try {
             setLoading(true);
             const res = await resetPassword(tz.trim(), otp.trim(), newPassword, confirmPassword);
@@ -111,6 +115,7 @@ export default function ForgotPassword() {
                                 value={newPassword}
                                 onChange={(e) => setNewPassword(e.target.value)}
                                 placeholder="يكتب كلمة السر الجديدة"
+                                aria-describedby="fp-password-hint"
                             />
                             <button
                                 type="button"
@@ -123,6 +128,8 @@ export default function ForgotPassword() {
                             </button>
                         </div>
                     </div>
+
+                    <p id="fp-password-hint" className={styles.hint}>{t("passwordChange.resetHint")}</p>
 
                     <div className={styles.field}>
                         <label htmlFor="fp-confirm-password">تأكيد كلمة السر الجديدة</label>
