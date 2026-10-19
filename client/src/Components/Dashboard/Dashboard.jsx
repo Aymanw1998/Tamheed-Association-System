@@ -9,6 +9,8 @@ import { toast } from "../../ALERT/SystemToasts.jsx";
 import { canStored, getStoredUserId } from "../../utils/session";
 import ParentLinkPanel from "../Student/ParentLinkPanel.jsx";
 import VehicleAlerts from "../Vehicle/VehicleAlerts.jsx";
+import { useI18n } from "../../i18n/I18nContext";
+import { useRolePicker, permissionError } from "../User/RolePickerDialog.jsx";
 import { roomLabel } from "../../utils/rooms";
 import { dashboardLessons } from "../../utils/dashboardLessons";
 import { DAY_NAMES } from "../../utils/lessonSchedule";
@@ -35,6 +37,8 @@ const moreLessonsLabel = (count) =>
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { t } = useI18n();
+  const { pickRole, roleDialog } = useRolePicker();
   const canViewUsers = useMemo(() => canStored("users.view"), []);
   const canSeeAllLessons = useMemo(() => canStored("lessons.viewAll"), []);
   const canParentLink = useMemo(() => canStored("students.parentLink"), []);
@@ -181,14 +185,17 @@ export default function Dashboard() {
     }));
   };
 
+  // Approval assigns a role (the server requires one).
   const handleApproveUser = async (user) => {
     const key = `user-approve-${user.tz}`;
+    const role = await pickRole(user);
+    if (!role) return;
     try {
       setActionLoading(key);
-      const res = await changeStatus(user.tz, "waiting", "active");
-      if (!res?.ok) throw new Error(res?.message || "تعذر قبول المستخدم");
+      const res = await changeStatus(user.tz, "waiting", "active", role);
+      if (!res?.ok) throw new Error(permissionError(t, res));
       removeUserFromWaiting(user.tz);
-      toast.success("تمت الموافقة على المستخدم");
+      toast.success(t("perms.approved"));
     } catch (err) {
       toast.error(err.message || "تعذر قبول المستخدم");
     } finally {
@@ -255,6 +262,7 @@ export default function Dashboard() {
 
   return (
     <section className={styles.page} dir="rtl">
+      {roleDialog}
       <div className={styles.header}>
         <div>
           <h1>لوحة التحكم</h1>

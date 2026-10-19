@@ -1,19 +1,29 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 // ملاحظة عربية
-import { create, update, getUserById as getOne, /*softDelete,*/ deleteU, uploadPhoto, deletePhoto, changeStatus, viewPassword } from "../../WebServer/services/user/functionsUser.jsx";
+import { create, update, getUserById as getOne, /*softDelete,*/ deleteU, uploadPhoto, deletePhoto, changeStatus, viewPassword, changeUserRole, unlockUser } from "../../WebServer/services/user/functionsUser.jsx";
 import styles from "./User.module.css";
 import sectionStyles from "../UI/FormSection.module.css";
 import { toast } from "../../ALERT/SystemToasts.jsx";
 import EyeIcon from "../UI/EyeIcon";
 import { photoAction } from "../../utils/photoChange";
 import { useI18n } from "../../i18n/I18nContext";
+import { canStored, getStoredUserId, getStoredViewer } from "../../utils/session";
+import { ROLE_LABEL_KEY, canManageTargetClient, isDemotion, resolveRole } from "../../utils/roles";
+import { ask } from "../Provides/confirmBus";
+import StatusBadge from "../UI/StatusBadge.jsx";
+import { fillText } from "../../utils/vehicleDisplay";
+import PermissionsTab from "./PermissionsTab.jsx";
+import { permissionError, viewerAssignableRoles } from "./RolePickerDialog.jsx";
+import RecentChanges from "../Audit/RecentChanges.jsx";
+import tabStyles from "./PermissionsTab.module.css";
 
-// Vehicles & trailers section; mirrors PERMISSIONS in server/utils/vehicleRules.js.
-const VEHICLE_PERMISSIONS = ["view", "edit", "compliance", "documents", "archive"];
+const safeAsk = async (options) => {
+  try { return await ask("change", options); } catch { return false; }
+};
 
 const EditUser = () => {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const params = useParams();              // "new" الأحدالجمعة _id
   const navigate = useNavigate();
 
@@ -60,7 +70,29 @@ const EditUser = () => {
   const [fetchingPassword, setFetchingPassword] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [passwordTouched, setPasswordTouched] = useState(false);
+  // Role and permissions change through their own endpoints, not the form.
+  const [currentRole, setCurrentRole] = useState(null);
+  const [roleChoice, setRoleChoice] = useState("");
+  const [savingRole, setSavingRole] = useState(false);
+  const [tab, setTab] = useState("details");
+  const [tabKey, setTabKey] = useState(0);
+  const [unlocking, setUnlocking] = useState(false);
 
+  const isSelf = isEdit && Boolean(form._id) && String(form._id) === String(getStoredUserId());
+  const canChangeRole = canStored("users.changeRole");
+  const canManagePermissions = canStored("permissions.manage");
+  // Actions on another user need authority over him (never oneself); hides UI
+  // only, the server decides.
+  const canManage = isEdit && canManageTargetClient(getStoredViewer(), form);
+  // Another user's password: only the system or a users.passwords holder.
+  const showPasswordField = isNew || isSelf || canStored("users.passwords");
+  // Editing someone one may not manage is refused; the page is then read-only.
+  const canSubmit = !isEdit || isSelf || canManage;
+  const showTabs = isEdit && canManagePermissions;
+  // Roles below the viewer's own (all for the system account); the server
+  // applies the same rule to approvals, new accounts and role changes.
+  const viewerRoles = viewerAssignableRoles();
+  const newUserRoles = canStored("users.create") ? viewerRoles : [];
 
   useEffect(() => {
     if (!isEdit) return;
@@ -73,7 +105,10 @@ const EditUser = () => {
         if(!res.ok) throw new Error(res.message);
         if (res) {
           const s = res.user;
-          s.roles = s.roles.includes("ادارة") ? ["ادارة"] : (s.roles.includes("مرشد") ? ["مرشد"] : ["مساعد"]);
+          const role = resolveRole(s);
+          s.roles = role ? [role] : [];
+          setCurrentRole(role);
+          setRoleChoice(role || "");
           setForm(s);
           setPhoto(s.photo || null);
           setOriginalPhoto(s.photo || null);
@@ -274,7 +309,7 @@ const EditUser = () => {
     let b = await validate();
     if (b) { toast.warn(b); return; }
     b = true
-    const ff = ['tz', 'firstname', 'lastname', 'birth_date', 'gender', 'phone', 'email', 'city', 'street', 'roles'];
+    const ff = ['tz', 'firstname', 'lastname', 'birth_date', 'gender', 'phone', 'email', 'city', 'street'];
     for(const nameTag in ff){
       const tag = document.getElementsByName(ff[nameTag])[0];
       //console.log('Tag', tag, ff[nameTag]);
@@ -302,6 +337,13 @@ const EditUser = () => {
       // The photo only changes through its own endpoints, which keep the
       // stored link and the Drive file in sync.
       delete payload.photo;
+      // Role and permissions have their own endpoints (PUT /:tz/role and
+      // PUT /:tz/permissions); the server ignores them here. A new account
+      // gets its role on creation only when the creator may assign roles.
+      for (const field of ["role", "vehiclePermissions", "permissionGrants", "permissionRevokes", "permissions", "lockedAt", "failedLoginCount"]) {
+        delete payload[field];
+      }
+      if (isEdit || !newUserRoles.includes(payload.roles?.[0])) delete payload.roles;
       const photoChange = photoAction(originalPhoto, photo);
 
       const res = isEdit ? await update(form.tz, payload): await create({...payload});
@@ -367,37 +409,72 @@ const EditUser = () => {
     }
   }
 
-  if (loading) return <div className={styles.formContainer}>جارٍ تحميل البيانات…</div>;
-  if (err)      return <div className={styles.formContainer} style={{color:"#b91c1c"}}>{err}</div>;
-
-  const toggleVehiclePermission = (permission, checked) => {
-    setForm((prev) => {
-      const current = prev.vehiclePermissions || [];
-      return {
-        ...prev,
-        vehiclePermissions: checked
-          ? [...new Set([...current, permission])]
-          : current.filter((item) => item !== permission),
-      };
-    });
+  // PUT /:tz/role. A demotion clears the user's grants and revokes, so it is
+  // confirmed first; afterwards the manager may go straight to the tab.
+  const handleSaveRole = async () => {
+    if (!roleChoice || roleChoice === currentRole) return toast.info(t("perms.roleUnchanged"));
+    if (isDemotion(currentRole, roleChoice)) {
+      const ok = await safeAsk({ title: t("perms.demoteTitle"), message: t("perms.demoteWarning"), confirmText: t("perms.confirm"), cancelText: t("perms.cancel") });
+      if (!ok) return;
+    }
+    setSavingRole(true);
+    const res = await changeUserRole(form.tz, roleChoice);
+    setSavingRole(false);
+    if (!res.ok) return toast.warn(permissionError(t, res));
+    setCurrentRole(roleChoice);
+    setForm((prev) => ({ ...prev, role: roleChoice, roles: [roleChoice] }));
+    toast.success(t("perms.roleSaved"));
+    setTabKey((k) => k + 1); // reload the tab and recent changes: the role's defaults changed
+    if (!canManagePermissions) return;
+    const now = await safeAsk({ title: t("perms.addNowTitle"), message: t("perms.addNowMessage"), confirmText: t("perms.addNow"), cancelText: t("perms.later") });
+    if (now) {
+      setTab("permissions");
+    } else {
+      navigate(-1);
+    }
   };
 
-  const toggleRole = (role, checked) => {
-    setForm((prev) => {
-      const current = prev.roles || [];
+  // POST /:tz/unlock
+  const handleUnlock = async () => {
+    const ok = await safeAsk({ title: t("perms.unlock"), message: t("perms.unlockConfirm"), confirmText: t("perms.unlock"), cancelText: t("perms.cancel") });
+    if (!ok) return;
+    setUnlocking(true);
+    const res = await unlockUser(form.tz);
+    setUnlocking(false);
+    if (!res.ok) return toast.warn(permissionError(t, res));
+    setForm((prev) => ({ ...prev, lockedAt: null, failedLoginCount: 0 }));
+    toast.success(t("perms.unlocked"));
+    setTabKey((k) => k + 1);
+  };
 
-      return {
-        ...prev,
-        roles: checked
-          ? [...current, role]                         // إضافة
-          : current.filter((r) => r !== role),        // ملاحظة عربية
-      };
-    });
-  }
+  if (loading) return <div className={styles.formContainer}>جارٍ تحميل البيانات…</div>;
+  if (err)      return <div className={styles.formContainer} style={{color:"#b91c1c"}}>{err}</div>;
 
   return (
     <div className={styles.formContainer}>
       <center><h1>{isEdit ? "تحديث بيانات المستخدم" : "اضافة مستخدم جديد"}</h1></center>
+
+      {showTabs && (
+        <div className={tabStyles.tabs} role="tablist">
+          {["details", "permissions"].map((name) => (
+            <button
+              key={name}
+              type="button"
+              role="tab"
+              aria-selected={tab === name}
+              className={`${tabStyles.tabButton} ${tab === name ? tabStyles.tabActive : ""}`}
+              onClick={() => setTab(name)}
+            >
+              {t(name === "details" ? "perms.detailsTab" : "perms.tab")}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {showTabs && tab === "permissions" ? (
+        <PermissionsTab key={tabKey} tz={form.tz} />
+      ) : (
+      <>
 
       <fieldset className={sectionStyles.formSection}>
         <legend>بيانات الحساب</legend>
@@ -405,6 +482,7 @@ const EditUser = () => {
         <input name="tz" value={form.tz} onChange={onField} readOnly={!isNew} />
         <label style={{color: "red"}}>{error.tz}</label>
 
+        {showPasswordField && (<>
         <label>كلمة السر:</label>
         <div className={styles.passwordWrapper}>
           <input
@@ -447,36 +525,52 @@ const EditUser = () => {
 
         </div>
         <label style={{color: "red"}}>{error.password}</label>
+        </>)}
 
-        <label>الادوار:<span style={{color: "red"}}>*</span></label>
-        <select
-          name="roles"
-          value={form.roles[0]  || ""}
-          onChange={(e) => {
-            setForm((prev) => ({ ...prev, roles: [e.target.value] }));
-          }}
-        >
-          <option value="ادارة">ادارة</option>
-          <option value="مرشد">مرشد</option>
-          <option value="مساعد">مساعد</option>
-        </select>
-        <label style={{color: "red"}}>{error.roles}</label>
+        {isNew && newUserRoles.length > 0 && (
+          <>
+            <label>{t("perms.role")}:</label>
+            <select
+              name="roles"
+              value={form.roles?.[0] || ""}
+              onChange={(e) => setForm((prev) => ({ ...prev, roles: e.target.value ? [e.target.value] : [] }))}
+            >
+              <option value="">{t("perms.noRole")}</option>
+              {newUserRoles.map((r) => <option key={r} value={r}>{t(ROLE_LABEL_KEY[r], r)}</option>)}
+            </select>
+          </>
+        )}
 
-        {form.roles[0] !== "ادارة" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }} role="group" aria-labelledby="vehicle-permissions-title">
-            <strong id="vehicle-permissions-title">{t("vehicles.permissionsTitle")}</strong>
-            <small>{t("vehicles.permissionsHint")}</small>
-            {VEHICLE_PERMISSIONS.map((permission) => (
-              <label key={permission} htmlFor={`vehicle-perm-${permission}`} style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <input
-                  id={`vehicle-perm-${permission}`}
-                  type="checkbox"
-                  checked={(form.vehiclePermissions || []).includes(permission)}
-                  onChange={(event) => toggleVehiclePermission(permission, event.target.checked)}
-                />
-                {t(`vehicles.perm.${permission}`)}
-              </label>
-            ))}
+        {isEdit && (
+          <div className={tabStyles.roleRow}>
+            <label htmlFor="user-role">{t("perms.role")}:</label>
+            {canChangeRole && canManage ? (
+              <>
+                <select id="user-role" value={roleChoice} onChange={(e) => setRoleChoice(e.target.value)}>
+                  {!currentRole && <option value="">{t("perms.noRole")}</option>}
+                  {/* The current role always shows, even when it is not one the viewer may give. */}
+                  {currentRole && !viewerRoles.includes(currentRole) && (
+                    <option value={currentRole} disabled>{t(ROLE_LABEL_KEY[currentRole], currentRole)}</option>
+                  )}
+                  {viewerRoles.map((r) => <option key={r} value={r}>{t(ROLE_LABEL_KEY[r], r)}</option>)}
+                </select>
+                <button type="button" onClick={handleSaveRole} disabled={savingRole || !roleChoice || roleChoice === currentRole}>
+                  {t("perms.saveRole")}
+                </button>
+              </>
+            ) : (
+              <span id="user-role">{currentRole ? t(ROLE_LABEL_KEY[currentRole], currentRole) : t("perms.noRole")}</span>
+            )}
+          </div>
+        )}
+
+        {isEdit && form.lockedAt && (
+          <div className={tabStyles.lockRow}>
+            <StatusBadge tone="danger">{t("perms.locked")}</StatusBadge>
+            <small>{fillText(t("perms.lockedSince"), { when: new Date(form.lockedAt).toLocaleString(language, { timeZone: "Asia/Jerusalem" }) })}</small>
+            {canStored("users.unlock") && canManage && (
+              <button type="button" onClick={handleUnlock} disabled={unlocking}>{t("perms.unlock")}</button>
+            )}
           </div>
         )}
       </fieldset>
@@ -563,11 +657,13 @@ const EditUser = () => {
       </div>
 
       <div className={styles.buttonRow} style={{ gap: 8, flexWrap: "wrap" }}>
-        <button type="submit" onClick={handleSubmit} style={{width:"100%"}}>
-          {saving ? "حفظ..." : (isEdit ? "تعديل بيانات المستخدم" : "اضافة المستخدم")}
-        </button>
+        {canSubmit && (
+          <button type="submit" onClick={handleSubmit} style={{width:"100%"}}>
+            {saving ? "حفظ..." : (isEdit ? "تعديل بيانات المستخدم" : "اضافة المستخدم")}
+          </button>
+        )}
         <br/>
-        {isEdit &&  (
+        {isEdit && canManage && (
           <center>
           <div style={{margin: "0 auto"}}>
             <button type="button" style={{ background: "#7f1d1d", margin: "10px" }} onClick={handleHardDelete}>
@@ -584,6 +680,10 @@ const EditUser = () => {
           الرجوع للقائمة
         </button>)}
       </div>
+      </>
+      )}
+
+      {isEdit && canStored("audit.view") && form.tz && <RecentChanges key={tabKey} targetIds={[form.tz]} />}
     </div>
   );
 };

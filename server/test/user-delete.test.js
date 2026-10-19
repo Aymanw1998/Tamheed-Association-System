@@ -4,6 +4,11 @@ const path = require("node:path");
 const test = require("node:test");
 const vm = require("node:vm");
 const { auditStub } = require("./helpers/auditStub");
+const { actorFor } = require("./helpers/actors");
+
+// The target exists in every room; the actor (an administrator) outranks it.
+const TARGET = { _id: "t1", tz: "990000069", role: "مساعد", roles: ["مساعد"] };
+const ADMIN = { _id: "a1", tz: "admin-user", role: "ادارة", roles: ["ادارة"] };
 
 // Load the real handler with inert dependencies (see user-profile-authorization.test.js).
 function loadController() {
@@ -14,6 +19,10 @@ function loadController() {
     path,
     "./User.model": {
       UserModelDef: {
+        async get(filter) {
+          const hit = filter.tz === TARGET.tz;
+          return { success: true, count: hit ? 1 : 0, result: hit ? [TARGET] : [] };
+        },
         async delete(filter, room) {
           deletes.push({ filter, room });
           return { success: true };
@@ -24,6 +33,8 @@ function loadController() {
     "../../utils/jwt": {},
     "../../utils/textEncoding": require("../utils/textEncoding"),
     "../../utils/permissions": require("../utils/permissions"),
+    "../../utils/permissionRules": require("../utils/permissionRules"),
+    "../../utils/israeliId": require("../utils/israeliId"),
     "../../utils/loginLockout": require("../utils/loginLockout"),
     "../../middleware/logger": { logWithSource() {} },
     "./passwordCrypto": {},
@@ -52,7 +63,7 @@ async function deleteUser(params) {
     status(code) { this.statusCode = code; return this; },
     json(value) { this.body = value; return this; },
   };
-  await deleteU({ params, query: {}, body: {} }, res);
+  await deleteU({ params, query: {}, body: {}, actor: actorFor(ADMIN) }, res);
   return { res, deletes: JSON.parse(JSON.stringify(deletes)) };
 }
 

@@ -107,11 +107,13 @@ test("can works on users, sets, and module keys", () => {
   assert.equal(can(user, "nope"), false);
 });
 
-test("isSystemTz matches trimmed values and never blanks", () => {
+test("isSystemTz trims only the configured value, compares the stored tz exactly, and never matches blanks", () => {
   assert.equal(isSystemTz("", ""), false);
   assert.equal(isSystemTz(" ", undefined), false);
   assert.equal(isSystemTz("123", ""), false);
-  assert.equal(isSystemTz(" 123", "123 "), true);
+  assert.equal(isSystemTz("123", " 123 "), true);
+  assert.equal(isSystemTz(" 123", "123"), false);
+  assert.equal(isSystemTz("123 ", "123 "), false);
   assert.equal(isSystemTz("124", "123"), false);
 });
 
@@ -154,51 +156,4 @@ test("assistant spelling variants normalize to the assistant role", () => {
   for (const spelling of ["مساعد", "مساعدة", "المساعد", "المساعدة", " المساعدة "]) {
     assert.equal(normalizeRole(spelling), ASSISTANT, spelling);
   }
-});
-
-const { applyLegacyEditToPermissions } = require("../utils/permissions");
-
-test("legacy edit: demotion writes the single role and clears special permissions", () => {
-  const out = applyLegacyEditToPermissions(
-    { role: ADMIN, roles: [ADMIN], permissionGrants: ["users.passwords"], permissionRevokes: ["ai"] },
-    { roles: [GUIDE] });
-  assert.deepEqual(out, { role: GUIDE, roles: [GUIDE], permissionGrants: [], permissionRevokes: [] });
-});
-
-test("legacy edit: same or higher rank keeps grants and revokes", () => {
-  assert.deepEqual(
-    applyLegacyEditToPermissions({ role: GUIDE, permissionGrants: ["sports"] }, { roles: [ADMIN] }),
-    { role: ADMIN, roles: [ADMIN] });
-  assert.deepEqual(
-    applyLegacyEditToPermissions({ roles: [GUIDE], permissionGrants: ["sports"] }, { roles: ["المرشدة"] }),
-    { role: GUIDE, roles: [GUIDE] });
-});
-
-test("legacy edit: an unknown role in the body removes the role and clears special permissions", () => {
-  assert.deepEqual(
-    applyLegacyEditToPermissions({ role: GUIDE, permissionGrants: ["sports"] }, { roles: ["nonsense"] }),
-    { role: null, roles: [], permissionGrants: [], permissionRevokes: [] });
-});
-
-test("legacy edit: vehicle ticks rebuild only the vehicle grants, never delete", () => {
-  const existing = { role: GUIDE, permissionGrants: ["sports", "vehicles.view", "vehicles.edit"] };
-  assert.deepEqual(applyLegacyEditToPermissions(existing, { vehiclePermissions: [] }),
-    { permissionGrants: ["sports"] });
-  assert.deepEqual(
-    applyLegacyEditToPermissions(existing, { vehiclePermissions: ["archive", "view", "delete", "bogus"] }),
-    { permissionGrants: ["sports", "vehicles.view", "vehicles.archive"] });
-});
-
-test("legacy edit: admins get no vehicle grants; no relevant fields means no change", () => {
-  assert.deepEqual(applyLegacyEditToPermissions({ role: ADMIN }, { vehiclePermissions: ["view"] }), {});
-  assert.deepEqual(applyLegacyEditToPermissions({ role: GUIDE }, { firstname: "x" }), {});
-});
-
-test("legacy edit: role change applies before vehicle ticks", () => {
-  const out = applyLegacyEditToPermissions(
-    { role: ADMIN, permissionGrants: ["users.passwords", "vehicles.view"] },
-    { roles: [GUIDE], vehiclePermissions: ["view", "edit"] });
-  assert.deepEqual(out, {
-    role: GUIDE, roles: [GUIDE], permissionGrants: ["vehicles.view", "vehicles.edit"], permissionRevokes: [],
-  });
 });

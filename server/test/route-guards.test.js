@@ -118,6 +118,42 @@ test("every listed exception still exists (the exclusion lists are not stale)", 
   }
 });
 
+// Sensitive routes are guarded by exactly this key (the first argument of
+// requirePermission must be this string literal).
+const EXACT_GUARDS = {
+  "User/User.route.js": {
+    "GET /viewPassword/:tz": "users.passwords",
+    "PATCH /:tz/storage-permissions": "files.manageAll",
+    "GET /:tz/permissions": "permissions.manage",
+    "PUT /:tz/permissions": "permissions.manage",
+    "PUT /:tz/role": "users.changeRole",
+    "POST /:tz/unlock": "users.unlock",
+    "POST /changeStatus/:tz": "users.approve",
+    "DELETE /:tz/:from": "users.delete",
+    "POST /": "users.create",
+  },
+  "Vehicle/Vehicle.route.js": { "DELETE /:id": "vehicles.delete" },
+  "Notice/Notice.route.js": { "POST /:id/archive": "notices.post" },
+  "Lesson/Lesson.route.js": {
+    "POST /copy-month": "lessons.copyMonth",
+    "DELETE /delete-perMonth/:month/:year": "lessons.copyMonth",
+  },
+  "Student/Student.route.js": { "DELETE /:tz": "students.delete" },
+};
+
+test("sensitive routes are guarded by exactly the expected permission key", () => {
+  for (const [name, table] of Object.entries(EXACT_GUARDS)) {
+    const source = stripComments(fs.readFileSync(path.join(ENTITIES, name), "utf8"));
+    const routes = new Map(routesOf(source).map((r) => [`${r.method} ${r.path}`, r.chain]));
+    for (const [key, permission] of Object.entries(table)) {
+      assert.ok(routes.has(key), `${name} ${key} not found`);
+      const match = routes.get(key).match(/requirePermission\(\s*(['"`])([^'"`]+)\1\s*\)/);
+      assert.ok(match, `${name} ${key} is not guarded by a literal requirePermission key`);
+      assert.equal(match[2], permission, `${name} ${key}`);
+    }
+  }
+});
+
 test("the legacy role helpers are gone", () => {
   const auth = require("../middleware/authMiddleware");
   assert.equal(auth.requireRole, undefined);

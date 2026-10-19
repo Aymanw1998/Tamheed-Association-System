@@ -1,5 +1,6 @@
 import { repairMisencodedText } from "./textEncoding";
 import { hasPermission } from "./permissionKeys";
+import { resolveRole } from "./roles";
 
 export const ADMIN_ROLES = ["ادارة", "إدارة", "الادارة", "الإدارة"];
 export const GUIDE_ROLES = ["مرشد", "مرشدة", "المرشد", "المرشدة"];
@@ -33,6 +34,21 @@ export const rememberSessionUser = (user) => {
   if (Array.isArray(user.roles)) localStorage.setItem("roles", JSON.stringify(user.roles));
   if (Array.isArray(user.permissions)) localStorage.setItem("permissions", JSON.stringify(user.permissions));
   if (typeof user.role === "string" && user.role) localStorage.setItem("role", user.role);
+  // The server flags only the system account; anyone else clears the flag.
+  if (user.isSystem === true) localStorage.setItem("isSystem", "1");
+  else localStorage.removeItem("isSystem");
+};
+
+// Hides UI only (e.g. which roles to offer); the server checks every request.
+export const isStoredSystem = () => {
+  if (typeof window === "undefined") return false;
+  return localStorage.getItem("isSystem") === "1";
+};
+
+// The signed-in user's own role (normalised), or null.
+export const getStoredRole = () => {
+  if (typeof window === "undefined") return null;
+  return resolveRole({ role: localStorage.getItem("role"), roles: getStoredRoles() });
 };
 
 // Leaf keys the server granted. Sessions saved before permissions existed have
@@ -66,3 +82,10 @@ export const getStoredUserId = () => {
   if (typeof window === "undefined") return "";
   return localStorage.getItem("user_id") || "";
 };
+
+// The signed-in viewer, shaped for canManageTargetClient (utils/roles.js).
+export const getStoredViewer = () => ({
+  id: getStoredUserId(),
+  role: getStoredRole(),
+  isSystem: isStoredSystem(),
+});

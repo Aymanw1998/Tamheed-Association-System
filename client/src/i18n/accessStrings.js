@@ -1,0 +1,201 @@
+// Text for the permissions tab, role changes, approvals, unlock and the audit
+// log. Merged in I18nContext as `perms` and `audit`.
+
+const modules = {
+  ar: {
+    dashboard: "لوحة التحكم", calendar: "التقويم", students: "الطلاب", lessons: "الدروس",
+    attendance: "الحضور والغياب", reports: "التقارير", vehicles: "المركبات", files: "الملفات",
+    notices: "الإعلانات", users: "المستخدمون", ai: "المساعد الذكي", permissions: "الصلاحيات",
+    audit: "سجل التغييرات", systemRecovery: "استعادة حساب النظام", storage: "التخزين",
+  },
+  he: {
+    dashboard: "לוח בקרה", calendar: "יומן", students: "תלמידים", lessons: "שיעורים",
+    attendance: "נוכחות", reports: "דוחות", vehicles: "רכבים", files: "קבצים",
+    notices: "הודעות", users: "משתמשים", ai: "עוזר חכם", permissions: "הרשאות",
+    audit: "יומן שינויים", systemRecovery: "שחזור חשבון המערכת", storage: "אחסון",
+  },
+  en: {
+    dashboard: "Dashboard", calendar: "Calendar", students: "Students", lessons: "Lessons",
+    attendance: "Attendance", reports: "Reports", vehicles: "Vehicles", files: "Files",
+    notices: "Notices", users: "Users", ai: "AI assistant", permissions: "Permissions",
+    audit: "Change log", systemRecovery: "System account recovery", storage: "Storage",
+  },
+};
+
+// Operation names, shared by every module that has them.
+const leaves = {
+  ar: {
+    view: "عرض", viewAll: "عرض الكل", create: "إضافة", edit: "تعديل", delete: "حذف",
+    photo: "الصورة", parentLink: "رابط ولي الأمر", roster: "قائمة طلاب الدرس", copyMonth: "نسخ شهر",
+    record: "تسجيل", editOwn: "تعديل ما كتبه", editAll: "تعديل الكل", exportPdf: "تصدير PDF",
+    compliance: "الفحوصات والتأمين", documents: "المستندات", archive: "أرشفة",
+    use: "استخدام", manageAll: "إدارة كل الملفات", post: "نشر", runCheck: "تشغيل الفحص",
+    approve: "قبول", changeRole: "تغيير الدور", passwords: "كلمات المرور", unlock: "فك الحظر",
+    manage: "إدارة الصلاحيات", reset: "إعادة تعيين",
+  },
+  he: {
+    view: "צפייה", viewAll: "צפייה בהכל", create: "הוספה", edit: "עריכה", delete: "מחיקה",
+    photo: "תמונה", parentLink: "קישור להורה", roster: "רשימת תלמידי השיעור", copyMonth: "העתקת חודש",
+    record: "רישום", editOwn: "עריכת שלו", editAll: "עריכת הכל", exportPdf: "ייצוא PDF",
+    compliance: "בדיקות וביטוח", documents: "מסמכים", archive: "העברה לארכיון",
+    use: "שימוש", manageAll: "ניהול כל הקבצים", post: "פרסום", runCheck: "הרצת בדיקה",
+    approve: "אישור", changeRole: "שינוי תפקיד", passwords: "סיסמאות", unlock: "שחרור נעילה",
+    manage: "ניהול הרשאות", reset: "איפוס",
+  },
+  en: {
+    view: "View", viewAll: "View all", create: "Add", edit: "Edit", delete: "Delete",
+    photo: "Photo", parentLink: "Parent link", roster: "Lesson roster", copyMonth: "Copy month",
+    record: "Record", editOwn: "Edit own", editAll: "Edit all", exportPdf: "Export PDF",
+    compliance: "Inspections and insurance", documents: "Documents", archive: "Archive",
+    use: "Use", manageAll: "Manage all files", post: "Post", runCheck: "Run check",
+    approve: "Approve", changeRole: "Change role", passwords: "Passwords", unlock: "Unlock",
+    manage: "Manage permissions", reset: "Reset",
+  },
+};
+
+export const accessStrings = {
+  ar: {
+    perms: {
+      tab: "الصلاحيات", detailsTab: "البيانات", title: "صلاحيات المستخدم",
+      role: "الدور", noRole: "بدون دور", system: "النظام",
+      lastChange: "آخر تغيير للصلاحيات: {who}، {when}", neverChanged: "لم تتغير الصلاحيات بعد",
+      source: { role: "من الدور", granted: "ممنوح", revoked: "مسحوب", none: "" },
+      state: { all: "مفتوح كله", some: "مفتوح جزئيًا", none: "مغلق" },
+      notGrantable: "لا تملك هذه الصلاحية", readOnly: "لا يمكنك تعديل صلاحيات هذا المستخدم",
+      openOps: "عرض العمليات", closeOps: "إخفاء العمليات",
+      reset: "إرجاع إلى صلاحيات الدور", resetConfirm: "سيُمسح كل ما مُنح وسُحب، ويبقى المستخدم بصلاحيات دوره فقط. متابعة؟",
+      save: "حفظ", saveTitle: "حفظ الصلاحيات", added: "أُضيف", removed: "سُحب",
+      noChanges: "لا توجد تغييرات", saved: "تم حفظ الصلاحيات", loadFailed: "تعذّر تحميل الصلاحيات",
+      mine: "صلاحياتي", mineEmpty: "لا توجد صلاحيات", mineHint: "للقراءة فقط. لتغييرها تواصل مع الإدارة.",
+      roleSection: "الدور", saveRole: "حفظ الدور", roleSaved: "تم تغيير الدور", roleUnchanged: "لم يتغير الدور",
+      demoteTitle: "تنزيل الدور",
+      demoteWarning: "تنزيل الدور يمسح كل الصلاحيات الخاصة لهذا المستخدم: الممنوحة والمسحوبة. متابعة؟",
+      addNowTitle: "إضافة صلاحيات", addNowMessage: "تم حفظ الدور. هل تريد إضافة صلاحيات خاصة الآن؟",
+      addNow: "الآن", later: "لاحقًا", cancel: "إلغاء", confirm: "تأكيد",
+      approveTitle: "قبول المستخدم", approveMessage: "اختر دور {name}:", approve: "قبول",
+      noAssignable: "لا يوجد دور تستطيع منحه", approved: "تمت الموافقة على المستخدم",
+      locked: "الحساب محظور", lockedSince: "محظور منذ {when}", unlock: "فك الحظر",
+      unlockConfirm: "فك حظر الحساب؟", unlocked: "تم فك الحظر",
+      errors: {
+        FORBIDDEN: "لا تملك صلاحية لهذه العملية", NOT_GRANTABLE: "إحدى الصلاحيات ليست ضمن ما تستطيع منحه",
+        SELF: "لا يمكنك تعديل صلاحياتك", UNKNOWN_KEY: "صلاحية غير معروفة",
+        UNKNOWN_ROLE: "دور غير معروف", ROLE_REQUIRED: "اختر دورًا للمستخدم", generic: "فشلت العملية",
+      },
+      modules: modules.ar, leaves: leaves.ar,
+    },
+    audit: {
+      navTitle: "سجل التغييرات", title: "سجل التغييرات", recent: "آخر التغييرات", openAll: "عرض السجل الكامل",
+      filters: {
+        from: "من تاريخ", to: "إلى تاريخ", module: "القسم", actor: "المنفّذ (رقم هوية)", action: "العملية",
+        targetId: "معرّف الهدف", q: "بحث حر", all: "الكل", apply: "بحث", clear: "مسح",
+      },
+      cols: { at: "الوقت", actor: "المنفّذ", module: "القسم", action: "العملية", target: "الهدف", changes: "التغييرات" },
+      actions: {
+        create: "إنشاء", update: "تعديل", delete: "حذف", approve: "قبول", permission_change: "تغيير صلاحيات",
+        role_change: "تغيير دور", unlock: "فك حظر", lock: "حظر", upload: "رفع", rename: "إعادة تسمية",
+        share: "مشاركة", unshare: "إلغاء مشاركة", drive_connect: "ربط Drive",
+      },
+      field: "الحقل", before: "قبل", after: "بعد", fields: "{n} حقول",
+      empty: "لا توجد سجلات", total: "المجموع: {n}", page: "صفحة {page} من {pages}",
+      prev: "السابق", next: "التالي", badDate: "تاريخ غير صالح", loadFailed: "تعذّر تحميل السجل",
+      system: "النظام",
+    },
+  },
+  he: {
+    perms: {
+      tab: "הרשאות", detailsTab: "פרטים", title: "הרשאות המשתמש",
+      role: "תפקיד", noRole: "ללא תפקיד", system: "המערכת",
+      lastChange: "שינוי הרשאות אחרון: {who}, {when}", neverChanged: "ההרשאות עדיין לא שונו",
+      source: { role: "מהתפקיד", granted: "הוענק", revoked: "נשלל", none: "" },
+      state: { all: "פתוח כולו", some: "פתוח חלקית", none: "סגור" },
+      notGrantable: "אין לך הרשאה זו", readOnly: "אינך יכול לשנות את הרשאות המשתמש הזה",
+      openOps: "הצג פעולות", closeOps: "הסתר פעולות",
+      reset: "החזרה להרשאות התפקיד", resetConfirm: "כל מה שהוענק ונשלל יימחק, והמשתמש יישאר עם הרשאות התפקיד בלבד. להמשיך?",
+      save: "שמירה", saveTitle: "שמירת הרשאות", added: "נוסף", removed: "נשלל",
+      noChanges: "אין שינויים", saved: "ההרשאות נשמרו", loadFailed: "טעינת ההרשאות נכשלה",
+      mine: "ההרשאות שלי", mineEmpty: "אין הרשאות", mineHint: "לקריאה בלבד. לשינוי פנה להנהלה.",
+      roleSection: "תפקיד", saveRole: "שמירת תפקיד", roleSaved: "התפקיד שונה", roleUnchanged: "התפקיד לא השתנה",
+      demoteTitle: "הורדת תפקיד",
+      demoteWarning: "הורדת התפקיד מוחקת את כל ההרשאות המיוחדות של המשתמש: שהוענקו ושנשללו. להמשיך?",
+      addNowTitle: "הוספת הרשאות", addNowMessage: "התפקיד נשמר. להוסיף הרשאות מיוחדות עכשיו?",
+      addNow: "עכשיו", later: "אחר כך", cancel: "ביטול", confirm: "אישור",
+      approveTitle: "אישור משתמש", approveMessage: "בחר תפקיד עבור {name}:", approve: "אישור",
+      noAssignable: "אין תפקיד שאתה יכול להעניק", approved: "המשתמש אושר",
+      locked: "החשבון נעול", lockedSince: "נעול מאז {when}", unlock: "שחרור נעילה",
+      unlockConfirm: "לשחרר את נעילת החשבון?", unlocked: "הנעילה שוחררה",
+      errors: {
+        FORBIDDEN: "אין לך הרשאה לפעולה זו", NOT_GRANTABLE: "אחת ההרשאות אינה בין אלה שאתה יכול להעניק",
+        SELF: "אינך יכול לשנות את ההרשאות שלך", UNKNOWN_KEY: "הרשאה לא מוכרת",
+        UNKNOWN_ROLE: "תפקיד לא מוכר", ROLE_REQUIRED: "בחר תפקיד למשתמש", generic: "הפעולה נכשלה",
+      },
+      modules: modules.he, leaves: leaves.he,
+    },
+    audit: {
+      navTitle: "יומן שינויים", title: "יומן שינויים", recent: "שינויים אחרונים", openAll: "הצג את היומן המלא",
+      filters: {
+        from: "מתאריך", to: "עד תאריך", module: "מודול", actor: "מבצע (תעודת זהות)", action: "פעולה",
+        targetId: "מזהה יעד", q: "חיפוש חופשי", all: "הכל", apply: "חיפוש", clear: "ניקוי",
+      },
+      cols: { at: "זמן", actor: "מבצע", module: "מודול", action: "פעולה", target: "יעד", changes: "שינויים" },
+      actions: {
+        create: "יצירה", update: "עדכון", delete: "מחיקה", approve: "אישור", permission_change: "שינוי הרשאות",
+        role_change: "שינוי תפקיד", unlock: "שחרור נעילה", lock: "נעילה", upload: "העלאה", rename: "שינוי שם",
+        share: "שיתוף", unshare: "ביטול שיתוף", drive_connect: "חיבור Drive",
+      },
+      field: "שדה", before: "לפני", after: "אחרי", fields: "{n} שדות",
+      empty: "אין רשומות", total: "סה\"כ: {n}", page: "עמוד {page} מתוך {pages}",
+      prev: "הקודם", next: "הבא", badDate: "תאריך לא תקין", loadFailed: "טעינת היומן נכשלה",
+      system: "המערכת",
+    },
+  },
+  en: {
+    perms: {
+      tab: "Permissions", detailsTab: "Details", title: "User permissions",
+      role: "Role", noRole: "No role", system: "System",
+      lastChange: "Permissions last changed by {who}, {when}", neverChanged: "Permissions have not been changed yet",
+      source: { role: "From role", granted: "Granted", revoked: "Revoked", none: "" },
+      state: { all: "Fully open", some: "Partly open", none: "Closed" },
+      notGrantable: "You do not have this permission", readOnly: "You cannot change this user's permissions",
+      openOps: "Show operations", closeOps: "Hide operations",
+      reset: "Reset to role permissions", resetConfirm: "Everything granted or revoked will be cleared and the user keeps only the role's permissions. Continue?",
+      save: "Save", saveTitle: "Save permissions", added: "Added", removed: "Removed",
+      noChanges: "No changes", saved: "Permissions saved", loadFailed: "Could not load permissions",
+      mine: "My permissions", mineEmpty: "No permissions", mineHint: "Read only. Ask the management to change them.",
+      roleSection: "Role", saveRole: "Save role", roleSaved: "Role changed", roleUnchanged: "The role did not change",
+      demoteTitle: "Demote role",
+      demoteWarning: "Demoting clears all of this user's special permissions, both granted and revoked. Continue?",
+      addNowTitle: "Add permissions", addNowMessage: "The role was saved. Add special permissions now?",
+      addNow: "Now", later: "Later", cancel: "Cancel", confirm: "Confirm",
+      approveTitle: "Approve user", approveMessage: "Choose a role for {name}:", approve: "Approve",
+      noAssignable: "There is no role you can assign", approved: "User approved",
+      locked: "Account locked", lockedSince: "Locked since {when}", unlock: "Unlock",
+      unlockConfirm: "Unlock this account?", unlocked: "Account unlocked",
+      errors: {
+        FORBIDDEN: "You are not allowed to do this", NOT_GRANTABLE: "One of the permissions is not one you can grant",
+        SELF: "You cannot change your own permissions", UNKNOWN_KEY: "Unknown permission",
+        UNKNOWN_ROLE: "Unknown role", ROLE_REQUIRED: "Choose a role for the user", generic: "The action failed",
+      },
+      modules: modules.en, leaves: leaves.en,
+    },
+    audit: {
+      navTitle: "Change log", title: "Change log", recent: "Recent changes", openAll: "Open the full log",
+      filters: {
+        from: "From date", to: "To date", module: "Module", actor: "Actor (ID number)", action: "Action",
+        targetId: "Target id", q: "Free text", all: "All", apply: "Search", clear: "Clear",
+      },
+      cols: { at: "Time", actor: "Actor", module: "Module", action: "Action", target: "Target", changes: "Changes" },
+      actions: {
+        create: "Create", update: "Update", delete: "Delete", approve: "Approve", permission_change: "Permission change",
+        role_change: "Role change", unlock: "Unlock", lock: "Lock", upload: "Upload", rename: "Rename",
+        share: "Share", unshare: "Unshare", drive_connect: "Drive connect",
+      },
+      field: "Field", before: "Before", after: "After", fields: "{n} fields",
+      empty: "No entries", total: "Total: {n}", page: "Page {page} of {pages}",
+      prev: "Previous", next: "Next", badDate: "Invalid date", loadFailed: "Could not load the log",
+      system: "System",
+    },
+  },
+};
+
+export const AUDIT_ACTIONS = Object.keys(accessStrings.ar.audit.actions);
+export const AUDIT_MODULES = ["users", "students", "lessons", "attendance", "reports", "vehicles", "files", "notices"];

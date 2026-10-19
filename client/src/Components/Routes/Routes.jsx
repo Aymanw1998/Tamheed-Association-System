@@ -11,6 +11,7 @@ import RequireAuth from './RequireAuth';
 import PublicOnly from './PublicOnly';
 import RoleGuard from './RoleGuard';
 import NoticesBoard from '../Notice/NoticesBoard';
+import AuditPage from '../Audit/AuditPage';
 
 import ViewAllStudent from '../Student/ViewAllStudent';
 import EditStudent from '../Student/EditStudent';
@@ -84,6 +85,7 @@ export default function CRoutes() {
             <Route path="/vehicles/:id" element={<EditVehicle/>} />
 
             <Route path="/notices" element={<NoticesBoard/>} />
+            <Route path="/audit" element={<AuditPage/>} />
 
             <Route path="/files" element={<FilesPage/>} />
             <Route path="/profile" element={<Profile/>} />

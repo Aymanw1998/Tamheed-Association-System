@@ -10,6 +10,7 @@ import {validate as validateINV, submit as submitFromParent} from "../../WebServ
 import { canStored } from "../../utils/session";
 import { photoAction } from "../../utils/photoChange";
 import { isRequiredStudentField } from "../../utils/studentForm";
+import RecentChanges from "../Audit/RecentChanges.jsx";
 
 const EditStudent = ({parent = false}) => {
   const params = useParams();              // "new" الأحدالجمعة _id
@@ -583,6 +584,8 @@ const EditStudent = ({parent = false}) => {
           الرجوع للقائمة
         </button>)}
       </div>
+      {/* Students are audited by _id (older rows by tz). */}
+      {isEdit && !parent && canStored("audit.view") && <RecentChanges targetIds={[form._id, form.tz]} />}
     </div>
   );
 };

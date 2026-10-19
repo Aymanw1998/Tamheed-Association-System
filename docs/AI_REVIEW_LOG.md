@@ -1501,3 +1501,56 @@ the log cannot be read without `audit.view` or changed through any API;
 logging never changes a response.
 
 **Delivery state:** uncommitted local changes; commit awaits the owner's message.
+
+## 2026-10-19: Permissions project, Phase 4 (who may change whom, permissions screen, audit page)
+
+**Scope:** plan Tasks 10–12.
+
+**Changes:**
+
+- `server/utils/permissionRules.js` (new): who may change whom — a manager
+  edits only lower-rank users, never peers, the system account, or holders of
+  a dangerous key; permission managers change others only and grant only what
+  they hold (never dangerous keys); roles are assigned only below one's own
+  rank; demotion clears special permissions.
+- `server/Entities/User/User.controller.js` / `User.route.js`:
+  `GET`/`PUT /api/user/:tz/permissions` (`permissions.manage`),
+  `PUT /api/user/:tz/role` (`users.changeRole`), `POST /api/user/:tz/unlock`
+  (`users.unlock`). `PUT /api/user/:tz` no longer changes tz, role, grants,
+  vehicle rights, storage folder or session fields; setting another user's
+  password needs `users.passwords`. ID numbers are trimmed and validated on
+  create and checked across all three rooms (leading zeros ignored).
+  Approval and user creation give a first role below the approver's own rank.
+  Register and create derive the storage folder on the server. The automatic
+  lock is written to the audit log. Photo changes need rank over the target.
+- Client: permissions tab on the user page (`PermissionsTab.jsx`,
+  `permissionTree.js`), role picker and approve dialogs (roles below one's
+  own; the system account sees all), unlock buttons, "my permissions" on the
+  profile, `/audit` page and recent-changes panels, actions hidden for users
+  the viewer cannot manage. AuditLog indexes added.
+
+**Process:** each task built by a fresh Claude subagent and reviewed by a
+separate one; every task needed one fix round (Task 11's review found that an
+ID number padded with spaces could become the system account — fixed). The
+final Phase 4 review found that any admin could set another user's password;
+fixed together with cross-room duplicate IDs, a stray-record upsert and photo
+access.
+
+**Verification:** `npm run verify`: server 370/370, client 20 suites / 194
+tests, client build compiled. Not verified: no browser check of the new
+screens (no reachable database from this machine) — owed.
+
+**Deploy notes:** default admins have no permissions tab and cannot change
+roles until the system account grants them `permissions.manage` and/or
+`users.changeRole`. Approving a registrant now requires choosing a role.
+
+**Known open item (fixed first in Phase 5):** a `users.edit` holder can change
+a subordinate's email and then use forgot-password to reset their password.
+
+**Requesting Codex review.** No live Codex connection from this session; this
+entry is the handoff. Focus: any path to gain a role/permission or edit a peer
+or the system account; ID-number tricks; the permissions tab sending only
+changes the server accepts.
+
+**Delivery state:** committed by the agent with the owner's standing approval
+(2026-10-19); not pushed.

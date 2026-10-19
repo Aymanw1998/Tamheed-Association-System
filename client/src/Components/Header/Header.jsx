@@ -29,6 +29,7 @@ export default function Header() {
   const canViewStudents = canStored("students.view");
   const canViewUsers = canStored("users.view");
   const canViewNotices = canStored("notices.view");
+  const canViewAudit = canStored("audit.view");
   const displayRole = isAdmin ? t("roles.admin") : isGuide ? t("roles.guide") : t("roles.assistantGuide");
 
   const loadData = useCallback(async () => {
@@ -192,6 +193,9 @@ export default function Header() {
         )}
         {canViewNotices && (
           <a href="/notices" onClick={(event) => onNavClick(event, "/notices")}>{t("nav.notices")}</a>
+        )}
+        {canViewAudit && (
+          <a href="/audit" onClick={(event) => onNavClick(event, "/audit")}>{t("nav.audit")}</a>
         )}
         <a href="/lessons" onClick={(event) => onNavClick(event, "/lessons")}>{t("nav.lessons")}</a>
         {canViewVehicles && (

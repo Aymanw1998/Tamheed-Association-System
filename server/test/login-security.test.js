@@ -38,6 +38,8 @@ function loadController(storedPassword = FAKE_HASH, extra = {}) {
     },
     "../../utils/textEncoding": require("../utils/textEncoding"),
     "../../utils/permissions": require("../utils/permissions"),
+    "../../utils/permissionRules": require("../utils/permissionRules"),
+    "../../utils/israeliId": require("../utils/israeliId"),
     "../../utils/loginLockout": require("../utils/loginLockout"),
     "../../middleware/logger": { logWithSource() {} },
     "./passwordCrypto": {
@@ -149,6 +151,7 @@ function startPhotoApp(userTz) {
       getAllU: noop(), uploadPhoto: handler("upload"), deletePhoto: handler("delete"), getOneU: noop(),
       putU: noop(), deleteU: noop(), postU: noop(), changeRoom: noop(),
       viewPassword: noop(), updateStoragePermissions: noop(),
+      getPermissions: noop(), putPermissions: noop(), putRole: noop(), unlockUser: noop(),
     },
   };
   delete require.cache[routePath];
@@ -220,6 +223,8 @@ test("getme adds the resolved role and the effective permissions", async () => {
   assert.ok(body.permissions.includes("students.edit"));
   assert.ok(body.permissions.includes("vehicles.view"));
   assert.ok(!body.permissions.includes("students.delete"));
+  // Only the system account is flagged; nobody else carries the field.
+  assert.equal(Object.hasOwn(body, "isSystem"), false);
 });
 
 test("getme gives the system account every permission", async () => {
@@ -231,6 +236,7 @@ test("getme gives the system account every permission", async () => {
     await getme({ user: { tz: "1" } }, res);
     const { ALL_KEYS } = require("../utils/permissions");
     assert.deepEqual([...res.body.permissions].sort(), [...ALL_KEYS].sort());
+    assert.equal(res.body.isSystem, true);
   } finally {
     if (saved === undefined) delete process.env.SYSTEM_ADMIN_TZ; else process.env.SYSTEM_ADMIN_TZ = saved;
   }

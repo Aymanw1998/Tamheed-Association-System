@@ -8,6 +8,8 @@ import { toast } from "../../ALERT/SystemToasts.jsx";
 import {validate as validateINV, submit as submitFromParent} from "../../WebServer/services/inviteToken/functionInviteToken.jsx";
 import { getMe } from "../../WebServer/services/auth/fuctionsAuth.jsx";
 import { photoAction } from "../../utils/photoChange";
+import { getStoredPermissions } from "../../utils/session";
+import MyPermissions from "./MyPermissions.jsx";
 
 const Profile = ({parent = false}) => {
     const [form, setForm] = useState({
@@ -47,6 +49,7 @@ const Profile = ({parent = false}) => {
     const [showPassword, setShowPassword] = useState(false);
     const [fetchingPassword, setFetchingPassword] = useState(false);
     const [passwordTouched, setPasswordTouched] = useState(false);
+    const [myPermissions, setMyPermissions] = useState(getStoredPermissions);
 
 
     useEffect(() => {
@@ -63,6 +66,13 @@ const Profile = ({parent = false}) => {
                 delete s.updatedAt;
                 delete s.__v;
                 delete s.roles;
+                // Shown read-only below; never part of the profile form.
+                if (Array.isArray(s.permissions)) setMyPermissions(s.permissions);
+                delete s.permissions;
+                delete s.role;
+                delete s.permissionGrants;
+                delete s.permissionRevokes;
+                delete s.isSystem;
                 setForm(s);
                 setPhoto(s.photo || null);
                 setOriginalPhoto(s.photo || null);
@@ -452,6 +462,8 @@ const Profile = ({parent = false}) => {
             />
             )}
         </div>
+
+        <MyPermissions permissions={myPermissions} />
 
         <div className={styles.buttonRow} style={{ gap: 8, flexWrap: "wrap" }}>
             <button type="submit" onClick={handleSubmit}>

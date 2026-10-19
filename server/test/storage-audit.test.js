@@ -46,6 +46,8 @@ function setup(seed = []) {
     "../../utils/sse": { broadcast() {} },
     "../../utils/textEncoding": require("../utils/textEncoding"),
     "../../utils/permissions": require("../utils/permissions"),
+    "../../utils/permissionRules": require("../utils/permissionRules"),
+    "../../utils/israeliId": require("../utils/israeliId"),
     ...audit.deps,
   };
   const filename = path.join(__dirname, "../Entities/Storage/Storage.controller.js");

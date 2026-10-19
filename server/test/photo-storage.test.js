@@ -84,6 +84,8 @@ function loadUserController(model, storage, audit = auditStub()) {
     "../../utils/jwt": {},
     "../../utils/textEncoding": require("../utils/textEncoding"),
     "../../utils/permissions": require("../utils/permissions"),
+    "../../utils/permissionRules": require("../utils/permissionRules"),
+    "../../utils/israeliId": require("../utils/israeliId"),
     "../../utils/loginLockout": require("../utils/loginLockout"),
     "../../middleware/logger": { logWithSource() {} },
     "./passwordCrypto": {},

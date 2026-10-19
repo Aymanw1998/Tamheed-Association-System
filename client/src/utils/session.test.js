@@ -1,4 +1,4 @@
-import { canStored, getStoredPermissions, getStoredRoles, getStoredUserId, rememberSessionUser } from "./session";
+import { canStored, getStoredPermissions, getStoredRole, getStoredRoles, getStoredUserId, isStoredSystem, rememberSessionUser } from "./session";
 
 beforeEach(() => localStorage.clear());
 
@@ -59,4 +59,22 @@ test("legacy storage with roles only has no permissions and does not crash", () 
   expect(canStored("users.view")).toBe(false);
   localStorage.setItem("permissions", "not json");
   expect(getStoredPermissions()).toEqual([]);
+});
+
+test("only a user flagged isSystem is remembered as the system account", () => {
+  rememberSessionUser({ _id: "s0", roles: ["ادارة"], isSystem: true });
+  expect(isStoredSystem()).toBe(true);
+  // The next sign-in (or /auth/me refresh) of anyone else clears the flag.
+  rememberSessionUser({ _id: "u1", roles: ["ادارة"] });
+  expect(isStoredSystem()).toBe(false);
+  rememberSessionUser({ _id: "u1", roles: ["ادارة"], isSystem: "yes" });
+  expect(isStoredSystem()).toBe(false);
+});
+
+test("getStoredRole resolves the stored role, preferring the single role", () => {
+  rememberSessionUser({ _id: "u1", role: "مرشد", roles: ["مرشد"] });
+  expect(getStoredRole()).toBe("مرشد");
+  localStorage.clear();
+  localStorage.setItem("roles", JSON.stringify(["مساعد", "الإدارة"]));
+  expect(getStoredRole()).toBe("ادارة");
 });

@@ -1,0 +1,23 @@
+.tab { display: grid; gap: 12px; }
+.head { display: grid; gap: 4px; padding: 12px; border: 1px solid var(--color-border, #e3e8ee); border-radius: 8px; background: var(--color-surface, #fff); }
+.note { color: #8a5a00; }
+.modules, .leaves { list-style: none; margin: 0; padding: 0; }
+.modules { display: grid; gap: 6px; }
+.module { border: 1px solid var(--color-border, #e3e8ee); border-radius: 8px; background: var(--color-surface, #fff); }
+.moduleRow { display: flex; align-items: center; gap: 8px; padding: 8px 12px; }
+.switch { display: flex; align-items: center; gap: 8px; flex: 1; cursor: pointer; }
+.moduleName { font-weight: 600; }
+.stateText { color: #5a6570; font-size: 0.85em; }
+.expand { background: none; border: 0; cursor: pointer; font-size: 1rem; padding: 4px 8px; color: inherit; }
+.leaves { display: grid; gap: 4px; padding: 4px 36px 10px; }
+.leafRow { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.leafRow label { display: flex; align-items: center; gap: 8px; }
+.disabled { color: #9aa4ae; cursor: not-allowed; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--color-border, #e3e8ee); margin-bottom: 12px; }
+.tabButton { background: none; border: 0; border-bottom: 3px solid transparent; padding: 8px 14px; cursor: pointer; font: inherit; color: inherit; }
+.tabActive { border-bottom-color: var(--color-primary-700, #1d4ed8); font-weight: 700; }
+.lockRow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.roleRow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.myModules { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.myModules li strong { display: block; }

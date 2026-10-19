@@ -243,3 +243,11 @@ test("invalid dates give 400 BAD_DATE", async () => {
     }
   } finally { server.close(); }
 });
+
+test("ensureAuditIndexes creates the time and target indexes", async () => {
+  const { ensureAuditIndexes, AUDIT_INDEXES } = require("../Entities/Audit/Audit.model");
+  const calls = [];
+  await ensureAuditIndexes({ createIndex: async (spec) => calls.push(spec) });
+  assert.deepEqual(AUDIT_INDEXES, [{ at: -1 }, { targetId: 1, at: -1 }]);
+  assert.deepEqual(calls, [{ at: -1 }, { targetId: 1, at: -1 }]);
+});

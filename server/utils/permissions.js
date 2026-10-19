@@ -111,49 +111,15 @@ function can(actorOrSet, key) {
   return true;
 }
 
-// Blank values never match.
+// Blank values never match. Only the configured value is trimmed: a stored
+// tz with surrounding whitespace is a different account, never the system.
 function isSystemTz(tz, systemTz = process.env.SYSTEM_ADMIN_TZ) {
   const expected = String(systemTz || "").trim();
-  const actual = String(tz || "").trim();
+  const actual = tz == null ? "" : String(tz);
   return Boolean(expected) && actual === expected;
 }
 
-// The vehicle leaves the user screen ticks; vehicles.delete is never granted there.
-const VEHICLE_GRANT_KEYS = ["view", "edit", "compliance", "documents", "archive"]
-  .map((leaf) => `vehicles.${leaf}`);
-
-// The user screen still sends legacy `roles` and `vehiclePermissions`; access
-// comes from `role` and `permissionGrants`. Returns only the fields that change.
-// The role is applied first, so a demotion plus vehicle ticks in one save ends
-// with exactly the ticked vehicle grants.
-function applyLegacyEditToPermissions(existingUser = {}, body = {}) {
-  const out = {};
-  let role = resolveRole(existingUser);
-  let grants = Array.isArray(existingUser?.permissionGrants) ? [...existingUser.permissionGrants] : [];
-
-  if (Array.isArray(body?.roles)) {
-    const newRole = resolveRole({ roles: body.roles });
-    out.role = newRole;
-    out.roles = newRole ? [newRole] : [];
-    // Demotion (including to no role) clears special permissions.
-    if (role && (!newRole || ROLE_RANK[newRole] < ROLE_RANK[role])) {
-      out.permissionGrants = [];
-      out.permissionRevokes = [];
-      grants = [];
-    }
-    role = newRole;
-  }
-
-  if (Array.isArray(body?.vehiclePermissions) && role !== "ادارة") {
-    const ticked = VEHICLE_GRANT_KEYS.filter((key) =>
-      body.vehiclePermissions.includes(key.slice("vehicles.".length)));
-    out.permissionGrants = [...grants.filter((key) => !VEHICLE_GRANT_KEYS.includes(key)), ...ticked];
-  }
-  return out;
-}
-
 module.exports = {
-  applyLegacyEditToPermissions,
   PERMISSION_TREE,
   ROLE_RANK,
   ROLE_DEFAULTS,

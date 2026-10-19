@@ -33,6 +33,8 @@ function loadController() {
     "../../utils/jwt": {},
     "../../utils/textEncoding": require("../utils/textEncoding"),
     "../../utils/permissions": require("../utils/permissions"),
+    "../../utils/permissionRules": require("../utils/permissionRules"),
+    "../../utils/israeliId": require("../utils/israeliId"),
     "../../utils/loginLockout": require("../utils/loginLockout"),
     "../../middleware/logger": { logWithSource() {} },
     "./passwordCrypto": {},
@@ -133,20 +135,19 @@ for (const role of ["ادارة", " إدارة ", "الادارة", "الإدا�
       user: { tz: "admin-user", roles: [role] }, body,
     });
     assert.equal(res.statusCode, 200);
-    const { room, ...data } = body;
-    // The legacy roles list also sets the single role that access is read from.
-    assert.deepEqual(updates, [{ filter: { tz: "self-user" }, data: { ...data, role: "مساعد" }, room }]);
+    const { room, roles, tz, storageFolder, ...data } = body;
+    // Roles change only through PUT /:tz/role; tz and storageFolder never change through putU.
+    assert.deepEqual(updates, [{ filter: { tz: "self-user" }, data, room }]);
   });
 }
 
-test("administrator can manage their own account through the route's self branch", async () => {
+test("an administrator editing their own account is limited to profile fields", async () => {
   const { res, updates } = await updateUser({
     user: { tz: "self-user", roles: ["Ø§Ø¯Ø§Ø±Ø©"] },
-    body: { roles: ["ادارة", "مرشد"] },
+    body: { firstname: "Updated", roles: ["ادارة", "مرشد"], main_lesson: "lesson", room: "waiting" },
   });
   assert.equal(res.statusCode, 200);
-  // Only the highest role is kept, as the single role.
-  assert.deepEqual(updates[0].data, { roles: ["ادارة"], role: "ادارة" });
+  assert.deepEqual(updates, [{ filter: { tz: "self-user" }, data: { firstname: "Updated" }, room: "active" }]);
 });
 
 test("non-administrators cannot update another identity even if the handler is called directly", async () => {

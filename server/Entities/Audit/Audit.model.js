@@ -22,4 +22,14 @@ AuditModelDef.page = async function (filter = {}, { page = 1, pageSize = 50 } = 
   return { items: res.result, total: res.total };
 };
 
-module.exports = { AuditModelDef };
+// api.js never creates indexes. The list is newest first and the edit pages
+// ask for one target's rows. `collection` is injectable for tests.
+const AUDIT_INDEXES = [{ at: -1 }, { targetId: 1, at: -1 }];
+async function ensureAuditIndexes(collection) {
+  const target = collection || require("mongoose").connection
+    .useDb(dbName, { useCache: true })
+    .collection(AuditModelDef.collection);
+  for (const spec of AUDIT_INDEXES) await target.createIndex(spec);
+}
+
+module.exports = { AuditModelDef, AUDIT_INDEXES, ensureAuditIndexes };

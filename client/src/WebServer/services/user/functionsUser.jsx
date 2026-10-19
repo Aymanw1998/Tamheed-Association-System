@@ -22,14 +22,15 @@ const extractUser = (data) => normalizeUser(data?.user ?? data ?? null);
  * 
  * @returns 
  */
-export const changeStatus = async (tz, from, to) => {
+// Approving (waiting -> active, or activating a user with no role) needs `role`.
+export const changeStatus = async (tz, from, to, role) => {
   try {
-    const {status, data} = await api.post(`/user/changeStatus/${tz}`, {from, to});
+    const {status, data} = await api.post(`/user/changeStatus/${tz}`, role ? {from, to, role} : {from, to});
     if (![200,201].includes(status) || !data?.ok) throw new Error('لم يتم تغيير حالة المستخدم');
     return { ok: true, message: data.message};
   }catch(err) {
-    return {ok: false, message: err.response.data.message || err.message || 'حدث خطأ أثناء العملية.'};
-  } 
+    return {ok: false, code: err.response?.data?.code, message: err.response?.data?.message || err.message || 'حدث خطأ أثناء العملية.'};
+  }
 }
 /* ملاحظة عربية */
 export const getAll = async (rooms = null) => {
@@ -168,3 +169,25 @@ export const viewPassword = async (tz) => {
     return err.response.data;
   }
 };
+
+// Same contract as functionsNotice: never throws; failures carry the server's code.
+const call = async (request) => {
+  try {
+    const { data } = await request();
+    return { ok: true, ...(data || {}) };
+  } catch (err) {
+    const body = err.response?.data || {};
+    return { ok: false, status: err.response?.status || 0, code: body.code, message: body.message || err.message || 'حدث خطأ أثناء العملية.' };
+  }
+};
+const userPath = (tz) => `/user/${encodeURIComponent(tz)}`;
+
+// permissions.manage: { role, grants, revokes, effective, defaults, grantable, updatedAt, updatedBy }
+export const getUserPermissions = (tz) => call(() => api.get(`${userPath(tz)}/permissions`));
+// Full lists; 400 codes FORBIDDEN / NOT_GRANTABLE / SELF / UNKNOWN_KEY.
+export const saveUserPermissions = (tz, { grants, revokes }) =>
+  call(() => api.put(`${userPath(tz)}/permissions`, { grants, revokes }));
+// users.changeRole: { ok, role, demoted }; 400 UNKNOWN_ROLE.
+export const changeUserRole = (tz, role) => call(() => api.put(`${userPath(tz)}/role`, { role }));
+// users.unlock: clears the failed sign-in counter and the lock.
+export const unlockUser = (tz) => call(() => api.post(`${userPath(tz)}/unlock`, {}));

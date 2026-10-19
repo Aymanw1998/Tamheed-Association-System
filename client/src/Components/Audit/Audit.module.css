@@ -1,0 +1,13 @@
+.page { display: grid; gap: 16px; padding: 16px; max-width: 1200px; margin: 0 auto; }
+.filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
+.filters label { display: grid; gap: 4px; font-size: 0.9em; }
+.tableWrap { overflow-x: auto; }
+.table { width: 100%; border-collapse: collapse; }
+.table th, .table td { padding: 8px; border-bottom: 1px solid #e3e8ee; text-align: start; vertical-align: top; }
+.changes { border-collapse: collapse; margin-top: 6px; font-size: 0.85em; }
+.changes th, .changes td { padding: 4px 6px; border: 1px solid #e3e8ee; text-align: start; vertical-align: top; max-width: 320px; overflow-wrap: anywhere; }
+.nowrap { white-space: nowrap; }
+.pager { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.panel { display: grid; gap: 8px; margin-top: 16px; padding: 12px; border: 1px solid #e3e8ee; border-radius: 8px; }
+.panelHead { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.panelHead h2 { margin: 0; font-size: 1.05rem; }

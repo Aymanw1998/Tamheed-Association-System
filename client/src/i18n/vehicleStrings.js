@@ -268,16 +268,6 @@ export const vehicleStrings = {
     recordSaved: "تم حفظ السجل",
     archived: "تمت الأرشفة",
     restored: "تمت الاستعادة",
-
-    permissionsTitle: "صلاحيات قسم المركبات والمقطورات",
-    permissionsHint: "الإدارة تملك كل الصلاحيات تلقائيًا. المرشد والمساعد لا يصلان إلى القسم إلا بما يُمنح هنا، ولا فائدة من أي صلاحية دون «مشاهدة».",
-    perm: {
-      view: "مشاهدة المركبات",
-      edit: "إضافة وتعديل المركبات",
-      compliance: "إدارة الترخيص والتست والتأمين",
-      documents: "الوصول للمستندات",
-      archive: "الأرشفة",
-    },
   },
 
   he: {
@@ -545,16 +535,6 @@ export const vehicleStrings = {
     recordSaved: "הרשומה נשמרה",
     archived: "הועבר לארכיון",
     restored: "שוחזר",
-
-    permissionsTitle: "הרשאות לחלק רכבים וגרורים",
-    permissionsHint: "מנהלים מקבלים את כל ההרשאות אוטומטית. מדריכים ועוזרים ניגשים רק למה שניתן כאן, ואין ערך להרשאה כלשהי בלי «צפייה».",
-    perm: {
-      view: "צפייה ברכבים",
-      edit: "הוספה ועריכה של רכבים",
-      compliance: "ניהול רישיון, טסט וביטוח",
-      documents: "גישה למסמכים",
-      archive: "העברה לארכיון",
-    },
   },
 
   en: {
@@ -822,15 +802,5 @@ export const vehicleStrings = {
     recordSaved: "Record saved",
     archived: "Archived",
     restored: "Restored",
-
-    permissionsTitle: "Vehicles & trailers permissions",
-    permissionsHint: "Administrators have every permission automatically. Guides and assistants only get what is granted here, and no permission works without “View”.",
-    perm: {
-      view: "View vehicles",
-      edit: "Add and edit vehicles",
-      compliance: "Manage licence, test and insurance",
-      documents: "Access documents",
-      archive: "Archive",
-    },
   },
 };

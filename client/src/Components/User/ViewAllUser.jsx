@@ -1,17 +1,29 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { changeStatus, deleteU, getAll } from "../../WebServer/services/user/functionsUser.jsx";
+import { changeStatus, deleteU, getAll, unlockUser } from "../../WebServer/services/user/functionsUser.jsx";
 import styles from "./User.module.css";
 import Fabtn from "../Global/Fabtn/Fabtn.jsx";
 import { toast } from "../../ALERT/SystemToasts.jsx";
 import UserStatusFilter from "./UserStatusFilter.jsx";
 import { exportUserPdf } from "../ExportPDF/ExportPDF.jsx";
-import { canStored, getStoredUserId } from "../../utils/session";
+import { canStored, getStoredUserId, getStoredViewer } from "../../utils/session";
 import Button from "../UI/Button.jsx";
 import MobileUserList from "./MobileUserList.jsx";
+import StatusBadge from "../UI/StatusBadge.jsx";
+import { useI18n } from "../../i18n/I18nContext";
+import { canManageTargetClient, resolveRole } from "../../utils/roles";
+import { ask } from "../Provides/confirmBus";
+import { useRolePicker, permissionError } from "./RolePickerDialog.jsx";
 
 const ViewAllUser = () => {
+  const { t } = useI18n();
+  const { pickRole, roleDialog } = useRolePicker();
   const canCreateUsers = canStored("users.create");
+  const canUnlock = canStored("users.unlock");
+  // Hides actions on users the viewer may not manage (self, equal or higher
+  // rank); the server refuses them anyway.
+  const viewer = getStoredViewer();
+  const canManage = (user) => canManageTargetClient(viewer, user);
   const userId = getStoredUserId();
   const navigate = useNavigate();
 
@@ -150,28 +162,46 @@ const ViewAllUser = () => {
     navigate("/users/new");
   };
 
+  // Approval assigns a role (the server requires one).
   const onWaitingToActive = async (user) => {
-    try {
-      const res = await changeStatus(user.tz, "waiting", "active");
-      if (!res?.ok) throw new Error(res?.message || "تعذر قبول المستخدم");
-      toast.success("تمت الموافقة على المستخدم");
-      loadUsers();
-    } catch (error) {
-      console.error(error);
-      toast.error("حدث خطأ أثناء الموافقة على المستخدم");
-    }
+    const role = await pickRole(user);
+    if (!role) return;
+    const res = await changeStatus(user.tz, "waiting", "active", role);
+    if (!res?.ok) return toast.error(permissionError(t, res));
+    toast.success(t("perms.approved"));
+    loadUsers();
   };
 
+  // Reactivating a user who has no role is an approval too.
   const onNoActiveToActive = async (user) => {
+    let role;
+    if (!resolveRole(user)) {
+      role = await pickRole(user);
+      if (!role) return;
+    }
     try {
-      const res = await changeStatus(user.tz, "noActive", "active");
-      if (!res?.ok) throw new Error(res?.message || "تعذر تفعيل المستخدم");
+      const res = await changeStatus(user.tz, "noActive", "active", role);
+      if (!res?.ok) throw new Error(permissionError(t, res));
       toast.success("تم تفعيل المستخدم");
       loadUsers();
     } catch (error) {
       console.error(error);
-      toast.error("حدث خطأ أثناء تفعيل المستخدم");
+      toast.error(error.message || "حدث خطأ أثناء تفعيل المستخدم");
     }
+  };
+
+  const onUnlock = async (user) => {
+    let ok = false;
+    try {
+      ok = await ask("change", { title: t("perms.unlock"), message: t("perms.unlockConfirm"), confirmText: t("perms.unlock"), cancelText: t("perms.cancel") });
+    } catch {
+      ok = false;
+    }
+    if (!ok) return;
+    const res = await unlockUser(user.tz);
+    if (!res.ok) return toast.warn(permissionError(t, res));
+    toast.success(t("perms.unlocked"));
+    loadUsers();
   };
 
   const handleDeleteUser = async (user, from) => {
@@ -254,6 +284,8 @@ const ViewAllUser = () => {
             onPdf={exportUserPdf}
             onActivate={(user) => (user.room === "waiting" ? onWaitingToActive(user) : onNoActiveToActive(user))}
             onDelete={(user) => handleDeleteUser(user, user.room)}
+            onUnlock={canUnlock ? onUnlock : undefined}
+            canManage={canManage}
           />
         </div>
       )}
@@ -285,16 +317,24 @@ const ViewAllUser = () => {
                     <div className={styles.rowActions}>
                       {user.room !== "waiting" && user.room !== "noActive" && (
                         <>
-                          <Button size="sm" variant="warning" onClick={() => navigate(`/users/${user.tz}`)}>
-                            للتعديل
-                          </Button>
+                          {canManage(user) && (
+                            <Button size="sm" variant="warning" onClick={() => navigate(`/users/${user.tz}`)}>
+                              للتعديل
+                            </Button>
+                          )}
                           <Button size="sm" variant="secondary" onClick={() => exportUserPdf(user)}>
                             ملف المستخدم
                           </Button>
+                          {user.lockedAt && <StatusBadge tone="danger">{t("perms.locked")}</StatusBadge>}
+                          {user.lockedAt && canUnlock && canManage(user) && (
+                            <Button size="sm" variant="secondary" onClick={() => onUnlock(user)}>
+                              {t("perms.unlock")}
+                            </Button>
+                          )}
                         </>
                       )}
 
-                      {user.room === "waiting" && (
+                      {user.room === "waiting" && canManage(user) && (
                         <>
                           <Button size="sm" variant="success" onClick={() => onWaitingToActive(user)}>
                             موافقة
@@ -305,7 +345,7 @@ const ViewAllUser = () => {
                         </>
                       )}
 
-                      {user.room === "noActive" && (
+                      {user.room === "noActive" && canManage(user) && (
                         <>
                           <Button size="sm" variant="success" onClick={() => onNoActiveToActive(user)}>
                             تفعيل
@@ -329,6 +369,8 @@ const ViewAllUser = () => {
           </tbody>
         </table>
       )}
+
+      {roleDialog}
 
       <Fabtn
         anchor="#page-add-user"

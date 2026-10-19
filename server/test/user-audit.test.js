@@ -49,6 +49,8 @@ function loadController(users) {
     "../../utils/jwt": {},
     "../../utils/textEncoding": require("../utils/textEncoding"),
     "../../utils/permissions": require("../utils/permissions"),
+    "../../utils/permissionRules": require("../utils/permissionRules"),
+    "../../utils/israeliId": require("../utils/israeliId"),
     "../../utils/loginLockout": require("../utils/loginLockout"),
     "../../middleware/logger": { logWithSource() {} },
     "./passwordCrypto": {},
@@ -75,7 +77,7 @@ function loadController(users) {
   return { controller: module.exports, audit };
 }
 
-const ADMIN = { tz: "100000009", firstname: "Ad", lastname: "Min", roles: ["ادارة"], permissionGrants: ["files.manageAll"] };
+const ADMIN = { tz: "100000009", firstname: "Ad", lastname: "Min", roles: ["ادارة"], permissionGrants: ["files.manageAll", "users.changeRole"] };
 const req = (extra = {}) => ({ user: { tz: ADMIN.tz, roles: ADMIN.roles }, actor: actorFor(ADMIN), params: {}, query: {}, body: {}, ...extra });
 const res = () => ({ statusCode: 200, status(c) { this.statusCode = c; return this; }, json(v) { this.body = v; return this; } });
 
@@ -116,7 +118,7 @@ test("approving a waiting user is recorded as approve; other room moves as updat
   const { controller, audit } = loadController(users);
 
   const approved = res();
-  await controller.changeRoom(req({ params: { tz: "300000007" }, body: { from: "waiting", to: "active" } }), approved);
+  await controller.changeRoom(req({ params: { tz: "300000007" }, body: { from: "waiting", to: "active", role: "مرشد" } }), approved);
   assert.equal(approved.statusCode, 200);
   const [approve] = audit.find({ module: "users", action: "approve", targetId: "300000007" });
   assert.ok(approve, "approve recorded");
@@ -132,7 +134,7 @@ test("approving a waiting user is recorded as approve; other room moves as updat
   // A refused move records nothing.
   const count = audit.calls.length;
   const missing = res();
-  await controller.changeRoom(req({ params: { tz: "999999998" }, body: { from: "waiting", to: "active" } }), missing);
+  await controller.changeRoom(req({ params: { tz: "999999998" }, body: { from: "waiting", to: "active", role: "مرشد" } }), missing);
   assert.equal(missing.statusCode, 404);
   assert.equal(audit.calls.length, count);
 });
@@ -140,7 +142,10 @@ test("approving a waiting user is recorded as approve; other room moves as updat
 test("a password change is recorded, and the stored diff hides both values", async () => {
   const users = createUsers({ active: [{ _id: "u9", tz: "400000006", firstname: "P", lastname: "W", password: "old-placeholder" }] });
   const { controller, audit } = loadController(users);
-  await controller.putU(req({ params: { tz: "400000006" }, body: { password: "new-placeholder" } }), res());
+  // Setting another user's password needs users.passwords.
+  const pwAdmin = { ...ADMIN, permissionGrants: [...ADMIN.permissionGrants, "users.passwords"] };
+  await controller.putU(req({ actor: actorFor(pwAdmin), params: { tz: "400000006" }, body: { password: "new-placeholder" } }), res());
+  assert.equal(users.rooms.active[0].password, "new-placeholder");
   const [update] = audit.find({ module: "users", action: "update", targetId: "400000006" });
   assert.ok(update, "update recorded");
   const { diffChanges } = require("../utils/audit");
@@ -149,15 +154,16 @@ test("a password change is recorded, and the stored diff hides both values", asy
   assert.ok(!JSON.stringify(changes).includes("placeholder"));
 });
 
-test("a role change is recorded as role_change, a grant change as permission_change", async () => {
-  const users = createUsers({ active: [{ _id: "u5", tz: "500000004", firstname: "G", lastname: "U", role: "ادارة", roles: ["ادارة"] }] });
+test("putU no longer changes roles or grants; the role endpoint records role_change", async () => {
+  const users = createUsers({ active: [{ _id: "u5", tz: "500000004", firstname: "G", lastname: "U", role: "مرشد", roles: ["مرشد"] }] });
   const { controller, audit } = loadController(users);
-  await controller.putU(req({ params: { tz: "500000004" }, body: { roles: ["مرشد"] } }), res());
-  const [role] = audit.find({ module: "users", action: "role_change", targetId: "500000004" });
-  assert.equal(role.before.role, "ادارة");
-  assert.equal(role.after.role, "مرشد");
+  await controller.putU(req({ params: { tz: "500000004" }, body: { roles: ["مساعد"], vehiclePermissions: ["view"] } }), res());
+  assert.equal(users.rooms.active[0].role, "مرشد");
+  assert.equal(audit.find({ action: "role_change" }).length, 0);
+  assert.equal(audit.find({ action: "permission_change" }).length, 0);
 
-  await controller.putU(req({ params: { tz: "500000004" }, body: { roles: ["مرشد"], vehiclePermissions: ["view"] } }), res());
-  const [grant] = audit.find({ module: "users", action: "permission_change", targetId: "500000004" });
-  assert.deepEqual(grant.after.permissionGrants, ["vehicles.view"]);
+  await controller.putRole(req({ params: { tz: "500000004" }, body: { role: "مساعد" } }), res());
+  const [role] = audit.find({ module: "users", action: "role_change", targetId: "500000004" });
+  assert.equal(role.before.role, "مرشد");
+  assert.equal(role.after.role, "مساعد");
 });

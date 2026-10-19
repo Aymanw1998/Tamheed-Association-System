@@ -23,13 +23,24 @@ const {
 } = require("../../utils/loginLockout");
 
 const {
+  ROLE_DEFAULTS,
+  ROLE_RANK,
   isSystemTz,
   can,
   effectivePermissions,
+  expandKeys,
+  normalizeRole,
   resolveRole,
-  applyLegacyEditToPermissions,
 } = require("../../utils/permissions");
+const {
+  canManageTarget,
+  grantableBy,
+  validatePermissionChange,
+  canAssignRole,
+  applyRoleChange,
+} = require("../../utils/permissionRules");
 const { logWithSource } = require("../../middleware/logger");
+const { isValidIsraeliId } = require("../../utils/israeliId");
 
 const {
   encryptPassword,
@@ -91,13 +102,62 @@ const recordUser = (req, action, before, after) => {
 
 const sameValue = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 
-// One row per save, named after the most significant change in it.
+// One row per save. Roles and grants have their own endpoints; folder
+// permissions can still arrive through putU.
 function userEditAction(before = {}, patch = {}) {
   const changed = (field) => Object.prototype.hasOwnProperty.call(patch, field) && !sameValue(before?.[field], patch[field]);
-  if (changed("role")) return "role_change";
-  if (["permissionGrants", "permissionRevokes", "vehiclePermissions", "storagePermissions"].some(changed)) return "permission_change";
-  return "update";
+  return changed("storagePermissions") ? "permission_change" : "update";
 }
+
+const FORBIDDEN_BODY = { code: "FORBIDDEN", message: "لا توجد صلاحية" };
+const forbidden = (res) => res.status(403).json(FORBIDDEN_BODY);
+const notFound = (res) => res.status(404).json({ ok: false, message: "غير موجود" });
+const invalid = (res, code) => res.status(400).json({ ok: false, code });
+
+// The system account is invisible to these endpoints: it answers as missing.
+const isSystemUser = (user) => Boolean(user) && isSystemTz(user.tz);
+
+// Who changed permissions last; the system account's tz is never stored.
+const permissionEditor = (actor) => (actor?.isSystem ? "system" : String(actor?.tz || ""));
+
+// Roles, grants, lockout and session state are server-owned: putU never takes
+// them from a request body (roles: PUT /:tz/role, grants: PUT /:tz/permissions).
+const SERVER_OWNED_FIELDS = [
+  "role", "roles", "permissionGrants", "permissionRevokes", "vehiclePermissions",
+  "permissionsUpdatedAt", "permissionsUpdatedBy",
+  // A user is never renamed, and the folder and Drive link are server-derived.
+  "tz", "storageFolder", "googleDrive",
+  "failedLoginCount", "lockedAt", "passwordChangedAt",
+  "refreshHash", "resetOtpHash", "resetOtpExpires", "resetOtpAttempts", "resetOtpLockedUntil",
+];
+const stripServerOwned = (data) => {
+  for (const field of SERVER_OWNED_FIELDS) delete data[field];
+  return data;
+};
+
+const uniqueStrings = (list) => [...new Set(list)];
+
+// A new account's ID number (already trimmed by buildData) must be a valid
+// Israeli ID and never the system account's.
+function newTzProblem(tz) {
+  if (!isValidIsraeliId(tz)) return "INVALID_TZ";
+  if (isSystemTz(tz)) return "SYSTEM_TZ";
+  return null;
+}
+
+// The storage folder and Drive link of a new account are never taken from a
+// request body: the folder is always derived from the tz.
+function deriveServerFields(model) {
+  delete model.storageFolder;
+  delete model.googleDrive;
+  model.storageFolder = buildUserStorageFolder(model);
+  return model;
+}
+const symmetricDifference = (a, b) => {
+  const left = new Set(a);
+  const right = new Set(b);
+  return [...a.filter((x) => !right.has(x)), ...b.filter((x) => !left.has(x))];
+};
 
 // req.actor comes from permissionMiddleware.loadActor. Self means the same tz
 // (the update filters below are by tz).
@@ -106,8 +166,10 @@ const isSelfTz = (req, tz) => {
   return Boolean(own) && own === String(tz ?? "").trim();
 };
 
-const canManageUserMedia = (req, tz) =>
-  can(req.actor?.permissions, "users.edit") || isSelfTz(req, tz);
+// Oneself, or (with users.edit) a user the actor may manage.
+const canManageUserMedia = (req, user) =>
+  isSelfTz(req, user?.tz)
+  || (can(req.actor?.permissions, "users.edit") && canManageTarget(req.actor, user));
 
 const buildUserPhotoName = (user = {}, file = {}) => {
   const parts = [
@@ -175,7 +237,8 @@ function toDate(value) {
 
 function buildData(body = {}) {
   return {
-    tz: body.tz,
+    // Trimmed, so " 123" can never be stored next to (or as) "123".
+    tz: body.tz == null ? undefined : String(body.tz).trim(),
     firstname: body.firstname,
     lastname: body.lastname,
     birth_date: toDate(body.birth_date) || null,
@@ -185,30 +248,15 @@ function buildData(body = {}) {
     city: body.city,
     street: body.street,
     password: body.password,
-    roles: Array.isArray(body.roles) ? body.roles : undefined,
     main_lesson: body.main_lesson ?? null,
     storageFolder: body.storageFolder,
+    // Kept only for actors holding files.manageAll (dropStorageUnlessAllowed).
     storagePermissions: body.storagePermissions,
-    // Administrators only: putU drops everything outside SELF_EDIT_FIELDS for
-    // non-admins, so a user cannot grant this to themselves.
-    // The model keeps only known permission names.
-    vehiclePermissions: Array.isArray(body.vehiclePermissions) ? body.vehiclePermissions : undefined,
-
-    refreshHash: body.refreshHash,
-    resetOtpHash: body.resetOtpHash,
-    resetOtpExpires: body.resetOtpExpires,
-    resetOtpAttempts: body.resetOtpAttempts,
-    resetOtpLockedUntil: body.resetOtpLockedUntil,
 
     photo: body.photo,
     googleDrive: body.googleDrive,
   };
 }
-
-// Access comes from `role` and `permissionGrants`; the user screen still sends
-// legacy `roles` and `vehiclePermissions`, so translate them for the admin path.
-const hasLegacyPermissionFields = (body = {}) =>
-  Array.isArray(body.roles) || Array.isArray(body.vehiclePermissions);
 
 // Folder permissions follow the PATCH /storage-permissions rule.
 function dropStorageUnlessAllowed(req, data) {
@@ -256,6 +304,25 @@ async function findUserAcrossRooms(tz) {
     if (user) return { user, room };
   }
   return { user: null, room: null };
+}
+
+// One person, one record: "012345674" and "12345674" are the same ID number,
+// so existence checks ignore leading zeros on both sides (storage is unchanged).
+const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function sameTzFilter(tz) {
+  const digits = String(tz ?? "").trim().replace(/^0+/, "");
+  return { tz: { $regex: `^0*${escapeRegex(digits)}$` } };
+}
+
+async function tzExistsInRoom(tz, room) {
+  const found = await UserModelDef.get(sameTzFilter(tz), room).catch(() => null);
+  return Boolean(found?.success && Array.isArray(found.result) && found.result.length > 0);
+}
+
+// The first room holding this ID number (any spelling), or null.
+async function roomHoldingTz(tz) {
+  for (const room of ROOMS) if (await tzExistsInRoom(tz, room)) return room;
+  return null;
 }
 
 async function findUsersByEmail(email) {
@@ -401,14 +468,45 @@ const getOneU = async (req, res) => {
   }
 };
 
+// A first role for a user who has none (approval, or a new account). A role
+// manager (or the system) follows the PUT /:tz/role rule; otherwise the actor
+// needs `gateKey` and may give only a role ranked strictly below his own whose
+// every default leaf he holds.
+function canGiveFirstRole(actor, target, role, gateKey) {
+  if (canAssignRole(actor, target, role)) return true;
+  if (resolveRole(target)) return false;
+  const held = actor?.permissions;
+  if (!can(held, gateKey) || !canManageTarget(actor, target)) return false;
+  const actorRank = ROLE_RANK[resolveRole(actor)] || 0;
+  if (!(ROLE_RANK[role] < actorRank)) return false;
+  for (const leaf of expandKeys(ROLE_DEFAULTS[role])) if (!held.has(leaf)) return false;
+  return true;
+}
+
 const postU = async (req, res) => {
   try {
     const model = dropStorageUnlessAllowed(req, buildData(req.body));
-    Object.assign(model, applyLegacyEditToPermissions({}, req.body || {}));
+    const tzProblem = newTzProblem(model.tz);
+    if (tzProblem === "INVALID_TZ") {
+      return res.status(400).json({ ok: false, code: "INVALID_TZ", message: "رقم الهوية غير صالح" });
+    }
+    if (tzProblem) return res.status(409).json({ ok: false, message: "المستخدم موجود" });
+
+    // A role on creation follows the approval rule (canGiveFirstRole), with
+    // the new user as a rank-0, non-system target. Grants are set later,
+    // through PUT /:tz/permissions.
+    const body = req.body || {};
+    const submitted = [body.role, ...(Array.isArray(body.roles) ? body.roles : [])]
+      .filter((r) => !(r == null || (typeof r === "string" && r.trim() === "")));
+    if (submitted.some((r) => !normalizeRole(r))) return invalid(res, "UNKNOWN_ROLE");
+    const role = resolveRole({ roles: submitted });
+    if (role && !canGiveFirstRole(req.actor, {}, role, "users.create")) return forbidden(res);
+    Object.assign(model, { role: role || null, roles: role ? [role] : [], permissionGrants: [], permissionRevokes: [] });
+
     const room = req.body?.room && ROOMS.includes(req.body.room)
       ? req.body.room
       : "active";
-    model.storageFolder = model.storageFolder || buildUserStorageFolder(model);
+    deriveServerFields(model);
 
     if (!model.tz || !model.password) {
       return res.status(400).json({
@@ -417,19 +515,11 @@ const postU = async (req, res) => {
       });
     }
 
-    const existsActive = await UserModelDef.get({ tz: model.tz }, "active");
-    if (existsActive?.success && existsActive.count > 0) {
+    const existingRoom = await roomHoldingTz(model.tz);
+    if (existingRoom) {
       return res.status(409).json({
         ok: false,
-        message: "المستخدم موجود",
-      });
-    }
-
-    const existsWaiting = await UserModelDef.get({ tz: model.tz }, "waiting");
-    if (existsWaiting?.success && existsWaiting.count > 0) {
-      return res.status(409).json({
-        ok: false,
-        message: "المستخدم في غرفة الانتظار حتى يتم قُبُلهُ",
+        message: existingRoom === "waiting" ? "المستخدم في غرفة الانتظار حتى يتم قُبُلهُ" : "المستخدم موجود",
       });
     }
 
@@ -459,16 +549,17 @@ const putU = async (req, res) => {
       return res.status(400).json({ ok: false, message: "tz required" });
     }
 
-    const isAdmin = can(req.actor?.permissions, "users.edit");
-    if (!isAdmin && !isSelfTz(req, tz)) {
-      return res.status(403).json({ ok: false, code: "FORBIDDEN", message: "لا توجد صلاحية" });
-    }
+    // Editing oneself is limited to profile fields, whatever one's permissions:
+    // nobody manages their own account's authority.
+    const isSelf = isSelfTz(req, tz);
+    const isAdmin = !isSelf && can(req.actor?.permissions, "users.edit");
+    if (!isAdmin && !isSelf) return forbidden(res);
 
     const room = isAdmin && req.body?.room && ROOMS.includes(req.body.room)
       ? req.body.room
       : "active";
 
-    const newData = removeEmpty(buildData(req.body));
+    const newData = stripServerOwned(removeEmpty(buildData(req.body)));
     let existing = null;
     if (!isAdmin) {
       // The profile form sends back account metadata from getMe. Only editable
@@ -476,21 +567,20 @@ const putU = async (req, res) => {
       for (const field of Object.keys(newData)) {
         if (!SELF_EDIT_FIELDS.has(field)) delete newData[field];
       }
+      existing = await getUserInRoomByTz(tz, room);
     } else {
       dropStorageUnlessAllowed(req, newData);
-      if (hasLegacyPermissionFields(req.body)) {
-        // Demotion and the vehicle grants depend on what is stored now.
-        existing = await getUserInRoomByTz(tz, room);
-        if (!existing) {
-          return res.status(404).json({ ok: false, message: "User not found" });
-        }
-        Object.assign(newData, applyLegacyEditToPermissions(existing, req.body));
-      }
+      // Another user's password: only the system or a users.passwords holder.
+      if (!can(req.actor, "users.passwords")) delete newData.password;
+      existing = await getUserInRoomByTz(tz, room);
+      if (!existing || isSystemUser(existing)) return notFound(res);
+      if (!canManageTarget(req.actor, existing)) return forbidden(res);
     }
+    // The URL may name the user by _id; the update (which upserts) goes by the
+    // stored tz, so it never creates a stray record.
+    if (!existing) return notFound(res);
 
-    if (!existing) existing = await getUserInRoomByTz(tz, room);
-
-    const updated = await UserModelDef.update({ tz }, newData, room);
+    const updated = await UserModelDef.update({ tz: existing.tz }, newData, room);
     await recordUser(req, userEditAction(existing, newData), existing, { ...(existing || { tz }), ...newData });
 
     return res.status(200).json({
@@ -522,12 +612,15 @@ const updateStoragePermissions = async (req, res) => {
     };
 
     const existing = await getUserInRoomByTz(tz, "active");
+    if (!existing || isSystemUser(existing) || isSystemTz(tz)) return notFound(res);
+    if (!canManageTarget(req.actor, existing)) return forbidden(res);
+
     const updated = await UserModelDef.update(
-      { tz },
+      { tz: existing.tz },
       { storagePermissions: cleanPermissions },
       "active"
     );
-    await recordUser(req, "permission_change", existing, { ...(existing || { tz }), storagePermissions: cleanPermissions });
+    await recordUser(req, "permission_change", existing, { ...existing, storagePermissions: cleanPermissions });
 
     return res.status(200).json({
       ok: true,
@@ -559,8 +652,11 @@ const deleteU = async (req, res) => {
     }
 
     const existing = await getUserInRoomByTz(tz, room);
-    const deleted = await UserModelDef.delete({ tz }, room);
-    if (existing) await recordUser(req, "delete", { ...existing, room }, null);
+    if (!existing || isSystemUser(existing)) return notFound(res);
+    if (!canManageTarget(req.actor, existing)) return forbidden(res);
+
+    const deleted = await UserModelDef.delete({ tz: existing.tz }, room);
+    await recordUser(req, "delete", { ...existing, room }, null);
 
     return res.status(200).json({
       ok: true,
@@ -578,23 +674,28 @@ const deleteU = async (req, res) => {
 /* ================= register ================= */
 const register = async (req, res) => {
   try {
+    // Self-registration grants nothing: the role is chosen on approval.
     const model = buildData(req.body);
+    delete model.storagePermissions;
+    model.roles = [];
+    model.role = null;
     const room = "waiting";
-    model.storageFolder = model.storageFolder || buildUserStorageFolder(model);
+    deriveServerFields(model);
 
-    if (!model.tz || !model.password) {
+    const tzProblem = newTzProblem(model.tz);
+    if (tzProblem === "INVALID_TZ") {
+      return res.status(400).json({ code: "INVALID_TZ", message: "رقم الهوية غير صالح" });
+    }
+    if (tzProblem) return res.status(400).json({ message: "المستخدم موجود" });
+
+    if (!model.password) {
       return res.status(400).json({ message: "tz/password required" });
     }
 
-    const existsActive = await getUserInRoomByTz(model.tz, "active");
-    if (existsActive) {
-      return res.status(400).json({ message: "المستخدم موجود" });
-    }
-
-    const existsWaiting = await getUserInRoomByTz(model.tz, "waiting");
-    if (existsWaiting) {
+    const existingRoom = await roomHoldingTz(model.tz);
+    if (existingRoom) {
       return res.status(400).json({
-        message: "المستخدم في غرفة الانتظار حتى يتم قُبُلهُ",
+        message: existingRoom === "waiting" ? "المستخدم في غرفة الانتظار حتى يتم قُبُلهُ" : "المستخدم موجود",
       });
     }
 
@@ -692,7 +793,13 @@ const login = async (req, res) => {
           now: new Date(),
         });
         if (lockedAt && !isSystem) {
-          await UserModelDef.lockIfThresholdReached(user.tz, lockedAt, LOCK_THRESHOLD, room);
+          const locked = await UserModelDef.lockIfThresholdReached(user.tz, lockedAt, LOCK_THRESHOLD, room);
+          // Only the request that actually set the lock records it.
+          if (locked?.result) {
+            await recordUser({ actor: { isSystem: true }, ip: req.ip }, "lock",
+              { tz: user.tz, firstname: user.firstname, lastname: user.lastname, lockedAt: null },
+              { tz: user.tz, firstname: user.firstname, lastname: user.lastname, lockedAt: locked.result.lockedAt ?? lockedAt });
+          }
         }
       } catch (countError) {
         logWithSource("User.login.countFailure", countError);
@@ -737,7 +844,7 @@ const login = async (req, res) => {
       ok: true,
       accessToken,
       expirationTime: computeAccessExpMsFromNow(),
-      user: sanitize(user),
+      user: isSystem ? { ...sanitize(user), isSystem: true } : sanitize(user),
     });
   } catch (error) {
     logWithSource("User.login", error);
@@ -865,12 +972,15 @@ const getme = async (req, res) => {
 
     // The app shows and hides features from these; the server still checks
     // every request.
-    const permissions = effectivePermissions(user, { isSystem: isSystemTz(user.tz) });
+    const isSystem = isSystemTz(user.tz);
+    const permissions = effectivePermissions(user, { isSystem });
     return res.status(200).json({
       ok: true,
       user: sanitize(user),
       role: resolveRole(user),
       permissions: [...permissions],
+      // Present only for the system account, so the app can offer every role.
+      ...(isSystem && { isSystem: true }),
     });
   } catch (err) {
     logWithSource("User.getme", err);
@@ -1043,6 +1153,12 @@ const resetPassword = async (req, res) => {
 };
 
 /* ================= changeRoom ================= */
+// Approval assigns a role. A role manager (or the system) follows the
+// PUT /:tz/role rule. An approver (users.approve) may only give a first role
+// to a user who has none, strictly below their own rank, and only one whose
+// every default leaf they hold; changing an existing role needs changeRole.
+const canApproveAs = (actor, target, role) => canGiveFirstRole(actor, target, role, "users.approve");
+
 const changeRoom = async (req, res) => {
   try {
     const { tz } = req.params;
@@ -1067,24 +1183,52 @@ const changeRoom = async (req, res) => {
     }
 
     const user = await getUserInRoomByTz(String(tz).trim(), from);
-    if (!user) {
+    if (!user || isSystemUser(user)) {
       return res.status(404).json({
         ok: false,
         message: `User not found in ${from} room`,
       });
     }
 
+    // Approval (waiting -> active) assigns the role, under the PUT /:tz/role
+    // rule; every other move needs authority over the user.
+    // Leaving the waiting room, or activating a user with no role, is an
+    // approval: it needs a role. Reactivating a user who has one is a move.
+    const approving = to === "active" && (from === "waiting" || !resolveRole(user));
+    let roleChange = null;
+    if (approving) {
+      const requested = req.body?.role;
+      if (requested == null || (typeof requested === "string" && requested.trim() === "")) {
+        return invalid(res, "ROLE_REQUIRED");
+      }
+      const role = normalizeRole(requested);
+      if (!role) return invalid(res, "UNKNOWN_ROLE");
+      if (!canApproveAs(req.actor, user, role)) return forbidden(res);
+      roleChange = applyRoleChange(user, role);
+    } else if (!canManageTarget(req.actor, user)) {
+      return forbidden(res);
+    }
+
+    // The destination must not already hold this ID number (any spelling).
+    if (await tzExistsInRoom(user.tz, to)) {
+      return res.status(409).json({ ok: false, code: "TZ_EXISTS", message: "المستخدم موجود" });
+    }
+
     const raw = { ...user };
     delete raw._id;
     delete raw.createdAt;
     delete raw.updatedAt;
+    const before = { ...raw, room: from };
     raw.storageFolder = raw.storageFolder || buildUserStorageFolder(raw);
+    if (roleChange) {
+      const { demoted, ...fields } = roleChange;
+      Object.assign(raw, fields);
+    }
 
     await UserModelDef.create(raw, to);
     await UserModelDef.delete({ tz: user.tz }, from);
     // Moving a user into the active room is the approval.
-    await recordUser(req, to === "active" ? "approve" : "update",
-      { ...raw, storageFolder: user.storageFolder, room: from }, { ...raw, room: to });
+    await recordUser(req, to === "active" ? "approve" : "update", before, { ...raw, room: to });
     if (to === "active") {
       await safeEnsureStorageFolder(raw);
     }
@@ -1109,6 +1253,142 @@ const changeRoom = async (req, res) => {
       ok: false,
       message: error.message,
     });
+  }
+};
+
+/* ================= permissions / role / unlock ================= */
+// Finds the target in any room; the system account answers as missing.
+async function loadTarget(req) {
+  const tz = String(req.params?.tz ?? "").trim();
+  if (!tz || isSystemTz(tz)) return { user: null, room: null };
+  const found = await findUserAcrossRooms(tz);
+  return isSystemUser(found.user) ? { user: null, room: null } : found;
+}
+
+const listOf = (value) => (Array.isArray(value) ? value : []);
+
+// GET /:tz/permissions (permissions.manage). `grantable` is empty when the
+// actor may not change this user's permissions at all.
+const getPermissions = async (req, res) => {
+  try {
+    const { user } = await loadTarget(req);
+    if (!user) return notFound(res);
+
+    const role = resolveRole(user);
+    const editable = validatePermissionChange(req.actor, user, { grants: [], revokes: [] }).ok;
+    return res.status(200).json({
+      ok: true,
+      role,
+      grants: listOf(user.permissionGrants),
+      revokes: listOf(user.permissionRevokes),
+      effective: [...effectivePermissions(user)],
+      defaults: [...expandKeys(role ? ROLE_DEFAULTS[role] : [])],
+      grantable: editable ? [...grantableBy(req.actor)] : [],
+      updatedAt: user.permissionsUpdatedAt || null,
+      updatedBy: user.permissionsUpdatedBy || null,
+    });
+  } catch (err) {
+    logWithSource("User.getPermissions", err);
+    return res.status(500).json({ ok: false, message: err.message });
+  }
+};
+
+// PUT /:tz/permissions (permissions.manage), body { grants, revokes }: the
+// full lists. Only the keys that change are checked against what the actor
+// may grant, so a grant someone else gave survives an unrelated edit.
+const putPermissions = async (req, res) => {
+  try {
+    const { user, room } = await loadTarget(req);
+    if (!user) return notFound(res);
+
+    const { grants = [], revokes = [] } = req.body || {};
+    if ((grants != null && !Array.isArray(grants)) || (revokes != null && !Array.isArray(revokes))) {
+      return invalid(res, "UNKNOWN_KEY");
+    }
+    const trimKey = (key) => (typeof key === "string" ? key.trim() : key);
+    const nextGrants = uniqueStrings((grants || []).map(trimKey));
+    const nextRevokes = uniqueStrings((revokes || []).map(trimKey));
+    const oldGrants = listOf(user.permissionGrants);
+    const oldRevokes = listOf(user.permissionRevokes);
+
+    const verdict = validatePermissionChange(req.actor, user, {
+      grants: symmetricDifference(oldGrants, nextGrants),
+      revokes: symmetricDifference(oldRevokes, nextRevokes),
+    });
+    if (!verdict.ok) return verdict.code === "FORBIDDEN" ? forbidden(res) : invalid(res, verdict.code);
+
+    const patch = {
+      permissionGrants: nextGrants,
+      permissionRevokes: nextRevokes,
+      permissionsUpdatedAt: new Date(),
+      permissionsUpdatedBy: permissionEditor(req.actor),
+    };
+    await UserModelDef.update({ tz: user.tz }, patch, room);
+    await recordUser(req, "permission_change", user, { ...user, ...patch });
+
+    const after = { ...user, ...patch };
+    return res.status(200).json({
+      ok: true,
+      grants: nextGrants,
+      revokes: nextRevokes,
+      effective: [...effectivePermissions(after)],
+      updatedAt: patch.permissionsUpdatedAt,
+      updatedBy: patch.permissionsUpdatedBy,
+    });
+  } catch (err) {
+    logWithSource("User.putPermissions", err);
+    return res.status(500).json({ ok: false, message: err.message });
+  }
+};
+
+// PUT /:tz/role (users.changeRole), body { role }. A demotion clears the
+// user's special permissions.
+const putRole = async (req, res) => {
+  try {
+    const { user, room } = await loadTarget(req);
+    if (!user) return notFound(res);
+
+    const role = normalizeRole(req.body?.role);
+    if (!role) return invalid(res, "UNKNOWN_ROLE");
+    if (!canAssignRole(req.actor, user, role)) return forbidden(res);
+
+    let change;
+    try {
+      change = applyRoleChange(user, role);
+    } catch (error) {
+      if (error?.code === "UNKNOWN_ROLE") return invalid(res, "UNKNOWN_ROLE");
+      throw error;
+    }
+    const { demoted, ...patch } = change;
+    if (demoted) {
+      patch.permissionsUpdatedAt = new Date();
+      patch.permissionsUpdatedBy = permissionEditor(req.actor);
+    }
+    await UserModelDef.update({ tz: user.tz }, patch, room);
+    await recordUser(req, "role_change", user, { ...user, ...patch });
+
+    return res.status(200).json({ ok: true, role, demoted });
+  } catch (err) {
+    logWithSource("User.putRole", err);
+    return res.status(500).json({ ok: false, message: err.message });
+  }
+};
+
+// POST /:tz/unlock (users.unlock): clears the failed-sign-in counter and lock.
+const unlockUser = async (req, res) => {
+  try {
+    const { user, room } = await loadTarget(req);
+    if (!user) return notFound(res);
+    if (!canManageTarget(req.actor, user)) return forbidden(res);
+
+    const patch = afterSuccess();
+    await UserModelDef.update({ tz: user.tz }, patch, room);
+    await recordUser(req, "unlock", user, { ...user, ...patch });
+
+    return res.status(200).json({ ok: true });
+  } catch (err) {
+    logWithSource("User.unlockUser", err);
+    return res.status(500).json({ ok: false, message: err.message });
   }
 };
 
@@ -1151,11 +1431,11 @@ const   uploadPhoto = async (req, res) => {
     }
 
     const user = await getUserInRoomByTz(tz, "active");
-    if (!user) {
+    if (!user || isSystemUser(user)) {
       return res.status(404).json({ ok: false, message: "User not found" });
     }
 
-    if (!canManageUserMedia(req, tz)) {
+    if (!canManageUserMedia(req, user)) {
       return res.status(403).json({ ok: false, message: "لا توجد صلاحية" });
     }
 
@@ -1177,7 +1457,7 @@ const   uploadPhoto = async (req, res) => {
     }
 
     await UserModelDef.update(
-      { tz },
+      { tz: user.tz },
       { photo: uploaded.secure_url },
       "active"
     );
@@ -1224,11 +1504,11 @@ const deletePhoto = async (req, res) => {
     }
 
     const user = await getUserInRoomByTz(tz, "active");
-    if (!user) {
+    if (!user || isSystemUser(user)) {
       return res.status(404).json({ ok: false, message: "User not found" });
     }
 
-    if (!canManageUserMedia(req, tz)) {
+    if (!canManageUserMedia(req, user)) {
       return res.status(403).json({ ok: false, message: "لا توجد صلاحية" });
     }
     if (user.photo) {
@@ -1240,7 +1520,7 @@ const deletePhoto = async (req, res) => {
     }
     console.warn("Updating user record to remove photo URL");
     await UserModelDef.update(
-      { tz },
+      { tz: user.tz },
       { photo: null },
       "active"
     );
@@ -1286,6 +1566,10 @@ module.exports = {
   updateStoragePermissions,
   deleteU,
   changeRoom,
+  getPermissions,
+  putPermissions,
+  putRole,
+  unlockUser,
   forgotPassword,
   resetPassword,
 };

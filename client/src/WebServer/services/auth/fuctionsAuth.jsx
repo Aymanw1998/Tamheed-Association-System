@@ -63,7 +63,10 @@ export async function getMe() {
     }
 
     // Keep what the server granted next to the user so the app can hide UI.
-    return data.user ? { ...data.user, role: data.role, permissions: data.permissions } : data.user;
+    // isSystem is sent only for the system account.
+    return data.user
+      ? { ...data.user, role: data.role, permissions: data.permissions, isSystem: data.isSystem === true }
+      : data.user;
   } catch (err) {
     return null;
   }

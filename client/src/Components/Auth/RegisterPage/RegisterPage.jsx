@@ -24,7 +24,6 @@ export default function RegisterPage() {
       email: "",
       city: "",
       street: "",
-      roles: ["مرشد"],
     });
     const isNew = true;
     const [photo, setPhoto] = useState(null);
@@ -39,7 +38,6 @@ export default function RegisterPage() {
       email: "",
       city: "",
       street: "",
-      roles: "",
     })
 
     const [saving, setSaving]   = useState(false);
@@ -96,12 +94,10 @@ export default function RegisterPage() {
           return ""
         }
 
-        //gender, role
-        else if(['gender', 'roles'].includes(name)){
-          if (name === 'gender' && !['ذكر' , 'انثى'].includes(value)) {
+        //gender
+        else if(name === 'gender'){
+          if (!['ذكر' , 'انثى'].includes(value)) {
             return "اختر الجنس";
-          } else if (isNew && name === 'role' && !['ادارة', 'مرشد', 'مساعد'].includes(value)) {
-            return "اختر الدور";
           }
           return ""
         }
@@ -122,10 +118,6 @@ export default function RegisterPage() {
             return "املأ الحقل";
           }
           return ""
-        }
-        else if (name === "roles") {
-          if (!value || value.length === 0) return "اختر دورا واحدا على الأقل";
-          return "";
         }
 
         return "";
@@ -166,7 +158,7 @@ export default function RegisterPage() {
       let b = await validate();
       if (b) { toast.warn(b); return; }
       b = true
-      const requiredFields = ['tz', 'firstname', 'lastname', 'birth_date', 'gender', 'phone', 'email', 'city', 'street', 'roles'];
+      const requiredFields = ['tz', 'firstname', 'lastname', 'birth_date', 'gender', 'phone', 'email', 'city', 'street'];
       for (const fieldName of requiredFields) {
         const msg = await validate(fieldName, form[fieldName]);
         setError((prev) => ({ ...prev, [fieldName]: msg }));
@@ -233,20 +225,7 @@ export default function RegisterPage() {
         </div>
         <span className={styles.fieldError}>{error.password}</span>
 
-        <label htmlFor="reg-roles">الادوار:</label>
-        <select
-          id="reg-roles"
-          name="roles"
-          value={form.roles[0]  || ""}
-          onChange={(e) => {
-            setForm((prev) => ({ ...prev, roles: [e.target.value] }));
-          }}
-        >
-          <option value="مرشد">مرشد</option>
-          <option value="مساعد">مساعد</option>
-        </select>
-        <span className={styles.fieldError}>{error.roles}</span>
-
+        {/* No role here: the role is chosen when an administrator approves the account. */}
         <label htmlFor="reg-firstname">اسم المستخدم:</label>
         <input
           id="reg-firstname"

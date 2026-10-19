@@ -185,6 +185,8 @@ const StartServer = async () => {
     await ensureSystemAdmin();
     await require('./Entities/Notice/Notice.model').ensureNoticeIndexes()
       .catch((err) => console.error('Notice index:', err.message));
+    await require('./Entities/Audit/Audit.model').ensureAuditIndexes()
+      .catch((err) => console.error('Audit index:', err.message));
     catchUpVehicleExpiryCheck().catch((err) => console.error('Vehicle expiry catch-up:', err.message));
 
 
