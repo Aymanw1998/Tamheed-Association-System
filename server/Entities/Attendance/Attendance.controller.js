@@ -3,6 +3,7 @@ const { LessonModelDef } = require("../Lesson/Lesson.model");
 const { UserModelDef } = require("../User/User.model");
 const { StudentModelDef } = require("../Student/Student.model");
 const { logWithSource } = require("../../middleware/logger");
+const { audit } = require("../../utils/audit");
 
 const DEFAULT_STATUS = "حاضر";
 
@@ -201,6 +202,10 @@ const bulkSave = async (req, res) => {
 
     const dateKey = calcDateKey(y, m, d);
 
+    // Rows as they were before the save, to count what this save changed.
+    const previous = await AttendanceModelDef.get({ lesson: String(lessonId), dateKey }).catch(() => null);
+    const previousByStudent = new Map((previous?.result || []).map((row) => [String(row.student), row]));
+
     const results = await Promise.all(
       items.map((item) =>
         AttendanceModelDef.update(
@@ -221,6 +226,21 @@ const bulkSave = async (req, res) => {
         )
       )
     );
+
+    const rowsChanged = items.filter((item) => {
+      const old = previousByStudent.get(String(item.studentId));
+      return !old || old.status !== (item.status ?? DEFAULT_STATUS) || (old.notes ?? "") !== (item.notes ?? "");
+    }).length;
+    const date = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    const lesson = await getLessonById(String(lessonId));
+    // One audit row per save (not per student).
+    await audit.record(req, {
+      module: "attendance", action: "update", targetType: "lesson",
+      targetId: String(lessonId),
+      targetLabel: [lesson?.name, date].filter(Boolean).join(" "),
+      before: null,
+      after: { lesson: String(lessonId), date, rowsSaved: items.length, rowsChanged },
+    });
 
     return res.status(200).json({
       ok: true,

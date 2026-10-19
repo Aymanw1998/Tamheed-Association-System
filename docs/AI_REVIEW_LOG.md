@@ -1459,3 +1459,45 @@ entry is the handoff. Focus: no route more open than before; no path where JWT
 roles grant access; migration safety; the edit-user role/vehicle translation.
 
 **Delivery state:** uncommitted local changes; commit awaits the owner's message.
+
+## 2026-10-19: Permissions project, Phase 3 (audit log)
+
+**Scope:** plan Tasks 8–9 (`docs/superpowers/plans/2026-10-17-hybrid-permissions.md`).
+
+**Changes:**
+
+- `server/Entities/Audit/Audit.model.js` (collection `AuditLog`),
+  `server/Entities/Audit/Audit.route.js` (`GET /api/audit`, needs `audit.view`;
+  filters from/to/module/actor/action/targetId/q; 50 per page; date-only
+  filters are whole days in Asia/Jerusalem; invalid date → 400 `BAD_DATE`),
+  `server/utils/audit.js` (`audit.record` never throws; recursive redaction
+  of passwords, hashes, tokens, OTPs, secrets; the system account's TZ is
+  masked as "system"/"النظام" at write time), `readPage` in
+  `server/Entities/api.js`, mounted in `server/server.js`.
+- Every module records changes after a successful write: students, users
+  (incl. approve, role and permission changes), reports, lessons (incl.
+  roster), attendance (one row per save), notices, vehicles (alongside the
+  vehicle's own log), files (upload, delete, rename, folder create, share,
+  unshare) and the Google Drive connection.
+- The log is append-only: no update or delete route.
+
+**Process:** each task built by a fresh Claude subagent and reviewed by a
+separate one (Task 8 needed a fix round for nested redaction; Task 9's
+implementer was interrupted by a rate limit and resumed). Final Phase 3
+review found the system TZ could be written into audit rows and the date
+filter used UTC; both fixed and re-reviewed.
+
+**Verification:** `npm run verify`: server 286/286, client 17 suites / 154
+tests, client build compiled. Not verified: no live database; no audit page
+yet (Phase 4, Task 12). Only the system account can read the log until
+`audit.view` can be granted (Phase 4).
+
+**Known open items:** the automatic lock and public registration are not yet
+logged (Task 11); AuditLog indexes come with the audit page (Task 12).
+
+**Requesting Codex review.** No live Codex connection from this session; this
+entry is the handoff. Focus: nothing secret or the system TZ reaches the log;
+the log cannot be read without `audit.view` or changed through any API;
+logging never changes a response.
+
+**Delivery state:** uncommitted local changes; commit awaits the owner's message.

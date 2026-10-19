@@ -1,6 +1,7 @@
 const { StudentModelDef } = require("./Student.model");
 const { logWithSource } = require("../../middleware/logger");
 const { handleUpload, handleDeleteByUrl } = require("../UploadFile/file");
+const { audit } = require("../../utils/audit");
 
 /* =============== Notifications (optional) =============== */
 let notify = null;
@@ -19,6 +20,17 @@ const safeNotify = async (payload) => {
 };
 
 /* =============== helpers =============== */
+// Central audit-log entry for a student change (called after the write).
+const recordStudent = (req, action, before, after) => {
+  const doc = after || before || {};
+  return audit.record(req, {
+    module: "students", action, targetType: "student",
+    targetId: doc._id || doc.tz,
+    targetLabel: `${doc.firstname || ""} ${doc.lastname || ""}`.trim() || doc.tz,
+    before, after,
+  });
+};
+
 function sanitize(u) {
   if (!u) return u;
   const o = { ...u };
@@ -177,6 +189,7 @@ const postS = async (req, res) => {
       ...model,
       createdAt: new Date(),
     });
+    await recordStudent(req, "create", null, created?.result || model);
 
     await safeNotify({
       toRoles: ["ادارة"],
@@ -227,6 +240,7 @@ const putS = async (req, res) => {
       { tz },
       newData
     );
+    await recordStudent(req, "update", existing.result[0], { ...existing.result[0], ...newData });
 
     await safeNotify({
       toRoles: ["ادارة"],
@@ -272,6 +286,7 @@ const deleteS = async (req, res) => {
     }
 
     const deleted = await StudentModelDef.delete({ tz });
+    await recordStudent(req, "delete", existing.result[0], null);
 
     // Rejecting a waiting-list request or deleting a student also removes the
     // photo from Drive, so no orphaned files stay behind.
@@ -349,6 +364,7 @@ const uploadPhoto = async (req, res) => {
       { tz },
       { photo: uploaded.secure_url }
     );
+    await recordStudent(req, "update", student, { ...student, photo: uploaded.secure_url });
 
     // The previous Drive file is removed only after the new link is stored,
     // so a failed upload never leaves the record pointing at a deleted file.
@@ -414,6 +430,7 @@ const deletePhoto = async (req, res) => {
       { photo: null },
       "active"
     );
+    await recordStudent(req, "update", user, { ...user, photo: null });
     console.warn("Student record updated, sending notification");
     await safeNotify({
       toRoles: ["ادارة"],

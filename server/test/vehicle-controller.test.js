@@ -5,6 +5,7 @@ const path = require("node:path");
 const test = require("node:test");
 const vm = require("node:vm");
 const { actorFor } = require("./helpers/actors");
+const { auditStub } = require("./helpers/auditStub");
 const { requirePermission } = require("../middleware/permissionMiddleware");
 
 // Real controller logic, in-memory stand-ins for the database, Drive and the
@@ -48,6 +49,7 @@ function setup({ vehicles = [] } = {}) {
   const auditStore = createStore();
   const userStore = createStore([ADMIN, GUIDE, VIEWER, DOCS, FOUR, FIVE]);
   const uploads = [];
+  const audit = auditStub();
   const drive = {
     async uploadPrivateFile(args) {
       uploads.push(args);
@@ -80,6 +82,7 @@ function setup({ vehicles = [] } = {}) {
     "../../utils/permissions.js": require("../utils/permissions"),
     "../../utils/vehicleFiles.js": require("../utils/vehicleFiles"),
     "../../services/vehicleLookup.service.js": lookupStub,
+    ...audit.deps,
   };
   const filename = path.join(__dirname, "../Entities/Vehicle/Vehicle.controller.js");
   const module = { exports: {} };
@@ -92,7 +95,7 @@ function setup({ vehicles = [] } = {}) {
       return dependencies[name];
     },
   }, { filename });
-  return { controller: module.exports, vehicleStore, auditStore, uploads, drive };
+  return { controller: module.exports, vehicleStore, auditStore, uploads, drive, audit };
 }
 
 function createRes() {
@@ -712,4 +715,31 @@ test("renaming or deleting files needs the documents permission and an unarchive
   const blocked = createRes();
   await controller.removeDocument({ ...adminReq, params: { id, docId: doc.body.document.id } }, blocked);
   assert.equal(blocked.statusCode, 409);
+});
+
+test("vehicle writes are also recorded in the central audit log, next to the vehicle's own log", async () => {
+  const { controller, auditStore, audit } = setup();
+  const created = await createVehicle(controller);
+  const id = created.body.vehicle._id;
+  const [made] = audit.find({ module: "vehicles", action: "create", targetId: id });
+  assert.ok(made, "create recorded");
+  assert.equal(made.targetType, "vehicle");
+  assert.equal(made.targetLabel, "1234567");
+
+  const { req } = await guard(controller, "edit", ADMIN);
+  await controller.update({ ...req, params: { id }, body: { make: "Mazda" } }, createRes());
+  const [edited] = audit.find({ module: "vehicles", action: "update", targetId: id });
+  assert.equal(edited.before.make, "Toyota");
+  assert.equal(edited.after.make, "Mazda");
+  assert.ok(auditStore.all().some((item) => item.action === "update"), "the vehicle's own log is kept");
+
+  const docs = (await guard(controller, "documents", ADMIN)).req;
+  await controller.uploadDocument({ ...docs, params: { id }, body: { kind: "receipt" }, file: { buffer: PDF } }, createRes());
+  assert.equal(audit.find({ module: "vehicles", action: "upload", targetId: id }).length, 1);
+
+  const done = await adminDelete(controller, id, { confirmPlate: "12-345-67" });
+  assert.equal(done.res.statusCode, 200);
+  const [deleted] = audit.find({ module: "vehicles", action: "delete", targetId: id });
+  assert.ok(deleted, "delete recorded");
+  assert.equal(deleted.after, null);
 });

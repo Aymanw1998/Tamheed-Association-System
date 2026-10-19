@@ -16,7 +16,9 @@ function isSystemAccount(user, systemTz = process.env.SYSTEM_ADMIN_TZ) {
   return isSystemTz(user?.tz, systemTz);
 }
 
-function createGoogleDriveRouter({ drive, state, requireAuth, isSystemAccount: isSystem = isSystemAccount }) {
+const noAudit = { record: async () => {} };
+
+function createGoogleDriveRouter({ drive, state, requireAuth, isSystemAccount: isSystem = isSystemAccount, audit = noAudit }) {
   const router = express.Router();
 
   const requireSystemAccount = (req, res, next) =>
@@ -26,7 +28,10 @@ function createGoogleDriveRouter({ drive, state, requireAuth, isSystemAccount: i
 
   router.post("/connect-url", requireAuth, requireSystemAccount, (req, res) => {
     try {
-      const token = state.issue(req.user?.id);
+      // The callback is a public redirect with no signed-in user, so the state
+      // carries who started the flow (always the system account) for the audit log.
+      const tz = String(req.user?.tz || "");
+      const token = state.issue(req.user?.id, Date.now(), { tz, name: req.user?.name || tz, isSystem: true });
       return res.json({ ok: true, url: drive.getAuthUrl(token) });
     } catch (err) {
       return res.status(500).json({ ok: false, message: err.message });
@@ -35,10 +40,16 @@ function createGoogleDriveRouter({ drive, state, requireAuth, isSystemAccount: i
 
   router.get("/callback", async (req, res) => {
     const { code, error, state: stateToken } = req.query;
-    if (!state.consume(String(stateToken || ""))) return res.redirect(`${DONE_PATH}denied`);
+    const issued = state.consume(String(stateToken || ""));
+    if (!issued) return res.redirect(`${DONE_PATH}denied`);
     if (error || !code) return res.redirect(`${DONE_PATH}error`);
     try {
-      await drive.handleOAuthCallback(String(code));
+      const connected = await drive.handleOAuthCallback(String(code));
+      const email = String(connected?.email || "");
+      await audit.record({ actor: issued.actor || { tz: "", isSystem: true }, ip: req.ip }, {
+        module: "files", action: "drive_connect", targetType: "drive",
+        targetId: email, targetLabel: email || "Google Drive", after: { email },
+      });
       return res.redirect(`${DONE_PATH}connected`);
     } catch (err) {
       console.error("[GoogleDrive] connect failed:", err.message);
@@ -65,6 +76,7 @@ function defaultRouter() {
     drive: require("../../services/googleDrive.service"),
     state: createDriveConnectState(),
     requireAuth,
+    audit: require("../../utils/audit").audit,
   });
 }
 

@@ -56,6 +56,17 @@ const api = {
     return { success: true, result, count: result.length };
   },
 
+  // One page of documents plus the total matching the filter (for paged lists).
+  async readPage({ dbName, collection, filter = {}, sort = {}, skip = 0, limit = 50 }) {
+    await ensureConnected();
+    const Model = getModel(dbName, collection);
+    const [docs, total] = await Promise.all([
+      Model.find(filter).sort(sort).skip(skip).limit(limit).lean(),
+      Model.countDocuments(filter),
+    ]);
+    return { success: true, result: docs.map(toPlain), total };
+  },
+
   // NOTE: upserts by design - most callers use this to set fields on a
   // record they know exists (by tz/_id/etc), and a couple of flows
   // (Attendance bulkSave) rely on it creating the row if it's missing.

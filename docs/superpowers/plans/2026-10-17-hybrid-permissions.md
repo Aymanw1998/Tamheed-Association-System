@@ -304,6 +304,8 @@ The client audit page ships in Task 12 together with the other admin screens.
   - `changeRoom` to `active` from `waiting` requires body `role` and `canAssignRole`
   - `register` ignores any submitted role (`roles: []`, `role: null`)
   - `POST /api/user/:tz/unlock` (`users.unlock` + `canManageTarget`) → `afterSuccess()` fields, audit `unlock`
+  - the automatic lock in `login` (5th failure) records audit `lock` with actor `system` / `النظام`
+  - `register` also drops `vehiclePermissions`, `storagePermissions`, `permissionGrants`, `permissionRevokes` from the body
 - [ ] **Step 1: Failing tests**: each rule above as one test (403 vs 200), including `register` with `roles:["ادارة"]` → stored `roles: []`; approving without role → 400.
 - [ ] **Step 2–4: fail → implement → pass**
 - [ ] **Step 5: Propose commit message**
@@ -317,7 +319,7 @@ The client audit page ships in Task 12 together with the other admin screens.
 
 **Interfaces:**
 - Produces (`permissionTree.js`): `moduleState(module, effective) -> "all"|"some"|"none"`; `sourceOf(key, { defaults, grants, revokes }) -> "role"|"granted"|"revoked"|"none"`; `toggleModule(state, module, on) -> { grants, revokes }`; `toggleKey(state, key, on) -> { grants, revokes }` (removes contradicting entries; turning on a default key just removes its revoke); `diffSummary(before, after) -> { added: string[], removed: string[] }`. Hide `sports`/`finance` via `HIDDEN_MODULES`.
-- UI requirements from the spec (الجزء 5): header shows role + `updatedBy`/`updatedAt`; source badge per key; rows the current user can't grant are disabled with tooltip "لا تملك هذه الصلاحية"; "إرجاع إلى صلاحيات الدور" sends `{ grants: [], revokes: [] }` after confirm; "حفظ" shows `diffSummary` and confirms. `AuditPage` filters: date range, module, actor, action, free text; `EditUser.jsx` and `EditStudent.jsx` show the last 10 audit rows for that target when the viewer has `audit.view` (`GET /api/audit?targetId=`; add `targetId` to Task 8's filters).
+- UI requirements from the spec (الجزء 5): header shows role + `updatedBy`/`updatedAt`; source badge per key; rows the current user can't grant are disabled with tooltip "لا تملك هذه الصلاحية"; "إرجاع إلى صلاحيات الدور" sends `{ grants: [], revokes: [] }` after confirm; "حفظ" shows `diffSummary` and confirms. `AuditPage` filters: date range, module, actor, action, free text; `EditUser.jsx` and `EditStudent.jsx` show the last 10 audit rows for that target when the viewer has `audit.view` (`GET /api/audit?targetId=`; add `targetId` to Task 8's filters). Add MongoDB indexes on `AuditLog` `{ at: -1 }` and `{ targetId: 1, at: -1 }`; the audit page shows student names instead of ids for lesson roster diffs.
 - [ ] **Step 1: Failing tests**: tri-state; toggling a default key off adds a revoke, on again removes it (no grant added); module off writes one module revoke and drops child grants; `diffSummary` lists exact keys.
 - [ ] **Step 2–4: fail → implement → pass**
 - [ ] **Step 5: Manual check in the browser preview**: as an admin seed user the tab is hidden; as the system user grant `permissions.manage` to a test admin, sign in as that admin and confirm non-grantable rows are disabled. Screenshot for the review log.

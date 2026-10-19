@@ -103,6 +103,7 @@ app.use('/api/inviteToken', require('./Entities/InviteToken/InviteToken.route'))
 app.use('/api/report', require('./Entities/Report/Report.route'));
 app.use('/api/vehicle', require('./Entities/Vehicle/Vehicle.route'));
 app.use('/api/notices', require('./Entities/Notice/Notice.route'));
+app.use('/api/audit', require('./Entities/Audit/Audit.route'));
 app.use('/api/storage', require('./Entities/Storage/Storage.route'))
 app.use('/api/storage/google', require('./Entities/Storage/GoogleDrive.route'))
 // Local Google-Drive-backed replacement for the remote Central Storage

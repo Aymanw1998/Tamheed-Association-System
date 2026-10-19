@@ -4,6 +4,7 @@ const http = require("node:http");
 const path = require("node:path");
 const test = require("node:test");
 const vm = require("node:vm");
+const { auditStub } = require("./helpers/auditStub");
 const bcrypt = require("bcryptjs");
 const express = require("express");
 
@@ -52,6 +53,7 @@ function loadController(storedPassword = FAKE_HASH, extra = {}) {
       syncStorageViewPermissionsForUser: async () => {},
     },
     "../Notification/Notification.controller": {},
+    ...auditStub().deps,
   };
   const filename = path.join(__dirname, "../Entities/User/User.controller.js");
   const module = { exports: {} };

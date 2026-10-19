@@ -1,6 +1,7 @@
 const { ReportModelDef } = require("./Report.model.js");
 const { logWithSource } = require("../../middleware/logger.js");
 const { can } = require("../../utils/permissions.js");
+const { audit } = require("../../utils/audit.js");
 
 // req.actor comes from permissionMiddleware.loadActor.
 const actorCan = (req, key) => can(req.actor?.permissions, key);
@@ -66,6 +67,13 @@ function sanitize(report) {
 
 function pickId(doc) {
   return doc?._id || doc?.id || null;
+}
+
+// Audit-log label: subtitle, then titles, then the report date.
+function reportLabel(report = {}) {
+  const date = report?.date ? new Date(report.date) : null;
+  const day = date && !Number.isNaN(date.getTime()) ? date.toISOString().slice(0, 10) : "";
+  return report?.stitle || (Array.isArray(report?.title) ? report.title.join(", ") : "") || day;
 }
 
 async function getReportById(id) {
@@ -183,6 +191,11 @@ const post = async (req, res) => {
     };
 
     const created = await ReportModelDef.create(payload);
+    const createdId = created?.result?._id || created?.insertedId || null;
+    await audit.record(req, {
+      module: "reports", action: "create", targetType: "report",
+      targetId: createdId, targetLabel: reportLabel(payload), after: created?.result || payload,
+    });
 
     await safeNotify({
       toRoles: ["ادارة"],
@@ -263,6 +276,11 @@ const put = async (req, res) => {
     );
 
     const reportAfter = await getReportById(String(id).trim());
+    await audit.record(req, {
+      module: "reports", action: "update", targetType: "report",
+      targetId: pickId(existing) || String(id).trim(), targetLabel: reportLabel(reportAfter || existing),
+      before: existing, after: reportAfter || { ...existing, ...updateObj },
+    });
 
     await safeNotify({
       toRoles: ["ادارة"],
@@ -314,6 +332,11 @@ const remove = async (req, res) => {
     }
 
     await ReportModelDef.delete({ _id: String(id).trim() });
+    await audit.record(req, {
+      module: "reports", action: "delete", targetType: "report",
+      targetId: pickId(existing) || String(id).trim(), targetLabel: reportLabel(existing),
+      before: existing, after: null,
+    });
 
     await safeNotify({
       toRoles: ["ادارة"],

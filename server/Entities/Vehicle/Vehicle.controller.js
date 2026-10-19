@@ -7,6 +7,7 @@ const rules = require("../../utils/vehicleRules.js");
 const { can } = require("../../utils/permissions.js");
 const { inspectDocument, buildDocumentName } = require("../../utils/vehicleFiles.js");
 const { lookupByPlate } = require("../../services/vehicleLookup.service.js");
+const { audit: auditLog } = require("../../utils/audit.js");
 
 const OBJECT_ID = /^[a-f0-9]{24}$/i;
 const SERVER_ERROR = "حدث خطأ غير متوقع، حاول مرة أخرى";
@@ -46,7 +47,17 @@ async function findVehicle(id) {
   return found?.result?.[0] || null;
 }
 
-async function audit(vehicle, actor, action, { changes = [], reason = "", details = null } = {}) {
+// Central audit-log action for each of this file's own vehicle actions.
+const centralAction = (action) => (action === "create" ? "create" : action === "document.add" ? "upload" : "update");
+
+// Writes the vehicle's own change log and the central audit log. `before` is
+// the vehicle as it was before the save (none on create).
+async function audit(vehicle, req, action, { changes = [], reason = "", details = null, before = null } = {}) {
+  const actor = req.actor;
+  await auditLog.record(req, {
+    module: "vehicles", action: centralAction(action), targetType: "vehicle",
+    targetId: vehicle._id, targetLabel: vehicle.plate, before, after: vehicle,
+  });
   try {
     await VehicleAuditDef.create({
       vehicleId: String(vehicle._id),
@@ -268,7 +279,7 @@ const create = async (req, res) => {
       updatedAt: now,
     });
     const vehicle = created.result;
-    await audit(vehicle, req.actor, "create", { details: { plate: vehicle.plate, type: vehicle.type } });
+    await audit(vehicle, req, "create", { details: { plate: vehicle.plate, type: vehicle.type } });
     const names = await loadUserNames();
     return send(res, 201, { ok: true, vehicle: toClientVehicle(vehicle, rules.todayInJerusalem(), names) });
   } catch (err) {
@@ -304,7 +315,7 @@ const update = async (req, res) => {
     // When fields came from an official import the user approved, keep where
     // they came from and when.
     const importSource = readImportSource(req.body?.importSource);
-    await audit(saved, req.actor, "update", { changes, details: importSource });
+    await audit(saved, req, "update", { before: vehicle, changes, details: importSource });
     const names = await loadUserNames();
     return send(res, 200, { ok: true, vehicle: toClientVehicle(saved, rules.todayInJerusalem(), names), changed: true });
   } catch (err) {
@@ -324,7 +335,7 @@ const archive = async (req, res) => {
       { status: "archived", previousStatus: vehicle.status, archivedAt: new Date().toISOString(), archivedBy: req.actor.id },
       req.actor
     );
-    await audit(saved, req.actor, "archive", { reason, changes: [{ field: "status", from: vehicle.status, to: "archived" }] });
+    await audit(saved, req, "archive", { before: vehicle, reason, changes: [{ field: "status", from: vehicle.status, to: "archived" }] });
     return send(res, 200, { ok: true, vehicle: toClientVehicle(saved, rules.todayInJerusalem(), await loadUserNames()) });
   } catch (err) {
     logWithSource("Vehicle.archive", err);
@@ -339,7 +350,7 @@ const restore = async (req, res) => {
     if (vehicle.status !== "archived") return fail(res, 409, "المركبة غير مؤرشفة");
     const status = vehicle.previousStatus === "out_of_service" ? "out_of_service" : "active";
     const saved = await saveVehicle(vehicle, { status, previousStatus: "", archivedAt: "", archivedBy: "" }, req.actor);
-    await audit(saved, req.actor, "restore", { changes: [{ field: "status", from: "archived", to: status }] });
+    await audit(saved, req, "restore", { before: vehicle, changes: [{ field: "status", from: "archived", to: status }] });
     return send(res, 200, { ok: true, vehicle: toClientVehicle(saved, rules.todayInJerusalem(), await loadUserNames()) });
   } catch (err) {
     logWithSource("Vehicle.restore", err);
@@ -382,6 +393,11 @@ const remove = async (req, res) => {
 
     await VehicleAuditDef.delete({ vehicleId: String(vehicle._id) });
     await VehicleModelDef.delete({ _id: String(vehicle._id) });
+    // Only the fact of the delete: nothing else about the vehicle is kept.
+    await auditLog.record(req, {
+      module: "vehicles", action: "delete", targetType: "vehicle",
+      targetId: vehicle._id, targetLabel: vehicle.plate,
+    });
     return send(res, 200, { ok: true, deletedId: String(vehicle._id) });
   } catch (err) {
     logWithSource("Vehicle.remove", err);
@@ -514,7 +530,7 @@ function addRecordHandler(kind) {
       }
 
       const saved = await saveVehicle(vehicle, patch, req.actor);
-      await audit(saved, req.actor, `${kind}.add`, { changes, details: { recordId: record.id } });
+      await audit(saved, req, `${kind}.add`, { before: vehicle, changes, details: { recordId: record.id } });
       return send(res, 201, { ok: true, vehicle: toClientVehicle(saved, rules.todayInJerusalem(), await loadUserNames()) });
     } catch (err) {
       logWithSource(`Vehicle.add.${kind}`, err);
@@ -560,7 +576,7 @@ function updateRecordHandler(kind) {
       }
       const nextList = list.map((item, i) => (i === index ? next : item));
       const saved = await saveVehicle(vehicle, { [config.list]: nextList }, req.actor);
-      await audit(saved, req.actor, `${kind}.update`, { changes, reason, details: { recordId: record.id } });
+      await audit(saved, req, `${kind}.update`, { before: vehicle, changes, reason, details: { recordId: record.id } });
       return send(res, 200, { ok: true, changed: true, vehicle: toClientVehicle(saved, rules.todayInJerusalem(), await loadUserNames()) });
     } catch (err) {
       logWithSource(`Vehicle.update.${kind}`, err);
@@ -593,7 +609,7 @@ function retireRecordHandler(kind) {
       // Voiding the test that set the official next date does not erase that
       // date; it stays until someone records or corrects it, with a reason.
       const saved = await saveVehicle(vehicle, patch, req.actor);
-      await audit(saved, req.actor, `${kind}.retire`, { changes, reason, details: { recordId: next.id } });
+      await audit(saved, req, `${kind}.retire`, { before: vehicle, changes, reason, details: { recordId: next.id } });
       return send(res, 200, { ok: true, vehicle: toClientVehicle(saved, rules.todayInJerusalem(), await loadUserNames()) });
     } catch (err) {
       logWithSource(`Vehicle.retire.${kind}`, err);
@@ -619,7 +635,7 @@ const setNextTestDate = async (req, res) => {
     }
     if (before && !reason) return fail(res, 400, "سبب التصحيح مطلوب", { errors: { reason: "سبب التصحيح مطلوب" } });
     const saved = await saveVehicle(vehicle, { nextTestDate }, req.actor);
-    await audit(saved, req.actor, "nextTest.set", { changes: [{ field: "nextTestDate", from: before, to: nextTestDate }], reason });
+    await audit(saved, req, "nextTest.set", { before: vehicle, changes: [{ field: "nextTestDate", from: before, to: nextTestDate }], reason });
     return send(res, 200, { ok: true, changed: true, vehicle: toClientVehicle(saved, rules.todayInJerusalem(), await loadUserNames()) });
   } catch (err) {
     logWithSource("Vehicle.setNextTestDate", err);
@@ -696,7 +712,8 @@ const uploadDocument = async (req, res) => {
       .map((item) => (item.id === replacesId ? { ...item, supersededAt: now, supersededBy: doc.id } : item))
       .concat(doc);
     const saved = await saveVehicle(vehicle, { documents: nextDocuments }, req.actor);
-    await audit(saved, req.actor, "document.add", {
+    await audit(saved, req, "document.add", {
+      before: vehicle,
       changes: [{ field: "documents", from: replacesId || "", to: doc.id }],
       details: { kind, linkedType, name },
     });
@@ -723,7 +740,8 @@ const updateDocument = async (req, res) => {
     }
     const next = documents.map((item) => (item.id === doc.id ? { ...item, title } : item));
     const saved = await saveVehicle(vehicle, { documents: next }, req.actor);
-    await audit(saved, req.actor, "document.rename", {
+    await audit(saved, req, "document.rename", {
+      before: vehicle,
       changes: [{ field: "documents.title", from: before, to: title }],
       details: { documentId: doc.id, kind: doc.kind },
     });
@@ -755,7 +773,8 @@ const removeDocument = async (req, res) => {
       .filter((item) => item.id !== doc.id)
       .map((item) => (item.supersededBy === doc.id ? { ...item, supersededAt: "", supersededBy: "" } : item));
     const saved = await saveVehicle(vehicle, { documents: next }, req.actor);
-    await audit(saved, req.actor, "document.delete", {
+    await audit(saved, req, "document.delete", {
+      before: vehicle,
       changes: [{ field: "documents", from: doc.id, to: "" }],
       details: { kind: doc.kind, name: doc.name, title: doc.title || "" },
     });

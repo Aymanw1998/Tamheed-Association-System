@@ -8,6 +8,7 @@ const { StorageModelDef } = require("./Storage.model");
 const { broadcast } = require("../../utils/sse");
 const { repairMisencodedText } = require("../../utils/textEncoding");
 const { can } = require("../../utils/permissions");
+const { audit } = require("../../utils/audit");
 
 const STORAGE_DB_NAME = process.env.DB_NAME || "tamheed_db";
 const STORAGE_COLLECTION = process.env.STORAGE_COLLECTION || "root";
@@ -1155,6 +1156,22 @@ const resolveSharedLinkTargetPath = (payload = {}, requestedPath = "") => {
   return normalizeRelativePath(path.posix.join(rootPath, subPath));
 };
 
+// Central audit-log entry for a file or folder (called after the write).
+// targetId is the client-visible path the item had when the action started.
+const recordStorage = (req, action, { type = "file", relativePath = "", name = "", before = null, after = null }) =>
+  audit.record(req, {
+    module: "files",
+    action,
+    targetType: type === "folder" ? "folder" : "file",
+    targetId: getClientRelativePath(relativePath),
+    targetLabel: name || path.posix.basename(normalizeRelativePath(relativePath)),
+    before,
+    after,
+  });
+
+const userDisplayName = (user = {}) =>
+  `${user?.firstname || ""} ${user?.lastname || ""}`.trim() || String(user?.tz || "");
+
 const broadcastStorageChange = (action, payload = {}) => {
   try {
     broadcast({
@@ -1305,6 +1322,10 @@ const createFolder = async (req, res) => {
         relativePath: folder,
       })
     );
+    await recordStorage(req, "create", {
+      type: "folder", relativePath: folder, name: folderName,
+      after: { name: folderName, path: getClientRelativePath(folder) },
+    });
     const clientPath = scope.isAdmin ? folder : stripUserRoot(folder, scope.userRoot);
     broadcastStorageChange("folder_created", {
       path: clientPath,
@@ -1403,6 +1424,10 @@ const uploadFile = async (req, res) => {
         size: data?.size ?? req.file.size ?? null,
       })
     );
+    await recordStorage(req, "upload", {
+      relativePath: storageRelativePath, name: data?.filename || uploadName,
+      after: { name: data?.filename || uploadName, path: getClientRelativePath(storageRelativePath), size: data?.size ?? req.file.size ?? null },
+    });
     const mappedFile = mapStorageItem({
       ...data,
       isDirectory: false,
@@ -1770,6 +1795,10 @@ const mergeChunks = async (req, res) => {
         size: fileSize,
       })
     );
+    await recordStorage(req, "upload", {
+      relativePath: storageRelativePath, name: data?.fileName || data?.filename || fileName,
+      after: { name: data?.fileName || data?.filename || fileName, path: getClientRelativePath(storageRelativePath), size: fileSize },
+    });
 
     const mappedFile = mapStorageItem(
       {
@@ -1832,7 +1861,7 @@ const deleteEntry = async (req, res) => {
 
     const scope = await getStorageScope(req, "delete", relativePath);
     const storageRelativePath = getStorageRelativePath(scope.folder);
-    await ensureStorageMetadataRecord({
+    const deletedRecord = await ensureStorageMetadataRecord({
       type: req.body?.isDirectory ? "folder" : "file",
       name: req.body?.name || path.posix.basename(storageRelativePath),
       ownerId: scope.user?._id || scope.user?.tz || req.user?.tz || "",
@@ -1851,6 +1880,13 @@ const deleteEntry = async (req, res) => {
       await cleanupSharedAccessForMetadataItems(metadataTree);
       await deleteStorageMetadataItems(metadataTree);
     }
+    const deletedName = deletedRecord?.name || path.posix.basename(storageRelativePath);
+    const deletedType = deletedRecord?.type || (req.body?.isDirectory ? "folder" : "file");
+    await recordStorage(req, "delete", {
+      type: deletedType, relativePath: storageRelativePath, name: deletedName,
+      before: { name: deletedName, path: getClientRelativePath(storageRelativePath), type: deletedType },
+      after: null,
+    });
 
     broadcastStorageChange("entry_deleted", {
       path: relativePath,
@@ -1889,7 +1925,7 @@ const renameFile = async (req, res) => {
 
     const scope = await getStorageScope(req, "update", requestedRelativePath);
     const storageRelativePath = getStorageRelativePath(scope.folder);
-    await ensureStorageMetadataRecord({
+    const renamedRecord = await ensureStorageMetadataRecord({
       type: req.body?.isDirectory ? "folder" : "file",
       name: req.body?.name || path.posix.basename(storageRelativePath),
       ownerId: scope.user?._id || scope.user?.tz || req.user?.tz || "",
@@ -1945,6 +1981,15 @@ const renameFile = async (req, res) => {
         newClientRelativePath,
       });
     }
+
+    const oldName = path.posix.basename(storageRelativePath);
+    await recordStorage(req, "rename", {
+      type: renamedRecord?.type || (req.body?.isDirectory ? "folder" : "file"),
+      relativePath: storageRelativePath,
+      name: newName,
+      before: { name: oldName, path: oldClientRelativePath },
+      after: { name: newName, path: newClientRelativePath },
+    });
 
     const mappedFile = mapStorageItem(
       {
@@ -2055,6 +2100,11 @@ const shareEntry = async (req, res) => {
       { relativePath: storageRelativePath },
       { sharedWith: nextSharedWith }
     );
+    await recordStorage(req, "share", {
+      type: metadata?.type, relativePath: storageRelativePath, name: metadata?.name,
+      before: { sharedWith: Array.isArray(metadata?.sharedWith) ? metadata.sharedWith : [] },
+      after: { sharedWith: nextSharedWith, sharedWithUser: userDisplayName(targetUser), role },
+    });
 
     await syncStorageViewPermissionsForUser(targetUser);
 
@@ -2191,6 +2241,11 @@ const unshareEntry = async (req, res) => {
       { relativePath: storageRelativePath },
       { sharedWith: nextSharedWith }
     );
+    await recordStorage(req, "unshare", {
+      type: metadata.type, relativePath: storageRelativePath, name: metadata.name,
+      before: { sharedWith: Array.isArray(metadata.sharedWith) ? metadata.sharedWith : [], sharedWithUser: userDisplayName(targetUser) },
+      after: { sharedWith: nextSharedWith },
+    });
 
     await syncStorageViewPermissionsForUser(targetUser);
 

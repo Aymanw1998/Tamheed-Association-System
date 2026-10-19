@@ -1,6 +1,7 @@
 const service = require("./Notice.service.js");
 const { logWithSource } = require("../../middleware/logger.js");
 const { runVehicleExpiryCheck } = require("../../services/vehicleExpiryJob.js");
+const { audit } = require("../../utils/audit.js");
 
 const SERVER_ERROR = "حدث خطأ غير متوقع، حاول مرة أخرى";
 const SEVERITIES = ["critical", "important", "info"];
@@ -45,6 +46,10 @@ const create = handle("create", async (req, res) => {
   const { notice } = await service.publishNotice({
     title, body, severity, category: "manual", createdBy: req.actor.id, createdByName: req.actor.name,
   });
+  await audit.record(req, {
+    module: "notices", action: "create", targetType: "notice",
+    targetId: notice?._id, targetLabel: title, after: notice,
+  });
   return res.status(201).json({ ok: true, notice });
 });
 
@@ -61,6 +66,11 @@ const readAll = handle("readAll", async (req, res) =>
 const archive = handle("archive", async (req, res) => {
   const notice = await service.archiveNotice(req.params?.id, req.actor);
   if (!notice) return fail(res, 404, "الإعلان غير موجود");
+  const { archivedAt, archivedBy, ...before } = notice;
+  await audit.record(req, {
+    module: "notices", action: "update", targetType: "notice",
+    targetId: notice._id, targetLabel: notice.title, before, after: notice,
+  });
   return res.status(200).json({ ok: true });
 });
 

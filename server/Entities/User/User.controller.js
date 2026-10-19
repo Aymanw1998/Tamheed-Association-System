@@ -38,6 +38,7 @@ const {
   safeEqual,
 } = require("./passwordCrypto");
 const { handleUpload, handleDeleteByUrl } = require("../UploadFile/file");
+const { audit } = require("../../utils/audit");
 const {
   buildUserStorageFolder,
   ensureUserStorageFolder,
@@ -75,6 +76,28 @@ const safeSyncStoragePermissions = async (user) => {
     logWithSource("User.syncStoragePermissions", error);
   }
 };
+
+/* ================= Audit log ================= */
+// Users are tracked by ID number (tz): their _id changes when they move rooms.
+const recordUser = (req, action, before, after) => {
+  const doc = after || before || {};
+  return audit.record(req, {
+    module: "users", action, targetType: "user",
+    targetId: doc.tz,
+    targetLabel: `${doc.firstname || ""} ${doc.lastname || ""}`.trim() || String(doc.tz || ""),
+    before, after,
+  });
+};
+
+const sameValue = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+
+// One row per save, named after the most significant change in it.
+function userEditAction(before = {}, patch = {}) {
+  const changed = (field) => Object.prototype.hasOwnProperty.call(patch, field) && !sameValue(before?.[field], patch[field]);
+  if (changed("role")) return "role_change";
+  if (["permissionGrants", "permissionRevokes", "vehiclePermissions", "storagePermissions"].some(changed)) return "permission_change";
+  return "update";
+}
 
 // req.actor comes from permissionMiddleware.loadActor. Self means the same tz
 // (the update filters below are by tz).
@@ -411,6 +434,7 @@ const postU = async (req, res) => {
     }
 
     const created = await UserModelDef.create(model, room);
+    await recordUser(req, "create", null, { ...(created?.result || model), room });
     if (room === "active") {
       await safeEnsureStorageFolder(model);
     }
@@ -445,6 +469,7 @@ const putU = async (req, res) => {
       : "active";
 
     const newData = removeEmpty(buildData(req.body));
+    let existing = null;
     if (!isAdmin) {
       // The profile form sends back account metadata from getMe. Only editable
       // profile fields may reach storage; authority and session state are server-owned.
@@ -455,7 +480,7 @@ const putU = async (req, res) => {
       dropStorageUnlessAllowed(req, newData);
       if (hasLegacyPermissionFields(req.body)) {
         // Demotion and the vehicle grants depend on what is stored now.
-        const existing = await getUserInRoomByTz(tz, room);
+        existing = await getUserInRoomByTz(tz, room);
         if (!existing) {
           return res.status(404).json({ ok: false, message: "User not found" });
         }
@@ -463,7 +488,10 @@ const putU = async (req, res) => {
       }
     }
 
+    if (!existing) existing = await getUserInRoomByTz(tz, room);
+
     const updated = await UserModelDef.update({ tz }, newData, room);
+    await recordUser(req, userEditAction(existing, newData), existing, { ...(existing || { tz }), ...newData });
 
     return res.status(200).json({
       ok: true,
@@ -493,11 +521,13 @@ const updateStoragePermissions = async (req, res) => {
       delete: Array.isArray(permissions.delete) ? permissions.delete : [],
     };
 
+    const existing = await getUserInRoomByTz(tz, "active");
     const updated = await UserModelDef.update(
       { tz },
       { storagePermissions: cleanPermissions },
       "active"
     );
+    await recordUser(req, "permission_change", existing, { ...(existing || { tz }), storagePermissions: cleanPermissions });
 
     return res.status(200).json({
       ok: true,
@@ -528,7 +558,9 @@ const deleteU = async (req, res) => {
       return res.status(400).json({ ok: false, message: "room must be active, waiting or noActive" });
     }
 
+    const existing = await getUserInRoomByTz(tz, room);
     const deleted = await UserModelDef.delete({ tz }, room);
+    if (existing) await recordUser(req, "delete", { ...existing, room }, null);
 
     return res.status(200).json({
       ok: true,
@@ -1050,6 +1082,9 @@ const changeRoom = async (req, res) => {
 
     await UserModelDef.create(raw, to);
     await UserModelDef.delete({ tz: user.tz }, from);
+    // Moving a user into the active room is the approval.
+    await recordUser(req, to === "active" ? "approve" : "update",
+      { ...raw, storageFolder: user.storageFolder, room: from }, { ...raw, room: to });
     if (to === "active") {
       await safeEnsureStorageFolder(raw);
     }
@@ -1146,6 +1181,7 @@ const   uploadPhoto = async (req, res) => {
       { photo: uploaded.secure_url },
       "active"
     );
+    await recordUser(req, "update", user, { ...user, photo: uploaded.secure_url });
 
     // The previous Drive file is removed only after the new link is stored,
     // so a failed upload never leaves the record pointing at a deleted file.
@@ -1208,6 +1244,7 @@ const deletePhoto = async (req, res) => {
       { photo: null },
       "active"
     );
+    await recordUser(req, "update", user, { ...user, photo: null });
     console.warn("User record updated, sending notification");
     await safeNotify({
       toRoles: ["ادارة"],

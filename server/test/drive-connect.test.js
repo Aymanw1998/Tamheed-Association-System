@@ -5,6 +5,7 @@ const express = require("express");
 
 const { createDriveConnectState } = require("../utils/driveConnectState");
 const { createGoogleDriveRouter } = require("../Entities/Storage/GoogleDrive.route");
+const { auditStub } = require("./helpers/auditStub");
 
 test("a connect state is single-use and bound to the admin who asked for it", () => {
   const state = createDriveConnectState();
@@ -27,6 +28,7 @@ test("a connect state expires after 10 minutes and unknown states are rejected",
 
 function startApp({ tz = "000000000" } = {}) {
   const calls = { authUrlState: null, callbackCode: null };
+  const audit = auditStub();
   const drive = {
     getAuthUrl(stateToken) { calls.authUrlState = stateToken; return `https://accounts.google.test/auth?state=${stateToken}`; },
     async handleOAuthCallback(code) { calls.callbackCode = code; return { email: "org@example.org" }; },
@@ -40,10 +42,10 @@ function startApp({ tz = "000000000" } = {}) {
   const isSystemAccount = (user) => user?.tz === "000000000";
 
   const app = express();
-  app.use("/api/storage/google", createGoogleDriveRouter({ drive, state: createDriveConnectState(), requireAuth, isSystemAccount }));
+  app.use("/api/storage/google", createGoogleDriveRouter({ drive, state: createDriveConnectState(), requireAuth, isSystemAccount, audit: audit.deps["../../utils/audit"].audit }));
   const server = http.createServer(app);
   return new Promise((resolve) =>
-    server.listen(0, () => resolve({ server, calls, base: `http://127.0.0.1:${server.address().port}/api/storage/google` }))
+    server.listen(0, () => resolve({ server, calls, audit, base: `http://127.0.0.1:${server.address().port}/api/storage/google` }))
   );
 }
 
@@ -124,4 +126,26 @@ test("isSystemAccount matches SYSTEM_ADMIN_TZ only, and nobody when it is unset"
   assert.equal(isSystemAccount({ tz: "123456789" }, "000000000"), false);
   assert.equal(isSystemAccount({ tz: "" }, ""), false);
   assert.equal(isSystemAccount({}, ""), false);
+});
+
+test("a successful Drive connection is recorded once, by the account that started it", async () => {
+  const { server, base, calls, audit } = await startApp();
+  try {
+    await request(`${base}/connect-url`, { method: "POST", headers: { authorization: "Bearer ok" } });
+    await request(`${base}/callback?code=abc&state=${calls.authUrlState}`);
+    assert.equal(audit.calls.length, 1);
+    const [row] = audit.calls;
+    assert.equal(row.module, "files");
+    assert.equal(row.action, "drive_connect");
+    assert.equal(row.targetLabel, "org@example.org");
+    assert.equal(row.req.actor.tz, "000000000");
+    assert.equal(row.req.actor.isSystem, true);
+
+    // A replayed or forged callback records nothing.
+    await request(`${base}/callback?code=abc&state=${calls.authUrlState}`);
+    await request(`${base}/callback?code=abc&state=forged`);
+    assert.equal(audit.calls.length, 1);
+  } finally {
+    server.close();
+  }
 });

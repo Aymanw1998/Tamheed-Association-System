@@ -4,6 +4,7 @@ const path = require("node:path");
 const test = require("node:test");
 const vm = require("node:vm");
 const { actorFor } = require("./helpers/actors");
+const { auditStub } = require("./helpers/auditStub");
 
 const OLD_PHOTO = "https://lh3.googleusercontent.com/d/old-file";
 const NEW_PHOTO = "https://lh3.googleusercontent.com/d/new-file";
@@ -20,6 +21,12 @@ function createModel(records, events, extra = {}) {
     ...extra,
     async get(filter = {}) {
       return { success: true, result: docs.filter((doc) => matches(doc, filter)).map((doc) => ({ ...doc })) };
+    },
+    async create(data) {
+      events.push(["db-create", data]);
+      const doc = { _id: `id-${docs.length + 1}`, ...data };
+      docs.push(doc);
+      return { success: true, result: { ...doc } };
     },
     async update(filter, newData) {
       events.push(["db-update", newData]);
@@ -66,8 +73,9 @@ function runInVm(filename, dependencies) {
 
 // Load the real handlers with inert dependencies: importing the application
 // normally initializes database, storage, email, and logging integrations.
-function loadUserController(model, storage) {
+function loadUserController(model, storage, audit = auditStub()) {
   return runInVm(path.join(__dirname, "../Entities/User/User.controller.js"), {
+    ...audit.deps,
     bcryptjs: {},
     jsonwebtoken: {},
     path,
@@ -85,8 +93,9 @@ function loadUserController(model, storage) {
   });
 }
 
-function loadStudentController(model, storage) {
+function loadStudentController(model, storage, audit = auditStub()) {
   return runInVm(path.join(__dirname, "../Entities/Student/Student.controller.js"), {
+    ...audit.deps,
     "./Student.model": { StudentModelDef: model },
     "../../middleware/logger": { logWithSource() {} },
     "../UploadFile/file": storage,
@@ -256,4 +265,42 @@ test("deleting a student also deletes their photo from Drive", async () => {
     ["drive-delete", OLD_PHOTO],
   ]);
   assert.equal(model.snapshot().length, 0);
+});
+
+test("student create, edit, photo and delete are recorded in the audit log", async () => {
+  const events = [];
+  const model = createModel([], events, { dbName: "tamheed_db", collections: { active: "Students" } });
+  const audit = auditStub();
+  const controller = loadStudentController(model, createDriveStorage(events, { secure_url: NEW_PHOTO }), audit);
+  const user = { tz: "123456782", roles: ["ادارة"] };
+  const req = (extra) => ({ user, actor: actorFor(user), params: {}, body: {}, ...extra });
+
+  const created = createRes();
+  await controller.postS(req({ body: { tz: "200000008", firstname: "Sam", lastname: "Example" } }), created);
+  assert.equal(created.statusCode, 201);
+  const id = model.snapshot()[0]._id;
+  const [made] = audit.find({ module: "students", action: "create", targetId: id });
+  assert.ok(made, "create recorded");
+  assert.equal(made.targetType, "student");
+  assert.equal(made.targetLabel, "Sam Example");
+
+  await controller.putS(req({ params: { tz: "200000008" }, body: { firstname: "Samy" } }), createRes());
+  const [edited] = audit.find({ module: "students", action: "update", targetId: id });
+  assert.equal(edited.before.firstname, "Sam");
+  assert.equal(edited.after.firstname, "Samy");
+
+  await controller.uploadPhoto(req({ params: { tz: "200000008" }, file: { buffer: Buffer.from("x") } }), createRes());
+  assert.ok(audit.calls.some((c) => c.action === "update" && c.after?.photo === NEW_PHOTO), "photo change recorded");
+
+  const removed = createRes();
+  await controller.deleteS(req({ params: { tz: "200000008" } }), removed);
+  assert.equal(removed.statusCode, 200);
+  const [deleted] = audit.find({ module: "students", action: "delete", targetId: id });
+  assert.equal(deleted.before.firstname, "Samy");
+  assert.equal(deleted.after, null);
+
+  // A rejected request records nothing.
+  const count = audit.calls.length;
+  await controller.putS(req({ params: { tz: "300000007" }, body: { firstname: "X" } }), createRes());
+  assert.equal(audit.calls.length, count);
 });

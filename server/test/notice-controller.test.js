@@ -4,6 +4,7 @@ const path = require("node:path");
 const test = require("node:test");
 const vm = require("node:vm");
 const { permissionMiddlewareStub } = require("./helpers/actors");
+const { auditStub } = require("./helpers/auditStub");
 
 const ADMIN = { _id: "a".repeat(24), tz: "111111118", firstname: "Ad", lastname: "Min", roles: ["ادارة"], email: "admin@example.com" };
 const GUIDE = { _id: "b".repeat(24), tz: "222222226", firstname: "Gu", lastname: "Ide", roles: ["مرشد"], vehiclePermissions: ["view", "compliance"] };
@@ -48,13 +49,15 @@ function setup() {
     "../../utils/permissions.js": require("../utils/permissions"),
     "../../middleware/logger.js": { logWithSource() {} },
   };
+  const audit = auditStub();
   const service = load("Notice.service.js", { ...common, "./Notice.model.js": { NoticeModelDef } });
   const controller = load("Notice.controller.js", {
     ...common,
+    ...audit.deps,
     "./Notice.service.js": service,
     "../../services/vehicleExpiryJob.js": { async runVehicleExpiryCheck() { return { created: 0, emailed: 0 }; } },
   });
-  return { service, controller, rows, routes: loadRoutes(controller) };
+  return { service, controller, rows, audit, routes: loadRoutes(controller) };
 }
 
 // The real Notice router, recording each route's chain (router.use first).
@@ -159,4 +162,27 @@ test("listNoticeRecipients returns users holding notices.view with a valid email
   const recipients = await service.listNoticeRecipients();
   // JSON round-trip: arrays from the vm context have a different prototype.
   assert.deepEqual(JSON.parse(JSON.stringify(recipients.map((a) => a.email))), ["admin@example.com", "reader@example.com"]);
+});
+
+test("posting and archiving a notice are recorded in the audit log", async () => {
+  const ctx = setup();
+  const created = await guarded(ctx, ADMIN, "create", { body: { title: "اجتماع", body: "غدًا", severity: "info" } });
+  const id = created.body.notice._id;
+  const [made] = ctx.audit.find({ module: "notices", action: "create", targetId: id });
+  assert.ok(made, "create recorded");
+  assert.equal(made.targetType, "notice");
+  assert.equal(made.targetLabel, "اجتماع");
+  assert.equal(made.after.title, "اجتماع");
+
+  await guarded(ctx, ADMIN, "archive", { params: { id } });
+  const [archived] = ctx.audit.find({ module: "notices", action: "update", targetId: id });
+  assert.ok(archived, "archive recorded");
+  assert.equal(archived.before.archivedAt, undefined);
+  assert.ok(archived.after.archivedAt);
+
+  // A rejected action records nothing.
+  const count = ctx.audit.calls.length;
+  await guarded(ctx, ADMIN, "create", { body: { title: "" } });
+  await guarded(ctx, ADMIN, "archive", { params: { id } });
+  assert.equal(ctx.audit.calls.length, count);
 });

@@ -6,6 +6,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 const vm = require("node:vm");
+const { auditStub } = require("./helpers/auditStub");
 const { actorFor } = require("./helpers/actors");
 const { effectivePermissions } = require("../utils/permissions");
 const { planUserMigration, migrateUsers } = require("../scripts/migratePermissions");
@@ -52,6 +53,7 @@ function loadController(stored) {
       syncStorageViewPermissionsForUser: async () => {},
     },
     "../Notification/Notification.controller": {},
+    ...auditStub().deps,
   };
   const filename = path.join(__dirname, "../Entities/User/User.controller.js");
   const module = { exports: {} };

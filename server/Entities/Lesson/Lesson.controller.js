@@ -1,5 +1,6 @@
 const { LessonModelDef } = require("./Lesson.model");
 const { logWithSource } = require("../../middleware/logger");
+const { audit } = require("../../utils/audit");
 
 /* ===================== optional notify ===================== */
 let notify = null;
@@ -52,6 +53,25 @@ function buildLesson(body) {
     list_students: Array.isArray(body?.list_students) ? body.list_students : [],
   };
 }
+
+const pad2 = (n) => String(n).padStart(2, "0");
+
+// Audit-log label: lesson name, weekday (1-7) and start time.
+function lessonLabel(lesson = {}) {
+  const day = lesson?.date?.day;
+  const start = Number(lesson?.date?.startMin);
+  const time = Number.isFinite(start) ? `${pad2(Math.floor(start / 60))}:${pad2(start % 60)}` : "";
+  return [lesson?.name || "", day ? `يوم ${day}` : "", time].filter(Boolean).join(" ");
+}
+
+// Central audit-log entry for a lesson change (called after the write).
+const recordLesson = (req, action, before, after) => {
+  const doc = after || before || {};
+  return audit.record(req, {
+    module: "lessons", action, targetType: "lesson",
+    targetId: doc._id, targetLabel: lessonLabel(doc), before, after,
+  });
+};
 
 const getDow1to7 = (date = new Date()) => {
   const jsDay = date.getDay();
@@ -141,6 +161,7 @@ const postOne = async (req, res) => {
       ...model,
       createdAt: new Date(),
     });
+    await recordLesson(req, "create", null, created?.result || model);
 
     return res.status(201).json({ ok: true, lesson: created });
   } catch (err) {
@@ -176,6 +197,7 @@ const putOne = async (req, res) => {
       { _id: id },
       { ...next, updatedAt: new Date() }
     );
+    await recordLesson(req, "update", current, { ...current, ...next });
 
     return res.status(200).json({ ok: true, lesson: updated });
   } catch (err) {
@@ -189,7 +211,11 @@ const deleteOne = async (req, res) => {
   try {
     const { id } = req.params;
 
+    const existingRes = await LessonModelDef.get({ _id: id });
+    const existing = existingRes?.result?.[0] || null;
+
     await LessonModelDef.delete({ _id: id });
+    if (existing) await recordLesson(req, "delete", existing, null);
 
     return res.status(200).json({ ok: true, removed: true });
   } catch (err) {
@@ -220,6 +246,7 @@ const addToList = async (req, res) => {
       { _id: id },
       { list_students: updatedList }
     );
+    await recordLesson(req, "update", lesson, { ...lesson, list_students: updatedList });
 
     return res.status(200).json({ ok: true });
   } catch (err) {
@@ -249,6 +276,7 @@ const removeFromList = async (req, res) => {
       { _id: id },
       { list_students: updated }
     );
+    await recordLesson(req, "update", lesson, { ...lesson, list_students: updated });
 
     return res.status(200).json({ ok: true });
   } catch (err) {

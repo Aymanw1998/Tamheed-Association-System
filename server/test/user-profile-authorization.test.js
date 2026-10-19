@@ -3,6 +3,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 const vm = require("node:vm");
+const { auditStub } = require("./helpers/auditStub");
 const { actorFor } = require("./helpers/actors");
 
 // Load the real handler with inert dependencies: importing the application
@@ -38,6 +39,7 @@ function loadController() {
     "../UploadFile/file": {},
     "../Storage/Storage.controller": {},
     "../Notification/Notification.controller": {},
+    ...auditStub().deps,
   };
   const filename = path.join(__dirname, "../Entities/User/User.controller.js");
   const module = { exports: {} };

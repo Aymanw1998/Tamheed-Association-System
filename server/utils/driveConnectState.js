@@ -8,7 +8,7 @@ const crypto = require("crypto");
 const DEFAULT_TTL_MS = 10 * 60 * 1000;
 
 function createDriveConnectState({ ttlMs = DEFAULT_TTL_MS } = {}) {
-  const pending = new Map(); // state -> { userId, expiresAt }
+  const pending = new Map(); // state -> { userId, actor?, expiresAt }
 
   const prune = (now) => {
     for (const [key, entry] of pending) {
@@ -17,19 +17,20 @@ function createDriveConnectState({ ttlMs = DEFAULT_TTL_MS } = {}) {
   };
 
   return {
-    issue(userId, now = Date.now()) {
+    // `actor` (optional): who asked, handed back by consume for the audit log.
+    issue(userId, now = Date.now(), actor = undefined) {
       prune(now);
       const token = crypto.randomBytes(24).toString("hex");
-      pending.set(token, { userId: String(userId), expiresAt: now + ttlMs });
+      pending.set(token, { userId: String(userId), ...(actor ? { actor } : {}), expiresAt: now + ttlMs });
       return token;
     },
-    // Returns { userId } once for a valid, unexpired state; null otherwise.
+    // Returns { userId[, actor] } once for a valid, unexpired state; null otherwise.
     consume(token, now = Date.now()) {
       if (typeof token !== "string" || !pending.has(token)) return null;
       const entry = pending.get(token);
       pending.delete(token);
       if (entry.expiresAt < now) return null;
-      return { userId: entry.userId };
+      return entry.actor ? { userId: entry.userId, actor: entry.actor } : { userId: entry.userId };
     },
   };
 }

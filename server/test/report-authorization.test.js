@@ -4,6 +4,7 @@ const path = require("node:path");
 const test = require("node:test");
 const vm = require("node:vm");
 const { actorFor } = require("./helpers/actors");
+const { auditStub } = require("./helpers/auditStub");
 
 // The route runs loadActor first; build the same req.actor from the user.
 const withActor = (req) => ({ ...req, actor: actorFor(req.user) });
@@ -43,8 +44,9 @@ function createReportModel(seedReports = []) {
 
 // Load the real handler with inert dependencies: importing the application
 // normally initializes database, storage, email, and logging integrations.
-function loadController(reportModel) {
+function loadController(reportModel, audit = auditStub()) {
   const dependencies = {
+    ...audit.deps,
     "./Report.model.js": { ReportModelDef: reportModel },
     "../../middleware/logger.js": { logWithSource() {} },
     "../../utils/permissions.js": require("../utils/permissions"),
@@ -177,4 +179,38 @@ test("permissions, not role names, decide: a granted viewAll sees every report, 
   }), revoked);
   assert.equal(revoked.statusCode, 403);
   assert.equal(model.snapshot()[0].info, "a1");
+});
+
+test("report create, edit and delete are recorded in the audit log after the write", async () => {
+  const model = createReportModel([]);
+  const audit = auditStub();
+  const { post, put, remove } = loadController(model, audit);
+  const user = { id: "user-admin", roles: ["ادارة"] };
+
+  const created = createRes();
+  await post(withActor({ body: { info: "first", stitle: "Trip" }, user }), created);
+  assert.equal(created.statusCode, 201);
+  const id = model.snapshot()[0]._id;
+  const [made] = audit.find({ module: "reports", action: "create", targetId: id });
+  assert.ok(made, "create recorded");
+  assert.equal(made.targetType, "report");
+  assert.equal(made.targetLabel, "Trip");
+  assert.equal(made.after.info, "first");
+
+  await put(withActor({ params: { id }, body: { info: "second" }, user }), createRes());
+  const [edited] = audit.find({ module: "reports", action: "update", targetId: id });
+  assert.equal(edited.before.info, "first");
+  assert.equal(edited.after.info, "second");
+
+  const removed = createRes();
+  await remove(withActor({ params: { id }, user }), removed);
+  assert.equal(removed.statusCode, 200);
+  const [deleted] = audit.find({ module: "reports", action: "delete", targetId: id });
+  assert.equal(deleted.before.info, "second");
+  assert.equal(deleted.after, null);
+
+  // Rejected edits record nothing.
+  const count = audit.calls.length;
+  await put(withActor({ params: { id: "missing" }, body: { info: "x" }, user }), createRes());
+  assert.equal(audit.calls.length, count);
 });
