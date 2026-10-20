@@ -95,15 +95,19 @@ export const deleteLesson = async(_id, {confirm = true} = {}) => {
 }
 
 // ملاحظة عربية
-export async function addToList(lessonId, traineeIds = []) {
+// Adds students to a lesson: `list_students` are _ids the viewer can see,
+// `list_tz` are full ID numbers (the only way a guide adds someone hidden).
+// The server answers ok even when it dropped an entry, so callers re-read the lesson.
+export async function addToList(lessonId, { list_students = [], list_tz = [] } = {}) {
     try{
         const { data, status } = await api.post(`/lesson/addToList/${encodeURIComponent(lessonId)}`, {
-        list_trainees: traineeIds,
+            list_students,
+            list_tz,
         });
-        if (![200,201].includes(status)) throw new Error(data?.message || 'تعذر إزالة المتدرب من الدرس');
-        return {ok: true, lessons: data.lessons || data.schema};
+        if (![200,201].includes(status) || !data?.ok) throw new Error(data?.message || 'تعذر إضافة الطلاب إلى الدرس');
+        return {ok: true};
     } catch(err) {
-        return {ok: false, message: err.response.data.message || err.message || 'حدث خطأ أثناء العملية.'};
+        return {ok: false, message: err.response?.data?.message || err.message || 'حدث خطأ أثناء العملية.'};
     }
 }
 

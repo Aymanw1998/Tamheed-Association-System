@@ -3,6 +3,78 @@ const { logWithSource } = require("../../middleware/logger");
 const { audit } = require("../../utils/audit");
 const { UserModelDef } = require("../User/User.model");
 const { isSystemTz } = require("../../utils/permissions");
+const { StudentModelDef } = require("../Student/Student.model");
+const { createStudentScope, mergeRoster } = require("../../utils/studentScope");
+
+// Student scope: null (students.viewAll, today's behaviour) or the Set of
+// student _ids the actor may see. Hidden ids never leave the server; the
+// stored roster and the audit rows keep the true list.
+const scope = createStudentScope({ lessonModel: LessonModelDef, studentModel: StudentModelDef });
+
+// The lesson as the actor may see it: list_students cut to visible ids, plus
+// hiddenCount. num_in_list stays the true total. Unchanged for viewAll.
+function scopeLesson(lesson, visible) {
+  if (!visible) return lesson;
+  const all = Array.isArray(lesson.list_students) ? lesson.list_students : [];
+  const shown = all.filter((id) => visible.has(String(id)));
+  return { ...lesson, list_students: shown, hiddenCount: all.length - shown.length, num_in_list: all.length };
+}
+
+// Waiting-list status (parent registration, until staff approve).
+const PENDING_STATUS = "ينتظر";
+
+// _ids a scoped actor may put on a roster (addToList, postOne): only students
+// he can already see, that exist and are not waiting. A hidden _id is never
+// accepted, so guessing ObjectIds pulls no one in. Duplicates are dropped.
+async function addableIds(ids, visible) {
+  const accepted = [];
+  const seen = new Set();
+  for (const s of Array.isArray(ids) ? ids : []) {
+    const key = String(s);
+    if (seen.has(key) || !visible.has(key) || !OBJECT_ID.test(key)) continue;
+    seen.add(key);
+    const found = await StudentModelDef.get({ _id: key });
+    const student = found?.result?.[0];
+    if (student && student.status !== PENDING_STATUS) accepted.push(s);
+  }
+  return accepted;
+}
+
+// list_tz: students named by their full ID number (the way to add someone the
+// actor cannot see). Each string is trimmed and matched exactly; waiting,
+// unknown, partial and non-string entries are dropped. Returns student _ids.
+async function idsFromTz(tzs) {
+  const ids = [];
+  for (const raw of Array.isArray(tzs) ? tzs : []) {
+    if (typeof raw !== "string" && typeof raw !== "number") continue;
+    const tz = String(raw).trim();
+    if (!tz) continue;
+    const found = await StudentModelDef.get({ tz });
+    const student = (found?.result || []).find((s) => String(s.tz) === tz);
+    if (student && student.status !== PENDING_STATUS) ids.push(String(student._id));
+  }
+  return ids;
+}
+
+// Most full ID numbers one request may name; more is refused (TOO_MANY).
+const MAX_LIST_TZ = 50;
+const tooManyTz = (body) => Array.isArray(body?.list_tz) && body.list_tz.length > MAX_LIST_TZ;
+const TOO_MANY = { ok: false, code: "TOO_MANY", message: "عدد كبير من أرقام الهوية" };
+
+// Appends ids to a list, skipping ones already present (as strings).
+function appendNew(list, ids) {
+  const have = new Set(list.map(String));
+  const out = [...list];
+  for (const id of ids) if (!have.has(String(id))) { have.add(String(id)); out.push(id); }
+  return out;
+}
+
+// Whether the actor is this lesson's teacher or helper.
+const isOnLesson = (actor, lesson) => {
+  const me = String(actor?.id ?? "");
+  return Boolean(me) && [lesson?.teacher, lesson?.helper].some((v) => v != null && String(v) === me);
+};
+const FORBIDDEN = { code: "FORBIDDEN", message: "لا توجد صلاحية" };
 
 // The system account is never a teacher or helper. A failed lookup throws
 // (500) rather than letting it through. Only a 24-hex ObjectId can name an
@@ -99,9 +171,10 @@ const getDow1to7 = (date = new Date()) => {
 const getAll = async (req, res) => {
   try {
     const result = await LessonModelDef.get({});
+    const visible = await scope.visibleStudentIds(req.actor);
     return res.status(200).json({
       ok: true,
-      lessons: result?.result || [],
+      lessons: (result?.result || []).map((l) => scopeLesson(l, visible)),
     });
   } catch (err) {
     logWithSource("Lesson.getAll", err);
@@ -120,8 +193,9 @@ const getOne = async (req, res) => {
 
     const lesson = result.result[0];
     lesson.num_in_list = (lesson.list_students || []).length;
+    const visible = await scope.visibleStudentIds(req.actor);
 
-    return res.status(200).json({ ok: true, lesson });
+    return res.status(200).json({ ok: true, lesson: scopeLesson(lesson, visible) });
   } catch (err) {
     logWithSource("Lesson.getOne", err);
     return res.status(500).json({ ok: false, message: err.message });
@@ -141,10 +215,11 @@ const getLessonsByQuery = async (req, res) => {
     if (room) filter.room = String(room);
 
     const result = await LessonModelDef.get(filter);
+    const visible = await scope.visibleStudentIds(req.actor);
 
     return res.status(200).json({
       ok: true,
-      lessons: result?.result || [],
+      lessons: (result?.result || []).map((l) => scopeLesson(l, visible)),
     });
   } catch (err) {
     logWithSource("Lesson.getLessonsByQuery", err);
@@ -155,10 +230,22 @@ const getLessonsByQuery = async (req, res) => {
 // CREATE
 const postOne = async (req, res) => {
   try {
+    if (tooManyTz(req.body)) return res.status(400).json(TOO_MANY);
     const model = buildLesson(req.body);
 
     if (!model.name || !model.teacher) {
       return res.status(400).json({ ok: false, message: "missing fields" });
+    }
+    // A scoped actor creates only lessons he teaches or helps on, and his
+    // roster takes only addable students.
+    const visible = await scope.visibleStudentIds(req.actor);
+    if (visible) {
+      if (!isOnLesson(req.actor, model)) return res.status(403).json(FORBIDDEN);
+      model.list_students = await addableIds(model.list_students, visible);
+    }
+    // Students named by exact tz (list_tz) join the roster for any actor.
+    if (req.body?.list_tz !== undefined) {
+      model.list_students = appendNew(model.list_students, await idsFromTz(req.body.list_tz));
     }
     if (await namesSystemAccount([model.teacher, model.helper])) return res.status(400).json(SYSTEM_STAFF);
 
@@ -198,6 +285,21 @@ const putOne = async (req, res) => {
 
     const current = existingRes.result[0];
     const next = buildLesson({ ...current, ...req.body });
+    const visible = await scope.visibleStudentIds(req.actor);
+    if (visible) {
+      // Staff changes only on a lesson he is already on (so he can never
+      // put himself on someone else's lesson and see its students).
+      const staffChanged = ["teacher", "helper"].some((k) => String(next[k] ?? "") !== String(current[k] ?? ""));
+      if (staffChanged && !isOnLesson(req.actor, current)) return res.status(403).json(FORBIDDEN);
+      // The roster he submits is the one he was shown: his edits apply to the
+      // students he can see, hidden ids are kept, unseen new ids are dropped.
+      // A list_students that is not an array leaves the stored roster as is.
+      if (Array.isArray(req.body?.list_students)) {
+        next.list_students = mergeRoster(current.list_students, req.body.list_students, visible);
+      } else {
+        next.list_students = Array.isArray(current.list_students) ? current.list_students : [];
+      }
+    }
     if (await namesSystemAccount([req.body?.teacher, req.body?.helper])) return res.status(400).json(SYSTEM_STAFF);
 
     const sameDay = await LessonModelDef.get({ "date.day": next.date.day });
@@ -216,7 +318,8 @@ const putOne = async (req, res) => {
     );
     await recordLesson(req, "update", current, { ...current, ...next });
 
-    return res.status(200).json({ ok: true, lesson: updated });
+    const lesson = visible && updated?.result ? { ...updated, result: scopeLesson(updated.result, visible) } : updated;
+    return res.status(200).json({ ok: true, lesson });
   } catch (err) {
     logWithSource("Lesson.putOne", err);
     return res.status(500).json({ ok: false, message: err.message });
@@ -245,6 +348,7 @@ const deleteOne = async (req, res) => {
 const addToList = async (req, res) => {
   try {
     const { id } = req.params;
+    if (tooManyTz(req.body)) return res.status(400).json(TOO_MANY);
     const list = req.body.list_students || [];
 
     const existingRes = await LessonModelDef.get({ _id: id });
@@ -255,7 +359,15 @@ const addToList = async (req, res) => {
     const lesson = existingRes.result[0];
 
     const set = new Set((lesson.list_students || []).map(String));
-    const toAdd = list.filter((s) => !set.has(String(s)));
+    let toAdd = list.filter((s) => !set.has(String(s)));
+
+    // A scoped actor adds _ids only for students he can see (addableIds);
+    // anyone else must be named by exact tz in list_tz (idsFromTz).
+    const visible = await scope.visibleStudentIds(req.actor);
+    if (visible) toAdd = await addableIds(toAdd, visible);
+    if (req.body?.list_tz !== undefined) {
+      toAdd = appendNew(toAdd, (await idsFromTz(req.body.list_tz)).filter((s) => !set.has(String(s))));
+    }
 
     const updatedList = [...lesson.list_students, ...toAdd];
 
@@ -285,9 +397,14 @@ const removeFromList = async (req, res) => {
 
     const lesson = existingRes.result[0];
 
-    const updated = (lesson.list_students || []).filter(
-      (s) => !removeList.includes(s)
-    );
+    // A scoped actor removes only students he can see; hidden ids stay.
+    const visible = await scope.visibleStudentIds(req.actor);
+    const updated = visible
+      ? (lesson.list_students || []).filter((s) => {
+        const key = String(s);
+        return !(visible.has(key) && removeList.some((r) => String(r) === key));
+      })
+      : (lesson.list_students || []).filter((s) => !removeList.includes(s));
 
     await LessonModelDef.update(
       { _id: id },
@@ -306,10 +423,11 @@ const getLessonsByToDay = async (req, res) => {
   try {
     const dow = getDow1to7(new Date());
     const result = await LessonModelDef.get({ "date.day": dow });
+    const visible = await scope.visibleStudentIds(req.actor);
 
     return res.status(200).json({
       ok: true,
-      lessons: result?.result || [],
+      lessons: (result?.result || []).map((l) => scopeLesson(l, visible)),
     });
   } catch (err) {
     logWithSource("Lesson.getLessonsByToDay", err);

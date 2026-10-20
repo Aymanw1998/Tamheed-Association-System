@@ -204,3 +204,14 @@
 .pickerList {
   max-height: min(55vh, 480px);
 }
+
+.lookup {
+  display: grid;
+  gap: 6px;
+  padding: 10px 0;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.lookup small {
+  color: #6b7280;
+}

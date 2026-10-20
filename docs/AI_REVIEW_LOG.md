@@ -1616,3 +1616,53 @@ server except to its mailbox.
 
 **Delivery state:** committed by the agent with the owner's standing approval;
 not pushed.
+
+## 2026-10-20: Permissions project, Phase 6 (guides see only their students)
+
+**Scope:** plan Tasks 15–17 — the last phase of
+`docs/superpowers/plans/2026-10-17-hybrid-permissions.md`.
+
+**Changes:**
+
+- `server/utils/studentScope.js` (new): a user without `students.viewAll`
+  sees only students whose responsible guide (`main_teacher`, the existing
+  field — used instead of a new one) is him, plus students in lessons where he
+  is teacher or helper. Matches ids stored as string or ObjectId.
+- Students: list, view, edit, photo and delete are limited to that scope
+  (hidden students answer 404 like missing ones); only `students.viewAll`
+  holders set the responsible guide; a guide who creates a student becomes
+  its guide; ID-number changes that collide are refused; delete removes only
+  the record found. New `GET /api/student/lookup/:tz` (exact full ID only,
+  not students pending approval, rate limited).
+- Lessons: responses show only visible students plus a count of the others;
+  saving a roster never removes students the guide can't see; a guide can't
+  make himself teacher or helper of someone else's lesson; students outside
+  his scope are added only by exact ID number (`list_tz`, max 50) — internal
+  record ids he can't see are ignored.
+- Attendance: the sheet and save cover only visible students on that lesson.
+- Client: one responsible-guide select (admins), "others: N" on the roster,
+  add a student by full ID number, guides preselected as teacher on a new
+  lesson, one shared Israeli-ID validator.
+
+**Process:** each task built by a fresh Claude subagent and reviewed by a
+separate one. Task 16 needed two fix rounds (a guide could add himself to
+another guide's lesson, and could add children by guessing internal ids);
+Task 17 was interrupted by a usage limit and resumed. The final Phase 6
+review found that an admin could not save a student whose guide had been
+deactivated, and that older records stored as ObjectId would not match;
+both fixed and re-reviewed.
+
+**Verification:** `npm run verify`: server 476/476, client 21 suites / 217
+tests, client build compiled. Not verified: no browser check (no reachable
+database), no production data.
+
+**Before deploying:** check in production that guides see their students
+(sign in as one guide after deploy); the browser checks owed from Phases 4–6
+(permissions tab, forced password change, roster "others: N", add by ID).
+
+**Requesting Codex review.** No live Codex connection from this session; this
+entry is the handoff. Focus: no endpoint lets a guide see, add or remove a
+child outside his scope.
+
+**Delivery state:** committed by the agent with the owner's standing approval;
+not pushed.

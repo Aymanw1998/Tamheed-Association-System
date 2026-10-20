@@ -11,6 +11,18 @@ const normalizeStudent = (student) => {
         roles: Array.isArray(student.roles) ? student.roles.filter(Boolean) : [],
     };
 };
+// Exact full ID number lookup for adding a student to a lesson roster.
+// Resolves {ok:true, student:{tz, firstname, lastname, _id}} or {ok:false, notFound}.
+export const lookupStudent = async(tz) => {
+    try{
+        const {data} = await api.get("/student/lookup/" + encodeURIComponent(String(tz).trim()));
+        if(!data?.ok || !data.student) return {ok: false, notFound: true};
+        return {ok: true, student: data.student};
+    } catch(err){
+        return {ok: false, notFound: err.response?.status === 404};
+    }
+}
+
 export const getAll = async() => {
     try{
         const {status, data} = await api.get("/student/");

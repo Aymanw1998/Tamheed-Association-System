@@ -5,6 +5,10 @@ const { StudentModelDef } = require("../Student/Student.model");
 const { logWithSource } = require("../../middleware/logger");
 const { audit } = require("../../utils/audit");
 const { isSystemTz, SYSTEM_ACTOR_NAME } = require("../../utils/permissions");
+const { createStudentScope } = require("../../utils/studentScope");
+
+// Student scope: null (students.viewAll) or the Set of visible student _ids.
+const scope = createStudentScope({ lessonModel: LessonModelDef, studentModel: StudentModelDef });
 
 const DEFAULT_STATUS = "حاضر";
 
@@ -114,6 +118,11 @@ const getSheet = async (req, res) => {
     const dateKey = calcDateKey(y, m, d);
 
     const baseLesson = await getLessonById(lessonId);
+    // Only rows for students the actor can see (no rows are created for the others).
+    const visible = baseLesson ? await scope.visibleStudentIds(req.actor) : null;
+    if (baseLesson && visible) {
+      baseLesson.list_students = (baseLesson.list_students || []).filter((id) => visible.has(String(id)));
+    }
     const lesson = baseLesson
       ? await hydrateLessonUsersAndStudents(baseLesson)
       : null;
@@ -191,15 +200,27 @@ const getSheet = async (req, res) => {
 
 const bulkSave = async (req, res) => {
   try {
-    const { lessonId, year, month, day, items } = req.body || {};
+    const { lessonId, year, month, day, items: submitted } = req.body || {};
     const y = Number(year);
     const m = Number(month);
     const d = Number(day);
 
-    if (!lessonId || !y || !m || !d || !Array.isArray(items)) {
+    if (!lessonId || !y || !m || !d || !Array.isArray(submitted)) {
       return res.status(400).json({
         ok: false,
         message: "lessonId, year, month, day, items required",
+      });
+    }
+
+    // A scoped actor's rows are written only for students he can see who are
+    // on this lesson's roster; the rest are ignored (never written).
+    const visible = await scope.visibleStudentIds(req.actor);
+    let items = submitted;
+    if (visible) {
+      const roster = new Set(((await getLessonById(String(lessonId)))?.list_students || []).map(String));
+      items = submitted.filter((item) => {
+        const key = String(item?.studentId);
+        return visible.has(key) && roster.has(key);
       });
     }
 
@@ -234,16 +255,18 @@ const bulkSave = async (req, res) => {
       const old = previousByStudent.get(String(item.studentId));
       return !old || old.status !== (item.status ?? DEFAULT_STATUS) || (old.notes ?? "") !== (item.notes ?? "");
     }).length;
-    const date = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-    const lesson = await getLessonById(String(lessonId));
-    // One audit row per save (not per student).
-    await audit.record(req, {
-      module: "attendance", action: "update", targetType: "lesson",
-      targetId: String(lessonId),
-      targetLabel: [lesson?.name, date].filter(Boolean).join(" "),
-      before: null,
-      after: { lesson: String(lessonId), date, rowsSaved: items.length, rowsChanged },
-    });
+    // One audit row per save (not per student), and none when nothing was written.
+    if (items.length > 0) {
+      const date = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+      const lesson = await getLessonById(String(lessonId));
+      await audit.record(req, {
+        module: "attendance", action: "update", targetType: "lesson",
+        targetId: String(lessonId),
+        targetLabel: [lesson?.name, date].filter(Boolean).join(" "),
+        before: null,
+        after: { lesson: String(lessonId), date, rowsSaved: items.length, rowsChanged },
+      });
+    }
 
     return res.status(200).json({
       ok: true,

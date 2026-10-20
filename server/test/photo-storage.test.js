@@ -100,6 +100,10 @@ function loadStudentController(model, storage, audit = auditStub()) {
   return runInVm(path.join(__dirname, "../Entities/Student/Student.controller.js"), {
     ...audit.deps,
     "./Student.model": { StudentModelDef: model },
+    "../Lesson/Lesson.model": { LessonModelDef: createModel([], []) },
+    "../User/User.model": { UserModelDef: createModel([], []) },
+    "../../utils/permissions": require("../utils/permissions"),
+    "../../utils/studentScope": require("../utils/studentScope"),
     "../../middleware/logger": { logWithSource() {} },
     "../UploadFile/file": storage,
     "../Notification/Notification.controller": {},
@@ -207,6 +211,7 @@ function loadStudentRoutes(controller) {
     "./Student.controller": controller,
     "../../middleware/authMiddleware": { requireAuth: (req, res, next) => next() },
     "../../middleware/permissionMiddleware": require("./helpers/actors").permissionMiddlewareStub(),
+    "../../middleware/rateLimit": { rateLimit: () => (req, res, next) => next() },
   });
   return routes;
 }
@@ -234,7 +239,7 @@ test("only admins and guides can delete a student's photo", async () => {
     let deleted = false;
     const noop = async () => {};
     const routes = loadStudentRoutes({
-      getAllS: noop, getOneS: noop, putS: noop, deleteS: noop, postS: noop, uploadPhoto: noop,
+      getAllS: noop, getOneS: noop, lookupS: noop, putS: noop, deleteS: noop, postS: noop, uploadPhoto: noop,
       async deletePhoto(req, res) {
         deleted = true;
         res.status(200).json({ ok: true });
@@ -253,18 +258,19 @@ test("only admins and guides can delete a student's photo", async () => {
 test("deleting a student also deletes their photo from Drive", async () => {
   const events = [];
   const model = createModel(
-    [{ tz: "123456782", firstname: "Example", photo: OLD_PHOTO }],
+    [{ _id: "student-1", tz: "123456782", firstname: "Example", photo: OLD_PHOTO }],
     events,
     { dbName: "tamheed_db", collections: { active: "Students" } }
   );
   const { deleteS } = loadStudentController(model, createDriveStorage(events, null));
   const res = createRes();
 
-  await deleteS({ params: { tz: "123456782" } }, res);
+  const admin = { tz: "123456782", roles: ["ادارة"] };
+  await deleteS({ params: { tz: "123456782" }, user: admin, actor: actorFor(admin) }, res);
 
   assert.equal(res.statusCode, 200);
   assert.deepEqual(JSON.parse(JSON.stringify(events)), [
-    ["db-delete", { tz: "123456782" }],
+    ["db-delete", { _id: "student-1" }],
     ["drive-delete", OLD_PHOTO],
   ]);
   assert.equal(model.snapshot().length, 0);

@@ -360,6 +360,8 @@ The client audit page ships in Task 12 together with the other admin screens.
 
 ## Phase 6 — Student scope for guides (spec: الجزء 4)
 
+> **Implementation note (2026-10-20):** `responsibleInstructor` below was replaced by the existing student field `main_teacher` (user `_id`). Lessons store user `_id`s, so the scope matches `actor.id`. Out-of-scope students are added by exact tz through `list_tz` (max 50). The lookup route is `GET /api/student/lookup/:tz`.
+
 ### Task 15: Scope rules
 
 **Files:**

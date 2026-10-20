@@ -2,6 +2,33 @@ const { StudentModelDef } = require("./Student.model");
 const { logWithSource } = require("../../middleware/logger");
 const { handleUpload, handleDeleteByUrl } = require("../UploadFile/file");
 const { audit } = require("../../utils/audit");
+const { LessonModelDef } = require("../Lesson/Lesson.model");
+const { UserModelDef } = require("../User/User.model");
+const { isSystemTz, can } = require("../../utils/permissions");
+const { createStudentScope } = require("../../utils/studentScope");
+
+// Who the actor may see: null (students.viewAll) or a Set of student _ids.
+const scope = createStudentScope({ lessonModel: LessonModelDef, studentModel: StudentModelDef });
+const inScope = (visible, student) => !visible || visible.has(String(student?._id));
+// A hidden student gets the same answer as a missing one (existence is not revealed).
+const NOT_FOUND = { ok: false, message: "Student not found" };
+
+// main_teacher (the responsible guide) names a user by _id: an active (approved) account that
+// is not the system account. Only a 24-hex ObjectId is looked up.
+const OBJECT_ID = /^[0-9a-fA-F]{24}$/;
+async function isValidInstructor(id) {
+  if (typeof id !== "string" || !OBJECT_ID.test(id)) return false;
+  const found = await UserModelDef.get({ _id: id }, "active");
+  const user = found?.result?.[0];
+  return Boolean(user) && !isSystemTz(user.tz);
+}
+const INVALID_INSTRUCTOR = { ok: false, code: "INVALID_INSTRUCTOR", message: "المرشد المسؤول غير موجود" };
+const hasValue = (v) => v !== undefined && v !== null && v !== "";
+// Only a students.viewAll holder sets or changes main_teacher; for
+// anyone else the field is ignored (not validated, not written).
+const mayAssignInstructor = (actor) => can(actor, "students.viewAll");
+// Parent-registration requests wait with this status until staff approve them.
+const PENDING_STATUS = "ينتظر";
 
 /* =============== Notifications (optional) =============== */
 let notify = null;
@@ -110,10 +137,12 @@ function removeEmpty(obj = {}) {
 const getAllS = async (req, res) => {
   try {
     const result = await StudentModelDef.get({});
+    const visible = await scope.visibleStudentIds(req.actor);
+    const students = (result?.result || []).filter((s) => inScope(visible, s));
 
     return res.status(200).json({
       ok: true,
-      students: result?.result?.map(sanitize) || [],
+      students: students.map(sanitize),
     });
   } catch (err) {
     logWithSource("Student.getAllS", err);
@@ -137,8 +166,9 @@ const getOneS = async (req, res) => {
     }
 
     const result = await StudentModelDef.get({ tz });
+    const visible = await scope.visibleStudentIds(req.actor);
 
-    if (!result?.result?.length) {
+    if (!result?.result?.length || !inScope(visible, result.result[0])) {
       return res.status(404).json({
         ok: false,
         message: "غير موجود",
@@ -162,6 +192,10 @@ const getOneS = async (req, res) => {
 const postS = async (req, res) => {
   try {
     const model = buildData(req.body);
+    const assigns = mayAssignInstructor(req.actor);
+    // A creator without students.viewAll becomes the responsible guide, so he
+    // keeps seeing the student he just added.
+    if (!assigns) model.main_teacher = req.actor?.id != null ? String(req.actor.id) : null;
 
     if (!model.tz) {
       return res.status(400).json({
@@ -175,6 +209,10 @@ const postS = async (req, res) => {
         ok: false,
         message: "firstname/lastname required",
       });
+    }
+
+    if (assigns && hasValue(req.body?.main_teacher) && !(await isValidInstructor(req.body.main_teacher))) {
+      return res.status(400).json(INVALID_INSTRUCTOR);
     }
 
     const exists = await StudentModelDef.get({ tz: model.tz });
@@ -227,14 +265,33 @@ const putS = async (req, res) => {
     }
 
     const existing = await StudentModelDef.get({ tz });
-    if (!existing?.result?.length) {
-      return res.status(404).json({
-        ok: false,
-        message: "Student not found",
-      });
+    const visible = await scope.visibleStudentIds(req.actor);
+    if (!existing?.result?.length || !inScope(visible, existing.result[0])) {
+      return res.status(404).json(NOT_FOUND);
+    }
+
+    const assigns = mayAssignInstructor(req.actor);
+    // Validated only when it changes: an unchanged stale value (inactive guide,
+    // legacy id) must not block saving the other fields.
+    const body = req.body || {};
+    const changesInstructor = String(body.main_teacher ?? "") !== String(existing.result[0].main_teacher ?? "");
+    if (assigns && changesInstructor && hasValue(body.main_teacher) && !(await isValidInstructor(body.main_teacher))) {
+      return res.status(400).json(INVALID_INSTRUCTOR);
     }
 
     const newData = removeEmpty(buildData(req.body));
+    if (!assigns) delete newData.main_teacher;
+    // An explicit empty value from a viewAll holder clears the responsible guide.
+    else if (req.body && Object.hasOwn(req.body, "main_teacher") && !hasValue(req.body.main_teacher)) newData.main_teacher = null;
+
+    // A tz change may not take another student's ID number.
+    if (newData.tz !== undefined && String(newData.tz).trim() !== tz) {
+      const taken = await StudentModelDef.get({ tz: String(newData.tz).trim() });
+      const own = String(existing.result[0]._id);
+      if ((taken?.result || []).some((s) => String(s._id) !== own)) {
+        return res.status(409).json({ ok: false, code: "TZ_EXISTS", message: "الطالب موجود" });
+      }
+    }
 
     const updated = await StudentModelDef.update(
       { tz },
@@ -278,14 +335,13 @@ const deleteS = async (req, res) => {
     }
 
     const existing = await StudentModelDef.get({ tz });
-    if (!existing?.result?.length) {
-      return res.status(404).json({
-        ok: false,
-        message: "Student not found",
-      });
+    const visible = await scope.visibleStudentIds(req.actor);
+    if (!existing?.result?.length || !inScope(visible, existing.result[0])) {
+      return res.status(404).json(NOT_FOUND);
     }
 
-    const deleted = await StudentModelDef.delete({ tz });
+    // Only the record found above, never every record sharing the tz.
+    const deleted = await StudentModelDef.delete({ _id: String(existing.result[0]._id) });
     await recordStudent(req, "delete", existing.result[0], null);
 
     // Rejecting a waiting-list request or deleting a student also removes the
@@ -331,11 +387,9 @@ const uploadPhoto = async (req, res) => {
     }
 
     const existing = await StudentModelDef.get({ tz });
-    if (!existing?.result?.length) {
-      return res.status(404).json({
-        ok: false,
-        message: "Student not found",
-      });
+    const visible = await scope.visibleStudentIds(req.actor);
+    if (!existing?.result?.length || !inScope(visible, existing.result[0])) {
+      return res.status(404).json(NOT_FOUND);
     }
 
     const student = existing.result[0];
@@ -412,7 +466,8 @@ const deletePhoto = async (req, res) => {
     }
 
     const user = await getStudentInRoomByTz(tz, "active");
-    if (!user) {
+    const visible = await scope.visibleStudentIds(req.actor);
+    if (!user || !inScope(visible, user)) {
       return res.status(404).json({ ok: false, message: "Student not found" });
     }
 
@@ -456,7 +511,35 @@ const deletePhoto = async (req, res) => {
   }
 };
 
+// GET /api/student/lookup/:tz  (lessons.roster)
+// Lets a guide find a student he cannot see, to add to a roster: exact, full
+// tz match only (no partial or pattern search), and only the identifying
+// fields plus the _id the roster needs.
+const lookupS = async (req, res) => {
+  try {
+    const tz = String(req.params.tz ?? "").trim();
+    const result = tz ? await StudentModelDef.get({ tz }) : null;
+    const student = (result?.result || []).find((s) => String(s.tz) === tz);
+    // A scoped actor never finds a student still on the waiting list.
+    const waiting = student && student.status === PENDING_STATUS && !can(req.actor, "students.viewAll");
+    if (!student || waiting) return res.status(404).json({ ok: false, message: "غير موجود" });
+    return res.status(200).json({
+      ok: true,
+      student: {
+        tz: String(student.tz),
+        firstname: student.firstname || "",
+        lastname: student.lastname || "",
+        _id: String(student._id),
+      },
+    });
+  } catch (err) {
+    logWithSource("Student.lookupS", err);
+    return res.status(500).json({ ok: false, message: err.message });
+  }
+};
+
 module.exports = {
+  lookupS,
   getAllS,
   getOneS,
   postS,

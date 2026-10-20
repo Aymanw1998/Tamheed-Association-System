@@ -5,7 +5,7 @@ import styles from "./Student.module.css";
 import Fabtn from "../Global/Fabtn/Fabtn";
 import { toast } from "../../ALERT/SystemToasts";
 import { exportStudentPdf } from "../ExportPDF/ExportPDF.jsx";
-import { canStored, getStoredUserId } from "../../utils/session.js";
+import { canStored } from "../../utils/session.js";
 import StudentStatusFilter from "./StudentStatusFilter.jsx";
 import Button from "../UI/Button.jsx";
 import StatusBadge from "../UI/StatusBadge.jsx";
@@ -37,7 +37,6 @@ const ViewAllStudent = () => {
   const isAdmin = canStored("students.viewAll");
   const canCreateStudents = canStored("students.create");
   const canParentLink = canStored("students.parentLink");
-  const userId = getStoredUserId();
 
   const [students, setStudents] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -79,12 +78,8 @@ const ViewAllStudent = () => {
         throw new Error(res?.message || "يوجد خلل في جلب البيانات");
       }
 
-      const data = Array.isArray(res.students) ? res.students : [];
-      const filteredStudents = isAdmin
-        ? data
-        : data.filter((student) => String(student.main_teacher || "") === userId);
-
-      setStudents(filteredStudents);
+      // The server already scopes the list (responsible and lesson students).
+      setStudents(Array.isArray(res.students) ? res.students : []);
     } catch (error) {
       console.error("Student load error", error);
       setErr("يوجد خلل في جلب البيانات");
@@ -92,7 +87,7 @@ const ViewAllStudent = () => {
     } finally {
       setLoading(false);
     }
-  }, [isAdmin, userId]);
+  }, []);
 
   useEffect(() => {
     loadStudent();

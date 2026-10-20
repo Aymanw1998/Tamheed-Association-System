@@ -18,6 +18,7 @@ import { permissionError, viewerAssignableRoles } from "./RolePickerDialog.jsx";
 import RecentChanges from "../Audit/RecentChanges.jsx";
 import tabStyles from "./PermissionsTab.module.css";
 import ChangeOwnPassword from "../Profile/ChangeOwnPassword.jsx";
+import { isValidIsraeliId } from "../../utils/israeliId";
 
 const safeAsk = async (options) => {
   try { return await ask("change", options); } catch { return false; }
@@ -129,19 +130,6 @@ const EditUser = () => {
       }
     })();
   }, [id, isEdit]);
-
-  function isValidIsraeliId(id) {
-    if (!/^\d{5,9}$/.test(id)) return false;
-    id = id.padStart(9, "0");
-    let sum = 0;
-    for (let i = 0; i < 9; i++) {
-      let n = Number(id[i]) * (i % 2 === 0 ? 1 : 2);
-      if (n > 9) n -= 9;
-      sum += n;
-    }
-    //console.log("isValidIsraeliId", id, sum, sum % 10 === 0);
-    return sum % 10 === 0;
-  }
 
   const handlePhoto = (e) => {
     const file = e.target.files[0];

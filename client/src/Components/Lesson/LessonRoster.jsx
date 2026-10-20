@@ -1,7 +1,16 @@
 import React, { useEffect, useMemo, useState } from "react";
 import styles from "./LessonRoster.module.css";
 import Button from "../UI/Button";
-import { filterRosterStudents, rosterConflicts, searchStudentsToAdd } from "../../utils/lessonRoster";
+import { useI18n } from "../../i18n/I18nContext";
+import { toast } from "../../ALERT/SystemToasts";
+import { lookupStudent } from "../../WebServer/services/student/functionsStudent";
+import {
+  filterRosterStudents,
+  isFullTz,
+  rosterConflicts,
+  rosterSummary,
+  searchStudentsToAdd,
+} from "../../utils/lessonRoster";
 
 const nameOf = (student) => `${student?.firstname || ""} ${student?.lastname || ""}`.trim();
 const detailsOf = (student) => [student?.tz, student?.layer].filter(Boolean).join(" · ");
@@ -11,7 +20,25 @@ const detailsOf = (student) => [student?.tz, student?.layer].filter(Boolean).joi
 // students who are not in the lesson yet. Removing offers an undo, and a
 // student already in another lesson at the same time gets a warning.
 // Changes stay in the form until the lesson is saved.
-export default function LessonRoster({ lesson, students, allLessons, canEdit, onChange }) {
+// hiddenCount: students the server hid from this viewer (shown only as a number).
+// pending: students found by ID number on a lesson not saved yet.
+// onLookupAdd(student) adds a found student; it resolves true when they joined.
+export default function LessonRoster({
+  lesson,
+  students,
+  allLessons,
+  canEdit,
+  onChange,
+  hiddenCount = 0,
+  pending = [],
+  onLookupAdd,
+  onRemovePending,
+}) {
+  const { t } = useI18n();
+  const [lookupTz, setLookupTz] = useState("");
+  const [lookupMsg, setLookupMsg] = useState("");
+  const [lookupBusy, setLookupBusy] = useState(false);
+  const [found, setFound] = useState(null);
   const [rosterQuery, setRosterQuery] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerQuery, setPickerQuery] = useState("");
@@ -38,7 +65,45 @@ export default function LessonRoster({ lesson, students, allLessons, canEdit, on
     return () => window.removeEventListener("keydown", onKey);
   }, [pickerOpen]);
 
+  const { others } = rosterSummary({ visible: enrolled.length, hiddenCount });
+
+  const runLookup = async () => {
+    const tz = lookupTz.trim();
+    setFound(null);
+    if (!isFullTz(tz)) { setLookupMsg(t("roster.lookupInvalid")); return; }
+    setLookupBusy(true);
+    setLookupMsg("");
+    const res = await lookupStudent(tz);
+    setLookupBusy(false);
+    if (!res.ok) { setLookupMsg(res.notFound ? t("roster.lookupNotFound") : t("roster.lookupFailed")); return; }
+    const id = String(res.student._id);
+    if (selectedIds.includes(id) || pending.some((p) => String(p._id) === id)) {
+      setLookupMsg(t("roster.alreadyIn"));
+      return;
+    }
+    setFound(res.student);
+  };
+
+  const addFound = async () => {
+    if (!found || !onLookupAdd) return;
+    setLookupBusy(true);
+    const joined = await onLookupAdd(found);
+    setLookupBusy(false);
+    if (joined) {
+      toast.success(t("roster.added"));
+      setAddedInPicker((count) => count + 1);
+      setFound(null);
+      setLookupTz("");
+      setLookupMsg("");
+    } else {
+      toast.warn(t("roster.notAdded"));
+    }
+  };
+
   const openPicker = () => {
+    setLookupTz("");
+    setLookupMsg("");
+    setFound(null);
     setPickerQuery("");
     setAddedInPicker(0);
     setPickerOpen(true);
@@ -116,6 +181,31 @@ export default function LessonRoster({ lesson, students, allLessons, canEdit, on
         </ul>
       )}
 
+      {others > 0 && (
+        <p className={styles.hint} role="status">{t("roster.others").replace("{n}", String(others))}</p>
+      )}
+
+      {pending.length > 0 && (
+        <div>
+          <small className={styles.hint}>{t("roster.pendingTitle")}</small>
+          <ul className={styles.list}>
+            {pending.map((student) => (
+              <li key={student._id} className={styles.row}>
+                <span className={styles.who}>
+                  <strong>{nameOf(student)}</strong>
+                  <small>{student.tz}</small>
+                </span>
+                {canEdit && (
+                  <Button size="sm" variant="danger" onClick={() => onRemovePending && onRemovePending(student)}>
+                    {t("roster.pendingRemove")}
+                  </Button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {canEdit && <p className={styles.hint}>التغييرات تُحفظ عند الضغط على "حفظ البيانات".</p>}
 
       {pickerOpen && (
@@ -139,6 +229,39 @@ export default function LessonRoster({ lesson, students, allLessons, canEdit, on
               aria-label="ابحث عن طالب لإضافته"
               autoFocus
             />
+            {onLookupAdd && (
+              <div className={styles.lookup}>
+                <strong>{t("roster.lookupTitle")}</strong>
+                <small>{t("roster.lookupHint")}</small>
+                <div className={styles.toolbar}>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={lookupTz}
+                    onChange={(e) => { setLookupTz(e.target.value); setFound(null); setLookupMsg(""); }}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); runLookup(); } }}
+                    placeholder={t("roster.lookupPlaceholder")}
+                    aria-label={t("roster.lookupTitle")}
+                  />
+                  <Button type="button" size="sm" disabled={lookupBusy} onClick={runLookup}>
+                    {t("roster.lookupButton")}
+                  </Button>
+                </div>
+                {lookupMsg && <span className={styles.conflict} role="alert">{lookupMsg}</span>}
+                {found && (
+                  <div className={styles.row}>
+                    <span className={styles.who}>
+                      <strong>{nameOf(found)}</strong>
+                      <small>{found.tz}</small>
+                    </span>
+                    <Button size="sm" variant="success" disabled={lookupBusy} onClick={addFound}>
+                      {t("roster.lookupAdd")}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+
             <small className={styles.pickerCount}>
               {available.length} طالب غير مضاف{pickerQuery.trim() ? " مطابق للبحث" : ""}
             </small>

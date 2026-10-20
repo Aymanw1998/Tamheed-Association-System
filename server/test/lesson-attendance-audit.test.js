@@ -56,6 +56,8 @@ function lessonSetup(seed = [], users = []) {
     "../../utils/permissions": require("../utils/permissions"),
     "../../middleware/logger": { logWithSource() {} },
     "../Notification/Notification.controller": {},
+    "../Student/Student.model": { StudentModelDef: createStore() },
+    "../../utils/studentScope": require("../utils/studentScope"),
     ...audit.deps,
   });
   return { controller, lessons, audit };
@@ -109,6 +111,7 @@ test("attendance bulk-save writes one audit row per save with lesson, date and r
     "../User/User.model": { UserModelDef: createStore() },
     "../Student/Student.model": { StudentModelDef: createStore() },
     "../../utils/permissions": require("../utils/permissions"),
+    "../../utils/studentScope": require("../utils/studentScope"),
     "../../middleware/logger": { logWithSource() {} },
     ...audit.deps,
   });
@@ -188,6 +191,7 @@ test("an attendance sheet names a system teacher \"النظام\"", async () => 
       "../User/User.model": { UserModelDef: createStore([SYS]) },
       "../Student/Student.model": { StudentModelDef: createStore() },
       "../../utils/permissions": require("../utils/permissions"),
+      "../../utils/studentScope": require("../utils/studentScope"),
       "../../middleware/logger": { logWithSource() {} },
       ...auditStub().deps,
     });
@@ -221,6 +225,8 @@ test("a teacher or helper value that is not an ObjectId is not looked up (no Cas
       "../../utils/permissions": require("../utils/permissions"),
       "../../middleware/logger": { logWithSource() {} },
       "../Notification/Notification.controller": {},
+      "../Student/Student.model": { StudentModelDef: createStore() },
+      "../../utils/studentScope": require("../utils/studentScope"),
       ...auditStub().deps,
     });
     const lesson = { name: "Math", room: "1", date: { day: 2, startMin: 600, endMin: 645 } };

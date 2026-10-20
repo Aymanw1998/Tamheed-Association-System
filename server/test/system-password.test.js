@@ -169,7 +169,7 @@ test("a password-change token is refused on GET /api/students and accepted on ch
   const hits = [];
   const ok = (name) => (req, res) => { hits.push(name); res.json({ ok: true }); };
   const studentRouter = mountRouter("../Entities/Student/Student.route", "../Entities/Student/Student.controller", {
-    getAllS: ok("students"), getOneS: ok("one"), putS: ok("put"), deleteS: ok("del"), postS: ok("post"),
+    getAllS: ok("students"), getOneS: ok("one"), lookupS: ok("lookup"), putS: ok("put"), deleteS: ok("del"), postS: ok("post"),
     uploadPhoto: ok("up"), deletePhoto: ok("dp"),
   });
   const authRouter = mountRouter("../Entities/User/Auth.route", "../Entities/User/User.controller", {

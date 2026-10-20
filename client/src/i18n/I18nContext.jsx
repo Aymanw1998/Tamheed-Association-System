@@ -3,6 +3,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { vehicleStrings } from "./vehicleStrings";
 import { noticeStrings } from "./noticeStrings";
 import { accessStrings } from "./accessStrings";
+import { rosterStrings } from "./rosterStrings";
 
 const LANGUAGE_KEY = "tamheed_language";
 
@@ -246,6 +247,7 @@ for (const code of Object.keys(translations)) {
   translations[code].nav.vehicles = vehicleStrings[code].navTitle;
   translations[code].notices = noticeStrings[code];
   translations[code].nav.notices = noticeStrings[code].navTitle;
+  translations[code].roster = rosterStrings[code];
   translations[code].perms = accessStrings[code].perms;
   translations[code].audit = accessStrings[code].audit;
   translations[code].passwordChange = accessStrings[code].passwordChange;

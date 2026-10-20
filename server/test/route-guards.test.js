@@ -140,7 +140,10 @@ const EXACT_GUARDS = {
     "POST /copy-month": "lessons.copyMonth",
     "DELETE /delete-perMonth/:month/:year": "lessons.copyMonth",
   },
-  "Student/Student.route.js": { "DELETE /:tz": "students.delete" },
+  "Student/Student.route.js": {
+    "DELETE /:tz": "students.delete",
+    "GET /lookup/:tz": "lessons.roster", // exact-tz lookup to add a student to a roster
+  },
 };
 
 test("sensitive routes are guarded by exactly the expected permission key", () => {

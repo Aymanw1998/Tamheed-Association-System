@@ -1,4 +1,13 @@
-import { filterRosterStudents, rosterConflicts, searchStudentsToAdd } from "./lessonRoster";
+import {
+  buildAddPayload,
+  countAdded,
+  filterRosterStudents,
+  isFullTz,
+  rosterConflicts,
+  rosterSummary,
+  searchStudentsToAdd,
+  unwrapCreated,
+} from "./lessonRoster";
 
 const s = (id, firstname, lastname, tz, status = "عادي") => ({ _id: id, firstname, lastname, tz, status });
 
@@ -65,4 +74,74 @@ test("the enrolled list is filtered by name or ID number, keeping its order", ()
 
 test("with no query, every registered student not in the lesson is offered", () => {
   expect(searchStudentsToAdd(STUDENTS, "  ", ["d"]).map((x) => x._id)).toEqual(["b", "a"]);
+});
+
+describe("hidden-student summary", () => {
+  test("rosterSummary separates the students shown from the hidden ones", () => {
+    expect(rosterSummary({ visible: 3, hiddenCount: 2 })).toEqual({ shown: 3, others: 2 });
+  });
+
+  test("rosterSummary tolerates missing or bad numbers", () => {
+    expect(rosterSummary({})).toEqual({ shown: 0, others: 0 });
+    expect(rosterSummary({ visible: 2, hiddenCount: -4 })).toEqual({ shown: 2, others: 0 });
+    expect(rosterSummary({ visible: "x", hiddenCount: "5" })).toEqual({ shown: 0, others: 5 });
+    expect(rosterSummary()).toEqual({ shown: 0, others: 0 });
+  });
+});
+
+describe("isFullTz", () => {
+  test("only a complete valid ID number counts", () => {
+    expect(isFullTz("12345678")).toBe(false);
+    expect(isFullTz("123456782")).toBe(true);
+    expect(isFullTz(" 123456782 ")).toBe(true);
+    expect(isFullTz("123456789")).toBe(false);
+    expect(isFullTz("12345678a")).toBe(false);
+    expect(isFullTz("")).toBe(false);
+    expect(isFullTz(null)).toBe(false);
+  });
+});
+
+describe("buildAddPayload", () => {
+  test("visible students go by _id and looked-up ones by full ID number", () => {
+    expect(
+      buildAddPayload({
+        ids: ["a", "b", "a"],
+        looked: [{ _id: "z", tz: "123456782" }, { _id: "y", tz: " 123456782 " }],
+      })
+    ).toEqual({ list_students: ["a", "b"], list_tz: ["123456782"] });
+  });
+
+  test("a looked-up student is never sent by _id", () => {
+    expect(buildAddPayload({ ids: ["z"], looked: [{ _id: "z", tz: "123456782" }] })).toEqual({
+      list_students: [],
+      list_tz: ["123456782"],
+    });
+  });
+
+  test("empty input gives empty lists", () => {
+    expect(buildAddPayload()).toEqual({ list_students: [], list_tz: [] });
+  });
+});
+
+describe("countAdded", () => {
+  test("uses the true total when the lesson reports it", () => {
+    expect(countAdded({ num_in_list: 4, list_students: ["a"] }, { num_in_list: 6, list_students: ["a"] })).toBe(2);
+  });
+
+  test("falls back to the visible list length", () => {
+    expect(countAdded({ list_students: ["a"] }, { list_students: ["a", "b"] })).toBe(1);
+    expect(countAdded(null, null)).toBe(0);
+  });
+});
+
+describe("unwrapCreated", () => {
+  test("reads the lesson out of the create response wrapper", () => {
+    const created = { result: { _id: "L1", name: "x", list_students: ["a"] }, name: "", list_students: [], date: {} };
+    expect(unwrapCreated(created)).toEqual({ _id: "L1", name: "x", list_students: ["a"] });
+  });
+
+  test("passes a plain lesson through and tolerates nothing", () => {
+    expect(unwrapCreated({ _id: "L2" })).toEqual({ _id: "L2" });
+    expect(unwrapCreated(null)).toBeNull();
+  });
 });

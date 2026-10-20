@@ -9,13 +9,17 @@ import { toast } from "../../ALERT/SystemToasts";
 import {validate as validateINV, submit as submitFromParent} from "../../WebServer/services/inviteToken/functionInviteToken.jsx";
 import { canStored } from "../../utils/session";
 import { photoAction } from "../../utils/photoChange";
-import { isRequiredStudentField } from "../../utils/studentForm";
+import { isRequiredStudentField, responsibleGuideOptions } from "../../utils/studentForm";
 import RecentChanges from "../Audit/RecentChanges.jsx";
+import { useI18n } from "../../i18n/I18nContext";
+import { isValidIsraeliId } from "../../utils/israeliId";
 
 const EditStudent = ({parent = false}) => {
   const params = useParams();              // "new" الأحدالجمعة _id
   const navigate = useNavigate();
-  const isAdmin = canStored("students.edit") && canStored("users.view"); // may pick the responsible guide
+  const { t } = useI18n();
+  // Only holders of students.viewAll may name the responsible guide (the server ignores it otherwise).
+  const canAssignGuide = canStored("students.viewAll") && canStored("users.view");
 
   const id = parent ? "new" : params.id;
   const isEdit =!parent && id !== "new";
@@ -87,16 +91,16 @@ const EditStudent = ({parent = false}) => {
   const [submitted, setSubmitted] = useState(false);
 
   
-  const [teachers, setTeachers] = useState(null);
-  
+  const [instructors, setInstructors] = useState([]);
+
   const loadTeachers = async() => {
-    //teachers
     if(parent) return;
     try{
       const res = await getUsers();
-      res.ok ? setTeachers(res.users.filter(u => u.roles[0] == "مرشد")): setTeachers([]);
+      // Every account the server lists (the system account is already left out).
+      setInstructors(res.ok ? res.users : []);
     } catch(err) {
-      setTeachers([])
+      setInstructors([]);
     }
   }
   useEffect(()=>{loadTeachers()},[])
@@ -112,7 +116,7 @@ const EditStudent = ({parent = false}) => {
         if(!res.ok) throw new Error(res.message);
         if (res) {
           const s = res.student;
-          setForm(s);
+          setForm({ ...s, main_teacher: s.main_teacher || "" });
           setPhoto(s.photo || null);
           setOriginalPhoto(s.photo || null);
         } else {
@@ -138,18 +142,6 @@ const EditStudent = ({parent = false}) => {
       setInviteStatus({ checking: false, valid: res.valid, open: res.open });
     })();
   }, [parent, registrationToken]);
-
-  function isValidIsraeliId(id) {
-    if (!/^\d{5,9}$/.test(id)) return false;
-    id = id.padStart(9, "0");
-    let sum = 0;
-    for (let i = 0; i < 9; i++) {
-      let n = Number(id[i]) * (i % 2 === 0 ? 1 : 2);
-      if (n > 9) n -= 9;
-      sum += n;
-    }
-    return sum % 10 === 0;
-  }
 
   const handlePhoto = (e) => {
     const file = e.target.files[0];
@@ -484,21 +476,20 @@ const EditStudent = ({parent = false}) => {
         <input name="layer" value={form.layer} onChange={handleChange} required />
         {error.layer != "" && <label style={{color: "red"}}>{error.layer}</label>}
 
-        {!parent && isAdmin && teachers && teachers.length > 0 && <>
-          <label>مرشد مسؤول:</label>
+        {!parent && canAssignGuide && instructors.length > 0 && <>
+          <label>{t("roster.responsibleGuide")}:</label>
           <select
             name="main_teacher"
             value={form.main_teacher || ""}
             onChange={handleChange}
-            disabled={!isAdmin}
           >
-            <option value="">اختار مرشد</option>
-            {Array.isArray(teachers) &&
-              teachers.map((t) => (
-                <option key={t._id} value={t._id}>
-                  {t.firstname} {t.lastname}
-                </option>
-              ))}
+            <option value="">{t("roster.chooseInstructor")}</option>
+            {/* A stored guide who is no longer listed (inactive) still shows. */}
+            {responsibleGuideOptions(instructors, form.main_teacher).map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.inactive ? t("roster.inactiveGuide") : o.label}
+              </option>
+            ))}
           </select>
         </>}
       </fieldset>

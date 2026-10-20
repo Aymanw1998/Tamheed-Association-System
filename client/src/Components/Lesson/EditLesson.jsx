@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useUnsavedChanges } from '../../utils/unsavedChanges';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -7,19 +7,28 @@ import {
   updateLesson,
   getAllLesson,
   deleteLesson,
+  addToList,
 } from '../../WebServer/services/lesson/functionsLesson';
 import styles from './EditLesson.module.css';
 import { toast } from '../../ALERT/SystemToasts';
 
 import { getAll as getAllS} from '../../WebServer/services/student/functionsStudent';
 import { getAll as getAllU } from '../../WebServer/services/user/functionsUser';
-import { canStored, normalizeRoles, ADMIN_ROLES } from '../../utils/session';
+import { canStored, normalizeRoles, ADMIN_ROLES, getStoredUserId } from '../../utils/session';
+import { buildAddPayload, countAdded, unwrapCreated } from '../../utils/lessonRoster';
+import { useI18n } from '../../i18n/I18nContext';
 import { ROOM_OPTIONS } from '../../utils/rooms';
 import sectionStyles from '../UI/FormSection.module.css';
 import LessonRoster from './LessonRoster';
 import Button from '../UI/Button';
 const EditLesson = () => {
   const { id } = useParams(); // ملاحظة عربية
+  const { t } = useI18n();
+  // A guide (no students.viewAll) must be on the lessons he creates.
+  const viewAll = canStored('students.viewAll');
+  const myId = getStoredUserId();
+  // Students found by ID number on a lesson that is not saved yet.
+  const [pendingLooked, setPendingLooked] = useState([]);
   const isAdmin = canStored(id === "new" ? "lessons.create" : "lessons.edit");
   const canDelete = canStored("lessons.delete");
   
@@ -80,7 +89,12 @@ const EditLesson = () => {
   const [helpers, setHelpers] = useState([]);
   const [allLessons, setAllLessons] = useState([]);
   const [loaded, setLoaded] = useState(false);
-  useUnsavedChanges(lesson, loaded);
+  // Counts the server sends for display are not edits.
+  const editable = useMemo(() => {
+    const { hiddenCount, num_in_list, ...rest } = lesson;
+    return rest;
+  }, [lesson]);
+  useUnsavedChanges(editable, loaded);
 
   // ملاحظة عربية
   useEffect(() => {
@@ -88,9 +102,10 @@ const EditLesson = () => {
       setLesson((prev) => ({
         ...prev,
         date: { ...prev.date, day: dayFromUrl, startMin: hhFromUrl*60, endMin:   hhFromUrl*60 + 45 },
+        teacher: prev.teacher || (!viewAll ? myId : ''),
       }));
     }
-  }, [id, dayFromUrl, hhFromUrl]);
+  }, [id, dayFromUrl, hhFromUrl, viewAll, myId]);
 
   // ملاحظة عربية
   const loadData = async () => {
@@ -172,17 +187,52 @@ const EditLesson = () => {
       return null;
     };
 
+  // Adds a student found by full ID number to a saved lesson. The server
+  // answers ok even if it dropped the entry, so the lesson is read again
+  // before and after to see whether the student really joined.
+  const addFoundStudent = async (student) => {
+    if (id === 'new') {
+      setPendingLooked((prev) => [...prev, student]);
+      return true;
+    }
+    const before = await getOneLesson(id);
+    const res = await addToList(id, buildAddPayload({ looked: [student] }));
+    if (!res.ok) return false;
+    const after = await getOneLesson(id);
+    if (!before.ok || !after.ok) return false;
+    const had = new Set(before.lesson.list_students.map(String));
+    const fresh = after.lesson.list_students.map(String).filter((x) => !had.has(x));
+    setLesson((prev) => ({
+      ...prev,
+      list_students: [...prev.list_students, ...fresh.filter((x) => !prev.list_students.map(String).includes(x))],
+      hiddenCount: after.lesson.hiddenCount,
+      num_in_list: after.lesson.num_in_list,
+    }));
+    const resS = await getAllS();
+    if (resS.ok) setStudents(resS.students);
+    return countAdded(before.lesson, after.lesson) > 0;
+  };
+
   const handleSave = async () => {
     const validationError = await validateBeforeSave();
     if (validationError) { toast.warn(validationError); return; }
     try {
+      // Display-only fields from the server are never sent back.
+      const { hiddenCount, num_in_list, ...body } = lesson;
       const resL =
         id === 'new'
-          ? await createLesson(lesson)
-          : await updateLesson(id,lesson);
+          ? await createLesson({ ...body, ...buildAddPayload({ ids: lesson.list_students, looked: pendingLooked }) })
+          : await updateLesson(id, body);
 
       if (!resL) return;
       if (resL.ok) {
+        if (id === 'new') {
+          const expected = lesson.list_students.length + pendingLooked.length;
+          // The create answer is unscoped and wrapped; re-read the lesson as this viewer sees it.
+          const createdId = unwrapCreated(resL.lesson)?._id;
+          const fresh = createdId ? await getOneLesson(createdId) : null;
+          if (!fresh?.ok || countAdded({ num_in_list: 0 }, fresh.lesson) < expected) toast.warn(t('roster.someNotAdded'));
+        }
         toast.success(`✅ الدرس ${id === 'new'? 'حفظ' : 'حديث' }  بنجاح`);
         navigate(-1);
       } else {
@@ -305,6 +355,7 @@ const EditLesson = () => {
         <legend>الطاقم</legend>
         <div className={styles.formControl}>
           <label htmlFor="lesson-teacher">مرشد:<span style={{color: "red"}}>*</span></label>
+          {id === 'new' && !viewAll && <small>{t('roster.teacherHint')}</small>}
           <select
             name="teacher"
             id="lesson-teacher"
@@ -313,6 +364,9 @@ const EditLesson = () => {
             disabled={!isAdmin}
           >
             <option value="">اختار مرشد</option>
+            {myId && !viewAll && !teachers.some((u) => String(u._id) === myId) && (
+              <option value={myId}>{t('common.you')}</option>
+            )}
             {Array.isArray(teachers) &&
               teachers.map((t) => (
                 <option key={t._id} value={t._id}>
@@ -345,12 +399,16 @@ const EditLesson = () => {
       </fieldset>
 
       <fieldset className={sectionStyles.formSection}>
-        <legend>الطلاب في الدرس ({lesson.list_students?.length || 0})</legend>
+        <legend>الطلاب في الدرس ({(lesson.list_students?.length || 0) + (Number(lesson.hiddenCount) || 0) + pendingLooked.length})</legend>
         <LessonRoster
           lesson={lesson}
           students={students}
           allLessons={allLessons}
           canEdit={isAdmin}
+          hiddenCount={lesson.hiddenCount}
+          pending={pendingLooked}
+          onLookupAdd={isAdmin ? addFoundStudent : undefined}
+          onRemovePending={(student) => setPendingLooked((prev) => prev.filter((x) => x._id !== student._id))}
           onChange={(ids) => setLesson((prev) => ({ ...prev, list_students: ids }))}
         />
       </fieldset>

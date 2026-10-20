@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from "react";
+import { isValidIsraeliId } from "../../utils/israeliId";
 import { useParams, useNavigate } from "react-router-dom";
 // ملاحظة عربية
 import { create, update, getOne, /*softDelete,*/ deleteR } from "../../WebServer/services/report/functionsReport.jsx";
@@ -207,17 +208,6 @@ const EditReport = ({parent = false}) => {
     if (!isAdmin || !SHOW_REPORT_ATTENDEES) return;
     getUsers();
   }, [isAdmin]);
-  function isValidIsraeliId(id) {
-    if (!/^\d{5,9}$/.test(id)) return false;
-    id = id.padStart(9, "0");
-    let sum = 0;
-    for (let i = 0; i < 9; i++) {
-      let n = Number(id[i]) * (i % 2 === 0 ? 1 : 2);
-      if (n > 9) n -= 9;
-      sum += n;
-    }
-    return sum % 10 === 0;
-  }
 
 
   const handleChange = async(e) => {
