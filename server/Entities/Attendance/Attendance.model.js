@@ -1,4 +1,5 @@
 const api = require("../api");
+const { ensureIndexes, collectionOf } = require("../../utils/ensureIndexes");
 
 const AttendanceModelDef = {
   dbName: "tamheed_db",
@@ -19,6 +20,8 @@ const AttendanceModelDef = {
     year: { type: "number", required: true },
 
     notes: { type: "string", required: false, default: "" },
+    // true: created absent by the nightly job; false: saved by a person.
+    auto: { type: "boolean", required: false },
 
     createdAt: {
       type: "date",
@@ -58,6 +61,18 @@ AttendanceModelDef.update = async function (filter, newData) {
   });
 };
 
+// A student's rows up to toKey, newest first, at most `limit` (alert job).
+AttendanceModelDef.latestOfStudent = async function (studentId, toKey, limit = 100) {
+  const res = await api.readSorted({
+    dbName: this.dbName,
+    collection: this.collections.active,
+    filter: { student: String(studentId), dateKey: { $lte: toKey } },
+    sort: { dateKey: -1, updatedAt: -1 },
+    limit,
+  });
+  return res.result;
+};
+
 AttendanceModelDef.delete = async function (filter) {
   return await api.delete({
     dbName: this.dbName,
@@ -66,7 +81,15 @@ AttendanceModelDef.delete = async function (filter) {
   });
 };
 
-module.exports = { AttendanceModelDef };
+// latestOfStudent (the absence-streak check) reads one student's rows by
+// dateKey, newest first.
+const ATTENDANCE_INDEXES = [{ key: { student: 1, dateKey: -1 } }];
+const ensureAttendanceIndexes = (collection) => ensureIndexes(
+  collection || collectionOf({ dbName: AttendanceModelDef.dbName, collection: AttendanceModelDef.collections.active }),
+  ATTENDANCE_INDEXES,
+);
+
+module.exports = { AttendanceModelDef, ATTENDANCE_INDEXES, ensureAttendanceIndexes };
 
 // OLD CODE - DO NOT SUGGEST CHANGES
 // const mongoose = require("mongoose");

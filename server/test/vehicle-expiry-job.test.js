@@ -101,3 +101,23 @@ test("one failing publish does not stop the others and the digest lists only cre
   assert.equal(deps.mails.length, 1);
   assert.equal(result.error, undefined);
 });
+
+test("each new notice also raises a personal alert (same dedup key); a failing alert changes nothing", async () => {
+  const deps = fakeDeps({ vehicles: [vehicle] });
+  const raised = [];
+  deps.raiseVehicleAlert = async (alert, notice) => { raised.push({ alert, notice }); };
+  await job.runVehicleExpiryCheck({ now: NOW, deps });
+  assert.equal(raised.length, 2);
+  assert.deepEqual(raised.map((r) => r.notice.dedupKey).sort(), deps.notices.map((n) => n.dedupKey).sort());
+  assert.ok(raised.every((r) => r.alert.vehicleId === "v1" && ["license", "insurance"].includes(r.alert.kind)));
+
+  await job.runVehicleExpiryCheck({ now: NOW, deps });
+  assert.equal(raised.length, 2, "no new notice, no new alert");
+
+  const failing = fakeDeps({ vehicles: [vehicle] });
+  failing.raiseVehicleAlert = async () => { throw new Error("alerts down"); };
+  const result = await job.runVehicleExpiryCheck({ now: NOW, deps: failing });
+  assert.equal(result.created, 2);
+  assert.equal(result.error, undefined);
+  assert.equal(failing.mails.length, 1);
+});

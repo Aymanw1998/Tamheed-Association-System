@@ -67,6 +67,23 @@ const api = {
     return { success: true, result: docs.map(toPlain), total };
   },
 
+  // Sorted, limited documents without a total (no countDocuments): for
+  // frequent reads such as the live stream's polls.
+  async readSorted({ dbName, collection, filter = {}, sort = {}, limit = 50 }) {
+    await ensureConnected();
+    const Model = getModel(dbName, collection);
+    const docs = await Model.find(filter).sort(sort).limit(limit).lean();
+    return { success: true, result: docs.map(toPlain) };
+  },
+
+  // Sets fields on every matching document. Never upserts.
+  async updateMany({ dbName, collection, filter, newData }) {
+    await ensureConnected();
+    const Model = getModel(dbName, collection);
+    const res = await Model.updateMany(filter, { $set: newData });
+    return { success: true, result: { modifiedCount: res.modifiedCount } };
+  },
+
   // NOTE: upserts by design - most callers use this to set fields on a
   // record they know exists (by tz/_id/etc), and a couple of flows
   // (Attendance bulkSave) rely on it creating the row if it's missing.

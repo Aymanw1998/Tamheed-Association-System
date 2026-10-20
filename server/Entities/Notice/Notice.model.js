@@ -20,6 +20,8 @@ NoticeModelDef.update = async function (filter, newData) {
 };
 
 // One row per scheduled-job run: { job, date ("YYYY-MM-DD"), trigger, created, emailed, error, finishedAt }.
+// A lock row { job, date, lockKey, lockedAt (Date) } claims one run slot across
+// server processes (the alert job): lockKey is unique when set.
 const JobRunModelDef = { dbName, collection: "JobRuns" };
 JobRunModelDef.get = async function (filter = {}) {
   return await api.read({ dbName: this.dbName, collection: this.collection, filter });
@@ -37,4 +39,16 @@ async function ensureNoticeIndexes() {
     .createIndex({ dedupKey: 1 }, { unique: true, partialFilterExpression: { dedupKey: { $type: "string" } } });
 }
 
-module.exports = { NoticeModelDef, JobRunModelDef, ensureNoticeIndexes };
+// Lock rows expire after 7 days; ordinary run rows (no lockKey) are kept.
+const JOB_LOCK_TTL_SECONDS = 7 * 24 * 60 * 60;
+const LOCK_ROWS = { partialFilterExpression: { lockKey: { $type: "string" } } };
+const JOB_RUN_INDEXES = [
+  { key: { lockKey: 1 }, options: { unique: true, ...LOCK_ROWS } },
+  { key: { lockedAt: 1 }, options: { expireAfterSeconds: JOB_LOCK_TTL_SECONDS, ...LOCK_ROWS } },
+];
+async function ensureJobRunIndexes() {
+  const { ensureIndexes, collectionOf } = require("../../utils/ensureIndexes");
+  await ensureIndexes(collectionOf(JobRunModelDef), JOB_RUN_INDEXES);
+}
+
+module.exports = { NoticeModelDef, JobRunModelDef, ensureNoticeIndexes, JOB_RUN_INDEXES, ensureJobRunIndexes };

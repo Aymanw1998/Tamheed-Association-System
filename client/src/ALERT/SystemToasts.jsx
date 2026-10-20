@@ -254,26 +254,6 @@ export function SystemStatusWatcher({ options }) {
   return null;
 }
 
-// ---------- SSE Subscriber ----------
-export function SystemEventSubscriber({ url = "/api/events" }) {
-  const { push } = useToast();
-  useEffect(() => {
-    const es = new EventSource(url, { withCredentials: true });
-    es.onmessage = (ev) => {
-      try {
-        const data = JSON.parse(ev.data || "{}");
-        const level = data.level || "info";
-        const variant = level === "error" ? "destructive" : level === "warning" ? "warning" : level === "success" ? "success" : "info";
-        push({ title: data.title, description: data.message, variant });
-      } catch {
-        push({ description: ev.data || "حدث نظام", variant: "info" });
-      }
-    };
-    return () => es.close();
-  }, [url, push]);
-  return null;
-}
-
 // ---------- Status Badge (عربيالأحد عربيالجمعةالاثنينالخميس) ----------
 export function StatusBadge({ className = "" }) {
   const serverOk = useServerHealth();

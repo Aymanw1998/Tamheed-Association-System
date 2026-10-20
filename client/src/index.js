@@ -5,7 +5,7 @@ import App from "./App";
 import reportWebVitals from "./reportWebVitals";
 import AppErrorBoundary from "./Components/Global/AppErrorBoundary";
 import { ConfirmProvider } from "./Components/Provides/ConfirmContext";
-import { ToastProvider, SystemStatusWatcher, SystemEventSubscriber, StatusBadge, useToast, toast } from "./ALERT/SystemToasts";
+import { ToastProvider, SystemStatusWatcher, StatusBadge, useToast, toast } from "./ALERT/SystemToasts";
 
 const installSafeStorageDefaults = () => {
   if (typeof window === "undefined" || !window.Storage) return;
@@ -62,7 +62,6 @@ root.render(
         }}
       /> */}
 
-      {/* <SystemEventSubscriber/> */}
 
       <StatusBadge />
 

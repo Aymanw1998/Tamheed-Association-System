@@ -6,6 +6,7 @@ const { logWithSource } = require("../../middleware/logger");
 const { audit } = require("../../utils/audit");
 const { isSystemTz, SYSTEM_ACTOR_NAME } = require("../../utils/permissions");
 const { createStudentScope } = require("../../utils/studentScope");
+const { ABSENT_STATUS, AUTO_ABSENCE_NOTE } = require("../../utils/attendanceMarks");
 
 // Student scope: null (students.viewAll) or the Set of visible student _ids.
 const scope = createStudentScope({ lessonModel: LessonModelDef, studentModel: StudentModelDef });
@@ -245,6 +246,8 @@ const bulkSave = async (req, res) => {
             dateKey,
             status: item.status ?? DEFAULT_STATUS,
             notes: item.notes ?? "",
+            // Saved by a person: no longer a nightly automatic absence.
+            auto: false,
             updatedAt: new Date(),
           }
         )
@@ -334,8 +337,6 @@ const getLessonDates = async (req, res) => {
   }
 };
 
-const ABSENT_STATUS = "غائب";
-
 async function runDailyAbsenceJob({ year, month, day, dow1to7 }) {
   const dateKey = calcDateKey(year, month, day);
 
@@ -380,7 +381,9 @@ async function runDailyAbsenceJob({ year, month, day, dow1to7 }) {
           day,
           dateKey,
           status: ABSENT_STATUS,
-          notes: "تم التحديد تلقائيًا كغائب لعدم تسجيل الحضور",
+          notes: AUTO_ABSENCE_NOTE,
+          // Automatic, not recorded by a person (the alert job's streaks skip it).
+          auto: true,
           createdAt: new Date(),
           updatedAt: new Date(),
         }).catch((error) => {

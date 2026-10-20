@@ -93,6 +93,7 @@ function loadUserController(model, storage, audit = auditStub()) {
     "../UploadFile/file": storage,
     "../Storage/Storage.controller": {},
     "../Notification/Notification.controller": {},
+    ...require("./helpers/alertEventsStub").noopAlertDeps,
   });
 }
 
@@ -107,6 +108,7 @@ function loadStudentController(model, storage, audit = auditStub()) {
     "../../middleware/logger": { logWithSource() {} },
     "../UploadFile/file": storage,
     "../Notification/Notification.controller": {},
+    ...require("./helpers/alertEventsStub").noopAlertDeps,
   });
 }
 

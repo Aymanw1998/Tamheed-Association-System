@@ -1,9 +1,10 @@
 // Nightly check (01:00 Asia/Jerusalem): every non-archived vehicle's licence,
-// test and insurance. New stages become notices for everyone with notices.view and
-// one digest email each. Dependencies are injectable for tests.
+// test and insurance. New stages become notices for everyone with notices.view,
+// one digest email each, and a personal alert (AiAlerts) for every
+// vehicles.view holder. Dependencies are injectable for tests.
 const cron = require("node-cron");
 const rules = require("../utils/vehicleRules");
-const { planVehicleNotices, buildDigest } = require("../utils/vehicleNotices");
+const { planVehicleNotices, buildDigest, dedupKeyFor } = require("../utils/vehicleNotices");
 
 const JOB = "vehicleExpiry";
 const TIME_ZONE = "Asia/Jerusalem";
@@ -23,6 +24,8 @@ function createDeps() {
     existingDedupKeys: () => notices.existingDedupKeys("vehicle:"),
     publishNotice: (n) => notices.publishNotice(n),
     listRecipients: () => notices.listNoticeRecipients(),
+    // A personal alert for every vehicles.view holder (same dedup key).
+    raiseVehicleAlert: (alert, notice) => require("./alertEvents").vehicleStage(alert, notice),
     smtpConfigured: mail.smtpConfigured,
     sendDigest: (to, digest) => mail.sendNoticeDigestEmail(to, digest),
     async findRun(job, date) {
@@ -54,6 +57,7 @@ async function runVehicleExpiryCheck({ now = new Date(), trigger = "cron", deps 
       }
     }
     const planned = planVehicleNotices(alerts, await deps.existingDedupKeys());
+    const alertByKey = new Map(alerts.map((alert) => [dedupKeyFor(alert), alert]));
     const fresh = [];
     for (const notice of planned) {
       try {
@@ -61,6 +65,11 @@ async function runVehicleExpiryCheck({ now = new Date(), trigger = "cron", deps 
         if (created) {
           fresh.push(notice);
           result.created += 1;
+          if (typeof deps.raiseVehicleAlert === "function") {
+            await Promise.resolve()
+              .then(() => deps.raiseVehicleAlert(alertByKey.get(notice.dedupKey) || {}, notice))
+              .catch((err) => deps.log("alert failed", notice?.dedupKey, err?.message));
+          }
         }
       } catch (err) {
         deps.log("publish failed", notice?.dedupKey, err?.message);

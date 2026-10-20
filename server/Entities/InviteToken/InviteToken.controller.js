@@ -231,7 +231,7 @@ const submitRegistration = async (req, res) => {
     }
 
     const now = new Date();
-    await StudentModelDef.create({
+    const created = await StudentModelDef.create({
       ...fields,
       photo: "",
       main_teacher: null,
@@ -241,6 +241,15 @@ const submitRegistration = async (req, res) => {
       updatedAt: now,
     });
     res.status(200).json({ ok: true, message: RECEIVED_MESSAGE });
+    // Fire-and-forget, after replying: the alert never delays or changes the
+    // answer (and so cannot tell a new ID from a known one by its timing).
+    Promise.resolve()
+      .then(() => require("../../services/alertEvents").parentRegistered({
+        _id: created?.result?._id ? String(created.result._id) : null,
+        firstname: fields.firstname,
+        lastname: fields.lastname,
+      }))
+      .catch((alertError) => logWithSource("InviteToken.alert", alertError));
 
     // Uploaded after replying: the reply must not wait on (or mention) Drive,
     // or its timing would tell a new ID from a known one.

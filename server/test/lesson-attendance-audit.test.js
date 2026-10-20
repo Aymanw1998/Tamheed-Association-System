@@ -58,6 +58,7 @@ function lessonSetup(seed = [], users = []) {
     "../Notification/Notification.controller": {},
     "../Student/Student.model": { StudentModelDef: createStore() },
     "../../utils/studentScope": require("../utils/studentScope"),
+    "../../utils/attendanceMarks": require("../utils/attendanceMarks"),
     ...audit.deps,
   });
   return { controller, lessons, audit };
@@ -112,6 +113,7 @@ test("attendance bulk-save writes one audit row per save with lesson, date and r
     "../Student/Student.model": { StudentModelDef: createStore() },
     "../../utils/permissions": require("../utils/permissions"),
     "../../utils/studentScope": require("../utils/studentScope"),
+    "../../utils/attendanceMarks": require("../utils/attendanceMarks"),
     "../../middleware/logger": { logWithSource() {} },
     ...audit.deps,
   });
@@ -192,6 +194,7 @@ test("an attendance sheet names a system teacher \"النظام\"", async () => 
       "../Student/Student.model": { StudentModelDef: createStore() },
       "../../utils/permissions": require("../utils/permissions"),
       "../../utils/studentScope": require("../utils/studentScope"),
+      "../../utils/attendanceMarks": require("../utils/attendanceMarks"),
       "../../middleware/logger": { logWithSource() {} },
       ...auditStub().deps,
     });
@@ -227,6 +230,7 @@ test("a teacher or helper value that is not an ObjectId is not looked up (no Cas
       "../Notification/Notification.controller": {},
       "../Student/Student.model": { StudentModelDef: createStore() },
       "../../utils/studentScope": require("../utils/studentScope"),
+      "../../utils/attendanceMarks": require("../utils/attendanceMarks"),
       ...auditStub().deps,
     });
     const lesson = { name: "Math", room: "1", date: { day: 2, startMin: 600, endMin: 645 } };
@@ -238,4 +242,35 @@ test("a teacher or helper value that is not an ObjectId is not looked up (no Cas
     await controller.postOne(req({ body: { ...lesson, date: { day: 3, startMin: 600, endMin: 645 }, teacher: "not-an-object-id", helper: SYS._id } }), blocked);
     assert.equal(blocked.statusCode, 400, "the system account is still refused");
   });
+});
+
+/* ================= nightly absences are marked automatic ================= */
+
+test("the nightly job marks the rows it creates auto: true; a teacher's save sets auto: false", async () => {
+  const { AUTO_ABSENCE_NOTE } = require("../utils/attendanceMarks");
+  const lessons = createStore([{ _id: "lesson-1", name: "Math", date: { day: 7, startMin: 600, endMin: 645 }, list_students: ["s1", "s2"] }]);
+  const attendance = createStore([{ lesson: "lesson-1", student: "s1", dateKey: 20261017, status: "حاضر", notes: "" }]);
+  const controller = load("Attendance/Attendance.controller.js", {
+    "./Attendance.model": { AttendanceModelDef: attendance },
+    "../Lesson/Lesson.model": { LessonModelDef: lessons },
+    "../User/User.model": { UserModelDef: createStore() },
+    "../Student/Student.model": { StudentModelDef: createStore() },
+    "../../utils/permissions": require("../utils/permissions"),
+    "../../utils/studentScope": require("../utils/studentScope"),
+    "../../utils/attendanceMarks": require("../utils/attendanceMarks"),
+    "../../middleware/logger": { logWithSource() {} },
+    ...auditStub().deps,
+  });
+  await controller.runDailyAbsenceJob({ year: 2026, month: 10, day: 17, dow1to7: 7 });
+  const auto = attendance.all().find((r) => r.student === "s2");
+  assert.equal(auto.status, "غائب");
+  assert.equal(auto.auto, true);
+  assert.equal(auto.notes, AUTO_ABSENCE_NOTE);
+  assert.equal(attendance.all().find((r) => r.student === "s1").auto, undefined);
+
+  await controller.bulkSave(req({ body: {
+    lessonId: "lesson-1", year: 2026, month: 10, day: 17,
+    items: [{ studentId: "s2", status: "غائب", notes: AUTO_ABSENCE_NOTE }],
+  } }), createRes());
+  assert.equal(attendance.all().find((r) => r.student === "s2").auto, false);
 });

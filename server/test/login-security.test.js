@@ -56,6 +56,7 @@ function loadController(storedPassword = FAKE_HASH, extra = {}) {
       syncStorageViewPermissionsForUser: async () => {},
     },
     "../Notification/Notification.controller": {},
+    ...require("./helpers/alertEventsStub").noopAlertDeps,
     ...auditStub().deps,
   };
   const filename = path.join(__dirname, "../Entities/User/User.controller.js");

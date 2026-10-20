@@ -22,6 +22,7 @@ const crypto = require("crypto")
 //Lod env vars
 dotenv.config({path: './config/.env'});
 const { ensureSystemAdmin } = require('./scripts/ensureSystemAdmin');
+const { createFatalShutdown } = require('./utils/fatalShutdown');
 //Craete app
 const app = express();
 app.use(logger);
@@ -104,6 +105,10 @@ app.use('/api/report', require('./Entities/Report/Report.route'));
 app.use('/api/vehicle', require('./Entities/Vehicle/Vehicle.route'));
 app.use('/api/notices', require('./Entities/Notice/Notice.route'));
 app.use('/api/audit', require('./Entities/Audit/Audit.route'));
+// Signed-in live channel (ticket + SSE); replaces the old open /api/events.
+app.use('/api/live', require('./Entities/Live/Live.route'));
+// Each signed-in user's own alert inbox (AiAlerts).
+app.use('/api/alerts', require('./Entities/Alert/Alert.route'));
 app.use('/api/storage', require('./Entities/Storage/Storage.route'))
 app.use('/api/storage/google', require('./Entities/Storage/GoogleDrive.route'))
 // Local Google-Drive-backed replacement for the remote Central Storage
@@ -120,6 +125,9 @@ const { startDailyAbsenceJob } = require('./utils/daily');
 startDailyAbsenceJob();
 const { startVehicleExpiryJob, catchUpVehicleExpiryCheck } = require('./services/vehicleExpiryJob');
 startVehicleExpiryJob();
+// Periodic alerts: every 15 minutes, 07:00-21:00 Asia/Jerusalem.
+const { startAlertJob } = require('./services/alertJob');
+startAlertJob();
 // **********************************END - AUTO_PROCCESS ***************************
 
 
@@ -133,23 +141,13 @@ app.get('/', (req, res) => {console.log("Server is up and running");res.send('Se
 
 // **********************************ALERTS POPUP***************************
 
-const { eventsHandler, broadcast } = require('./utils/sse');
 const { errorPublisher } = require('./utils/errorPublisher');
-
 
 // ملاحظة عربية
 app.get('/api/health', (req, res) => res.json({ ok: true, ts: Date.now() }));
 
-// ملاحظة عربية
-app.get('/api/events', eventsHandler);
-
-// ملاحظة عربية
+// Development-only route that throws, to see the error path end to end.
 if (process.env.NODE_ENV !== 'production') {
-  app.get('/api/test-event', (req, res) => {
-    broadcast({ level: 'success', title: 'اختبار', message: 'حدث اختبار من الخادم' });
-    res.json({ ok: true });
-  });
-
   app.get('/api/boom', (req, res, next) => {
     const err = new Error('سقوط تجريبي');
     err.status = 500;
@@ -158,7 +156,7 @@ if (process.env.NODE_ENV !== 'production') {
   });
 }
 
-// errorPublisher must run before errorHandler: errorHandler sends the response
+// errorPublisher (logs server errors) must run before errorHandler: errorHandler sends the response
 // and doesn't call next(err), so anything registered after it never sees the error.
 app.use(errorPublisher);
 
@@ -187,14 +185,30 @@ const StartServer = async () => {
       .catch((err) => console.error('Notice index:', err.message));
     await require('./Entities/Audit/Audit.model').ensureAuditIndexes()
       .catch((err) => console.error('Audit index:', err.message));
+    await require('./Entities/Live/LiveTicket.model').ensureLiveTicketIndexes()
+      .catch((err) => console.error('LiveTicket index:', err.message));
+    await require('./Entities/Live/LiveEvent.model').ensureLiveEventIndexes()
+      .catch((err) => console.error('LiveEvent index:', err.message));
+    await require('./Entities/Alert/Alert.model').ensureAlertIndexes()
+      .catch((err) => console.error('AiAlerts index:', err.message));
+    await require('./Entities/Notice/Notice.model').ensureJobRunIndexes()
+      .catch((err) => console.error('JobRuns index:', err.message));
+    await require('./Entities/Attendance/Attendance.model').ensureAttendanceIndexes()
+      .catch((err) => console.error('Attendances index:', err.message));
     catchUpVehicleExpiryCheck().catch((err) => console.error('Vehicle expiry catch-up:', err.message));
 
+    // Ends the open live streams, drops every connection and exits; a hard
+    // exit follows after 5 s even if closing hangs.
+    const fatalShutdown = createFatalShutdown({
+      server: httpServer,
+      endStreams: () => require('./Entities/Live/Live.route').endAllStreams(),
+    });
 
     // 1. Unhandled Promise Rejection (async errors)
     process.on('unhandledRejection', (err, promise) => {
-      console.error('💥 Unhandled Rejection:', err.message);
-      console.error(err.stack);
-      httpServer.close(() => process.exit(1));
+      console.error('💥 Unhandled Rejection:', err?.message);
+      console.error(err?.stack);
+      fatalShutdown();
     });
 
     // 2. Uncaught Exceptions (sync errors not caught in try/catch)

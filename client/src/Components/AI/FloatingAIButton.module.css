@@ -532,3 +532,30 @@
     max-width: 94%;
   }
 }
+
+/* ---- tabs, alerts, coming soon ---- */
+.tabs { display: flex; gap: 6px; padding: 4px; border-radius: 12px; background: rgba(15, 23, 42, 0.06); }
+.tabs button { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 38px; border: 0; border-radius: 9px; background: transparent; color: inherit; font: inherit; font-weight: 700; cursor: pointer; }
+.tabs button.tabActive { background: #fff; color: #176b4d; box-shadow: 0 1px 4px rgba(15, 23, 42, 0.14); }
+.tabBadge { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: #dc2626; color: #fff; font-size: 12px; line-height: 20px; text-align: center; }
+.badge { position: absolute; top: -4px; inset-inline-start: -4px; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: #dc2626; color: #fff; font-size: 12px; font-weight: 800; line-height: 22px; text-align: center; border: 2px solid #fff; }
+.alertsPane { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+.alertsBar { display: flex; justify-content: flex-end; }
+.alertsBar button, .alertsNote button { border: 0; background: transparent; color: #176b4d; font: inherit; font-weight: 700; cursor: pointer; text-decoration: underline; min-height: 32px; }
+.alertsBar button:disabled { color: #94a3b8; cursor: default; text-decoration: none; }
+.alertsList { flex: 1; min-height: 0; overflow-y: auto; display: grid; align-content: start; gap: 8px; }
+.alertsNote { margin: 24px 0; text-align: center; color: #64748b; }
+.alertItem { display: grid; gap: 6px; padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(15, 23, 42, 0.1); border-inline-start: 5px solid var(--sev, #2563eb); background: #fff; }
+.alertUnread { background: rgba(37, 99, 235, 0.06); }
+.sev_critical { --sev: #dc2626; }
+.sev_important { --sev: #d97706; }
+.sev_info { --sev: #2563eb; }
+.alertMain { display: grid; gap: 4px; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: start; cursor: pointer; }
+.alertMeta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 12px; color: #64748b; }
+.alertMeta em { font-style: normal; font-weight: 800; color: var(--sev); }
+.alertDot { width: 9px; height: 9px; border-radius: 50%; background: var(--sev); }
+.alertText { font-size: 14px; line-height: 1.55; overflow-wrap: anywhere; }
+.explainButton { justify-self: start; min-height: 32px; padding: 0 12px; border: 1px solid rgba(23, 107, 77, 0.35); border-radius: 999px; background: transparent; color: #176b4d; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.comingSoon { flex: 1; display: grid; place-content: center; gap: 6px; padding: 24px; text-align: center; color: #475569; }
+.comingSoon strong { font-size: 20px; color: #176b4d; }
+.comingSoon p { margin: 0; line-height: 1.6; }

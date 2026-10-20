@@ -5,7 +5,8 @@ const jwt = require("jsonwebtoken");
 const path = require("path");
 const { UserModelDef } = require("../User/User.model");
 const { StorageModelDef } = require("./Storage.model");
-const { broadcast } = require("../../utils/sse");
+const liveBus = require("../../services/liveBus");
+const { createStorageRecipients } = require("../../services/storageRecipients");
 const { repairMisencodedText } = require("../../utils/textEncoding");
 const { can, isSystemTz, SYSTEM_ACTOR_NAME } = require("../../utils/permissions");
 const { audit } = require("../../utils/audit");
@@ -1180,15 +1181,36 @@ const recordStorage = (req, action, { type = "file", relativePath = "", name = "
 const userDisplayName = (user = {}) =>
   `${user?.firstname || ""} ${user?.lastname || ""}`.trim() || String(user?.tz || "");
 
-const broadcastStorageChange = (action, payload = {}) => {
+// Everyone who can see an entry at these client paths (see storageRecipients).
+const storageRecipients = createStorageRecipients({
+  listActiveUsers: async () => {
+    const result = await UserModelDef.get({}, "active").catch(() => null);
+    return result?.success && Array.isArray(result.result) ? result.result : [];
+  },
+  // Metadata rows are stored both with and without the storage root prefix.
+  findEntriesByPath: async (clientPath) => {
+    const forms = Array.from(new Set([getStorageRelativePath(clientPath), normalizeRelativePath(clientPath)]));
+    const results = await Promise.all(forms.map((relativePath) => StorageModelDef.get({ relativePath }).catch(() => null)));
+    return results.flatMap((result) => (result?.success && Array.isArray(result.result) ? result.result : []));
+  },
+  folderCandidatesOf: buildUserFolderCandidates,
+});
+
+const recipientsFor = (storagePaths = [], options = {}) =>
+  storageRecipients(storagePaths.map((p) => getClientRelativePath(p)), options).catch((error) => {
+    console.error("storageRecipients error:", error.message);
+    return [];
+  });
+
+// Live "storage" event for the people who can see the entry: pass the storage
+// paths involved, or recipients computed earlier (before a delete removed the
+// metadata). The event says only that something changed ({ module, action, ts }),
+// never a path or a tz: it is stored in LiveEvents for every recipient, and the
+// browser just reloads its list. Never fails the request.
+const broadcastStorageChange = async (action, { paths = [], extraTzs = [], recipients } = {}) => {
   try {
-    broadcast({
-      type: "storage",
-      module: "storage",
-      action,
-      ts: Date.now(),
-      ...payload,
-    });
+    const tzs = recipients || (await recipientsFor(paths, { extraTzs }));
+    await liveBus.publishToMany(tzs, "storage", { module: "storage", action, ts: Date.now() });
   } catch (error) {
     console.error("broadcastStorageChange error:", error.message);
   }
@@ -1335,10 +1357,7 @@ const createFolder = async (req, res) => {
       after: { name: folderName, path: getClientRelativePath(folder) },
     });
     const clientPath = scope.isAdmin ? folder : stripUserRoot(folder, scope.userRoot);
-    broadcastStorageChange("folder_created", {
-      path: clientPath,
-      scope: scope.isAdmin ? "global" : "user",
-    });
+    await broadcastStorageChange("folder_created", { paths: [folder] });
 
     return res.status(201).json({
       ok: data?.success !== false,
@@ -1443,11 +1462,7 @@ const uploadFile = async (req, res) => {
       size: data.size,
       modifiedAt: new Date(),
     }, { userRoot: scope.isAdmin ? "" : scope.userRoot });
-    broadcastStorageChange("file_uploaded", {
-      path: mappedFile.path,
-      name: mappedFile.name,
-      scope: scope.isAdmin ? "global" : "user",
-    });
+    await broadcastStorageChange("file_uploaded", { paths: [storageRelativePath] });
 
     return res.status(201).json({
       ok: data?.success !== false,
@@ -1822,11 +1837,7 @@ const mergeChunks = async (req, res) => {
       { userRoot: scope.isAdmin ? "" : scope.userRoot }
     );
 
-    broadcastStorageChange("file_uploaded", {
-      path: mappedFile.path,
-      name: mappedFile.name,
-      scope: scope.isAdmin ? "global" : "user",
-    });
+    await broadcastStorageChange("file_uploaded", { paths: [storageRelativePath] });
 
     return res.status(201).json({
       ...(data || {}),
@@ -1879,6 +1890,8 @@ const deleteEntry = async (req, res) => {
       size: req.body?.size ?? null,
     });
     const metadataTree = await getStorageMetadataTree(storageRelativePath);
+    // Before the metadata (and its shares) is removed below.
+    const deleteRecipients = await recipientsFor([storageRelativePath]);
     const deleteResponse = await axios.delete(`${STORAGE_API_BASE_URL}/delete`, {
       data: { relativePath: storageRelativePath },
     });
@@ -1896,10 +1909,7 @@ const deleteEntry = async (req, res) => {
       after: null,
     });
 
-    broadcastStorageChange("entry_deleted", {
-      path: relativePath,
-      scope: scope.isAdmin ? "global" : "user",
-    });
+    await broadcastStorageChange("entry_deleted", { recipients: deleteRecipients });
 
     return res.json({
       ok: data?.success !== false,
@@ -2013,12 +2023,7 @@ const renameFile = async (req, res) => {
       { userRoot: scope.isAdmin ? "" : scope.userRoot }
     );
 
-    broadcastStorageChange("file_renamed", {
-      path: requestedRelativePath,
-      newPath: mappedFile.path,
-      name: mappedFile.name,
-      scope: scope.isAdmin ? "global" : "user",
-    });
+    await broadcastStorageChange("file_renamed", { paths: [storageRelativePath, newStorageRelativePath] });
 
     return res.json({
       ok: renameResponse.data?.success !== false,
@@ -2116,12 +2121,7 @@ const shareEntry = async (req, res) => {
 
     await syncStorageViewPermissionsForUser(targetUser);
 
-    broadcastStorageChange("entry_shared", {
-      path: getClientRelativePath(storageRelativePath),
-      targetTz: targetUser.tz,
-      role,
-      scope: scope.isAdmin ? "global" : "user",
-    });
+    await broadcastStorageChange("entry_shared", { paths: [storageRelativePath], extraTzs: [targetUser.tz] });
 
     return res.json({
       success: true,
@@ -2258,11 +2258,8 @@ const unshareEntry = async (req, res) => {
 
     await syncStorageViewPermissionsForUser(targetUser);
 
-    broadcastStorageChange("entry_unshared", {
-      path: getClientRelativePath(storageRelativePath),
-      targetTz: targetUser.tz,
-      scope: scope.isAdmin ? "global" : "user",
-    });
+    // The user who just lost access hears about it too, so their view refreshes.
+    await broadcastStorageChange("entry_unshared", { paths: [storageRelativePath], extraTzs: [targetUser.tz] });
 
     return res.json({
       success: true,

@@ -94,6 +94,7 @@ function loadController(users, overrides = {}) {
       syncStorageViewPermissionsForUser: async () => {},
     },
     "../Notification/Notification.controller": {},
+    ...require("./helpers/alertEventsStub").noopAlertDeps,
     ...audit.deps,
     ...overrides,
   };
@@ -290,6 +291,21 @@ test("PUT role demotes, clears special permissions and records role_change", asy
   const [row] = audit.find({ module: "users", action: "role_change", targetId: GUIDE_USER.tz });
   assert.equal(row.before.role, GUIDE);
   assert.equal(row.after.role, HELPER);
+});
+
+test("PUT role and PUT permissions pass the actor to the access_changed alert (so it skips him)", async () => {
+  const seen = [];
+  const capture = { "../../services/alertEvents": {
+    ...require("./helpers/alertEventsStub").noopAlertDeps["../../services/alertEvents"],
+    accessChanged: async (target, options) => { seen.push({ tz: target.tz, ...options }); return { created: [] }; },
+  } };
+  await call("putRole", MANAGER, { params: { tz: GUIDE_USER.tz }, body: { role: HELPER } }, createUsers(seed()), capture);
+  await call("putPermissions", MANAGER, { params: { tz: GUIDE_USER.tz }, body: { grants: [], revokes: [] } }, createUsers(seed()), capture);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(seen, [
+    { tz: GUIDE_USER.tz, change: "role", actorTz: MANAGER.tz },
+    { tz: GUIDE_USER.tz, change: "permissions", actorTz: MANAGER.tz },
+  ]);
 });
 
 test("PUT role promotion keeps special permissions", async () => {
@@ -995,3 +1011,78 @@ for (const handler of ["uploadPhoto", "deletePhoto"]) {
     assert.equal(self.res.statusCode, 200);
   });
 }
+
+/* ================= smart-assistant alert hooks ================= */
+
+// Records every alertEvents call; `fail` makes each one throw.
+function alertSpy({ fail = false } = {}) {
+  const calls = [];
+  const record = (name) => async (...args) => {
+    calls.push({ name, args: JSON.parse(JSON.stringify(args)) });
+    if (fail) throw new Error("alerts down");
+  };
+  const stub = {};
+  for (const name of ["userWaiting", "accountLocked", "accessChanged", "systemLoginFailures", "parentRegistered", "vehicleStage"]) {
+    stub[name] = record(name);
+  }
+  return { calls, deps: { "../../services/alertEvents": stub } };
+}
+const flush = () => new Promise((resolve) => setImmediate(resolve));
+
+test("register raises user_waiting for the new waiting user", async () => {
+  const spy = alertSpy();
+  const { controller } = loadController(createUsers(), spy.deps);
+  const out = res();
+  await controller.register({ body: { tz: NEW_TZ, password: "placeholder", firstname: "New", lastname: "User" } }, out);
+  await flush();
+  assert.equal(out.statusCode, 200);
+  assert.equal(spy.calls.length, 1);
+  assert.equal(spy.calls[0].name, "userWaiting");
+  assert.equal(spy.calls[0].args[0].tz, NEW_TZ);
+  assert.equal(spy.calls[0].args[0].password, undefined, "the password never reaches the alert");
+});
+
+test("the automatic lock raises account_locked once; a failing alert does not change the answer", async () => {
+  for (const fail of [false, true]) {
+    const spy = alertSpy({ fail });
+    const users = createUsers({ active: [{ ...GUIDE_USER, password: "enc:right", failedLoginCount: 4, lockedAt: null }] });
+    const { controller } = loadController(users, spy.deps);
+    const out = res();
+    await controller.login({ body: { tz: GUIDE_USER.tz, password: "wrong" }, headers: {}, cookies: {}, ip: "127.0.0.1" }, out);
+    await flush();
+    assert.equal(out.statusCode, 401);
+    assert.deepEqual(spy.calls.map((c) => c.name), ["accountLocked"]);
+    assert.equal(spy.calls[0].args[0].tz, GUIDE_USER.tz);
+    assert.ok(stored(users, GUIDE_USER.tz).lockedAt, "the lock itself is kept");
+  }
+});
+
+test("every fifth failure on the system account raises system_login_failures", async () => {
+  const spy = alertSpy();
+  const users = createUsers({ active: [{ ...SYS, password: "enc:right", failedLoginCount: 4, lockedAt: null }] });
+  const { controller } = loadController(users, spy.deps);
+  await controller.login({ body: { tz: SYSTEM_TZ, password: "wrong" }, headers: {}, cookies: {} }, res());
+  await flush();
+  assert.deepEqual(spy.calls.map((c) => c.name), ["systemLoginFailures"]);
+  assert.equal(spy.calls[0].args[0], 5);
+  await controller.login({ body: { tz: SYSTEM_TZ, password: "wrong" }, headers: {}, cookies: {} }, res());
+  await flush();
+  assert.equal(spy.calls.length, 1, "the sixth failure raises nothing");
+});
+
+test("PUT permissions and PUT role raise access_changed for the target", async () => {
+  const spy = alertSpy();
+  await call("putPermissions", MANAGER, { params: { tz: GUIDE_USER.tz }, body: { grants: ["vehicles.view", "vehicles.edit"], revokes: [] } },
+    createUsers(seed()), spy.deps);
+  await call("putRole", MANAGER, { params: { tz: GUIDE_USER.tz }, body: { role: HELPER } }, createUsers(seed()), spy.deps);
+  await flush();
+  assert.deepEqual(spy.calls.map((c) => [c.name, c.args[0].tz, c.args[1].change]),
+    [["accessChanged", GUIDE_USER.tz, "permissions"], ["accessChanged", GUIDE_USER.tz, "role"]]);
+});
+
+test("a refused permission change raises nothing", async () => {
+  const spy = alertSpy();
+  await call("putPermissions", GUIDE_USER, { params: { tz: HELPER_USER.tz }, body: { grants: [], revokes: [] } }, createUsers(seed()), spy.deps);
+  await flush();
+  assert.equal(spy.calls.length, 0);
+});

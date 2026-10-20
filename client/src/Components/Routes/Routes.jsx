@@ -33,11 +33,10 @@ import FilesPage from '../Files/FilesPage';
 import ViewAllVehicle from '../Vehicle/ViewAllVehicle';
 import EditVehicle from '../Vehicle/EditVehicle';
 import FloatingAIButton from '../AI/FloatingAIButton';
+import { canStored } from '../../utils/session';
 import PrivacyPage from '../Privacy/PrivacyPage';
 
-// Backend is wired up (server/services/ai.service.js), but the widget is
-// hidden until an ANTHROPIC_API_KEY is configured. Flip to true to show it.
-const AI_ENABLED = false;
+// The assistant (alerts now, chat later) shows for accounts with ai.use.
 
 function ProtectedLayout() {
   // ملاحظة عربية
@@ -45,7 +44,7 @@ function ProtectedLayout() {
     <div style={{ height: "100vh", width: "100vw" }}>
       <Header />
       <Outlet />
-      {AI_ENABLED && <FloatingAIButton />}
+      {canStored("ai.use") && <FloatingAIButton />}
     </div>
   );
 }

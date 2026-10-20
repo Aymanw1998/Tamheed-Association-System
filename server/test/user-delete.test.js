@@ -42,6 +42,7 @@ function loadController() {
     "../UploadFile/file": {},
     "../Storage/Storage.controller": {},
     "../Notification/Notification.controller": {},
+    ...require("./helpers/alertEventsStub").noopAlertDeps,
     ...auditStub().deps,
   };
   const filename = path.join(__dirname, "../Entities/User/User.controller.js");

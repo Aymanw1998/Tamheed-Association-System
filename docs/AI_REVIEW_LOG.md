@@ -1666,3 +1666,48 @@ child outside his scope.
 
 **Delivery state:** committed by the agent with the owner's standing approval;
 not pushed.
+
+## 2026-10-20: Smart assistant, Phase A (secure live channel and alerts)
+
+**Scope:** plan `docs/superpowers/plans/2026-10-20-smart-assistant.md` Tasks
+1–3 (spec `docs/superpowers/specs/2026-10-20-smart-assistant-design.md`).
+
+**Changes:**
+
+- Live channel `/api/live` (new): single-use 60-second tickets stored hashed
+  in MongoDB, an SSE stream per signed-in user fed from MongoDB (works across
+  several server processes), user re-checked every minute, 1-hour cap. The
+  old `/api/events` (open to everyone) and the broadcast of server errors are
+  removed. File changes reach only the owner, people it is shared with and
+  `files.manageAll` holders, without ID numbers or paths.
+- Alerts (new `AiAlerts`, `server/services/alertEngine.js`, `alertJob.js`):
+  parent registrations, users waiting for approval, locked accounts, access
+  changes, failed system sign-ins, lessons without attendance, three real
+  absences in a row (auto-marked absences don't count), missing reports, and
+  vehicle documents. Each goes only to users entitled to it now; ar/he/en
+  text; one per day per user; the 15-minute job runs 07:00–21:00 Israel time
+  under a lock; old alerts expire after 180 days.
+- Attendance rows written by the nightly job are now marked `auto: true`.
+- Client: the floating assistant is back for `ai.use` holders with an alerts
+  tab, unread badge and in-app links; the chat tab says "coming soon" until
+  Phase B.
+- A fatal error now always restarts the server within 5 seconds even with
+  open live connections.
+
+**Process:** each task built by a fresh Claude subagent and reviewed by a
+separate one (each needed one fix round). The final Phase A review found a
+possible hour-long outage after a crash, ID numbers in file events and an
+extra database count per poll; fixed and re-reviewed.
+
+**Verification:** `npm run verify`: server 548/548, client 23 suites / 234
+tests, build compiled. Not verified: no browser check, no database.
+
+**Note:** `client/src/Components/Profile/Profile.jsx` has an uncommitted
+change (the "my permissions" list commented out) that is not part of this
+work; left for the owner.
+
+**Requesting Codex review.** No live Codex connection from this session; this
+entry is the handoff.
+
+**Delivery state:** committed by the agent with the owner's standing approval;
+not pushed.

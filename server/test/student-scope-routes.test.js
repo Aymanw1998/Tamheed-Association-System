@@ -87,6 +87,7 @@ function world() {
   const common = {
     "../../utils/permissions": require("../utils/permissions"),
     "../../utils/studentScope": require("../utils/studentScope"),
+    "../../utils/attendanceMarks": require("../utils/attendanceMarks"),
     "../../middleware/logger": { logWithSource() {} },
     "../Notification/Notification.controller": {},
     ...audit.deps,

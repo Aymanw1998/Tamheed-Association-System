@@ -60,7 +60,7 @@ function runInVm(filename, dependencies) {
 }
 
 // Loads the real controller with in-memory models and a fake Drive.
-function loadController({ students = [], attempts = [], uploadResult = null } = {}) {
+function loadController({ students = [], attempts = [], uploadResult = null, extraDeps = {} } = {}) {
   const models = {
     students: createModel(students, { dbName: "tamheed_db", collections: { active: "Students" } }),
     links: createModel(),
@@ -81,6 +81,8 @@ function loadController({ students = [], attempts = [], uploadResult = null } = 
     "../UploadFile/file": drive,
     "../../middleware/logger": { logWithSource() {} },
     "../../utils/israeliId": require("../utils/israeliId"),
+    ...require("./helpers/alertEventsStub").noopAlertDeps,
+    ...extraDeps,
   });
   return { ...controller, models, drive };
 }
@@ -394,4 +396,33 @@ test("a refused registration photo gets an Arabic 400 instead of a server error"
   assert.equal(res.body.code, "BAD_PHOTO");
   assert.equal(res.body.message, "الصورة يجب أن تكون JPG أو PNG أو WEBP وحتى 5MB");
   assert.deepEqual(calls, []);
+});
+
+/* ---------------- smart-assistant alert ---------------- */
+
+test("a new parent request raises parent_registration; a known ID or a failing alert changes nothing", async () => {
+  const calls = [];
+  const alerts = (fail) => ({ "../../services/alertEvents": {
+    async parentRegistered(student) { calls.push(JSON.parse(JSON.stringify(student))); if (fail) throw new Error("alerts down"); },
+  } });
+  const flush = () => new Promise((resolve) => setImmediate(resolve));
+
+  const ctrl = loadController({ extraDeps: alerts(false) });
+  const res = await call(ctrl.submitRegistration, { params: { token: await currentToken(ctrl) }, body: registration() });
+  await flush();
+  assert.equal(res.statusCode, 200);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].firstname, "طفل");
+  assert.ok(calls[0]._id, "the alert links to the saved request");
+
+  const known = loadController({ students: [{ tz: VALID_TZ, status: "ينتظر", source: "اهل" }], extraDeps: alerts(false) });
+  await call(known.submitRegistration, { params: { token: await currentToken(known) }, body: registration() });
+  await flush();
+  assert.equal(calls.length, 1, "a known ID raises nothing");
+
+  const failing = loadController({ extraDeps: alerts(true) });
+  const ok = await call(failing.submitRegistration, { params: { token: await currentToken(failing) }, body: registration() });
+  await flush();
+  assert.equal(ok.statusCode, 200);
+  assert.deepEqual(plain(ok.body), { ok: true, message: RECEIVED });
 });

@@ -47,6 +47,10 @@ const PUBLIC_ROUTES = {
     "GET /open-signed", // signed, time-limited link
     "GET /download-signed",
   ],
+  // EventSource cannot send the Authorization header: the stream is opened
+  // with a single-use 60 s ticket from POST /ticket, and the handler re-loads
+  // the user (active, not locked) exactly as loadActor does before streaming.
+  "Live/Live.route.js": ["GET /stream"],
 };
 
 // Routes any active signed-in user may call (loadActor, no key): the
@@ -55,6 +59,9 @@ const ANY_ACTOR_ROUTES = {
   "Report/Report.route.js": ["GET /", "GET /:id"], // reports.viewAll checked in the controller
   "Vehicle/Vehicle.route.js": ["GET /me/permissions", "GET /alerts"], // own permissions / assigned vehicles
   "User/Auth.route.js": ["POST /change-password"], // one's own password; checks the current one
+  "Live/Live.route.js": ["POST /ticket"], // a ticket for one's own live channel
+  // One's own alert inbox: every query is filtered by the caller's tz.
+  "Alert/Alert.route.js": ["GET /", "POST /read-all", "POST /:id/read"],
 };
 
 const rel = (file) => path.relative(ENTITIES, file).split(path.sep).join("/").replace(/^\.\.\/routes\//, "routes/");

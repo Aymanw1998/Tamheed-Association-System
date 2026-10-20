@@ -1,7 +1,17 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { chatWithAI } from "../../WebServer/services/ai/functionsAI";
+import { listAlerts, markAlertRead, markAllAlertsRead } from "../../WebServer/services/alerts/functionsAlerts";
+import { openLiveStream } from "../../WebServer/services/live/liveStream";
+import { alertText, alertTime, createThrottle, markReadLocal, mergeAlert, mergeAlerts, normalizeAlert, safeLink, severityClass, unreadCount } from "../../utils/alertDisplay";
 import { useI18n } from "../../i18n/I18nContext";
 import styles from "./FloatingAIButton.module.css";
+
+// The chat backend is still off (server AI_ENABLED = false). Flip this when
+// /api/ai is switched on; until then the chat tab shows "coming soon".
+const CHAT_ENABLED = false;
+// The catch-up refetch when the tab regains focus runs at most this often.
+const FOCUS_REFETCH_MS = 10 * 1000;
 
 const SIZE_KEY = "tamheed_ai_chat_size";
 
@@ -40,6 +50,68 @@ export default function FloatingAIButton() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const navigate = useNavigate();
+  const [tab, setTab] = useState("alerts");
+  const [alerts, setAlerts] = useState([]);
+  const [alertsState, setAlertsState] = useState("loading"); // loading | ready | error
+  const badge = unreadCount(alerts);
+  const a = (key) => t(`assistant.${key}`);
+
+  const loadAlerts = useCallback(async () => {
+    setAlertsState("loading");
+    try {
+      const fetched = await listAlerts();
+      setAlerts((prev) => mergeAlerts(prev, fetched));
+      setAlertsState("ready");
+    } catch {
+      setAlertsState("error");
+    }
+  }, []);
+
+  // The one live stream of the app: personal alerts arrive here.
+  useEffect(() => {
+    loadAlerts();
+    return openLiveStream({ onAlert: (alert) => setAlerts((prev) => mergeAlert(prev, normalizeAlert(alert))) });
+  }, [loadAlerts]);
+
+  // Catch up after a stream gap: when the panel opens and when the tab regains focus.
+  useEffect(() => {
+    if (open) loadAlerts();
+  }, [open, loadAlerts]);
+
+  // Focus can fire many times in a row (alt-tab, devtools): at most once per 10 s.
+  const focusThrottleRef = useRef(null);
+  if (!focusThrottleRef.current) focusThrottleRef.current = createThrottle(FOCUS_REFETCH_MS);
+  useEffect(() => {
+    const onFocus = () => focusThrottleRef.current(loadAlerts);
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [loadAlerts]);
+
+  const openAlert = (alert) => {
+    setAlerts((prev) => markReadLocal(prev, alert.id));
+    if (!alert.read) markAlertRead(alert.id).catch(() => {});
+    const link = safeLink(alert.link);
+    if (link) {
+      setOpen(false);
+      navigate(link);
+    }
+  };
+
+  const readAll = async () => {
+    setAlerts((prev) => markReadLocal(prev));
+    try {
+      await markAllAlertsRead();
+    } catch {
+      loadAlerts();
+    }
+  };
+
+  const explainAlert = (alert) => {
+    setInput(`${a("explainPrompt")}${alertText(alert, language)}`);
+    setTab("chat");
+    window.setTimeout(() => inputRef.current?.focus(), 0);
+  };
 
   const canSend = useMemo(() => input.trim().length > 0 && !loading, [input, loading]);
   const prompts = t("ai.prompts", []);
@@ -152,7 +224,7 @@ export default function FloatingAIButton() {
         <header className={styles.panelHeader}>
           <div>
             <span>Tamheed AI</span>
-            <h2>{t("ai.title")}</h2>
+            <h2>{a("title")}</h2>
           </div>
           <div className={styles.panelActions}>
             <div className={styles.sizeControls} aria-label="Chat size">
@@ -173,6 +245,64 @@ export default function FloatingAIButton() {
           </div>
         </header>
 
+        <div className={styles.tabs} role="tablist">
+          {["chat", "alerts"].map((name) => (
+            <button
+              key={name}
+              type="button"
+              role="tab"
+              aria-selected={tab === name}
+              className={tab === name ? styles.tabActive : ""}
+              onClick={() => setTab(name)}
+            >
+              {a(name === "chat" ? "tabChat" : "tabAlerts")}
+              {name === "alerts" && badge > 0 && <b className={styles.tabBadge}>{badge}</b>}
+            </button>
+          ))}
+        </div>
+
+        {tab === "alerts" && (
+          <section className={styles.alertsPane} aria-label={a("alertsLabel")}>
+            <div className={styles.alertsBar}>
+              <button type="button" disabled={badge === 0} onClick={readAll}>{a("markAllRead")}</button>
+            </div>
+            <div className={styles.alertsList}>
+              {alertsState === "loading" && alerts.length === 0 && <p className={styles.alertsNote}>{a("loading")}</p>}
+              {alertsState === "error" && (
+                <p className={styles.alertsNote}>
+                  {a("loadFailed")} <button type="button" onClick={loadAlerts}>{a("retry")}</button>
+                </p>
+              )}
+              {alertsState === "ready" && alerts.length === 0 && <p className={styles.alertsNote}>{a("noAlerts")}</p>}
+              {alerts.map((alert) => {
+                const sev = severityClass(alert.severity);
+                return (
+                  <article key={alert.id} className={`${styles.alertItem} ${styles[`sev_${sev}`]} ${alert.read ? "" : styles.alertUnread}`}>
+                    <button type="button" className={styles.alertMain} onClick={() => openAlert(alert)}>
+                      <span className={styles.alertMeta}>
+                        <i className={styles.alertDot} aria-hidden="true" />
+                        <span>{a(`severity.${sev}`)}</span>
+                        <time dateTime={alert.at}>{alertTime(alert.at, language)}</time>
+                        {!alert.read && <em>{a("unread")}</em>}
+                      </span>
+                      <span className={styles.alertText}>{alertText(alert, language)}</span>
+                    </button>
+                    {CHAT_ENABLED && <button type="button" className={styles.explainButton} onClick={() => explainAlert(alert)}>{a("explain")}</button>}
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {tab === "chat" && !CHAT_ENABLED && (
+          <div className={styles.comingSoon}>
+            <strong>{a("comingSoonTitle")}</strong>
+            <p>{a("comingSoonText")}</p>
+          </div>
+        )}
+
+        {tab === "chat" && CHAT_ENABLED && (<>
         <div className={styles.quickPrompts} aria-label="Quick prompts">
           {Array.isArray(prompts) && prompts.map((prompt) => (
             <button type="button" key={prompt} disabled={loading} onClick={() => submitMessage(prompt)}>
@@ -232,17 +362,19 @@ export default function FloatingAIButton() {
             {loading ? t("common.sending") : t("common.send")}
           </button>
         </form>
+        </>)}
       </aside>
 
       <button
         type="button"
         className={`${styles.floatingButton} ${open ? styles.active : ""}`}
         onClick={() => setOpen((value) => !value)}
-        aria-label={open ? t("common.close") : t("ai.open")}
-        title={t("ai.title")}
+        aria-label={open ? t("common.close") : a("title")}
+        title={a("title")}
       >
         <span className={styles.icon}>{open ? "×" : "AI"}</span>
-        {!open && <span className={styles.pulse} />}
+        {!open && badge === 0 && <span className={styles.pulse} />}
+        {!open && badge > 0 && <span className={styles.badge}>{badge > 9 ? "9+" : badge}</span>}
       </button>
     </>
   );

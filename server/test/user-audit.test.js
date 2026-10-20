@@ -62,6 +62,7 @@ function loadController(users) {
       syncStorageViewPermissionsForUser: async () => {},
     },
     "../Notification/Notification.controller": {},
+    ...require("./helpers/alertEventsStub").noopAlertDeps,
     ...audit.deps,
   };
   const filename = path.join(__dirname, "../Entities/User/User.controller.js");

@@ -87,6 +87,17 @@ const safeNotify = async (payload) => {
   }
 };
 
+/* ================= Smart-assistant alerts ================= */
+// Fire-and-forget: never awaited, errors only logged, so an alert can neither
+// slow down nor break the action. Loaded on use (a load failure is logged).
+const raiseAlert = (event, ...args) => {
+  Promise.resolve()
+    .then(() => require("../../services/alertEvents")[event](...args))
+    .catch((error) => logWithSource(`User.alert.${event}`, error));
+};
+// Only what an alert text needs; never a password or a token.
+const alertPerson = (user = {}) => ({ tz: user.tz, firstname: user.firstname || "", lastname: user.lastname || "" });
+
 const safeEnsureStorageFolder = async (user) => {
   try {
     await ensureUserStorageFolder(user);
@@ -238,7 +249,10 @@ async function countFailedSignIn(req, user, room, isSystem) {
     });
     // The count comes from an atomic increment, so exactly one request sees
     // each multiple of 5. Not awaited: SMTP must not delay the answer.
-    if (alertSystem) void sendLockoutAlert(counted?.result?.failedLoginCount);
+    if (alertSystem) {
+      void sendLockoutAlert(counted?.result?.failedLoginCount);
+      raiseAlert("systemLoginFailures", Number(counted?.result?.failedLoginCount) || 0);
+    }
     if (lockedAt && !isSystem) {
       const locked = await UserModelDef.lockIfThresholdReached(user.tz, lockedAt, LOCK_THRESHOLD, room);
       // Only the request that actually set the lock records it.
@@ -246,6 +260,7 @@ async function countFailedSignIn(req, user, room, isSystem) {
         await recordUser({ actor: { isSystem: true }, ip: req.ip }, "lock",
           { tz: user.tz, firstname: user.firstname, lastname: user.lastname, lockedAt: null },
           { tz: user.tz, firstname: user.firstname, lastname: user.lastname, lockedAt: locked.result.lockedAt ?? lockedAt });
+        raiseAlert("accountLocked", alertPerson(user));
       }
     }
   } catch (countError) {
@@ -796,6 +811,8 @@ const register = async (req, res) => {
     const created = await UserModelDef.create(model, room);
     if (room === "active") {
       await safeEnsureStorageFolder(model);
+    } else {
+      raiseAlert("userWaiting", alertPerson(model));
     }
 
     await safeNotify({
@@ -1447,6 +1464,7 @@ const putPermissions = async (req, res) => {
     };
     await UserModelDef.update({ tz: user.tz }, patch, room);
     await recordUser(req, "permission_change", user, { ...user, ...patch });
+    raiseAlert("accessChanged", alertPerson(user), { change: "permissions", actorTz: req.actor?.tz });
 
     const after = { ...user, ...patch };
     return res.status(200).json({
@@ -1488,6 +1506,7 @@ const putRole = async (req, res) => {
     }
     await UserModelDef.update({ tz: user.tz }, patch, room);
     await recordUser(req, "role_change", user, { ...user, ...patch });
+    raiseAlert("accessChanged", alertPerson(user), { change: "role", actorTz: req.actor?.tz });
 
     return res.status(200).json({ ok: true, role, demoted });
   } catch (err) {

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import styles from "./FilesPage.module.css";
 import { toast } from "../../ALERT/SystemToasts.jsx";
-import { API_BASE_URL } from "../../WebServer/services/api";
+import { openLiveStream } from "../../WebServer/services/live/liveStream";
 import {
   cancelStorageUpload,
   createStorageFolder,
@@ -328,6 +328,10 @@ export default function FilesPage() {
       if (!silentError) setLoading(false);
     }
   };
+  // The live stream below stays open across folder changes; it reaches the
+  // current folder through this ref instead of being reopened.
+  const loadFilesRef = useRef(loadFiles);
+  loadFilesRef.current = loadFiles;
 
   useEffect(() => {
     loadFiles();
@@ -370,32 +374,30 @@ export default function FilesPage() {
   useEffect(() => {
     if (isSharedView) return undefined;
 
-    const events = new EventSource(`${API_BASE_URL}/events`);
-
-    events.onmessage = (event) => {
-      try {
-        const payload = JSON.parse(event.data || "{}");
-        if (payload?.type !== "storage") return;
-
-        if (refreshTimerRef.current) {
-          window.clearTimeout(refreshTimerRef.current);
-        }
-
-        refreshTimerRef.current = window.setTimeout(() => {
-          loadFiles({ silentError: true });
-        }, 250);
-      } catch (parseError) {
-        console.error("storage events parse error", parseError);
+    // Only changes to entries this user can see arrive here (signed-in channel).
+    // One stream for the page's lifetime; each event reloads the folder shown now.
+    const reloadSoon = () => {
+      if (refreshTimerRef.current) {
+        window.clearTimeout(refreshTimerRef.current);
       }
+
+      refreshTimerRef.current = window.setTimeout(() => {
+        loadFilesRef.current({ silentError: true });
+      }, 250);
     };
+    const closeLive = openLiveStream({
+      onStorage: reloadSoon,
+      // Changes made while the stream was closed are not replayed.
+      onOpen: reloadSoon,
+    });
 
     return () => {
       if (refreshTimerRef.current) {
         window.clearTimeout(refreshTimerRef.current);
       }
-      events.close();
+      closeLive();
     };
-  }, [currentPath, isSharedView]);
+  }, [isSharedView]);
 
   const pathParts = useMemo(() => currentPath.split("/").filter(Boolean), [currentPath]);
 
