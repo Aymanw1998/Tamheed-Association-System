@@ -1711,3 +1711,52 @@ entry is the handoff.
 
 **Delivery state:** committed by the agent with the owner's standing approval;
 not pushed.
+
+## 2026-10-20: Smart assistant, Phase B (conversation engine and chat)
+
+**Scope:** plan `docs/superpowers/plans/2026-10-20-smart-assistant.md` Tasks 4–6.
+
+**Changes:**
+
+- Read tools for the assistant (`server/services/assistant/`): whoami,
+  search_students, get_student, list_lessons, attendance_summary,
+  pending_items, vehicle_alerts, my_reports, notices, navigate. Every tool
+  runs as the signed-in user with the same permission and scope rules as the
+  screens (a guide only reaches his own students); strict input schemas;
+  results trimmed; the system account never appears; a child's ID number and
+  parents' phones are sent to the model only when explicitly asked for; tool
+  calls are logged by actor id, tool and input keys only.
+- `POST /api/ai/chat` streams the answer; Claude (`claude-opus-5-5`, low
+  effort, with server-side fallback) can call the tools up to 8 rounds per
+  message; conversations are saved per user only after each round completes
+  (no half-saved turns after errors, refusals or closed tabs); 30 messages per
+  user per hour; one turn at a time per conversation; conversations capped in
+  size and deleted after 90 days unused; list / open / delete conversations.
+- Chat UI in the floating assistant: streaming text, conversation list,
+  suggestions by permission, navigation buttons, copy, ar/he/en. Model text is
+  shown as Markdown through `marked` 12.0.2 + `dompurify` 3.1.6 with raw HTML
+  escaped and links only to the app's own screens.
+
+**Process:** each task built by a fresh Claude subagent and reviewed by a
+separate one (search inputs were being written to the log; a link with a
+hidden tab character could leave the site — both fixed). The final Phase B
+review found a stop reason that could break a conversation permanently, no
+lock against two sends at once, and a chat that could stay stuck after an
+error; fixed and re-reviewed.
+
+**Verification:** `npm run verify`: server 623/623, client 27 suites / 285
+tests, build compiled. Not verified: no real Anthropic key (the SDK request
+shapes were checked against the installed 0.125.0 types only), no browser,
+no database.
+
+**Before release:** set `ANTHROPIC_API_KEY` on the server; try one text
+question, one data question, stopping mid-answer, and two tabs on the same
+conversation. Mention in the privacy policy that questions and the data
+needed to answer them are sent to Anthropic.
+
+**Requesting Codex review.** No live Codex connection from this session; this
+entry is the handoff.
+
+**Delivery state:** committed by the agent with the owner's standing approval;
+not pushed. The owner's own in-progress UI edits (Header, Profile,
+EditStudent, EditUser, ViewAllUser, session.js) are not part of this commit.

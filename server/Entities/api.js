@@ -57,11 +57,12 @@ const api = {
   },
 
   // One page of documents plus the total matching the filter (for paged lists).
-  async readPage({ dbName, collection, filter = {}, sort = {}, skip = 0, limit = 50 }) {
+  // `projection` (optional) limits the fields returned, e.g. { messages: 0 }.
+  async readPage({ dbName, collection, filter = {}, sort = {}, skip = 0, limit = 50, projection }) {
     await ensureConnected();
     const Model = getModel(dbName, collection);
     const [docs, total] = await Promise.all([
-      Model.find(filter).sort(sort).skip(skip).limit(limit).lean(),
+      Model.find(filter, projection).sort(sort).skip(skip).limit(limit).lean(),
       Model.countDocuments(filter),
     ]);
     return { success: true, result: docs.map(toPlain), total };
@@ -120,6 +121,20 @@ const api = {
       filter,
       { $set: newData },
       { new: true }
+    ).lean();
+    return { success: true, result: toPlain(updated) };
+  },
+
+  // Appends `items` to the array `field` of one existing document and sets the
+  // `set` fields, in one atomic write. Never upserts; result is null when
+  // nothing matches. The array itself is left out of the returned document.
+  async push({ dbName, collection, filter, field, items, set = {} }) {
+    await ensureConnected();
+    const Model = getModel(dbName, collection);
+    const updated = await Model.findOneAndUpdate(
+      filter,
+      { $push: { [field]: { $each: items } }, $set: set },
+      { new: true, projection: { [field]: 0 } }
     ).lean();
     return { success: true, result: toPlain(updated) };
   },

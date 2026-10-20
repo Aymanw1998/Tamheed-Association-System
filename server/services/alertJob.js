@@ -7,6 +7,8 @@
 //                         the student
 //   report_missing        from 20:00: a teacher who had a lesson today has no
 //                         report dated today -> that teacher, once a day
+// Once a day (first slot that runs) it also deletes assistant conversations
+// unused for 90 days, under its own daily JobRuns lock.
 // Several server processes may run this: each 15-minute slot takes a JobRuns
 // lock row first (unique lockKey), so only one process runs a slot.
 // Dependencies are injectable for tests.
@@ -14,6 +16,8 @@ const cron = require("node-cron");
 const { renderAlert, defaultSeverity } = require("./alertTemplates");
 
 const JOB = "alerts";
+const CLEANUP_JOB = "ai-conversations-cleanup";
+const CONVERSATION_UNUSED_DAYS = 90;
 const TIME_ZONE = "Asia/Jerusalem";
 const START_MIN = 7 * 60;
 const END_MIN = 21 * 60;
@@ -158,6 +162,15 @@ async function checkMissingReports(deps, clock, lessons, now) {
   return raised;
 }
 
+// Assistant conversations unused for 90 days are deleted once a day: the first
+// slot of the day that runs (normally 07:00) takes a second, daily JobRuns
+// lock, so one process does it. Null when it did not run.
+async function cleanUpConversations(deps, clock, now) {
+  if (typeof deps.deleteStaleConversations !== "function") return null;
+  if (!(await deps.acquireLock(`${CLEANUP_JOB}:${clock.date}`, clock))) return null;
+  return deps.deleteStaleConversations(new Date(now.getTime() - CONVERSATION_UNUSED_DAYS * 24 * 60 * 60 * 1000));
+}
+
 async function runAlertJob({ now = new Date(), deps = createDeps() } = {}) {
   const clock = jerusalemClock(now);
   if (clock.minutes < START_MIN || clock.minutes > END_MIN) return { skipped: "outside_hours" };
@@ -185,6 +198,13 @@ async function runAlertJob({ now = new Date(), deps = createDeps() } = {}) {
         result.errors.push(`${name}: ${error.message}`);
         deps.log(`${name} failed`, error);
       }
+    }
+    try {
+      const deleted = await cleanUpConversations(deps, clock, now);
+      if (deleted != null) result.conversationsDeleted = deleted;
+    } catch (error) {
+      result.errors.push(`conversation_cleanup: ${error.message}`);
+      deps.log("conversation_cleanup failed", error);
     }
     return result;
   } finally {
@@ -214,6 +234,8 @@ function createDeps() {
       (await AttendanceModelDef.latestOfStudent(studentId, toKey, limit)) || [],
     findStudent: async (id) => rows(await StudentModelDef.get({ _id: String(id) }))[0] || null,
     reportsBetween: async (from, to) => rows(await ReportModelDef.get({ date: { $gte: from, $lt: to } })),
+    deleteStaleConversations: (cutoff) =>
+      require("../Entities/AiConversation/AiConversation.model").AiConversationModelDef.deleteUnusedBefore(cutoff),
     // The unique lockKey index (Notice.model) makes the insert the lock.
     async acquireLock(lockKey, clock) {
       try {

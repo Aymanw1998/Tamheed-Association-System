@@ -10,6 +10,7 @@ const connectDB = require('./config/db');
 const mongoSanitize = require('express-mongo-sanitize');
 const helmet = require('helmet');
 const xss = require('xss-clean');
+const { skipFor } = require('./middleware/skipFor');
 const cors = require('cors');
 const mongoose = require('mongoose');
 const axios = require('axios');
@@ -88,11 +89,9 @@ app.use(helmet({
   crossOriginResourcePolicy: false })); // ملاحظة عربية
 
 app.use(mongoSanitize()); // Sanitize data for privent NoSql injection attack
-app.use(xss()); // Prevent XSS attacks
-
-// /api/ai/chat is reachable without authentication and bills a real Anthropic
-// call per request, so it stays unmounted until its routes require auth.
-const AI_ENABLED = false;
+// Prevent XSS attacks. The assistant's chat message is exempt: it is sent to the
+// model and stored as typed, and only ever rendered as text (routes/ai.routes.js).
+app.use(skipFor(["/api/ai/chat"], xss()));
 
 // Routes
 app.use('/api/lesson', require('./Entities/Lesson/Lesson.route'));
@@ -117,9 +116,8 @@ app.use('/api/storage/google', require('./Entities/Storage/GoogleDrive.route'))
 // loopback only (see the route file) since it's colocated on this public
 // app rather than on an isolated host like the remote service it replaces.
 app.use('/api/storage-backend', require('./Entities/Storage/CentralStorageBackend.route'))
-if (AI_ENABLED) {
-  app.use("/api/ai", aiRoutes);
-}
+// The assistant: signed in + ai.use on every route, 30 messages per user per hour.
+app.use("/api/ai", aiRoutes);
 // **********************************AUTO_PROCCESS ***************************
 const { startDailyAbsenceJob } = require('./utils/daily');
 startDailyAbsenceJob();
@@ -195,6 +193,10 @@ const StartServer = async () => {
       .catch((err) => console.error('JobRuns index:', err.message));
     await require('./Entities/Attendance/Attendance.model').ensureAttendanceIndexes()
       .catch((err) => console.error('Attendances index:', err.message));
+    await require('./Entities/AiConversation/AiConversation.model').ensureConversationIndexes()
+      .catch((err) => console.error('AiConversations index:', err.message));
+    await require('./Entities/AiUsage/AiRate.model').ensureAiRateIndexes()
+      .catch((err) => console.error('AiRates index:', err.message));
     catchUpVehicleExpiryCheck().catch((err) => console.error('Vehicle expiry catch-up:', err.message));
 
     // Ends the open live streams, drops every connection and exits; a hard

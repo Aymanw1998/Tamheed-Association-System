@@ -75,6 +75,17 @@ test("safeLink allows only in-app paths", () => {
   expect(safeLink(null)).toBe("");
 });
 
+test("safeLink refuses control and whitespace characters a browser would strip", () => {
+  expect(safeLink("/\t/evil.com")).toBe("");
+  expect(safeLink("/\n/evil.com")).toBe("");
+  expect(safeLink("/\r/evil.com")).toBe("");
+  expect(safeLink("/\u0000x")).toBe("");
+  expect(safeLink("/\u007f/evil.com")).toBe("");
+  expect(safeLink(" /x")).toBe("");
+  expect(safeLink("/a b")).toBe("");
+  expect(safeLink("/students/123?tab=a#top")).toBe("/students/123?tab=a#top");
+});
+
 test("createThrottle runs at most once per window", () => {
   let now = 1000;
   const throttle = createThrottle(10000, () => now);

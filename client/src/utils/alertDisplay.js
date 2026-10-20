@@ -70,8 +70,23 @@ export const mergeAlerts = (current, fetched) => {
 };
 
 // Only in-app routes: "/x" yes, "//host", "http://..." and "" no.
-export const safeLink = (link) =>
-  typeof link === "string" && link.startsWith("/") && !link.startsWith("//") && !link.includes("\\") ? link : "";
+// An in-app path only: starts with one "/", no backslash, and no control or
+// whitespace character (a browser strips tab/newline, so "/\t/evil.com"
+// would become "//evil.com"); resolved against this origin it must stay here.
+const UNSAFE_LINK_CHARS = /[\x00-\x20\x7f\\]/; // eslint-disable-line no-control-regex
+const FALLBACK_ORIGIN = "http://app.invalid";
+
+export const safeLink = (link) => {
+  if (typeof link !== "string" || !link.startsWith("/") || link.startsWith("//") || UNSAFE_LINK_CHARS.test(link)) return "";
+  const origin = typeof window !== "undefined" && window.location?.origin && window.location.origin !== "null"
+    ? window.location.origin
+    : FALLBACK_ORIGIN;
+  try {
+    return new URL(link, origin).origin === origin ? link : "";
+  } catch {
+    return "";
+  }
+};
 
 // throttle(fn) runs fn unless it already ran less than `ms` ago; returns
 // whether it ran. Used for the assistant's catch-up refetch on window focus.

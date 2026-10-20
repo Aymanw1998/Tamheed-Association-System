@@ -4,21 +4,12 @@ const { audit } = require("../../utils/audit");
 const { UserModelDef } = require("../User/User.model");
 const { isSystemTz } = require("../../utils/permissions");
 const { StudentModelDef } = require("../Student/Student.model");
-const { createStudentScope, mergeRoster } = require("../../utils/studentScope");
+const { createStudentScope, mergeRoster, scopeLesson } = require("../../utils/studentScope");
 
 // Student scope: null (students.viewAll, today's behaviour) or the Set of
 // student _ids the actor may see. Hidden ids never leave the server; the
 // stored roster and the audit rows keep the true list.
 const scope = createStudentScope({ lessonModel: LessonModelDef, studentModel: StudentModelDef });
-
-// The lesson as the actor may see it: list_students cut to visible ids, plus
-// hiddenCount. num_in_list stays the true total. Unchanged for viewAll.
-function scopeLesson(lesson, visible) {
-  if (!visible) return lesson;
-  const all = Array.isArray(lesson.list_students) ? lesson.list_students : [];
-  const shown = all.filter((id) => visible.has(String(id)));
-  return { ...lesson, list_students: shown, hiddenCount: all.length - shown.length, num_in_list: all.length };
-}
 
 // Waiting-list status (parent registration, until staff approve).
 const PENDING_STATUS = "ينتظر";

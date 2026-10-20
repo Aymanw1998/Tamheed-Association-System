@@ -45,4 +45,14 @@ function mergeRoster(existing, submitted, visible) {
   return [...kept, ...hidden];
 }
 
-module.exports = { createStudentScope, mergeRoster };
+// Used by the Lesson controller and the assistant tools. The lesson as the
+// actor may see it: list_students cut to visible ids, plus
+// hiddenCount. num_in_list stays the true total. Unchanged for viewAll.
+function scopeLesson(lesson, visible) {
+  if (!visible) return lesson;
+  const all = Array.isArray(lesson.list_students) ? lesson.list_students : [];
+  const shown = all.filter((id) => visible.has(String(id)));
+  return { ...lesson, list_students: shown, hiddenCount: all.length - shown.length, num_in_list: all.length };
+}
+
+module.exports = { createStudentScope, mergeRoster, scopeLesson };

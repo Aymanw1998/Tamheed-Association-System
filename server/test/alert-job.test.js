@@ -246,3 +246,32 @@ test("Attendances has a { student, dateKey: -1 } index for the absence-streak re
   const server = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "server.js"), "utf8");
   assert.match(server, /ensureAttendanceIndexes\(\)/, "server.js does not create the Attendance index at startup");
 });
+
+/* ---------------------- assistant conversations unused for 90 days */
+
+test("once a day the job deletes assistant conversations unused for 90 days", async () => {
+  const locks = new Set();
+  const cutoffs = [];
+  const make = () => {
+    const deps = fakeDeps({ locks });
+    deps.deleteStaleConversations = async (cutoff) => { cutoffs.push(cutoff); return 2; };
+    return deps;
+  };
+  const first = await runAlertJob({ now: at("07:00"), deps: make() });
+  assert.equal(first.conversationsDeleted, 2);
+  assert.equal(cutoffs.length, 1);
+  assert.equal(at("07:00").getTime() - cutoffs[0].getTime(), 90 * 24 * 60 * 60 * 1000);
+  await runAlertJob({ now: at("07:15"), deps: make() });
+  await runAlertJob({ now: at("14:00"), deps: make() });
+  assert.equal(cutoffs.length, 1, "not again the same day");
+  await runAlertJob({ now: new Date("2026-10-21T07:00:00+03:00"), deps: make() });
+  assert.equal(cutoffs.length, 2, "the next day runs again");
+});
+
+test("a failed conversation cleanup is reported and does not stop the alert checks", async () => {
+  const deps = fakeDeps();
+  deps.deleteStaleConversations = async () => { throw new Error("db down"); };
+  const result = await runAlertJob({ now: at("14:00"), deps });
+  assert.ok(result.errors.some((e) => e.startsWith("conversation_cleanup")));
+  assert.ok(recipientsOf(deps.store, "lesson_no_attendance").length > 0);
+});
