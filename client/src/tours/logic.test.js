@@ -25,6 +25,16 @@ describe("tourForPath", () => {
   test("detail tour matches an id", () => {
     expect(tourForPath("/students/abc", [FAKE[1]]).id).toBe("student-detail");
   });
+  test("anchored list and detail routes are reachable in either order", () => {
+    const list = T({ id: "students", route: /^\/students\/?$/ });
+    const detail = T({ id: "student", route: /^\/students\/[^/]+\/?$/, detail: true });
+    [[list, detail], [detail, list]].forEach((tours) => {
+      expect(tourForPath("/students", tours).id).toBe("students");
+      expect(tourForPath("/students/", tours).id).toBe("students");
+      expect(tourForPath("/students/abc", tours).id).toBe("student");
+      expect(tourForPath("/students/new", tours)).toBeNull();
+    });
+  });
   test("first match wins", () => {
     expect(tourForPath("/students", FAKE).id).toBe("students");
   });
@@ -53,6 +63,10 @@ describe("newAccess", () => {
   test("permissions.manage is an ability of users", () => {
     expect(newAccess(["users.view"], ["users.view", "permissions.manage"]))
       .toEqual({ seed: false, sections: [], abilities: ["users"] });
+  });
+  test("permissions.manage without any users key gives nothing", () => {
+    expect(newAccess(["students.view"], ["students.view", "permissions.manage"]))
+      .toEqual({ seed: false, sections: [], abilities: [] });
   });
   test("attendance counts toward calendar", () => {
     expect(newAccess(["calendar.view"], ["calendar.view", "attendance.view"]))

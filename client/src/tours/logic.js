@@ -28,7 +28,10 @@ export const newAccess = (knownKeys, permissions) => {
     const mod = moduleOf(key);
     const section = SECTION_OF[mod];
     if (!section) return;
-    if (mod === "permissions" || knownSections.has(section)) abilities.add(section);
+    // Managing permissions only extends a section the user already has.
+    if (mod === "permissions") {
+      if (knownSections.has(section)) abilities.add(section);
+    } else if (knownSections.has(section)) abilities.add(section);
     else sections.add(section);
   });
   sections.forEach((s) => abilities.delete(s));

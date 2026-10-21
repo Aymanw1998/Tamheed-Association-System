@@ -26,6 +26,18 @@ test("every section tour exists or is pending", () => {
   });
 });
 
+test("no tour is both pending and written", () => {
+  const ids = new Set(TOURS.map((t) => t.id));
+  PENDING_TOURS.forEach((id) => expect(ids.has(id)).toBe(false));
+});
+
+test("list tours are anchored and detail tours match one record", () => {
+  TOURS.filter((t) => t.route).forEach((t) => {
+    expect(t.route.source.startsWith("^")).toBe(true);
+    expect(t.route.source.endsWith("$")).toBe(true);
+  });
+});
+
 test("modules map to known sections or null", () => {
   Object.values(SECTION_OF).forEach((s) => expect(s === null || SECTIONS[s]).toBeTruthy());
 });

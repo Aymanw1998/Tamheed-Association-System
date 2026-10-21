@@ -4,6 +4,7 @@ import { useI18n } from "../i18n/I18nContext";
 import { canAccessPath } from "../utils/routeAccess";
 import { can, helpTours, pickText, tourForPath } from "./logic";
 import { TOURS } from "./registry";
+import { tourSelector } from "./runTour";
 import styles from "./Tours.module.css";
 
 // The "?" help center, the "what's new" list and the new-access card.
@@ -55,6 +56,10 @@ export function HelpCenter({ pathname, permissions, tours, onClose, onStart, onW
   const screenTour = tourForPath(pathname);
   const screenOk = Boolean(screenTour && can(permissions, screenTour.requires ?? null));
   const list = helpTours({ permissions, canOpen: (path) => canAccessPath(path, permissions) });
+  // The assistant has no page of its own: it starts here when its button is on screen.
+  const assistant = TOURS.find((x) => x.id === "assistant");
+  const assistantOk = Boolean(assistant && can(permissions, assistant.requires ?? null) && document.querySelector(tourSelector("assistant-button")));
+  const entries = [...list.map(({ tour }) => tour), ...(assistantOk ? [assistant] : [])];
   const statusOf = (id) => tours?.[id]?.status || "none";
 
   return (
@@ -72,11 +77,11 @@ export function HelpCenter({ pathname, permissions, tours, onClose, onStart, onW
       {!screenOk && <p className={styles.note}>{h("noScreenTour")}</p>}
 
       <h3 className={styles.sectionTitle}>{h("toursTitle")}</h3>
-      {list.length === 0 ? (
+      {entries.length === 0 ? (
         <p className={styles.note}>{h("noTours")}</p>
       ) : (
         <ul className={styles.list}>
-          {list.map(({ tour }) => {
+          {entries.map((tour) => {
             const status = statusOf(tour.id);
             return (
               <li key={tour.id} className={styles.row}>
