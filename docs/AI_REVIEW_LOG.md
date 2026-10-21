@@ -1803,3 +1803,24 @@ entry is the handoff.
 **Delivery state:** committed by the agent with the owner's standing approval;
 not pushed. The owner's own in-progress UI edits (Header, Profile,
 EditStudent, EditUser, ViewAllUser, session.js) are not part of this commit.
+
+## 2026-10-21: AI switched off by default (AI_ENABLED)
+
+**Owner request:** hide the AI from the system for now.
+
+**Changes:** `server/utils/aiFeature.js` (new) — AI is on only when
+`AI_ENABLED=true` and `ANTHROPIC_API_KEY` is set. While off, every chat and
+action route under `/api/ai` answers 404 `AI_DISABLED` (new
+`GET /api/ai/status` tells the client), and vehicle document reading is off
+(`/api/vehicle/extract` 404, status `available:false`). Client: the assistant
+panel shows only the alerts tab (no chat, no "explain" button) and the
+"read document" helper on vehicle forms is hidden. Real-time alerts are
+unchanged. `server/config/.env.example` documents `AI_ENABLED=false`.
+Tests: `server/test/ai-feature.test.js` (new), `client/src/utils/assistantChat.test.js`.
+
+**Verification:** `npm run verify`: server 671/671, client 28 suites / 313
+tests, build compiled. Not checked in a browser.
+
+**Requesting Codex review.** No live Codex connection; this entry is the handoff.
+
+**Delivery state:** committed by the agent with the owner's standing approval; not pushed.

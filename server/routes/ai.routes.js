@@ -34,6 +34,7 @@ const conversationView = (c) => ({ id: String(c._id), title: c.title || "", crea
 function createAiRouter({
   requireAuth, loadActor, requirePermission, assistant, conversations, rate, displayMessages, actions,
   maxStoredMessages = require("../Entities/AiConversation/AiConversation.model").MAX_STORED_MESSAGES,
+  isEnabled = () => true,
 }) {
   const router = express.Router();
   const show = displayMessages || require("../services/ai.service").displayMessages;
@@ -157,12 +158,18 @@ function createAiRouter({
     }
   };
 
-  router.post("/chat", requireAuth, loadActor, requirePermission("ai.use"), chat);
-  router.get("/conversations", requireAuth, loadActor, requirePermission("ai.use"), list);
-  router.get("/conversations/:id", requireAuth, loadActor, requirePermission("ai.use"), getOne);
-  router.delete("/conversations/:id", requireAuth, loadActor, requirePermission("ai.use"), remove);
-  router.post("/actions/:id/approve", requireAuth, loadActor, requirePermission("ai.use"), decide("approve"));
-  router.post("/actions/:id/cancel", requireAuth, loadActor, requirePermission("ai.use"), decide("cancel"));
+  // While AI is switched off (utils/aiFeature) every chat and action route
+  // answers as if it did not exist; only /status says so.
+  const whenEnabled = (req, res, next) =>
+    isEnabled() ? next() : res.status(404).json({ ok: false, code: "AI_DISABLED" });
+
+  router.get("/status", requireAuth, loadActor, requirePermission("ai.use"), (req, res) => res.json({ ok: true, enabled: Boolean(isEnabled()) }));
+  router.post("/chat", requireAuth, loadActor, requirePermission("ai.use"), whenEnabled, chat);
+  router.get("/conversations", requireAuth, loadActor, requirePermission("ai.use"), whenEnabled, list);
+  router.get("/conversations/:id", requireAuth, loadActor, requirePermission("ai.use"), whenEnabled, getOne);
+  router.delete("/conversations/:id", requireAuth, loadActor, requirePermission("ai.use"), whenEnabled, remove);
+  router.post("/actions/:id/approve", requireAuth, loadActor, requirePermission("ai.use"), whenEnabled, decide("approve"));
+  router.post("/actions/:id/cancel", requireAuth, loadActor, requirePermission("ai.use"), whenEnabled, decide("cancel"));
 
   return router;
 }
@@ -180,6 +187,7 @@ function defaultRouter() {
     rate: require("../Entities/AiUsage/AiRate.model").AiRateModelDef,
     displayMessages: service.displayMessages,
     actions: require("../services/assistant/actionRunner"),
+    isEnabled: require("../utils/aiFeature").aiEnabled,
   });
 }
 

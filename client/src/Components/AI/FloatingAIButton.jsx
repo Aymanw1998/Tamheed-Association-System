@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { approveAction, cancelAction, deleteConversation, getConversation, listConversations, streamChat } from "../../WebServer/services/ai/functionsAI";
+import { approveAction, cancelAction, deleteConversation, getAiStatus, getConversation, listConversations, streamChat } from "../../WebServer/services/ai/functionsAI";
 import { listAlerts, markAlertRead, markAllAlertsRead } from "../../WebServer/services/alerts/functionsAlerts";
 import { openLiveStream } from "../../WebServer/services/live/liveStream";
 import { alertText, alertTime, createThrottle, markReadLocal, mergeAlert, mergeAlerts, normalizeAlert, safeLink, severityClass, unreadCount } from "../../utils/alertDisplay";
-import { applyStreamEvent, createSendGate, errorKey, finishTurn, mergeFinal, newStreamingMessage, settleTurn, suggestionKeys, toDisplayMessages, toolKey } from "../../utils/assistantChat";
+import { applyStreamEvent, createSendGate, errorKey, finishTurn, mergeFinal, newStreamingMessage, settleTurn, suggestionKeys, toDisplayMessages, toolKey, visibleTabs } from "../../utils/assistantChat";
 import { applyOutcome, canAct, initialActionState, needsConfirm, outcomeOf, startAction, upsertCards } from "../../utils/actionCard";
 import ActionCard from "./ActionCard";
 import { safeMarkdown } from "../../utils/safeMarkdown";
@@ -60,8 +60,20 @@ export default function FloatingAIButton() {
   const [open, setOpen] = useState(false);
   const [panelSize, setPanelSize] = useState(getStoredSize);
   const navigate = useNavigate();
-  const [tab, setTab] = useState("chat");
+  const [tab, setTab] = useState("alerts");
+  // AI (the chat) can be switched off on the server; alerts stay either way.
+  const [aiOn, setAiOn] = useState(false);
   const a = (key) => t(`assistant.${key}`);
+
+  useEffect(() => {
+    let alive = true;
+    getAiStatus().then((enabled) => {
+      if (!alive) return;
+      setAiOn(enabled);
+      if (enabled) setTab("chat");
+    });
+    return () => { alive = false; };
+  }, []);
   const c = (key) => t(`assistant.chat.${key}`);
 
   // ---------------- alerts ----------------
@@ -479,7 +491,7 @@ export default function FloatingAIButton() {
       >
         <header className={styles.panelHeader}>
           <div>
-            <h2>{a("title")}</h2>
+            <h2>{aiOn ? a("title") : a("tabAlerts")}</h2>
             <span className={`${styles.status} ${online ? styles.statusOn : styles.statusOff}`}>
               <i aria-hidden="true" />
               {online ? c("online") : c("offline")}
@@ -504,7 +516,7 @@ export default function FloatingAIButton() {
         </header>
 
         <div className={styles.tabs} role="tablist">
-          {["chat", "alerts"].map((name) => (
+          {visibleTabs(aiOn).map((name) => (
             <button
               key={name}
               type="button"
@@ -545,7 +557,7 @@ export default function FloatingAIButton() {
                       </span>
                       <span className={styles.alertText}>{alertText(alert, language)}</span>
                     </button>
-                    <button type="button" className={styles.explainButton} disabled={sending} onClick={() => explainAlert(alert)}>{a("explain")}</button>
+                    {aiOn && <button type="button" className={styles.explainButton} disabled={sending} onClick={() => explainAlert(alert)}>{a("explain")}</button>}
                   </article>
                 );
               })}
@@ -553,7 +565,7 @@ export default function FloatingAIButton() {
           </section>
         )}
 
-        {tab === "chat" && (
+        {aiOn && tab === "chat" && (
           <section className={styles.chatPane} aria-label={a("tabChat")}>
             <div className={styles.chatBar}>
               <button

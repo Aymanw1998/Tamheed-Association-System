@@ -13,7 +13,8 @@ const IDLE = { status: "idle", result: null, file: null, message: "" };
 // One status request shared by every form on the page.
 let statusPromise = null;
 const loadStatus = () => {
-  if (!statusPromise) statusPromise = getExtractStatus().then((res) => (res.ok ? res.available !== false : true));
+  // Shown only when the server says document reading (AI) is on.
+  if (!statusPromise) statusPromise = getExtractStatus().then((res) => res.ok === true && res.available === true);
   return statusPromise;
 };
 
@@ -25,7 +26,7 @@ export default function DocumentScan({ target, vehicleId = "", draft, onApply })
   const { t } = useI18n();
   const input = useRef(null);
   const [state, setState] = useState(IDLE);
-  const [available, setAvailable] = useState(true);
+  const [available, setAvailable] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -55,6 +56,9 @@ export default function DocumentScan({ target, vehicleId = "", draft, onApply })
     if (skipped.length) toast.warn(fillText(t("vehicles.scan.skipped"), { n: skipped.length }));
     setState(IDLE);
   };
+
+  // While AI is switched off the helper is hidden; manual entry works as usual.
+  if (!available) return null;
 
   return (
     <div className={styles.wide}>

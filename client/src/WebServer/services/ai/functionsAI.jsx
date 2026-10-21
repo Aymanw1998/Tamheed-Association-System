@@ -128,6 +128,16 @@ export async function streamChat({ conversationId, message, onEvent, signal } = 
   return outcome || { ok: false, code: "NETWORK" };
 }
 
+// True only when the server says AI is switched on; any error counts as off.
+export async function getAiStatus() {
+  try {
+    const { data } = await api.get("/ai/status");
+    return data?.enabled === true;
+  } catch {
+    return false;
+  }
+}
+
 export async function listConversations() {
   const { data } = await api.get("/ai/conversations");
   return Array.isArray(data?.result) ? data.result : [];

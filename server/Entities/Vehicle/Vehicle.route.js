@@ -5,6 +5,7 @@ const { requireAuth } = require("../../middleware/authMiddleware");
 const { loadActor, requirePermission } = require("../../middleware/permissionMiddleware");
 const { rateLimit } = require("../../middleware/rateLimit");
 const { MAX_DOCUMENT_BYTES } = require("../../utils/vehicleFiles");
+const { aiEnabled } = require("../../utils/aiFeature");
 
 const router = express.Router();
 const { requireVehiclePermission } = controller;
@@ -36,10 +37,13 @@ router.get("/alerts", controller.getAlerts);
 
 router.get("/responsibles", requireVehiclePermission("edit"), controller.listResponsibles);
 router.get("/official-lookup/:plate", requireVehiclePermission("edit"), lookupRateLimit, controller.officialLookup);
+// Document reading is an AI feature: off while AI is switched off (utils/aiFeature).
+const whenAiEnabled = (req, res, next) =>
+  aiEnabled() ? next() : res.status(404).json({ ok: false, code: "AI_DISABLED" });
 router.get("/extract/status", requireVehiclePermission("compliance"), (req, res) =>
-  res.json({ ok: true, available: Boolean(process.env.ANTHROPIC_API_KEY) })
+  res.json({ ok: true, available: aiEnabled() })
 );
-router.post("/extract", requireVehiclePermission("compliance"), extractRateLimit, uploadOne, extractDocument);
+router.post("/extract", requireVehiclePermission("compliance"), whenAiEnabled, extractRateLimit, uploadOne, extractDocument);
 
 router.get("/", requireVehiclePermission("view"), controller.getAll);
 router.post("/", requireVehiclePermission("edit"), controller.create);

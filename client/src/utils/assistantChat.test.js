@@ -1,4 +1,10 @@
-import { applyStreamEvent, createSendGate, ERROR_KEYS, errorKey, finishTurn, mergeFinal, newStreamingMessage, settleTurn, suggestionKeys, toDisplayMessages, toolKey } from "./assistantChat";
+import { applyStreamEvent, createSendGate, ERROR_KEYS, errorKey, finishTurn, mergeFinal, newStreamingMessage, settleTurn, suggestionKeys, toDisplayMessages, toolKey, visibleTabs } from "./assistantChat";
+
+test("visibleTabs hides the chat while AI is switched off", () => {
+  expect(visibleTabs(false)).toEqual(["alerts"]);
+  expect(visibleTabs(undefined)).toEqual(["alerts"]);
+  expect(visibleTabs(true)).toEqual(["chat", "alerts"]);
+});
 import { assistantStrings } from "../i18n/assistantStrings";
 
 describe("toDisplayMessages", () => {

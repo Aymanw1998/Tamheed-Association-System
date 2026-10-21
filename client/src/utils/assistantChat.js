@@ -24,6 +24,10 @@ const isToolResults = (message) =>
 
 // Stored history -> the messages the window shows: user and assistant text
 // only. System context, tool calls, tool results and thinking never show.
+// The chat tab exists only while AI is switched on (GET /api/ai/status);
+// alerts are not AI and always stay.
+export const visibleTabs = (aiOn) => (aiOn === true ? ["chat", "alerts"] : ["alerts"]);
+
 export const toDisplayMessages = (messages) =>
   (Array.isArray(messages) ? messages : [])
     .map((message, index) => {
