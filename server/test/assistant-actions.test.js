@@ -221,6 +221,7 @@ function world() {
     "../../utils/textEncoding": require("../utils/textEncoding"),
     "../../utils/permissionRules": require("../utils/permissionRules"),
     "../../utils/israeliId": require("../utils/israeliId"),
+    "../../utils/tourState": require("../utils/tourState"),
     "../../utils/loginLockout": require("../utils/loginLockout"),
     "../../utils/systemPassword": require("../utils/systemPassword"),
     "./passwordCrypto": { encryptPassword: (v) => v, decryptPassword: (v) => v, isEncrypted: () => false, safeEqual: (a, b) => a === b },

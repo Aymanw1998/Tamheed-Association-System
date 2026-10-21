@@ -55,6 +55,11 @@ const UserModelDef = {
       default: [],
       transform: (value) => sanitizeVehiclePermissions(value),
     },
+    // Product-tour progress: server-owned, written only by the tour routes.
+    tours: { type: 'object', required: false, default: {} },
+    // null = never seeded (no "new feature" tours for the first sign-in).
+    knownKeys: { type: 'array', required: false, default: null },
+    seenReleases: { type: 'array', required: false, default: [] },
     main_lesson: { type: 'string', required: false, default: null },
     storageFolder: { type: 'string', required: false, default: null },
     storagePermissions: {

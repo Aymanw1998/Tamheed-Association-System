@@ -268,6 +268,7 @@ function loadController({ users = [], env = {}, sendThrows = false, sendHangs = 
     "../../utils/permissions": require("../utils/permissions"),
     "../../utils/permissionRules": require("../utils/permissionRules"),
     "../../utils/israeliId": require("../utils/israeliId"),
+    "../../utils/tourState": require("../utils/tourState"),
     "../../utils/loginLockout": require("../utils/loginLockout"),
     "../../utils/systemPassword": sp,
     "../../middleware/logger": { logWithSource(source, error) { calls.logs.push({ source, message: String(error?.message || error) }); } },

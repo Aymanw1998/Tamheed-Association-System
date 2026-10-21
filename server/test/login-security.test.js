@@ -40,6 +40,7 @@ function loadController(storedPassword = FAKE_HASH, extra = {}) {
     "../../utils/permissions": require("../utils/permissions"),
     "../../utils/permissionRules": require("../utils/permissionRules"),
     "../../utils/israeliId": require("../utils/israeliId"),
+    "../../utils/tourState": require("../utils/tourState"),
     "../../utils/loginLockout": require("../utils/loginLockout"),
     "../../utils/systemPassword": require("../utils/systemPassword"),
     "../../middleware/logger": { logWithSource() {} },

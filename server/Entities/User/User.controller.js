@@ -56,6 +56,7 @@ const {
 } = require("../../utils/systemPassword");
 const { logWithSource } = require("../../middleware/logger");
 const { isValidIsraeliId } = require("../../utils/israeliId");
+const { tourSummary } = require("../../utils/tourState");
 
 const {
   encryptPassword,
@@ -155,6 +156,7 @@ const SERVER_OWNED_FIELDS = [
   "tz", "storageFolder", "googleDrive",
   "failedLoginCount", "lockedAt", "passwordChangedAt", "recoveredAt",
   "refreshHash", "resetOtpHash", "resetOtpExpires", "resetOtpAttempts", "resetOtpLockedUntil",
+  "tours", "knownKeys", "seenReleases",
 ];
 const stripServerOwned = (data) => {
   for (const field of SERVER_OWNED_FIELDS) delete data[field];
@@ -302,6 +304,9 @@ function sanitize(u) {
   delete o.password;
   delete o.refreshHash;
   delete o.resetOtpHash;
+  delete o.tours;
+  delete o.knownKeys;
+  delete o.seenReleases;
   return o;
 }
 
@@ -544,7 +549,15 @@ const getOneU = async (req, res) => {
       if (found) {
         // The system account answers as missing to everyone but itself.
         if (isSystemUser(found) && !isSelfTz(req, found.tz)) break;
-        return res.status(200).json({ ok: true, user: sanitize(found), room });
+        const user = sanitize(found);
+        if (
+          can(req.actor?.permissions, "users.edit")
+          && canManageTarget(req.actor, found)
+          && !isSystemUser(found)
+        ) {
+          user.tourSummary = tourSummary(found.tours || {});
+        }
+        return res.status(200).json({ ok: true, user, room });
       }
     }
 
