@@ -1,4 +1,4 @@
-import { can, usableSteps, tourForPath, newAccess, unseenReleases, startupQueue, pickText, tourPath, helpTours, helpReleases, sectionOfPath, unknownSectionKeys, isTypingTarget } from "./logic";
+import { tourTabs, usableStepsByTab, can, usableSteps, tourForPath, newAccess, unseenReleases, startupQueue, pickText, tourPath, helpTours, helpReleases, sectionOfPath, unknownSectionKeys, isTypingTarget } from "./logic";
 
 const T = (extra) => ({ id: "x", version: 1, route: null, detail: false, requires: null, steps: [], ...extra });
 const FAKE = [
@@ -183,5 +183,31 @@ describe("isTypingTarget", () => {
     expect(isTypingTarget({ tagName: "BUTTON" })).toBe(false);
     expect(isTypingTarget({ tagName: "BODY" })).toBe(false);
     expect(isTypingTarget(null)).toBe(false);
+  });
+});
+
+describe("tabs", () => {
+  const tabbed = T({ steps: [
+    { target: "btn" },
+    { target: "list", tab: "alerts" },
+    { target: "ask", tab: "chat", requires: "ai.use" },
+    { target: "talk", tab: "chat" },
+  ] });
+  test("lists distinct tabs in order", () => {
+    expect(tourTabs(tabbed)).toEqual(["alerts", "chat"]);
+    expect(tourTabs(T({ steps: [{ target: "a" }] }))).toEqual([]);
+  });
+  test("keeps a step only when its target was seen under its own tab", () => {
+    const found = { "": new Set(["btn"]), alerts: new Set(["list"]), chat: new Set(["ask", "talk"]) };
+    expect(usableStepsByTab(tabbed, { permissions: ["ai.use"], found }).map((s) => s.target)).toEqual(["btn", "list", "ask", "talk"]);
+    expect(usableStepsByTab(tabbed, { permissions: [], found }).map((s) => s.target)).toEqual(["btn", "list", "talk"]);
+  });
+  test("chat steps drop when the chat tab never appeared (AI off)", () => {
+    const found = { "": new Set(["btn"]), alerts: new Set(["list"]), chat: new Set() };
+    expect(usableStepsByTab(tabbed, { permissions: ["ai.use"], found }).map((s) => s.target)).toEqual(["btn", "list"]);
+  });
+  test("a target seen under another tab does not count", () => {
+    const found = { "": new Set(), alerts: new Set(["talk"]), chat: new Set() };
+    expect(usableStepsByTab(tabbed, { permissions: [], found })).toEqual([]);
   });
 });

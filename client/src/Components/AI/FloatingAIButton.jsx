@@ -76,6 +76,19 @@ export default function FloatingAIButton() {
   }, []);
   const c = (key) => t(`assistant.chat.${key}`);
 
+  // The guided tour asks for a tab; open the panel on it (chat only when AI is on).
+  useEffect(() => {
+    const onTourTab = (event) => {
+      const wanted = event?.detail?.tab;
+      if (wanted !== "alerts" && wanted !== "chat") return;
+      if (!visibleTabs(aiOn).includes(wanted)) return;
+      setOpen(true);
+      setTab(wanted);
+    };
+    window.addEventListener("tamheed:tour-tab", onTourTab);
+    return () => window.removeEventListener("tamheed:tour-tab", onTourTab);
+  }, [aiOn]);
+
   // ---------------- alerts ----------------
   const [alerts, setAlerts] = useState([]);
   const [alertsState, setAlertsState] = useState("loading"); // loading | ready | error

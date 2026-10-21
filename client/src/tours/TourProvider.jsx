@@ -9,7 +9,7 @@ import {
 } from "../WebServer/services/tours/functionsTours";
 import {
   can, helpReleases, newAccess, sectionOfPath, startupQueue, tourForPath, tourPath,
-  isTypingTarget, unknownSectionKeys, unseenReleases, usableSteps,
+  isTypingTarget, unknownSectionKeys, unseenReleases, usableSteps, usableStepsByTab, tourTabs,
 } from "./logic";
 import { TOURS } from "./registry";
 import { RELEASES } from "./releases";
@@ -49,6 +49,7 @@ const writeDeferred = (ids) => {
   } catch {}
 };
 
+const TAB_PROBE_MS = 250;
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const modalOpen = () => Boolean(document.querySelector('[role="dialog"][aria-modal="true"]'));
@@ -80,7 +81,18 @@ async function prepareSteps(tour, permissions, cancelled) {
     if (cancelled()) return null;
   }
   if (cancelled()) return null;
-  return usableSteps(tour, { permissions, exists });
+  const tabs = tourTabs(tour);
+  if (!tabs.length) return usableSteps(tour, { permissions, exists });
+  // Tabs: open each one in turn and note which targets are really there.
+  const seen = (tab) => new Set(tour.steps.filter((x) => (x.tab || "") === tab && x.target && exists(x.target)).map((x) => x.target));
+  const found = { "": seen("") };
+  for (const tab of tabs) {
+    window.dispatchEvent(new CustomEvent("tamheed:tour-tab", { detail: { tab } }));
+    await sleep(TAB_PROBE_MS);
+    if (cancelled()) return null;
+    found[tab] = seen(tab);
+  }
+  return usableStepsByTab(tour, { permissions, found });
 }
 
 const samePath = (a, b) => String(a || "").replace(/\/+$/, "") === String(b || "").replace(/\/+$/, "");
@@ -199,7 +211,8 @@ export function TourProvider({ children }) {
           giveUp();
           return;
         }
-        steps = usableSteps(tour, { permissions, exists: existsFor(tour) });
+        steps = await prepareSteps(tour, permissions, cancelled);
+        if (cancelled()) return;
       }
       if (!steps || !steps.length || (auto && modalOpen())) {
         giveUp();

@@ -1043,7 +1043,6 @@ export default function FilesPage() {
                     <button
                       type="button"
                       className={styles.menuBtn}
-                      data-tour="files-menu"
                       onClick={(event) => openContextMenuByButton(event, file)}
                       aria-label={t("files.options")}
                       title={t("files.options")}

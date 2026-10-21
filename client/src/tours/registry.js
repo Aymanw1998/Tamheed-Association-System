@@ -2,9 +2,10 @@
 export const PENDING_TOURS = ["users"];
 
 // One step: text is [ar, he, en] for the title and for the body.
-const step = (target, title, body, requires) => ({
+const step = (target, title, body, requires, tab) => ({
   target,
   ...(requires ? { requires } : {}),
+  ...(tab ? { tab } : {}),
   title: { ar: title[0], he: title[1], en: title[2] },
   body: { ar: body[0], he: body[1], en: body[2] },
 });
@@ -108,7 +109,7 @@ export const TOURS = [
       "students.viewAll"),
     step("students-table",
       ["قائمة الطلاب", "רשימת התלמידים", "The student list"],
-      ["كل صف طالب. زر «للتعديل» يفتح ملفه، و«عرض التفاصيل» لغير الفعّالين.", "כל שורה היא תלמיד. «לעריכה» פותח את התיק, ו«הצגת פרטים» מיועד ללא פעילים.", "Each row is a student. Edit opens the student's file; View details is for inactive students."]),
+      ["كل صف طالب. زر «للتعديل» يفتح ملفه، و«عرض التفاصيل» لغير الفعّالين.", "כל שורה היא תלמיד. «לעריכה» פותח את התיק, ו«הצגת פרטים» מיועד ללא פעילים.", "Each row is a student. Edit opens the student's record; View details is for inactive students."]),
     step("students-file",
       ["ملف الطالب", "תיק התלמיד", "Student file"],
       ["ينشئ ملف PDF بمعلومات الطالب للطباعة أو الحفظ.", "יוצר קובץ PDF עם פרטי התלמיד להדפסה או לשמירה.", "Creates a PDF with the student's details to print or save."]),
@@ -205,7 +206,7 @@ export const TOURS = [
       ["كل صف تقرير مع تاريخه وعناوينه وصاحبه.", "כל שורה היא דוח עם תאריך, כותרות וכותב.", "Each row is a report with its date, headings and author."]),
     step("reports-open",
       ["فتح للتعديل", "פתיחה לעריכה", "Open to edit"],
-      ["يفتح التقرير لتعديله، ويتاح لك تعديل تقاريرك فقط ما لم تملك صلاحية أوسع.", "פותח את הדוח לעריכה. אפשר לערוך רק דוחות שלכם, אלא אם יש לכם הרשאה רחבה יותר.", "Opens the report to edit it. You can edit your own reports unless you have wider permission."]),
+      ["يفتح التقرير لتعديله، ويتاح لك تعديل تقاريرك فقط ما لم تملك صلاحية أوسع.", "פותח את הדוח לעריכה. אפשר לערוך רק דוחות שלכם, אלא אם יש לכם הרשאה רחבה יותר.", "Opens the report to edit it. You can edit only your own reports unless you have wider permission."]),
     step("reports-pdf",
       ["ملف التقرير", "קובץ הדוח", "Report file"],
       ["ينشئ ملف PDF من التقرير للطباعة أو المشاركة.", "יוצר קובץ PDF מהדוח להדפסה או לשיתוף.", "Creates a PDF of the report to print or share."],
@@ -365,20 +366,20 @@ export const TOURS = [
       ["افتح هذا الزر لقراءة تنبيهاتك، ولسؤال المساعد إن كانت صلاحيته متاحة لك.", "פתחו את הכפתור כדי לקרוא התראות, ולשאול את העוזר אם יש לכם הרשאה.", "Open this button to read your alerts and, if you have access, ask the assistant."]),
     step("assistant-tabs",
       ["التبويبات", "לשוניות", "Tabs"],
-      ["بدّل بين التنبيهات والمحادثة مع المساعد.", "עברו בין ההתראות לשיחה עם העוזר.", "Switch between alerts and the chat with the assistant."]),
+      ["بدّل بين التنبيهات والمحادثة مع المساعد.", "עברו בין ההתראות לשיחה עם העוזר.", "Switch between alerts and the chat with the assistant."], null, "alerts"),
     step("assistant-alerts",
       ["تنبيهاتك", "ההתראות שלכם", "Your alerts"],
-      ["تنبيهات تخصك، مثل وثائق مركبة قاربت الانتهاء. اضغط على تنبيه لفتحه.", "התראות עבורכם, כמו מסמכי רכב שעומדים לפוג. לחצו על התראה לפתיחה.", "Alerts meant for you, such as vehicle documents about to expire. Click one to open it."]),
+      ["تنبيهات تخصك، مثل وثائق مركبة قاربت الانتهاء. اضغط على تنبيه لفتحه.", "התראות עבורכם, כמו מסמכי רכב שעומדים לפוג. לחצו על התראה לפתיחה.", "Alerts meant for you, such as vehicle documents about to expire. Click one to open it."], null, "alerts"),
     step("assistant-mark-all",
       ["قراءة الكل", "סימון הכול כנקרא", "Mark all read"],
-      ["يعلّم كل التنبيهات كمقروءة.", "מסמן את כל ההתראות כנקראו.", "Marks every alert as read."]),
+      ["يعلّم كل التنبيهات كمقروءة.", "מסמן את כל ההתראות כנקראו.", "Marks every alert as read."], null, "alerts"),
     step("assistant-explain",
       ["اشرح لي", "הסבר לי", "Explain"],
       ["يطلب من المساعد أن يشرح التنبيه وما يمكنك فعله.", "מבקש מהעוזר להסביר את ההתראה ומה אפשר לעשות.", "Asks the assistant to explain the alert and what you can do."],
-      "ai.use"),
+      "ai.use", "alerts"),
     step("assistant-chat",
       ["محادثة المساعد", "שיחה עם העוזר", "Chat with the assistant"],
       ["اسأل بلغتك عن أي شيء في النظام وسيرشدك.", "שאלו בשפה שלכם על כל דבר במערכת והעוזר ידריך אתכם.", "Ask in your own language about anything in the system."],
-      "ai.use"),
+      "ai.use", "chat"),
   ]),
 ];

@@ -9,6 +9,15 @@ export const usableSteps = (tour, { permissions, exists }) =>
   (tour?.steps || []).filter((s) =>
     can(permissions, s.requires ?? null) && (s.target == null || exists(s.target)));
 
+// The distinct tabs a tour moves between (steps with a `tab`), in step order.
+export const tourTabs = (tour) => [...new Set((tour?.steps || []).map((s) => s.tab).filter(Boolean))];
+
+// Like usableSteps, for tours with tabs: `found` maps a tab ("" = no tab) to the
+// targets seen while that tab was open; a step stays only if its target was seen under its own tab.
+export const usableStepsByTab = (tour, { permissions, found }) =>
+  (tour?.steps || []).filter((s) =>
+    can(permissions, s.requires ?? null) && (s.target == null || Boolean(found?.[s.tab || ""]?.has(s.target))));
+
 export const tourForPath = (pathname, tours = TOURS) => {
   const path = String(pathname || "");
   const last = path.split("/").filter(Boolean).pop();
