@@ -9,7 +9,7 @@ import {
 } from "../WebServer/services/tours/functionsTours";
 import {
   can, helpReleases, newAccess, sectionOfPath, startupQueue, tourForPath, tourPath,
-  unknownSectionKeys, unseenReleases, usableSteps,
+  isTypingTarget, unknownSectionKeys, unseenReleases, usableSteps,
 } from "./logic";
 import { TOURS } from "./registry";
 import { RELEASES } from "./releases";
@@ -169,31 +169,64 @@ export function TourProvider({ children }) {
   }, []);
 
   // auto: a screen tour started by visiting; it gives way to a dialog opened meanwhile.
+  // Automatic starts (auto, fromQueue) wait while the user is typing in a field:
+  // driver.js moves focus into its popover, which would steal it.
   const launch = useCallback(async (tour, { fromQueue = false, auto = false } = {}) => {
     cancel();
     const token = launchRef.current;
     const cancelled = () => token !== launchRef.current;
-    setActiveId(tour.id);
-    const steps = await prepareSteps(tour, getStoredPermissions(), cancelled);
-    if (cancelled()) return;
-    if (!steps || !steps.length || (auto && modalOpen())) {
+    let ended = false;
+    // Ends a launch that shows nothing (no steps, gave way, or failed): frees the queue.
+    const giveUp = () => {
+      if (ended) return;
+      ended = true;
+      stopRef.current = null;
       setActiveId(null);
       if (fromQueue) popQueue();
-      return;
+    };
+    setActiveId(tour.id);
+    try {
+      const permissions = getStoredPermissions();
+      let steps = await prepareSteps(tour, permissions, cancelled);
+      if (cancelled()) return;
+      if ((auto || fromQueue) && isTypingTarget(document.activeElement)) {
+        while (isTypingTarget(document.activeElement)) {
+          await sleep(POLL_MS);
+          if (cancelled()) return;
+        }
+        // Things may have changed while waiting: check again.
+        if (auto && (stateRef.current?.tours?.[tour.id] || deferredRef.current.has(tour.id))) {
+          giveUp();
+          return;
+        }
+        steps = usableSteps(tour, { permissions, exists: existsFor(tour) });
+      }
+      if (!steps || !steps.length || (auto && modalOpen())) {
+        giveUp();
+        return;
+      }
+      const { language: lang, dir: textDir, t: tr } = textRef.current;
+      const stop = runTour({ ...tour, steps }, {
+        language: lang,
+        dir: textDir,
+        t: tr,
+        onFinish: (status) => {
+          if (ended) return;
+          ended = true;
+          stopRef.current = null;
+          setActiveId(null);
+          if (status === "later") defer(tour.id);
+          else record(tour, status);
+          if (fromQueue) popQueue();
+        },
+        onError: giveUp,
+      });
+      if (!ended && !cancelled()) stopRef.current = stop;
+      else if (cancelled()) stop();
+    } catch (error) {
+      console.warn("tours: could not start the tour", error?.message || error);
+      if (!cancelled()) giveUp();
     }
-    const { language: lang, dir: textDir, t: tr } = textRef.current;
-    stopRef.current = runTour({ ...tour, steps }, {
-      language: lang,
-      dir: textDir,
-      t: tr,
-      onFinish: (status) => {
-        stopRef.current = null;
-        setActiveId(null);
-        if (status === "later") defer(tour.id);
-        else record(tour, status);
-        if (fromQueue) popQueue();
-      },
-    });
   }, [cancel, defer, popQueue, record]);
 
   // Starts a tour by id, going to its page first when it lives elsewhere.
@@ -219,6 +252,9 @@ export function TourProvider({ children }) {
     if (samePath(prevPathRef.current, pathname)) return;
     prevPathRef.current = pathname;
     triedPathRef.current = null;
+    // A tour waiting for its page whose navigation ended elsewhere (a guard
+    // redirected, or the user moved on) is dropped, so screen tours keep working.
+    if (pendingRef.current && !samePath(pendingRef.current.path, pathname)) pendingRef.current = null;
     // Left the page (browser back): stop quietly; a sign-in item comes back on its own.
     if (stopRef.current || activeId) cancel();
   }, [pathname, activeId, cancel]);

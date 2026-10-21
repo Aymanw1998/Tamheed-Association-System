@@ -1,4 +1,4 @@
-import { can, usableSteps, tourForPath, newAccess, unseenReleases, startupQueue, pickText, tourPath, helpTours, helpReleases, sectionOfPath, unknownSectionKeys } from "./logic";
+import { can, usableSteps, tourForPath, newAccess, unseenReleases, startupQueue, pickText, tourPath, helpTours, helpReleases, sectionOfPath, unknownSectionKeys, isTypingTarget } from "./logic";
 
 const T = (extra) => ({ id: "x", version: 1, route: null, detail: false, requires: null, steps: [], ...extra });
 const FAKE = [
@@ -151,5 +151,23 @@ describe("help center helpers", () => {
     expect(unknownSectionKeys("users", perms, ["users.view", "permissions.manage"])).toEqual([]);
     expect(unknownSectionKeys("users", perms, null)).toEqual([]);
     expect(unknownSectionKeys(null, perms, [])).toEqual([]);
+  });
+});
+
+describe("isTypingTarget", () => {
+  test("text fields, selects and editable areas take typing", () => {
+    expect(isTypingTarget({ tagName: "INPUT", type: "text" })).toBe(true);
+    expect(isTypingTarget({ tagName: "input" })).toBe(true);
+    expect(isTypingTarget({ tagName: "INPUT", type: "search" })).toBe(true);
+    expect(isTypingTarget({ tagName: "TEXTAREA" })).toBe(true);
+    expect(isTypingTarget({ tagName: "SELECT" })).toBe(true);
+    expect(isTypingTarget({ tagName: "DIV", isContentEditable: true })).toBe(true);
+  });
+  test("buttons, boxes and nothing do not", () => {
+    expect(isTypingTarget({ tagName: "INPUT", type: "checkbox" })).toBe(false);
+    expect(isTypingTarget({ tagName: "INPUT", type: "submit" })).toBe(false);
+    expect(isTypingTarget({ tagName: "BUTTON" })).toBe(false);
+    expect(isTypingTarget({ tagName: "BODY" })).toBe(false);
+    expect(isTypingTarget(null)).toBe(false);
   });
 });

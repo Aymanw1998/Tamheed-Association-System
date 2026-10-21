@@ -7,6 +7,8 @@ import styles from "./Tours.module.css";
 // Shows one tour with driver.js and reports how it ended:
 //   const stop = runTour(tour, { language, dir, t, onFinish });
 //   onFinish("done" | "skipped" | "later") runs once; stop() ends it silently.
+//   If driver.js throws while showing a step, the tour is stopped (page usable
+//   again) and onError(error) runs instead of onFinish.
 // `tour.steps` must already be the usable ones (usableSteps in TourProvider).
 //
 // Nothing on the page can be used while a tour is shown, only the popover:
@@ -39,7 +41,7 @@ const emit = (name, detail) => {
 
 const inPopover = (node) => Boolean(node && node.closest && node.closest(".driver-popover"));
 
-export function runTour(tour, { language, dir, t, onFinish }) {
+export function runTour(tour, { language, dir, t, onFinish, onError }) {
   const steps = Array.isArray(tour?.steps) ? tour.steps : [];
   if (!steps.length) return () => {};
 
@@ -121,8 +123,18 @@ export function runTour(tour, { language, dir, t, onFinish }) {
 
   function show(i) {
     if (finished) return;
-    if (d.isActive()) d.moveTo(i);
-    else d.drive(i);
+    try {
+      if (d.isActive()) d.moveTo(i);
+      else d.drive(i);
+    } catch (error) {
+      fail(error);
+    }
+  }
+
+  function fail(error) {
+    if (!stop()) return;
+    console.warn("tours: could not show the tour", error?.message || error);
+    if (onError) onError(error);
   }
 
   function go(i) {
@@ -198,7 +210,11 @@ export function runTour(tour, { language, dir, t, onFinish }) {
     if (stop() && onFinish) onFinish(status);
   }
 
-  go(0);
+  try {
+    go(0);
+  } catch (error) {
+    fail(error);
+  }
   return () => {
     stop();
   };

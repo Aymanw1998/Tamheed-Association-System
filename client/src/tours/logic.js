@@ -86,3 +86,16 @@ export const unknownSectionKeys = (section, permissions, knownKeys, sectionOf = 
   const known = new Set(knownKeys);
   return (permissions || []).filter((k) => sectionOf[moduleOf(k)] === section && !known.has(k));
 };
+
+// Inputs that are not typed into (buttons, boxes, pickers).
+const NOT_TYPED = new Set(["button", "submit", "reset", "checkbox", "radio", "file", "image", "range", "color", "hidden"]);
+
+// True when the element takes typing (a tour must not steal its focus).
+export const isTypingTarget = (el) => {
+  if (!el || typeof el !== "object") return false;
+  if (el.isContentEditable) return true;
+  const tag = String(el.tagName || "").toUpperCase();
+  if (tag === "TEXTAREA" || tag === "SELECT") return true;
+  if (tag !== "INPUT") return false;
+  return !NOT_TYPED.has(String(el.type || "text").toLowerCase());
+};
