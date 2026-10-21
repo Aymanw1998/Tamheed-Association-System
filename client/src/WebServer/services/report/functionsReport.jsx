@@ -1,5 +1,5 @@
 import { ask } from "../../../Components/Provides/confirmBus";
-import api,{ setAuthToken } from "../api";
+import api from "../api";
 
 const namespace = "/report";
 export const getAll = async() => {
