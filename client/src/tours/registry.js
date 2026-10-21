@@ -184,7 +184,7 @@ export const TOURS = [
       ["يحفظ التغييرات على ملف الطالب.", "שומר את השינויים בתיק התלמיד.", "Saves your changes to the student's file."]),
     step("student-delete",
       ["حذف الطالب", "מחיקת תלמיד", "Delete the student"],
-      ["يحذف الطالب نهائيًا ولا يمكن التراجع. يحتاج صلاحية حذف الطلاب.", "מוחק את התלמיד לצמיתות ולא ניתן לבטל. דורש הרשאת מחיקת תלמידים.", "Deletes the student permanently and cannot be undone. It needs the delete-students permission."]),
+      ["يحذف الطالب نهائيًا بعد التأكيد، ولا يمكن التراجع عن الحذف.", "מוחק את התלמיד לצמיתות לאחר אישור, ולא ניתן לבטל את המחיקה.", "Deletes the student permanently after you confirm. This cannot be undone."]),
   ]),
 
   tour("lessons", { route: listRoute("lessons") }, [

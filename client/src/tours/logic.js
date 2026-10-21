@@ -12,13 +12,31 @@ export const usableSteps = (tour, { permissions, exists }) =>
 // The distinct tabs a tour moves between (steps with a `tab`), in step order.
 export const tourTabs = (tour) => [...new Set((tour?.steps || []).map((s) => s.tab).filter(Boolean))];
 
+// The `tamheed:tour-tab` event detail. It names the tour, so each tab host (the
+// assistant panel, the user page) reacts only to its own tour.
+export const tabEvent = (tour, tab) => ({ tab, tourId: tour?.id ?? null });
+
+// For a tab host: the tab an event asks for (null = close), or undefined when the
+// event belongs to another tour.
+export const tabFor = (detail, tourId) => (detail && detail.tourId === tourId ? detail.tab : undefined);
+
 // What a step asks of the tab host before it shows: {tab} to open one, {tab:null} to close
 // the panel (a tab-less step in a tour that uses tabs), or null for nothing.
 export const tabSignal = (tour, step, panelOpen) => {
   if (!tourTabs(tour).length) return null;
-  if (step?.tab) return { tab: step.tab };
-  return panelOpen ? { tab: null } : null;
+  if (step?.tab) return tabEvent(tour, step.tab);
+  return panelOpen ? tabEvent(tour, null) : null;
 };
+
+// Resolves true once `busy()` is false, polling with `pause()`; false if
+// `cancelled()` turns true meanwhile.
+export async function waitWhile(busy, { pause, cancelled }) {
+  while (busy()) {
+    await pause();
+    if (cancelled()) return false;
+  }
+  return true;
+}
 
 // Like usableSteps, for tours with tabs: `found` maps a tab ("" = no tab) to the
 // targets seen while that tab was open; a step stays only if its target was seen under its own tab.

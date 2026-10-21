@@ -10,6 +10,7 @@ import ActionCard from "./ActionCard";
 import { safeMarkdown } from "../../utils/safeMarkdown";
 import { canStored } from "../../utils/session";
 import { useI18n } from "../../i18n/I18nContext";
+import { tabFor } from "../../tours/logic";
 import styles from "./FloatingAIButton.module.css";
 
 // The catch-up refetch when the tab regains focus runs at most this often.
@@ -79,7 +80,7 @@ export default function FloatingAIButton() {
   // The guided tour asks for a tab; open the panel on it (chat only when AI is on).
   useEffect(() => {
     const onTourTab = (event) => {
-      const wanted = event?.detail?.tab;
+      const wanted = tabFor(event?.detail, "assistant");
       if (wanted === null) {
         setOpen(false);
         return;

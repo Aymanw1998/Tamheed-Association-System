@@ -1,4 +1,4 @@
-import { tabSignal, tourTabs, usableStepsByTab, can, usableSteps, tourForPath, newAccess, unseenReleases, startupQueue, pickText, tourPath, helpTours, helpReleases, sectionOfPath, unknownSectionKeys, isTypingTarget } from "./logic";
+import { tabEvent, tabFor, waitWhile, tabSignal, tourTabs, usableStepsByTab, can, usableSteps, tourForPath, newAccess, unseenReleases, startupQueue, pickText, tourPath, helpTours, helpReleases, sectionOfPath, unknownSectionKeys, isTypingTarget } from "./logic";
 
 const T = (extra) => ({ id: "x", version: 1, route: null, detail: false, requires: null, steps: [], ...extra });
 const FAKE = [
@@ -195,10 +195,20 @@ describe("tabs", () => {
   ] });
   test("tabSignal opens, closes or does nothing", () => {
     const [btn, list] = tabbed.steps;
-    expect(tabSignal(tabbed, list, false)).toEqual({ tab: "alerts" });
-    expect(tabSignal(tabbed, btn, true)).toEqual({ tab: null });
+    expect(tabSignal(tabbed, list, false)).toEqual({ tab: "alerts", tourId: "x" });
+    expect(tabSignal(tabbed, btn, true)).toEqual({ tab: null, tourId: "x" });
     expect(tabSignal(tabbed, btn, false)).toBeNull();
     expect(tabSignal(T({ steps: [{ target: "a" }] }), { target: "a" }, true)).toBeNull();
+  });
+  test("tab events name their tour, and a host only takes its own tour's", () => {
+    expect(tabEvent(T({ id: "assistant" }), "chat")).toEqual({ tab: "chat", tourId: "assistant" });
+    expect(tabEvent(T({ id: "user" }), null)).toEqual({ tab: null, tourId: "user" });
+    // The user tour closing its tabs must not close the assistant panel.
+    expect(tabFor({ tab: null, tourId: "user" }, "assistant")).toBeUndefined();
+    expect(tabFor({ tab: null, tourId: "user" }, "user")).toBeNull();
+    expect(tabFor({ tab: "chat", tourId: "assistant" }, "assistant")).toBe("chat");
+    expect(tabFor({ tab: "chat" }, "assistant")).toBeUndefined();
+    expect(tabFor(undefined, "assistant")).toBeUndefined();
   });
   test("lists distinct tabs in order", () => {
     expect(tourTabs(tabbed)).toEqual(["alerts", "chat"]);
@@ -216,5 +226,25 @@ describe("tabs", () => {
   test("a target seen under another tab does not count", () => {
     const found = { "": new Set(), alerts: new Set(["talk"]), chat: new Set() };
     expect(usableStepsByTab(tabbed, { permissions: [], found })).toEqual([]);
+  });
+});
+
+describe("waitWhile", () => {
+  test("resolves at once when not busy, without pausing", async () => {
+    const pause = jest.fn(async () => {});
+    expect(await waitWhile(() => false, { pause, cancelled: () => false })).toBe(true);
+    expect(pause).not.toHaveBeenCalled();
+  });
+  test("pauses until no longer busy", async () => {
+    let left = 3;
+    const pause = jest.fn(async () => { left -= 1; });
+    expect(await waitWhile(() => left > 0, { pause, cancelled: () => false })).toBe(true);
+    expect(pause).toHaveBeenCalledTimes(3);
+  });
+  test("stops with false once cancelled", async () => {
+    let calls = 0;
+    const pause = async () => { calls += 1; };
+    expect(await waitWhile(() => true, { pause, cancelled: () => calls >= 2 })).toBe(false);
+    expect(calls).toBe(2);
   });
 });

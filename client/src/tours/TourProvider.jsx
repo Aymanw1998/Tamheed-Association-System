@@ -4,12 +4,14 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useI18n } from "../i18n/I18nContext";
 import { getStoredPermissions, getStoredUserId } from "../utils/session";
 import { canAccessPath } from "../utils/routeAccess";
+import { confirmLeave } from "../utils/unsavedChanges";
 import {
   loadTourState, saveKnownKeys, saveSeenReleases, saveTour,
 } from "../WebServer/services/tours/functionsTours";
 import {
   can, helpReleases, newAccess, sectionOfPath, startupQueue, tourForPath, tourPath,
   isTypingTarget, unknownSectionKeys, unseenReleases, usableSteps, usableStepsByTab, tourTabs,
+  tabEvent, waitWhile,
 } from "./logic";
 import { TOURS } from "./registry";
 import { RELEASES } from "./releases";
@@ -90,16 +92,26 @@ async function prepareSteps(tour, permissions, cancelled) {
   const wasOpen = tour.steps.some((x) => x.tab && x.target && exists(x.target));
   try {
     for (const tab of tabs) {
-      window.dispatchEvent(new CustomEvent("tamheed:tour-tab", { detail: { tab } }));
+      window.dispatchEvent(new CustomEvent("tamheed:tour-tab", { detail: tabEvent(tour, tab) }));
       await sleep(TAB_PROBE_MS);
       if (cancelled()) return null;
       found[tab] = seen(tab);
     }
   } finally {
-    if (!wasOpen) window.dispatchEvent(new CustomEvent("tamheed:tour-tab", { detail: { tab: null } }));
+    if (!wasOpen) window.dispatchEvent(new CustomEvent("tamheed:tour-tab", { detail: tabEvent(tour, null) }));
   }
   return usableStepsByTab(tour, { permissions, found });
 }
+
+// The tour leaves the page only as the menu would: an edit page with unsaved
+// edits asks first. A confirm that is not ready yet counts as "stay".
+const leaveOk = async () => {
+  try {
+    return await confirmLeave(window.location.pathname);
+  } catch {
+    return false;
+  }
+};
 
 const samePath = (a, b) => String(a || "").replace(/\/+$/, "") === String(b || "").replace(/\/+$/, "");
 
@@ -205,21 +217,23 @@ export function TourProvider({ children }) {
     setActiveId(tour.id);
     try {
       const permissions = getStoredPermissions();
-      let steps = await prepareSteps(tour, permissions, cancelled);
-      if (cancelled()) return;
-      if ((auto || fromQueue) && isTypingTarget(document.activeElement)) {
-        while (isTypingTarget(document.activeElement)) {
-          await sleep(POLL_MS);
-          if (cancelled()) return;
-        }
-        // Things may have changed while waiting: check again.
-        if (auto && (stateRef.current?.tours?.[tour.id] || deferredRef.current.has(tour.id))) {
-          giveUp();
-          return;
+      const typing = () => (auto || fromQueue) && isTypingTarget(document.activeElement);
+      let steps = null;
+      // Wait for typing to end before probing (probing opens panels and tabs),
+      // and again if the user started typing while the steps were prepared.
+      do {
+        if (typing()) {
+          const idle = await waitWhile(typing, { pause: () => sleep(POLL_MS), cancelled });
+          if (!idle || cancelled()) return;
+          // Things may have changed while waiting: check again.
+          if (auto && (stateRef.current?.tours?.[tour.id] || deferredRef.current.has(tour.id))) {
+            giveUp();
+            return;
+          }
         }
         steps = await prepareSteps(tour, permissions, cancelled);
         if (cancelled()) return;
-      }
+      } while (typing());
       if (!steps || !steps.length || (auto && modalOpen())) {
         giveUp();
         return;
@@ -249,7 +263,8 @@ export function TourProvider({ children }) {
   }, [cancel, defer, popQueue, record]);
 
   // Starts a tour by id, going to its page first when it lives elsewhere.
-  const startTour = useCallback((id) => {
+  // Leaving an edit page with unsaved edits asks first; "stay" starts nothing.
+  const startTour = useCallback(async (id) => {
     if (phase !== "ready") return;
     const tour = TOURS.find((x) => x.id === id);
     const permissions = getStoredPermissions();
@@ -259,6 +274,7 @@ export function TourProvider({ children }) {
     if (tour.route && !tour.route.test(pathname)) {
       const path = tourPath(id);
       if (!path || !canAccessPath(path, permissions)) return;
+      if (!(await leaveOk())) return;
       pendingRef.current = { id, path };
       navigate(path);
       return;
@@ -354,7 +370,7 @@ export function TourProvider({ children }) {
   // ---------- new-access card ----------
   const accessOpen = head === "access" && !activeId;
 
-  const showAccess = (item) => {
+  const showAccess = async (item) => {
     popQueue();
     const section = SECTIONS[item.section];
     if (!section) return;
@@ -362,7 +378,7 @@ export function TourProvider({ children }) {
       startTour(section.tourId);
       return;
     }
-    navigate(section.path);
+    if (await leaveOk()) navigate(section.path);
   };
 
   const laterAccess = () => {

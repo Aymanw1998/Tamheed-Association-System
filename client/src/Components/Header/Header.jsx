@@ -4,8 +4,7 @@ import styles from "./Header.module.css";
 import LOGO from "../../images/logo.png";
 import { getMe, logout } from "../../WebServer/services/auth/fuctionsAuth";
 import { getMyPermissions } from "../../WebServer/services/vehicle/functionsVehicle";
-import { ask } from "../Provides/confirmBus";
-import { getUnsavedChanges } from "../../utils/unsavedChanges";
+import { confirmLeave } from "../../utils/unsavedChanges";
 import { useI18n } from "../../i18n/I18nContext";
 import NoticeBell from "../Notice/NoticeBell";
 import { ADMIN_ROLES, GUIDE_ROLES, canStored, normalizeRoles } from "../../utils/session";
@@ -98,16 +97,6 @@ export default function Header() {
     await logout();
   };
 
-  const EDIT_PATTERNS = [
-    /^\/students\/(new|[^/]+)$/,
-    /^\/users\/(new|[^/]+)$/,
-    /^\/lessons\/(new|[^/]+)$/,
-    /^\/vehicles\/(new|[^/]+)$/,
-    /^\/subs\/(new|[^/]+)$/,
-    /^\/selectSubfor\/[^/]+$/,
-    /^\/regnextmonth$/,
-  ];
-
   const onNavClick = async (event, to) => {
     setMenuOpen(false);
     if (event.defaultPrevented) return;
@@ -120,13 +109,7 @@ export default function Header() {
 
     event.preventDefault();
 
-    const onEditPage = EDIT_PATTERNS.some((pattern) => pattern.test(window.location.pathname));
-    if (onEditPage) {
-      if (getUnsavedChanges() !== false) {
-        const ok = await ask("navigate");
-        if (!ok) return;
-      }
-    }
+    if (!(await confirmLeave(window.location.pathname))) return;
 
     navigate(to);
   };

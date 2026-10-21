@@ -1,7 +1,7 @@
 import { driver } from "driver.js";
 import "driver.js/dist/driver.css";
 
-import { pickText, tabSignal, tourTabs } from "./logic";
+import { pickText, tabEvent, tabSignal, tourTabs } from "./logic";
 import styles from "./Tours.module.css";
 
 // Shows one tour with driver.js and reports how it ended:
@@ -204,7 +204,7 @@ export function runTour(tour, { language, dir, t, onFinish, onError }) {
     window.removeEventListener("keydown", onKey, true);
     BLOCKED.forEach((name) => window.removeEventListener(name, onClick, true));
     setMenu(false);
-    if (panelOpen && tourTabs(tour).length) emit("tamheed:tour-tab", { tab: null });
+    if (panelOpen && tourTabs(tour).length) emit("tamheed:tour-tab", tabEvent(tour, null));
     panelOpen = false;
     try {
       d.destroy();

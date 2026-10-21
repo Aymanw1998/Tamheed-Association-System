@@ -20,6 +20,7 @@ import tabStyles from "./PermissionsTab.module.css";
 import ChangeOwnPassword from "../Profile/ChangeOwnPassword.jsx";
 import { isValidIsraeliId } from "../../utils/israeliId";
 import { resetUserTours } from "../../WebServer/services/tours/functionsTours.jsx";
+import { tabFor } from "../../tours/logic";
 
 const safeAsk = async (options) => {
   try { return await ask("change", options); } catch { return false; }
@@ -89,7 +90,7 @@ const EditUser = () => {
   const tabBeforeTourRef = useRef(null);
   useEffect(() => {
     const onTourTab = (event) => {
-      const wanted = event?.detail?.tab;
+      const wanted = tabFor(event?.detail, "user");
       if (wanted === null) {
         if (tabBeforeTourRef.current) setTab(tabBeforeTourRef.current);
         tabBeforeTourRef.current = null;
