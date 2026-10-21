@@ -150,6 +150,26 @@ test("getOneU answers 404 for the system account by tz or id, except to itself",
   assert.equal(other.res.statusCode, 200);
 });
 
+test("getOneU adds tourSummary only for an active user (reset works on active users only)", async () => {
+  const tours = { welcome: { status: "done", version: 1 } };
+  const waitingGuide = { ...GUIDE_USER, _id: "g2", tz: "guide-2", tours };
+  const closedGuide = { ...GUIDE_USER, _id: "g3", tz: "guide-3", tours };
+  const users = createUsers({
+    active: [ADMIN_USER, { ...GUIDE_USER, tours }],
+    waiting: [waitingGuide],
+    noActive: [closedGuide],
+  });
+  const active = await call("getOneU", ADMIN_USER, { params: { tz: GUIDE_USER.tz } }, users);
+  assert.equal(active.body.room, "active");
+  assert.deepEqual(active.body.user.tourSummary, { welcome: "done", done: 0, skipped: 0 });
+  for (const tz of [waitingGuide.tz, closedGuide.tz]) {
+    const { res: out, body } = await call("getOneU", ADMIN_USER, { params: { tz } }, users);
+    assert.equal(out.statusCode, 200, tz);
+    assert.notEqual(body.room, "active");
+    assert.equal(body.user.tourSummary, undefined, tz);
+  }
+});
+
 test("viewPassword answers 404 for the system account", async () => {
   const { res: out } = await call("viewPassword", KEY_ADMIN, { params: { tz: SYSTEM_TZ } });
   assert.equal(out.statusCode, 404);

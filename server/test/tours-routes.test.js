@@ -29,15 +29,32 @@ async function startApp() {
   const db = Object.fromEntries(Object.values(ROWS).map((v) => [v.tz, structuredClone(v)]));
   const audits = [];
   const updates = [];
+  // Rows loadActor serves instead of the live one (a snapshot taken before an
+  // earlier write landed), to reproduce two overlapping requests.
+  const stale = {};
+  // Rows that vanish between the read and the write (the write then matches nothing).
+  const gone = new Set();
   const users = {
     async get(filter) {
       const row = db[filter.tz];
       return { success: true, result: row ? [{ ...row }] : [] };
     },
-    async update(filter, patch) {
+    // Mirrors api.updateExisting: $set semantics (a dotted key sets a nested
+    // field) and never creates a row.
+    async updateExisting(filter, patch) {
       updates.push({ filter, patch });
-      Object.assign(db[filter.tz], patch);
-      return { success: true, result: { ...db[filter.tz] } };
+      const row = gone.has(filter.tz) ? undefined : db[filter.tz];
+      if (!row) return { success: true, result: null };
+      for (const [key, value] of Object.entries(patch)) {
+        const parts = key.split(".");
+        let target = row;
+        for (const part of parts.slice(0, -1)) {
+          if (target[part] === undefined) target[part] = {};
+          target = target[part];
+        }
+        target[parts[parts.length - 1]] = value;
+      }
+      return { success: true, result: { ...row } };
     },
   };
   const requireAuth = (req, res, next) => {
@@ -45,7 +62,7 @@ async function startApp() {
     return next();
   };
   const loadActor = (req, res, next) => {
-    const row = db[req.headers["x-tz"]];
+    const row = stale[req.headers["x-tz"]] || db[req.headers["x-tz"]];
     req.actor = actorFor(row, { isSystem: row.tz === SYSTEM_TZ });
     return next();
   };
@@ -65,7 +82,7 @@ async function startApp() {
     headers: { "x-tz": ROWS[who].tz, "content-type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
-  return { server, db, audits, updates, call, base };
+  return { server, db, audits, updates, stale, gone, call, base };
 }
 
 test("rejects anonymous callers", async () => {
@@ -101,6 +118,49 @@ test("POST /item/:id stores the tour status and keeps the others", async () => {
     assert.equal(body.tours.students.version, 2);
     assert.equal(body.tours.welcome.status, "done");
     assert.equal(db["t-helper"].tours.students.status, "done");
+  } finally { server.close(); }
+});
+
+test("POST /item/:id writes only its own entry, so overlapping writes keep each other", async () => {
+  const { server, db, updates, stale, call } = await startApp();
+  try {
+    // Both requests read the helper before either write lands.
+    stale["t-helper"] = structuredClone(db["t-helper"]);
+    assert.equal((await call("helper", "POST", "/item/dashboard", { status: "done", version: 1 })).status, 200);
+    assert.equal((await call("helper", "POST", "/item/students", { status: "skipped", version: 1 })).status, 200);
+    assert.deepEqual(Object.keys(updates[0].patch), ["tours.dashboard"]);
+    assert.deepEqual(Object.keys(updates[1].patch), ["tours.students"]);
+    const tours = db["t-helper"].tours;
+    assert.equal(tours.dashboard.status, "done");
+    assert.equal(tours.students.status, "skipped");
+    assert.equal(tours.welcome.status, "done");
+    assert.equal(tours.extra.status, "skipped");
+  } finally { server.close(); }
+});
+
+test("POST /item/:id writes a whole tours object when the stored one is unusable", async () => {
+  const { server, db, updates, call } = await startApp();
+  try {
+    db["t-guide"].tours = null;
+    assert.equal((await call("guide", "POST", "/item/welcome", { status: "done", version: 1 })).status, 200);
+    assert.deepEqual(Object.keys(updates[0].patch), ["tours"]);
+    assert.equal(db["t-guide"].tours.welcome.status, "done");
+  } finally { server.close(); }
+});
+
+test("tour writes never create a user row", async () => {
+  const { server, db, stale, call } = await startApp();
+  try {
+    // The caller was signed in but the row is gone by the time of the write.
+    stale["t-guide"] = structuredClone(db["t-guide"]);
+    delete db["t-guide"];
+    const res = await call("guide", "POST", "/item/welcome", { status: "done", version: 1 });
+    assert.equal(res.status, 404);
+    assert.equal((await res.json()).code, "NOT_FOUND");
+    assert.equal(db["t-guide"], undefined);
+    assert.equal((await call("guide", "POST", "/known-keys", { keys: ["dashboard"] })).status, 404);
+    assert.equal((await call("guide", "POST", "/releases/seen", { ids: ["r-one"] })).status, 404);
+    assert.equal(db["t-guide"], undefined);
   } finally { server.close(); }
 });
 
@@ -144,6 +204,18 @@ test("POST /known-keys remembers only keys the caller holds", async () => {
   } finally { server.close(); }
 });
 
+test("POST /known-keys rejects a non-array without writing", async () => {
+  const { server, updates, call } = await startApp();
+  try {
+    for (const body of [{ keys: "dashboard" }, { keys: { 0: "dashboard" } }, {}, undefined]) {
+      const res = await call("helper", "POST", "/known-keys", body);
+      assert.equal(res.status, 400);
+      assert.equal((await res.json()).code, "BAD_INPUT");
+    }
+    assert.equal(updates.length, 0);
+  } finally { server.close(); }
+});
+
 test("POST /releases/seen merges ids and rejects a non-array", async () => {
   const { server, call } = await startApp();
   try {
@@ -170,6 +242,17 @@ test("POST /reset/:tz clears tours only and records the audit row", async () => 
     assert.equal(audits[0].module, "users");
     assert.equal(audits[0].targetType, "user");
     assert.equal(audits[0].targetId, "t-helper");
+  } finally { server.close(); }
+});
+
+test("POST /reset/:tz answers 404 without an audit row when the write matches nothing", async () => {
+  const { server, audits, gone, call } = await startApp();
+  try {
+    gone.add("t-helper");
+    const res = await call("admin", "POST", "/reset/t-helper");
+    assert.equal(res.status, 404);
+    assert.equal((await res.json()).code, "NOT_FOUND");
+    assert.equal(audits.length, 0);
   } finally { server.close(); }
 });
 

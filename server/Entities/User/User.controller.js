@@ -550,8 +550,10 @@ const getOneU = async (req, res) => {
         // The system account answers as missing to everyone but itself.
         if (isSystemUser(found) && !isSelfTz(req, found.tz)) break;
         const user = sanitize(found);
+        // Tours can only be reset on an active account, so only it gets the summary.
         if (
-          can(req.actor?.permissions, "users.edit")
+          room === "active"
+          && can(req.actor?.permissions, "users.edit")
           && canManageTarget(req.actor, found)
           && !isSystemUser(found)
         ) {

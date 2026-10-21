@@ -7,7 +7,7 @@ const tourState = require("../utils/tourState");
 // tz from the client, except /reset/:tz which needs users.edit.
 //   GET  /                { tours, knownKeys (null = never seeded), seenReleases }
 //   POST /item/:id        { status, version } -> { tours }; 400 BAD_INPUT, 409 TOO_MANY
-//   POST /known-keys      { keys } -> { knownKeys } (only keys the caller holds)
+//   POST /known-keys      { keys } -> { knownKeys } (only keys the caller holds); 400 BAD_INPUT
 //   POST /releases/seen   { ids } -> { seenReleases }; 400 BAD_INPUT
 //   POST /reset/:tz       clears that user's tours only (not knownKeys/seenReleases);
 //                         users.edit + canManageTarget: 403 FORBIDDEN, 404 missing/system
@@ -29,7 +29,12 @@ function createToursRouter({ requireAuth, loadActor, requirePermission, users, a
     }
   };
 
-  const save = (tz, patch) => users.update({ tz }, patch, "active");
+  // Never upserts: a write for a user who is gone (or no longer active) must
+  // not create a stray record. Resolves to false when nothing matched.
+  const save = async (tz, patch) => {
+    const out = await users.updateExisting({ tz }, patch, "active");
+    return Boolean(out?.result);
+  };
 
   async function getState(req, res) {
     const user = req.actor.user || {};
@@ -44,24 +49,31 @@ function createToursRouter({ requireAuth, loadActor, requirePermission, users, a
   async function setTour(req, res) {
     const update = tourState.parseTourUpdate(req.params.id, req.body);
     if (!update) return res.status(400).json(BAD_INPUT);
-    const tours = tourState.applyTour(req.actor.user?.tours, update);
+    const current = req.actor.user?.tours;
+    const tours = tourState.applyTour(current, update);
     if (!tours) return res.status(409).json(TOO_MANY);
-    // A null-prototype object is not storable as is.
-    const plain = { ...tours };
-    await save(req.actor.tz, { tours: plain });
-    return res.json({ ok: true, tours: plain });
+    // Write only this tour's entry, so two quick writes cannot drop each other's
+    // tour (the id pattern rules out "." and "$"). A missing or non-object
+    // `tours` cannot take a dotted path, so it is written whole instead.
+    const entry = tours[update.id];
+    const usable = current && typeof current === "object" && !Array.isArray(current);
+    const patch = usable ? { [`tours.${update.id}`]: entry } : { tours: { [update.id]: entry } };
+    if (!(await save(req.actor.tz, patch))) return res.status(404).json(NOT_FOUND);
+    // A null-prototype object is not sent as is.
+    return res.json({ ok: true, tours: { ...tours } });
   }
 
   async function setKnownKeys(req, res) {
-    const knownKeys = tourState.mergeKnownKeys(req.actor.user?.knownKeys, req.body?.keys, req.actor.permissions);
-    await save(req.actor.tz, { knownKeys });
+    if (!Array.isArray(req.body?.keys)) return res.status(400).json(BAD_INPUT);
+    const knownKeys = tourState.mergeKnownKeys(req.actor.user?.knownKeys, req.body.keys, req.actor.permissions);
+    if (!(await save(req.actor.tz, { knownKeys }))) return res.status(404).json(NOT_FOUND);
     return res.json({ ok: true, knownKeys });
   }
 
   async function setSeenReleases(req, res) {
     const seenReleases = tourState.mergeSeenReleases(req.actor.user?.seenReleases, req.body?.ids);
     if (!seenReleases) return res.status(400).json(BAD_INPUT);
-    await save(req.actor.tz, { seenReleases });
+    if (!(await save(req.actor.tz, { seenReleases }))) return res.status(404).json(NOT_FOUND);
     return res.json({ ok: true, seenReleases });
   }
 
@@ -73,7 +85,7 @@ function createToursRouter({ requireAuth, loadActor, requirePermission, users, a
     if (!target || isSystemTz(target.tz)) return res.status(404).json(NOT_FOUND);
     if (!canManageTarget(req.actor, target)) return res.status(403).json(FORBIDDEN);
 
-    await save(target.tz, { tours: {} });
+    if (!(await save(target.tz, { tours: {} }))) return res.status(404).json(NOT_FOUND);
     await audit.record(req, {
       module: "users", action: "tours_reset", targetType: "user",
       targetId: target.tz,
@@ -103,7 +115,7 @@ function defaultRouter() {
     // Loaded on first use: the user model needs the server's environment.
     users: {
       get: (...args) => require("../Entities/User/User.model").UserModelDef.get(...args),
-      update: (...args) => require("../Entities/User/User.model").UserModelDef.update(...args),
+      updateExisting: (...args) => require("../Entities/User/User.model").UserModelDef.updateExisting(...args),
     },
     audit: { record: (...args) => require("../utils/audit").audit.record(...args) },
     canManageTarget: require("../utils/permissionRules").canManageTarget,

@@ -159,6 +159,18 @@ UserModelDef.update = async function (filter, newData, collection = 'active') {
   });
 };
 
+// Like update() but never creates a user: result is null when no row matches.
+UserModelDef.updateExisting = async function (filter, newData, collection = 'active') {
+  const transformedData = applyFieldTransforms(this.fields, newData);
+
+  return await api.updateExisting({
+    dbName: this.dbName,
+    collection: this.collections[collection] || this.collections.active,
+    filter,
+    newData: transformedData
+  });
+};
+
 // Atomically add 1 to failedLoginCount and return the updated user.
 UserModelDef.incrementFailedLogin = async function (tz, collection = 'active') {
   return await api.increment({
