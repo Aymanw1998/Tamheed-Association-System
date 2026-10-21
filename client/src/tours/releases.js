@@ -1,3 +1,4 @@
+// To add an entry, see "HOW TO ADD A TOUR" in registry.js.
 // Newest first.
 export const RELEASES = [
   {

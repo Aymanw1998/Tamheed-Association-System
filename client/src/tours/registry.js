@@ -1,3 +1,13 @@
+// HOW TO ADD A TOUR
+// Add an object to TOURS with: id, version, route (use listRoute/detailRoute),
+// detail (true for one-record screens), requires (permission or null) and
+// steps. Put a `data-tour="..."` attribute on the real element each step
+// targets. Every title and body needs all three languages: [ar, he, en].
+// To announce a change ("what's new"), add an entry to RELEASES in
+// releases.js (newest first, unique id such as `2026-10-21-xyz`, optional
+// `requires`, optional `tourId`). Bumping a tour's `version` alone does NOT
+// re-show it; add a release with its `tourId` instead.
+
 // Section tours that SECTIONS refers to but that are not written yet; later tasks remove them.
 export const PENDING_TOURS = ["users"];
 

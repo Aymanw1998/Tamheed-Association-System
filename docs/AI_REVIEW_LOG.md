@@ -1824,3 +1824,36 @@ tests, build compiled. Not checked in a browser.
 **Requesting Codex review.** No live Codex connection; this entry is the handoff.
 
 **Delivery state:** committed by the agent with the owner's standing approval; not pushed.
+
+## 2026-10-21: Product tour (onboarding)
+
+**Owner request:** a guided product tour: welcome on first sign-in, a tour per
+section screen, prompts when a user gains new access, a what's-new list, and a
+help center to replay tours.
+
+**Changes:** Server: `server/utils/tourState.js` (progress, known permission
+keys, seen releases), `server/routes/tours.routes.js` (`/api/tours`: progress,
+known keys, seen releases, reset), user fields `tours` / `knownKeys` /
+`seenReleases`, and a `tourSummary` in `getOneU`. Client: `client/src/tours/`
+(`registry.js` TOURS + PENDING_TOURS, `releases.js` RELEASES, `sections.js`,
+`logic.js`, `TourProvider.jsx`, `runTour.js`, `HelpCenter.jsx`),
+`client/src/i18n/tourStrings.js` (ar/he/en), driver.js 1.3.1. Later fixes:
+page stays usable when a tour fails, tour waits for typing to stop, stale tour
+navigation dropped, routes anchored, the assistant tour opens its tabs and
+closes the panel afterwards. Registry comment explains how to add a tour or a
+what's-new entry. Tests in the review: server `tour-state`, `tours-routes`;
+client tour logic tests.
+
+**Not done:** Task 6 (menu steps, users/user/student/profile tours, "new"
+badges, tour status on the user page) waits for the owner to commit the
+in-progress edits to Header, Profile, EditStudent, EditUser, ViewAllUser and
+session.js. `PENDING_TOURS` still lists `users` until then.
+
+**Verification:** `npm test` at the repo root: server 688/688, client 30
+suites / 356 tests; `cd client && npm run build` compiled. Not checked in a
+browser; no database.
+
+**Requesting Codex review.** No live Codex connection; this entry is the handoff.
+
+**Delivery state:** committed by the agent with the owner's standing approval;
+not pushed. Task 6 pending the owner's commit of their UI edits.
