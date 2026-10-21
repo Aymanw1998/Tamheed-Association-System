@@ -1,4 +1,4 @@
-import { tourTabs, usableStepsByTab, can, usableSteps, tourForPath, newAccess, unseenReleases, startupQueue, pickText, tourPath, helpTours, helpReleases, sectionOfPath, unknownSectionKeys, isTypingTarget } from "./logic";
+import { tabSignal, tourTabs, usableStepsByTab, can, usableSteps, tourForPath, newAccess, unseenReleases, startupQueue, pickText, tourPath, helpTours, helpReleases, sectionOfPath, unknownSectionKeys, isTypingTarget } from "./logic";
 
 const T = (extra) => ({ id: "x", version: 1, route: null, detail: false, requires: null, steps: [], ...extra });
 const FAKE = [
@@ -193,6 +193,13 @@ describe("tabs", () => {
     { target: "ask", tab: "chat", requires: "ai.use" },
     { target: "talk", tab: "chat" },
   ] });
+  test("tabSignal opens, closes or does nothing", () => {
+    const [btn, list] = tabbed.steps;
+    expect(tabSignal(tabbed, list, false)).toEqual({ tab: "alerts" });
+    expect(tabSignal(tabbed, btn, true)).toEqual({ tab: null });
+    expect(tabSignal(tabbed, btn, false)).toBeNull();
+    expect(tabSignal(T({ steps: [{ target: "a" }] }), { target: "a" }, true)).toBeNull();
+  });
   test("lists distinct tabs in order", () => {
     expect(tourTabs(tabbed)).toEqual(["alerts", "chat"]);
     expect(tourTabs(T({ steps: [{ target: "a" }] }))).toEqual([]);

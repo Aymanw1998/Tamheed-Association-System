@@ -1,7 +1,7 @@
 import { driver } from "driver.js";
 import "driver.js/dist/driver.css";
 
-import { pickText } from "./logic";
+import { pickText, tabSignal, tourTabs } from "./logic";
 import styles from "./Tours.module.css";
 
 // Shows one tour with driver.js and reports how it ended:
@@ -23,7 +23,8 @@ import styles from "./Tours.module.css";
 // A step with `menu: true` opens the side menu first (window event
 // `tamheed:tour-menu` {open:true}) and it is closed ({open:false}) when the tour
 // moves to a step without it or ends; a step with `tab` sends
-// `tamheed:tour-tab` {tab} before it is shown.
+// `tamheed:tour-tab` {tab} before it is shown, and in a tour that uses tabs a step
+// without `tab` (and the end of the tour) sends {tab:null} to close the panel.
 
 const MENU_WAIT_MS = 320;
 const TAB_WAIT_MS = 200;
@@ -48,6 +49,7 @@ export function runTour(tour, { language, dir, t, onFinish, onError }) {
   const label = (key) => t(`tour.${key}`);
   let finished = false;
   let menuOpen = false;
+  let panelOpen = false;
   let moving = false;
   let timer = null;
 
@@ -145,8 +147,10 @@ export function runTour(tour, { language, dir, t, onFinish, onError }) {
     }
     const step = steps[i];
     let wait = setMenu(Boolean(step.menu)) ? MENU_WAIT_MS : 0;
-    if (step.tab) {
-      emit("tamheed:tour-tab", { tab: step.tab });
+    const signal = tabSignal(tour, step, panelOpen);
+    if (signal) {
+      emit("tamheed:tour-tab", signal);
+      panelOpen = signal.tab != null;
       wait = Math.max(wait, TAB_WAIT_MS);
     }
     if (!wait) {
@@ -200,6 +204,8 @@ export function runTour(tour, { language, dir, t, onFinish, onError }) {
     window.removeEventListener("keydown", onKey, true);
     BLOCKED.forEach((name) => window.removeEventListener(name, onClick, true));
     setMenu(false);
+    if (panelOpen && tourTabs(tour).length) emit("tamheed:tour-tab", { tab: null });
+    panelOpen = false;
     try {
       d.destroy();
     } catch {}

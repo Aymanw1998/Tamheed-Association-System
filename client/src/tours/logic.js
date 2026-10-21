@@ -12,6 +12,14 @@ export const usableSteps = (tour, { permissions, exists }) =>
 // The distinct tabs a tour moves between (steps with a `tab`), in step order.
 export const tourTabs = (tour) => [...new Set((tour?.steps || []).map((s) => s.tab).filter(Boolean))];
 
+// What a step asks of the tab host before it shows: {tab} to open one, {tab:null} to close
+// the panel (a tab-less step in a tour that uses tabs), or null for nothing.
+export const tabSignal = (tour, step, panelOpen) => {
+  if (!tourTabs(tour).length) return null;
+  if (step?.tab) return { tab: step.tab };
+  return panelOpen ? { tab: null } : null;
+};
+
 // Like usableSteps, for tours with tabs: `found` maps a tab ("" = no tab) to the
 // targets seen while that tab was open; a step stays only if its target was seen under its own tab.
 export const usableStepsByTab = (tour, { permissions, found }) =>

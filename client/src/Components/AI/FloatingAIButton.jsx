@@ -80,6 +80,10 @@ export default function FloatingAIButton() {
   useEffect(() => {
     const onTourTab = (event) => {
       const wanted = event?.detail?.tab;
+      if (wanted === null) {
+        setOpen(false);
+        return;
+      }
       if (wanted !== "alerts" && wanted !== "chat") return;
       if (!visibleTabs(aiOn).includes(wanted)) return;
       setOpen(true);

@@ -86,11 +86,17 @@ async function prepareSteps(tour, permissions, cancelled) {
   // Tabs: open each one in turn and note which targets are really there.
   const seen = (tab) => new Set(tour.steps.filter((x) => (x.tab || "") === tab && x.target && exists(x.target)).map((x) => x.target));
   const found = { "": seen("") };
-  for (const tab of tabs) {
-    window.dispatchEvent(new CustomEvent("tamheed:tour-tab", { detail: { tab } }));
-    await sleep(TAB_PROBE_MS);
-    if (cancelled()) return null;
-    found[tab] = seen(tab);
+  // If a tab step is already on screen the panel was open: leave it as it was.
+  const wasOpen = tour.steps.some((x) => x.tab && x.target && exists(x.target));
+  try {
+    for (const tab of tabs) {
+      window.dispatchEvent(new CustomEvent("tamheed:tour-tab", { detail: { tab } }));
+      await sleep(TAB_PROBE_MS);
+      if (cancelled()) return null;
+      found[tab] = seen(tab);
+    }
+  } finally {
+    if (!wasOpen) window.dispatchEvent(new CustomEvent("tamheed:tour-tab", { detail: { tab: null } }));
   }
   return usableStepsByTab(tour, { permissions, found });
 }
