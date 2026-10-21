@@ -35,6 +35,7 @@ import EditVehicle from '../Vehicle/EditVehicle';
 import FloatingAIButton from '../AI/FloatingAIButton';
 import { canStored } from '../../utils/session';
 import PrivacyPage from '../Privacy/PrivacyPage';
+import { TourProvider } from '../../tours/TourProvider';
 
 // The assistant (alerts now, chat later) shows for accounts with ai.use.
 
@@ -42,9 +43,11 @@ function ProtectedLayout() {
   // ملاحظة عربية
   return (
     <div style={{ height: "100vh", width: "100vw" }}>
-      <Header />
-      <Outlet />
-      {canStored("ai.use") && <FloatingAIButton />}
+      <TourProvider>
+        <Header />
+        <Outlet />
+        {canStored("ai.use") && <FloatingAIButton />}
+      </TourProvider>
     </div>
   );
 }

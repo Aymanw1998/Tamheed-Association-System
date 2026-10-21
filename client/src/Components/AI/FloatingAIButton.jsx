@@ -706,6 +706,7 @@ export default function FloatingAIButton() {
 
       <button
         type="button"
+        data-tour="assistant-button"
         className={`${styles.floatingButton} ${open ? styles.active : ""}`}
         onClick={() => setOpen((value) => !value)}
         aria-label={open ? t("common.close") : a("title")}

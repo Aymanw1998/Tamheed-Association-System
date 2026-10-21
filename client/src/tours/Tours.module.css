@@ -1,0 +1,405 @@
+/* Guided tours: driver.js popover skin, the "?" help button, the help center,
+   "what's new" and the new-access card. */
+
+/* ---------- driver.js popover ---------- */
+.popover {
+  font-family: inherit;
+  min-width: 260px;
+  max-width: min(340px, calc(100vw - 32px));
+  padding: 16px 16px 12px;
+  border-radius: 14px;
+  color: #1f2937;
+  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.28);
+}
+
+.popover :global(.driver-popover-title) {
+  font: inherit;
+  font-size: 16px;
+  font-weight: 800;
+  color: #12593f;
+  line-height: 1.4;
+}
+
+.popover :global(.driver-popover-description) {
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #334155;
+  margin-top: 6px;
+}
+
+.popover :global(.driver-popover-close-btn) {
+  color: #64748b;
+}
+
+.popover[dir="rtl"] :global(.driver-popover-close-btn) {
+  left: 0;
+  right: auto;
+}
+
+.popover :global(.driver-popover-footer) {
+  margin-top: 14px;
+  gap: 8px;
+}
+
+.popover :global(.driver-popover-progress-text) {
+  font: inherit;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.popover :global(.driver-popover-navigation-btns) {
+  gap: 6px;
+}
+
+.popover :global(.driver-popover-footer button) {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  text-shadow: none;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid #cfe3da;
+  background: #ffffff;
+  color: #176b4d;
+}
+
+.popover :global(.driver-popover-footer button.driver-popover-next-btn) {
+  background: #176b4d;
+  border-color: #176b4d;
+  color: #ffffff;
+}
+
+.popover :global(.driver-popover-footer button:disabled) {
+  opacity: 0.45;
+}
+
+.popoverExtra {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid #e5eee9;
+}
+
+.laterButton,
+.skipButton {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 4px 6px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.laterButton {
+  color: #176b4d;
+}
+
+.skipButton {
+  color: #64748b;
+}
+
+.laterButton:hover,
+.skipButton:hover {
+  background: #f1f7f4;
+}
+
+.laterButton:focus-visible,
+.skipButton:focus-visible {
+  outline: 2px solid #176b4d;
+  outline-offset: 1px;
+}
+
+/* ---------- "?" help button (opposite corner from the assistant) ---------- */
+.helpButton {
+  position: fixed;
+  left: max(22px, env(safe-area-inset-left, 0px));
+  bottom: max(24px, env(safe-area-inset-bottom, 0px));
+  z-index: 1230;
+  width: 46px;
+  height: 46px;
+  border-radius: 999px;
+  border: 1px solid rgba(23, 107, 77, 0.3);
+  background: #ffffff;
+  color: #176b4d;
+  font: inherit;
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.16);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.helpButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.2);
+}
+
+.helpButton:focus-visible {
+  outline: 3px solid rgba(23, 107, 77, 0.45);
+  outline-offset: 2px;
+}
+
+/* ---------- modals ---------- */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1400;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.modal {
+  width: min(560px, 100%);
+  max-height: min(680px, calc(100dvh - 32px));
+  overflow: auto;
+  border-radius: 16px;
+  background: #ffffff;
+  color: #1f2937;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.3);
+  padding: 18px 20px 20px;
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.modalTitle {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 800;
+  color: #12593f;
+}
+
+.closeButton {
+  border: 0;
+  background: transparent;
+  font-size: 24px;
+  line-height: 1;
+  color: #64748b;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: 8px;
+}
+
+.closeButton:hover {
+  background: #f1f5f9;
+}
+
+.intro {
+  margin: 0 0 14px;
+  color: #475569;
+  font-size: 14px;
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.actionButton,
+.primaryButton,
+.ghostButton {
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  border-radius: 10px;
+  cursor: pointer;
+  padding: 10px 12px;
+}
+
+.actionButton {
+  border: 1px solid #cfe3da;
+  background: #f4faf7;
+  color: #12593f;
+}
+
+.actionButton:hover:not(:disabled) {
+  background: #e7f4ee;
+}
+
+.actionButton:disabled,
+.primaryButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.primaryButton {
+  border: 1px solid #176b4d;
+  background: #176b4d;
+  color: #ffffff;
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+.ghostButton {
+  border: 1px solid #d7dee6;
+  background: #ffffff;
+  color: #475569;
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+.note {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.sectionTitle {
+  margin: 18px 0 8px;
+  font-size: 15px;
+  font-weight: 800;
+  color: #1f2937;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #e5eee9;
+  border-radius: 12px;
+}
+
+.rowMain {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rowName {
+  font-weight: 700;
+}
+
+.status {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.statusDone {
+  color: #15803d;
+}
+
+.release {
+  padding: 12px;
+  border: 1px solid #e5eee9;
+  border-radius: 12px;
+}
+
+.releaseHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.releaseTitle {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.releaseDate {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.releaseBody {
+  margin: 6px 0 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #334155;
+}
+
+.releaseActions {
+  margin-top: 8px;
+}
+
+.badge {
+  font-size: 11px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #fef3c7;
+  color: #92400e;
+}
+
+/* ---------- new-access card (not blocking) ---------- */
+.accessCard {
+  position: fixed;
+  z-index: 1350;
+  bottom: max(24px, env(safe-area-inset-bottom, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(420px, calc(100vw - 32px));
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: #ffffff;
+  border: 1px solid #cfe3da;
+  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.22);
+  color: #1f2937;
+}
+
+.accessTitle {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 800;
+  color: #12593f;
+}
+
+.accessItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 0;
+  font-size: 14px;
+}
+
+.accessFooter {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+@media (max-width: 760px) {
+  /* Above the assistant button, same corner. */
+  .helpButton {
+    left: auto;
+    right: max(20px, env(safe-area-inset-right, 0px));
+    bottom: calc(max(16px, env(safe-area-inset-bottom, 0px)) + 64px);
+    width: 40px;
+    height: 40px;
+    font-size: 19px;
+  }
+
+  .accessCard {
+    bottom: calc(max(16px, env(safe-area-inset-bottom, 0px)) + 116px);
+  }
+
+  .actions {
+    grid-template-columns: 1fr;
+  }
+}

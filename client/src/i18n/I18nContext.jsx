@@ -5,6 +5,7 @@ import { noticeStrings } from "./noticeStrings";
 import { accessStrings } from "./accessStrings";
 import { assistantStrings } from "./assistantStrings";
 import { rosterStrings } from "./rosterStrings";
+import { tourStrings } from "./tourStrings";
 
 const LANGUAGE_KEY = "tamheed_language";
 
@@ -250,6 +251,7 @@ for (const code of Object.keys(translations)) {
   translations[code].nav.notices = noticeStrings[code].navTitle;
   translations[code].roster = rosterStrings[code];
   translations[code].assistant = assistantStrings[code];
+  translations[code].tour = tourStrings[code];
   translations[code].perms = accessStrings[code].perms;
   translations[code].audit = accessStrings[code].audit;
   translations[code].passwordChange = accessStrings[code].passwordChange;

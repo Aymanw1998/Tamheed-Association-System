@@ -1,4 +1,4 @@
-import { can, usableSteps, tourForPath, newAccess, unseenReleases, startupQueue, pickText } from "./logic";
+import { can, usableSteps, tourForPath, newAccess, unseenReleases, startupQueue, pickText, tourPath, helpTours, helpReleases, sectionOfPath, unknownSectionKeys } from "./logic";
 
 const T = (extra) => ({ id: "x", version: 1, route: null, detail: false, requires: null, steps: [], ...extra });
 const FAKE = [
@@ -113,5 +113,43 @@ describe("pickText", () => {
     expect(pickText(t, "he")).toBe("ע");
     expect(pickText(t, "fr")).toBe("أ");
     expect(pickText(undefined, "en")).toBe("");
+  });
+});
+
+describe("help center helpers", () => {
+  const SEC = { students: { path: "/students", tourId: "students" }, vehicles: { path: "/vehicles", tourId: "vehicles" } };
+  const TOURS3 = [
+    T({ id: "welcome" }),
+    T({ id: "students", route: /^\/students\/?$/ }),
+    T({ id: "vehicles", route: /^\/vehicles\/?$/, requires: "vehicles.view" }),
+    T({ id: "student", route: /^\/students\/[^/]+$/, detail: true }),
+  ];
+  test("tourPath finds the section page", () => {
+    expect(tourPath("students", SEC)).toBe("/students");
+    expect(tourPath("student", SEC)).toBeNull();
+  });
+  test("helpTours keeps permitted tours with an openable page", () => {
+    const ids = (perms, canOpen) => helpTours({ permissions: perms, canOpen }, TOURS3, SEC).map((x) => x.tour.id);
+    expect(ids([], () => true)).toEqual(["students"]);
+    expect(ids(["vehicles.view"], () => true)).toEqual(["students", "vehicles"]);
+    expect(ids(["vehicles.view"], (p) => p !== "/students")).toEqual(["vehicles"]);
+  });
+  test("helpReleases lists permitted ones, unseen first", () => {
+    expect(helpReleases(["r1"], ["students.view"], REL).map((r) => r.id)).toEqual(["r2", "r1"]);
+    expect(helpReleases(["r2"], ["students.view"], REL).map((r) => r.id)).toEqual(["r1", "r2"]);
+    expect(helpReleases([], [], REL).map((r) => r.id)).toEqual(["r1"]);
+  });
+  test("sectionOfPath matches the page and pages under it", () => {
+    expect(sectionOfPath("/students", SEC)).toBe("students");
+    expect(sectionOfPath("/students/abc/", SEC)).toBe("students");
+    expect(sectionOfPath("/studentsx", SEC)).toBeNull();
+    expect(sectionOfPath("/profile", SEC)).toBeNull();
+  });
+  test("unknownSectionKeys lists held keys of the section not yet known", () => {
+    const perms = ["users.view", "permissions.manage", "students.view"];
+    expect(unknownSectionKeys("users", perms, ["users.view"])).toEqual(["permissions.manage"]);
+    expect(unknownSectionKeys("users", perms, ["users.view", "permissions.manage"])).toEqual([]);
+    expect(unknownSectionKeys("users", perms, null)).toEqual([]);
+    expect(unknownSectionKeys(null, perms, [])).toEqual([]);
   });
 });

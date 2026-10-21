@@ -1,7 +1,7 @@
 import { hasPermission } from "../utils/permissionKeys";
 import { TOURS } from "./registry";
 import { RELEASES } from "./releases";
-import { SECTION_OF } from "./sections";
+import { SECTION_OF, SECTIONS } from "./sections";
 
 export const can = (permissions, key) => (key == null ? true : hasPermission(permissions, key));
 
@@ -53,3 +53,36 @@ export const startupQueue = ({ state, permissions, deferred }, releases = RELEAS
 };
 
 export const pickText = (text, language) => (text && (text[language] || text.ar)) || "";
+
+// The page a tour lives on, for tours the help center can open by navigating.
+export const tourPath = (tourId, sections = SECTIONS) => {
+  const entry = Object.values(sections).find((s) => s.tourId === tourId);
+  return entry ? entry.path : null;
+};
+
+// Tours the help center lists: a page of their own the user can open, and permitted.
+export const helpTours = ({ permissions, canOpen }, tours = TOURS, sections = SECTIONS) =>
+  tours
+    .map((tour) => ({ tour, path: tourPath(tour.id, sections) }))
+    .filter(({ tour, path }) => path && can(permissions, tour.requires ?? null) && canOpen(path));
+
+// Every release the user may see, unseen first, otherwise in list order (newest first).
+export const helpReleases = (seen, permissions, releases = RELEASES) => {
+  const done = new Set(seen || []);
+  const allowed = releases.filter((r) => can(permissions, r.requires));
+  return [...allowed.filter((r) => !done.has(r.id)), ...allowed.filter((r) => done.has(r.id))];
+};
+
+// The section whose page (or a page under it) is open.
+export const sectionOfPath = (pathname, sections = SECTIONS) => {
+  const path = String(pathname || "").replace(/\/+$/, "");
+  const hit = Object.entries(sections).find(([, s]) => path === s.path || path.startsWith(`${s.path}/`));
+  return hit ? hit[0] : null;
+};
+
+// Held keys of a section's modules that are not known yet ([] = nothing to save).
+export const unknownSectionKeys = (section, permissions, knownKeys, sectionOf = SECTION_OF) => {
+  if (!section || knownKeys == null) return [];
+  const known = new Set(knownKeys);
+  return (permissions || []).filter((k) => sectionOf[moduleOf(k)] === section && !known.has(k));
+};
