@@ -3,15 +3,19 @@
 // returns minimal JSON data (never instructions).
 //
 //   definitions                 Anthropic tool definitions, fixed order, strict: true
-//   run(name, input, actor)     -> Promise<object>; never throws:
+//   run(name, input, actor, { conversationId }?)
+//                               -> Promise<object>; never throws:
 //                                  unknown tool / input not matching the schema -> { error: "INVALID_INPUT" }
 //                                  no permission -> { error: "FORBIDDEN" }; hidden or missing -> { error: "NOT_FOUND" }
 //                                  a failure inside the tool -> { error: "FAILED" }
-//   forModel(result)            the result as the model should see it (navigate paths removed)
+//   forModel(result)            the result as the model should see it (navigate paths removed;
+//                               a proposal as { pendingActionId, summary } only)
 //   createToolRegistry({ deps }) the same with injected data access (tests)
 //
-// There are no tools to delete anything, change permissions or roles, or
-// touch passwords (spec, part 2).
+// The propose_* tools change nothing: they store a pending action that runs
+// only when the user approves it (actionRunner.js); they need the chat's
+// conversationId. There are no tools to delete anything, change permissions
+// or an existing role, or touch passwords (spec, part 2).
 const { can, isSystemTz, SYSTEM_ACTOR_NAME } = require("../../utils/permissions");
 const { createStudentScope } = require("../../utils/studentScope");
 const { check, apiSchema } = require("./validateInput");
@@ -28,6 +32,11 @@ const TOOLS = [
   require("./tools/my_reports"),
   require("./tools/notices"),
   require("./tools/navigate"),
+  require("./tools/propose_attendance"),
+  require("./tools/propose_add_student_to_lesson"),
+  require("./tools/propose_report"),
+  require("./tools/propose_notice"),
+  require("./tools/propose_approve_user"),
 ];
 
 const definitions = Object.freeze(TOOLS.map((tool) => Object.freeze({
@@ -66,6 +75,10 @@ function scrub(value, systemTz) {
 // navigate's path can carry an ID number (students and users are opened by
 // tz): the browser gets it, the model only learns that the button was shown.
 function forModel(result) {
+  // A proposal: the card (pendingAction) goes to the browser only.
+  if (result && typeof result === "object" && result.pendingAction) {
+    return { pendingActionId: result.pendingActionId, summary: result.summary };
+  }
   if (result && typeof result === "object" && result.navigate) {
     const { path, ...rest } = result.navigate;
     return { navigate: rest, shown: true };
@@ -92,6 +105,7 @@ function defaultDeps() {
     notices: noticeService,
     now: () => new Date(),
     log: (...args) => logWithSource("[assistant.tool]", ...args),
+    actions: require("./actionRunner"),
   };
 }
 
@@ -101,7 +115,7 @@ function createToolRegistry({ deps } = {}) {
   const byName = new Map(TOOLS.map((tool) => [tool.name, tool]));
   let scope = null;
 
-  function contextFor(actor) {
+  function contextFor(actor, conversationId) {
     const d = getDeps();
     const systemTz = d.systemTz ?? process.env.SYSTEM_ADMIN_TZ;
     scope ||= createStudentScope({ lessonModel: d.models.Lesson, studentModel: d.models.Student });
@@ -126,17 +140,21 @@ function createToolRegistry({ deps } = {}) {
         return map;
       }),
       systemTz,
+      // Stores a proposal for the user to approve (propose_* tools only).
+      propose: (type, params) => (conversationId
+        ? d.actions.propose({ actor, conversationId: String(conversationId), type, params })
+        : { error: "INVALID_INPUT", message: "no conversation" }),
     };
   }
 
-  async function run(name, input, actor) {
+  async function run(name, input, actor, { conversationId } = {}) {
     const tool = typeof name === "string" ? byName.get(name) : null;
     if (!tool) return { error: "INVALID_INPUT", message: "unknown tool" };
     if (!actor || !(actor.permissions instanceof Set)) return { error: "FORBIDDEN" };
     const reason = check(tool.input_schema, input);
     if (reason) return { error: "INVALID_INPUT", message: reason };
     const d = getDeps();
-    const ctx = contextFor(actor);
+    const ctx = contextFor(actor, conversationId);
     // Technical log (spec part 5): who, which tool, which input fields. Never
     // the values (a child's name or ID number) and never the result.
     d.log?.("call", { actor: actor.isSystem ? SYSTEM_ACTOR_NAME : String(actor.id ?? ""), tool: name, inputKeys: Object.keys(input) });
@@ -156,7 +174,7 @@ const defaultRegistry = createToolRegistry();
 
 module.exports = {
   definitions,
-  run: (name, input, actor) => defaultRegistry.run(name, input, actor),
+  run: (name, input, actor, options) => defaultRegistry.run(name, input, actor, options),
   forModel,
   createToolRegistry,
   scrub,

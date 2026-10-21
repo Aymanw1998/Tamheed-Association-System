@@ -1,7 +1,7 @@
 // The assistant's chat turn: one user message -> a streamed answer, with the
 // Claude tool loop in between (spec, part 1).
 //
-//   createAssistant({ getClient, conversations, tools, forModel, now, log, maxRounds, historyLimit })
+//   createAssistant({ getClient, conversations, tools, forModel, discardActions, now, log, maxRounds, historyLimit })
 //     -> { isConfigured(), runAssistantTurn({ actor, conversationId?, userText, onEvent, signal? }) }
 //   runAssistantTurn / isConfigured   the same on the real client, AiConversations and tool registry
 //
@@ -10,7 +10,8 @@
 //   delta { text }                  answer text as it is written
 //   tool { name }                   a tool is being run
 //   navigate { screen, id, path }   a screen button (the path goes to the browser only)
-//   action { pendingAction }        a proposed action card (Task 7)
+//   action { pendingAction }        a proposed action card, sent once the round that
+//                                   proposed it is stored (services/assistant/actionRunner.js)
 //   done {}                         the answer is complete and stored
 //   error { code, message }         the turn failed (instead of done)
 // runAssistantTurn resolves to { ok, code?, conversationId? } and never throws.
@@ -20,6 +21,14 @@
 // tool_result), so a failure never leaves an unanswered tool_use behind
 // (Review Focus #5). The user's message and the context system message are
 // stored together with the first completed round.
+//
+// Proposed actions: a propose_* tool stores a pending action during its round.
+// If that round is never stored (the browser went away, or storing failed),
+// the pending action is discarded (discardActions), so the model's history
+// and the approvable actions never disagree; its card is only sent after the
+// round is stored. A new conversation is locked for its first turn, like an
+// existing one (routes/ai.routes.js), so an approval's system message can
+// never land in the middle of a turn.
 const Anthropic = require("@anthropic-ai/sdk");
 const systemPrompt = require("./assistant/systemPrompt");
 
@@ -103,6 +112,7 @@ function createAssistant({
   conversations,
   tools,
   forModel = require("./assistant/toolRegistry").forModel,
+  discardActions = async () => {},
   now = () => new Date(),
   log = () => {},
   maxRounds = MAX_ROUNDS,
@@ -136,6 +146,7 @@ function createAssistant({
 
     let conversation;
     let created = false;
+    let newLock = null;
     let stored = 0;
     let lastStored = null;
     try {
@@ -145,118 +156,139 @@ function createAssistant({
       } else {
         conversation = await conversations.create(actor.tz, titleFrom(userText), now());
         created = true;
+        if (conversations.lock) newLock = await conversations.lock(actor.tz, String(conversation._id), now());
       }
     } catch (error) {
       log("conversation", { error: String(error?.name || "Error") });
       return fail("SERVER_ERROR");
     }
     const id = String(conversation._id);
-    emit("conversation", { id, title: conversation.title || "" });
-
-    const persist = async (messages) => {
-      const ok = await conversations.append(actor.tz, id, messages, now());
-      if (!ok) throw new ConversationGone();
-      stored += messages.length;
-      lastStored = messages.at(-1);
-    };
-    const checkAbort = () => { if (signal?.aborted) throw new Aborted(); };
-
-    const history = trimHistory(conversation.messages, historyLimit);
-    // Messages of this turn not yet stored; sent but kept until a round completes.
-    let unsaved = [
-      { role: "user", content: [textBlock(userText)] },
-      { role: "system", content: systemPrompt.context(actor, now()) },
-    ];
-    const saved = [];
-
     try {
-      for (let round = 1; ; round++) {
-        let streamed = false;
-        const stream = client.beta.messages.stream(requestParams([...history, ...saved, ...unsaved]), { signal });
-        stream.on("text", (delta) => { if (delta) { streamed = true; emit("delta", { text: delta }); } });
-        const message = await stream.finalMessage();
-        checkAbort();
-        const u = message.usage || {};
-        log("usage", {
-          actor: String(actor.id ?? ""), round, model: message.model, stop_reason: message.stop_reason,
-          input_tokens: u.input_tokens, output_tokens: u.output_tokens,
-          cache_read_input_tokens: u.cache_read_input_tokens, cache_creation_input_tokens: u.cache_creation_input_tokens,
-        });
-
-        // Check refusal before reading the content.
-        if (message.stop_reason === "refusal") {
-          emit("delta", { text: `${streamed ? "\n\n" : ""}${REFUSAL_TEXT}` });
-          await persist([...unsaved, { role: "assistant", content: [textBlock(REFUSAL_TEXT)] }]);
-          break;
-        }
-
-        const content = Array.isArray(message.content) ? message.content : [];
-
-        // end_turn: the answer is complete.
-        if (message.stop_reason === "end_turn") {
-          if (!content.length) emit("delta", { text: EMPTY_NOTE });
-          await persist([...unsaved, { role: "assistant", content: content.length ? content : [textBlock(EMPTY_NOTE)] }]);
-          break;
-        }
-
-        if (message.stop_reason !== "tool_use" || !content.some((b) => b.type === "tool_use")) {
-          // max_tokens, model_context_window_exceeded, pause_turn, stop_sequence, ...:
-          // only the text plus a note, so an unanswered tool_use is never stored
-          // (Review Focus #5).
-          const note = message.stop_reason === "max_tokens" ? MAX_TOKENS_NOTE : INTERRUPTED_NOTE;
-          const texts = content.filter((b) => b.type === "text" && b.text).map((b) => textBlock(b.text));
-          emit("delta", { text: `${streamed ? "\n\n" : ""}${note}` });
-          await persist([...unsaved, { role: "assistant", content: [...texts, textBlock(note)] }]);
-          break;
-        }
-
-        // tool_use: run the tools, store the round, then the next round.
-        const assistantMessage = { role: "assistant", content }; // every block, unchanged
-        const calls = content.filter((b) => b.type === "tool_use");
-        const results = await Promise.all(calls.map(async (block) => {
-          emit("tool", { name: block.name });
-          let result;
-          try {
-            result = await tools.run(block.name, block.input, actor);
-          } catch (error) {
-            log("tool", { tool: block.name, error: String(error?.name || "Error") });
-            result = { error: "FAILED" };
-          }
-          if (result?.navigate) {
-            const { screen, id: recordId = null, path } = result.navigate;
-            emit("navigate", { screen, id: recordId, path });
-          }
-          if (result?.pendingAction) emit("action", { pendingAction: result.pendingAction });
-          const toolResult = { type: "tool_result", tool_use_id: block.id, content: JSON.stringify(forModel(result) ?? null) };
-          if (result?.error) toolResult.is_error = true;
-          return toolResult;
-        }));
-        checkAbort();
-        const roundMessages = [...unsaved, assistantMessage, { role: "user", content: results }];
-        await persist(roundMessages);
-        saved.push(...roundMessages);
-        unsaved = [];
-        if (round >= maxRounds) {
-          emit("delta", { text: `\n\n${ROUND_LIMIT_NOTE}` });
-          await persist([{ role: "assistant", content: [textBlock(ROUND_LIMIT_NOTE)] }]);
-          break;
-        }
-      }
-    } catch (error) {
-      const aborted = Boolean(signal?.aborted) || error instanceof Aborted;
-      if (!aborted) log("turn failed", { actor: String(actor.id ?? ""), error: String(error?.name || "Error"), status: error?.status });
-      // Close a turn that stopped after a stored tool round, so the history
-      // never ends on unanswered tool results.
-      if (isToolResultMessage(lastStored)) {
-        await persist([{ role: "assistant", content: [textBlock(INTERRUPTED_NOTE)] }]).catch(() => {});
-      }
-      if (created && stored === 0) await conversations.remove(actor.tz, id).catch(() => {});
-      if (aborted) return { ok: false, code: "ABORTED", conversationId: id };
-      return { ...fail(errorCode(error)), conversationId: id };
+      return await converse();
+    } finally {
+      if (newLock) await conversations.unlock(actor.tz, id, newLock).catch(() => {});
     }
 
-    emit("done", {});
-    return { ok: true, conversationId: id };
+    // The turn itself (the new conversation stays locked until it returns).
+    async function converse() {
+      emit("conversation", { id, title: conversation.title || "" });
+
+      const persist = async (messages) => {
+        const ok = await conversations.append(actor.tz, id, messages, now());
+        if (!ok) throw new ConversationGone();
+        stored += messages.length;
+        lastStored = messages.at(-1);
+      };
+      const checkAbort = () => { if (signal?.aborted) throw new Aborted(); };
+
+      const history = trimHistory(conversation.messages, historyLimit);
+      // Messages of this turn not yet stored; sent but kept until a round completes.
+      let unsaved = [
+        { role: "user", content: [textBlock(userText)] },
+        { role: "system", content: systemPrompt.context(actor, now()) },
+      ];
+      const saved = [];
+      // Pending actions proposed in the round not yet stored.
+      let unsavedActions = [];
+
+      try {
+        for (let round = 1; ; round++) {
+          let streamed = false;
+          const stream = client.beta.messages.stream(requestParams([...history, ...saved, ...unsaved]), { signal });
+          stream.on("text", (delta) => { if (delta) { streamed = true; emit("delta", { text: delta }); } });
+          const message = await stream.finalMessage();
+          checkAbort();
+          const u = message.usage || {};
+          log("usage", {
+            actor: String(actor.id ?? ""), round, model: message.model, stop_reason: message.stop_reason,
+            input_tokens: u.input_tokens, output_tokens: u.output_tokens,
+            cache_read_input_tokens: u.cache_read_input_tokens, cache_creation_input_tokens: u.cache_creation_input_tokens,
+          });
+
+          // Check refusal before reading the content.
+          if (message.stop_reason === "refusal") {
+            emit("delta", { text: `${streamed ? "\n\n" : ""}${REFUSAL_TEXT}` });
+            await persist([...unsaved, { role: "assistant", content: [textBlock(REFUSAL_TEXT)] }]);
+            break;
+          }
+
+          const content = Array.isArray(message.content) ? message.content : [];
+
+          // end_turn: the answer is complete.
+          if (message.stop_reason === "end_turn") {
+            if (!content.length) emit("delta", { text: EMPTY_NOTE });
+            await persist([...unsaved, { role: "assistant", content: content.length ? content : [textBlock(EMPTY_NOTE)] }]);
+            break;
+          }
+
+          if (message.stop_reason !== "tool_use" || !content.some((b) => b.type === "tool_use")) {
+            // max_tokens, model_context_window_exceeded, pause_turn, stop_sequence, ...:
+            // only the text plus a note, so an unanswered tool_use is never stored
+            // (Review Focus #5).
+            const note = message.stop_reason === "max_tokens" ? MAX_TOKENS_NOTE : INTERRUPTED_NOTE;
+            const texts = content.filter((b) => b.type === "text" && b.text).map((b) => textBlock(b.text));
+            emit("delta", { text: `${streamed ? "\n\n" : ""}${note}` });
+            await persist([...unsaved, { role: "assistant", content: [...texts, textBlock(note)] }]);
+            break;
+          }
+
+          // tool_use: run the tools, store the round, then the next round.
+          const assistantMessage = { role: "assistant", content }; // every block, unchanged
+          const calls = content.filter((b) => b.type === "tool_use");
+          const cards = [];
+          const results = await Promise.all(calls.map(async (block) => {
+            emit("tool", { name: block.name });
+            let result;
+            try {
+              result = await tools.run(block.name, block.input, actor, { conversationId: id });
+            } catch (error) {
+              log("tool", { tool: block.name, error: String(error?.name || "Error") });
+              result = { error: "FAILED" };
+            }
+            if (result?.navigate) {
+              const { screen, id: recordId = null, path } = result.navigate;
+              emit("navigate", { screen, id: recordId, path });
+            }
+            if (result?.pendingAction) {
+              cards.push(result.pendingAction);
+              unsavedActions.push(String(result.pendingActionId));
+            }
+            const toolResult = { type: "tool_result", tool_use_id: block.id, content: JSON.stringify(forModel(result) ?? null) };
+            if (result?.error) toolResult.is_error = true;
+            return toolResult;
+          }));
+          checkAbort();
+          const roundMessages = [...unsaved, assistantMessage, { role: "user", content: results }];
+          await persist(roundMessages);
+          saved.push(...roundMessages);
+          unsaved = [];
+          unsavedActions = [];
+          for (const card of cards) emit("action", { pendingAction: card });
+          if (round >= maxRounds) {
+            emit("delta", { text: `\n\n${ROUND_LIMIT_NOTE}` });
+            await persist([{ role: "assistant", content: [textBlock(ROUND_LIMIT_NOTE)] }]);
+            break;
+          }
+        }
+      } catch (error) {
+        const aborted = Boolean(signal?.aborted) || error instanceof Aborted;
+        if (unsavedActions.length) {
+          await discardActions(actor.tz, unsavedActions).catch((e) => log("discard", { error: String(e?.name || "Error") }));
+        }
+        if (!aborted) log("turn failed", { actor: String(actor.id ?? ""), error: String(error?.name || "Error"), status: error?.status });
+        // Close a turn that stopped after a stored tool round, so the history
+        // never ends on unanswered tool results.
+        if (isToolResultMessage(lastStored)) {
+          await persist([{ role: "assistant", content: [textBlock(INTERRUPTED_NOTE)] }]).catch(() => {});
+        }
+        if (created && stored === 0) await conversations.remove(actor.tz, id).catch(() => {});
+        if (aborted) return { ok: false, code: "ABORTED", conversationId: id };
+        return { ...fail(errorCode(error)), conversationId: id };
+      }
+
+      emit("done", {});
+      return { ok: true, conversationId: id };
+    }
   }
 
   return { isConfigured, runAssistantTurn };
@@ -279,6 +311,7 @@ function getDefaultAssistant() {
       conversations: require("../Entities/AiConversation/AiConversation.model").AiConversationModelDef,
       tools: { definitions: registry.definitions, run: registry.run },
       forModel: registry.forModel,
+      discardActions: (ownerTz, ids) => require("./assistant/actionRunner").discard(ownerTz, ids),
       log: (...args) => logWithSource("[assistant]", ...args),
     });
   }

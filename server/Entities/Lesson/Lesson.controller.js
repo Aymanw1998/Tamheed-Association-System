@@ -453,6 +453,8 @@ module.exports = {
   addToList,
   removeFromList,
   copyMonth,
+  // The list_tz rule, for the assistant's add-student action (actionRunner).
+  idsFromTz,
   deletePerMonth,
   getLessonsByToDay,
 };

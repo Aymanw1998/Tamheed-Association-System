@@ -1794,6 +1794,9 @@ module.exports = {
   updateStoragePermissions,
   deleteU,
   changeRoom,
+  // The approval rule and lookup, for the assistant's approve-user action (actionRunner).
+  canApproveAs,
+  getUserInRoomByTz,
   getPermissions,
   putPermissions,
   putRole,

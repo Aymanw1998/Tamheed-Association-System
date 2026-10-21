@@ -16,8 +16,12 @@ const OBJECT_ID = /^[0-9a-fA-F]{24}$/;
 const MAX_TITLE = 120;
 const LIST_LIMIT = 50;
 // A turn holds its conversation for at most this long (a crashed process
-// cannot keep it busy forever).
-const LOCK_MS = 5 * 60 * 1000;
+// cannot keep it busy forever). It must outlive the worst-case turn, or an
+// approval could slip its system note into a turn still being stored:
+// MAX_ROUNDS (8) x (1 try + 1 SDK retry) x the 120 s client timeout = 32
+// minutes, so 35. A fixed ceiling is simpler than extending the lock each
+// round; a normal turn releases it as soon as it ends (unlock in finally).
+const LOCK_MS = 35 * 60 * 1000;
 // A conversation stops taking new turns at this many stored messages.
 const MAX_STORED_MESSAGES = 400;
 

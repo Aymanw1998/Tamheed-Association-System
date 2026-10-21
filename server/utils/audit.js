@@ -95,6 +95,8 @@ function createAudit({ model, now = () => new Date() }) {
           targetLabel: label,
           changes,
           ip: req?.ip,
+          // An action the user approved in the assistant (services/assistant/actionRunner.js).
+          ...(req?.via === "assistant" ? { via: "assistant" } : {}),
         });
       } catch (error) {
         logWithSource("audit.record", error);

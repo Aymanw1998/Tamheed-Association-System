@@ -1760,3 +1760,46 @@ entry is the handoff.
 **Delivery state:** committed by the agent with the owner's standing approval;
 not pushed. The owner's own in-progress UI edits (Header, Profile,
 EditStudent, EditUser, ViewAllUser, session.js) are not part of this commit.
+
+## 2026-10-21: Smart assistant, Phase C (actions after approval)
+
+**Scope:** plan `docs/superpowers/plans/2026-10-20-smart-assistant.md` Tasks 7–8
+— the last phase of the assistant.
+
+**Changes:**
+
+- The assistant can propose five actions: save attendance, add a child to a
+  lesson (by full ID number, existing rules), write a report, publish a
+  notice, approve a waiting user (existing approval rule). A proposal stores
+  nothing but a pending action (`AiPendingActions`, 15 minutes, single use).
+- The chat shows a card with everything that will be written, in full and as
+  plain text; nothing changes until the user presses "approve" (extra
+  confirmation for notices and user approval). On approval the server checks
+  the user's permissions again, runs exactly the stored values through the
+  same code as the normal screens, and records the change in the audit log
+  with `via: "assistant"`. Refused, expired, cancelled and already-used
+  actions show a clear state; a lost response no longer shows a completed
+  action as "not carried out".
+- Text written by the model or typed by outside people never appears in the
+  system notes the assistant reads back.
+
+**Process:** each task built by a fresh Claude subagent and reviewed by a
+separate one. Task 7's review found the card cut long notice/report text
+after 120 characters (content could be hidden from the approver) and model
+text reaching system notes — both fixed. The final Phase C review found the
+lost-response case; fixed and re-reviewed.
+
+**Verification:** `npm run verify`: server 668/668, client 28 suites / 312
+tests, build compiled (one run had a single timing-sensitive test file fail
+once; two following full runs were clean). Not verified: no browser, no
+database, no real Anthropic key.
+
+**Before release:** with `ANTHROPIC_API_KEY` set on staging, try one action of
+each kind, approve and cancel, and let one card expire.
+
+**Requesting Codex review.** No live Codex connection from this session; this
+entry is the handoff.
+
+**Delivery state:** committed by the agent with the owner's standing approval;
+not pushed. The owner's own in-progress UI edits (Header, Profile,
+EditStudent, EditUser, ViewAllUser, session.js) are not part of this commit.

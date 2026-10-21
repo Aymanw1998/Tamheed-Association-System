@@ -2,7 +2,8 @@ const api = require("../api");
 
 // Append-only history of who changed what. Shape:
 //   at (Date), actor ("system"|tz), actorName, module, action, targetType,
-//   targetId, targetLabel, changes ({ field: { before, after } }), ip
+//   targetId, targetLabel, changes ({ field: { before, after } }), ip,
+//   via ("assistant" when the user approved it in the assistant; absent otherwise)
 const dbName = process.env.DB_NAME || "tamheed_db";
 
 const AuditModelDef = { dbName, collection: "AuditLog" };

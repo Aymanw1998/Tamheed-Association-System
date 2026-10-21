@@ -197,6 +197,8 @@ const StartServer = async () => {
       .catch((err) => console.error('AiConversations index:', err.message));
     await require('./Entities/AiUsage/AiRate.model').ensureAiRateIndexes()
       .catch((err) => console.error('AiRates index:', err.message));
+    await require('./Entities/AiPendingAction/AiPendingAction.model').ensurePendingActionIndexes()
+      .catch((err) => console.error('AiPendingActions index:', err.message));
     catchUpVehicleExpiryCheck().catch((err) => console.error('Vehicle expiry catch-up:', err.message));
 
     // Ends the open live streams, drops every connection and exits; a hard

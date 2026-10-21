@@ -10,8 +10,15 @@ const { logWithSource } = require("../middleware/logger");
 //                              The message is exempt from xss-clean (server.js): it reaches the
 //                              model and storage as typed, and is only ever rendered as text.
 //   GET    /conversations      the caller's conversations (newest first, no messages)
-//   GET    /conversations/:id  one of them, with the messages as the chat window shows them
+//   GET    /conversations/:id  one of them, with the messages as the chat window shows them and
+//                              pendingActions: its proposed-action cards still waiting for a
+//                              decision (so a reload shows them again)
 //   DELETE /conversations/:id  deletes one of them (hard delete)
+//   POST   /actions/:id/approve runs one of the caller's proposed actions, re-checking his
+//                              permissions now (services/assistant/actionRunner.js):
+//                              200 done, 403 FORBIDDEN, 404 NOT_FOUND, 409 ALREADY_USED | BUSY,
+//                              410 EXPIRED, 422 NOT_POSSIBLE, 500 FAILED
+//   POST   /actions/:id/cancel  marks it used without running it: 200, 404, 409, 410
 // Each chat message bills a real Anthropic request: 30 per user per hour.
 const MAX_MESSAGE = 4000;
 const PING_MS = 15 * 1000;
@@ -25,11 +32,13 @@ const SERVER_ERROR = { ok: false, code: "SERVER_ERROR", message: "حدث خطأ 
 const conversationView = (c) => ({ id: String(c._id), title: c.title || "", createdAt: c.createdAt, updatedAt: c.updatedAt });
 
 function createAiRouter({
-  requireAuth, loadActor, requirePermission, assistant, conversations, rate, displayMessages,
+  requireAuth, loadActor, requirePermission, assistant, conversations, rate, displayMessages, actions,
   maxStoredMessages = require("../Entities/AiConversation/AiConversation.model").MAX_STORED_MESSAGES,
 }) {
   const router = express.Router();
   const show = displayMessages || require("../services/ai.service").displayMessages;
+  // actions: services/assistant/actionRunner (defaultRouter); a router built
+  // without it shows no cards and answers 500 to approve/cancel.
 
   async function chat(req, res) {
     const actor = req.actor;
@@ -111,7 +120,14 @@ function createAiRouter({
     try {
       const conversation = await conversations.findOwn(req.actor.tz, req.params.id);
       if (!conversation) return res.status(404).json(NOT_FOUND);
-      return res.json({ ok: true, conversation: { ...conversationView(conversation), messages: show(conversation.messages) } });
+      // Owner-only: the cards are looked up by the caller's tz, after findOwn.
+      const pendingActions = actions?.pendingCards
+        ? await actions.pendingCards({ actor: req.actor, conversationId: String(conversation._id) })
+        : [];
+      return res.json({
+        ok: true,
+        conversation: { ...conversationView(conversation), messages: show(conversation.messages), pendingActions },
+      });
     } catch (error) {
       logWithSource("ai.get", String(error?.name || "Error"));
       return res.status(500).json(SERVER_ERROR);
@@ -129,10 +145,24 @@ function createAiRouter({
     }
   }
 
+  // Approve or cancel a proposed action: the runner's status and body as they are.
+  const decide = (verb) => async (req, res) => {
+    try {
+      if (!actions) return res.status(500).json(SERVER_ERROR);
+      const { status, body } = await actions[verb]({ actor: req.actor, id: req.params.id, ip: req.ip });
+      return res.status(status).json(body);
+    } catch (error) {
+      logWithSource(`ai.action.${verb}`, String(error?.name || "Error"));
+      return res.status(500).json(SERVER_ERROR);
+    }
+  };
+
   router.post("/chat", requireAuth, loadActor, requirePermission("ai.use"), chat);
   router.get("/conversations", requireAuth, loadActor, requirePermission("ai.use"), list);
   router.get("/conversations/:id", requireAuth, loadActor, requirePermission("ai.use"), getOne);
   router.delete("/conversations/:id", requireAuth, loadActor, requirePermission("ai.use"), remove);
+  router.post("/actions/:id/approve", requireAuth, loadActor, requirePermission("ai.use"), decide("approve"));
+  router.post("/actions/:id/cancel", requireAuth, loadActor, requirePermission("ai.use"), decide("cancel"));
 
   return router;
 }
@@ -149,6 +179,7 @@ function defaultRouter() {
     conversations: require("../Entities/AiConversation/AiConversation.model").AiConversationModelDef,
     rate: require("../Entities/AiUsage/AiRate.model").AiRateModelDef,
     displayMessages: service.displayMessages,
+    actions: require("../services/assistant/actionRunner"),
   });
 }
 

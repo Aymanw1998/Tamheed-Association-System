@@ -96,7 +96,9 @@ const helper = () => actorFor(HELPER_U);
 const system = () => ({ ...actorFor(SYS, { isSystem: true }), name: "النظام" });
 
 const ALL_TOOLS = ["whoami", "search_students", "get_student", "list_lessons", "attendance_summary",
-  "pending_items", "vehicle_alerts", "my_reports", "notices", "navigate"];
+  "pending_items", "vehicle_alerts", "my_reports", "notices", "navigate",
+  // Proposals only (Task 7): they run when the user approves the card.
+  "propose_attendance", "propose_add_student_to_lesson", "propose_report", "propose_notice", "propose_approve_user"];
 
 /* ------------------------------------------------------------ definitions */
 
@@ -124,8 +126,12 @@ test("definitions: stable order, strict, closed objects, API-safe schemas", () =
 
 test("no tool can delete, change permissions or roles, or touch passwords", () => {
   for (const def of registry().definitions) {
+    // propose_approve_user is the one approval: a waiting user's first role,
+    // under the users screen's approval rule, only after the user approves the card.
+    if (def.name === "propose_approve_user") continue;
     assert.doesNotMatch(def.name, /delete|remove|permission|role|password|unlock|approve/i);
   }
+  for (const def of registry().definitions) assert.doesNotMatch(def.name, /delete|remove|permission|password|unlock|change_?role/i);
 });
 
 /* ------------------------------------------------------------ validation */

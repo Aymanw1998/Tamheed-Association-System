@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { deleteConversation, getConversation, listConversations, streamChat } from "../../WebServer/services/ai/functionsAI";
+import { approveAction, cancelAction, deleteConversation, getConversation, listConversations, streamChat } from "../../WebServer/services/ai/functionsAI";
 import { listAlerts, markAlertRead, markAllAlertsRead } from "../../WebServer/services/alerts/functionsAlerts";
 import { openLiveStream } from "../../WebServer/services/live/liveStream";
 import { alertText, alertTime, createThrottle, markReadLocal, mergeAlert, mergeAlerts, normalizeAlert, safeLink, severityClass, unreadCount } from "../../utils/alertDisplay";
 import { applyStreamEvent, createSendGate, errorKey, finishTurn, mergeFinal, newStreamingMessage, settleTurn, suggestionKeys, toDisplayMessages, toolKey } from "../../utils/assistantChat";
+import { applyOutcome, canAct, initialActionState, needsConfirm, outcomeOf, startAction, upsertCards } from "../../utils/actionCard";
+import ActionCard from "./ActionCard";
 import { safeMarkdown } from "../../utils/safeMarkdown";
 import { canStored } from "../../utils/session";
 import { useI18n } from "../../i18n/I18nContext";
@@ -13,6 +15,8 @@ import styles from "./FloatingAIButton.module.css";
 // The catch-up refetch when the tab regains focus runs at most this often.
 const FOCUS_REFETCH_MS = 10 * 1000;
 const COPIED_MS = 1600;
+// A BUSY answer (the turn is still closing on the server) is retried once.
+const BUSY_RETRY_MS = 1500;
 
 const SIZE_KEY = "tamheed_ai_chat_size";
 
@@ -131,6 +135,9 @@ export default function FloatingAIButton() {
   const [input, setInput] = useState("");
   const [notice, setNotice] = useState(""); // an error key for list/delete/open problems
   const [copiedId, setCopiedId] = useState("");
+  const [cards, setCards] = useState([]); // proposed actions of the open conversation
+  const [cardStates, setCardStates] = useState({});
+  const cardStatesRef = useRef({});
   const abortRef = useRef(null);
   const activeIdRef = useRef(null);
   activeIdRef.current = activeId;
@@ -183,6 +190,7 @@ export default function FloatingAIButton() {
     if (sending) return;
     setActiveId(null);
     setMessages([]);
+    setCards([]);
     setLive(null);
     setNotice("");
     setShowList(false);
@@ -196,6 +204,7 @@ export default function FloatingAIButton() {
     setLive(null);
     setActiveId(id);
     setMessages([]);
+    setCards([]);
     setLoadingConversation(true);
     try {
       const conversation = await getConversation(id);
@@ -207,6 +216,7 @@ export default function FloatingAIButton() {
         return;
       }
       setMessages(toDisplayMessages(conversation.messages));
+      setCards(upsertCards([], conversation.pendingActions));
     } catch {
       if (mountedRef.current && activeIdRef.current === id) setNotice("loadFailed");
     } finally {
@@ -223,6 +233,7 @@ export default function FloatingAIButton() {
       if (activeIdRef.current === conversation.id) {
         setActiveId(null);
         setMessages([]);
+        setCards([]);
         setLive(null);
       }
     } catch {
@@ -245,6 +256,7 @@ export default function FloatingAIButton() {
         return;
       }
       if (succeeded) setMessages(mergeFinal(toDisplayMessages(conversation.messages), finalLive));
+      setCards((prev) => upsertCards(prev, conversation.pendingActions));
     } catch {
       // Keep what streamed on screen.
     }
@@ -293,6 +305,10 @@ export default function FloatingAIButton() {
             activeIdRef.current = item.data.id;
             return;
           }
+          if (item.event === "action") {
+            setCards((prev) => upsertCards(prev, [item.data]));
+            return;
+          }
           current = applyStreamEvent(current, item);
           setLive(current);
         },
@@ -330,6 +346,49 @@ export default function FloatingAIButton() {
         setSending(false);
       }
     }
+  };
+
+  // ---------------- proposed actions ----------------
+  const commitCardState = (id, next) => {
+    cardStatesRef.current = { ...cardStatesRef.current, [id]: next };
+    setCardStates(cardStatesRef.current);
+  };
+
+  // After approve/cancel the server added a note to the conversation: fetch
+  // it again so the screen matches (any other open cards come back too).
+  const refreshCards = async () => {
+    const id = activeIdRef.current;
+    if (!id) return;
+    try {
+      const conversation = await getConversation(id);
+      if (!mountedRef.current || activeIdRef.current !== id || !conversation) return;
+      setCards((prev) => upsertCards(prev, conversation.pendingActions));
+    } catch {
+      // The card already shows the result.
+    }
+  };
+
+  const decideCard = async (card, verb) => {
+    const before = cardStatesRef.current[card.id] || initialActionState();
+    if (sendGateRef.current.busy() || !canAct(card, before, { streaming: false })) return;
+    if (verb === "approve" && needsConfirm(card.type)) {
+      const text = card.type === "notice" ? c("action.confirmNotice") : c("action.confirmApproveUser");
+      if (!window.confirm(text)) return;
+    }
+    const started = startAction(before, verb);
+    commitCardState(card.id, started);
+    const send = verb === "approve" ? approveAction : cancelAction;
+    let result = await send(card.id);
+    let outcome = outcomeOf(verb, result.status, result.body);
+    if (outcome.kind === "busy") {
+      await new Promise((resolve) => window.setTimeout(resolve, BUSY_RETRY_MS));
+      if (!mountedRef.current) return;
+      result = await send(card.id);
+      outcome = outcomeOf(verb, result.status, result.body);
+    }
+    if (!mountedRef.current) return;
+    commitCardState(card.id, applyOutcome(started, outcome));
+    if (outcome.kind !== "busy" && outcome.kind !== "retry") refreshCards();
   };
 
   const stopStreaming = () => abortRef.current?.abort();
@@ -554,6 +613,17 @@ export default function FloatingAIButton() {
                 )}
 
                 {messages.map(renderMessage)}
+
+                {cards.map((card) => (
+                  <ActionCard
+                    key={card.id}
+                    card={card}
+                    state={cardStates[card.id] || initialActionState()}
+                    streaming={sending}
+                    onApprove={() => decideCard(card, "approve")}
+                    onCancel={() => decideCard(card, "cancel")}
+                  />
+                ))}
 
                 {live && (
                   <article className={`${styles.message} ${styles.assistantMessage}`}>

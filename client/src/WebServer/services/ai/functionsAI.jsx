@@ -147,3 +147,20 @@ export async function getConversation(id) {
 export async function deleteConversation(id) {
   await api.delete(`/ai/conversations/${encodeURIComponent(id)}`);
 }
+
+// Approve or cancel an action the assistant proposed. Resolves to
+// { status, body } for ANY server answer (409, 410, 403, 422... are normal
+// outcomes the card shows), and status 0 when nothing came back (network).
+const decideAction = async (id, verb) => {
+  try {
+    const response = await api.post(`/ai/actions/${encodeURIComponent(id)}/${verb}`);
+    return { status: response.status, body: response.data && typeof response.data === "object" ? response.data : {} };
+  } catch (error) {
+    const response = error?.response;
+    if (!response) return { status: 0, body: { code: "NETWORK" } };
+    return { status: response.status, body: response.data && typeof response.data === "object" ? response.data : {} };
+  }
+};
+
+export const approveAction = (id) => decideAction(id, "approve");
+export const cancelAction = (id) => decideAction(id, "cancel");

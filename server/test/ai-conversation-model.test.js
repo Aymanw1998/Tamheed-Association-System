@@ -75,7 +75,7 @@ test("indexes: owner list by updatedAt, and updatedAt for the cleanup", () => {
   assert.match(server, /ensureConversationIndexes\(\)/);
 });
 
-test("lock: a conditional write on the owner's conversation, free or expired only, for 5 minutes", async () => {
+test("lock: a conditional write on the owner's conversation, free or expired only, longer than the worst-case turn", async () => {
   const api = fakeApi();
   const at = new Date("2026-10-20T10:00:00Z");
   api.updateExisting = async (args) => { api.calls.push(["updateExisting", args]); return { result: { _id: "x" } }; };
@@ -84,7 +84,10 @@ test("lock: a conditional write on the owner's conversation, free or expired onl
   const [, args] = api.calls.at(-1);
   assert.deepEqual(args.filter, { _id: "c".repeat(24), ownerTz: "o", $or: [{ busyUntil: null }, { busyUntil: { $lte: at } }] });
   assert.deepEqual(args.newData, { busyUntil: new Date(at.getTime() + LOCK_MS) });
-  assert.equal(LOCK_MS, 5 * 60 * 1000);
+  // 8 rounds x (1 try + 1 retry) x 120 s client timeout = 32 minutes.
+  const { MAX_ROUNDS } = require("../services/ai.service");
+  assert.ok(LOCK_MS > MAX_ROUNDS * 2 * 120 * 1000, "the lock outlives the worst-case turn");
+  assert.equal(LOCK_MS, 35 * 60 * 1000);
   assert.deepEqual(token, new Date(at.getTime() + LOCK_MS));
 
   await model.unlock("o", "c".repeat(24), token);
