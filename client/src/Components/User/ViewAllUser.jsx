@@ -254,6 +254,7 @@ const ViewAllUser = () => {
         <div className={styles.toolbar}>
           <input
             type="search"
+            data-tour="users-search"
             placeholder="بحث..."
             aria-label="بحث في قائمة المستخدمين"
             className={styles.searchInput}
@@ -261,22 +262,22 @@ const ViewAllUser = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
 
-          <Button ref={addBtnRef} id="page-add-user" onClick={handleAddUser}>
+          <Button ref={addBtnRef} id="page-add-user" data-tour="users-add" onClick={handleAddUser}>
             إضافة مستخدم جديد
           </Button>
 
-          <Button variant="secondary" onClick={loadUsers} loading={loading}>
+          <Button variant="secondary" data-tour="users-refresh" onClick={loadUsers} loading={loading}>
             {loading ? "جاري التحديث" : "تحديث القائمة"}
           </Button>
 
           {canRecoverSystem && String(userTZ) !== "000000000" &&(
-            <Button variant="secondary" onClick={onRecoverSystem} loading={recovering}>
+            <Button variant="secondary" data-tour="users-recover" onClick={onRecoverSystem} loading={recovering}>
               {t("systemRecovery.button")}
             </Button>
           )}
         </div>
 
-        <div style={{ marginTop: 12, marginBottom: 12 }}>
+        <div data-tour="users-status-filter" style={{ marginTop: 12, marginBottom: 12 }}>
           <UserStatusFilter
             value={status}
             onChange={setStatus}
@@ -285,7 +286,7 @@ const ViewAllUser = () => {
           />
         </div>
 
-        <div className={styles.filterRow}>
+        <div className={styles.filterRow} data-tour="users-role-filter">
           <label htmlFor="role-filter" style={{ fontWeight: 600 }}>فلترة حسب الدور</label>
           <select
             id="role-filter"
@@ -327,7 +328,7 @@ const ViewAllUser = () => {
       )}
 
       {!loading && !err && (
-        <table className={`table ${styles.subTable} ${styles.desktopOnly}`} style={{ marginTop: 12 }}>
+        <table data-tour="users-table" className={`table ${styles.subTable} ${styles.desktopOnly}`} style={{ marginTop: 12 }}>
           <thead>
             <tr>
               <th>رقم الهوية</th>
@@ -354,11 +355,11 @@ const ViewAllUser = () => {
                       {user.room !== "waiting" && user.room !== "noActive" && (
                         <>
                           {canManage(user) && (
-                            <Button size="sm" variant="warning" onClick={() => navigate(`/users/${user.tz}`)}>
+                            <Button size="sm" variant="warning" data-tour="users-edit" onClick={() => navigate(`/users/${user.tz}`)}>
                               للتعديل
                             </Button>
                           )}
-                          <Button size="sm" variant="secondary" onClick={() => exportUserPdf(user)}>
+                          <Button size="sm" variant="secondary" data-tour="users-pdf" onClick={() => exportUserPdf(user)}>
                             ملف المستخدم
                           </Button>
                           {user.lockedAt && <StatusBadge tone="danger">{t("perms.locked")}</StatusBadge>}

@@ -29,7 +29,7 @@ const DEFER_KEY = "tamheed_tours_deferred";
 const WAIT_MS = 5000;
 const POLL_MS = 250;
 
-const NOOP = { startTour: () => {}, openHelp: () => {}, openWhatsNew: () => {}, state: null };
+const NOOP = { startTour: () => {}, openHelp: () => {}, openWhatsNew: () => {}, state: null, newSections: [] };
 const TourContext = createContext(NOOP);
 
 // Deferred ids belong to the user who deferred them.
@@ -380,9 +380,15 @@ export function TourProvider({ children }) {
     setWhatsNewOpen(true);
   }, [phase]);
 
+  // Sections opened to the user and not visited yet (the menu's "new" badges).
+  const newSections = useMemo(
+    () => (state ? newAccess(state.knownKeys ?? null, getStoredPermissions()).sections : []),
+    [state],
+  );
+
   const value = useMemo(
-    () => (phase === "ready" ? { startTour, openHelp, openWhatsNew, state } : NOOP),
-    [phase, startTour, openHelp, openWhatsNew, state],
+    () => (phase === "ready" ? { startTour, openHelp, openWhatsNew, state, newSections } : NOOP),
+    [phase, startTour, openHelp, openWhatsNew, state, newSections],
   );
 
   if (phase !== "ready") {

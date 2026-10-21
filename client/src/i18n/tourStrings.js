@@ -1,5 +1,5 @@
 // Text for the guided tours: popover buttons, the "?" help center, the new
-// access prompt and "what's new". Merged in I18nContext as `tour`.
+// access prompt, "what's new" and the user page's tour status. Merged in I18nContext as `tour`.
 // The tours' own steps (including the welcome intro) live in tours/registry.js.
 // {name}, {current} and {total} are filled in by the code.
 
@@ -36,6 +36,15 @@ export const tourStrings = {
     skip: "تخطّي",
     progress: "{current} من {total}",
     names: names.ar,
+    userStatus: {
+      title: "الجولة التعريفية",
+      welcome: "الجولة العامة:",
+      status: { done: "أنهى الجولة", skipped: "تخطّى", none: "لم يرها بعد" },
+      sections: "جولات الأقسام: {done} مكتملة، {skipped} متخطّاة",
+      reset: "اعرضها مجددًا عند الدخول القادم",
+      resetDone: "ستظهر الجولات لهذا المستخدم عند دخوله القادم.",
+      resetFailed: "تعذّرت إعادة الجولات، حاول مرة أخرى.",
+    },
     help: {
       button: "مركز المساعدة",
       title: "مركز المساعدة",
@@ -73,6 +82,15 @@ export const tourStrings = {
     skip: "דילוג",
     progress: "{current} מתוך {total}",
     names: names.he,
+    userStatus: {
+      title: "סיור ההדרכה",
+      welcome: "הסיור הכללי:",
+      status: { done: "סיים את הסיור", skipped: "דילג", none: "עוד לא ראה" },
+      sections: "סיורי אזורים: {done} הושלמו, {skipped} דולגו",
+      reset: "להציג שוב בכניסה הבאה",
+      resetDone: "הסיורים יוצגו למשתמש בכניסה הבאה שלו.",
+      resetFailed: "לא ניתן היה לאפס את הסיורים, נסו שוב.",
+    },
     help: {
       button: "מרכז העזרה",
       title: "מרכז העזרה",
@@ -110,6 +128,15 @@ export const tourStrings = {
     skip: "Skip",
     progress: "{current} of {total}",
     names: names.en,
+    userStatus: {
+      title: "Guided tour",
+      welcome: "General tour:",
+      status: { done: "Finished the tour", skipped: "Skipped", none: "Not seen yet" },
+      sections: "Section tours: {done} finished, {skipped} skipped",
+      reset: "Show again at next sign-in",
+      resetDone: "The tours will show again at this user's next sign-in.",
+      resetFailed: "Could not reset the tours. Please try again.",
+    },
     help: {
       button: "Help center",
       title: "Help center",

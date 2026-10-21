@@ -10,6 +10,8 @@ export const SECTIONS = {
   notices: { path: "/notices", tourId: "notices" },
   users: { path: "/users", tourId: "users" },
   audit: { path: "/audit", tourId: "audit" },
+  // Open to everyone, no permission module: listed so the help center offers its tour.
+  profile: { path: "/profile", tourId: "profile" },
 };
 
 export const SECTION_OF = {

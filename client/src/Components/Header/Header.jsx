@@ -9,6 +9,7 @@ import { getUnsavedChanges } from "../../utils/unsavedChanges";
 import { useI18n } from "../../i18n/I18nContext";
 import NoticeBell from "../Notice/NoticeBell";
 import { ADMIN_ROLES, GUIDE_ROLES, canStored, normalizeRoles } from "../../utils/session";
+import NewBadge from "../../tours/NewBadge";
 
 const hasAnyRole = (roles, allowedRoles) => allowedRoles.some((role) => roles.includes(role));
 
@@ -68,11 +69,24 @@ export default function Header() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  // The guided tour opens the phone menu for its menu steps and closes it after;
+  // while it holds the menu open, clicks on the tour's buttons do not close it.
+  const tourMenuRef = useRef(false);
+  useEffect(() => {
+    const onTourMenu = (event) => {
+      const open = Boolean(event?.detail?.open);
+      tourMenuRef.current = open;
+      if (window.innerWidth <= 768) setMenuOpen(open);
+    };
+    window.addEventListener("tamheed:tour-menu", onTourMenu);
+    return () => window.removeEventListener("tamheed:tour-menu", onTourMenu);
+  }, []);
+
   useEffect(() => {
     if (!menuOpen || !isMobile) return undefined;
 
     const onDocClick = (event) => {
-      if (!headerRef.current) return;
+      if (!headerRef.current || tourMenuRef.current) return;
       if (!headerRef.current.contains(event.target)) setMenuOpen(false);
     };
 
@@ -154,6 +168,7 @@ export default function Header() {
           <button
             type="button"
             className={styles.menuToggle}
+            data-tour="menu-toggle"
             aria-label={t("nav.openMenu")}
             aria-controls="main-nav"
             aria-expanded={menuOpen}
@@ -167,7 +182,12 @@ export default function Header() {
             <span />
           </button>
         )}
-        {canViewNotices && <NoticeBell onOpen={(event) => onNavClick(event, "/notices")} />}
+        {canViewNotices && (
+          <span data-tour="notice-bell" style={{ display: "inline-flex", alignItems: "center" }}>
+            <NoticeBell onOpen={(event) => onNavClick(event, "/notices")} />
+            <NewBadge section="notices" />
+          </span>
+        )}
         {user && isMobile && (
           <div className={styles.userBadge}>
             {user.firstname} {user.lastname} - {displayRole}
@@ -179,30 +199,31 @@ export default function Header() {
 
       <nav
         id="main-nav"
+        data-tour="menu"
         ref={navRef}
         className={`${styles.navbarV} ${isMobile ? styles.mobileNav : ""}`}
         data-open={isMobile ? menuOpen : true}
       >
-        <a href="/dashboard" onClick={(event) => onNavClick(event, "/dashboard")}>{t("nav.dashboard")}</a>
-        <a href="/calendar" onClick={(event) => onNavClick(event, "/calendar")}>{t("nav.attendance")}</a>
+        <a href="/dashboard" data-tour="menu-dashboard" onClick={(event) => onNavClick(event, "/dashboard")}>{t("nav.dashboard")}<NewBadge section="dashboard" /></a>
+        <a href="/calendar" data-tour="menu-calendar" onClick={(event) => onNavClick(event, "/calendar")}>{t("nav.attendance")}<NewBadge section="calendar" /></a>
         {canViewUsers && (
-          <a href="/users" onClick={(event) => onNavClick(event, "/users")}>{t("nav.users")}</a>
+          <a href="/users" data-tour="menu-users" onClick={(event) => onNavClick(event, "/users")}>{t("nav.users")}<NewBadge section="users" /></a>
         )}
         {canViewStudents && (
-          <a href="/students" onClick={(event) => onNavClick(event, "/students")}>{t("nav.students")}</a>
+          <a href="/students" data-tour="menu-students" onClick={(event) => onNavClick(event, "/students")}>{t("nav.students")}<NewBadge section="students" /></a>
         )}
         {/* {canViewNotices && (
           <a href="/notices" onClick={(event) => onNavClick(event, "/notices")}>{t("nav.notices")}</a>
         )} */}
-        <a href="/lessons" onClick={(event) => onNavClick(event, "/lessons")}>{t("nav.lessons")}</a>
-        <a href="/reports" onClick={(event) => onNavClick(event, "/reports")}>{t("nav.reports")}</a>
-        <a href="/files" onClick={(event) => onNavClick(event, "/files")}>{t("nav.files")}</a>
-        <a href="/profile" onClick={(event) => onNavClick(event, "/profile")}>{t("nav.profile")}</a>
+        <a href="/lessons" data-tour="menu-lessons" onClick={(event) => onNavClick(event, "/lessons")}>{t("nav.lessons")}<NewBadge section="lessons" /></a>
+        <a href="/reports" data-tour="menu-reports" onClick={(event) => onNavClick(event, "/reports")}>{t("nav.reports")}<NewBadge section="reports" /></a>
+        <a href="/files" data-tour="menu-files" onClick={(event) => onNavClick(event, "/files")}>{t("nav.files")}<NewBadge section="files" /></a>
+        <a href="/profile" data-tour="menu-profile" onClick={(event) => onNavClick(event, "/profile")}>{t("nav.profile")}</a>
         {canViewVehicles && (
-          <a href="/vehicles" onClick={(event) => onNavClick(event, "/vehicles")}>{t("nav.vehicles")}</a>
+          <a href="/vehicles" data-tour="menu-vehicles" onClick={(event) => onNavClick(event, "/vehicles")}>{t("nav.vehicles")}<NewBadge section="vehicles" /></a>
         )}
         {canViewAudit && (
-          <a href="/audit" onClick={(event) => onNavClick(event, "/audit")}>{t("nav.audit")}</a>
+          <a href="/audit" data-tour="menu-audit" onClick={(event) => onNavClick(event, "/audit")}>{t("nav.audit")}<NewBadge section="audit" /></a>
         )}
         {isMobile && languageSelect(styles.mobileLanguageSelectWrap)}
         <button type="button" onClick={handleLogout} className={styles.logoutButton} title={t("nav.logout")}>{t("nav.logout")}</button>

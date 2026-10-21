@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 // ملاحظة عربية
 import { create, update, getUserById as getOne, /*softDelete,*/ deleteU, uploadPhoto, deletePhoto, changeStatus, viewPassword, changeUserRole, unlockUser } from "../../WebServer/services/user/functionsUser.jsx";
@@ -19,6 +19,7 @@ import RecentChanges from "../Audit/RecentChanges.jsx";
 import tabStyles from "./PermissionsTab.module.css";
 import ChangeOwnPassword from "../Profile/ChangeOwnPassword.jsx";
 import { isValidIsraeliId } from "../../utils/israeliId";
+import { resetUserTours } from "../../WebServer/services/tours/functionsTours.jsx";
 
 const safeAsk = async (options) => {
   try { return await ask("change", options); } catch { return false; }
@@ -79,6 +80,28 @@ const EditUser = () => {
   const [tab, setTab] = useState("details");
   const [tabKey, setTabKey] = useState(0);
   const [unlocking, setUnlocking] = useState(false);
+  const [resettingTours, setResettingTours] = useState(false);
+
+  // The guided tour asks for a tab ("details" / "permissions"); {tab:null} puts
+  // back the tab the user had before the tour switched it.
+  const tabRef = useRef(tab);
+  tabRef.current = tab;
+  const tabBeforeTourRef = useRef(null);
+  useEffect(() => {
+    const onTourTab = (event) => {
+      const wanted = event?.detail?.tab;
+      if (wanted === null) {
+        if (tabBeforeTourRef.current) setTab(tabBeforeTourRef.current);
+        tabBeforeTourRef.current = null;
+        return;
+      }
+      if (wanted !== "details" && wanted !== "permissions") return;
+      if (tabBeforeTourRef.current === null) tabBeforeTourRef.current = tabRef.current;
+      setTab(wanted);
+    };
+    window.addEventListener("tamheed:tour-tab", onTourTab);
+    return () => window.removeEventListener("tamheed:tour-tab", onTourTab);
+  }, []);
 
   const isSelf = isEdit && Boolean(form._id) && String(form._id) === String(getStoredUserId());
   const canChangeRole = canStored("users.changeRole");
@@ -444,6 +467,16 @@ const EditUser = () => {
     setTabKey((k) => k + 1);
   };
 
+  // POST /tours/reset/:tz: the user sees the tours again at the next sign-in.
+  const handleResetTours = async () => {
+    setResettingTours(true);
+    const res = await resetUserTours(form.tz);
+    setResettingTours(false);
+    if (!res.ok) return toast.warn(t("tour.userStatus.resetFailed"));
+    setForm((prev) => ({ ...prev, tourSummary: { welcome: "none", done: 0, skipped: 0 } }));
+    toast.success(t("tour.userStatus.resetDone"));
+  };
+
   if (loading) return <div className={styles.formContainer}>جارٍ تحميل البيانات…</div>;
   if (err)      return <div className={styles.formContainer} style={{color:"#b91c1c"}}>{err}</div>;
 
@@ -452,7 +485,7 @@ const EditUser = () => {
       <center><h1>{isEdit ? "تحديث بيانات المستخدم" : "اضافة مستخدم جديد"}</h1></center>
 
       {showTabs && (
-        <div className={tabStyles.tabs} role="tablist">
+        <div className={tabStyles.tabs} data-tour="user-tabs" role="tablist">
           {["details", "permissions"].map((name) => (
             <button
               key={name}
@@ -469,11 +502,11 @@ const EditUser = () => {
       )}
 
       {showTabs && tab === "permissions" ? (
-        <PermissionsTab key={tabKey} tz={form.tz} />
+        <div data-tour="user-permissions"><PermissionsTab key={tabKey} tz={form.tz} /></div>
       ) : (
       <>
 
-      <fieldset className={sectionStyles.formSection}>
+      <fieldset className={sectionStyles.formSection} data-tour="user-account">
         <legend>بيانات الحساب</legend>
         <label>رقم الهوية:<span style={{color: "red"}}>*</span></label>
         <input name="tz" value={form.tz} onChange={onField} readOnly={!isNew} />
@@ -541,7 +574,7 @@ const EditUser = () => {
         )}
 
         {isEdit && (
-          <div className={tabStyles.roleRow}>
+          <div className={tabStyles.roleRow} data-tour="user-role">
             <label htmlFor="user-role">{t("perms.role")}:</label>
             {canChangeRole && canManage ? (
               <>
@@ -574,7 +607,7 @@ const EditUser = () => {
         )}
       </fieldset>
 
-      <fieldset className={sectionStyles.formSection}>
+      <fieldset className={sectionStyles.formSection} data-tour="user-personal">
         <legend>البيانات الشخصية</legend>
         <label>اسم المستخدم:<span style={{color: "red"}}>*</span></label>
         <input name="firstname" value={form.firstname} onChange={handleChange} required />
@@ -626,6 +659,16 @@ const EditUser = () => {
         <label style={{color: "red"}}>{error.email}</label>
       </fieldset>
 
+      {/* Sent by the server only to a users.edit holder who manages this user. */}
+      {form.tourSummary && (
+        <fieldset className={sectionStyles.formSection} data-tour="user-tour-status">
+          <legend>{t("tour.userStatus.title")}</legend>
+          <p>{t("tour.userStatus.welcome")} <strong>{t(`tour.userStatus.status.${form.tourSummary.welcome}`, form.tourSummary.welcome)}</strong></p>
+          <p>{fillText(t("tour.userStatus.sections"), { done: form.tourSummary.done ?? 0, skipped: form.tourSummary.skipped ?? 0 })}</p>
+          <button type="button" onClick={handleResetTours} disabled={resettingTours}>{t("tour.userStatus.reset")}</button>
+        </fieldset>
+      )}
+
       <div style={{ marginBottom: "16px" }}>
         <label>صورة المستخدم:</label>
         <button onClick={
@@ -657,14 +700,14 @@ const EditUser = () => {
 
       <div className={styles.buttonRow} style={{ gap: 8, flexWrap: "wrap" }}>
         {canSubmit && (
-          <button type="submit" onClick={handleSubmit} style={{width:"100%"}}>
+          <button type="submit" data-tour="user-save" onClick={handleSubmit} style={{width:"100%"}}>
             {saving ? "حفظ..." : (isEdit ? "تعديل بيانات المستخدم" : "اضافة المستخدم")}
           </button>
         )}
         <br/>
         {isEdit && canManage && (
           <center>
-          <div style={{margin: "0 auto"}}>
+          <div style={{margin: "0 auto"}} data-tour="user-account-actions">
             <button type="button" style={{ background: "#7f1d1d", margin: "10px" }} onClick={handleHardDelete}>
               {"حذف الحساب"}
             </button>

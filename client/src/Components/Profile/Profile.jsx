@@ -302,7 +302,7 @@ const Profile = ({parent = false}) => {
         <div className={styles.formContainer}>
         <h2>الملف الشخصي</h2>
 
-        <fieldset className={sectionStyles.formSection}>
+        <fieldset className={sectionStyles.formSection} data-tour="profile-account">
             <legend>بيانات الحساب</legend>
             <label>رقم الهوية:</label>
             <input name="tz" value={form.tz} onChange={onField} readOnly={true} />
@@ -312,7 +312,7 @@ const Profile = ({parent = false}) => {
 
         <ChangeOwnPassword />
 
-        <fieldset className={sectionStyles.formSection}>
+        <fieldset className={sectionStyles.formSection} data-tour="profile-personal">
             <legend>البيانات الشخصية</legend>
             <label>اسمي:</label>
             <input name="firstname" value={form.firstname} onChange={handleChange} required />
@@ -364,7 +364,7 @@ const Profile = ({parent = false}) => {
             <label style={{color: "red"}}>{error.email}</label>
         </fieldset>
 
-        <div style={{ marginBottom: "16px" }}>
+        <div style={{ marginBottom: "16px" }} data-tour="profile-photo">
             <label>صورة المستخدم:</label>
             <button onClick={
             ()=> {
@@ -396,7 +396,7 @@ const Profile = ({parent = false}) => {
         {/* <MyPermissions permissions={myPermissions} /> */}
 
         <div className={styles.buttonRow} style={{ gap: 8, flexWrap: "wrap" }}>
-            <button type="submit" onClick={handleSubmit}>
+            <button type="submit" data-tour="profile-save" onClick={handleSubmit}>
             {saving ? "حفظ..." :  "تعديل البيانات"}
             </button>
         </div>

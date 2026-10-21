@@ -1,6 +1,7 @@
 import { TOURS, PENDING_TOURS } from "./registry";
 import { RELEASES } from "./releases";
 import { SECTIONS, SECTION_OF } from "./sections";
+import { tourForPath, tourTabs } from "./logic";
 
 const LANGS = ["ar", "he", "en"];
 const filled = (t) => LANGS.every((l) => typeof t?.[l] === "string" && t[l].trim().length > 0);
@@ -53,4 +54,29 @@ test("releases are well formed", () => {
     expect(filled(r.title)).toBe(true);
     expect(filled(r.body)).toBe(true);
   });
+});
+
+test("detail tours match one record, never /new or the parent sign-up page", () => {
+  expect(tourForPath("/students/abc")?.id).toBe("student");
+  expect(tourForPath("/students/new")).toBeNull();
+  expect(tourForPath("/register-student/abc")).toBeNull();
+  expect(tourForPath("/users")?.id).toBe("users");
+  expect(tourForPath("/users/123")?.id).toBe("user");
+  expect(tourForPath("/users/new")).toBeNull();
+  expect(tourForPath("/profile")?.id).toBe("profile");
+});
+
+test("the user tour only switches to the tabs EditUser has", () => {
+  const user = TOURS.find((t) => t.id === "user");
+  expect(tourTabs(user)).toEqual(["permissions"]);
+});
+
+test("menu steps belong to the welcome tour and target menu entries", () => {
+  TOURS.forEach((tour) => tour.steps.filter((s) => s.menu).forEach((s) => {
+    expect(tour.id).toBe("welcome");
+    expect(s.target).toMatch(/^menu(-[a-z]+)?$/);
+  }));
+  const welcome = TOURS.find((t) => t.id === "welcome");
+  // The first targeted step is always on the page (desktop and phone), so the tour starts at once.
+  expect(welcome.steps.find((s) => s.target).target).toBe("menu");
 });

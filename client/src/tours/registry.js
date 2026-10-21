@@ -7,9 +7,11 @@
 // releases.js (newest first, unique id such as `2026-10-21-xyz`, optional
 // `requires`, optional `tourId`). Bumping a tour's `version` alone does NOT
 // re-show it; add a release with its `tourId` instead.
+// A step whose target sits in the header menu gets `menu: true`: on a phone the
+// side menu is opened for it (Header listens to `tamheed:tour-menu`).
 
 // Section tours that SECTIONS refers to but that are not written yet; later tasks remove them.
-export const PENDING_TOURS = ["users"];
+export const PENDING_TOURS = [];
 
 // One step: text is [ar, he, en] for the title and for the body.
 const step = (target, title, body, requires, tab) => ({
@@ -23,6 +25,9 @@ const step = (target, title, body, requires, tab) => ({
 // List tours match the page itself, detail tours match one record (never "new").
 const listRoute = (name) => new RegExp(`^/${name}/?$`);
 const detailRoute = (name) => new RegExp(`^/${name}/[^/]+/?$`);
+
+// A step in the header menu (opened first on a phone).
+const menuStep = (...args) => ({ ...step(...args), menu: true });
 
 const tour = (id, { route = null, detail = false, requires = null }, steps) => ({
   id, version: 1, route, detail, requires, steps,
@@ -45,6 +50,37 @@ export const TOURS = [
           en: "Here is a quick tour of the most useful tools. You can skip it at any time.",
         },
       },
+      menuStep("menu",
+        ["القائمة الرئيسية", "התפריט הראשי", "The main menu"],
+        ["هنا كل الأقسام المتاحة لك. القسم الذي فُتح لك حديثًا تظهر بجانبه شارة «جديد».",
+         "כאן כל האזורים הזמינים לך. ליד אזור שנפתח לך לאחרונה מופיע תג «חדש».",
+         "Every section you can use is listed here. A section newly opened to you shows a New badge."]),
+      menuStep("menu-dashboard",
+        ["لوحة التحكم", "לוח הבקרה", "Dashboard"],
+        ["ملخص يومك: أرقام سريعة ودروس اليوم والطلبات التي تنتظرك.",
+         "סיכום היום שלך: מספרים מהירים, שיעורי היום ובקשות שממתינות לך.",
+         "Your day at a glance: key numbers, today's lessons and requests waiting for you."]),
+      menuStep("menu-calendar",
+        ["الحضور والغياب", "נוכחות", "Attendance"],
+        ["سجّل حضور طلاب كل درس وراجع ما سُجّل سابقًا.",
+         "רשמו נוכחות לכל שיעור ועיינו ברישומים קודמים.",
+         "Record attendance for each lesson and review past records."]),
+      menuStep("menu-profile",
+        ["ملفك الشخصي", "הפרופיל שלך", "Your profile"],
+        ["حدّث بياناتك وغيّر كلمة المرور من هنا.",
+         "עדכנו את הפרטים שלכם והחליפו סיסמה מכאן.",
+         "Update your details and change your password here."]),
+      step("menu-toggle",
+        ["زر القائمة", "כפתור התפריט", "Menu button"],
+        ["على الهاتف، اضغط هنا لفتح القائمة متى شئت.",
+         "בטלפון, לחצו כאן כדי לפתוח את התפריט מתי שתרצו.",
+         "On a phone, tap here to open the menu whenever you need it."]),
+      step("notice-bell",
+        ["الإعلانات", "הודעות", "Notices"],
+        ["يعرض الجرس عدد الإعلانات غير المقروءة، واضغط عليه لفتح لوحة الإعلانات.",
+         "הפעמון מציג כמה הודעות לא נקראו, ולחיצה עליו פותחת את לוח ההודעות.",
+         "The bell shows how many notices are unread; click it to open the notice board."],
+        "notices.view"),
       {
         target: "assistant-button",
         requires: "ai.use",
@@ -127,6 +163,28 @@ export const TOURS = [
       ["رفض طالب", "דחיית תלמיד", "Rejecting a student"],
       ["«رفض» يحذف الطالب من قائمة الانتظار نهائيًا، ويحتاج صلاحية حذف الطلاب.", "«דחייה» מוחקת את התלמיד מרשימת ההמתנה לצמיתות ודורשת הרשאת מחיקת תלמידים.", "Reject permanently removes the student from the waiting list and needs the delete-students permission."],
       "students.delete"),
+  ]),
+
+  // Staff only: the parent sign-up page (/register-student/:token) never matches.
+  tour("student", { route: detailRoute("students"), detail: true, requires: "students.view" }, [
+    step("student-details",
+      ["بيانات الطالب", "פרטי התלמיד", "Student details"],
+      ["الاسم وتاريخ الميلاد والجنس. رقم الهوية لا يتغير بعد التسجيل.", "שם, תאריך לידה ומין. מספר הזהות לא משתנה אחרי הרישום.", "Name, birth date and gender. The ID number cannot change after registration."]),
+    step("student-study",
+      ["الدراسة", "לימודים", "School"],
+      ["المدرسة والصف، ومن يملك الصلاحية يختار المرشد المسؤول هنا.", "בית הספר והכיתה, ומי שמורשה בוחר כאן את המדריך האחראי.", "School and grade; if you are allowed, pick the responsible guide here."]),
+    step("student-parents",
+      ["بيانات الأهل", "פרטי ההורים", "Parents"],
+      ["اختيارية، لكنها تساعد على التواصل السريع مع الأهل.", "לא חובה, אבל עוזר ליצור קשר מהיר עם ההורים.", "Optional, but it helps you reach the parents quickly."]),
+    step("student-health",
+      ["الصحة والملاحظات", "בריאות והערות", "Health and notes"],
+      ["معلومات مهمة للمرشدين، مثل الحساسية أو ما يجب الانتباه له.", "מידע חשוב למדריכים, כמו אלרגיות או דברים שצריך לשים לב אליהם.", "Important information for guides, such as allergies or things to watch for."]),
+    step("student-save",
+      ["حفظ", "שמירה", "Save"],
+      ["يحفظ التغييرات على ملف الطالب.", "שומר את השינויים בתיק התלמיד.", "Saves your changes to the student's file."]),
+    step("student-delete",
+      ["حذف الطالب", "מחיקת תלמיד", "Delete the student"],
+      ["يحذف الطالب نهائيًا ولا يمكن التراجع. يحتاج صلاحية حذف الطلاب.", "מוחק את התלמיד לצמיתות ולא ניתן לבטל. דורש הרשאת מחיקת תלמידים.", "Deletes the student permanently and cannot be undone. It needs the delete-students permission."]),
   ]),
 
   tour("lessons", { route: listRoute("lessons") }, [
@@ -368,6 +426,87 @@ export const TOURS = [
     step("audit-pager",
       ["التنقل بين الصفحات", "מעבר בין עמודים", "Paging"],
       ["تُعرض 50 نتيجة في كل صفحة، وتنقّل بالسابق والتالي.", "מוצגות 50 תוצאות בעמוד, ועוברים עם הקודם והבא.", "Each page shows 50 results; use Previous and Next."]),
+  ]),
+
+  tour("users", { route: listRoute("users"), requires: "users.view" }, [
+    step("users-search",
+      ["البحث", "חיפוש", "Search"],
+      ["اكتب اسمًا أو رقم هوية أو دورًا لتصفية القائمة.", "הקלידו שם, מספר זהות או תפקיד כדי לסנן את הרשימה.", "Type a name, ID number or role to filter the list."]),
+    step("users-add",
+      ["إضافة مستخدم", "הוספת משתמש", "Add a user"],
+      ["يفتح نموذجًا لحساب جديد.", "פותח טופס לחשבון חדש.", "Opens a form for a new account."],
+      "users.create"),
+    step("users-refresh",
+      ["تحديث القائمة", "רענון הרשימה", "Refresh the list"],
+      ["يجلب أحدث البيانات من الخادم.", "טוען את הנתונים העדכניים מהשרת.", "Loads the latest data from the server."]),
+    step("users-recover",
+      ["استعادة حساب النظام", "שחזור חשבון המערכת", "System account recovery"],
+      ["يرسل كلمة مرور مؤقتة إلى بريد النظام، ويعمل فقط بعد محاولات دخول فاشلة متكررة.", "שולח סיסמה זמנית לתיבת הדואר של המערכת, ופועל רק אחרי ניסיונות כניסה כושלים חוזרים.", "Emails a temporary password to the system mailbox; it only works after repeated failed sign-ins."],
+      "systemRecovery.reset"),
+    step("users-status-filter",
+      ["حالة الحساب", "סטטוס החשבון", "Account status"],
+      ["بدّل بين الحسابات الفعّالة وبانتظار الموافقة والموقوفة. الموافقة تطلب منك اختيار دور.", "עברו בין חשבונות פעילים, ממתינים לאישור ומושבתים. אישור מבקש לבחור תפקיד.", "Switch between active, waiting and closed accounts. Approving asks you to pick a role."]),
+    step("users-role-filter",
+      ["فلترة حسب الدور", "סינון לפי תפקיד", "Filter by role"],
+      ["اعرض مستخدمي دور واحد فقط.", "הציגו רק משתמשים בתפקיד מסוים.", "Show only the users with one role."]),
+    step("users-table",
+      ["قائمة المستخدمين", "רשימת המשתמשים", "The user list"],
+      ["كل صف مستخدم. تظهر الإجراءات فقط على من تملك إدارته.", "כל שורה היא משתמש. הפעולות מופיעות רק למי שמותר לך לנהל.", "Each row is a user. Actions only show for users you may manage."]),
+    step("users-edit",
+      ["فتح للتعديل", "פתיחה לעריכה", "Open to edit"],
+      ["يفتح صفحة المستخدم لتعديل بياناته ودوره وصلاحياته.", "פותח את דף המשתמש לעריכת פרטים, תפקיד והרשאות.", "Opens the user page to edit details, role and permissions."]),
+    step("users-pdf",
+      ["ملف المستخدم", "קובץ המשתמש", "User file"],
+      ["ينشئ ملف PDF ببيانات المستخدم للطباعة أو الحفظ.", "יוצר קובץ PDF עם פרטי המשתמש להדפסה או לשמירה.", "Creates a PDF with the user's details to print or save."]),
+  ]),
+
+  // Steps without a tab sit on the details tab; {tab:null} returns to it.
+  tour("user", { route: detailRoute("users"), detail: true, requires: "users.view" }, [
+    step("user-tabs",
+      ["التفاصيل والصلاحيات", "פרטים והרשאות", "Details and permissions"],
+      ["بدّل بين بيانات المستخدم وصلاحياته.", "עברו בין פרטי המשתמש להרשאות שלו.", "Switch between the user's details and permissions."],
+      "permissions.manage"),
+    step("user-account",
+      ["بيانات الحساب", "פרטי החשבון", "Account"],
+      ["رقم الهوية والدور وحالة القفل. رقم الهوية لا يتغير.", "מספר זהות, תפקיד ומצב נעילה. מספר הזהות לא משתנה.", "ID number, role and lock status. The ID number cannot change."]),
+    step("user-role",
+      ["الدور", "תפקיד", "Role"],
+      ["اختر الدور ثم «حفظ الدور». خفض الدور يلغي الصلاحيات الخاصة للمستخدم.", "בחרו תפקיד ולחצו «שמירת תפקיד». הורדת תפקיד מבטלת את ההרשאות המיוחדות.", "Pick a role, then Save role. Lowering a role clears the user's special permissions."],
+      "users.changeRole"),
+    step("user-personal",
+      ["البيانات الشخصية", "פרטים אישיים", "Personal details"],
+      ["الاسم وتاريخ الميلاد والجنس، وتحتها السكن والتواصل.", "שם, תאריך לידה ומין, ומתחת מגורים ופרטי קשר.", "Name, birth date and gender, with address and contact details below."]),
+    step("user-tour-status",
+      ["الجولة التعريفية", "סיור ההדרכה", "Guided tour"],
+      ["هل أنهى المستخدم الجولة؟ ويمكنك عرضها له من جديد عند دخوله القادم.", "האם המשתמש סיים את הסיור? אפשר להציג לו אותו שוב בכניסה הבאה.", "See whether the user finished the tour, and show it again at their next sign-in."]),
+    step("user-save",
+      ["حفظ", "שמירה", "Save"],
+      ["يحفظ بيانات المستخدم. الدور والصلاحيات تُحفظ بأزرارها الخاصة.", "שומר את פרטי המשתמש. תפקיד והרשאות נשמרים בכפתורים משלהם.", "Saves the user's details. Role and permissions have their own save buttons."]),
+    step("user-account-actions",
+      ["غلق أو حذف الحساب", "סגירה או מחיקה של החשבון", "Close or delete the account"],
+      ["«غلق الحساب» يوقف الدخول ويمكن إعادة تفعيله، و«حذف الحساب» نهائي.", "«סגירת החשבון» חוסמת כניסה וניתן להפעיל מחדש, ו«מחיקת החשבון» סופית.", "Close stops sign-in and can be reactivated; Delete is permanent."]),
+    step("user-permissions",
+      ["الصلاحيات", "הרשאות", "Permissions"],
+      ["فعّل قسمًا كاملًا أو إجراءات منفردة ثم احفظ. الصفوف الباهتة لا يمكنك منحها.", "הפעילו אזור שלם או פעולות בודדות ושמרו. שורות אפורות אינן בהרשאתך להעניק.", "Turn on a whole section or single actions, then save. Greyed-out rows are ones you cannot grant."],
+      "permissions.manage", "permissions"),
+  ]),
+
+  tour("profile", { route: listRoute("profile") }, [
+    step("profile-account",
+      ["حسابك", "החשבון שלך", "Your account"],
+      ["رقم هويتك هو اسم الدخول ولا يمكن تغييره.", "מספר הזהות שלך הוא שם המשתמש ולא ניתן לשנות אותו.", "Your ID number is your sign-in name and cannot be changed."]),
+    step("profile-password",
+      ["تغيير كلمة المرور", "החלפת סיסמה", "Change password"],
+      ["أدخل كلمة المرور الحالية ثم الجديدة مرتين.", "הזינו את הסיסמה הנוכחית ואז את החדשה פעמיים.", "Enter your current password, then the new one twice."]),
+    step("profile-personal",
+      ["بياناتك", "הפרטים שלך", "Your details"],
+      ["حافظ على اسمك وهاتفك وبريدك محدّثة ليسهل التواصل معك.", "שמרו על שם, טלפון ודוא\"ל מעודכנים כדי שיהיה קל ליצור איתכם קשר.", "Keep your name, phone and email current so people can reach you."]),
+    step("profile-photo",
+      ["صورتك", "התמונה שלך", "Your photo"],
+      ["اختر صورة أو احذفها، ثم احفظ.", "בחרו תמונה או מחקו אותה, ואז שמרו.", "Pick a photo or remove it, then save."]),
+    step("profile-save",
+      ["حفظ", "שמירה", "Save"],
+      ["يحفظ التغييرات على بياناتك.", "שומר את השינויים בפרטים שלך.", "Saves the changes to your details."]),
   ]),
 
   tour("assistant", { requires: null }, [

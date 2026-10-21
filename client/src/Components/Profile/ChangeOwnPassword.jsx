@@ -48,7 +48,7 @@ export default function ChangeOwnPassword() {
   );
 
   return (
-    <fieldset className={sectionStyles.formSection}>
+    <fieldset className={sectionStyles.formSection} data-tour="profile-password">
       <legend>{t("passwordChange.ownTitle")}</legend>
       <label htmlFor="own-current-password">{t("passwordChange.current")}</label>
       <div className={styles.passwordWrapper}>

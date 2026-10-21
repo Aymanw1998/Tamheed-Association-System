@@ -410,7 +410,7 @@ const EditStudent = ({parent = false}) => {
     <div className={styles.formContainer}>
       <h2 style={{textAlign: "center"}}>{parent ? "طلب تسجيل طالب" : isEdit ? "تحديث بيانات الطالب" : "اضافة طالب جديد"}</h2>
 
-      <fieldset className={sectionStyles.formSection}>
+      <fieldset className={sectionStyles.formSection} data-tour="student-details">
         <legend>بيانات الطالب</legend>
         <label>رقم الهوية: <span style={{color: "red"}}>*</span></label>
         <input name="tz" value={form.tz} onChange={onField} readOnly={!isNew} />
@@ -466,7 +466,7 @@ const EditStudent = ({parent = false}) => {
         {error.email !="" && <label style={{color: "red"}}>{error.email}</label>}
       </fieldset>
 
-      <fieldset className={sectionStyles.formSection}>
+      <fieldset className={sectionStyles.formSection} data-tour="student-study">
         <legend>الدراسة</legend>
         <label>مدرسة: <span style={{color: "red"}}>*</span></label>
         <input name="school" value={form.school} onChange={handleChange} required />
@@ -494,7 +494,7 @@ const EditStudent = ({parent = false}) => {
         </>}
       </fieldset>
 
-      <fieldset className={sectionStyles.formSection}>
+      <fieldset className={sectionStyles.formSection} data-tour="student-parents">
         <legend>الأهل <span className={sectionStyles.optionalTag}>اختياري</span></legend>
         <label>الأب:</label>
         <div className={sectionStyles.parentRow}>
@@ -521,7 +521,7 @@ const EditStudent = ({parent = false}) => {
         </div>
       </fieldset>
 
-      <fieldset className={sectionStyles.formSection}>
+      <fieldset className={sectionStyles.formSection} data-tour="student-health">
         <legend>الصحة وملاحظات</legend>
         <label>الحالة الصحية: <span style={{color: "red"}}>*</span></label>
         <textarea name="health_status" rows={4} value={form.health_status || ""} onChange={handleChange} required />
@@ -559,13 +559,13 @@ const EditStudent = ({parent = false}) => {
       </div>
 
       <div className={styles.buttonRow} style={{ gap: 8, flexWrap: "wrap" }}>
-        <button type="submit" onClick={handleSubmit} style={{width:"100%"}}>
+        <button type="submit" data-tour="student-save" onClick={handleSubmit} style={{width:"100%"}}>
           {saving ? "حفظ..." : parent ? "ارسال التفاصيل" : (isEdit ? "تعديل البيانات" : "اضافة الطالب")}
         </button>
 
         {isEdit && !parent && (
           <center>
-            <button type="button" style={{ background: "#7f1d1d", width: "100%" }} onClick={handleHardDelete}>
+            <button type="button" data-tour="student-delete" style={{ background: "#7f1d1d", width: "100%" }} onClick={handleHardDelete}>
               حذف
             </button>
           </center>
