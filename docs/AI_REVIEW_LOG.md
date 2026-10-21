@@ -1844,16 +1844,24 @@ closes the panel afterwards. Registry comment explains how to add a tour or a
 what's-new entry. Tests in the review: server `tour-state`, `tours-routes`;
 client tour logic tests.
 
-**Not done:** Task 6 (menu steps, users/user/student/profile tours, "new"
-badges, tour status on the user page) waits for the owner to commit the
-in-progress edits to Header, Profile, EditStudent, EditUser, ViewAllUser and
-session.js. `PENDING_TOURS` still lists `users` until then.
+**Task 6 (after the owner's UI edits were committed, 3a3ceea):** menu steps in
+the welcome tour (the mobile side menu opens for them), `users`, `user`
+(including the permissions tab), `student` and `profile` tours, "new" badges
+on menu links (on the bell for notices), and a tour status section with
+"show again at next sign-in" on the user page. `PENDING_TOURS` is empty.
 
-**Verification:** `npm test` at the repo root: server 688/688, client 30
-suites / 356 tests; `cd client && npm run build` compiled. Not checked in a
-browser; no database.
+**Final review fixes:** tour navigation now asks before leaving a page with
+unsaved edits (shared `confirmLeave` in `utils/unsavedChanges.js`, also used by
+Header); tour writes update one entry and never create a user
+(`UserModelDef.updateExisting`); automatic tours wait for typing to stop before
+probing tabs; tab events carry the tour id; tour status only for active
+accounts; `known-keys` rejects a non-array body.
+
+**Verification:** `npm test` at the repo root: server 694/694, client 31
+suites / 368 tests; `cd client && npm run build` compiled. Not checked in a
+browser; no database (the nested `tours.<id>` write is worth one real-DB check).
 
 **Requesting Codex review.** No live Codex connection; this entry is the handoff.
 
 **Delivery state:** committed by the agent with the owner's standing approval;
-not pushed. Task 6 pending the owner's commit of their UI edits.
+not pushed.
