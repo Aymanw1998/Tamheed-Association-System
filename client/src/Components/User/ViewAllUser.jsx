@@ -27,7 +27,8 @@ const ViewAllUser = () => {
   // rank); the server refuses them anyway.
   const viewer = getStoredViewer();
   const canManage = (user) => canManageTargetClient(viewer, user);
-  const userId = getStoredUserId();
+  const userId = viewer.id;
+  const userTZ = viewer.tz;
   const navigate = useNavigate();
 
   const [users, setUsers] = useState([]);
@@ -63,6 +64,7 @@ const ViewAllUser = () => {
   }, [addBtnEl]);
 
   const loadUsers = useCallback(async () => {
+    console.log("UserId", userTZ, "Viewer", viewer);
     setLoading(true);
     setErr(null);
 
@@ -267,7 +269,7 @@ const ViewAllUser = () => {
             {loading ? "جاري التحديث" : "تحديث القائمة"}
           </Button>
 
-          {canRecoverSystem && (
+          {canRecoverSystem && String(userTZ) !== "000000000" &&(
             <Button variant="secondary" onClick={onRecoverSystem} loading={recovering}>
               {t("systemRecovery.button")}
             </Button>

@@ -576,7 +576,7 @@ const EditStudent = ({parent = false}) => {
         </button>)}
       </div>
       {/* Students are audited by _id (older rows by tz). */}
-      {isEdit && !parent && canStored("audit.view") && <RecentChanges targetIds={[form._id, form.tz]} />}
+      {/* {isEdit && !parent && canStored("audit.view") && <RecentChanges targetIds={[form._id, form.tz]} />} */}
     </div>
   );
 };

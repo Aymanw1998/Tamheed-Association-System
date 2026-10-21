@@ -393,7 +393,7 @@ const Profile = ({parent = false}) => {
             )}
         </div>
 
-        <MyPermissions permissions={myPermissions} />
+        {/* <MyPermissions permissions={myPermissions} /> */}
 
         <div className={styles.buttonRow} style={{ gap: 8, flexWrap: "wrap" }}>
             <button type="submit" onClick={handleSubmit}>

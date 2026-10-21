@@ -146,11 +146,10 @@ export default function Header() {
             {user.firstname} {user.lastname} - {displayRole}
           </div>
         )}
-        {!isMobile && languageSelect(styles.languageSelectWrap)}
+        {/* {!isMobile && languageSelect(styles.languageSelectWrap)} */}
       </div>
 
       <div className={styles.headerContent}>
-        {canViewNotices && <NoticeBell onOpen={(event) => onNavClick(event, "/notices")} />}
         {isMobile && (
           <button
             type="button"
@@ -168,6 +167,7 @@ export default function Header() {
             <span />
           </button>
         )}
+        {canViewNotices && <NoticeBell onOpen={(event) => onNavClick(event, "/notices")} />}
         {user && isMobile && (
           <div className={styles.userBadge}>
             {user.firstname} {user.lastname} - {displayRole}
@@ -185,25 +185,25 @@ export default function Header() {
       >
         <a href="/dashboard" onClick={(event) => onNavClick(event, "/dashboard")}>{t("nav.dashboard")}</a>
         <a href="/calendar" onClick={(event) => onNavClick(event, "/calendar")}>{t("nav.attendance")}</a>
-        {canViewStudents && (
-          <a href="/students" onClick={(event) => onNavClick(event, "/students")}>{t("nav.students")}</a>
-        )}
         {canViewUsers && (
           <a href="/users" onClick={(event) => onNavClick(event, "/users")}>{t("nav.users")}</a>
         )}
-        {canViewNotices && (
+        {canViewStudents && (
+          <a href="/students" onClick={(event) => onNavClick(event, "/students")}>{t("nav.students")}</a>
+        )}
+        {/* {canViewNotices && (
           <a href="/notices" onClick={(event) => onNavClick(event, "/notices")}>{t("nav.notices")}</a>
+        )} */}
+        <a href="/lessons" onClick={(event) => onNavClick(event, "/lessons")}>{t("nav.lessons")}</a>
+        <a href="/reports" onClick={(event) => onNavClick(event, "/reports")}>{t("nav.reports")}</a>
+        <a href="/files" onClick={(event) => onNavClick(event, "/files")}>{t("nav.files")}</a>
+        <a href="/profile" onClick={(event) => onNavClick(event, "/profile")}>{t("nav.profile")}</a>
+        {canViewVehicles && (
+          <a href="/vehicles" onClick={(event) => onNavClick(event, "/vehicles")}>{t("nav.vehicles")}</a>
         )}
         {canViewAudit && (
           <a href="/audit" onClick={(event) => onNavClick(event, "/audit")}>{t("nav.audit")}</a>
         )}
-        <a href="/lessons" onClick={(event) => onNavClick(event, "/lessons")}>{t("nav.lessons")}</a>
-        {canViewVehicles && (
-          <a href="/vehicles" onClick={(event) => onNavClick(event, "/vehicles")}>{t("nav.vehicles")}</a>
-        )}
-        <a href="/reports" onClick={(event) => onNavClick(event, "/reports")}>{t("nav.reports")}</a>
-        <a href="/files" onClick={(event) => onNavClick(event, "/files")}>{t("nav.files")}</a>
-        <a href="/profile" onClick={(event) => onNavClick(event, "/profile")}>{t("nav.profile")}</a>
         {isMobile && languageSelect(styles.mobileLanguageSelectWrap)}
         <button type="button" onClick={handleLogout} className={styles.logoutButton} title={t("nav.logout")}>{t("nav.logout")}</button>
       </nav>

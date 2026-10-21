@@ -682,7 +682,7 @@ const EditUser = () => {
       </>
       )}
 
-      {isEdit && canStored("audit.view") && form.tz && <RecentChanges key={tabKey} targetIds={[form.tz]} />}
+      {/* {isEdit && canStored("audit.view") && form.tz && <RecentChanges key={tabKey} targetIds={[form.tz]} />} */}
     </div>
   );
 };

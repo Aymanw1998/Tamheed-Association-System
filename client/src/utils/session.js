@@ -31,6 +31,7 @@ export const normalizeRoles = (value) => {
 export const rememberSessionUser = (user) => {
   if (!user) return;
   if (user._id) localStorage.setItem("user_id", String(user._id));
+  if (user.tz) localStorage.setItem("user_tz", String(user.tz));
   if (Array.isArray(user.roles)) localStorage.setItem("roles", JSON.stringify(user.roles));
   if (Array.isArray(user.permissions)) localStorage.setItem("permissions", JSON.stringify(user.permissions));
   if (typeof user.role === "string" && user.role) localStorage.setItem("role", user.role);
@@ -83,9 +84,14 @@ export const getStoredUserId = () => {
   return localStorage.getItem("user_id") || "";
 };
 
+export const getStoredUserTz = () => {
+  if (typeof window === "undefined") return "";
+  return localStorage.getItem("user_tz") || "";
+};
 // The signed-in viewer, shaped for canManageTargetClient (utils/roles.js).
 export const getStoredViewer = () => ({
   id: getStoredUserId(),
+  tz: getStoredUserTz(),
   role: getStoredRole(),
   isSystem: isStoredSystem(),
 });
