@@ -108,6 +108,7 @@ app.use('/api/audit', require('./Entities/Audit/Audit.route'));
 app.use('/api/live', require('./Entities/Live/Live.route'));
 // Each signed-in user's own alert inbox (AiAlerts).
 app.use('/api/alerts', require('./Entities/Alert/Alert.route'));
+app.use('/api/tours', require('./routes/tours.routes'));
 app.use('/api/storage', require('./Entities/Storage/Storage.route'))
 app.use('/api/storage/google', require('./Entities/Storage/GoogleDrive.route'))
 // Local Google-Drive-backed replacement for the remote Central Storage

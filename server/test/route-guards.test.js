@@ -16,6 +16,7 @@ const ROUTE_FILES = [
     return fs.readdirSync(full).filter((f) => f.endsWith(".route.js")).map((f) => path.join(full, f));
   }),
   path.join(SERVER, "routes", "ai.routes.js"),
+  path.join(SERVER, "routes", "tours.routes.js"),
 ];
 
 // Whole files outside the permission system.
@@ -62,7 +63,12 @@ const ANY_ACTOR_ROUTES = {
   "Live/Live.route.js": ["POST /ticket"], // a ticket for one's own live channel
   // One's own alert inbox: every query is filtered by the caller's tz.
   "Alert/Alert.route.js": ["GET /", "POST /read-all", "POST /:id/read"],
+  // One's own tour state: every write targets the caller's own record.
+  "routes/tours.routes.js": ["GET /", "POST /item/:id", "POST /known-keys", "POST /releases/seen"],
 };
+
+// Router files outside Entities/ are named "routes/<file>" by rel().
+const fileOf = (name) => (name.startsWith("routes/") ? path.join(SERVER, name) : path.join(ENTITIES, name));
 
 const rel = (file) => path.relative(ENTITIES, file).split(path.sep).join("/").replace(/^\.\.\/routes\//, "routes/");
 
@@ -120,7 +126,7 @@ test("every non-public route loads the actor and checks a permission", () => {
 
 test("every listed exception still exists (the exclusion lists are not stale)", () => {
   for (const [name, list] of [...Object.entries(PUBLIC_ROUTES), ...Object.entries(ANY_ACTOR_ROUTES)]) {
-    const source = stripComments(fs.readFileSync(path.join(ENTITIES, name), "utf8"));
+    const source = stripComments(fs.readFileSync(fileOf(name), "utf8"));
     const present = new Set(routesOf(source).map((r) => `${r.method} ${r.path}`));
     for (const key of list) assert.ok(present.has(key), `${name} ${key} is listed as public but not found`);
   }
