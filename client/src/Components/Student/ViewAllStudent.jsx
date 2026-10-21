@@ -174,9 +174,10 @@ const ViewAllStudent = () => {
           {isAdmin ? "قائمة الطلاب" : "قائمة طلابي"}
         </h1>
 
-        <div className={styles.toolbar}>
+        <div className={styles.toolbar} data-tour="students-toolbar">
           <input
             type="search"
+            data-tour="students-search"
             placeholder="بحث..."
             aria-label="بحث في قائمة الطلاب"
             className={styles.searchInput}
@@ -185,23 +186,23 @@ const ViewAllStudent = () => {
           />
 
           {canCreateStudents && (
-            <Button ref={addBtnRef} id="page-add-student" onClick={handleAddStudent}>
+            <Button ref={addBtnRef} id="page-add-student" data-tour="students-add" onClick={handleAddStudent}>
               إضافة طالب جديد
             </Button>
           )}
 
           {canParentLink && (
-            <Button variant="secondary" onClick={() => setShowParentLink(true)}>
+            <Button variant="secondary" data-tour="students-parent-link" onClick={() => setShowParentLink(true)}>
               رابط تسجيل الأهل
             </Button>
           )}
 
-          <Button variant="secondary" onClick={loadStudent} loading={loading}>
+          <Button variant="secondary" data-tour="students-refresh" onClick={loadStudent} loading={loading}>
             {loading ? "جاري التحديث" : "تحديث القائمة"}
           </Button>
         </div>
 
-        { isAdmin && <div style={{ marginTop: 12, marginBottom: 12 }}>
+        { isAdmin && <div data-tour="students-status-filter" style={{ marginTop: 12, marginBottom: 12 }}>
           <StudentStatusFilter
             value={statusFilter}
             onChange={setStatusFilter}
@@ -238,7 +239,7 @@ const ViewAllStudent = () => {
       )}
 
       {!loading && !err && (
-        <table className={`table ${styles.subTable} ${styles.desktopOnly}`} style={{ marginTop: 12 }}>
+        <table data-tour="students-table" className={`table ${styles.subTable} ${styles.desktopOnly}`} style={{ marginTop: 12 }}>
           <thead>
             <tr>
               <th>رقم الهوية</th>
@@ -280,6 +281,7 @@ const ViewAllStudent = () => {
                           <Button
                             size="sm"
                             variant="secondary"
+                            data-tour="students-file"
                             onClick={() => exportStudentPdf(student)}
                           >
                             ملف الطالب
@@ -299,6 +301,7 @@ const ViewAllStudent = () => {
                           <Button
                             size="sm"
                             variant="danger"
+                            data-tour="students-reject"
                             onClick={() => handleRejectStudent(student.tz)}
                           >
                             رفض

@@ -263,7 +263,7 @@ export default function Dashboard() {
           <h1>لوحة التحكم</h1>
           <p>عرض سريع وبسيط لأهم بيانات النظام.</p>
         </div>
-        <div className={styles.links}>
+        <div className={styles.links} data-tour="dashboard-links">
           {canViewUsers && <Link to="/users">المستخدمون</Link>}
           {canViewStudents && <Link to="/students">الطلاب</Link>}
           <Link to="/lessons">الدروس</Link>
@@ -273,7 +273,7 @@ export default function Dashboard() {
 
       {error && <div className={styles.error}>{error}</div>}
 
-      <div className={styles.stats}>
+      <div className={styles.stats} data-tour="dashboard-stats">
         {summary.map((item) => (
           <div key={item.label} className={styles.statCard}>
             <span>{item.label}</span>
@@ -289,7 +289,7 @@ export default function Dashboard() {
         <VehicleAlerts />
         {/* Shown only while someone is actually waiting. */}
         {canViewUsers && !loading && waitingUsers.length > 0 && (
-          <section className={styles.panel}>
+          <section className={styles.panel} data-tour="dashboard-waiting-users">
             <div className={styles.panelHeader}>
               <h2>مستخدمون بانتظار الموافقة</h2>
               <Link to="/users">فتح</Link>
@@ -328,7 +328,7 @@ export default function Dashboard() {
         )}
 
         {canViewStudents && !loading && pendingStudents.length > 0 && (
-          <section className={styles.panel}>
+          <section className={styles.panel} data-tour="dashboard-waiting-students">
             <div className={styles.panelHeader}>
               <h2>طلاب بانتظار الموافقة</h2>
               <Link to="/students">فتح</Link>
@@ -367,7 +367,7 @@ export default function Dashboard() {
         )}
 
         {canParentLink && (
-          <section className={styles.panel}>
+          <section className={styles.panel} data-tour="dashboard-parent-link">
             <div className={styles.panelHeader}>
               <h2>رابط تسجيل الأهل</h2>
             </div>
@@ -375,7 +375,7 @@ export default function Dashboard() {
           </section>
         )}
 
-        <section className={styles.panel}>
+        <section className={styles.panel} data-tour="dashboard-lessons">
           <div className={styles.panelHeader}>
             <h2>{canSeeAllLessons ? "دروس اليوم" : "دروسي اليوم"}</h2>
             <Link to="/lessons">كل الدروس</Link>
@@ -406,6 +406,7 @@ export default function Dashboard() {
                     <em>{formatLessonTime(lesson)}</em>
                     <button
                       type="button"
+                      data-tour="dashboard-lesson-enter"
                       className={styles.openBtn}
                       onClick={() => openLessonAttendance(lesson)}
                     >

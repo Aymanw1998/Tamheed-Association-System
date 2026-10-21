@@ -271,7 +271,7 @@ const EditLesson = () => {
         <h2>معلومات الكرس</h2>
       )}
 
-      <fieldset className={sectionStyles.formSection}>
+      <fieldset className={sectionStyles.formSection} data-tour="lesson-details">
         <legend>بيانات الدرس</legend>
         <div className={styles.formControl}>
           <label htmlFor="lesson-name">اسم الدرس:<span style={{color: "red"}}>*</span></label>
@@ -288,7 +288,7 @@ const EditLesson = () => {
         </div>
       </fieldset>
 
-      <fieldset className={sectionStyles.formSection}>
+      <fieldset className={sectionStyles.formSection} data-tour="lesson-schedule">
         <legend>الموعد والمكان</legend>
         <div className={styles.formControl}>
           <label htmlFor="lesson-day">اختر يوم للدرس:<span style={{color: "red"}}>*</span></label>
@@ -351,7 +351,7 @@ const EditLesson = () => {
         </div>
       </fieldset>
 
-      <fieldset className={sectionStyles.formSection}>
+      <fieldset className={sectionStyles.formSection} data-tour="lesson-staff">
         <legend>الطاقم</legend>
         <div className={styles.formControl}>
           <label htmlFor="lesson-teacher">مرشد:<span style={{color: "red"}}>*</span></label>
@@ -398,7 +398,7 @@ const EditLesson = () => {
         </div>
       </fieldset>
 
-      <fieldset className={sectionStyles.formSection}>
+      <fieldset className={sectionStyles.formSection} data-tour="lesson-roster">
         <legend>الطلاب في الدرس ({(lesson.list_students?.length || 0) + (Number(lesson.hiddenCount) || 0) + pendingLooked.length})</legend>
         <LessonRoster
           lesson={lesson}
@@ -415,11 +415,11 @@ const EditLesson = () => {
 
       {isAdmin && (
         <div className={styles.buttonRow} style={{ gap: 8, flexWrap: "wrap" }}>
-          <Button type="button" onClick={handleSave}>
+          <Button type="button" data-tour="lesson-save" onClick={handleSave}>
             {id !== 'new' ? 'تعديل البيانات' : 'حفظ البيانات'}
           </Button>
           {id !== 'new' && canDelete && (
-            <Button type="button" variant="danger" onClick={handleDelete}>
+            <Button type="button" variant="danger" data-tour="lesson-delete" onClick={handleDelete}>
             حذف
             </Button>
           )}

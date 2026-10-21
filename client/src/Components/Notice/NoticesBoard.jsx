@@ -76,16 +76,16 @@ export default function NoticesBoard() {
     <section className={styles.page}>
       <header className={styles.head}>
         <h1>{t("notices.title")}</h1>
-        <div className={styles.actions}>
-          <Button size="sm" variant="secondary" loading={busy === "all"} onClick={() => act("all", markAllNoticesRead)}>{t("notices.markAll")}</Button>
-          <Button size="sm" variant="secondary" loading={busy === "run"}
+        <div className={styles.actions} data-tour="notices-actions">
+          <Button size="sm" variant="secondary" data-tour="notices-mark-all" loading={busy === "all"} onClick={() => act("all", markAllNoticesRead)}>{t("notices.markAll")}</Button>
+          <Button size="sm" variant="secondary" data-tour="notices-run-check" loading={busy === "run"}
             onClick={() => act("run", runVehicleCheck, (res) => fillText(t("notices.runDone"), { n: res.created || 0 }))}>
             {t("notices.runCheck")}
           </Button>
         </div>
       </header>
 
-      <div className={styles.filters}>
+      <div className={styles.filters} data-tour="notices-filters">
         <select value={filters.status} onChange={setFilter("status")} aria-label={t("notices.filters.status")}>
           <option value="all">{t("notices.filters.all")}</option>
           <option value="unread">{t("notices.filters.unread")}</option>
@@ -104,7 +104,7 @@ export default function NoticesBoard() {
       {!state.loading && !state.error && state.notices.length === 0 && <p>{t("notices.empty")}</p>}
 
       {state.notices.length > 0 && (
-        <div className={styles.tableWrap}>
+        <div className={styles.tableWrap} data-tour="notices-list">
           <table className={styles.table}>
             <thead>
               <tr>
@@ -126,7 +126,7 @@ export default function NoticesBoard() {
                   <td>{n.read ? t("notices.read") : <strong>{t("notices.unread")}</strong>}</td>
                   <td className={styles.rowActions}>
                     {!n.read && <Button size="sm" variant="secondary" onClick={() => act(`r${n._id}`, () => markNoticeRead(n._id))}>{t("notices.markRead")}</Button>}
-                    <Button size="sm" variant="secondary" onClick={() => archive(n)}>{t("notices.archive")}</Button>
+                    <Button size="sm" variant="secondary" data-tour="notices-archive" onClick={() => archive(n)}>{t("notices.archive")}</Button>
                   </td>
                 </tr>
               ))}
@@ -135,7 +135,7 @@ export default function NoticesBoard() {
         </div>
       )}
 
-      <form className={styles.form} onSubmit={publish} noValidate>
+      <form className={styles.form} data-tour="notices-publish" onSubmit={publish} noValidate>
         <h2>{t("notices.newTitle")}</h2>
         <label>{t("notices.f.title")}
           <input value={draft.title} maxLength={120} required onChange={(e) => setDraft({ ...draft, title: e.target.value })} />

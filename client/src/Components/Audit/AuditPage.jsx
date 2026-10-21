@@ -72,7 +72,7 @@ export default function AuditPage() {
     <section className={styles.page}>
       <h1>{t("audit.title")}</h1>
 
-      <form className={styles.filters} onSubmit={apply}>
+      <form className={styles.filters} data-tour="audit-filters" onSubmit={apply}>
         <label>{t("audit.filters.from")}<input type="date" value={draft.from} onChange={set("from")} /></label>
         <label>{t("audit.filters.to")}<input type="date" value={draft.to} onChange={set("to")} /></label>
         <label>{t("audit.filters.module")}
@@ -91,17 +91,17 @@ export default function AuditPage() {
         {draft.targetId && (
           <label>{t("audit.filters.targetId")}<input value={draft.targetId} onChange={set("targetId")} /></label>
         )}
-        <label>{t("audit.filters.q")}<input type="search" value={draft.q} maxLength={100} onChange={set("q")} /></label>
+        <label data-tour="audit-search">{t("audit.filters.q")}<input type="search" value={draft.q} maxLength={100} onChange={set("q")} /></label>
         <Button type="submit" loading={state.loading}>{t("audit.filters.apply")}</Button>
-        <Button variant="secondary" onClick={clear}>{t("audit.filters.clear")}</Button>
+        <Button variant="secondary" data-tour="audit-clear" onClick={clear}>{t("audit.filters.clear")}</Button>
       </form>
 
       {state.error && <p role="alert">{state.error}</p>}
       {!state.loading && !state.error && state.items.length === 0 && <p>{t("audit.empty")}</p>}
-      {state.items.length > 0 && <AuditTable items={state.items} studentNames={studentNames} />}
+      {state.items.length > 0 && <div data-tour="audit-table"><AuditTable items={state.items} studentNames={studentNames} /></div>}
 
       {state.total > 0 && (
-        <div className={styles.pager}>
+        <div className={styles.pager} data-tour="audit-pager">
           <span>{fillText(t("audit.total"), { n: state.total })}</span>
           <Button size="sm" variant="secondary" disabled={page <= 1 || state.loading} onClick={() => setPage(page - 1)}>{t("audit.prev")}</Button>
           <span>{fillText(t("audit.page"), { page, pages })}</span>

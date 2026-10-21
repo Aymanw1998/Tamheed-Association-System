@@ -251,6 +251,7 @@ const ViewAllReport = () => {
         <div className={styles.toolbar}>
           <input
             type="search"
+            data-tour="reports-search"
             placeholder="بحث..."
             aria-label="بحث في التقارير"
             className={styles.searchInput}
@@ -258,11 +259,11 @@ const ViewAllReport = () => {
             onChange={(event) => setSearchTerm(event.target.value)}
           />
 
-          <Button ref={addBtnRef} id="page-add-report" onClick={() => navigate("/reports/new")}>
+          <Button ref={addBtnRef} id="page-add-report" data-tour="reports-add" onClick={() => navigate("/reports/new")}>
             اضافة تقرير جديد
           </Button>
 
-          <Button variant="secondary" onClick={loadReport} loading={loading}>
+          <Button variant="secondary" data-tour="reports-refresh" onClick={loadReport} loading={loading}>
             {loading ? "جاري التحديث" : "تحديث القائمة"}
           </Button>
         </div>
@@ -296,10 +297,10 @@ const ViewAllReport = () => {
       )}
 
       {!loading && !err && (
-        <table className={`table ${styles.subTable} ${styles.desktopOnly}`} style={{ marginTop: 12 }}>
+        <table data-tour="reports-table" className={`table ${styles.subTable} ${styles.desktopOnly}`} style={{ marginTop: 12 }}>
           <thead>
             <tr>
-              <th className={styles.sortable} onClick={() => toggleSort("date")}>تاريخ{sortMark("date")}</th>
+              <th className={styles.sortable} data-tour="reports-sort" onClick={() => toggleSort("date")}>تاريخ{sortMark("date")}</th>
               <th className={styles.sortable} onClick={() => toggleSort("day")}>يوم{sortMark("day")}</th>
               <th className={styles.sortable} onClick={() => toggleSort("stitle")}>اسم التقرير{sortMark("stitle")}</th>
               <th className={styles.sortable} onClick={() => toggleSort("title")}>عناوين التقرير{sortMark("title")}</th>
@@ -398,10 +399,10 @@ const ViewAllReport = () => {
                   <td data-label="صاحب التقرير">{ownerName(report)}</td>
                   <td data-label="العمليات">
                     <div className={styles.rowActions}>
-                      <Button size="sm" variant="warning" onClick={() => navigate(`/reports/${report._id}`)}>
+                      <Button size="sm" variant="warning" data-tour="reports-open" onClick={() => navigate(`/reports/${report._id}`)}>
                         للتعديل
                       </Button>
-                      <Button size="sm" variant="secondary" onClick={() => exportReportPdf(report, report.user)}>
+                      <Button size="sm" variant="secondary" data-tour="reports-pdf" onClick={() => exportReportPdf(report, report.user)}>
                         ملف التقرير
                       </Button>
                     </div>

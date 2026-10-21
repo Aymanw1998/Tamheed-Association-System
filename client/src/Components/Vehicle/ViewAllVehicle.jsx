@@ -114,17 +114,18 @@ export default function ViewAllVehicle() {
 
   const actions = (vehicle) => (
     <div className={styles.rowActions}>
-      <Button size="sm" variant="secondary" onClick={() => navigate(`/vehicles/${vehicle._id}`)}>
+      <Button size="sm" variant="secondary" data-tour="vehicles-open" onClick={() => navigate(`/vehicles/${vehicle._id}`)}>
         {t("vehicles.open")}
       </Button>
       {access.can("edit") && vehicle.status !== "archived" && (
-        <Button size="sm" onClick={() => navigate(`/vehicles/${vehicle._id}?edit=1`)}>
+        <Button size="sm" data-tour="vehicles-edit" onClick={() => navigate(`/vehicles/${vehicle._id}?edit=1`)}>
           {t("vehicles.edit")}
         </Button>
       )}
       {access.can("archive") && (
         <Button
           size="sm"
+          data-tour="vehicles-archive"
           variant={vehicle.status === "archived" ? "success" : "danger"}
           loading={busyId === vehicle._id}
           onClick={() => toggleArchive(vehicle)}
@@ -158,11 +159,11 @@ export default function ViewAllVehicle() {
           <h1>{t("vehicles.title")}</h1>
           <p>{t("vehicles.subtitle")}</p>
         </div>
-        {access.can("edit") && <Button onClick={() => navigate("/vehicles/new")}>{t("vehicles.add")}</Button>}
+        {access.can("edit") && <Button data-tour="vehicles-add" onClick={() => navigate("/vehicles/new")}>{t("vehicles.add")}</Button>}
       </div>
 
       {!loading && !error && (
-        <div className={styles.summary}>
+        <div className={styles.summary} data-tour="vehicles-summary">
           {summaryCards.map((card) => (
             <button
               key={card.key}
@@ -178,7 +179,7 @@ export default function ViewAllVehicle() {
         </div>
       )}
 
-      <div className={styles.filters}>
+      <div className={styles.filters} data-tour="vehicles-filters">
         <Field
           id="vehicle-search"
           label={t("vehicles.search")}
@@ -234,7 +235,7 @@ export default function ViewAllVehicle() {
 
       {!loading && !error && visible.length > 0 && (
         <>
-          <div className={styles.tableWrap}>
+          <div className={styles.tableWrap} data-tour="vehicles-table">
             <table className={styles.table}>
               <thead>
                 <tr>

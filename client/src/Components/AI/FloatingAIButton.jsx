@@ -515,7 +515,7 @@ export default function FloatingAIButton() {
           </div>
         </header>
 
-        <div className={styles.tabs} role="tablist">
+        <div className={styles.tabs} data-tour="assistant-tabs" role="tablist">
           {visibleTabs(aiOn).map((name) => (
             <button
               key={name}
@@ -532,9 +532,9 @@ export default function FloatingAIButton() {
         </div>
 
         {tab === "alerts" && (
-          <section className={styles.alertsPane} aria-label={a("alertsLabel")}>
+          <section className={styles.alertsPane} data-tour="assistant-alerts" aria-label={a("alertsLabel")}>
             <div className={styles.alertsBar}>
-              <button type="button" disabled={badge === 0} onClick={readAll}>{a("markAllRead")}</button>
+              <button type="button" data-tour="assistant-mark-all" disabled={badge === 0} onClick={readAll}>{a("markAllRead")}</button>
             </div>
             <div className={styles.alertsList}>
               {alertsState === "loading" && alerts.length === 0 && <p className={styles.alertsNote}>{a("loading")}</p>}
@@ -557,7 +557,7 @@ export default function FloatingAIButton() {
                       </span>
                       <span className={styles.alertText}>{alertText(alert, language)}</span>
                     </button>
-                    {aiOn && <button type="button" className={styles.explainButton} disabled={sending} onClick={() => explainAlert(alert)}>{a("explain")}</button>}
+                    {aiOn && <button type="button" data-tour="assistant-explain" className={styles.explainButton} disabled={sending} onClick={() => explainAlert(alert)}>{a("explain")}</button>}
                   </article>
                 );
               })}
@@ -566,7 +566,7 @@ export default function FloatingAIButton() {
         )}
 
         {aiOn && tab === "chat" && (
-          <section className={styles.chatPane} aria-label={a("tabChat")}>
+          <section className={styles.chatPane} data-tour="assistant-chat" aria-label={a("tabChat")}>
             <div className={styles.chatBar}>
               <button
                 type="button"

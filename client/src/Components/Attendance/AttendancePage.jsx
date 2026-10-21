@@ -271,7 +271,7 @@ export default function AttendancePage() {
         <div className={styles.page} dir="rtl">
         {!(isMobile && mobileView === "sheet") && <div className={styles.topbar}>
             <h2 className={styles.title}>حضور وغياب</h2>
-            <div className={styles.tabs}>
+            <div className={styles.tabs} data-tour="calendar-tabs">
             <button className={`${styles.tabBtn} ${tab === "today" ? styles.tabActive : ""}`}
             onClick={() => doChange(setTab,"today")}>
                 درس اليوم
@@ -311,10 +311,10 @@ export default function AttendancePage() {
                 {loadingLeft && <div className={styles.small}>جلب البيانات...</div>}
             </div>
 
-            <div className={styles.lessonList}>
+            <div className={styles.lessonList} data-tour="calendar-lessons">
                 <div className={styles.filterGroup}>
                     <label htmlFor="attendance-lesson-search">بحث: </label>
-                    <input id="attendance-lesson-search" value={searchLesson} onChange={(e)=>setSearchLesson(e.target.value)} placeholder="اسم الدرس" />
+                    <input id="attendance-lesson-search" data-tour="calendar-search" value={searchLesson} onChange={(e)=>setSearchLesson(e.target.value)} placeholder="اسم الدرس" />
                 </div>
                 {/* Scrolls after three lessons so the sheet stays in view. */}
                 <div className={styles.lessonScroll}>
@@ -339,7 +339,7 @@ export default function AttendancePage() {
 
             {/* HISTORY: pick one of the dates that already have attendance (phones use the date window) */}
             {tab === "history" && selectedLesson && !isMobile && (
-                <div className={styles.datesPanel}>
+                <div className={styles.datesPanel} data-tour="calendar-dates">
                 <label className={styles.leftTitle} htmlFor="attendance-date">التاريخ:</label>
                 {loadingSheet && historyDates.length === 0 ? (
                     <div className={styles.small}>جلب البيانات...</div>
@@ -407,7 +407,7 @@ export default function AttendancePage() {
                     </div>
                     </div>
 
-                    <div className={styles.quickBtns}>
+                    <div className={styles.quickBtns} data-tour="calendar-quick">
                     <button className={styles.quickBtn} onClick={() => markAll("حاضر")} disabled={loadingSheet}>الكل حاضر</button>
                     <button className={styles.quickBtn} onClick={() => markAll("متأخر")} disabled={loadingSheet}>الكل متأخر</button>    
                     <button className={styles.quickBtn} onClick={() => markAll("غائب")} disabled={loadingSheet}>الكل غائب</button>
@@ -415,7 +415,7 @@ export default function AttendancePage() {
                 </div>
 
                 {/* Desktop table */}
-                <div className={styles.tableWrap + " " + styles.desktopOnly}>
+                <div data-tour="calendar-sheet" className={styles.tableWrap + " " + styles.desktopOnly}>
                 <table className={styles.table}>
                     <thead>
                     <tr>
@@ -497,7 +497,7 @@ export default function AttendancePage() {
                     </div>
                     <div className={styles.actions}>
                     {dirty && <span className={styles.miniInfo}>يوجد بيانات لم تُحفظ</span>}
-                    <button className={styles.saveBtn} onClick={onSave} disabled={loadingSheet || !dirty}>
+                    <button className={styles.saveBtn} data-tour="calendar-save" onClick={onSave} disabled={loadingSheet || !dirty}>
                         حفظ
                     </button>
                     </div>

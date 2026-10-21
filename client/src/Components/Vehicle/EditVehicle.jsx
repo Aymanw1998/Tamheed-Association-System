@@ -296,15 +296,15 @@ export default function EditVehicle() {
         </div>
         <div className={styles.actionsRow}>
           {!isNew && canEdit && !archived && !editing && (
-            <Button onClick={() => setEditing(true)}>{t("vehicles.edit")}</Button>
+            <Button data-tour="vehicle-edit" onClick={() => setEditing(true)}>{t("vehicles.edit")}</Button>
           )}
           {!isNew && access.can("archive") && (
-            <Button variant={archived ? "success" : "danger"} loading={busy} onClick={toggleArchive}>
+            <Button variant={archived ? "success" : "danger"} data-tour="vehicle-archive" loading={busy} onClick={toggleArchive}>
               {archived ? t("vehicles.restore") : t("vehicles.archive")}
             </Button>
           )}
           {!isNew && access.isAdmin && !deleting && (
-            <Button variant="danger" onClick={() => setDeleting({ text: "", busy: false, error: "" })}>{t("vehicles.del.button")}</Button>
+            <Button variant="danger" data-tour="vehicle-delete" onClick={() => setDeleting({ text: "", busy: false, error: "" })}>{t("vehicles.del.button")}</Button>
           )}
           <Button variant="secondary" onClick={() => navigate("/vehicles")}>{t("vehicles.back")}</Button>
         </div>
@@ -332,13 +332,14 @@ export default function EditVehicle() {
         </form>
       )}
 
-      <div className={styles.tabs} role="tablist" aria-label={t("vehicles.title")}>
+      <div className={styles.tabs} data-tour="vehicle-tabs" role="tablist" aria-label={t("vehicles.title")}>
         {tabs.map((item) => (
           <button
             key={item.key}
             type="button"
             role="tab"
             id={`vehicle-tab-${item.key}`}
+            data-tour={item.key === "documents" ? "vehicle-documents" : item.key === "license" ? "vehicle-records" : undefined}
             aria-selected={activeTab === item.key}
             aria-controls={`vehicle-panel-${item.key}`}
             disabled={!item.enabled}
@@ -366,7 +367,7 @@ export default function EditVehicle() {
               />
             )}
             {activeTab === "basic" && (
-              <div className={styles.formGrid}>
+              <div className={styles.formGrid} data-tour="vehicle-basic">
                 <Field id="v-plate" label={t("vehicles.f.plate")} value={form.plate} onChange={setField("plate")}
                   error={errors.plate} required disabled={fieldsDisabled} inputMode="text" autoComplete="off" dir="ltr" />
                 <Field id="v-nickname" label={t("vehicles.f.nickname")} value={form.nickname} onChange={setField("nickname")} disabled={fieldsDisabled} />

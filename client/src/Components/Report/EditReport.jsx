@@ -368,7 +368,7 @@ const EditReport = ({parent = false}) => {
     <div className={styles.formContainer}>
       <center><h1>{isEdit ? "تحديث بيانات التقرير" : "اضافة تقرير جديد"}</h1></center>
 
-      <fieldset className={sectionStyles.formSection}>
+      <fieldset className={sectionStyles.formSection} data-tour="report-title">
         <legend>بيانات التقرير</legend>
         <label>عنوان التقرير:<span style={{color: "red"}}>*</span></label>
         <input
@@ -396,7 +396,7 @@ const EditReport = ({parent = false}) => {
         <label style={{color: "red"}}>{error.title}</label>
       </fieldset>
 
-      <fieldset className={sectionStyles.formSection}>
+      <fieldset className={sectionStyles.formSection} data-tour="report-body">
         <legend>صلب الموضوع <span style={{color: "red"}}>*</span></legend>
         <textarea
           name="info"
@@ -411,7 +411,7 @@ const EditReport = ({parent = false}) => {
       </fieldset>
 
       {isAdmin && SHOW_REPORT_ATTENDEES && (
-        <fieldset className={sectionStyles.formSection}>
+        <fieldset className={sectionStyles.formSection} data-tour="report-attendees">
           <legend>الحاضرون</legend>
           <MultiTagSelect
             options={users.map(u => ({ label: `${u.firstname} ${u.lastname}`, value: u._id }))}
@@ -423,13 +423,13 @@ const EditReport = ({parent = false}) => {
         </fieldset>
       )}
       <div className={styles.buttonRow} style={{ gap: 8, flexWrap: "wrap" }}>
-        <button type="submit" onClick={handleSubmit} style={{width:"100%"}}>
+        <button type="submit" data-tour="report-save" onClick={handleSubmit} style={{width:"100%"}}>
           {saving ? "حفظ..." : parent ? "ارسال التفاصيل" : (isEdit ? "تعديل البيانات" : "اضافة التقرير")}
         </button>
 
         {isEdit && (
           <>
-            <button type="button" style={{ background: "#7f1d1d", width:"100%" }} onClick={handleHardDelete}>
+            <button type="button" data-tour="report-delete" style={{ background: "#7f1d1d", width:"100%" }} onClick={handleHardDelete}>
               حذف
             </button>
           </>

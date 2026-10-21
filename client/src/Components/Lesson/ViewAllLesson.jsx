@@ -544,6 +544,7 @@ export default function ViewAllLesson() {
     <Button
       ref={addBtnRef}
       id="page-add-lesson"
+      data-tour="lessons-add"
       onClick={() => navigate(`/lessons/new?day=${newLessonDay}`)}
     >
       + إضافة درس جديد
@@ -555,7 +556,7 @@ export default function ViewAllLesson() {
       <h1 className={styles.title}>برنامج الدروس</h1>
 
       {/* ===== Filters + Controls ===== */}
-      <div className={styles.controlsBar}>
+      <div className={styles.controlsBar} data-tour="lessons-filters">
         {isMobile && (
           <button
             type="button"
@@ -570,7 +571,7 @@ export default function ViewAllLesson() {
         {(!isMobile || showFilters) && <div className={styles.controlsCenter}>
           {!isMobile && <div className={styles.filterGroup}>
             <label>نوع الجدول</label>
-            <select value={viewMode} onChange={(e) => setViewMode(e.target.value)}>
+            <select data-tour="lessons-view-mode" value={viewMode} onChange={(e) => setViewMode(e.target.value)}>
               <option value="week">اسبوعي (ايام)</option>
               <option value="dayRooms">يومي (غراف)</option>
             </select>
@@ -620,6 +621,7 @@ export default function ViewAllLesson() {
             <label htmlFor="lesson-search">بحث</label>
             <input
               id="lesson-search"
+              data-tour="lessons-search"
               type="search"
               placeholder="اسم الدرس..."
               value={query}
@@ -640,7 +642,7 @@ export default function ViewAllLesson() {
       ) : (
         <>
           {/* Desktop */}
-          <div className={styles.desktopView}>
+          <div className={styles.desktopView} data-tour={isMobile ? undefined : "lessons-calendar"}>
             {viewMode === "week" ? (
               <WeekTimeline
                 lessons={filteredLessons}
@@ -665,7 +667,7 @@ export default function ViewAllLesson() {
             )}
           </div>
 
-          <div className={styles.mobileView}>
+          <div className={styles.mobileView} data-tour={isMobile ? "lessons-calendar" : undefined}>
             <MobileLessonList
               lessons={filteredLessons}
               day={mobileDay}

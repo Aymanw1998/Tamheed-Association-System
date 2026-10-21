@@ -886,7 +886,7 @@ export default function FilesPage() {
       <section className={styles.workspace}>
         <header className={styles.topbar}>
           <div>
-            <div className={styles.breadcrumb}>
+            <div className={styles.breadcrumb} data-tour="files-path">
               <button onClick={() => goToPathIndex(-1)}>\</button>
               {pathParts.map((part, index) => (
                 <button key={`${part}-${index}`} onClick={() => goToPathIndex(index)}>
@@ -897,7 +897,7 @@ export default function FilesPage() {
             <h2>{isSharedView ? t("files.sharedTitle") : t("files.title")}</h2>
             {!isSharedView && <DriveConnection />}
             {!isSharedView && storageStats && (
-              <div className={styles.storageStats}>
+              <div className={styles.storageStats} data-tour="files-storage">
                 <div className={styles.storageStatsTop}>
                   <strong>{t("files.storage")}</strong>
                   <span>{storageUsagePercent}% {t("files.used")}</span>
@@ -919,13 +919,13 @@ export default function FilesPage() {
 
           {!isSharedView && (
             <div className={styles.actions}>
-              <button className={styles.secondaryBtn} onClick={loadFiles} disabled={loading}>
+              <button className={styles.secondaryBtn} data-tour="files-refresh" onClick={loadFiles} disabled={loading}>
                 {t("files.refresh")}
               </button>
-              <button className={styles.secondaryBtn} onClick={createFolder} disabled={loading}>
+              <button className={styles.secondaryBtn} data-tour="files-new-folder" onClick={createFolder} disabled={loading}>
                 {t("files.newFolder")}
               </button>
-              <label className={styles.primaryBtn}>
+              <label className={styles.primaryBtn} data-tour="files-upload">
                 {uploading ? t("files.uploading") : t("files.uploadFile")}
                 <input
                   ref={inputRef}
@@ -991,7 +991,7 @@ export default function FilesPage() {
           </div>
         )}
 
-        <div className={styles.searchRow}>
+        <div className={styles.searchRow} data-tour="files-search">
           <input
             className={styles.searchInput}
             value={query}
@@ -1010,7 +1010,7 @@ export default function FilesPage() {
         )}
 
         {!isInitialLoading && !!filteredItems.length && (
-          <div className={styles.cardsGrid} data-label={t("files.foldersAndFiles")}>
+          <div className={styles.cardsGrid} data-tour="files-items" data-label={t("files.foldersAndFiles")}>
             {explorerItems.map((file) => {
               const displayName = getDisplayName(file);
               const type = getType(file);
@@ -1043,6 +1043,7 @@ export default function FilesPage() {
                     <button
                       type="button"
                       className={styles.menuBtn}
+                      data-tour="files-menu"
                       onClick={(event) => openContextMenuByButton(event, file)}
                       aria-label={t("files.options")}
                       title={t("files.options")}
@@ -1096,9 +1097,9 @@ export default function FilesPage() {
 
                     {(canEditItem || canManageItem) && (
                       <>
-                        {canManageItem && <button disabled={Boolean(pending)} onClick={() => setShareModalFile(file)}>{t("files.share")}</button>}
+                        {canManageItem && <button data-tour="files-share" disabled={Boolean(pending)} onClick={() => setShareModalFile(file)}>{t("files.share")}</button>}
                         {canEditItem && <button disabled={Boolean(pending)} onClick={() => handleRename(file)}>{t("files.rename")}</button>}
-                        {canManageItem && <button disabled={Boolean(pending) || uploading} className={styles.deleteBtn} onClick={() => handleDelete(file)}>{t("files.delete")}</button>}
+                        {canManageItem && <button data-tour="files-delete" disabled={Boolean(pending) || uploading} className={styles.deleteBtn} onClick={() => handleDelete(file)}>{t("files.delete")}</button>}
                       </>
                     )}
                   </div>
