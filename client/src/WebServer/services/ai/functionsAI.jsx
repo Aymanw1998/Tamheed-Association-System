@@ -1,5 +1,6 @@
 import api, { API_BASE_URL, getAuthToken, refreshSession, setAuthTokens } from "../api";
 import { createSseParser } from "../../../utils/assistantStream";
+import { isDemo } from "../../../journey/demoMode";
 
 // The assistant's chat (/api/ai). POST /chat answers with Server-Sent Events,
 // which axios cannot stream in the browser, so it is read through fetch with
@@ -10,7 +11,8 @@ import { createSseParser } from "../../../utils/assistantStream";
 //   result: { ok: true } after `done`, or { ok: false, code } where code is a
 //   server code (RATE_LIMITED, NOT_FOUND, BUSY, CONVERSATION_FULL, AI_BUSY, ...),
 //   NETWORK (the stream broke), ABORTED (signal) or SESSION (signed out,
-//   blocked, locked, or a password change is required).
+//   blocked, locked, or a password change is required), or DEMO (training
+//   mode: nothing is sent).
 
 const postChat = (body, signal) => {
   const token = getAuthToken();
@@ -62,6 +64,7 @@ const handOverSession = () => {
 const isAbort = (error) => error?.name === "AbortError";
 
 export async function streamChat({ conversationId, message, onEvent, signal } = {}) {
+  if (isDemo()) return { ok: false, code: "DEMO" };
   const body = { message: String(message || "").trim() };
   if (conversationId) body.conversationId = conversationId;
 

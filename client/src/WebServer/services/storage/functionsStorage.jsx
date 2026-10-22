@@ -1,4 +1,12 @@
 import api, { API_BASE_URL } from "../api";
+import { isDemo } from "../../../journey/demoMode";
+import { DEMO_BLOCKED_MESSAGE } from "../../../journey/demoRoutes";
+
+// Training mode: demo files have no real content, so opening or downloading
+// one stops here, before any window, link or signed URL is created.
+const refuseInDemo = () => {
+  if (isDemo()) throw Object.assign(new Error(DEMO_BLOCKED_MESSAGE), { code: "DEMO_BLOCKED" });
+};
 
 const trimSlashes = (value = "") => String(value).replace(/^\/+|\/+$/g, "");
 const CHUNK_SIZE = 50 * 1024 * 1024;
@@ -98,6 +106,7 @@ export const getStorageDownloadUrl = (filename) => {
 };
 
 export const openStorageFile = async (filename) => {
+  refuseInDemo();
   const safeName = trimSlashes(filename);
   const { fileWindow, targetName } = openPendingFileWindow();
   const { data } = await api.post("/storage/open-link", {
@@ -113,6 +122,7 @@ export const openStorageFile = async (filename) => {
 };
 
 export const downloadStorageFile = async (filename) => {
+  refuseInDemo();
   const safeName = trimSlashes(filename);
   const { data } = await api.post("/storage/open-link", {
     path: safeName,
@@ -566,6 +576,7 @@ export const getStorageSharedEntries = async (token, path = "") => {
 };
 
 export const openSharedStorageFile = async (token, relativePath = "") => {
+  refuseInDemo();
   const { fileWindow, targetName } = openPendingFileWindow();
   const { data } = await api.post(`/storage/share-link/${encodeURIComponent(token)}/open-link`, {
     path: trimSlashes(relativePath),
@@ -580,6 +591,7 @@ export const openSharedStorageFile = async (token, relativePath = "") => {
 };
 
 export const downloadSharedStorageFile = async (token, relativePath = "") => {
+  refuseInDemo();
   const { data } = await api.post(`/storage/share-link/${encodeURIComponent(token)}/open-link`, {
     path: trimSlashes(relativePath),
     download: true,

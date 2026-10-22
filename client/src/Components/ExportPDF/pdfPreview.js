@@ -1,3 +1,5 @@
+import { isDemo } from "../../journey/demoMode";
+
 // Shows a generated PDF in a full-screen preview before the user decides to
 // download or print it. The preview renders the captured page images instead
 // of embedding the PDF in an iframe, because mobile browsers (iOS Safari,
@@ -110,10 +112,19 @@ export const showPdfPreview = ({ pdf, images, fileName, title }) => {
     if (e.key === "Escape") close();
   };
 
-  const downloadBtn = makeBtn("تنزيل PDF", "pdfpv-download", () => pdf.save(fileName));
-  const printBtn = makeBtn("طباعة", "pdfpv-print", () => printImages(images));
   const closeBtn = makeBtn("إغلاق", "pdfpv-close", close);
-  bar.append(label, downloadBtn, printBtn, closeBtn);
+  // Training mode: preview only. Neither download nor print (which can save a
+  // PDF) is offered, so no demo file leaves the page.
+  const demo = isDemo();
+  const downloadBtn = demo ? null : makeBtn("تنزيل PDF", "pdfpv-download", () => pdf.save(fileName));
+  const printBtn = demo ? null : makeBtn("طباعة", "pdfpv-print", () => printImages(images));
+  if (demo) {
+    const note = document.createElement("span");
+    note.textContent = "معاينة فقط في وضع التدريب";
+    bar.append(label, note, closeBtn);
+  } else {
+    bar.append(label, downloadBtn, printBtn, closeBtn);
+  }
 
   const scroll = document.createElement("div");
   scroll.className = "pdfpv-scroll";
@@ -132,7 +143,7 @@ export const showPdfPreview = ({ pdf, images, fileName, title }) => {
   document.body.appendChild(overlay);
   document.body.style.overflow = "hidden";
   document.addEventListener("keydown", onKey);
-  downloadBtn.focus();
+  (downloadBtn || closeBtn).focus();
 
   return close;
 };

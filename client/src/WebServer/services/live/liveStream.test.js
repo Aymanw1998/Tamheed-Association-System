@@ -2,6 +2,7 @@
 jest.mock('../api', () => ({ __esModule: true, default: { post: jest.fn() }, API_BASE_URL: '/api' }));
 
 import { openLiveStream, backoffDelay, REFUSED_RETRY_MS } from './liveStream';
+import { startDemo, stopDemo } from '../../../journey/demoMode';
 
 function fakeEventSource() {
   const instances = [];
@@ -116,4 +117,39 @@ test('onOpen runs each time the stream (re)opens, so the caller can reload what 
   instances[1].onopen();
   expect(onOpen).toHaveBeenCalledTimes(2);
   close();
+});
+
+test('no connection in demo, and it reconnects when demo ends', async () => {
+  const { FakeEventSource, instances } = fakeEventSource();
+  const timers = fakeTimers();
+  const requestTicket = jest.fn(async () => 't');
+  startDemo();
+  try {
+    const close = openLiveStream({ deps: { requestTicket, EventSourceImpl: FakeEventSource, ...timers } });
+    await flush();
+    expect(requestTicket).not.toHaveBeenCalled();
+    expect(instances).toHaveLength(0);
+    stopDemo();
+    await flush();
+    expect(instances).toHaveLength(1);
+    close();
+  } finally {
+    stopDemo();
+  }
+});
+
+test('an open stream closes when demo turns on', async () => {
+  const { FakeEventSource, instances } = fakeEventSource();
+  const timers = fakeTimers();
+  const close = openLiveStream({ deps: { requestTicket: async () => 't', EventSourceImpl: FakeEventSource, ...timers } });
+  await flush();
+  expect(instances).toHaveLength(1);
+  startDemo();
+  try {
+    expect(instances[0].closed).toBe(true);
+    expect(timers.pending).toHaveLength(0);
+  } finally {
+    stopDemo();
+    close();
+  }
 });

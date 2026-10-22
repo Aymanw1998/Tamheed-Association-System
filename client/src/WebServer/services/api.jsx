@@ -2,6 +2,7 @@
 import axios from 'axios';
 import { markSessionExpired } from '../utils/sessionMessages'; // ملاحظة عربية
 import { singleFlight } from '../utils/singleFlight';
+import { installDemoAdapter } from '../../journey/demoAdapter';
 
 // The API is always reached on the same origin as the page: in development the
 // CRA dev server proxies /api to the local server (see "proxy" in package.json),
@@ -170,6 +171,10 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// Training mode answers from its in-memory store; nothing it blocks is sent.
+installDemoAdapter(publicApi);
+installDemoAdapter(api);
 
 // ملاحظة عربية
 window.addEventListener('storage', (e) => {

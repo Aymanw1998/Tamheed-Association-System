@@ -36,17 +36,23 @@ import FloatingAIButton from '../AI/FloatingAIButton';
 import { canStored } from '../../utils/session';
 import PrivacyPage from '../Privacy/PrivacyPage';
 import { TourProvider } from '../../tours/TourProvider';
+import TrainingBanner from '../../journey/TrainingBanner';
+import { useDemo } from '../../journey/demoMode';
 
 // The assistant (alerts now, chat later) shows for accounts with ai.use.
 
 function ProtectedLayout() {
-  // ملاحظة عربية
+  // Training mode: every start and stop changes the epoch, so the screens (and
+  // the header's notices bell and the assistant's alerts) remount and reload
+  // from the right source, never mixing demo and real data.
+  const { epoch } = useDemo();
   return (
     <div style={{ height: "100vh", width: "100vw" }}>
       <TourProvider>
-        <Header />
-        <Outlet />
-        {canStored("ai.use") && <FloatingAIButton />}
+        <TrainingBanner />
+        <Header key={`header-${epoch}`} />
+        <Outlet key={`outlet-${epoch}`} />
+        {canStored("ai.use") && <FloatingAIButton key={`ai-${epoch}`} />}
       </TourProvider>
     </div>
   );

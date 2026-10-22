@@ -10,6 +10,7 @@ jest.mock("../api", () => ({
 
 import api, { getAuthToken, refreshSession, setAuthTokens } from "../api";
 import { streamChat } from "./functionsAI";
+import { startDemo, stopDemo } from "../../../journey/demoMode";
 
 const jsonResponse = (status, body) => ({
   status,
@@ -96,4 +97,14 @@ test("a null or non-object JSON body never throws", async () => {
   await expect(streamChat({ message: "hi" })).resolves.toEqual({ ok: false, code: "SERVER_ERROR" });
   global.fetch.mockResolvedValueOnce(jsonResponse(409, { code: "BUSY" }));
   await expect(streamChat({ message: "hi" })).resolves.toEqual({ ok: false, code: "BUSY" });
+});
+
+test("chat fetch refused in demo", async () => {
+  startDemo();
+  try {
+    await expect(streamChat({ message: "hi" })).resolves.toEqual({ ok: false, code: "DEMO" });
+    expect(global.fetch).not.toHaveBeenCalled();
+  } finally {
+    stopDemo();
+  }
 });

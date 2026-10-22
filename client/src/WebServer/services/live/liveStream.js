@@ -1,4 +1,5 @@
 import api, { API_BASE_URL } from "../api";
+import { isDemo, subscribeDemo } from "../../../journey/demoMode";
 
 // The signed-in live channel. EventSource cannot send the Authorization
 // header, so each (re)connect first asks POST /live/ticket for a single-use
@@ -14,6 +15,9 @@ import api, { API_BASE_URL } from "../api";
 // onAlert(payload):   a personal alert.
 // onOpen():           the stream (re)opened; events sent while it was closed
 //                     are not replayed, so reload what the page shows.
+//
+// Training mode: no connection while it is on (an open stream closes when it
+// starts), and the stream reopens when it ends.
 
 const BASE_DELAY_MS = 1000;
 const MAX_DELAY_MS = 30000;
@@ -44,6 +48,8 @@ export function openLiveStream({ onAlert, onStorage, onOpen, deps = {} } = {}) {
   let source = null;
   let timer = null;
   let attempt = 0;
+  // Bumped by pause(): a ticket request started before it is ignored.
+  let generation = 0;
 
   const deliver = (handler) => (event) => {
     if (typeof handler !== "function") return;
@@ -60,9 +66,22 @@ export function openLiveStream({ onAlert, onStorage, onOpen, deps = {} } = {}) {
     attempt += 1;
   };
 
+  const pause = () => {
+    generation += 1;
+    if (timer) {
+      clearTimer(timer);
+      timer = null;
+    }
+    if (source) {
+      source.close();
+      source = null;
+    }
+  };
+
   async function connect() {
     timer = null;
-    if (closed || !EventSourceImpl) return;
+    if (closed || !EventSourceImpl || isDemo()) return;
+    const mine = generation;
     let ticket = null;
     let refused = false;
     try {
@@ -70,7 +89,7 @@ export function openLiveStream({ onAlert, onStorage, onOpen, deps = {} } = {}) {
     } catch (error) {
       refused = REFUSED_STATUSES.has(error?.response?.status);
     }
-    if (closed) return;
+    if (closed || isDemo() || mine !== generation) return;
     if (refused) {
       // Signed out, password changed or account locked: asking again soon
       // would only repeat the refusal (the api layer handles the sign-out).
@@ -102,17 +121,20 @@ export function openLiveStream({ onAlert, onStorage, onOpen, deps = {} } = {}) {
     es.addEventListener("alert", deliver(onAlert));
   }
 
+  const unsubscribeDemo = subscribeDemo((on) => {
+    if (closed) return;
+    pause();
+    if (!on) {
+      attempt = 0;
+      connect();
+    }
+  });
+
   connect();
 
   return function close() {
     closed = true;
-    if (timer) {
-      clearTimer(timer);
-      timer = null;
-    }
-    if (source) {
-      source.close();
-      source = null;
-    }
+    unsubscribeDemo();
+    pause();
   };
 }
