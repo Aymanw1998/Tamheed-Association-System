@@ -1865,3 +1865,40 @@ browser; no database (the nested `tours.<id>` write is worth one real-DB check).
 
 **Delivery state:** committed by the agent with the owner's standing approval;
 not pushed.
+
+## 2026-10-22: Guided journey with illustrated guides and a training mode
+
+**Owner request:** an illustrated guide (تمهيد for women, إبراهيم for men,
+chosen by the user's gender) that walks a user through one journey in 13
+chapters covering every screen and dialog, with examples that are never saved
+to the database or to Drive.
+
+**Changes:** `client/src/journey/` holds the feature: `demoMode`, `demoData`,
+`demoRoutes`, `demoAdapter`, `demoDocument`, `TrainingBanner`, `characters`,
+`Guide`, `JourneyProvider`, `JourneyOffer`, `actions`, `journeyLogic` and
+`chapters/*` (intro, dashboard, students, lessons, attendance, reports, files,
+vehicles, notices, users, audit, assistant, profile). `chapters/index.js`
+carries a "how to add a chapter" comment. `client/src/tours/` keeps
+`TourProvider`, `HelpCenter`, `releases`, `sections` and `NewBadge`; the old
+per-screen tours and driver.js are removed. `server/utils/tourState.js`
+`tourSummary` now counts `journey-*` ids. The same day, in their own commits:
+Arabic-only app and Arabic polish (`docs/arabic-style-guide.md`), dependency
+security updates (jspdf 4, nodemailer 10, dompurify 3.4.17; puppeteer,
+html2pdf.js and react-quill removed), role labels, site title.
+
+**Safety design:** training mode keeps everything in memory. An axios demo
+adapter answers only requests on a method-exact allowlist in `demoRoutes`;
+anything else is refused, so no real call is made. `fetch`, `EventSource`,
+`window.open` and PDF generation are guarded while training. Every save a
+chapter performs must be handled in `demoRoutes`. Small real-mode UI changes:
+an in-page new-folder dialog (replacing the browser prompt) and a «إلغاء»
+button on the password form.
+
+**Verification:** `npm test` at the repo root: server 694/694, client 46
+suites / 506 tests; `cd client && npm run build` compiled successfully. Not
+checked in a browser: no test credentials, and the server uses the owner's
+real database.
+
+**Requesting Codex review.** No live Codex connection; this entry is the handoff.
+
+**Delivery state:** committed with the owner's approval; not pushed.
