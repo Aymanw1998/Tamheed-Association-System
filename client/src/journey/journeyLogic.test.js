@@ -1,4 +1,5 @@
-import { availableChapters, chapterForPath, journeyOffer, nextChapter, shouldOfferJourney } from "./journeyLogic";
+import { availableChapters, chapterForPath, journeyOffer, nextChapter, screenChapter, shouldOfferJourney } from "./journeyLogic";
+import { CHAPTERS as REAL } from "./chapters";
 
 const step = (target, requires) => ({ target, mood: "explain", title: "عنوان", body: "نص", ...(requires ? { requires } : {}) });
 
@@ -152,5 +153,19 @@ describe("requires as an array of keys", () => {
     const both = { ...chapter, requires: ["lessons.view", "lessons.edit"] };
     expect(availableChapters([both], ["lessons.view"])).toEqual([]);
     expect(availableChapters([both], ["lessons.view", "lessons.edit"])).toHaveLength(1);
+  });
+});
+
+describe("screenChapter («شرح هذه الشاشة»)", () => {
+  test("gives the chapter of the open screen, never the intro or the assistant", () => {
+    expect(screenChapter(REAL, "/dashboard").id).toBe("journey-dashboard");
+    expect(screenChapter(REAL, "/calendar").id).toBe("journey-attendance");
+    expect(screenChapter(REAL, "/students/abc").id).toBe("journey-students");
+    expect(screenChapter(REAL, "/profile").id).toBe("journey-profile");
+    expect(screenChapter(REAL, "/nowhere")).toBeNull();
+  });
+
+  test("a screen whose chapter the user lacks gives nothing", () => {
+    expect(screenChapter(CHAPTERS.filter((c) => c.id === "journey-intro"), "/dashboard")).toBeNull();
   });
 });

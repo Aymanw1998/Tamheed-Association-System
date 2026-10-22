@@ -1,17 +1,16 @@
 // Which screen ("section") each permission module belongs to; null = no screen of its own.
+// `chapterId` is the guided-journey chapter that the new-access card's «أرني» runs.
 export const SECTIONS = {
-  dashboard: { path: "/dashboard", tourId: "dashboard" },
-  calendar: { path: "/calendar", tourId: "calendar" },
-  students: { path: "/students", tourId: "students" },
-  lessons: { path: "/lessons", tourId: "lessons" },
-  reports: { path: "/reports", tourId: "reports" },
-  vehicles: { path: "/vehicles", tourId: "vehicles" },
-  files: { path: "/files", tourId: "files" },
-  notices: { path: "/notices", tourId: "notices" },
-  users: { path: "/users", tourId: "users" },
-  audit: { path: "/audit", tourId: "audit" },
-  // Open to everyone, no permission module: listed so the help center offers its tour.
-  profile: { path: "/profile", tourId: "profile" },
+  dashboard: { path: "/dashboard", chapterId: "journey-dashboard" },
+  calendar: { path: "/calendar", chapterId: "journey-attendance" },
+  students: { path: "/students", chapterId: "journey-students" },
+  lessons: { path: "/lessons", chapterId: "journey-lessons" },
+  reports: { path: "/reports", chapterId: "journey-reports" },
+  vehicles: { path: "/vehicles", chapterId: "journey-vehicles" },
+  files: { path: "/files", chapterId: "journey-files" },
+  notices: { path: "/notices", chapterId: "journey-notices" },
+  users: { path: "/users", chapterId: "journey-users" },
+  audit: { path: "/audit", chapterId: "journey-audit" },
 };
 
 export const SECTION_OF = {

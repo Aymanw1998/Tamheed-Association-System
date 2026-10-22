@@ -49,14 +49,15 @@ function ProtectedLayout() {
   const { epoch } = useDemo();
   return (
     <div style={{ height: "100vh", width: "100vw" }}>
-      <TourProvider>
-        <JourneyProvider>
+      {/* The journey wraps the help center: every «أرني» and «ابدأ» runs it. */}
+      <JourneyProvider>
+        <TourProvider>
           <TrainingBanner />
           <Header key={`header-${epoch}`} />
           <Outlet key={`outlet-${epoch}`} />
           {canStored("ai.use") && <FloatingAIButton key={`ai-${epoch}`} />}
-        </JourneyProvider>
-      </TourProvider>
+        </TourProvider>
+      </JourneyProvider>
     </div>
   );
 }

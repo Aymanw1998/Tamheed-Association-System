@@ -1,17 +1,10 @@
 import { useEffect, useId, useRef } from "react";
 
 import { useI18n } from "../i18n/I18nContext";
-import { canAccessPath } from "../utils/routeAccess";
-import { can, helpTours, tourForPath } from "./logic";
-import { TOURS } from "./registry";
-import { tourSelector } from "./runTour";
 import styles from "./Tours.module.css";
 
 // The "?" help center, the "what's new" list and the new-access card.
 // They only show what they are given and report choices; TourProvider decides.
-
-export const tourName = (tour, t) =>
-  t(`tour.names.${tour.id}`, "") || tour.steps?.[0]?.title || tour.id;
 
 function Modal({ title, onClose, children }) {
   const { dir } = useI18n();
@@ -50,46 +43,41 @@ function CloseButton({ onClose }) {
   );
 }
 
-export function HelpCenter({ pathname, permissions, tours, onClose, onStart, onWhatsNew }) {
+// chapters: the journey chapters this user may run; screen: the open screen's
+// chapter (or null); tours: the saved done / skipped state.
+export function HelpCenter({ chapters, screen, tours, onClose, onFullJourney, onChapter, onWhatsNew }) {
   const { t } = useI18n();
   const h = (key) => t(`tour.help.${key}`);
-  const screenTour = tourForPath(pathname);
-  const screenOk = Boolean(screenTour && can(permissions, screenTour.requires ?? null));
-  const list = helpTours({ permissions, canOpen: (path) => canAccessPath(path, permissions) });
-  // The assistant has no page of its own: it starts here when its button is on screen.
-  const assistant = TOURS.find((x) => x.id === "assistant");
-  const assistantOk = Boolean(assistant && can(permissions, assistant.requires ?? null) && document.querySelector(tourSelector("assistant-button")));
-  const entries = [...list.map(({ tour }) => tour), ...(assistantOk ? [assistant] : [])];
   const statusOf = (id) => tours?.[id]?.status || "none";
 
   return (
     <Modal title={h("title")} onClose={onClose}>
       <p className={styles.intro}>{h("intro")}</p>
       <div className={styles.actions}>
-        <button type="button" className={styles.actionButton} disabled={!screenOk} onClick={() => onStart(screenTour.id)}>
+        <button type="button" className={styles.actionButton} disabled={!chapters.length} onClick={onFullJourney}>
+          {h("fullJourney")}
+        </button>
+        <button type="button" className={styles.actionButton} disabled={!screen} onClick={() => onChapter(screen.id)}>
           {h("explainScreen")}
         </button>
-        {TOURS.some((x) => x.id === "welcome") && (
-          <button type="button" className={styles.actionButton} onClick={() => onStart("welcome")}>{h("generalTour")}</button>
-        )}
         <button type="button" className={styles.actionButton} onClick={onWhatsNew}>{h("whatsNew")}</button>
       </div>
-      {!screenOk && <p className={styles.note}>{h("noScreenTour")}</p>}
+      {!screen && <p className={styles.note}>{h("noScreenChapter")}</p>}
 
-      <h3 className={styles.sectionTitle}>{h("toursTitle")}</h3>
-      {entries.length === 0 ? (
-        <p className={styles.note}>{h("noTours")}</p>
+      <h3 className={styles.sectionTitle}>{h("chaptersTitle")}</h3>
+      {chapters.length === 0 ? (
+        <p className={styles.note}>{h("noChapters")}</p>
       ) : (
         <ul className={styles.list}>
-          {entries.map((tour) => {
-            const status = statusOf(tour.id);
+          {chapters.map((chapter) => {
+            const status = statusOf(chapter.id);
             return (
-              <li key={tour.id} className={styles.row}>
+              <li key={chapter.id} className={styles.row} data-chapter={chapter.id}>
                 <span className={styles.rowMain}>
-                  <span className={styles.rowName}>{tourName(tour, t)}</span>
+                  <span className={styles.rowName}>{chapter.title}</span>
                   <span className={`${styles.status} ${status === "done" ? styles.statusDone : ""}`}>{h(`status.${status}`)}</span>
                 </span>
-                <button type="button" className={styles.primaryButton} onClick={() => onStart(tour.id)}>{h("start")}</button>
+                <button type="button" className={styles.primaryButton} onClick={() => onChapter(chapter.id)}>{h("start")}</button>
               </li>
             );
           })}
@@ -99,14 +87,11 @@ export function HelpCenter({ pathname, permissions, tours, onClose, onStart, onW
   );
 }
 
-export function WhatsNewModal({ releases, seen, permissions, onClose, onShow }) {
+// canShow(release): whether its «أرني» has a chapter to run for this user.
+export function WhatsNewModal({ releases, seen, canShow, onClose, onShow }) {
   const { t } = useI18n();
   const w = (key) => t(`tour.whatsNew.${key}`);
   const seenSet = new Set(seen || []);
-  const showable = (release) => {
-    const tour = release.tourId && TOURS.find((x) => x.id === release.tourId);
-    return Boolean(tour && can(permissions, tour.requires ?? null));
-  };
 
   return (
     <Modal title={w("title")} onClose={onClose}>
@@ -122,7 +107,7 @@ export function WhatsNewModal({ releases, seen, permissions, onClose, onShow }) 
                 <time className={styles.releaseDate} dateTime={release.date}>{release.date}</time>
               </div>
               <p className={styles.releaseBody}>{release.body}</p>
-              {showable(release) && (
+              {canShow(release) && (
                 <div className={styles.releaseActions}>
                   <button type="button" className={styles.primaryButton} onClick={() => onShow(release)}>{w("showMe")}</button>
                 </div>

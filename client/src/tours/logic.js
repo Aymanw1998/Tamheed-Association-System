@@ -1,32 +1,9 @@
 import { hasPermission } from "../utils/permissionKeys";
-import { TOURS } from "./registry";
+import { INTRO_ID } from "../journey/journeyLogic";
 import { RELEASES } from "./releases";
 import { SECTION_OF, SECTIONS } from "./sections";
 
 export const can = (permissions, key) => (key == null ? true : hasPermission(permissions, key));
-
-export const usableSteps = (tour, { permissions, exists }) =>
-  (tour?.steps || []).filter((s) =>
-    can(permissions, s.requires ?? null) && (s.target == null || exists(s.target)));
-
-// The distinct tabs a tour moves between (steps with a `tab`), in step order.
-export const tourTabs = (tour) => [...new Set((tour?.steps || []).map((s) => s.tab).filter(Boolean))];
-
-// The `tamheed:tour-tab` event detail. It names the tour, so each tab host (the
-// assistant panel, the user page) reacts only to its own tour.
-export const tabEvent = (tour, tab) => ({ tab, tourId: tour?.id ?? null });
-
-// For a tab host: the tab an event asks for (null = close), or undefined when the
-// event belongs to another tour.
-export const tabFor = (detail, tourId) => (detail && detail.tourId === tourId ? detail.tab : undefined);
-
-// What a step asks of the tab host before it shows: {tab} to open one, {tab:null} to close
-// the panel (a tab-less step in a tour that uses tabs), or null for nothing.
-export const tabSignal = (tour, step, panelOpen) => {
-  if (!tourTabs(tour).length) return null;
-  if (step?.tab) return tabEvent(tour, step.tab);
-  return panelOpen ? tabEvent(tour, null) : null;
-};
 
 // Resolves true once `busy()` is false, polling with `pause()`; false if
 // `cancelled()` turns true meanwhile.
@@ -37,19 +14,6 @@ export async function waitWhile(busy, { pause, cancelled }) {
   }
   return true;
 }
-
-// Like usableSteps, for tours with tabs: `found` maps a tab ("" = no tab) to the
-// targets seen while that tab was open; a step stays only if its target was seen under its own tab.
-export const usableStepsByTab = (tour, { permissions, found }) =>
-  (tour?.steps || []).filter((s) =>
-    can(permissions, s.requires ?? null) && (s.target == null || Boolean(found?.[s.tab || ""]?.has(s.target))));
-
-export const tourForPath = (pathname, tours = TOURS) => {
-  const path = String(pathname || "");
-  const last = path.split("/").filter(Boolean).pop();
-  const tour = tours.find((t) => t.route && t.route.test(path) && !(t.detail && last === "new"));
-  return tour || null;
-};
 
 const moduleOf = (key) => String(key).split(".")[0];
 
@@ -78,10 +42,10 @@ export const unseenReleases = (seen, permissions, releases = RELEASES) => {
   return releases.filter((r) => !done.has(r.id) && can(permissions, r.requires));
 };
 
+// The sign-in queue, shown after the journey offer: the new-access card, then
+// "what's new". The old welcome tour is gone (the journey replaces it).
 export const startupQueue = ({ state, permissions, deferred }, releases = RELEASES) => {
   const queue = [];
-  const tours = state?.tours || {};
-  if (!tours.welcome && !deferred.has("welcome")) queue.push("welcome");
   const access = newAccess(state?.knownKeys ?? null, permissions);
   if (!access.seed) {
     if ((access.sections.length || access.abilities.length) && !deferred.has("access")) queue.push("access");
@@ -90,17 +54,16 @@ export const startupQueue = ({ state, permissions, deferred }, releases = RELEAS
   return queue;
 };
 
-// The page a tour lives on, for tours the help center can open by navigating.
-export const tourPath = (tourId, sections = SECTIONS) => {
-  const entry = Object.values(sections).find((s) => s.tourId === tourId);
-  return entry ? entry.path : null;
-};
+// The journey chapter a section's «أرني» runs (null when it has none).
+export const sectionChapter = (section, sections = SECTIONS) => sections[section]?.chapterId || null;
 
-// Tours the help center lists: a page of their own the user can open, and permitted.
-export const helpTours = ({ permissions, canOpen }, tours = TOURS, sections = SECTIONS) =>
-  tours
-    .map((tour) => ({ tour, path: tourPath(tour.id, sections) }))
-    .filter(({ tour, path }) => path && can(permissions, tour.requires ?? null) && canOpen(path));
+// What a release's «أرني» starts: the journey release starts the full journey
+// from its intro, any other release only the chapter it names.
+export const releaseShowMe = (release) => {
+  const chapterId = release?.tourId;
+  if (!chapterId) return null;
+  return { chapterId, only: chapterId !== INTRO_ID };
+};
 
 // Every release the user may see, unseen first, otherwise in list order (newest first).
 export const helpReleases = (seen, permissions, releases = RELEASES) => {

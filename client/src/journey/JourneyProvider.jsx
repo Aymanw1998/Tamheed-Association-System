@@ -31,12 +31,16 @@ import styles from "./Journey.module.css";
 // - Leaving the chapter's pages (browser Back) pauses the journey; pages the
 //   engine itself opens (a navigate action, or while an action runs) are fine.
 // - While it runs, real clicks, Enter/Space, printable keys and text input on
-//   the page are swallowed (as in tours/runTour.js); the guide's own synthetic
+//   the page are swallowed; the guide's own synthetic
 //   events (isJourneyEvent) and the guide's bubble pass. Esc pauses.
-// - The sign-in offer (intro card, or «نكمل من فصل X؟») is off until
-//   JOURNEY_AUTO_OFFER is turned on; offer() shows the card on demand.
+// - At sign-in the guide offers the journey (intro card, or «نكمل من فصل X؟»);
+//   offer() shows the card on demand (the help center). `settled` turns true
+//   once that sign-in decision is made, and `offering` while the card shows:
+//   TourProvider holds its new-access card and "what's new" until then.
+// - `tours` is the server's tour state, kept up to date as chapters are saved
+//   (the help center's done / skipped marks).
 
-export const JOURNEY_AUTO_OFFER = false;
+export const JOURNEY_AUTO_OFFER = true;
 
 // The drawings (DiceBear) load only when the guide first shows, not with the app.
 const Guide = lazy(() => import("./Guide"));
@@ -61,6 +65,9 @@ const NOOP = {
   stopJourney: () => {},
   running: false,
   currentChapterId: null,
+  settled: false,
+  offering: false,
+  tours: {},
 };
 const JourneyContext = createContext(NOOP);
 
@@ -121,6 +128,8 @@ export function JourneyProvider({ children, targetWaitMs = TARGET_WAIT_MS }) {
   const [shown, setShown] = useState(null);
   const [rect, setRect] = useState(null);
   const [card, setCard] = useState(null);
+  const [settled, setSettled] = useState(false);
+  const [tours, setTours] = useState({});
 
   const runRef = useRef(null);
   const toursRef = useRef({});
@@ -145,6 +154,7 @@ export function JourneyProvider({ children, targetWaitMs = TARGET_WAIT_MS }) {
   const record = useCallback((id, status) => {
     saveTour(id, status, VERSION);
     toursRef.current = { ...toursRef.current, [id]: { status, version: VERSION } };
+    setTours(toursRef.current);
   }, []);
 
   // ---------- start / stop ----------
@@ -419,19 +429,27 @@ export function JourneyProvider({ children, targetWaitMs = TARGET_WAIT_MS }) {
   useEffect(() => {
     let alive = true;
     loadTourState().then(async (loaded) => {
-      if (!alive || !loaded) return;
+      if (!alive) return;
+      if (!loaded) {
+        setSettled(true);
+        return;
+      }
       // Anything recorded while loading wins.
       toursRef.current = { ...loaded.tours, ...toursRef.current };
-      if (!JOURNEY_AUTO_OFFER || readDeferred()) return;
-      const next = journeyOffer(availableChapters(CHAPTERS, getStoredPermissions()), toursRef.current, { auto: true });
-      if (!next) return;
-      // The card takes focus: wait until the user stops typing.
-      const idle = await waitWhile(() => isTypingTarget(document.activeElement), {
-        pause: () => sleep(TYPING_POLL_MS),
-        cancelled: () => !alive,
-      });
-      if (!idle || !alive || runRef.current || startingRef.current) return;
-      setCard(next);
+      setTours(toursRef.current);
+      const next = JOURNEY_AUTO_OFFER && !readDeferred()
+        ? journeyOffer(availableChapters(CHAPTERS, getStoredPermissions()), toursRef.current, { auto: true })
+        : null;
+      if (next) {
+        // The card takes focus: wait until the user stops typing.
+        const idle = await waitWhile(() => isTypingTarget(document.activeElement), {
+          pause: () => sleep(TYPING_POLL_MS),
+          cancelled: () => !alive,
+        });
+        if (!idle || !alive) return;
+        if (!runRef.current && !startingRef.current) setCard(next);
+      }
+      setSettled(true);
     });
     return () => {
       alive = false;
@@ -454,9 +472,10 @@ export function JourneyProvider({ children, targetWaitMs = TARGET_WAIT_MS }) {
 
   // ---------- render ----------
   const currentChapterId = run ? run.chapterId : null;
+  const offering = Boolean(!run && card);
   const value = useMemo(
-    () => ({ offer, startJourney, stopJourney, running, currentChapterId }),
-    [offer, startJourney, stopJourney, running, currentChapterId],
+    () => ({ offer, startJourney, stopJourney, running, currentChapterId, settled, offering, tours }),
+    [offer, startJourney, stopJourney, running, currentChapterId, settled, offering, tours],
   );
 
   const guide = guideFor(getStoredGender());

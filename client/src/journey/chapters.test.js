@@ -15,7 +15,7 @@ const ACTION_TYPES = ["navigate", "click", "type", "select", "cancelConfirm", "w
 const CONFIRM_OK = "confirm-ok";
 
 const SRC = path.join(__dirname, "..");
-// The help button still lives with the old tours (retired in Task 6); the
+// The help button lives with the help center (tours/TourProvider.jsx); the
 // training-mode document preview is built outside React (journey/demoDocument.js).
 const ANCHOR_ROOTS = [
   path.join(SRC, "Components"),

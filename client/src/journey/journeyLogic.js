@@ -66,3 +66,12 @@ export function journeyOffer(chapters, tours, { auto = false } = {}) {
   const chapter = nextChapter(chapters, state);
   return chapter ? { kind: "resume", chapter } : null;
 }
+
+// Chapters that explain no screen of their own: the intro (the menu and the
+// help button) and the assistant (a panel on every page). The help center
+// lists them, but «شرح هذه الشاشة» never picks them.
+const NOT_A_SCREEN = new Set([INTRO_ID, "journey-assistant"]);
+
+// The chapter «شرح هذه الشاشة» runs for this page, among the user's chapters.
+export const screenChapter = (chapters, pathname) =>
+  chapterForPath((Array.isArray(chapters) ? chapters : []).filter((c) => !NOT_A_SCREEN.has(c.id)), pathname);

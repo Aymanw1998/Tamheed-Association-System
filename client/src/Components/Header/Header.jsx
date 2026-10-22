@@ -68,24 +68,11 @@ export default function Header() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // The guided tour opens the phone menu for its menu steps and closes it after;
-  // while it holds the menu open, clicks on the tour's buttons do not close it.
-  const tourMenuRef = useRef(false);
-  useEffect(() => {
-    const onTourMenu = (event) => {
-      const open = Boolean(event?.detail?.open);
-      tourMenuRef.current = open;
-      if (window.innerWidth <= 768) setMenuOpen(open);
-    };
-    window.addEventListener("tamheed:tour-menu", onTourMenu);
-    return () => window.removeEventListener("tamheed:tour-menu", onTourMenu);
-  }, []);
-
   useEffect(() => {
     if (!menuOpen || !isMobile) return undefined;
 
     const onDocClick = (event) => {
-      if (!headerRef.current || tourMenuRef.current) return;
+      if (!headerRef.current) return;
       if (!headerRef.current.contains(event.target)) setMenuOpen(false);
     };
 

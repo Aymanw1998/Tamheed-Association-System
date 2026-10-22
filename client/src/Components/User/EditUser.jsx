@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 // ملاحظة عربية
 import { create, update, getUserById as getOne, /*softDelete,*/ deleteU, uploadPhoto, deletePhoto, changeStatus, viewPassword, changeUserRole, unlockUser } from "../../WebServer/services/user/functionsUser.jsx";
@@ -20,7 +20,6 @@ import tabStyles from "./PermissionsTab.module.css";
 import ChangeOwnPassword from "../Profile/ChangeOwnPassword.jsx";
 import { isValidIsraeliId } from "../../utils/israeliId";
 import { resetUserTours } from "../../WebServer/services/tours/functionsTours.jsx";
-import { tabFor } from "../../tours/logic";
 
 const safeAsk = async (options) => {
   try { return await ask("change", options); } catch { return false; }
@@ -82,27 +81,6 @@ const EditUser = () => {
   const [tabKey, setTabKey] = useState(0);
   const [unlocking, setUnlocking] = useState(false);
   const [resettingTours, setResettingTours] = useState(false);
-
-  // The guided tour asks for a tab ("details" / "permissions"); {tab:null} puts
-  // back the tab the user had before the tour switched it.
-  const tabRef = useRef(tab);
-  tabRef.current = tab;
-  const tabBeforeTourRef = useRef(null);
-  useEffect(() => {
-    const onTourTab = (event) => {
-      const wanted = tabFor(event?.detail, "user");
-      if (wanted === null) {
-        if (tabBeforeTourRef.current) setTab(tabBeforeTourRef.current);
-        tabBeforeTourRef.current = null;
-        return;
-      }
-      if (wanted !== "details" && wanted !== "permissions") return;
-      if (tabBeforeTourRef.current === null) tabBeforeTourRef.current = tabRef.current;
-      setTab(wanted);
-    };
-    window.addEventListener("tamheed:tour-tab", onTourTab);
-    return () => window.removeEventListener("tamheed:tour-tab", onTourTab);
-  }, []);
 
   const isSelf = isEdit && Boolean(form._id) && String(form._id) === String(getStoredUserId());
   const canChangeRole = canStored("users.changeRole");
@@ -468,13 +446,13 @@ const EditUser = () => {
     setTabKey((k) => k + 1);
   };
 
-  // POST /tours/reset/:tz: the user sees the tours again at the next sign-in.
+  // POST /tours/reset/:tz: clears every tour id, so the guided journey is offered again at the next sign-in.
   const handleResetTours = async () => {
     setResettingTours(true);
     const res = await resetUserTours(form.tz);
     setResettingTours(false);
     if (!res.ok) return toast.warn(t("tour.userStatus.resetFailed"));
-    setForm((prev) => ({ ...prev, tourSummary: { welcome: "none", done: 0, skipped: 0 } }));
+    setForm((prev) => ({ ...prev, tourSummary: { intro: "none", done: 0, skipped: 0 } }));
     toast.success(t("tour.userStatus.resetDone"));
   };
 
@@ -665,8 +643,8 @@ const EditUser = () => {
       {form.tourSummary && (
         <fieldset className={sectionStyles.formSection} data-tour="user-tour-status">
           <legend>{t("tour.userStatus.title")}</legend>
-          <p>{t("tour.userStatus.welcome")} <strong>{t(`tour.userStatus.status.${form.tourSummary.welcome}`, form.tourSummary.welcome)}</strong></p>
-          <p>{fillText(t("tour.userStatus.sections"), { done: form.tourSummary.done ?? 0, skipped: form.tourSummary.skipped ?? 0 })}</p>
+          <p>{t("tour.userStatus.intro")} <strong>{t(`tour.userStatus.status.${form.tourSummary.intro}`, form.tourSummary.intro)}</strong></p>
+          <p>{fillText(t("tour.userStatus.chapters"), { done: form.tourSummary.done ?? 0, skipped: form.tourSummary.skipped ?? 0 })}</p>
           <button type="button" onClick={handleResetTours} disabled={resettingTours}>{t("tour.userStatus.reset")}</button>
         </fieldset>
       )}

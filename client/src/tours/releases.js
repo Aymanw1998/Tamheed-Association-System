@@ -1,6 +1,16 @@
-// To add an entry, see "HOW TO ADD A TOUR" in registry.js.
-// Newest first.
+// "What's new" entries, newest first. Each needs a unique id such as
+// `2026-10-21-xyz`, a date, `requires` (a permission, or null) and Arabic
+// `title` and `body`. `tourId` is a guided-journey chapter id («أرني» runs that
+// chapter alone; "journey-intro" starts the full journey), or null for no «أرني».
 export const RELEASES = [
+  {
+    id: "2026-10-22-guided-journey",
+    date: "2026-10-22",
+    requires: null,
+    tourId: "journey-intro",
+    title: "المسار التدريبي",
+    body: "يرافقك مرشد في مسار تدريبي قصير على أقسام النظام، ويعمل أمامك على بيانات تجريبية لا تُحفظ. يمكنك إيقافه متى شئت والمتابعة لاحقًا من زر المساعدة.",
+  },
   {
     id: "2026-10-21-product-tour",
     date: "2026-10-21",

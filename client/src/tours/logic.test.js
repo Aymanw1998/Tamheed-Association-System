@@ -1,10 +1,5 @@
-import { tabEvent, tabFor, waitWhile, tabSignal, tourTabs, usableStepsByTab, can, usableSteps, tourForPath, newAccess, unseenReleases, startupQueue, tourPath, helpTours, helpReleases, sectionOfPath, unknownSectionKeys, isTypingTarget } from "./logic";
+import { waitWhile, can, newAccess, unseenReleases, startupQueue, helpReleases, sectionOfPath, unknownSectionKeys, isTypingTarget, sectionChapter, releaseShowMe } from "./logic";
 
-const T = (extra) => ({ id: "x", version: 1, route: null, detail: false, requires: null, steps: [], ...extra });
-const FAKE = [
-  T({ id: "students", route: /^\/students(\/|$)/, detail: false }),
-  T({ id: "student-detail", route: /^\/students\/[^/]+$/, detail: true }),
-];
 const REL = [
   { id: "r2", date: "2026-11-01", requires: "students.view", tourId: null, title: "", body: "" },
   { id: "r1", date: "2026-10-01", requires: null, tourId: null, title: "", body: "" },
@@ -15,32 +10,6 @@ describe("can", () => {
   test("delegates to hasPermission", () => {
     expect(can(["ai.use"], "ai.use")).toBe(true);
     expect(can([], "ai.use")).toBe(false);
-  });
-});
-
-describe("tourForPath", () => {
-  test("detail tour is null for new", () => {
-    expect(tourForPath("/students/new", [FAKE[1]])).toBeNull();
-  });
-  test("detail tour matches an id", () => {
-    expect(tourForPath("/students/abc", [FAKE[1]]).id).toBe("student-detail");
-  });
-  test("anchored list and detail routes are reachable in either order", () => {
-    const list = T({ id: "students", route: /^\/students\/?$/ });
-    const detail = T({ id: "student", route: /^\/students\/[^/]+\/?$/, detail: true });
-    [[list, detail], [detail, list]].forEach((tours) => {
-      expect(tourForPath("/students", tours).id).toBe("students");
-      expect(tourForPath("/students/", tours).id).toBe("students");
-      expect(tourForPath("/students/abc", tours).id).toBe("student");
-      expect(tourForPath("/students/new", tours)).toBeNull();
-    });
-  });
-  test("first match wins", () => {
-    expect(tourForPath("/students", FAKE).id).toBe("students");
-  });
-  test("no match", () => expect(tourForPath("/nowhere", FAKE)).toBeNull());
-  test("tours without a route are skipped", () => {
-    expect(tourForPath("/x", [T({ route: null })])).toBeNull();
   });
 });
 
@@ -78,20 +47,6 @@ describe("newAccess", () => {
   });
 });
 
-describe("usableSteps", () => {
-  test("drops missing targets and unmet requires", () => {
-    const tour = T({ steps: [
-      { target: null }, { target: "a" }, { target: "gone" }, { target: "b", requires: "ai.use" },
-    ] });
-    const out = usableSteps(tour, { permissions: [], exists: (t) => t !== "gone" });
-    expect(out.map((s) => s.target)).toEqual([null, "a"]);
-  });
-  test("keeps requires when permitted", () => {
-    const tour = T({ steps: [{ target: "b", requires: "ai.use" }] });
-    expect(usableSteps(tour, { permissions: ["ai.use"], exists: () => true })).toHaveLength(1);
-  });
-});
-
 describe("unseenReleases", () => {
   test("filters by seen and permission", () => {
     expect(unseenReleases([], [], REL).map((r) => r.id)).toEqual(["r1"]);
@@ -103,41 +58,40 @@ describe("unseenReleases", () => {
 describe("startupQueue", () => {
   const empty = { tours: {}, knownKeys: ["students.view"], seenReleases: [] };
   const perms = ["students.view", "vehicles.view"];
-  test("orders welcome, access, releases", () => {
+  test("orders access, then releases (the journey offer comes before both, in TourProvider)", () => {
     expect(startupQueue({ state: empty, permissions: perms, deferred: new Set() }, REL))
-      .toEqual(["welcome", "access", "releases"]);
+      .toEqual(["access", "releases"]);
   });
   test("respects deferred", () => {
-    expect(startupQueue({ state: empty, permissions: perms, deferred: new Set(["welcome", "access"]) }, REL))
+    expect(startupQueue({ state: empty, permissions: perms, deferred: new Set(["access"]) }, REL))
       .toEqual(["releases"]);
   });
-  test("welcome skipped once done", () => {
+  test("the old welcome tour is never queued, done or not", () => {
     const state = { ...empty, tours: { welcome: { status: "done" } } };
     expect(startupQueue({ state, permissions: perms, deferred: new Set() }, REL)).toEqual(["access", "releases"]);
+    expect(startupQueue({ state: empty, permissions: perms, deferred: new Set() }, REL)).not.toContain("welcome");
   });
-  test("seed run gives only welcome", () => {
+  test("a seed run queues nothing", () => {
     const state = { tours: {}, knownKeys: null, seenReleases: [] };
-    expect(startupQueue({ state, permissions: perms, deferred: new Set() }, REL)).toEqual(["welcome"]);
+    expect(startupQueue({ state, permissions: perms, deferred: new Set() }, REL)).toEqual([]);
   });
 });
 
 describe("help center helpers", () => {
-  const SEC = { students: { path: "/students", tourId: "students" }, vehicles: { path: "/vehicles", tourId: "vehicles" } };
-  const TOURS3 = [
-    T({ id: "welcome" }),
-    T({ id: "students", route: /^\/students\/?$/ }),
-    T({ id: "vehicles", route: /^\/vehicles\/?$/, requires: "vehicles.view" }),
-    T({ id: "student", route: /^\/students\/[^/]+$/, detail: true }),
-  ];
-  test("tourPath finds the section page", () => {
-    expect(tourPath("students", SEC)).toBe("/students");
-    expect(tourPath("student", SEC)).toBeNull();
+  const SEC = {
+    students: { path: "/students", chapterId: "journey-students" },
+    vehicles: { path: "/vehicles", chapterId: "journey-vehicles" },
+  };
+  test("sectionChapter gives the chapter of a section, or null", () => {
+    expect(sectionChapter("students", SEC)).toBe("journey-students");
+    expect(sectionChapter("nowhere", SEC)).toBeNull();
+    expect(sectionChapter(null, SEC)).toBeNull();
   });
-  test("helpTours keeps permitted tours with an openable page", () => {
-    const ids = (perms, canOpen) => helpTours({ permissions: perms, canOpen }, TOURS3, SEC).map((x) => x.tour.id);
-    expect(ids([], () => true)).toEqual(["students"]);
-    expect(ids(["vehicles.view"], () => true)).toEqual(["students", "vehicles"]);
-    expect(ids(["vehicles.view"], (p) => p !== "/students")).toEqual(["vehicles"]);
+  test("releaseShowMe: the journey release starts the full journey, others one chapter", () => {
+    expect(releaseShowMe({ tourId: "journey-intro" })).toEqual({ chapterId: "journey-intro", only: false });
+    expect(releaseShowMe({ tourId: "journey-students" })).toEqual({ chapterId: "journey-students", only: true });
+    expect(releaseShowMe({ tourId: null })).toBeNull();
+    expect(releaseShowMe(null)).toBeNull();
   });
   test("helpReleases lists permitted ones, unseen first", () => {
     expect(helpReleases(["r1"], ["students.view"], REL).map((r) => r.id)).toEqual(["r2", "r1"]);
@@ -174,49 +128,6 @@ describe("isTypingTarget", () => {
     expect(isTypingTarget({ tagName: "BUTTON" })).toBe(false);
     expect(isTypingTarget({ tagName: "BODY" })).toBe(false);
     expect(isTypingTarget(null)).toBe(false);
-  });
-});
-
-describe("tabs", () => {
-  const tabbed = T({ steps: [
-    { target: "btn" },
-    { target: "list", tab: "alerts" },
-    { target: "ask", tab: "chat", requires: "ai.use" },
-    { target: "talk", tab: "chat" },
-  ] });
-  test("tabSignal opens, closes or does nothing", () => {
-    const [btn, list] = tabbed.steps;
-    expect(tabSignal(tabbed, list, false)).toEqual({ tab: "alerts", tourId: "x" });
-    expect(tabSignal(tabbed, btn, true)).toEqual({ tab: null, tourId: "x" });
-    expect(tabSignal(tabbed, btn, false)).toBeNull();
-    expect(tabSignal(T({ steps: [{ target: "a" }] }), { target: "a" }, true)).toBeNull();
-  });
-  test("tab events name their tour, and a host only takes its own tour's", () => {
-    expect(tabEvent(T({ id: "assistant" }), "chat")).toEqual({ tab: "chat", tourId: "assistant" });
-    expect(tabEvent(T({ id: "user" }), null)).toEqual({ tab: null, tourId: "user" });
-    // The user tour closing its tabs must not close the assistant panel.
-    expect(tabFor({ tab: null, tourId: "user" }, "assistant")).toBeUndefined();
-    expect(tabFor({ tab: null, tourId: "user" }, "user")).toBeNull();
-    expect(tabFor({ tab: "chat", tourId: "assistant" }, "assistant")).toBe("chat");
-    expect(tabFor({ tab: "chat" }, "assistant")).toBeUndefined();
-    expect(tabFor(undefined, "assistant")).toBeUndefined();
-  });
-  test("lists distinct tabs in order", () => {
-    expect(tourTabs(tabbed)).toEqual(["alerts", "chat"]);
-    expect(tourTabs(T({ steps: [{ target: "a" }] }))).toEqual([]);
-  });
-  test("keeps a step only when its target was seen under its own tab", () => {
-    const found = { "": new Set(["btn"]), alerts: new Set(["list"]), chat: new Set(["ask", "talk"]) };
-    expect(usableStepsByTab(tabbed, { permissions: ["ai.use"], found }).map((s) => s.target)).toEqual(["btn", "list", "ask", "talk"]);
-    expect(usableStepsByTab(tabbed, { permissions: [], found }).map((s) => s.target)).toEqual(["btn", "list", "talk"]);
-  });
-  test("chat steps drop when the chat tab never appeared (AI off)", () => {
-    const found = { "": new Set(["btn"]), alerts: new Set(["list"]), chat: new Set() };
-    expect(usableStepsByTab(tabbed, { permissions: ["ai.use"], found }).map((s) => s.target)).toEqual(["btn", "list"]);
-  });
-  test("a target seen under another tab does not count", () => {
-    const found = { "": new Set(), alerts: new Set(["talk"]), chat: new Set() };
-    expect(usableStepsByTab(tabbed, { permissions: [], found })).toEqual([]);
   });
 });
 

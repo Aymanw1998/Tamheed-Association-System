@@ -177,9 +177,28 @@ test("real clicks on the page are blocked while the journey runs", async () => {
   page.remove();
 });
 
-test("the sign-in offer stays off while JOURNEY_AUTO_OFFER is false", async () => {
+test("at sign-in a user without journey-intro is offered the journey, even after the old welcome", async () => {
+  loadTourState.mockResolvedValue({ tours: { welcome: { status: "done", version: 1 } }, knownKeys: [], seenReleases: [] });
   await mount();
-  expect(container.textContent).not.toContain("ابدأ الآن");
+  expect(container.textContent).toContain("ابدأ الآن");
+  expect(api.offering).toBe(true);
+  expect(api.settled).toBe(true);
+});
+
+test("no sign-in offer once journey-intro is recorded and nothing is left", async () => {
+  loadTourState.mockResolvedValue({ tours: { "journey-intro": { status: "done", version: 1 } }, knownKeys: [], seenReleases: [] });
+  await mount();
+  expect(container.querySelector('[data-testid="journey-offer"]')).toBeNull();
+  expect(api.offering).toBe(false);
+  expect(api.settled).toBe(true);
+  expect(api.tours["journey-intro"].status).toBe("done");
+});
+
+test("the offer is settled (nothing to wait for) when the tour state fails to load", async () => {
+  loadTourState.mockResolvedValue(null);
+  await mount();
+  expect(api.settled).toBe(true);
+  expect(api.offering).toBe(false);
 });
 
 const button = (text) => [...container.querySelectorAll("button")].find((b) => b.textContent.includes(text));
@@ -226,6 +245,9 @@ test("offer() shows the intro card; its skip saves journey-intro as skipped", as
   });
   expect(saveTour).toHaveBeenCalledWith("journey-intro", "skipped", 1);
   expect(container.querySelector('[data-testid="journey-offer"]')).toBeNull();
+  // The help center's marks read this.
+  expect(api.tours["journey-intro"].status).toBe("skipped");
+  expect(api.offering).toBe(false);
 });
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
