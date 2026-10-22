@@ -8,6 +8,8 @@ import intro from "./intro";
 // action is what the guide does when the user presses «التالي» on that step:
 //   { type: "navigate", path } | { type: "click", target } | { type: "type", target, value }
 //   | { type: "select", target, value } | { type: "cancelConfirm" } | { type: "wait", ms }
+// type and select are for text fields and <select> only; for a checkbox or a
+// radio button use click (it toggles it as a real click would).
 // A step whose target is not on screen is skipped. All text is Arabic
 // (docs/arabic-style-guide.md); "{name}" becomes the guide's name.
 // Each chapter's id is its tour id on the server (done / skipped).

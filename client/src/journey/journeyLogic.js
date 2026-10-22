@@ -52,11 +52,12 @@ export function chapterForPath(chapters, pathname) {
 // { kind: "resume", chapter } while chapters are left. At sign-in (`auto`), a
 // user who skipped the intro card and recorded nothing else is not asked again.
 export function journeyOffer(chapters, tours, { auto = false } = {}) {
-  if (shouldOfferJourney(tours)) return { kind: "intro" };
-  if (auto && tours[INTRO_ID].status === "skipped") {
-    const other = (Array.isArray(chapters) ? chapters : []).some((c) => c.id !== INTRO_ID && tours[c.id]);
+  const state = tours && typeof tours === "object" ? tours : {};
+  if (shouldOfferJourney(state)) return { kind: "intro" };
+  if (auto && state[INTRO_ID].status === "skipped") {
+    const other = (Array.isArray(chapters) ? chapters : []).some((c) => c.id !== INTRO_ID && state[c.id]);
     if (!other) return null;
   }
-  const chapter = nextChapter(chapters, tours);
+  const chapter = nextChapter(chapters, state);
   return chapter ? { kind: "resume", chapter } : null;
 }

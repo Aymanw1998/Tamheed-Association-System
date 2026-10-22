@@ -110,3 +110,34 @@ test("navigate calls navigate with the path; wait waits", async () => {
 test("an unknown action type rejects", async () => {
   await expect(runAction({ type: "dance" }, { find: byTour })).rejects.toThrow("UNKNOWN_ACTION");
 });
+
+test("a cancelled wait never clicks a target that shows up afterwards", async () => {
+  let stop = false;
+  const clicked = jest.fn();
+  const pending = runAction({ type: "click", target: "later" }, { find: byTour, timeout: 1000, cancelled: () => stop });
+  stop = true;
+  document.body.innerHTML = '<button data-tour="later">حفظ</button>';
+  byTour("later").addEventListener("click", clicked);
+  await expect(pending).rejects.toMatchObject({ code: "CANCELLED" });
+  await new Promise((r) => setTimeout(r, 150));
+  expect(clicked).not.toHaveBeenCalled();
+});
+
+test("typing stops at the next character once cancelled", async () => {
+  document.body.innerHTML = '<input data-tour="name" />';
+  const seen = [];
+  let stop = false;
+  byTour("name").addEventListener("input", (event) => {
+    seen.push(event.target.value);
+    if (event.target.value.length === 2) stop = true;
+  });
+  await expect(runAction({ type: "type", target: "name", value: "أحمد" }, { find: byTour, charDelay: 0, cancelled: () => stop }))
+    .rejects.toThrow("CANCELLED");
+  expect(seen).toEqual(["أ", "أح"]);
+});
+
+test("an action cancelled before it starts does nothing", async () => {
+  const navigate = jest.fn();
+  await expect(runAction({ type: "navigate", path: "/x" }, { navigate, cancelled: () => true })).rejects.toThrow("CANCELLED");
+  expect(navigate).not.toHaveBeenCalled();
+});

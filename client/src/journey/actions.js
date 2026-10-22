@@ -7,6 +7,10 @@
 // may show up a moment later (a dialog opening, a list loading), so it is
 // polled for up to `timeout` ms; if it never shows, the promise rejects with
 // an Error whose message and code are "TARGET_MISSING".
+// `cancelled()` (optional) is checked while waiting, before a click and before
+// each typed character: once it answers true nothing more touches the page and
+// the promise rejects with code "CANCELLED" (the journey was paused, and the
+// page may already show real data).
 //
 // The journey blocks real clicks on the page (JourneyProvider). Its own clicks
 // are synthetic events marked `__journey = true`; a form submit that such a
@@ -14,6 +18,7 @@
 // lets both through.
 
 export const TARGET_MISSING = "TARGET_MISSING";
+export const CANCELLED = "CANCELLED";
 const TARGET_WAIT_MS = 4000;
 const POLL_MS = 100;
 const CHAR_DELAY_MS = 40;
@@ -27,11 +32,13 @@ export const isJourneyEvent = (event) => Boolean(event && (event.__journey === t
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, Math.max(0, ms || 0)));
 
-const missing = () => {
-  const error = new Error(TARGET_MISSING);
-  error.code = TARGET_MISSING;
+const failure = (code) => {
+  const error = new Error(code);
+  error.code = code;
   return error;
 };
+
+const never = () => false;
 
 const defaultFind = (target) => {
   try {
@@ -41,12 +48,17 @@ const defaultFind = (target) => {
   }
 };
 
-async function waitFor(lookup, timeout) {
+const check = (cancelled) => {
+  if (cancelled()) throw failure(CANCELLED);
+};
+
+async function waitFor(lookup, timeout, cancelled) {
   const started = Date.now();
   for (;;) {
+    check(cancelled);
     const el = lookup();
     if (el) return el;
-    if (Date.now() - started >= timeout) throw missing();
+    if (Date.now() - started >= timeout) throw failure(TARGET_MISSING);
     await sleep(Math.min(POLL_MS, timeout));
   }
 }
@@ -82,7 +94,8 @@ function nativeSetValue(el, value) {
 
 const fire = (el, name) => el.dispatchEvent(new Event(name, { bubbles: true }));
 
-async function typeInto(el, value, charDelay) {
+async function typeInto(el, value, charDelay, cancelled) {
+  check(cancelled);
   try {
     el.focus({ preventScroll: true });
   } catch {}
@@ -90,6 +103,7 @@ async function typeInto(el, value, charDelay) {
   nativeSetValue(el, "");
   let current = "";
   for (let i = 0; i < text.length; i += 1) {
+    check(cancelled);
     current += text[i];
     nativeSetValue(el, current);
     fire(el, "input");
@@ -99,38 +113,45 @@ async function typeInto(el, value, charDelay) {
   if (!text.length) fire(el, "input");
 }
 
-export async function runAction(action, { navigate, find = defaultFind, timeout = TARGET_WAIT_MS, charDelay = CHAR_DELAY_MS } = {}) {
+export async function runAction(action, {
+  navigate, find = defaultFind, timeout = TARGET_WAIT_MS, charDelay = CHAR_DELAY_MS, cancelled = never,
+} = {}) {
   const type = action && action.type;
-  const target = () => waitFor(() => find(action.target), timeout);
+  const target = () => waitFor(() => find(action.target), timeout, cancelled);
+  check(cancelled);
   switch (type) {
     case "navigate":
       if (typeof navigate === "function") navigate(action.path);
       return;
     case "wait":
       await sleep(action.ms);
+      check(cancelled);
       return;
     case "click": {
       const el = await target();
       reveal(el);
+      check(cancelled);
       journeyClick(el);
       return;
     }
     case "type": {
       const el = await target();
       reveal(el);
-      await typeInto(el, action.value, charDelay);
+      await typeInto(el, action.value, charDelay, cancelled);
       return;
     }
     case "select": {
       const el = await target();
       reveal(el);
+      check(cancelled);
       nativeSetValue(el, String(action.value ?? ""));
       fire(el, "input");
       fire(el, "change");
       return;
     }
     case "cancelConfirm": {
-      const el = await waitFor(() => document.querySelector(CONFIRM_CANCEL), timeout);
+      const el = await waitFor(() => document.querySelector(CONFIRM_CANCEL), timeout, cancelled);
+      check(cancelled);
       journeyClick(el);
       return;
     }

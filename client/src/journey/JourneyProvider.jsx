@@ -1,10 +1,10 @@
 import React, { createContext, lazy, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import { GUIDE_NAMES, guideFor } from "./guideNames";
-import { startDemo, stopDemo, useDemo } from "./demoMode";
-import { availableChapters, INTRO_ID, journeyOffer, nextChapter } from "./journeyLogic";
-import { isJourneyEvent, runAction, TARGET_MISSING } from "./actions";
+import { isDemo, startDemo, stopDemo, useDemo } from "./demoMode";
+import { availableChapters, chapterForPath, INTRO_ID, journeyOffer, nextChapter } from "./journeyLogic";
+import { CANCELLED, isJourneyEvent, runAction, TARGET_MISSING } from "./actions";
 import { CHAPTERS } from "./chapters";
 import { isTypingTarget, waitWhile } from "../tours/logic";
 import { confirmLeave } from "../utils/unsavedChanges";
@@ -16,16 +16,23 @@ import styles from "./Journey.module.css";
 // demo data (training mode), with the guide acting on the page itself.
 //
 // - Start: confirmLeave() (unsaved edits), then startDemo(), then the chapter's
-//   route; the screens remount on demo data.
+//   route; the screens remount on demo data. startJourney(id, { only: true })
+//   runs that one chapter and ends after it.
 // - «التالي» runs the step's action (actions.js), then shows the next step. A
 //   step whose target does not show within TARGET_WAIT_MS is skipped, and so
 //   is an action whose target is missing.
-// - A chapter's end shows a celebrate step and saves it as done; «تخطّي الفصل»
-//   saves it as skipped. Each chapter is its own tour id on the server.
+// - A chapter's end shows a celebrate step and saves it as done, but only if
+//   one of its targeted steps was really shown (a chapter with targets none of
+//   which showed pauses instead). «تخطّي الفصل» saves it as skipped. Each
+//   chapter is its own tour id on the server.
 // - Pause or end: stopDemo(), then /dashboard (the screens remount on real data).
-// - While it runs, real clicks and Enter/Space on the page are swallowed (as in
-//   tours/runTour.js); the guide's own synthetic events (isJourneyEvent) and
-//   the guide's bubble pass. Esc pauses.
+//   A pending action is cancelled (it never touches the real page), and so is
+//   the journey when the provider unmounts.
+// - Leaving the chapter's pages (browser Back) pauses the journey; pages the
+//   engine itself opens (a navigate action, or while an action runs) are fine.
+// - While it runs, real clicks, Enter/Space, printable keys and text input on
+//   the page are swallowed (as in tours/runTour.js); the guide's own synthetic
+//   events (isJourneyEvent) and the guide's bubble pass. Esc pauses.
 // - The sign-in offer (intro card, or «نكمل من فصل X؟») is off until
 //   JOURNEY_AUTO_OFFER is turned on; offer() shows the card on demand.
 
@@ -43,7 +50,10 @@ const POLL_MS = 100;
 const TYPING_POLL_MS = 250;
 const MEASURE_MS = 400;
 const RING_PAD = 6;
-const BLOCKED = ["click", "dblclick", "auxclick", "contextmenu", "submit", "mousedown"];
+// Lets a navigation set off by an action reach the router before the action ends.
+const ACTION_SETTLE_MS = 60;
+const BLOCKED = ["click", "dblclick", "auxclick", "contextmenu", "submit", "mousedown", "beforeinput", "paste", "drop"];
+const EDIT_KEYS = new Set(["Enter", " ", "Spacebar", "Backspace", "Delete"]);
 
 const NOOP = {
   offer: () => false,
@@ -96,22 +106,22 @@ const sameRect = (a, b) => a && b && a.top === b.top && a.left === b.left && a.w
 
 const chapterOf = (r) => (r ? r.chapters.find((c) => c.id === r.chapterId) || null : null);
 
-function celebrateStep(chapter, next) {
-  return {
-    target: null,
-    mood: "celebrate",
-    title: `أحسنت! أنهيت فصل «${chapter.title}»`,
-    body: next
-      ? `في الفصل التالي: «${next.title}».`
-      : "أنهيت المسار التدريبي كله. سأعيدك الآن إلى بياناتك الحقيقية.",
-  };
+const followingChapter = (r, tours) => (r.only ? null : nextChapter(r.chapters, tours));
+
+function celebrateStep(chapter, next, only) {
+  let body = "أنهيت المسار التدريبي كله. سأعيدك الآن إلى بياناتك الحقيقية.";
+  if (next) body = `في الفصل التالي: «${next.title}».`;
+  else if (only) body = "سأعيدك الآن إلى بياناتك الحقيقية.";
+  return { target: null, mood: "celebrate", title: `أحسنت! أنهيت فصل «${chapter.title}»`, body };
 }
 
-export function JourneyProvider({ children }) {
+// targetWaitMs is for tests only.
+export function JourneyProvider({ children, targetWaitMs = TARGET_WAIT_MS }) {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const { on: demoOn } = useDemo();
 
-  // run: { chapters, chapterId, index, celebrate, seq } while the journey runs.
+  // run: { chapters, chapterId, index, celebrate, only, seq } while the journey runs.
   const [run, setRun] = useState(null);
   // shown: the step on screen, for run.seq; el is its target (or null).
   const [shown, setShown] = useState(null);
@@ -123,6 +133,15 @@ export function JourneyProvider({ children }) {
   const startingRef = useRef(false);
   const busyRef = useRef(false);
   const seqRef = useRef(0);
+  const mountedRef = useRef(true);
+  // Per chapter: pages the engine opened, and whether a targeted step showed.
+  const acceptedRef = useRef(new Set());
+  const targetShownRef = useRef(false);
+
+  const beginChapter = useCallback(() => {
+    acceptedRef.current = new Set();
+    targetShownRef.current = false;
+  }, []);
 
   const updateRun = useCallback((next) => {
     runRef.current = next ? { ...next, seq: (seqRef.current += 1) } : null;
@@ -147,7 +166,7 @@ export function JourneyProvider({ children }) {
     if (runRef.current) endJourney();
   }, [endJourney]);
 
-  const startJourney = useCallback(async (fromChapterId) => {
+  const startJourney = useCallback(async (fromChapterId, { only = false } = {}) => {
     if (runRef.current || startingRef.current) return false;
     startingRef.current = true;
     try {
@@ -158,20 +177,22 @@ export function JourneyProvider({ children }) {
       } catch {
         ok = false;
       }
-      if (!ok || runRef.current) return false;
+      if (!ok || runRef.current || !mountedRef.current) return false;
       const chapters = availableChapters(CHAPTERS, getStoredPermissions());
-      const chapter = (fromChapterId && chapters.find((c) => c.id === fromChapterId))
-        || nextChapter(chapters, toursRef.current)
-        || chapters[0];
+      const chosen = fromChapterId ? chapters.find((c) => c.id === fromChapterId) : null;
+      // One chapter only makes sense for a chapter this user has.
+      if (only && !chosen) return false;
+      const chapter = chosen || nextChapter(chapters, toursRef.current) || chapters[0];
       if (!chapter) return false;
       startDemo();
-      updateRun({ chapters, chapterId: chapter.id, index: 0, celebrate: false });
+      beginChapter();
+      updateRun({ chapters, chapterId: chapter.id, index: 0, celebrate: false, only: Boolean(only) });
       navigate(chapter.route);
       return true;
     } finally {
       startingRef.current = false;
     }
-  }, [navigate, updateRun]);
+  }, [beginChapter, navigate, updateRun]);
 
   // Moves to a chapter (from its first step), or ends the journey when none is left.
   const goToChapter = useCallback((r, chapter) => {
@@ -179,9 +200,10 @@ export function JourneyProvider({ children }) {
       endJourney();
       return;
     }
+    beginChapter();
     updateRun({ ...r, chapterId: chapter.id, index: 0, celebrate: false });
     navigate(chapter.route);
-  }, [endJourney, navigate, updateRun]);
+  }, [beginChapter, endJourney, navigate, updateRun]);
 
   const forward = useCallback((r) => {
     const chapter = chapterOf(r);
@@ -190,9 +212,45 @@ export function JourneyProvider({ children }) {
       updateRun({ ...r, index: r.index + 1 });
       return;
     }
+    // Nothing the chapter points at ever showed: it was not really seen.
+    if (chapter.steps.some((step) => step.target) && !targetShownRef.current) {
+      endJourney();
+      return;
+    }
     record(chapter.id, "done");
     updateRun({ ...r, celebrate: true });
-  }, [record, updateRun]);
+  }, [endJourney, record, updateRun]);
+
+  // Unmounting (sign-out, leaving the protected pages) ends training mode too.
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      busyRef.current = false;
+      if (runRef.current) {
+        runRef.current = null;
+        stopDemo();
+      }
+    };
+  }, []);
+
+  // Leaving the chapter's pages by hand (browser Back) pauses the journey.
+  // Only a change of page counts: the router may apply the engine's own
+  // navigate() in a later render than the run state (it uses transitions).
+  const prevPathRef = useRef(pathname);
+  useEffect(() => {
+    const changed = prevPathRef.current !== pathname;
+    prevPathRef.current = pathname;
+    const r = runRef.current;
+    if (!changed || !r) return;
+    if (busyRef.current) {
+      acceptedRef.current.add(pathname);
+      return;
+    }
+    const chapter = chapterOf(r);
+    if (!chapter || chapterForPath([chapter], pathname) || acceptedRef.current.has(pathname)) return;
+    endJourney();
+  }, [pathname, endJourney]);
 
   // Training mode ended elsewhere (sign-out): drop the journey quietly.
   useEffect(() => {
@@ -212,7 +270,7 @@ export function JourneyProvider({ children }) {
     const chapter = chapterOf(run);
     if (!chapter) return undefined;
     if (run.celebrate) {
-      setShown({ seq: run.seq, step: celebrateStep(chapter, nextChapter(run.chapters, toursRef.current)), el: null });
+      setShown({ seq: run.seq, step: celebrateStep(chapter, followingChapter(run, toursRef.current), run.only), el: null });
       return undefined;
     }
     const step = chapter.steps[run.index];
@@ -224,7 +282,7 @@ export function JourneyProvider({ children }) {
     (async () => {
       const started = Date.now();
       let el = visibleTarget(step.target);
-      while (!el && Date.now() - started < TARGET_WAIT_MS) {
+      while (!el && Date.now() - started < targetWaitMs) {
         await sleep(POLL_MS);
         if (!alive) return;
         el = visibleTarget(step.target);
@@ -235,12 +293,13 @@ export function JourneyProvider({ children }) {
         return;
       }
       reveal(el);
+      targetShownRef.current = true;
       setShown({ seq: run.seq, step, el });
     })();
     return () => {
       alive = false;
     };
-  }, [run, forward]);
+  }, [run, forward, targetWaitMs]);
 
   // The ring and the guide's arrow follow the target.
   const shownEl = shown && shown.el;
@@ -272,18 +331,27 @@ export function JourneyProvider({ children }) {
     const r = runRef.current;
     if (!r || busyRef.current || !current || current.seq !== r.seq) return;
     if (r.celebrate) {
-      goToChapter(r, nextChapter(r.chapters, toursRef.current));
+      goToChapter(r, followingChapter(r, toursRef.current));
       return;
     }
     const step = chapterOf(r).steps[r.index];
     if (step.action) {
+      // Paused, unmounted or out of training mode: stop touching the page.
+      const cancelled = () => runRef.current !== r || !isDemo() || !mountedRef.current;
+      const go = (path) => {
+        acceptedRef.current.add(path);
+        navigate(path);
+      };
       busyRef.current = true;
       try {
-        await runAction(step.action, { navigate });
+        await runAction(step.action, { navigate: go, cancelled });
+        await sleep(ACTION_SETTLE_MS);
       } catch (error) {
-        if (error?.code !== TARGET_MISSING) console.warn("journey: the step's action failed", error?.message || error);
+        if (error?.code !== TARGET_MISSING && error?.code !== CANCELLED) {
+          console.warn("journey: the step's action failed", error?.message || error);
+        }
       } finally {
-        busyRef.current = false;
+        if (runRef.current === r) busyRef.current = false;
       }
       if (runRef.current !== r) return;
     }
@@ -310,7 +378,7 @@ export function JourneyProvider({ children }) {
     const r = runRef.current;
     if (!r || busyRef.current) return;
     if (!r.celebrate) record(r.chapterId, "skipped");
-    goToChapter(r, nextChapter(r.chapters, toursRef.current));
+    goToChapter(r, followingChapter(r, toursRef.current));
   }, [goToChapter, record]);
 
   // ---------- blocking the page ----------
@@ -331,7 +399,9 @@ export function JourneyProvider({ children }) {
         stopJourney();
         return;
       }
-      if (!inUi(event.target) && (event.key === "Enter" || event.key === " " || event.key === "Spacebar")) {
+      // Enter/Space would press a page button; printable keys would type into it.
+      const printable = typeof event.key === "string" && event.key.length === 1 && !event.ctrlKey && !event.metaKey;
+      if (!inUi(event.target) && (printable || EDIT_KEYS.has(event.key))) {
         event.preventDefault();
         event.stopPropagation();
       }

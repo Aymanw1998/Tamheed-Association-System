@@ -126,3 +126,11 @@ describe("journeyOffer", () => {
     expect(journeyOffer(CHAPTERS, tours)).toBeNull();
   });
 });
+
+test("null or broken tour state is treated as empty everywhere", () => {
+  expect(journeyOffer(CHAPTERS, null)).toEqual({ kind: "intro" });
+  expect(journeyOffer(CHAPTERS, null, { auto: true })).toEqual({ kind: "intro" });
+  expect(journeyOffer(CHAPTERS, "bad")).toEqual({ kind: "intro" });
+  expect(shouldOfferJourney(undefined)).toBe(true);
+  expect(nextChapter(CHAPTERS, undefined).id).toBe("journey-intro");
+});
