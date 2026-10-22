@@ -1,6 +1,9 @@
 import { createAvatar } from "@dicebear/core";
 import { avataaars } from "@dicebear/collection";
 
+// License: the Avataaars style is by Pablo Stanley, free for personal and
+// commercial use (https://avataaars.com/). @dicebear/core and
+// @dicebear/collection are MIT.
 export const GUIDE_NAMES = { tamheed: "تمهيد", ibrahim: "إبراهيم" };
 export const MOODS = ["explain", "point", "warn", "celebrate"];
 

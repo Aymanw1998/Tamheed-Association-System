@@ -25,3 +25,7 @@ test("every guide and mood draws an svg, and a repeat call returns the same stri
 test("different moods draw different faces", () => {
   expect(avatarSvg("tamheed", "explain")).not.toBe(avatarSvg("tamheed", "warn"));
 });
+
+test("the two guides look different in the same mood", () => {
+  MOODS.forEach((mood) => expect(avatarSvg("tamheed", mood)).not.toBe(avatarSvg("ibrahim", mood)));
+});
