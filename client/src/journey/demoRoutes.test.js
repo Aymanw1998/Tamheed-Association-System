@@ -333,9 +333,9 @@ describe("chapters 7-13: every save the guide makes succeeds in the demo store",
 
   test("files: the chunked upload endpoints are answered by the store", async () => {
     const file = new File(["demo"], "ملف-كبير.pdf", { type: "application/pdf" });
-    const res = await Storage.uploadLargeStorageFile(file, "مستندات الدروس", "");
+    const res = await Storage.uploadLargeStorageFile(file, "مستندات الدروس (تجريبي)", "");
     expect(res.ok).toBe(true);
-    const folder = await Storage.getStorageEntries("مستندات الدروس");
+    const folder = await Storage.getStorageEntries("مستندات الدروس (تجريبي)");
     expect(folder.files.some((f) => f.name === "ملف-كبير.pdf")).toBe(true);
     expect(store.uploads).toEqual({});
   });
@@ -357,7 +357,7 @@ describe("chapters 7-13: every save the guide makes succeeds in the demo store",
     expect((await Storage.shareStorageEntry(folder, target.tz, "write")).ok).toBe(true);
     const status = await Storage.getStorageShareStatus(folder);
     expect(status.sharedWith).toEqual([expect.objectContaining({ tz: target.tz, role: "write" })]);
-    expect((await Storage.getStorageShareStatus({ path: "صور الأنشطة" })).sharedWith).toEqual([]);
+    expect((await Storage.getStorageShareStatus({ path: "صور الأنشطة (تجريبي)" })).sharedWith).toEqual([]);
     expect((await Storage.unshareStorageEntry(folder, target.tz)).ok).toBe(true);
     expect((await Storage.getStorageShareStatus(folder)).sharedWith).toEqual([]);
   });

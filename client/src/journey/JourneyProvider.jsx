@@ -8,6 +8,8 @@ import { CANCELLED, findTarget, isJourneyEvent, runAction, TARGET_MISSING } from
 import { CHAPTERS } from "./chapters";
 import { isTypingTarget, waitWhile } from "../tours/logic";
 import { confirmLeave } from "../utils/unsavedChanges";
+import { cancelOpenConfirm } from "../Components/Provides/confirmBus";
+import { toast } from "../ALERT/SystemToasts";
 import { getStoredGender, getStoredPermissions, getStoredUserId } from "../utils/session";
 import { loadTourState, saveTour } from "../WebServer/services/tours/functionsTours";
 import styles from "./Journey.module.css";
@@ -23,11 +25,12 @@ import styles from "./Journey.module.css";
 //   is an action whose target is missing.
 // - A chapter's end shows a celebrate step and saves it as done, but only if
 //   one of its targeted steps was really shown (a chapter with targets none of
-//   which showed pauses instead). «تخطّي الفصل» saves it as skipped. Each
-//   chapter is its own tour id on the server.
+//   which showed pauses instead, with a short notice). «تخطّي الفصل» saves it
+//   as skipped. Each chapter is its own tour id on the server.
 // - Pause or end: stopDemo(), then /dashboard (the screens remount on real data).
 //   A pending action is cancelled (it never touches the real page), and so is
-//   the journey when the provider unmounts.
+//   the journey when the provider unmounts. Leaving a chapter (skip, next
+//   chapter, pause, end) cancels a confirm dialog it left open.
 // - Leaving the chapter's pages (browser Back) pauses the journey; pages the
 //   engine itself opens (a navigate action, or while an action runs) are fine.
 // - While it runs, real clicks, Enter/Space, printable keys and text input on
@@ -37,6 +40,8 @@ import styles from "./Journey.module.css";
 //   offer() shows the card on demand (the help center). `settled` turns true
 //   once that sign-in decision is made, and `offering` while the card shows:
 //   TourProvider holds its new-access card and "what's new" until then.
+//   `offerAnswered` turns true once the card is answered (start, later or
+//   skip): TourProvider then marks the journey's own release as seen.
 // - `tours` is the server's tour state, kept up to date as chapters are saved
 //   (the help center's done / skipped marks).
 
@@ -67,6 +72,7 @@ const NOOP = {
   currentChapterId: null,
   settled: false,
   offering: false,
+  offerAnswered: false,
   tours: {},
 };
 const JourneyContext = createContext(NOOP);
@@ -129,6 +135,7 @@ export function JourneyProvider({ children, targetWaitMs = TARGET_WAIT_MS }) {
   const [rect, setRect] = useState(null);
   const [card, setCard] = useState(null);
   const [settled, setSettled] = useState(false);
+  const [offerAnswered, setOfferAnswered] = useState(false);
   const [tours, setTours] = useState({});
 
   const runRef = useRef(null);
@@ -160,6 +167,7 @@ export function JourneyProvider({ children, targetWaitMs = TARGET_WAIT_MS }) {
   // ---------- start / stop ----------
   const endJourney = useCallback(() => {
     busyRef.current = false;
+    cancelOpenConfirm();
     updateRun(null);
     setShown(null);
     stopDemo();
@@ -200,6 +208,8 @@ export function JourneyProvider({ children, targetWaitMs = TARGET_WAIT_MS }) {
 
   // Moves to a chapter (from its first step), or ends the journey when none is left.
   const goToChapter = useCallback((r, chapter) => {
+    // A confirm dialog the chapter left open must never outlive it.
+    cancelOpenConfirm();
     if (!chapter) {
       endJourney();
       return;
@@ -219,6 +229,7 @@ export function JourneyProvider({ children, targetWaitMs = TARGET_WAIT_MS }) {
     // Nothing the chapter points at ever showed: it was not really seen.
     if (chapter.steps.some((step) => step.target) && !targetShownRef.current) {
       endJourney();
+      toast.warn(`تعذّر عرض فصل «${chapter.title}»، فلم تظهر عناصره على هذه الشاشة. يمكنك المحاولة لاحقًا من زر المساعدة.`);
       return;
     }
     record(chapter.id, "done");
@@ -458,15 +469,18 @@ export function JourneyProvider({ children, targetWaitMs = TARGET_WAIT_MS }) {
 
   const laterOffer = () => {
     writeDeferred();
+    setOfferAnswered(true);
     setCard(null);
   };
 
   const skipOffer = () => {
     record(INTRO_ID, "skipped");
+    setOfferAnswered(true);
     setCard(null);
   };
 
   const startOffer = () => {
+    setOfferAnswered(true);
     startJourney(card && card.kind === "resume" ? card.chapter.id : undefined);
   };
 
@@ -474,8 +488,8 @@ export function JourneyProvider({ children, targetWaitMs = TARGET_WAIT_MS }) {
   const currentChapterId = run ? run.chapterId : null;
   const offering = Boolean(!run && card);
   const value = useMemo(
-    () => ({ offer, startJourney, stopJourney, running, currentChapterId, settled, offering, tours }),
-    [offer, startJourney, stopJourney, running, currentChapterId, settled, offering, tours],
+    () => ({ offer, startJourney, stopJourney, running, currentChapterId, settled, offering, offerAnswered, tours }),
+    [offer, startJourney, stopJourney, running, currentChapterId, settled, offering, offerAnswered, tours],
   );
 
   const guide = guideFor(getStoredGender());

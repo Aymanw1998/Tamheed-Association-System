@@ -6,7 +6,8 @@ import { MemoryRouter } from "react-router-dom";
 import { TourProvider } from "./TourProvider";
 import { I18nProvider } from "../i18n/I18nContext";
 import { RELEASES } from "./releases";
-import { loadTourState } from "../WebServer/services/tours/functionsTours";
+import { loadTourState, saveKnownKeys, saveSeenReleases } from "../WebServer/services/tours/functionsTours";
+import { startDemo, stopDemo } from "../journey/demoMode";
 
 // Jest 27 (CRA 5) ignores package "exports" (see journey/JourneyProvider.test.js).
 jest.mock("react-router-dom", () => {
@@ -76,6 +77,7 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
+  stopDemo();
   await act(async () => root.unmount());
   container.remove();
   localStorage.clear();
@@ -165,4 +167,34 @@ test("«المسار التدريبي كاملًا» shows the guide's offer, or
     button("المسار التدريبي كاملًا").click();
   });
   expect(mockJourney.startJourney).toHaveBeenCalledWith("journey-intro");
+});
+
+test("a section visited in training mode keeps its new badge; a real visit ends it", async () => {
+  startDemo();
+  await mount("/files");
+  expect(saveKnownKeys).not.toHaveBeenCalled();
+
+  // The same visit on real data.
+  await act(async () => root.unmount());
+  container.remove();
+  stopDemo();
+  await mount("/files");
+  expect(saveKnownKeys).toHaveBeenCalledWith(["files.use"]);
+});
+
+test("once the journey offer is answered, its release is seen and what's new skips it", async () => {
+  loadTourState.mockResolvedValue({ tours: {}, knownKeys: ["students.view", "files.use"], seenReleases: [] });
+  mockJourney = journey({ offerAnswered: true });
+  await mount();
+  expect(saveSeenReleases).toHaveBeenCalledWith(["2026-10-22-guided-journey"]);
+  // The other unseen release still shows.
+  expect(document.body.textContent).toContain("مركز المساعدة الجديد");
+  expect(document.body.textContent).not.toContain("المسار التدريبي");
+});
+
+test("an unanswered offer leaves the journey release in what's new", async () => {
+  loadTourState.mockResolvedValue({ tours: {}, knownKeys: ["students.view", "files.use"], seenReleases: [] });
+  await mount();
+  expect(saveSeenReleases).not.toHaveBeenCalled();
+  expect(document.body.textContent).toContain("المسار التدريبي");
 });

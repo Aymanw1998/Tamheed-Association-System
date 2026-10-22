@@ -127,3 +127,27 @@ test("the adapter set later on the instance is still the one used off demo", asy
   await instance.get("/tours");
   expect(later).toEqual(["/x", "/tours"]);
 });
+
+// api.jsx retries a request after a token refresh with api.request(original).
+test("a request started on real data stays real when retried after training started", async () => {
+  const first = await instance.get("/student");
+  expect(first.config.__realAtStart).toBe(true);
+  startDemo();
+  const retry = await instance.request(first.config);
+  expect(retry.data).toEqual({ ok: true, real: true });
+  expect(calls).toEqual(["get /student", "get /student"]);
+});
+
+test("a request started in training never reaches the server, even retried after training ended", async () => {
+  startDemo();
+  const first = await instance.get("/student");
+  expect(first.config.__realAtStart).toBe(false);
+  stopDemo();
+  await expect(instance.request(first.config)).rejects.toMatchObject({
+    response: { status: 409, data: { code: "DEMO_BLOCKED" } },
+  });
+  // A new training session is not the one it started in either.
+  startDemo();
+  await expect(instance.request(first.config)).rejects.toMatchObject({ response: { status: 409 } });
+  expect(calls).toEqual([]);
+});

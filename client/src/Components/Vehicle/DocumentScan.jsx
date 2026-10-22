@@ -5,17 +5,23 @@ import { toast } from "../../ALERT/SystemToasts";
 import Button from "../UI/Button.jsx";
 import { fillText } from "../../utils/vehicleDisplay";
 import { mergeScan, scanToDraft } from "../../utils/vehicleScan";
+import { demoEpoch } from "../../journey/demoMode";
 import styles from "./Vehicle.module.css";
 
 const ACCEPT = "image/jpeg,image/png,image/webp,application/pdf";
 const IDLE = { status: "idle", result: null, file: null, message: "" };
 
-// One status request shared by every form on the page.
-let statusPromise = null;
-const loadStatus = () => {
+// One status request shared by every form on the page. The answer belongs to
+// the training-mode epoch it was asked in: training mode answers "not
+// available", which must not stick once real data is back (and the other way).
+let statusCache = null;
+export const loadStatus = () => {
+  const epoch = demoEpoch();
   // Shown only when the server says document reading (AI) is on.
-  if (!statusPromise) statusPromise = getExtractStatus().then((res) => res.ok === true && res.available === true);
-  return statusPromise;
+  if (!statusCache || statusCache.epoch !== epoch) {
+    statusCache = { epoch, promise: getExtractStatus().then((res) => res.ok === true && res.available === true) };
+  }
+  return statusCache.promise;
 };
 
 const warningKey = (w) => (w.startsWith("invalid_date") || w.startsWith("dates_reversed") ? "dates" : w);

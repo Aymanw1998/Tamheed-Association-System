@@ -1,7 +1,7 @@
 /* The ring around the element the guide talks about (clicks pass through it). */
 .highlight {
   position: fixed;
-  z-index: 9400;
+  z-index: 10100;
   border: 3px solid #fe9900;
   border-radius: 12px;
   box-shadow: 0 0 0 4px rgba(254, 153, 0, 0.25);
@@ -14,7 +14,7 @@
   position: fixed;
   top: 52px;
   left: 50%;
-  z-index: 9450;
+  z-index: 10150;
   transform: translateX(-50%);
   max-width: calc(100vw - 32px);
   padding: 6px 16px;

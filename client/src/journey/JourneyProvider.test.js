@@ -8,6 +8,9 @@ import { demoEpoch, isDemo, stopDemo } from "./demoMode";
 import { CHAPTERS as mockChapters } from "./chapters";
 import { confirmLeave } from "../utils/unsavedChanges";
 import { loadTourState, saveTour } from "../WebServer/services/tours/functionsTours";
+import { ConfirmProvider } from "../Components/Provides/ConfirmContext";
+import { ask } from "../Components/Provides/confirmBus";
+import { toast } from "../ALERT/SystemToasts";
 
 // Jest 27 (CRA 5) ignores package "exports", so react-router-dom 7 cannot load
 // its "react-router/dom" entry; the hooks and MemoryRouter come from react-router
@@ -21,6 +24,7 @@ jest.mock("react-router-dom", () => {
 
 jest.mock("../WebServer/services/tours/functionsTours", () => ({ loadTourState: jest.fn(), saveTour: jest.fn() }));
 jest.mock("../utils/unsavedChanges", () => ({ confirmLeave: jest.fn() }));
+jest.mock("../ALERT/SystemToasts", () => ({ toast: { warn: jest.fn(), info: jest.fn(), success: jest.fn(), error: jest.fn() } }));
 
 // The real chapter list, plus test chapters some tests add.
 jest.mock("./chapters", () => ({ CHAPTERS: [] }));
@@ -345,6 +349,9 @@ test("a chapter none of whose targets showed is not saved as done", async () => 
   expect(saveTour).not.toHaveBeenCalledWith("journey-missing", "done", 1);
   expect(api.running).toBe(false);
   expect(isDemo()).toBe(false);
+  // Not a silent stop: a short notice names the chapter.
+  expect(toast.warn).toHaveBeenCalledTimes(1);
+  expect(toast.warn.mock.calls[0][0]).toContain("تعذّر عرض فصل «فصل بلا عناصر»");
 });
 
 test("single-chapter mode ends after that chapter instead of going on", async () => {
@@ -391,4 +398,74 @@ test("printable keys and Enter on the page are blocked while running", async () 
   input.dispatchEvent(typed);
   expect(typed.defaultPrevented).toBe(true);
   input.remove();
+});
+
+// The confirm dialog lives at the app root, outside the screens training mode remounts.
+async function mountConfirm() {
+  const box = document.createElement("div");
+  document.body.appendChild(box);
+  const confirmRoot = createRoot(box);
+  await act(async () => confirmRoot.render(<ConfirmProvider><div /></ConfirmProvider>));
+  return {
+    open: () => box.querySelector('[role="dialog"]'),
+    remove: async () => {
+      await act(async () => confirmRoot.unmount());
+      box.remove();
+    },
+  };
+}
+
+test("skipping a chapter cancels a confirm dialog it left open (never confirmed later)", async () => {
+  jest.spyOn(console, "log").mockImplementation(() => {});
+  mockChapters.push(NAV_CHAPTER);
+  const dialog = await mountConfirm();
+  await mount();
+  await act(async () => {
+    await api.startJourney("journey-intro");
+  });
+  let answer;
+  await act(async () => {
+    answer = ask("delete");
+  });
+  expect(dialog.open()).not.toBeNull();
+  await act(async () => {
+    button("تخطّي الفصل").click();
+  });
+  // Still in training mode, on the next chapter: the skip itself closed it.
+  expect(api.currentChapterId).toBe("journey-nav");
+  expect(isDemo()).toBe(true);
+  await expect(answer).resolves.toBe(false);
+  expect(dialog.open()).toBeNull();
+  await dialog.remove();
+  console.log.mockRestore();
+});
+
+test("pausing cancels an open confirm dialog", async () => {
+  jest.spyOn(console, "log").mockImplementation(() => {});
+  const dialog = await mountConfirm();
+  await mount();
+  await act(async () => {
+    await api.startJourney();
+  });
+  let answer;
+  await act(async () => {
+    answer = ask("delete");
+  });
+  await act(async () => {
+    button("إيقاف").click();
+  });
+  expect(api.running).toBe(false);
+  await expect(answer).resolves.toBe(false);
+  expect(dialog.open()).toBeNull();
+  await dialog.remove();
+  console.log.mockRestore();
+});
+
+test("answering the offer card (later, skip or start) sets offerAnswered", async () => {
+  await mount();
+  expect(api.offerAnswered).toBe(false);
+  await act(async () => {
+    button("لاحقًا").click();
+  });
+  expect(api.offerAnswered).toBe(true);
 });

@@ -4,7 +4,8 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useI18n } from "../i18n/I18nContext";
 import { useJourney } from "../journey/JourneyProvider";
 import { CHAPTERS } from "../journey/chapters";
-import { availableChapters, screenChapter } from "../journey/journeyLogic";
+import { availableChapters, INTRO_ID, screenChapter } from "../journey/journeyLogic";
+import { isDemo } from "../journey/demoMode";
 import { getStoredPermissions, getStoredUserId } from "../utils/session";
 import { canAccessPath } from "../utils/routeAccess";
 import { confirmLeave } from "../utils/unsavedChanges";
@@ -67,7 +68,7 @@ export function TourProvider({ children }) {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const journey = useJourney();
-  const { offer, startJourney, running, settled, offering } = journey;
+  const { offer, startJourney, running, settled, offering, offerAnswered } = journey;
 
   const [phase, setPhase] = useState("loading"); // loading | off | ready
   const [state, setState] = useState(null);
@@ -116,9 +117,10 @@ export function TourProvider({ children }) {
 
   const popQueue = useCallback(() => setQueue((q) => q.slice(1)), []);
 
-  // Visiting a section marks its keys as known (ends its "new" state).
+  // Visiting a section marks its keys as known (ends its "new" state). Pages
+  // the journey opens in training mode do not count.
   useEffect(() => {
-    if (phase !== "ready") return;
+    if (phase !== "ready" || isDemo()) return;
     const keys = unknownSectionKeys(sectionOfPath(pathname), getStoredPermissions(), stateRef.current?.knownKeys);
     if (!keys.length) return;
     saveKnownKeys(keys);
@@ -171,6 +173,16 @@ export function TourProvider({ children }) {
     saveSeenReleases(ids);
     setState((s) => (s ? { ...s, seenReleases: [...(s.seenReleases || []), ...ids] } : s));
   }, []);
+
+  // Once the journey's offer card is answered (start, later or skip), the
+  // journey's own release counts as seen: "what's new" must not offer it next.
+  useEffect(() => {
+    if (phase !== "ready" || !offerAnswered) return;
+    const intro = RELEASES.filter((r) => r.tourId === INTRO_ID);
+    if (!intro.length) return;
+    markSeen(intro);
+    setStartup((s) => ({ ...s, releases: s.releases.filter((r) => r.tourId !== INTRO_ID) }));
+  }, [phase, offerAnswered, markSeen]);
 
   const manualReleases = whatsNewOpen ? helpReleases(state?.seenReleases, permissions) : [];
   const startupReleasesOpen = head === "releases";

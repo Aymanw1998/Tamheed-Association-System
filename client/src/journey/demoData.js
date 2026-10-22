@@ -325,12 +325,12 @@ export function createDemoStore({ meId = null, meTz = null, role = null, permiss
   ];
 
   const files = [
-    { name: "مستندات الدروس", path: "مستندات الدروس", isDirectory: true },
-    { name: "صور الأنشطة", path: "صور الأنشطة", isDirectory: true },
+    { name: "مستندات الدروس (تجريبي)", path: "مستندات الدروس (تجريبي)", isDirectory: true },
+    { name: "صور الأنشطة (تجريبي)", path: "صور الأنشطة (تجريبي)", isDirectory: true },
     { name: "جدول-الأنشطة.pdf", path: "جدول-الأنشطة.pdf", size: 240000, mimeType: "application/pdf" },
-    { name: "قائمة-الطلاب.xlsx", path: "مستندات الدروس/قائمة-الطلاب.xlsx", size: 18000, mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
-    { name: "دليل-السلامة.pdf", path: "مستندات الدروس/دليل-السلامة.pdf", size: 530000, mimeType: "application/pdf" },
-    { name: "نشاط-رياضي.jpg", path: "صور الأنشطة/نشاط-رياضي.jpg", size: 860000, mimeType: "image/jpeg" },
+    { name: "قائمة-الطلاب.xlsx", path: "مستندات الدروس (تجريبي)/قائمة-الطلاب.xlsx", size: 18000, mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
+    { name: "دليل-السلامة.pdf", path: "مستندات الدروس (تجريبي)/دليل-السلامة.pdf", size: 530000, mimeType: "application/pdf" },
+    { name: "نشاط-رياضي.jpg", path: "صور الأنشطة (تجريبي)/نشاط-رياضي.jpg", size: 860000, mimeType: "image/jpeg" },
   ].map((file, i) => ({
     ...file,
     filename: file.path,

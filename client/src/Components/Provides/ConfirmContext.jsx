@@ -1,6 +1,7 @@
 import React, { useEffect, createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
 import './ConfirmContext.css';
-import { setGlobalAsk } from './confirmBus';
+import { setGlobalAsk, setGlobalCancel } from './confirmBus';
+import { subscribeDemo } from '../../journey/demoMode';
 
 const ConfirmCtx = createContext(null);
 
@@ -19,6 +20,8 @@ export function ConfirmProvider({ children }) {
 
   const confirm = useCallback((options = {}) => {
     return new Promise((resolve) => {
+      // A newer question replaces an unanswered one, which counts as cancelled.
+      if (resolverRef.current) resolverRef.current(false);
       resolverRef.current = resolve;
       setState((s) => ({
         open: true,
@@ -30,8 +33,20 @@ export function ConfirmProvider({ children }) {
   const close = useCallback((answer) => {
     if (resolverRef.current) resolverRef.current(!!answer);
     resolverRef.current = null;
-    setState((s) => ({ ...s, open: false }));
+    setState((s) => (s.open ? { ...s, open: false } : s));
   }, []);
+
+  // Training mode starting or stopping (the journey paused or ended) cancels an
+  // open dialog: its focused confirm button must never act on the other mode's
+  // data. cancelOpenConfirm() (confirmBus) does the same on demand.
+  useEffect(() => {
+    setGlobalCancel(() => close(false));
+    const unsubscribe = subscribeDemo(() => close(false));
+    return () => {
+      unsubscribe();
+      setGlobalCancel(null);
+    };
+  }, [close]);
 
   // ملاحظة عربية
   useEffect(() => {

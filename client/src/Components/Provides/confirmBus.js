@@ -1,5 +1,6 @@
 // ملاحظة عربية
 let _askImpl = null;
+let _cancelImpl = null;
 
 // ملاحظة عربية
 const PRESETS = {
@@ -13,6 +14,17 @@ const PRESETS = {
 export function setGlobalAsk(fn /* (options) => Promise<boolean> */) {
   _askImpl = typeof fn === 'function' ? fn : null;
 
+}
+
+// Closes the open confirm dialog (if any) as if «إلغاء» was pressed: its
+// promise resolves false. The guided journey calls it when it leaves a
+// chapter, so a dialog it opened never outlives that chapter.
+export function setGlobalCancel(fn) {
+  _cancelImpl = typeof fn === 'function' ? fn : null;
+}
+
+export function cancelOpenConfirm() {
+  if (typeof _cancelImpl === 'function') _cancelImpl();
 }
 
 /**
