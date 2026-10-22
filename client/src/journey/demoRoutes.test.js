@@ -21,7 +21,12 @@ jest.mock("../WebServer/services/api", () => {
 });
 
 import api from "../WebServer/services/api";
-import { createDemoStore } from "./demoData";
+import { createDemoStore, demoUploadFile, DEMO_UPLOAD_NAME } from "./demoData";
+import { ALL_KEYS } from "../utils/permissionKeys";
+
+// What a demo administrator holds (the server's role defaults for «ادارة»).
+const ADMIN_KEYS = ALL_KEYS.filter((key) => /^(dashboard|calendar|students|lessons|attendance|reports|vehicles|files|notices|ai)\./.test(key))
+  .concat(["users.view", "users.create", "users.edit", "users.approve", "users.delete"]);
 import { handleDemoRequest } from "./demoRoutes";
 import * as Students from "../WebServer/services/student/functionsStudent";
 import * as Lessons from "../WebServer/services/lesson/functionsLesson";
@@ -166,14 +171,15 @@ test("a vehicle document downloads as a demo blob", () => {
   expect(res.data).toBeInstanceOf(Blob);
 });
 
+const ok = (res) => {
+  expect(res.ok).toBe(true);
+  return res;
+};
+
 describe("demo responses match service shapes", () => {
   const defined = (value) => {
     expect(value).not.toBeUndefined();
     expect(value).not.toBeNull();
-  };
-  const ok = (res) => {
-    expect(res.ok).toBe(true);
-    return res;
   };
 
   test("students", async () => {
@@ -308,4 +314,99 @@ test("approving the waiting account gives it a role and makes it active", () => 
   expect(res.status).toBe(200);
   expect(waiting.room).toBe("active");
   expect(waiting.role).toBe("مساعد");
+});
+
+describe("chapters 7-13: every save the guide makes succeeds in the demo store", () => {
+  beforeEach(() => {
+    jest.spyOn(console, "info").mockImplementation(() => {});
+    jest.spyOn(console, "warn").mockImplementation(() => {});
+  });
+
+  test("files: the guide's synthetic file uploads through the service into the store", async () => {
+    const res = await Storage.uploadStorageFileAuto(demoUploadFile(), "", "");
+    expect(res.ok).toBe(true);
+    const root = await Storage.getStorageEntries("");
+    const uploaded = root.files.find((f) => f.name === DEMO_UPLOAD_NAME);
+    expect(uploaded).toBeDefined();
+    expect(uploaded.size).toBe(demoUploadFile().size);
+  });
+
+  test("files: the chunked upload endpoints are answered by the store", async () => {
+    const file = new File(["demo"], "ملف-كبير.pdf", { type: "application/pdf" });
+    const res = await Storage.uploadLargeStorageFile(file, "مستندات الدروس", "");
+    expect(res.ok).toBe(true);
+    const folder = await Storage.getStorageEntries("مستندات الدروس");
+    expect(folder.files.some((f) => f.name === "ملف-كبير.pdf")).toBe(true);
+    expect(store.uploads).toEqual({});
+  });
+
+  test("files: an upload status for an unknown upload asks for every chunk, and cancel forgets it", async () => {
+    const status = await Storage.getStorageUploadStatus("u-unknown");
+    expect(status.ok).toBe(true);
+    expect(status.receivedChunks).toEqual([]);
+    call("post", "/storage/upload-chunk", { data: { uploadId: "u-1", chunkIndex: "0", totalChunks: "2", fileName: "أ.pdf", path: "" } });
+    expect(call("get", "/storage/upload-status", { params: { uploadId: "u-1" } }).data).toMatchObject({ totalChunks: 2, receivedChunks: [0], missingChunks: [1] });
+    expect((await Storage.cancelStorageUpload("u-1")).ok).toBe(true);
+    expect(store.uploads["u-1"]).toBeUndefined();
+  });
+
+  test("files: sharing a folder is saved, shown, and can be undone", async () => {
+    await Storage.createStorageFolder({ path: "", name: "أنشطة الصيف" });
+    const folder = (await Storage.getStorageEntries("")).folders.find((f) => f.name === "أنشطة الصيف");
+    const target = store.users[1];
+    expect((await Storage.shareStorageEntry(folder, target.tz, "write")).ok).toBe(true);
+    const status = await Storage.getStorageShareStatus(folder);
+    expect(status.sharedWith).toEqual([expect.objectContaining({ tz: target.tz, role: "write" })]);
+    expect((await Storage.getStorageShareStatus({ path: "صور الأنشطة" })).sharedWith).toEqual([]);
+    expect((await Storage.unshareStorageEntry(folder, target.tz)).ok).toBe(true);
+    expect((await Storage.getStorageShareStatus(folder)).sharedWith).toEqual([]);
+  });
+
+  test("files: sharing something that does not exist is refused", () => {
+    expect(call("post", "/storage/share", { data: { relativePath: "لا-يوجد", targetTz: store.users[1].tz, role: "read" } }).status).toBe(404);
+  });
+
+  test("users: the permissions tab gets the role defaults and what the manager may grant", async () => {
+    store = createDemoStore({ meId: "me-1", meTz: "me-tz", role: "ادارة", permissions: [...ADMIN_KEYS, "permissions.manage"] });
+    const target = store.users.find((u) => u.role === "مساعد");
+    const res = ok(await Users.getUserPermissions(target.tz));
+    expect(res.defaults).toEqual(expect.arrayContaining(["students.view", "files.use"]));
+    expect(res.defaults).not.toContain("students.create");
+    expect(res.effective).toEqual(res.defaults);
+    expect(res.grantable).toContain("students.create");
+    expect(res.grantable).not.toContain("permissions.manage");
+    expect(res.grantable).not.toContain("users.changeRole");
+  });
+
+  test("users: a grant then a revoke are saved and change the effective permissions", async () => {
+    store = createDemoStore({ meId: "me-1", meTz: "me-tz", role: "ادارة", permissions: [...ADMIN_KEYS, "permissions.manage"] });
+    const target = store.users.find((u) => u.role === "مساعد");
+    const granted = ok(await Users.saveUserPermissions(target.tz, { grants: ["students.create"], revokes: [] }));
+    expect(granted.effective).toContain("students.create");
+    expect(granted.updatedAt).toBeTruthy();
+    expect(ok(await Users.getUserPermissions(target.tz)).grants).toEqual(["students.create"]);
+    const revoked = ok(await Users.saveUserPermissions(target.tz, { grants: [], revokes: [] }));
+    expect(revoked.effective).not.toContain("students.create");
+  });
+
+  test("users: nobody grants their own permissions, and a non-manager grants nothing", async () => {
+    store = createDemoStore({ meId: "me-1", meTz: "me-tz", role: "ادارة", permissions: [...ADMIN_KEYS, "permissions.manage"] });
+    const me = store.users.find((u) => u._id === "me-1");
+    expect(ok(await Users.getUserPermissions(me.tz)).grantable).toEqual([]);
+    store = createDemoStore({ meId: "me-2", role: "مرشد", permissions: ["students.view"] });
+    const other = store.users.find((u) => u.role === "مساعد");
+    expect(ok(await Users.getUserPermissions(other.tz)).grantable).toEqual([]);
+  });
+
+  test("users: a role change is saved; a demotion clears grants and revokes", async () => {
+    const target = store.users.find((u) => u.role === "مرشد");
+    target.permissionGrants = ["students.create"];
+    const up = ok(await Users.changeUserRole(target.tz, "ادارة"));
+    expect(up.demoted).toBe(false);
+    expect(target.permissionGrants).toEqual(["students.create"]);
+    const down = ok(await Users.changeUserRole(target.tz, "مساعد"));
+    expect(down.demoted).toBe(true);
+    expect(target.role).toBe("مساعد");
+    expect(target.permissionGrants).toEqual([]);
+  });
 });

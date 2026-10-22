@@ -41,6 +41,7 @@ export async function showDemoDocument(blob, name) {
   const closeBtn = document.createElement("button");
   closeBtn.type = "button";
   closeBtn.textContent = "إغلاق";
+  closeBtn.setAttribute("data-tour", "demo-document-close");
   Object.assign(closeBtn.style, {
     border: "0", borderRadius: "8px", padding: "8px 16px", cursor: "pointer", fontWeight: "700",
     background: "#164d63", color: "#fff", fontFamily: "inherit", fontSize: "15px",

@@ -138,19 +138,19 @@ export default function NoticesBoard() {
       <form className={styles.form} data-tour="notices-publish" onSubmit={publish} noValidate>
         <h2>{t("notices.newTitle")}</h2>
         <label>{t("notices.f.title")}
-          <input value={draft.title} maxLength={120} required onChange={(e) => setDraft({ ...draft, title: e.target.value })} />
+          <input data-tour="notices-title" value={draft.title} maxLength={120} required onChange={(e) => setDraft({ ...draft, title: e.target.value })} />
           {errors.title && <span role="alert">{errors.title}</span>}
         </label>
         <label>{t("notices.f.body")}
-          <textarea value={draft.body} maxLength={2000} rows={3} onChange={(e) => setDraft({ ...draft, body: e.target.value })} />
+          <textarea data-tour="notices-body" value={draft.body} maxLength={2000} rows={3} onChange={(e) => setDraft({ ...draft, body: e.target.value })} />
           {errors.body && <span role="alert">{errors.body}</span>}
         </label>
         <label>{t("notices.f.severity")}
-          <select value={draft.severity} onChange={(e) => setDraft({ ...draft, severity: e.target.value })}>
+          <select data-tour="notices-severity" value={draft.severity} onChange={(e) => setDraft({ ...draft, severity: e.target.value })}>
             {["info", "important", "critical"].map((s) => <option key={s} value={s}>{t(`notices.severity.${s}`)}</option>)}
           </select>
         </label>
-        <Button type="submit" loading={busy === "publish"}>{t("notices.publish")}</Button>
+        <Button type="submit" data-tour="notices-submit" loading={busy === "publish"}>{t("notices.publish")}</Button>
       </form>
     </section>
   );

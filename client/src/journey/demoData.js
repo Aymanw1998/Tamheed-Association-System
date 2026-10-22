@@ -163,28 +163,44 @@ function makeAttendance(lessons, todayStr, todayDay) {
   return rows;
 }
 
-export function createDemoStore({ meId = null, meTz = null, role = null } = {}) {
+// The file the guide «chooses» in the files chapter: built in memory, so the
+// real file picker never opens. Uploading it writes only to the demo store.
+export const DEMO_UPLOAD_NAME = "خطة-الأسبوع.pdf";
+export const demoUploadFile = () => new File(["demo"], DEMO_UPLOAD_NAME, { type: "application/pdf" });
+
+export function createDemoStore({ meId = null, meTz = null, role = null, permissions = [], isSystem = false } = {}) {
   const nowDate = new Date();
   const now = nowDate.toISOString();
   const today = todayYmd(nowDate);
-  const me = { id: meId ? String(meId) : null, tz: meTz ? String(meTz) : null, role };
+  // The signed-in user's own permissions decide what the permissions tab may grant.
+  const me = {
+    id: meId ? String(meId) : null,
+    tz: meTz ? String(meTz) : null,
+    role,
+    permissions: Array.isArray(permissions) ? permissions.filter((key) => typeof key === "string") : [],
+    isSystem: isSystem === true,
+  };
 
   const users = makeUsers(now, me);
   const [admin, guide, assistant] = users;
-  // A new account waiting for approval: the dashboard chapter approves it.
-  users.push({
+  // New accounts waiting for approval: the dashboard chapter approves one and
+  // the users chapter the other, so each still has one when run alone.
+  [
+    { n: 4, firstname: "هادي", lastname: LAST, gender: "ذكر" },
+    { n: 5, firstname: "وفاء", lastname: LAST_F, gender: "انثى" },
+  ].forEach(({ n, firstname, lastname, gender }) => users.push({
     ...assistant,
-    _id: demoId(1, 4),
-    tz: invalidIsraeliId("99900004"),
-    firstname: "هادي",
-    lastname: LAST,
-    gender: "ذكر",
-    phone: phone(4),
-    email: "demo.user4@example.com",
+    _id: demoId(1, n),
+    tz: invalidIsraeliId(`9990000${n}`),
+    firstname,
+    lastname,
+    gender,
+    phone: phone(n),
+    email: `demo.user${n}@example.com`,
     roles: [],
     role: null,
     room: "waiting",
-  });
+  }));
   const students = makeStudents(now, guide._id);
   const lessons = makeLessons(now, nowDate, { guide: guide._id, assistant: assistant._id }, students);
   const attendance = makeAttendance(lessons, today, dayOf(nowDate));
@@ -311,7 +327,7 @@ export function createDemoStore({ meId = null, meTz = null, role = null } = {}) 
   const files = [
     { name: "مستندات الدروس", path: "مستندات الدروس", isDirectory: true },
     { name: "صور الأنشطة", path: "صور الأنشطة", isDirectory: true },
-    { name: "خطة-الأسبوع.pdf", path: "خطة-الأسبوع.pdf", size: 240000, mimeType: "application/pdf" },
+    { name: "جدول-الأنشطة.pdf", path: "جدول-الأنشطة.pdf", size: 240000, mimeType: "application/pdf" },
     { name: "قائمة-الطلاب.xlsx", path: "مستندات الدروس/قائمة-الطلاب.xlsx", size: 18000, mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
     { name: "دليل-السلامة.pdf", path: "مستندات الدروس/دليل-السلامة.pdf", size: 530000, mimeType: "application/pdf" },
     { name: "نشاط-رياضي.jpg", path: "صور الأنشطة/نشاط-رياضي.jpg", size: 860000, mimeType: "image/jpeg" },
@@ -397,6 +413,10 @@ export function createDemoStore({ meId = null, meTz = null, role = null } = {}) 
     vehicles,
     vehicleAudit,
     files,
+    // Who each file or folder is shared with: { path, tz, role, name }.
+    shares: [],
+    // Chunked uploads in progress, by upload id.
+    uploads: {},
     notices,
     audit,
     alerts,

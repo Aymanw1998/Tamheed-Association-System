@@ -1,4 +1,4 @@
-import { createDemoStore } from "./demoData";
+import { createDemoStore, demoUploadFile, DEMO_UPLOAD_NAME } from "./demoData";
 import { isValidIsraeliId } from "../utils/israeliId";
 
 const ARABIC = /[؀-ۿ]/;
@@ -74,10 +74,29 @@ test("the signed-in user's id replaces the demo user of the same role", () => {
   expect(isValidIsraeliId(guide.tz)).toBe(false);
 });
 
-test("one account waits for approval, with no role yet (dashboard chapter)", () => {
+test("two accounts wait for approval with no role yet (dashboard and users chapters)", () => {
   const store = createDemoStore({ meId: "me-1", role: null });
   const waiting = store.users.filter((u) => u.room === "waiting");
-  expect(waiting).toHaveLength(1);
-  expect(waiting[0].role).toBeNull();
-  expect(waiting[0]._id).not.toBe("me-1");
+  expect(waiting).toHaveLength(2);
+  waiting.forEach((user) => {
+    expect(user.role).toBeNull();
+    expect(user._id).not.toBe("me-1");
+  });
+});
+
+test("the store remembers the signed-in user's permissions, starts with no shares or uploads", () => {
+  const store = createDemoStore({ meId: "me-1", role: "ادارة", permissions: ["users.view"], isSystem: false });
+  expect(store.me.permissions).toEqual(["users.view"]);
+  expect(store.me.isSystem).toBe(false);
+  expect(createDemoStore().me.permissions).toEqual([]);
+  expect(store.shares).toEqual([]);
+  expect(store.uploads).toEqual({});
+});
+
+test("the guide's upload is a tiny synthetic file that is not in the store yet", () => {
+  const file = demoUploadFile();
+  expect(file).toBeInstanceOf(File);
+  expect(file.name).toBe(DEMO_UPLOAD_NAME);
+  expect(file.size).toBeLessThan(100);
+  expect(createDemoStore().files.some((f) => f.name === DEMO_UPLOAD_NAME)).toBe(false);
 });

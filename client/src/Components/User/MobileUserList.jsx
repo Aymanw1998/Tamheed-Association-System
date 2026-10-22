@@ -29,10 +29,11 @@ export default function MobileUserList({ users, onOpen, onPdf, onActivate, onDel
             summary={userSummary(user)}
             badge={badge ? <StatusBadge tone={badge.tone}>{badge.label}</StatusBadge> : locked && <StatusBadge tone="danger">{t("perms.locked")}</StatusBadge>}
             onOpen={badge ? undefined : () => onOpen(user)}
+            tour={!badge && manageable ? "users-edit" : undefined}
             actions={
               badge ? (manageable && (
                 <>
-                  <Button size="sm" variant="success" onClick={() => onActivate(user)}>
+                  <Button size="sm" variant="success" data-tour={user.room === "waiting" ? "users-approve" : undefined} onClick={() => onActivate(user)}>
                     {user.room === "waiting" ? "قبول" : "تفعيل"}
                   </Button>
                   <Button size="sm" variant="danger" onClick={() => onDelete(user)}>

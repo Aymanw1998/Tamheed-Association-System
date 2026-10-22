@@ -372,7 +372,7 @@ const ViewAllUser = () => {
 
                       {user.room === "waiting" && canManage(user) && (
                         <>
-                          <Button size="sm" variant="success" onClick={() => onWaitingToActive(user)}>
+                          <Button size="sm" variant="success" data-tour="users-approve" onClick={() => onWaitingToActive(user)}>
                             قبول
                           </Button>
                           <Button size="sm" variant="danger" onClick={() => handleDeleteUser(user, "waiting")}>

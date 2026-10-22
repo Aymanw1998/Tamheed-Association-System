@@ -25,6 +25,8 @@ import { getStoredUserId } from "../../utils/session";
 import { useI18n } from "../../i18n/I18nContext";
 import { ask } from "../Provides/confirmBus";
 import DriveConnection from "./DriveConnection";
+import { isDemo } from "../../journey/demoMode";
+import { demoUploadFile } from "../../journey/demoData";
 
 const formatBytes = (bytes) => {
   if (bytes === null || bytes === undefined || Number.isNaN(Number(bytes))) return "-";
@@ -252,6 +254,8 @@ export default function FilesPage() {
   const [contextMenu, setContextMenu] = useState(null);
   const [storageStats, setStorageStats] = useState(null);
   const [uploadQueue, setUploadQueue] = useState([]);
+  // The new-folder window: null when closed, else the name being typed.
+  const [folderName, setFolderName] = useState(null);
 
   const loadShareUsers = async () => {
     setUsersLoading(true);
@@ -811,13 +815,18 @@ export default function FilesPage() {
     }
   };
 
-  const createFolder = async () => {
+  const openFolderDialog = () => {
     if (isSharedView) return;
     closeContextMenu();
+    setFolderName("");
+  };
 
-    const name = window.prompt("اسم المجلد الجديد");
-    const cleanName = name?.trim();
+  const createFolder = async (event) => {
+    event?.preventDefault?.();
+    if (isSharedView) return;
+    const cleanName = String(folderName || "").trim();
     if (!cleanName) return;
+    setFolderName(null);
 
     setError("");
     const optimisticFolder = createOptimisticFolder(cleanName, currentPath);
@@ -922,10 +931,20 @@ export default function FilesPage() {
               <button className={styles.secondaryBtn} data-tour="files-refresh" onClick={loadFiles} disabled={loading}>
                 {t("files.refresh")}
               </button>
-              <button className={styles.secondaryBtn} data-tour="files-new-folder" onClick={createFolder} disabled={loading}>
+              <button className={styles.secondaryBtn} data-tour="files-new-folder" onClick={openFolderDialog} disabled={loading}>
                 {t("files.newFolder")}
               </button>
-              <label className={styles.primaryBtn} data-tour="files-upload">
+              {/* Training mode: the guide «chooses» a demo file built in memory;
+                  the real file picker never opens. */}
+              <label
+                className={styles.primaryBtn}
+                data-tour="files-upload"
+                onClick={(event) => {
+                  if (!isDemo()) return;
+                  event.preventDefault();
+                  enqueueUploads([demoUploadFile()]);
+                }}
+              >
                 {uploading ? t("files.uploading") : t("files.uploadFile")}
                 <input
                   ref={inputRef}
@@ -1111,10 +1130,10 @@ export default function FilesPage() {
 
       {shareModalFile && (
         <div className={styles.modalOverlay} onClick={() => setShareModalFile(null)}>
-          <div className={styles.modalCard} onClick={(event) => event.stopPropagation()}>
+          <div className={styles.modalCard} data-tour="files-share-dialog" onClick={(event) => event.stopPropagation()}>
             <div className={styles.modalHeader}>
               <h3>{t("files.share")}</h3>
-              <button className={styles.modalClose} onClick={() => setShareModalFile(null)}>×</button>
+              <button className={styles.modalClose} data-tour="files-share-close" onClick={() => setShareModalFile(null)}>×</button>
             </div>
             <p className={styles.modalHint}>
               اختر المستخدم المطلوب وحدد صلاحية المشاركة للعنصر: {getDisplayName(shareModalFile)}
@@ -1128,6 +1147,7 @@ export default function FilesPage() {
               />
               <select
                 className={styles.roleSelect}
+                data-tour="files-share-role"
                 value={shareRole}
                 onChange={(event) => setShareRole(event.target.value)}
               >
@@ -1141,10 +1161,11 @@ export default function FilesPage() {
               {!usersLoading && !filteredUsers.length && (
                 <div className={styles.empty}>لا يوجد مستخدمون مطابقون</div>
               )}
-              {!usersLoading && filteredUsers.map((user) => (
+              {!usersLoading && filteredUsers.map((user, index) => (
                 <button
                   key={user._id || user.tz}
                   className={styles.userOption}
+                  data-tour={index === 0 ? "files-share-user" : undefined}
                   onClick={() => submitShareToUser(user)}
                 >
                   <span>
@@ -1161,6 +1182,45 @@ export default function FilesPage() {
               ))}
             </div>
           </div>
+        </div>
+      )}
+
+      {folderName !== null && (
+        <div className={styles.modalOverlay} onClick={() => setFolderName(null)}>
+          <form
+            className={styles.modalCard}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="files-folder-title"
+            data-tour="files-folder-dialog"
+            onClick={(event) => event.stopPropagation()}
+            onSubmit={createFolder}
+          >
+            <div className={styles.modalHeader}>
+              <h3 id="files-folder-title">{t("files.newFolder")}</h3>
+              <button type="button" className={styles.modalClose} aria-label="إغلاق" onClick={() => setFolderName(null)}>×</button>
+            </div>
+            <label className={styles.modalHint} htmlFor="files-folder-name">اسم المجلد الجديد</label>
+            <input
+              id="files-folder-name"
+              className={styles.searchInput}
+              data-tour="files-folder-name"
+              value={folderName}
+              maxLength={100}
+              autoFocus
+              autoComplete="off"
+              onChange={(event) => setFolderName(event.target.value)}
+              onKeyDown={(event) => event.key === "Escape" && setFolderName(null)}
+            />
+            <div className={styles.modalControls}>
+              <button type="submit" className={styles.primaryBtn} data-tour="files-folder-create" disabled={!folderName.trim()}>
+                إنشاء المجلد
+              </button>
+              <button type="button" className={styles.secondaryBtn} onClick={() => setFolderName(null)}>
+                إلغاء
+              </button>
+            </div>
+          </form>
         </div>
       )}
 

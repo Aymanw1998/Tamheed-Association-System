@@ -5,6 +5,8 @@
 // (the adapter then answers an empty GET or blocks the write).
 
 import { demoId } from "./demoData";
+import { ALL_KEYS, hasPermission } from "../utils/permissionKeys";
+import { effectiveOf, expandKeys } from "../utils/permissionTree";
 
 // Requests that still go to the real server during training, matched exactly
 // against "METHOD /path" (case-insensitive): the journey's own progress (never
@@ -256,6 +258,47 @@ const withFolderSize = (store, entry) =>
     ? { ...entry, size: store.files.filter((f) => !f.isDirectory && f.path.startsWith(`${entry.path}/`)).reduce((s, f) => s + (f.size || 0), 0) }
     : entry;
 
+// ------------------------------------------------------------------ permissions
+// A copy of ROLE_DEFAULTS, ROLE_RANK and DANGEROUS_KEYS in
+// server/utils/permissions.js and of grantableBy in server/utils/permissionRules.js.
+
+const ROLE_DEFAULTS = {
+  "ادارة": ["dashboard", "calendar", "students", "lessons", "attendance", "reports", "vehicles",
+    "files", "notices", "users.view", "users.create", "users.edit", "users.approve",
+    "users.delete", "ai"],
+  "مرشد": ["dashboard", "calendar", "students.view", "students.edit", "students.photo",
+    "lessons.view", "lessons.create", "lessons.edit", "lessons.roster",
+    "attendance", "reports.create", "reports.editOwn", "reports.exportPdf",
+    "files.use", "ai"],
+  "مساعد": ["dashboard", "calendar", "students.view", "lessons.view", "attendance.view",
+    "reports.create", "reports.editOwn", "reports.exportPdf", "files.use", "ai"],
+};
+const ROLE_RANK = { "ادارة": 3, "مرشد": 2, "مساعد": 1 };
+const DANGEROUS_KEYS = new Set([
+  "users.changeRole", "users.passwords", "users.unlock",
+  "permissions.manage", "audit.view", "systemRecovery.reset",
+]);
+
+const roleDefaults = (role) => expandKeys(ROLE_DEFAULTS[role] || []);
+
+const isMe = (store, user) => same(user._id, store.me?.id) || same(user.tz, store.me?.tz);
+
+// What the signed-in user may grant to this user: nothing to oneself.
+const grantableFor = (store, user) => {
+  if (isMe(store, user)) return [];
+  if (store.me?.isSystem) return [...ALL_KEYS];
+  const mine = store.me?.permissions || [];
+  if (!hasPermission(mine, "permissions.manage")) return [];
+  return expandKeys(mine).filter((key) => !DANGEROUS_KEYS.has(key));
+};
+
+const permissionView = (user) => {
+  const defaults = roleDefaults(user.role);
+  const grants = user.permissionGrants || [];
+  const revokes = user.permissionRevokes || [];
+  return { defaults, grants, revokes, effective: effectiveOf({ defaults, grants, revokes }) };
+};
+
 // ------------------------------------------------------------------ routes
 
 const ROUTES = [];
@@ -485,11 +528,8 @@ route("get", /^\/user\/([^/]+)\/permissions$/, (s, [key]) => {
   if (!user) return notFound();
   return ok({
     role: user.role,
-    grants: user.permissionGrants || [],
-    revokes: user.permissionRevokes || [],
-    effective: [],
-    defaults: [],
-    grantable: [],
+    ...permissionView(user),
+    grantable: grantableFor(s, user),
     updatedAt: user.permissionsUpdatedAt || null,
     updatedBy: user.permissionsUpdatedBy || null,
   });
@@ -497,16 +537,27 @@ route("get", /^\/user\/([^/]+)\/permissions$/, (s, [key]) => {
 route("put", /^\/user\/([^/]+)\/permissions$/, (s, [key], { body }) => {
   const user = findUser(s, key);
   if (!user) return notFound();
-  Object.assign(user, { permissionGrants: body.grants || [], permissionRevokes: body.revokes || [], permissionsUpdatedAt: nowIso() });
-  recordAudit(s, { module: "users", action: "update", targetType: "user", targetId: user.tz, targetLabel: fullName(user) });
-  return ok({ grants: user.permissionGrants, revokes: user.permissionRevokes });
+  const list = (value) => (Array.isArray(value) ? [...new Set(value.map(String))] : []);
+  Object.assign(user, {
+    permissionGrants: list(body.grants),
+    permissionRevokes: list(body.revokes),
+    permissionsUpdatedAt: nowIso(),
+    permissionsUpdatedBy: fullName(actorOf(s)),
+  });
+  recordAudit(s, { module: "users", action: "permission_change", targetType: "user", targetId: user.tz, targetLabel: fullName(user) });
+  const { grants, revokes, effective } = permissionView(user);
+  return ok({ grants, revokes, effective, updatedAt: user.permissionsUpdatedAt, updatedBy: user.permissionsUpdatedBy });
 });
+// A demotion clears the user's special permissions, as on the server.
 route("put", /^\/user\/([^/]+)\/role$/, (s, [key], { body }) => {
   const user = findUser(s, key);
   if (!user) return notFound();
+  if (!ROLE_RANK[body.role]) return fail(400, "دور غير معروف", { code: "UNKNOWN_ROLE" });
+  const demoted = Boolean(ROLE_RANK[user.role]) && ROLE_RANK[body.role] < ROLE_RANK[user.role];
   Object.assign(user, { role: body.role, roles: [body.role] });
-  recordAudit(s, { module: "users", action: "update", targetType: "user", targetId: user.tz, targetLabel: fullName(user) });
-  return ok({ role: body.role, demoted: false });
+  if (demoted) Object.assign(user, { permissionGrants: [], permissionRevokes: [] });
+  recordAudit(s, { module: "users", action: "role_change", targetType: "user", targetId: user.tz, targetLabel: fullName(user) });
+  return ok({ role: body.role, demoted });
 });
 route("post", /^\/user\/([^/]+)\/unlock$/, (s, [key]) => (findUser(s, key) ? ok({}) : notFound()));
 route("get", /^\/user\/([^/]+)$/, (s, [key]) => {
@@ -762,7 +813,32 @@ route("get", /^\/storage\/stats$/, (s) => {
     displayAvailableBytes: free,
   });
 });
-route("get", /^\/storage\/share-status$/, () => ok({ sharedWith: [] }));
+route("get", /^\/storage\/share-status$/, (s, _, { params }) => {
+  const path = trim(params.relativePath);
+  return ok({
+    sharedWith: (s.shares || []).filter((share) => share.path === path).map(({ tz, role, name }) => ({ tz, role, name })),
+  });
+});
+route("post", /^\/storage\/share$/, (s, _, { body }) => {
+  const path = trim(body.relativePath);
+  const tz = String(body.targetTz || "").trim();
+  if (!path || !tz) return fail(400, "اختر عنصرًا ومستخدمًا");
+  if (!s.files.some((f) => f.path === path)) return fail(404, "الملف غير موجود");
+  const user = s.users.find((u) => same(u.tz, tz));
+  if (!user) return fail(404, "المستخدم غير موجود");
+  const role = ["read", "write", "manage"].includes(body.role) ? body.role : "read";
+  s.shares = (s.shares || []).filter((share) => !(share.path === path && share.tz === tz))
+    .concat({ path, tz, role, name: fullName(user), sharedAt: nowIso() });
+  recordAudit(s, { module: "storage", action: "share", targetType: body.isDirectory ? "folder" : "file", targetId: path, targetLabel: body.name || path });
+  return ok({ success: true, role });
+});
+route("post", /^\/storage\/unshare$/, (s, _, { body }) => {
+  const path = trim(body.relativePath);
+  const tz = String(body.targetTz || "").trim();
+  s.shares = (s.shares || []).filter((share) => !(share.path === path && share.tz === tz));
+  recordAudit(s, { module: "storage", action: "unshare", targetType: "file", targetId: path, targetLabel: path });
+  return ok({ success: true });
+});
 route("get", /^\/storage\/google\/status$/, () => ok({ connected: false, email: "", canConnect: false }));
 route("post", /^\/storage\/folder$/, (s, _, { body }) => {
   const name = trim(body.name);
@@ -774,15 +850,55 @@ route("post", /^\/storage\/folder$/, (s, _, { body }) => {
   recordAudit(s, { module: "storage", action: "create", targetType: "folder", targetId: path, targetLabel: name });
   return ok({ success: true, folder: { ...folder, type: "folder" } }, 201);
 });
-route("post", /^\/storage\/upload$/, (s, _, { body }) => {
-  const file = body.file;
-  const name = trim(body.name) || file?.name || "ملف-تجريبي";
-  const path = joinPath(trim(body.path), name);
-  const actor = actorOf(s);
-  const entry = { name, path, filename: path, isDirectory: false, size: file?.size || 0, mimeType: file?.type || "", modifiedAt: nowIso(), ownerName: fullName(actor) };
+// Only the name and size of an uploaded file are kept; its content never is.
+const storeUpload = (s, { name, folder, size, mimeType }) => {
+  const path = joinPath(trim(folder), name);
+  const entry = { name, path, filename: path, isDirectory: false, size: Number(size) || 0, mimeType: mimeType || "", modifiedAt: nowIso(), ownerName: fullName(actorOf(s)) };
   s.files = s.files.filter((f) => f.path !== path).concat(entry);
   recordAudit(s, { module: "storage", action: "upload", targetType: "file", targetId: path, targetLabel: name });
   return ok({ success: true, filename: name, path, size: entry.size, file: entry }, 201);
+};
+route("post", /^\/storage\/upload$/, (s, _, { body }) => {
+  const file = body.file;
+  return storeUpload(s, { name: trim(body.name) || file?.name || "ملف-تجريبي", folder: body.path, size: file?.size, mimeType: file?.type });
+});
+// The chunked upload (large files): its chunks are counted, never kept.
+const uploadState = (upload) => {
+  const total = upload.totalChunks;
+  const received = [...upload.received].sort((a, b) => a - b);
+  return { totalChunks: total, receivedChunks: received, missingChunks: Array.from({ length: total }, (_, i) => i).filter((i) => !received.includes(i)) };
+};
+route("get", /^\/storage\/upload-status$/, (s, _, { params }) => {
+  const upload = (s.uploads || {})[params.uploadId];
+  if (!upload) return ok({ uploadId: params.uploadId || "", status: "missing", totalChunks: 0, receivedChunks: [], missingChunks: [] });
+  return ok({ uploadId: params.uploadId, status: "uploading", ...uploadState(upload) });
+});
+route("post", /^\/storage\/upload-chunk$/, (s, _, { body }) => {
+  const uploadId = String(body.uploadId || "");
+  const chunkIndex = Number(body.chunkIndex);
+  const totalChunks = Number(body.totalChunks);
+  if (!uploadId || !Number.isInteger(chunkIndex) || !(totalChunks > 0) || chunkIndex < 0 || chunkIndex >= totalChunks) {
+    return fail(400, "جزء غير صالح");
+  }
+  s.uploads = s.uploads || {};
+  const upload = s.uploads[uploadId] || { totalChunks, received: [], size: 0 };
+  if (!upload.received.includes(chunkIndex)) {
+    upload.received.push(chunkIndex);
+    upload.size += Number(body.chunk?.size) || 0;
+  }
+  s.uploads[uploadId] = upload;
+  return ok({ success: true, uploadId, chunkIndex, ...uploadState(upload) });
+});
+route("post", /^\/storage\/merge-chunks$/, (s, _, { body }) => {
+  const uploadId = String(body.uploadId || "");
+  const upload = (s.uploads || {})[uploadId];
+  if (!upload || upload.received.length < upload.totalChunks) return fail(400, "لم تكتمل أجزاء الملف");
+  delete s.uploads[uploadId];
+  return storeUpload(s, { name: trim(body.fileName) || "ملف-تجريبي", folder: body.path, size: body.size || upload.size, mimeType: body.mimeType });
+});
+route("post", /^\/storage\/cancel-upload$/, (s, _, { body }) => {
+  if (s.uploads) delete s.uploads[String(body.uploadId || "")];
+  return ok({ success: true });
 });
 route("delete", /^\/storage\/delete$/, (s, _, { body }) => {
   const path = trim(body.relativePath);

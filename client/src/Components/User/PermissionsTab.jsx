@@ -141,6 +141,7 @@ export default function PermissionsTab({ tz }) {
                 <span className={styles.stateText}>{t(`perms.state.${mState}`)}</span>
                 <button
                   type="button"
+                  data-tour={module === "students" ? "perms-expand-students" : undefined}
                   className={styles.expand}
                   aria-expanded={isOpen}
                   aria-label={isOpen ? t("perms.closeOps") : t("perms.openOps")}
@@ -159,6 +160,7 @@ export default function PermissionsTab({ tz }) {
                         <label title={editable && !allowed ? t("perms.notGrantable") : undefined} className={allowed ? "" : styles.disabled}>
                           <input
                             type="checkbox"
+                            data-tour={key === "students.create" ? "perms-grant-example" : undefined}
                             checked={effective.includes(key)}
                             disabled={!allowed || saving}
                             onChange={(e) => setDraft(toggleKey(state, key, e.target.checked))}
@@ -178,7 +180,7 @@ export default function PermissionsTab({ tz }) {
 
       {editable && (
         <div className={styles.actions}>
-          <Button onClick={onSave} loading={saving}>{t("perms.save")}</Button>
+          <Button data-tour="perms-save" onClick={onSave} loading={saving}>{t("perms.save")}</Button>
           <span title={hasSpecial && !canReset ? t("perms.notGrantable") : undefined}>
             <Button variant="secondary" onClick={onReset} disabled={saving || !hasSpecial || !canReset}>{t("perms.reset")}</Button>
           </span>

@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { createDemoStore } from "./demoData";
-import { getStoredRole } from "../utils/session";
+import { getStoredPermissions, getStoredRole, isStoredSystem } from "../utils/session";
 
 // Training mode: one switch, kept in memory only (never in localStorage or
 // sessionStorage), so reloading the page always returns to real data.
@@ -26,13 +26,16 @@ const notify = () => {
 };
 
 // Who is signed in (read only): the demo user of the same role takes this id,
-// so "my lessons" filters still find something.
+// so "my lessons" filters still find something; the permissions decide what
+// the demo permissions tab lets this user grant.
 const signedInHint = () => {
   try {
     return {
       meId: localStorage.getItem("user_id"),
       meTz: localStorage.getItem("user_tz"),
       role: getStoredRole(),
+      permissions: getStoredPermissions(),
+      isSystem: isStoredSystem(),
     };
   } catch {
     return {};

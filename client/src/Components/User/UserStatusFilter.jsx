@@ -79,6 +79,7 @@ export default function UserStatusFilter({
                 const selected = current === key;
                 return (
                     <button key={key} role="tab"
+                            data-tour={{ active: "users-tab-active", waiting: "users-tab-waiting" }[key]}
                             aria-selected={selected}
                             aria-controls={`${id}-${key}`}
                             onClick={()=>select(key)}

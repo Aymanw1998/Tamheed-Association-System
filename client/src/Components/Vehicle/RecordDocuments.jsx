@@ -109,7 +109,7 @@ export function DocumentRow({ vehicleId, plate, doc, canManage = false, onVehicl
       </span>
       <span className={styles.actionsRow}>
         {doc.supersededAt && <StatusBadge tone="neutral">{t("vehicles.superseded")}</StatusBadge>}
-        <Button size="sm" variant="secondary" loading={opening} onClick={() => open(false)}>{t("vehicles.view")}</Button>
+        <Button size="sm" variant="secondary" data-tour="vehicle-doc-view" loading={opening} onClick={() => open(false)}>{t("vehicles.view")}</Button>
         <Button size="sm" variant="secondary" disabled={opening} onClick={() => open(true)}>{t("vehicles.download")}</Button>
         {canManage && (
           <>

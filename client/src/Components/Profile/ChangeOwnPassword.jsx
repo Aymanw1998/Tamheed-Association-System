@@ -39,10 +39,20 @@ export default function ChangeOwnPassword() {
     }
   };
 
+  // «إلغاء» empties the form without sending anything.
+  const cancel = () => {
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setError("");
+    setShow(false);
+  };
+  const filled = Boolean(currentPassword || newPassword || confirmPassword);
+
   const field = (id, label, value, setValue, autoComplete) => (
     <>
       <label htmlFor={id}>{label}</label>
-      <input id={id} type={show ? "text" : "password"} autoComplete={autoComplete}
+      <input id={id} data-tour={{ "own-new-password": "password-new", "own-confirm-password": "password-confirm" }[id]} type={show ? "text" : "password"} autoComplete={autoComplete}
         value={value} onChange={(e) => setValue(e.target.value)} />
     </>
   );
@@ -52,7 +62,7 @@ export default function ChangeOwnPassword() {
       <legend>{t("passwordChange.ownTitle")}</legend>
       <label htmlFor="own-current-password">{t("passwordChange.current")}</label>
       <div className={styles.passwordWrapper}>
-        <input id="own-current-password" type={show ? "text" : "password"} autoComplete="current-password"
+        <input id="own-current-password" data-tour="password-current" type={show ? "text" : "password"} autoComplete="current-password"
           value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} />
         <button type="button" className={styles.togglePassword} onClick={() => setShow((v) => !v)}
           aria-label={show ? t("passwordChange.hide") : t("passwordChange.show")} aria-pressed={show}>
@@ -63,8 +73,11 @@ export default function ChangeOwnPassword() {
       {field("own-confirm-password", t("passwordChange.confirm"), confirmPassword, setConfirmPassword, "new-password")}
       <small>{t("passwordChange.hint")}</small>
       {error && <label role="alert" style={{ color: "var(--color-danger-700)" }}>{error}</label>}
-      <button type="button" onClick={submit} disabled={saving}>
+      <button type="button" data-tour="password-submit" onClick={submit} disabled={saving}>
         {saving ? "..." : t("passwordChange.submit")}
+      </button>
+      <button type="button" data-tour="password-cancel" onClick={cancel} disabled={saving || !filled}>
+        {t("passwordChange.cancel")}
       </button>
     </fieldset>
   );

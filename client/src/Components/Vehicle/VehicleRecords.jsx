@@ -196,6 +196,7 @@ function RecordForm({ kind, config, vehicleId, record, canAttach, onSaved, onCan
                 wide={field.wide}
                 step={field.step}
                 min={field.min}
+                data-tour={kind === "test" && !editing ? { testDate: "vehicle-test-date", result: "vehicle-test-result", nextTestDate: "vehicle-test-next" }[field.key] : undefined}
               />
             );
           })}
@@ -214,7 +215,7 @@ function RecordForm({ kind, config, vehicleId, record, canAttach, onSaved, onCan
         )}
       </div>
       <div className={styles.actionsRow}>
-        <Button type="submit" loading={saving}>{t("vehicles.save")}</Button>
+        <Button type="submit" data-tour={editing ? undefined : "vehicle-record-save"} loading={saving}>{t("vehicles.save")}</Button>
         <Button type="button" variant="secondary" onClick={onCancel}>{t("vehicles.cancel")}</Button>
       </div>
     </form>
@@ -299,7 +300,7 @@ function NextTestDate({ vehicle, canEdit, onVehicle }) {
   };
 
   return (
-    <div className={styles.record}>
+    <div className={styles.record} data-tour="vehicle-next-test">
       <div className={styles.recordHead}>
         <strong>{t("vehicles.f.nextTestDate")}</strong>
         <StatusBadge tone={expiryTone(status)}>{expiryText(status, t("vehicles.expiry", {}))}</StatusBadge>
@@ -366,7 +367,7 @@ export default function VehicleRecords({ kind, vehicle, canEdit, canAccessDocs, 
 
       {writable && mode === null && (
         <div className={styles.actionsRow}>
-          <Button onClick={() => setMode("add")}>{t(config.addLabel)}</Button>
+          <Button data-tour="vehicle-record-add" onClick={() => setMode("add")}>{t(config.addLabel)}</Button>
         </div>
       )}
 

@@ -31,7 +31,7 @@ export default function AuditTable({ items, studentNames, compact = false }) {
                 <td>
                   {rows.length === 0 ? "—" : (
                     <details>
-                      <summary>{fillText(t("audit.fields"), { n: rows.length })}</summary>
+                      <summary data-tour="audit-changes">{fillText(t("audit.fields"), { n: rows.length })}</summary>
                       <table className={styles.changes}>
                         <thead>
                           <tr><th>{t("audit.field")}</th><th>{t("audit.before")}</th><th>{t("audit.after")}</th></tr>

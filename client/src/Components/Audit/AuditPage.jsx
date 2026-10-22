@@ -76,7 +76,7 @@ export default function AuditPage() {
         <label>{t("audit.filters.from")}<input type="date" value={draft.from} onChange={set("from")} /></label>
         <label>{t("audit.filters.to")}<input type="date" value={draft.to} onChange={set("to")} /></label>
         <label>{t("audit.filters.module")}
-          <select value={draft.module} onChange={set("module")}>
+          <select data-tour="audit-module" value={draft.module} onChange={set("module")}>
             <option value="">{t("audit.filters.all")}</option>
             {AUDIT_MODULES.map((m) => <option key={m} value={m}>{t(`perms.modules.${m}`, m)}</option>)}
           </select>
@@ -92,7 +92,7 @@ export default function AuditPage() {
           <label>{t("audit.filters.targetId")}<input value={draft.targetId} onChange={set("targetId")} /></label>
         )}
         <label data-tour="audit-search">{t("audit.filters.q")}<input type="search" value={draft.q} maxLength={100} onChange={set("q")} /></label>
-        <Button type="submit" loading={state.loading}>{t("audit.filters.apply")}</Button>
+        <Button type="submit" data-tour="audit-apply" loading={state.loading}>{t("audit.filters.apply")}</Button>
         <Button variant="secondary" data-tour="audit-clear" onClick={clear}>{t("audit.filters.clear")}</Button>
       </form>
 

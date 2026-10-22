@@ -65,3 +65,15 @@ test("the returned cancel stops it from running", () => {
   startDemo();
   expect(close).not.toHaveBeenCalled();
 });
+
+test("the store knows the signed-in user's permissions (the permissions tab needs them)", () => {
+  localStorage.setItem("permissions", JSON.stringify(["users.view", "permissions.manage"]));
+  localStorage.setItem("isSystem", "1");
+  try {
+    startDemo();
+    expect(getDemoStore().me.permissions).toEqual(["users.view", "permissions.manage"]);
+    expect(getDemoStore().me.isSystem).toBe(true);
+  } finally {
+    localStorage.clear();
+  }
+});

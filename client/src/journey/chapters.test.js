@@ -15,8 +15,13 @@ const ACTION_TYPES = ["navigate", "click", "type", "select", "cancelConfirm", "w
 const CONFIRM_OK = "confirm-ok";
 
 const SRC = path.join(__dirname, "..");
-// The help button still lives with the old tours (retired in Task 6).
-const ANCHOR_ROOTS = [path.join(SRC, "Components"), path.join(SRC, "tours", "TourProvider.jsx")];
+// The help button still lives with the old tours (retired in Task 6); the
+// training-mode document preview is built outside React (journey/demoDocument.js).
+const ANCHOR_ROOTS = [
+  path.join(SRC, "Components"),
+  path.join(SRC, "tours", "TourProvider.jsx"),
+  path.join(SRC, "journey", "demoDocument.js"),
+];
 
 const sourceFiles = (entry) => {
   const stat = fs.statSync(entry);
@@ -46,7 +51,7 @@ const validOne = (key) => Object.hasOwn(PERMISSION_TREE, key) || ALL_KEYS.includ
 const validKey = (key) => key === null || key === undefined
   || (Array.isArray(key) ? key.length > 0 && key.every(validOne) : validOne(key));
 
-test("the journey has the first six chapters in order", () => {
+test("the journey has all thirteen chapters in order", () => {
   expect(CHAPTERS.map((c) => c.id)).toEqual([
     "journey-intro",
     "journey-dashboard",
@@ -54,6 +59,13 @@ test("the journey has the first six chapters in order", () => {
     "journey-lessons",
     "journey-attendance",
     "journey-reports",
+    "journey-files",
+    "journey-vehicles",
+    "journey-notices",
+    "journey-users",
+    "journey-audit",
+    "journey-assistant",
+    "journey-profile",
   ]);
 });
 
@@ -146,4 +158,25 @@ test("a destructive button is clicked only in a warn step", () => {
     const target = step.action && step.action.type === "click" ? step.action.target : "";
     if (/delete|reject|rotate|remove/.test(target)) expect([where(entry), step.mood]).toEqual([where(entry), "warn"]);
   });
+});
+
+test("the password change is filled and cancelled, never submitted", () => {
+  const clicks = allSteps()
+    .filter(({ step }) => step.action && step.action.type === "click")
+    .map(({ step }) => step.action.target);
+  expect(clicks).not.toContain("password-submit");
+  expect(clicks).not.toContain("profile-save");
+  const profile = CHAPTERS.find((c) => c.id === "journey-profile");
+  const targets = profile.steps.map((s) => s.action && s.action.target);
+  const typed = profile.steps.map((s, i) => (s.action && s.action.type === "type" && /^password-/.test(s.action.target) ? i : -1)).filter((i) => i >= 0);
+  expect(typed.length).toBe(3);
+  expect(targets.indexOf("password-cancel")).toBeGreaterThan(Math.max(...typed));
+});
+
+test("the files chapter uploads without the file picker", () => {
+  const files = CHAPTERS.find((c) => c.id === "journey-files");
+  const actions = files.steps.map((s) => s.action).filter(Boolean);
+  expect(actions).toContainEqual({ type: "click", target: "files-upload" });
+  // Nothing is typed or selected into a file input.
+  actions.filter((a) => a.type === "type" || a.type === "select").forEach((a) => expect(a.target).not.toMatch(/upload|file-input/));
 });

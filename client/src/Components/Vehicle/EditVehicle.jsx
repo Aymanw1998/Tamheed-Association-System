@@ -339,7 +339,7 @@ export default function EditVehicle() {
             type="button"
             role="tab"
             id={`vehicle-tab-${item.key}`}
-            data-tour={item.key === "documents" ? "vehicle-documents" : item.key === "license" ? "vehicle-records" : undefined}
+            data-tour={{ documents: "vehicle-documents", license: "vehicle-records", test: "vehicle-tab-test" }[item.key]}
             aria-selected={activeTab === item.key}
             aria-controls={`vehicle-panel-${item.key}`}
             disabled={!item.enabled}

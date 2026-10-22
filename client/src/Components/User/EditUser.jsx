@@ -492,6 +492,7 @@ const EditUser = () => {
               key={name}
               type="button"
               role="tab"
+              data-tour={name === "permissions" ? "user-tab-permissions" : undefined}
               aria-selected={tab === name}
               className={`${tabStyles.tabButton} ${tab === name ? tabStyles.tabActive : ""}`}
               onClick={() => setTab(name)}
@@ -579,7 +580,7 @@ const EditUser = () => {
             <label htmlFor="user-role">{t("perms.role")}:</label>
             {canChangeRole && canManage ? (
               <>
-                <select id="user-role" value={roleChoice} onChange={(e) => setRoleChoice(e.target.value)}>
+                <select id="user-role" data-tour="user-role-select" value={roleChoice} onChange={(e) => setRoleChoice(e.target.value)}>
                   {!currentRole && <option value="">{t("perms.noRole")}</option>}
                   {/* The current role always shows, even when it is not one the viewer may give. */}
                   {currentRole && !viewerRoles.includes(currentRole) && (
@@ -587,7 +588,7 @@ const EditUser = () => {
                   )}
                   {viewerRoles.map((r) => <option key={r} value={r}>{t(ROLE_LABEL_KEY[r], r)}</option>)}
                 </select>
-                <button type="button" onClick={handleSaveRole} disabled={savingRole || !roleChoice || roleChoice === currentRole}>
+                <button type="button" data-tour="user-role-save" onClick={handleSaveRole} disabled={savingRole || !roleChoice || roleChoice === currentRole}>
                   {t("perms.saveRole")}
                 </button>
               </>
