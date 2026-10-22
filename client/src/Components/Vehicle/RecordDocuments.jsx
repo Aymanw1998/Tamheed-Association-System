@@ -12,6 +12,7 @@ import StatusBadge from "../UI/StatusBadge.jsx";
 import NameDialog from "./NameDialog.jsx";
 import { buildDownloadName, fillText, instantDate } from "../../utils/vehicleDisplay";
 import { isDemo } from "../../journey/demoMode";
+import { showDemoDocument } from "../../journey/demoDocument";
 import styles from "./Vehicle.module.css";
 
 export const formatSize = (bytes) => {
@@ -25,59 +26,6 @@ export const docLabel = (doc, t) => doc.title || t(`vehicles.docKind.${doc.kind}
 // File name offered when downloading: the user's name (or the type) plus the plate.
 export const documentFileName = (doc, t, plate) =>
   buildDownloadName({ title: doc.title, kindLabel: t(`vehicles.docKind.${doc.kind}`), plate, storedName: doc.name });
-
-// Training mode: a demo document is shown inside the page. No new tab opens
-// and nothing is saved to the device.
-const showDemoDocument = async (blob, name) => {
-  let text = "";
-  try {
-    text = await blob.text();
-  } catch {
-    text = "";
-  }
-  const overlay = document.createElement("div");
-  overlay.setAttribute("role", "dialog");
-  overlay.setAttribute("aria-modal", "true");
-  overlay.setAttribute("aria-label", "معاينة المستند");
-  Object.assign(overlay.style, {
-    position: "fixed", inset: "0", zIndex: "10000", display: "flex", alignItems: "center", justifyContent: "center",
-    background: "rgba(13, 48, 64, .72)", direction: "rtl", padding: "16px",
-  });
-  const card = document.createElement("div");
-  Object.assign(card.style, {
-    background: "#fff", color: "#1b2327", borderRadius: "12px", padding: "20px", maxWidth: "480px", width: "100%",
-    boxShadow: "0 8px 24px rgba(0,0,0,.3)", fontFamily: "inherit",
-  });
-  const heading = document.createElement("h2");
-  heading.textContent = name;
-  Object.assign(heading.style, { margin: "0 0 12px", fontSize: "18px", color: "#164d63", overflowWrap: "anywhere" });
-  const body = document.createElement("p");
-  body.textContent = text || "مستند تجريبي.";
-  Object.assign(body.style, { margin: "0 0 16px", whiteSpace: "pre-line", lineHeight: "1.7" });
-  const closeBtn = document.createElement("button");
-  closeBtn.type = "button";
-  closeBtn.textContent = "إغلاق";
-  Object.assign(closeBtn.style, {
-    border: "0", borderRadius: "8px", padding: "8px 16px", cursor: "pointer", fontWeight: "700",
-    background: "#164d63", color: "#fff", fontFamily: "inherit", fontSize: "15px",
-  });
-  const close = () => {
-    document.removeEventListener("keydown", onKey);
-    overlay.remove();
-  };
-  const onKey = (e) => {
-    if (e.key === "Escape") close();
-  };
-  closeBtn.addEventListener("click", close);
-  overlay.addEventListener("click", (e) => {
-    if (e.target === overlay) close();
-  });
-  card.append(heading, body, closeBtn);
-  overlay.appendChild(card);
-  document.body.appendChild(overlay);
-  document.addEventListener("keydown", onKey);
-  closeBtn.focus();
-};
 
 // Opens or saves a file from memory; the server checked the permission and no
 // public link ever exists.

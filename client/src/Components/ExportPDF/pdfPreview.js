@@ -1,4 +1,4 @@
-import { isDemo } from "../../journey/demoMode";
+import { closeOnDemoToggle, isDemo } from "../../journey/demoMode";
 
 // Shows a generated PDF in a full-screen preview before the user decides to
 // download or print it. The preview renders the captured page images instead
@@ -103,7 +103,11 @@ export const showPdfPreview = ({ pdf, images, fileName, title }) => {
   };
 
   const prevOverflow = document.body.style.overflow;
+  // Opened in one mode, the preview never stays into the other: it closes
+  // when training mode starts or stops.
+  let cancelToggle = () => {};
   const close = () => {
+    cancelToggle();
     document.removeEventListener("keydown", onKey);
     document.body.style.overflow = prevOverflow;
     overlay.remove();
@@ -143,6 +147,7 @@ export const showPdfPreview = ({ pdf, images, fileName, title }) => {
   document.body.appendChild(overlay);
   document.body.style.overflow = "hidden";
   document.addEventListener("keydown", onKey);
+  cancelToggle = closeOnDemoToggle(close);
   (downloadBtn || closeBtn).focus();
 
   return close;

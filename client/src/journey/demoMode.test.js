@@ -1,4 +1,4 @@
-import { demoEpoch, getDemoStore, isDemo, startDemo, stopDemo, subscribeDemo } from "./demoMode";
+import { closeOnDemoToggle, demoEpoch, getDemoStore, isDemo, startDemo, stopDemo, subscribeDemo } from "./demoMode";
 
 afterEach(() => {
   stopDemo();
@@ -48,4 +48,20 @@ test("demo flag is memory-only", () => {
   expect(local).not.toHaveBeenCalled();
   expect(localStorage.length).toBe(0);
   expect(sessionStorage.length).toBe(0);
+});
+
+test("closeOnDemoToggle runs the close function once, on the next start or stop", () => {
+  const close = jest.fn();
+  closeOnDemoToggle(close);
+  startDemo();
+  stopDemo();
+  expect(close).toHaveBeenCalledTimes(1);
+});
+
+test("the returned cancel stops it from running", () => {
+  const close = jest.fn();
+  const cancel = closeOnDemoToggle(close);
+  cancel();
+  startDemo();
+  expect(close).not.toHaveBeenCalled();
 });

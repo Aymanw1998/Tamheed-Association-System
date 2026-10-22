@@ -6,17 +6,22 @@
 
 import { demoId } from "./demoData";
 
-// Requests that still go to the real server during training: the journey's own
-// progress (/tours, but not resetting another user's tours), the session
-// (refresh, me, logout), the health check, and the signed-in user's own
-// vehicle permissions (so no section is shown that the user cannot open).
+// Requests that still go to the real server during training, matched exactly
+// against "METHOD /path" (case-insensitive): the journey's own progress (never
+// resetting another user's tours), the session (refresh, me, logout), the
+// health check, and the signed-in user's own vehicle permissions (so no
+// section is shown that the user cannot open). Anything else is answered by
+// the demo store or blocked.
 export const ALLOWED_DURING_DEMO = [
-  /^\/tours(?!\/reset)(\/|$)/,
-  /^\/auth\/refresh$/,
-  /^\/auth\/me$/,
-  /^\/auth\/logout$/,
-  /^\/health$/,
-  /^\/vehicle\/me\/permissions$/,
+  /^GET \/tours$/i,
+  /^POST \/tours\/item\/[^/]+$/i,
+  /^POST \/tours\/known-keys$/i,
+  /^POST \/tours\/releases\/seen$/i,
+  /^POST \/auth\/refresh$/i,
+  /^POST \/auth\/me$/i,
+  /^POST \/auth\/logout$/i,
+  /^GET \/health$/i,
+  /^GET \/vehicle\/me\/permissions$/i,
 ];
 
 export const DEMO_BLOCKED_MESSAGE = "هذا الإجراء غير متاح في وضع التدريب.";
@@ -32,9 +37,10 @@ export function normalizeUrl(url = "") {
   return { path, query };
 }
 
-export const isAllowedDuringDemo = (url) => {
+export const isAllowedDuringDemo = (method, url) => {
   const { path } = normalizeUrl(url);
-  return ALLOWED_DURING_DEMO.some((re) => re.test(path));
+  const line = `${String(method || "get").toUpperCase()} ${path}`;
+  return ALLOWED_DURING_DEMO.some((re) => re.test(line));
 };
 
 // ------------------------------------------------------------------ helpers
@@ -757,7 +763,7 @@ route("get", /^\/storage\/stats$/, (s) => {
   });
 });
 route("get", /^\/storage\/share-status$/, () => ok({ sharedWith: [] }));
-route("get", /^\/storage\/google\/status$/, () => ok({ connected: true, email: "demo-drive@example.com", canConnect: false }));
+route("get", /^\/storage\/google\/status$/, () => ok({ connected: false, email: "", canConnect: false }));
 route("post", /^\/storage\/folder$/, (s, _, { body }) => {
   const name = trim(body.name);
   if (!name || name.includes("/")) return fail(400, "Folder name is required");

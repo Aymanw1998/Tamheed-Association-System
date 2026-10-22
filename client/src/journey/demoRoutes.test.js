@@ -288,11 +288,15 @@ describe("demo responses match service shapes", () => {
     expect((await Storage.renameStorageFile(file.path, "اسم-جديد.pdf")).ok).toBe(true);
     expect((await Storage.deleteStorageFile("اسم-جديد.pdf")).ok).toBe(true);
     defined((await Storage.getStorageShareStatus(folder)).sharedWith);
-    expect((await Storage.getDriveStatus()).connected).toBe(true);
+    expect((await Storage.getDriveStatus()).connected).toBe(false);
   });
 
   test("assistant is off in training", async () => {
     expect(await AI.getAiStatus()).toBe(false);
     expect(await AI.listConversations()).toEqual([]);
   });
+});
+
+test("Drive shows as not connected in training", () => {
+  expect(call("get", "/storage/google/status").data.connected).toBe(false);
 });

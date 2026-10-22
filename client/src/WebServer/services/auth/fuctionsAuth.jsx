@@ -4,6 +4,7 @@ import api, { API_BASE_URL, publicApi, refreshSession, setAuthTokens } from "../
 import { scheduleAccessRefresh, clearAccessRefresh } from "../../utils/accessScheduler";
 import { rememberSessionUser } from "../../../utils/session";
 import { isForcedChange } from "../../../utils/passwordChange";
+import { stopDemo } from "../../../journey/demoMode";
 
 function markSignedIn(user, accessToken, expirationTime) {
   setAuthTokens(accessToken, expirationTime);
@@ -80,6 +81,8 @@ export async function getMe() {
 }
 
 export async function logout() {
+  // Leave training mode first, so the sign-out reaches the server for real.
+  stopDemo();
   try {
     await api.post("/auth/logout", {}, { withCredentials: true });
   } catch {}

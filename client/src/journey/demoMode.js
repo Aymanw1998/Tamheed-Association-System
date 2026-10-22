@@ -64,6 +64,17 @@ export function subscribeDemo(fn) {
   return () => listeners.delete(fn);
 }
 
+// Runs close() once, at the next start or stop: used by overlays added to
+// document.body (outside React), so none outlives the mode it was opened in.
+// Returns a cancel function (call it when the overlay closes by itself).
+export function closeOnDemoToggle(close) {
+  const unsubscribe = subscribeDemo(() => {
+    unsubscribe();
+    close();
+  });
+  return unsubscribe;
+}
+
 const subscribeEpoch = (onChange) => subscribeDemo(() => onChange());
 
 export function useDemo() {

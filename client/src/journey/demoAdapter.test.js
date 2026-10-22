@@ -83,7 +83,32 @@ test("resetting another user's tours is not allowed in demo", async () => {
   jest.spyOn(console, "warn").mockImplementation(() => {});
   await expect(instance.post("/tours/reset/123")).rejects.toMatchObject({ response: { status: 409 } });
   expect(calls).toEqual([]);
-  expect(ALLOWED_DURING_DEMO.some((re) => re.test("/tours/reset/123"))).toBe(false);
+  expect(ALLOWED_DURING_DEMO.some((re) => re.test("POST /tours/reset/123"))).toBe(false);
+});
+
+test("the allowlist is exact, method-aware and case-insensitive", async () => {
+  startDemo();
+  jest.spyOn(console, "warn").mockImplementation(() => {});
+  await expect(instance.post("/tours/Reset/x")).rejects.toMatchObject({ response: { status: 409 } });
+  await expect(instance.post("/TOURS/RESET/x")).rejects.toMatchObject({ response: { status: 409 } });
+  await expect(instance.post("/health")).rejects.toMatchObject({ response: { status: 409, data: { code: "DEMO_BLOCKED" } } });
+  await expect(instance.post("/tours")).rejects.toMatchObject({ response: { status: 409 } });
+  await expect(instance.put("/tours/item/x", {})).rejects.toMatchObject({ response: { status: 409 } });
+  await expect(instance.post("/vehicle/me/permissions")).rejects.toMatchObject({ response: { status: 409 } });
+  expect(calls).toEqual([]);
+
+  await instance.get("/health");
+  await instance.get("/vehicle/me/permissions");
+  await instance.post("/tours/known-keys", { keys: [] });
+  await instance.post("/tours/releases/seen", { ids: [] });
+  await instance.post("/auth/logout", {});
+  expect(calls).toEqual([
+    "get /health",
+    "get /vehicle/me/permissions",
+    "post /tours/known-keys",
+    "post /tours/releases/seen",
+    "post /auth/logout",
+  ]);
 });
 
 test("a demo error status rejects like a server error", async () => {

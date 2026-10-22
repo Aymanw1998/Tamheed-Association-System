@@ -35,7 +35,7 @@ const demoAdapterFor = (realAdapter) => (config) => {
   const method = String(config.method || "get").toLowerCase();
   // A retried request (after a token refresh) keeps this adapter: if training
   // ended meanwhile, it goes out as usual.
-  if (!isDemo() || isAllowedDuringDemo(config.url)) {
+  if (!isDemo() || isAllowedDuringDemo(method, config.url)) {
     const real = typeof realAdapter === "function" ? realAdapter : axios.getAdapter(realAdapter, config);
     return real(config);
   }
