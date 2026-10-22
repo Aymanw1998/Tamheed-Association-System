@@ -1,4 +1,4 @@
-import { canStored, getStoredPermissions, getStoredRole, getStoredRoles, getStoredUserId, isStoredSystem, rememberSessionUser } from "./session";
+import { canStored, getStoredPermissions, getStoredRole, getStoredRoles, getStoredGender, getStoredUserId, isStoredSystem, rememberSessionUser } from "./session";
 
 beforeEach(() => localStorage.clear());
 
@@ -77,4 +77,10 @@ test("getStoredRole resolves the stored role, preferring the single role", () =>
   localStorage.clear();
   localStorage.setItem("roles", JSON.stringify(["مساعد", "الإدارة"]));
   expect(getStoredRole()).toBe("ادارة");
+});
+
+test("the user's gender is remembered for choosing the guide", () => {
+  expect(getStoredGender()).toBe("");
+  rememberSessionUser({ _id: "u1", gender: "ذكر" });
+  expect(getStoredGender()).toBe("ذكر");
 });

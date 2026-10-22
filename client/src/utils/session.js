@@ -32,6 +32,7 @@ export const rememberSessionUser = (user) => {
   if (!user) return;
   if (user._id) localStorage.setItem("user_id", String(user._id));
   if (user.tz) localStorage.setItem("user_tz", String(user.tz));
+  if (typeof user.gender === "string" && user.gender) localStorage.setItem("gender", user.gender);
   if (Array.isArray(user.roles)) localStorage.setItem("roles", JSON.stringify(user.roles));
   if (Array.isArray(user.permissions)) localStorage.setItem("permissions", JSON.stringify(user.permissions));
   if (typeof user.role === "string" && user.role) localStorage.setItem("role", user.role);
@@ -95,3 +96,9 @@ export const getStoredViewer = () => ({
   role: getStoredRole(),
   isSystem: isStoredSystem(),
 });
+
+// Chooses which guide character walks the user through the app.
+export const getStoredGender = () => {
+  if (typeof window === "undefined") return "";
+  return localStorage.getItem("gender") || "";
+};

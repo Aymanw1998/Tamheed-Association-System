@@ -3,6 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@dicebear/collection": "9.4.3",
+    "@dicebear/core": "9.4.3",
     "@tiptap/extension-color": "^3.14.0",
     "@tiptap/extension-highlight": "^3.14.0",
     "@tiptap/extension-image": "^3.14.0",
@@ -31,6 +33,11 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test --watchAll=false --runInBand"
+  },
+  "jest": {
+    "transformIgnorePatterns": [
+      "node_modules/(?!(@dicebear)/)"
+    ]
   },
   "proxy": "http://localhost:5000",
   "browserslist": {
