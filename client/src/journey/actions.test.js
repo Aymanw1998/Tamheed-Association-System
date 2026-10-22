@@ -141,3 +141,55 @@ test("an action cancelled before it starts does nothing", async () => {
   await expect(runAction({ type: "navigate", path: "/x" }, { navigate, cancelled: () => true })).rejects.toThrow("CANCELLED");
   expect(navigate).not.toHaveBeenCalled();
 });
+
+test("a target shown twice (desktop and phone layouts) resolves to the visible one", async () => {
+  const { findTarget } = require("./actions");
+  document.body.innerHTML = '<button data-tour="open" id="desk"></button><button data-tour="open" id="phone"></button>';
+  const phone = document.getElementById("phone");
+  const rects = jest.spyOn(Element.prototype, "getClientRects").mockImplementation(function rectsOf() {
+    return this === phone ? [{}] : [];
+  });
+  try {
+    expect(findTarget("open").id).toBe("phone");
+    expect(findTarget("open", { visibleOnly: true }).id).toBe("phone");
+    const clicked = [];
+    document.body.addEventListener("click", (e) => clicked.push(e.target.id));
+    await runAction({ type: "click", target: "open" }, {});
+    expect(clicked).toEqual(["phone"]);
+  } finally {
+    rects.mockRestore();
+  }
+});
+
+test("with nothing laid out, the first element is used, and visibleOnly finds none", () => {
+  const { findTarget } = require("./actions");
+  document.body.innerHTML = '<button data-tour="open" id="a"></button><button data-tour="open" id="b"></button>';
+  expect(findTarget("open").id).toBe("a");
+  expect(findTarget("open", { visibleOnly: true })).toBeNull();
+});
+
+test("a target shown twice (desktop and phone layouts) resolves to the visible one", async () => {
+  const { findTarget } = require("./actions");
+  document.body.innerHTML = '<button data-tour="open" id="desk"></button><button data-tour="open" id="phone"></button>';
+  const phone = document.getElementById("phone");
+  const rects = jest.spyOn(Element.prototype, "getClientRects").mockImplementation(function rectsOf() {
+    return this === phone ? [{}] : [];
+  });
+  try {
+    expect(findTarget("open").id).toBe("phone");
+    expect(findTarget("open", { visibleOnly: true }).id).toBe("phone");
+    const clicked = [];
+    document.body.addEventListener("click", (e) => clicked.push(e.target.id));
+    await runAction({ type: "click", target: "open" }, {});
+    expect(clicked).toEqual(["phone"]);
+  } finally {
+    rects.mockRestore();
+  }
+});
+
+test("with nothing laid out, the first element is used, and visibleOnly finds none", () => {
+  const { findTarget } = require("./actions");
+  document.body.innerHTML = '<button data-tour="open" id="a"></button><button data-tour="open" id="b"></button>';
+  expect(findTarget("open").id).toBe("a");
+  expect(findTarget("open", { visibleOnly: true })).toBeNull();
+});

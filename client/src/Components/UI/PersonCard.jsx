@@ -9,7 +9,8 @@ export function PersonCardList({ emptyText, children }) {
   return <ul className={styles.list}>{items}</ul>;
 }
 
-export default function PersonCard({ initial, name, summary, note, tags, badge, onOpen, actions }) {
+// tour: a journey anchor (data-tour) on the open button.
+export default function PersonCard({ initial, name, summary, note, tags, badge, onOpen, actions, tour }) {
   const content = (
     <>
       <span className={styles.avatar} aria-hidden="true">{initial}</span>
@@ -32,7 +33,7 @@ export default function PersonCard({ initial, name, summary, note, tags, badge, 
   return (
     <li className={styles.card}>
       {onOpen ? (
-        <button type="button" className={`${styles.main} ${styles.mainButton}`} onClick={onOpen}>
+        <button type="button" className={`${styles.main} ${styles.mainButton}`} data-tour={tour} onClick={onOpen}>
           {content}
         </button>
       ) : (

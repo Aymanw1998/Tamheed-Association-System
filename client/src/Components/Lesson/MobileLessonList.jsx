@@ -65,7 +65,7 @@ export default function MobileLessonList({ lessons, day, onDayChange, teacherNam
                 <small>{toHHMM(endOf(lesson))}</small>
               </span>
               {onOpen ? (
-                <button type="button" className={`${styles.card} ${styles.cardButton}`} onClick={() => onOpen(lesson)}>
+                <button type="button" className={`${styles.card} ${styles.cardButton}`} data-tour="lessons-open" onClick={() => onOpen(lesson)}>
                   {card}
                 </button>
               ) : (

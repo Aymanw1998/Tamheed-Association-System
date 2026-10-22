@@ -134,3 +134,23 @@ test("null or broken tour state is treated as empty everywhere", () => {
   expect(shouldOfferJourney(undefined)).toBe(true);
   expect(nextChapter(CHAPTERS, undefined).id).toBe("journey-intro");
 });
+
+describe("requires as an array of keys", () => {
+  const chapter = {
+    id: "journey-lessons", title: "الدروس", route: "/lessons", requires: null,
+    steps: [step("lessons-add"), step("lesson-delete", ["lessons.edit", "lessons.delete"])],
+  };
+
+  test("the step is kept only when every key is held", () => {
+    const steps = (perms) => availableChapters([chapter], perms)[0].steps.map((s) => s.target);
+    expect(steps(["lessons.edit", "lessons.delete"])).toEqual(["lessons-add", "lesson-delete"]);
+    expect(steps(["lessons.delete"])).toEqual(["lessons-add"]);
+    expect(steps(["lessons.edit"])).toEqual(["lessons-add"]);
+  });
+
+  test("a chapter requiring several keys needs them all", () => {
+    const both = { ...chapter, requires: ["lessons.view", "lessons.edit"] };
+    expect(availableChapters([both], ["lessons.view"])).toEqual([]);
+    expect(availableChapters([both], ["lessons.view", "lessons.edit"])).toHaveLength(1);
+  });
+});

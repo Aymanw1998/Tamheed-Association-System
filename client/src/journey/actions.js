@@ -40,13 +40,20 @@ const failure = (code) => {
 
 const never = () => false;
 
-const defaultFind = (target) => {
+// A target may exist twice (a desktop table and its phone cards, one of them
+// hidden by CSS): the element that is laid out wins, else the first one
+// (or none with visibleOnly).
+export const findTarget = (target, { visibleOnly = false } = {}) => {
   try {
-    return document.querySelector(`[data-tour="${String(target).replace(/["\\]/g, "")}"]`);
+    const all = [...document.querySelectorAll(`[data-tour="${String(target).replace(/["\\]/g, "")}"]`)];
+    const shown = all.find((el) => el.getClientRects().length > 0);
+    return shown || (visibleOnly ? null : all[0] || null);
   } catch {
     return null;
   }
 };
+
+const defaultFind = (target) => findTarget(target);
 
 const check = (cancelled) => {
   if (cancelled()) throw failure(CANCELLED);

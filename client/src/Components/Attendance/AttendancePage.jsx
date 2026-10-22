@@ -474,6 +474,7 @@ export default function AttendancePage() {
                         <StatusPill
                         value={it.status}
                         onChange={(s) => updateItem(it.studentId, { status: s })}
+                        tourStatus={["غائب", "متأخر", "حاضر"][idx] || null}
                         />
                     </div>
 

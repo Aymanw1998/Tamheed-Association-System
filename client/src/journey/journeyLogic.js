@@ -1,13 +1,18 @@
 import { hasPermission } from "../utils/permissionKeys";
 
 // Pure rules of the guided journey (no DOM, no React).
-// Chapter: { id: "journey-<name>", title, route, requires: string|null, steps }
+// Chapter: { id: "journey-<name>", title, route, requires: string|string[]|null, steps }
 // Step:    { target: string|null, mood, title, body, requires?, action? }
 // `tours` is the server's tour state: { [id]: { status: "done"|"skipped", version } }.
 
 export const INTRO_ID = "journey-intro";
 
-const held = (permissions, key) => key == null || hasPermission(permissions, key);
+// `requires` is one key, or an array of keys that are all needed.
+const held = (permissions, key) => {
+  if (key == null) return true;
+  if (Array.isArray(key)) return key.every((k) => hasPermission(permissions, k));
+  return hasPermission(permissions, key);
+};
 
 // The chapters, and the steps inside them, this user may see. A chapter left
 // with no step is dropped. The input is never changed.

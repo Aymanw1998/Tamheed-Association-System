@@ -42,7 +42,9 @@ const collectAnchors = () => {
 const ANCHORS = collectAnchors();
 const allSteps = () => CHAPTERS.flatMap((chapter) => chapter.steps.map((step, index) => ({ chapter, step, index })));
 const where = ({ chapter, index }) => `${chapter.id} step ${index + 1}`;
-const validKey = (key) => key === null || key === undefined || Object.hasOwn(PERMISSION_TREE, key) || ALL_KEYS.includes(key);
+const validOne = (key) => Object.hasOwn(PERMISSION_TREE, key) || ALL_KEYS.includes(key);
+const validKey = (key) => key === null || key === undefined
+  || (Array.isArray(key) ? key.length > 0 && key.every(validOne) : validOne(key));
 
 test("the journey has the first six chapters in order", () => {
   expect(CHAPTERS.map((c) => c.id)).toEqual([
@@ -97,7 +99,7 @@ test("every action has a known type and what that type needs", () => {
   });
 });
 
-test("every requires is a permission key or a module", () => {
+test("every requires is a permission key, a module, or an array of them", () => {
   CHAPTERS.forEach((chapter) => expect([chapter.id, validKey(chapter.requires)]).toEqual([chapter.id, true]));
   allSteps().forEach((entry) => expect([where(entry), validKey(entry.step.requires)]).toEqual([where(entry), true]));
 });

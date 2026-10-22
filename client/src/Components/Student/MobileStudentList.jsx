@@ -28,6 +28,7 @@ export default function MobileStudentList({
             note={healthNote(student)}
             badge={status !== "active" && <StatusBadge tone={toneOf(student)}>{student.status}</StatusBadge>}
             onOpen={status === "waiting" ? undefined : () => onOpen(student)}
+            tour={status === "active" ? "students-open" : undefined}
             actions={
               status === "active" ? (
                 <Button size="sm" variant="secondary" onClick={() => onPdf(student)}>

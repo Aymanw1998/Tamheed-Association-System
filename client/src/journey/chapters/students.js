@@ -15,14 +15,14 @@ const students = {
       target: "students-search",
       mood: "point",
       title: "البحث",
-      body: "اكتب هنا اسم الطالب أو رقم هويته لتصفية القائمة فورًا.",
+      body: "لاحظ حقل البحث: يكفي أن تكتب فيه اسم الطالب أو رقم هويته لتصفية القائمة فورًا.",
     },
     {
       target: "students-status-filter",
       requires: "students.viewAll",
       mood: "point",
       title: "حالة الطالب",
-      body: "بدّل من هنا بين الطلاب الفعّالين، وبانتظار الموافقة، وغير الفعّالين.",
+      body: "من هنا تبدّل بين الطلاب الفعّالين، وبانتظار الموافقة، وغير الفعّالين.",
     },
     {
       target: "students-table",
@@ -141,7 +141,7 @@ const students = {
       target: "student-health",
       mood: "point",
       title: "الصحة والملاحظات",
-      body: "سجّل هنا ما يلزم المرشد معرفته عن صحة الطالب.",
+      body: "هنا يُسجَّل ما يلزم المرشد معرفته عن صحة الطالب.",
     },
     {
       target: "student-delete",
@@ -179,7 +179,7 @@ const students = {
       requires: "students.parentLink",
       mood: "explain",
       title: "الرابط الثابت",
-      body: "أرسل هذا الرابط إلى الأهل ليملؤوا بيانات أبنائهم، ثم يظهر الطلب في قائمة الانتظار.",
+      body: "لاحظ الرابط الثابت: يُرسَل إلى الأهل ليملؤوا بيانات أبنائهم، ثم يظهر طلبهم في قائمة الانتظار.",
     },
     {
       target: "parent-link-copy",
@@ -208,7 +208,7 @@ const students = {
       requires: "students.parentLink",
       mood: "explain",
       title: "إلغاء التغيير",
-      body: "سأضغط «إلغاء»، فيبقى الرابط كما هو. غيّره فقط إذا وصل إلى أشخاص غير معنيين.",
+      body: "سأضغط «إلغاء»، فيبقى الرابط كما هو. لا يُغيَّر الرابط إلا إذا وصل إلى أشخاص غير معنيين.",
       action: { type: "cancelConfirm" },
     },
     {

@@ -19,13 +19,13 @@ const lessons = {
       target: "lessons-filters",
       mood: "point",
       title: "التصفية والعرض",
-      body: "صفِّ الدروس حسب اليوم أو المكان أو المرشد، واختر طريقة العرض المناسبة لك.",
+      body: "من هنا تُصفّى الدروس حسب اليوم أو المكان أو المرشد، وتُختار طريقة العرض.",
     },
     {
       target: "lessons-calendar",
       mood: "point",
       title: "برنامج الدروس",
-      body: "هنا برنامج الأسبوع. كل مربع درس، واضغط عليه لفتح تفاصيله.",
+      body: "هنا برنامج الأسبوع. كل مربع درس، والضغط عليه يفتح تفاصيله.",
     },
     {
       target: "lessons-add",
@@ -69,7 +69,7 @@ const lessons = {
     },
     {
       target: "lesson-teacher",
-      requires: "students.viewAll",
+      requires: ["lessons.create", "students.viewAll"],
       mood: "explain",
       title: "المرشد",
       body: "أختار المرشد المسؤول عن الدرس، والمساعد اختياري.",
@@ -142,11 +142,11 @@ const lessons = {
       requires: "lessons.edit",
       mood: "point",
       title: "قائمة طلاب الدرس",
-      body: "ابحث في طلاب الدرس، أو أضف طلابًا وأزلهم، ثم احفظ التعديلات.",
+      body: "لاحظ قائمة طلاب هذا الدرس: يمكن البحث فيها، وإضافة طلاب وإزالتهم، ثم حفظ التعديلات.",
     },
     {
       target: "lesson-delete",
-      requires: "lessons.delete",
+      requires: ["lessons.edit", "lessons.delete"],
       mood: "warn",
       title: "حذف الدرس",
       body: "حذف الدرس نهائي ولا يمكن التراجع عنه. سأفتح نافذة التأكيد لترى شكلها فقط.",
@@ -154,7 +154,7 @@ const lessons = {
     },
     {
       target: "confirm-cancel",
-      requires: "lessons.delete",
+      requires: ["lessons.edit", "lessons.delete"],
       mood: "explain",
       title: "إلغاء الحذف",
       body: "سأضغط «إلغاء» فيبقى الدرس كما هو.",

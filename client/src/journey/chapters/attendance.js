@@ -17,7 +17,7 @@ const attendance = {
       target: "calendar-lessons",
       mood: "point",
       title: "دروس اليوم",
-      body: "هنا دروسك لهذا اليوم. ابحث باسم الدرس إن كثرت الدروس.",
+      body: "هنا دروسك لهذا اليوم، ويمكنك البحث باسم الدرس إن كثرت.",
     },
     {
       target: "calendar-lesson-open",
@@ -82,7 +82,7 @@ const attendance = {
       target: "calendar-dates",
       mood: "point",
       title: "اختيار التاريخ",
-      body: "اختر تاريخًا من القائمة لتعرض سجل ذلك اليوم وتعدّله إن لزم.",
+      body: "لاحظ قائمة التواريخ: يُختار منها اليوم لعرض سجله وتعديله إن لزم.",
     },
   ],
 };

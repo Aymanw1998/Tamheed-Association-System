@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { GUIDE_NAMES, guideFor } from "./guideNames";
 import { isDemo, startDemo, stopDemo, useDemo } from "./demoMode";
 import { availableChapters, chapterForPath, INTRO_ID, journeyOffer, nextChapter } from "./journeyLogic";
-import { CANCELLED, isJourneyEvent, runAction, TARGET_MISSING } from "./actions";
+import { CANCELLED, findTarget, isJourneyEvent, runAction, TARGET_MISSING } from "./actions";
 import { CHAPTERS } from "./chapters";
 import { isTypingTarget, waitWhile } from "../tours/logic";
 import { confirmLeave } from "../utils/unsavedChanges";
@@ -83,14 +83,8 @@ const writeDeferred = () => {
 };
 
 // A target counts when it is in the page and laid out.
-const visibleTarget = (target) => {
-  try {
-    const el = document.querySelector(`[data-tour="${String(target).replace(/["\\]/g, "")}"]`);
-    return el && el.getClientRects().length > 0 ? el : null;
-  } catch {
-    return null;
-  }
-};
+// When a target exists twice (desktop and phone layouts), the visible one counts.
+const visibleTarget = (target) => findTarget(target, { visibleOnly: true });
 
 const reveal = (el) => {
   try {
