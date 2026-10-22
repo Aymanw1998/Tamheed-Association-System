@@ -300,3 +300,12 @@ describe("demo responses match service shapes", () => {
 test("Drive shows as not connected in training", () => {
   expect(call("get", "/storage/google/status").data.connected).toBe(false);
 });
+
+test("approving the waiting account gives it a role and makes it active", () => {
+  const store = createDemoStore();
+  const waiting = store.users.find((u) => u.room === "waiting");
+  const res = handleDemoRequest({ method: "post", url: `/user/changeStatus/${waiting.tz}`, data: { from: "waiting", to: "active", role: "مساعد" } }, store);
+  expect(res.status).toBe(200);
+  expect(waiting.room).toBe("active");
+  expect(waiting.role).toBe("مساعد");
+});

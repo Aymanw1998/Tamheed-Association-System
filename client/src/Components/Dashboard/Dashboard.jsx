@@ -305,6 +305,7 @@ export default function Dashboard() {
                       <button
                         type="button"
                         className={styles.approveBtn}
+                        data-tour="dashboard-approve-user"
                         disabled={actionLoading === `user-approve-${user.tz}`}
                         onClick={() => handleApproveUser(user)}
                       >
@@ -344,6 +345,7 @@ export default function Dashboard() {
                       <button
                         type="button"
                         className={styles.approveBtn}
+                        data-tour="dashboard-approve-student"
                         disabled={actionLoading === `student-approve-${student.tz}`}
                         onClick={() => handleApproveStudent(student)}
                       >
@@ -354,6 +356,7 @@ export default function Dashboard() {
                       <button
                         type="button"
                         className={styles.rejectBtn}
+                        data-tour="dashboard-reject-student"
                         disabled={actionLoading === `student-reject-${student.tz}`}
                         onClick={() => handleRejectStudent(student)}
                       >

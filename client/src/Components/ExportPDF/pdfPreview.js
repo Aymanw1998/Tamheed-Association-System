@@ -117,6 +117,7 @@ export const showPdfPreview = ({ pdf, images, fileName, title }) => {
   };
 
   const closeBtn = makeBtn("إغلاق", "pdfpv-close", close);
+  closeBtn.setAttribute("data-tour", "pdf-preview-close");
   // Training mode: preview only. Neither download nor print (which can save a
   // PDF) is offered, so no demo file leaves the page.
   const demo = isDemo();

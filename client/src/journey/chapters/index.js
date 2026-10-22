@@ -1,4 +1,9 @@
 import intro from "./intro";
+import dashboard from "./dashboard";
+import students from "./students";
+import lessons from "./lessons";
+import attendance from "./attendance";
+import reports from "./reports";
 
 // HOW TO ADD A CHAPTER
 // Add a file next to this one exporting { id: "journey-<name>", title, route,
@@ -13,4 +18,6 @@ import intro from "./intro";
 // A step whose target is not on screen is skipped. All text is Arabic
 // (docs/arabic-style-guide.md); "{name}" becomes the guide's name.
 // Each chapter's id is its tour id on the server (done / skipped).
-export const CHAPTERS = [intro];
+// Saves that ask «تأكيد» are confirmed with { type: "click", target: "confirm-ok" };
+// a delete is shown with mood "warn" and then { type: "cancelConfirm" }, never confirmed.
+export const CHAPTERS = [intro, dashboard, students, lessons, attendance, reports];

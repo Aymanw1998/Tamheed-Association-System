@@ -413,20 +413,21 @@ const EditStudent = ({parent = false}) => {
       <fieldset className={sectionStyles.formSection} data-tour="student-details">
         <legend>بيانات الطالب</legend>
         <label>رقم الهوية: <span style={{color: "red"}}>*</span></label>
-        <input name="tz" value={form.tz} onChange={onField} readOnly={!isNew} />
+        <input name="tz" data-tour="student-tz" value={form.tz} onChange={onField} readOnly={!isNew} />
         {error.tz != "" && <label style={{color: "red"}}>{error.tz}</label>}
 
         <label>الاسم الشخصي: <span style={{color: "red"}}>*</span></label>
-        <input name="firstname" value={form.firstname} onChange={handleChange} required />
+        <input name="firstname" data-tour="student-firstname" value={form.firstname} onChange={handleChange} required />
         {error.firstname != "" && <label style={{color: "red"}}>{error.firstname}</label>}
 
         <label>اسم العائلة: <span style={{color: "red"}}>*</span></label>
-        <input name="lastname" value={form.lastname} onChange={handleChange} required />
+        <input name="lastname" data-tour="student-lastname" value={form.lastname} onChange={handleChange} required />
         {error.lastname != "" && <label style={{color: "red"}}>{error.lastname}</label>}
 
         <label>تاريخ الميلاد: <span style={{color: "red"}}>*</span></label>
         <input
           name="birth_date"
+          data-tour="student-birth-date"
           type="date"
           value={form.birth_date ? String(form.birth_date).slice(0, 10) : ''}
           onChange={onField}
@@ -434,7 +435,7 @@ const EditStudent = ({parent = false}) => {
         {error.birth_date != "" && <label style={{color: "red"}}>{error.birth_date}</label>}
 
         <label>الجنس: <span style={{color: "red"}}>*</span></label>
-        <select name="gender" value={form.gender} onChange={onField}>
+        <select name="gender" data-tour="student-gender" value={form.gender} onChange={onField}>
           <option value="">اختر الجنس</option>
           <option value="ذكر">ذكر</option>
           <option value="انثى">أنثى</option>
@@ -449,7 +450,7 @@ const EditStudent = ({parent = false}) => {
         {error.city != "" && <label style={{color: "red"}}>{error.city}</label>}
 
         <label>شارع السكن: <span style={{color: "red"}}>*</span></label>
-        <input name="street" value={form.street} onChange={onField} />
+        <input name="street" data-tour="student-street" value={form.street} onChange={onField} />
         {error.street != "" && <label style={{color: "red"}}>{error.street}</label>}
 
         <label>الهاتف:</label>
@@ -469,11 +470,11 @@ const EditStudent = ({parent = false}) => {
       <fieldset className={sectionStyles.formSection} data-tour="student-study">
         <legend>الدراسة</legend>
         <label>المدرسة: <span style={{color: "red"}}>*</span></label>
-        <input name="school" value={form.school} onChange={handleChange} required />
+        <input name="school" data-tour="student-school" value={form.school} onChange={handleChange} required />
         {error.school != "" && <label style={{color: "red"}}>{error.school}</label>}
 
         <label>الصف: <span style={{color: "red"}}>*</span></label>
-        <input name="layer" value={form.layer} onChange={handleChange} required />
+        <input name="layer" data-tour="student-layer" value={form.layer} onChange={handleChange} required />
         {error.layer != "" && <label style={{color: "red"}}>{error.layer}</label>}
 
         {!parent && canAssignGuide && instructors.length > 0 && <>
@@ -571,7 +572,7 @@ const EditStudent = ({parent = false}) => {
           </center>
         )}
 
-        {!parent && (<button type="button" style={{ background: "#6b7280", width: "100%" }} onClick={() => navigate(-1)}>
+        {!parent && (<button type="button" data-tour="student-back" style={{ background: "#6b7280", width: "100%" }} onClick={() => navigate(-1)}>
           العودة إلى القائمة
         </button>)}
       </div>

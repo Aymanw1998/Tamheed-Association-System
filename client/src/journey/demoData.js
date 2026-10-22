@@ -171,6 +171,20 @@ export function createDemoStore({ meId = null, meTz = null, role = null } = {}) 
 
   const users = makeUsers(now, me);
   const [admin, guide, assistant] = users;
+  // A new account waiting for approval: the dashboard chapter approves it.
+  users.push({
+    ...assistant,
+    _id: demoId(1, 4),
+    tz: invalidIsraeliId("99900004"),
+    firstname: "هادي",
+    lastname: LAST,
+    gender: "ذكر",
+    phone: phone(4),
+    email: "demo.user4@example.com",
+    roles: [],
+    role: null,
+    room: "waiting",
+  });
   const students = makeStudents(now, guide._id);
   const lessons = makeLessons(now, nowDate, { guide: guide._id, assistant: assistant._id }, students);
   const attendance = makeAttendance(lessons, today, dayOf(nowDate));

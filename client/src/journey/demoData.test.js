@@ -73,3 +73,11 @@ test("the signed-in user's id replaces the demo user of the same role", () => {
   expect(store.lessons.some((l) => l.teacher === "me-1")).toBe(true);
   expect(isValidIsraeliId(guide.tz)).toBe(false);
 });
+
+test("one account waits for approval, with no role yet (dashboard chapter)", () => {
+  const store = createDemoStore({ meId: "me-1", role: null });
+  const waiting = store.users.filter((u) => u.room === "waiting");
+  expect(waiting).toHaveLength(1);
+  expect(waiting[0].role).toBeNull();
+  expect(waiting[0]._id).not.toBe("me-1");
+});

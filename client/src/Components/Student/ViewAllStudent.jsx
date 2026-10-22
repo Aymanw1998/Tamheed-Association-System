@@ -273,6 +273,7 @@ const ViewAllStudent = () => {
                           <Button
                             size="sm"
                             variant="warning"
+                            data-tour="students-open"
                             onClick={() => navigate(`/students/${student.tz}`)}
                           >
                             تعديل

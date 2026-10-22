@@ -87,14 +87,14 @@ export default function ParentLinkPanel() {
           aria-label="رابط تسجيل الأهل"
           onFocus={(e) => e.target.select()}
         />
-        <Button size="sm" onClick={copy}>نسخ</Button>
+        <Button size="sm" data-tour="parent-link-copy" onClick={copy}>نسخ</Button>
       </div>
       <p className={styles.muted}>أرسل هذا الرابط إلى الأهل، ولا تغيّره إلا إذا وصل إلى أشخاص غير معنيين.</p>
       <div>
-        <Button size="sm" variant="danger" loading={rotating} onClick={rotate}>تغيير الرابط</Button>
+        <Button size="sm" variant="danger" data-tour="parent-link-rotate" loading={rotating} onClick={rotate}>تغيير الرابط</Button>
       </div>
 
-      <div className={styles.usage}>
+      <div className={styles.usage} data-tour="parent-link-usage">
         <span>الطلبات في آخر 7 أيام</span>
         <strong className={full ? styles.full : ""}>{info.usedThisWeek} من {info.weeklyLimit}</strong>
         {full && <small>لن يستقبل الرابط طلبات جديدة حتى ينخفض العدد.</small>}
@@ -137,10 +137,10 @@ export function ParentLinkDialog({ onClose }) {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className={styles.dialog} role="dialog" aria-modal="true" aria-label="رابط تسجيل الأهل" dir="rtl">
+      <div className={styles.dialog} role="dialog" aria-modal="true" aria-label="رابط تسجيل الأهل" dir="rtl" data-tour="parent-link-dialog">
         <div className={styles.dialogHeader}>
           <h2>رابط تسجيل الأهل</h2>
-          <Button size="sm" variant="ghost" onClick={onClose} aria-label="إغلاق">✕</Button>
+          <Button size="sm" variant="ghost" data-tour="parent-link-close" onClick={onClose} aria-label="إغلاق">✕</Button>
         </div>
         <ParentLinkPanel />
       </div>

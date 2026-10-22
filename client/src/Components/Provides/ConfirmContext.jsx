@@ -55,12 +55,13 @@ export function ConfirmProvider({ children }) {
               <p>{state.options.message}</p>
             </div>
             <div className="c-actions">
-              <button className="c-btn" data-confirm="cancel" onClick={() => close(false)}>
+              <button className="c-btn" data-confirm="cancel" data-tour="confirm-cancel" onClick={() => close(false)}>
                 {state.options.cancelText} {/* cancelled*/}
               </button>
               <button
                 className={`c-btn`}
                 style={{ backgroundColor: state.options.confirmText == "حفظ" ? '#d94fd2ff' : (state.options.confirmText == "نعم" ? '#09d802ff': (state.options.confirmText == "حذف" ? '#f53615ff': '')), color: 'black' }}
+                data-tour="confirm-ok"
                 onClick={() => close(true)}
                 autoFocus
               >

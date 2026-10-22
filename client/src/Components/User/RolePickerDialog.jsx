@@ -27,16 +27,16 @@ function RolePickerDialog({ user, onClose }) {
           ) : (
             <label style={{ display: "grid", gap: 6 }}>
               {fillText(t("perms.approveMessage"), { name })}
-              <select value={role} onChange={(e) => setRole(e.target.value)} autoFocus>
+              <select data-tour="role-picker-select" value={role} onChange={(e) => setRole(e.target.value)} autoFocus>
                 {options.map((r) => <option key={r} value={r}>{t(ROLE_LABEL_KEY[r], r)}</option>)}
               </select>
             </label>
           )}
         </div>
         <div className="c-actions">
-          <button type="button" className="c-btn" onClick={() => onClose(null)}>{t("perms.cancel")}</button>
+          <button type="button" className="c-btn" data-tour="role-picker-cancel" onClick={() => onClose(null)}>{t("perms.cancel")}</button>
           {options.length > 0 && (
-            <button type="button" className="c-btn c-btn-primary" disabled={!role} onClick={() => onClose(role)}>
+            <button type="button" className="c-btn c-btn-primary" data-tour="role-picker-approve" disabled={!role} onClick={() => onClose(role)}>
               {t("perms.approve")}
             </button>
           )}

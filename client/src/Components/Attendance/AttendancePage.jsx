@@ -24,7 +24,8 @@ const toHHMM = (min) => {
     return `${pad2(h)}:${pad2(mm)}`;
 };
 
-const StatusPill = ({ value, onChange }) => {
+// tourStatus: the status whose button carries a journey anchor (one per row, first rows only).
+const StatusPill = ({ value, onChange, tourStatus = null }) => {
     const opts = ["حاضر", "غائب", "متأخر"];
     return (
         <div className={styles.pills}>
@@ -33,6 +34,7 @@ const StatusPill = ({ value, onChange }) => {
             key={s}
             type="button"
             className={`${styles.pill} ${value === s ? styles.pillActive : ""}`}
+            data-tour={s !== tourStatus ? undefined : s === "حاضر" ? "calendar-mark-present" : s === "غائب" ? "calendar-mark-absent" : "calendar-mark-late"}
             style={value === s ? { backgroundColor: s === "حاضر" ? "var(--color-success-500)" : s === "غائب" ? "var(--color-danger-500)" : "var(--color-warning-500)" } : {} }
             onClick={() => onChange(s)}
             >
@@ -277,6 +279,7 @@ export default function AttendancePage() {
                 دروس اليوم
             </button>
             <button className={`${styles.tabBtn} ${tab === "history" ? styles.tabActive : ""}`}
+            data-tour="calendar-tab-history"
             onClick={() => doChange(setTab,"history")}>
                 السجل
             </button>
@@ -321,6 +324,7 @@ export default function AttendancePage() {
                 {leftLessons.filter(l => l.name.includes(searchLesson)).map((l) => (
                 <button
                     key={l._id}
+                    data-tour="calendar-lesson-open"
                     className={`${styles.lessonCard} ${selectedLesson?._id === l._id ? styles.lessonActive : ""}`}
                     onClick={() => pickLesson(l)}
                 >
@@ -425,7 +429,7 @@ export default function AttendancePage() {
                     </tr>
                     </thead>
                     <tbody>
-                    {sheet.items.map((it) => (
+                    {sheet.items.map((it, idx) => (
                         <tr key={it.studentId}>
                         <td className={styles.studentCell}>
                             <div className={styles.studentName}>{it.studentName}</div>
@@ -435,6 +439,7 @@ export default function AttendancePage() {
                             <StatusPill
                             value={it.status}
                             onChange={(s) => updateItem(it.studentId, { status: s })}
+                            tourStatus={["غائب", "متأخر", "حاضر"][idx] || null}
                             />
                         </td>
                         <td>

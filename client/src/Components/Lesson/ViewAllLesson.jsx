@@ -177,6 +177,7 @@ function WeekTimeline({
                 <div
                   key={l._id}
                   className={styles.lessonBlock}
+                  data-tour="lessons-open"
                   style={{ top, height }}
                   draggable={canEdit && canStored("lessons.edit")}
                   onClick={(ev) => {
@@ -342,6 +343,7 @@ function DayRoomsTimeline({
               <button
                 key={l._id}
                 className={styles.lessonBlock}
+                data-tour="lessons-open"
                 style={{ top, height }}
                 draggable={canEdit && canStored("lessons.edit")}
                 onClick={() => {

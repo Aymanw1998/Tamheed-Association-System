@@ -16,6 +16,7 @@ const MultiTagSelect = ({
   onChange,
   placeholder = "Type to search...",
   allowCustom = false, // ✅ عربيالأربعاءالسبت
+  tour = false, // journey anchors on the input and the first suggestion
 }) => {
   const [q, setQ] = useState("");
 
@@ -82,6 +83,7 @@ const MultiTagSelect = ({
 
       <input
         value={q}
+        data-tour={tour ? "report-tags" : undefined}
         onChange={(e) => setQ(e.target.value)}
         placeholder={placeholder}
         style={{ width: "100%", padding: 10, borderRadius: 8, border: "1px solid #ddd" }}
@@ -108,9 +110,10 @@ const MultiTagSelect = ({
           </div>
         )}
 
-        {filtered.slice(0, 8).map((o) => (
+        {filtered.slice(0, 8).map((o, index) => (
           <div
             key={String(o.value)}
+            data-tour={tour && index === 0 ? "report-tag-option" : undefined}
             onClick={() => add(o.value)}
             style={{ padding: 10, cursor: "pointer", borderBottom: "1px solid #f0f0f0" }}
           >
@@ -374,6 +377,7 @@ const EditReport = ({parent = false}) => {
         <input
           type="text"
           name="stitle"
+          data-tour="report-stitle"
           value={form.stitle}
           onChange={handleChange}
           required
@@ -392,6 +396,7 @@ const EditReport = ({parent = false}) => {
           onChange={(vals) => setForm((prev) => ({ ...prev, title: vals }))}
           placeholder="اختر عنوانًا ثانويًا…"
           allowCustom={true}
+          tour
         />
         <label style={{color: "red"}}>{error.title}</label>
       </fieldset>
@@ -400,6 +405,7 @@ const EditReport = ({parent = false}) => {
         <legend>صلب الموضوع <span style={{color: "red"}}>*</span></legend>
         <textarea
           name="info"
+          data-tour="report-info"
           aria-label="صلب الموضوع"
           value={form.info}
           rows={10}

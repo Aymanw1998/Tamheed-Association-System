@@ -279,6 +279,7 @@ const EditLesson = () => {
             type="text"
             name="name"
             id="lesson-name"
+            data-tour="lesson-name"
             value={lesson.name}
             onChange={handleChange}
             placeholder="أدخل اسم الدرس"
@@ -295,6 +296,7 @@ const EditLesson = () => {
           <select
             name="day"
             id="lesson-day"
+            data-tour="lesson-day"
             value={lesson.date.day}
             onChange={handleChange}
             disabled={!isAdmin}
@@ -315,6 +317,7 @@ const EditLesson = () => {
               type="time"
               value={toHHMM(lesson.date.startMin)}
             id="lesson-start"
+            data-tour="lesson-start"
               onChange={(e) => handleTimeChange('start', e.target.value)}
               disabled={!isAdmin}
             />
@@ -336,6 +339,7 @@ const EditLesson = () => {
           <select
             name="room"
             id="lesson-room"
+            data-tour="lesson-room"
             value={lesson.room}
             onChange={handleChange}
             disabled={!isAdmin}
@@ -359,6 +363,7 @@ const EditLesson = () => {
           <select
             name="teacher"
             id="lesson-teacher"
+            data-tour="lesson-teacher"
             value={lesson.teacher}
             onChange={handleChange}
             disabled={!isAdmin}

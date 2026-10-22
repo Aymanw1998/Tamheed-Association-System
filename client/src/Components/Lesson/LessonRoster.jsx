@@ -136,11 +136,12 @@ export default function LessonRoster({
           type="search"
           value={rosterQuery}
           onChange={(e) => setRosterQuery(e.target.value)}
+          data-tour="roster-search"
           placeholder="ابحث في طلاب الدرس"
           aria-label="ابحث في طلاب الدرس"
         />
         {canEdit && (
-          <Button type="button" onClick={openPicker}>
+          <Button type="button" data-tour="roster-add" onClick={openPicker}>
             + إضافة طالب
           </Button>
         )}
@@ -159,7 +160,7 @@ export default function LessonRoster({
         <p className={styles.empty}>لا يوجد طالب مطابق في هذا الدرس</p>
       ) : (
         // Three students visible; the rest scroll.
-        <ul className={`${styles.list} ${styles.scrollThree}`}>
+        <ul className={`${styles.list} ${styles.scrollThree}`} data-tour="roster-list">
           {shown.map((student) => (
             <li key={student._id} className={styles.row}>
               <span className={styles.who}>
@@ -212,6 +213,7 @@ export default function LessonRoster({
         <div className={styles.overlay} onClick={() => setPickerOpen(false)}>
           <div
             className={styles.picker}
+            data-tour="roster-picker"
             role="dialog"
             aria-modal="true"
             aria-labelledby="roster-picker-title"
@@ -270,13 +272,13 @@ export default function LessonRoster({
               <p className={styles.empty}>لا يوجد طلاب غير مضافين{pickerQuery.trim() ? " يطابقون البحث" : ""}</p>
             ) : (
               <ul className={`${styles.list} ${styles.pickerList}`}>
-                {available.map((student) => (
+                {available.map((student, index) => (
                   <li key={student._id} className={styles.row}>
                     <span className={styles.who}>
                       <strong>{nameOf(student)}</strong>
                       <small>{detailsOf(student)}</small>
                     </span>
-                    <Button size="sm" variant="success" onClick={() => add([student._id])}>
+                    <Button size="sm" variant="success" data-tour={index === 0 ? "roster-picker-add" : undefined} onClick={() => add([student._id])}>
                       إضافة
                     </Button>
                   </li>
@@ -290,7 +292,7 @@ export default function LessonRoster({
                   إضافة كل النتائج ({available.length})
                 </Button>
               )}
-              <Button type="button" onClick={() => setPickerOpen(false)}>
+              <Button type="button" data-tour="roster-picker-done" onClick={() => setPickerOpen(false)}>
                 تم
               </Button>
             </div>
