@@ -4,26 +4,12 @@ import styles from "./PrivacyPage.module.css";
 
 // Public page (no sign-in): Google's OAuth consent screen links here.
 export default function PrivacyPage() {
-  const { language, setLanguage, languages, dir } = useI18n();
-  const page = PRIVACY_CONTENT[language] || PRIVACY_CONTENT.ar;
+  const { dir } = useI18n();
+  const page = PRIVACY_CONTENT;
   const fill = (text) => text.replace("{contact}", PRIVACY_CONTACT);
 
   return (
     <main className={styles.page} dir={dir}>
-      <nav className={styles.languages} aria-label="Language">
-        {Object.values(languages).map((meta) => (
-          <button
-            key={meta.code}
-            type="button"
-            onClick={() => setLanguage(meta.code)}
-            aria-pressed={meta.code === language}
-            className={meta.code === language ? styles.active : ""}
-          >
-            {meta.label}
-          </button>
-        ))}
-      </nav>
-
       <h1>{page.title}</h1>
       <p className={styles.updated}>
         {page.updated}: {PRIVACY_UPDATED}

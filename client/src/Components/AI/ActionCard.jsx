@@ -7,7 +7,7 @@ import styles from "./ActionCard.module.css";
 // `card.details` and is rendered as React text (never HTML); long text keeps
 // its line breaks through CSS (white-space: pre-wrap).
 export default function ActionCard({ card, state, streaming, onApprove, onCancel }) {
-  const { language, t } = useI18n();
+  const { t } = useI18n();
   const x = (key) => t(`assistant.chat.action.${key}`);
   const [now, setNow] = useState(() => Date.now());
 
@@ -24,7 +24,7 @@ export default function ActionCard({ card, state, streaming, onApprove, onCancel
   const options = { streaming, now };
   const enabled = canAct(card, state, options);
   const why = disabledReason(card, state, options);
-  const { fields, rows } = describeCard(card, language);
+  const { fields, rows } = describeCard(card);
   const reasonText = state.reason ? x(`reasons.${state.reason}`) : "";
 
   return (
@@ -75,7 +75,7 @@ export default function ActionCard({ card, state, streaming, onApprove, onCancel
         <footer className={styles.foot}>
           {state.notice && <p className={styles.problem} role="alert">{x(`reasons.${state.notice}`)}</p>}
           {why === "streaming" && <p className={styles.hint}>{x("waiting")}</p>}
-          <p className={styles.hint}>{x("expiresAt")} {expiryTime(card.expiresAt, language)}</p>
+          <p className={styles.hint}>{x("expiresAt")} {expiryTime(card.expiresAt)}</p>
           <div className={styles.buttons}>
             <button type="button" className={styles.approve} disabled={!enabled} onClick={onApprove}>
               {status === "approving" && state.action === "approve" ? x("approving") : x("approve")}

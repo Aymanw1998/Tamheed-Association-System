@@ -1,4 +1,4 @@
-import { tabEvent, tabFor, waitWhile, tabSignal, tourTabs, usableStepsByTab, can, usableSteps, tourForPath, newAccess, unseenReleases, startupQueue, pickText, tourPath, helpTours, helpReleases, sectionOfPath, unknownSectionKeys, isTypingTarget } from "./logic";
+import { tabEvent, tabFor, waitWhile, tabSignal, tourTabs, usableStepsByTab, can, usableSteps, tourForPath, newAccess, unseenReleases, startupQueue, tourPath, helpTours, helpReleases, sectionOfPath, unknownSectionKeys, isTypingTarget } from "./logic";
 
 const T = (extra) => ({ id: "x", version: 1, route: null, detail: false, requires: null, steps: [], ...extra });
 const FAKE = [
@@ -6,8 +6,8 @@ const FAKE = [
   T({ id: "student-detail", route: /^\/students\/[^/]+$/, detail: true }),
 ];
 const REL = [
-  { id: "r2", date: "2026-11-01", requires: "students.view", tourId: null, title: {}, body: {} },
-  { id: "r1", date: "2026-10-01", requires: null, tourId: null, title: {}, body: {} },
+  { id: "r2", date: "2026-11-01", requires: "students.view", tourId: null, title: "", body: "" },
+  { id: "r1", date: "2026-10-01", requires: null, tourId: null, title: "", body: "" },
 ];
 
 describe("can", () => {
@@ -118,15 +118,6 @@ describe("startupQueue", () => {
   test("seed run gives only welcome", () => {
     const state = { tours: {}, knownKeys: null, seenReleases: [] };
     expect(startupQueue({ state, permissions: perms, deferred: new Set() }, REL)).toEqual(["welcome"]);
-  });
-});
-
-describe("pickText", () => {
-  test("picks language and falls back to ar", () => {
-    const t = { ar: "أ", he: "ע", en: "e" };
-    expect(pickText(t, "he")).toBe("ע");
-    expect(pickText(t, "fr")).toBe("أ");
-    expect(pickText(undefined, "en")).toBe("");
   });
 });
 

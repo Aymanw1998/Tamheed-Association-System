@@ -5,15 +5,13 @@
 export const ACTION_TYPES = Object.freeze(["attendance", "add_student_to_lesson", "report", "notice", "approve_user"]);
 const TYPE_SET = new Set(ACTION_TYPES);
 
-// Every reason text under assistant.chat.action.reasons (ar/he/en): refusals
+// Every reason text under assistant.chat.action.reasons: refusals
 // that use the action up, plus the retryable notices.
 export const ACTION_REASONS = Object.freeze([
   "FORBIDDEN", "NOT_POSSIBLE", "FAILED", "NOT_FOUND", "ALREADY_USED", "BUSY", "NETWORK", "SESSION", "SERVER_ERROR",
 ]);
 const REASON_SET = new Set(ACTION_REASONS);
 
-const LANGS = ["ar", "he", "en"];
-const lang = (language) => (LANGS.includes(language) ? language : "ar");
 const isObject = (value) => value && typeof value === "object" && !Array.isArray(value);
 const text = (value) => (typeof value === "string" ? value : value == null ? "" : String(value));
 
@@ -123,27 +121,27 @@ export const outcomeOf = (action, status, body) => {
 // ---------------------------------------------------------------- display
 
 const STATUS = {
-  "حاضر": { tone: "present", ar: "حاضر", he: "נוכח", en: "Present" },
-  "غائب": { tone: "absent", ar: "غائب", he: "נעדר", en: "Absent" },
-  "متأخر": { tone: "late", ar: "متأخر", he: "מאחר", en: "Late" },
+  "حاضر": { tone: "present", label: "حاضر" },
+  "غائب": { tone: "absent", label: "غائب" },
+  "متأخر": { tone: "late", label: "متأخر" },
 };
 const ROLE = {
-  "ادارة": { ar: "ادارة", he: "ניהול", en: "Admin" },
-  "مرشد": { ar: "مرشد", he: "מדריך", en: "Guide" },
-  "مساعد": { ar: "مساعد", he: "עוזר", en: "Assistant" },
+  "ادارة": { label: "ادارة" },
+  "مرشد": { label: "مرشد" },
+  "مساعد": { label: "مساعد" },
 };
 const SEVERITY = {
-  critical: { ar: "عاجل", he: "דחוף", en: "Urgent" },
-  important: { ar: "مهم", he: "חשוב", en: "Important" },
-  info: { ar: "معلومة", he: "מידע", en: "Info" },
+  critical: { label: "عاجل" },
+  important: { label: "مهم" },
+  info: { label: "معلومة" },
 };
 const own = (map, key) => typeof key === "string" && Object.prototype.hasOwnProperty.call(map, key);
-const pick = (map, key, language) => (own(map, key) ? map[key][lang(language)] : text(key));
+const pick = (map, key) => (own(map, key) ? map[key].label : text(key));
 
 // What the card shows, from `details` only: { fields, rows }. Values are
 // plain strings, rendered as React text (long text keeps its line breaks via
 // CSS). Field labels are keys under assistant.chat.action.labels.
-export const describeCard = (card, language) => {
+export const describeCard = (card) => {
   const d = isObject(card?.details) ? card.details : null;
   if (!d) return { fields: [], rows: [] };
   switch (card.type) {
@@ -152,10 +150,10 @@ export const describeCard = (card, language) => {
       const rows = (Array.isArray(d.rows) ? d.rows : []).map((row) => ({
         id: text(row?.studentId),
         name: text(row?.studentName),
-        status: pick(STATUS, row?.status, language),
+        status: pick(STATUS, row?.status),
         tone: own(STATUS, row?.status) ? STATUS[row.status].tone : "",
         notes: text(row?.notes),
-        before: before.has(text(row?.studentId)) ? pick(STATUS, before.get(text(row?.studentId)), language) : "",
+        before: before.has(text(row?.studentId)) ? pick(STATUS, before.get(text(row?.studentId))) : "",
       }));
       return { fields: [{ labelKey: "lesson", value: text(d.lessonName) }, { labelKey: "date", value: text(d.date) }], rows };
     }
@@ -178,7 +176,7 @@ export const describeCard = (card, language) => {
       return {
         fields: [
           { labelKey: "title", value: text(d.title) },
-          { labelKey: "severity", value: pick(SEVERITY, d.severity, language) },
+          { labelKey: "severity", value: pick(SEVERITY, d.severity) },
           { labelKey: "body", value: text(d.body), block: true },
         ],
         rows: [],
@@ -188,7 +186,7 @@ export const describeCard = (card, language) => {
         fields: [
           { labelKey: "user", value: text(d.name) },
           { labelKey: "tz", value: text(d.tz) },
-          { labelKey: "role", value: pick(ROLE, d.role, language) },
+          { labelKey: "role", value: pick(ROLE, d.role) },
         ],
         rows: [],
       };
@@ -197,13 +195,11 @@ export const describeCard = (card, language) => {
   }
 };
 
-const LOCALES = { ar: "ar", he: "he", en: "en-GB" };
-
 // "HH:mm" on the Asia/Jerusalem clock.
-export const expiryTime = (value, language) => {
+export const expiryTime = (value) => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
-  return new Intl.DateTimeFormat(LOCALES[language] || "ar", {
+  return new Intl.DateTimeFormat("ar", {
     timeZone: "Asia/Jerusalem",
     hour: "2-digit",
     minute: "2-digit",

@@ -10,7 +10,7 @@ const past = new Date(NOW - 1000).toISOString();
 
 const card = (over = {}) => ({
   id: "a1", type: "report",
-  summary: { ar: "s", he: "s", en: "s" },
+  summary: { ar: "s" },
   details: { date: "2026-10-20", title: "T", text: "line1\nline2 <b>x</b>" },
   expiresAt: future, ...over,
 });
@@ -148,7 +148,7 @@ describe("outcomeOf", () => {
 
 describe("describeCard", () => {
   test("report shows the full text unchanged", () => {
-    const d = describeCard(card(), "ar");
+    const d = describeCard(card());
     expect(d.fields).toEqual([
       { labelKey: "date", value: "2026-10-20" },
       { labelKey: "title", value: "T" },
@@ -159,12 +159,11 @@ describe("describeCard", () => {
   test("notice shows the full body and the translated severity", () => {
     const body = "x".repeat(1990);
     const c = card({ type: "notice", details: { title: "N", body, severity: "critical" } });
-    const d = describeCard(c, "en");
+    const d = describeCard(c);
     expect(d.fields.find((f) => f.labelKey === "body").value).toBe(body);
-    expect(d.fields.find((f) => f.labelKey === "severity").value).toBe("Urgent");
-    expect(describeCard(c, "ar").fields.find((f) => f.labelKey === "severity").value).toBe("عاجل");
+    expect(d.fields.find((f) => f.labelKey === "severity").value).toBe("عاجل");
   });
-  test("attendance lists every row with name, status in the language, and full note", () => {
+  test("attendance lists every row with name, status in Arabic, and full note", () => {
     const note = "n".repeat(250);
     const rows = Array.from({ length: 30 }, (_, i) => ({ studentId: `s${i}`, studentName: `Name ${i}`, status: i % 2 ? "غائب" : "حاضر", notes: i === 0 ? note : "" }));
     const c = card({
@@ -172,59 +171,54 @@ describe("describeCard", () => {
       details: { lessonId: "l", lessonName: "Math", date: "2026-10-19", rows },
       before: [{ studentId: "s1", status: "حاضر" }],
     });
-    const d = describeCard(c, "en");
+    const d = describeCard(c);
     expect(d.fields).toEqual([{ labelKey: "lesson", value: "Math" }, { labelKey: "date", value: "2026-10-19" }]);
     expect(d.rows).toHaveLength(30);
-    expect(d.rows[0]).toEqual({ id: "s0", name: "Name 0", status: "Present", tone: "present", notes: note, before: "" });
-    expect(d.rows[1].status).toBe("Absent");
-    expect(d.rows[1].before).toBe("Present");
-    expect(describeCard(c, "he").rows[1].status).toBe("נעדר");
-    expect(describeCard(c, "ar").rows[1].status).toBe("غائب");
+    expect(d.rows[0]).toEqual({ id: "s0", name: "Name 0", status: "حاضر", tone: "present", notes: note, before: "" });
+    expect(d.rows[1].status).toBe("غائب");
+    expect(d.rows[1].tone).toBe("absent");
+    expect(d.rows[1].before).toBe("حاضر");
   });
   test("add student shows name when known, else the ID number", () => {
     const c = card({ type: "add_student_to_lesson", details: { lessonId: "l", lessonName: "Math", tz: "123456789", studentName: "Sara" } });
-    expect(describeCard(c, "en").fields).toEqual([
+    expect(describeCard(c).fields).toEqual([
       { labelKey: "lesson", value: "Math" }, { labelKey: "student", value: "Sara" }, { labelKey: "tz", value: "123456789" },
     ]);
     const c2 = card({ type: "add_student_to_lesson", details: { lessonId: "l", lessonName: "Math", tz: "123456789", studentName: null } });
-    expect(describeCard(c2, "en").fields.map((f) => f.labelKey)).toEqual(["lesson", "tz"]);
+    expect(describeCard(c2).fields.map((f) => f.labelKey)).toEqual(["lesson", "tz"]);
   });
-  test("approve_user shows name, ID number and the role in the language", () => {
+  test("approve_user shows name, ID number and the role", () => {
     const c = card({ type: "approve_user", details: { tz: "123456789", name: "Omar", role: "مرشد" } });
-    expect(describeCard(c, "en").fields).toEqual([
-      { labelKey: "user", value: "Omar" }, { labelKey: "tz", value: "123456789" }, { labelKey: "role", value: "Guide" },
+    expect(describeCard(c).fields).toEqual([
+      { labelKey: "user", value: "Omar" }, { labelKey: "tz", value: "123456789" }, { labelKey: "role", value: "مرشد" },
     ]);
-    expect(describeCard(c, "he").fields[2].value).toBe("מדריך");
-    expect(describeCard(c, "ar").fields[2].value).toBe("مرشد");
   });
   test("unknown values pass through as plain text; bad details give nothing", () => {
     const c = card({ type: "approve_user", details: { tz: "1", name: "<i>x</i>", role: "weird" } });
-    expect(describeCard(c, "en").fields[2].value).toBe("weird");
-    expect(describeCard(card({ type: "report", details: null }), "en")).toEqual({ fields: [], rows: [] });
-    expect(describeCard(c, "xx").fields[0].value).toBe("<i>x</i>");
+    expect(describeCard(c).fields[2].value).toBe("weird");
+    expect(describeCard(card({ type: "report", details: null }))).toEqual({ fields: [], rows: [] });
+    expect(describeCard(c).fields[0].value).toBe("<i>x</i>");
   });
 });
 
 describe("expiryTime", () => {
   test("shows Asia/Jerusalem time (summer UTC+3)", () => {
-    expect(expiryTime("2026-07-01T12:00:00Z", "en")).toBe("15:00");
-    expect(expiryTime("bad", "en")).toBe("");
+    expect(expiryTime("2026-07-01T12:00:00Z")).toBe("15:00");
+    expect(expiryTime("bad")).toBe("");
   });
 });
 
 describe("strings", () => {
-  test("every reason, label and state has ar/he/en text", () => {
+  test("every reason, label and state has Arabic text", () => {
     const labels = ["lesson", "date", "student", "tz", "user", "role", "title", "text", "body", "severity", "rows", "before", "name", "status", "notes"];
-    for (const lang of ["ar", "he", "en"]) {
-      const a = assistantStrings[lang].chat.action;
-      for (const k of ACTION_REASONS) expect(typeof a.reasons[k]).toBe("string");
-      for (const k of labels) expect(typeof a.labels[k]).toBe("string");
-      for (const k of ACTION_TYPES) expect(typeof a.types[k]).toBe("string");
-      for (const k of ["approve", "cancel", "approving", "done", "cancelled", "refused", "expired", "waiting", "expiresAt", "confirmNotice", "confirmApproveUser", "handled"]) {
-        expect(typeof a[k]).toBe("string");
-        expect(a[k].length).toBeGreaterThan(0);
-      }
-      expect(a.busyRetry).toBeUndefined();
+    const a = assistantStrings.ar.chat.action;
+    for (const k of ACTION_REASONS) expect(typeof a.reasons[k]).toBe("string");
+    for (const k of labels) expect(typeof a.labels[k]).toBe("string");
+    for (const k of ACTION_TYPES) expect(typeof a.types[k]).toBe("string");
+    for (const k of ["approve", "cancel", "approving", "done", "cancelled", "refused", "expired", "waiting", "expiresAt", "confirmNotice", "confirmApproveUser", "handled"]) {
+      expect(typeof a[k]).toBe("string");
+      expect(a[k].length).toBeGreaterThan(0);
     }
+    expect(a.busyRetry).toBeUndefined();
   });
 });

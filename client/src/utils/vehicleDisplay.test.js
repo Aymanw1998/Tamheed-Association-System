@@ -16,7 +16,7 @@ import {
 } from "./vehicleDisplay";
 import { vehicleStrings } from "../i18n/vehicleStrings";
 
-const labels = vehicleStrings.en.expiry;
+const labels = vehicleStrings.ar.expiry;
 const summary = (license, test, insurance) => ({ license, test, insurance });
 const known = { state: "ok", daysLeft: 200, bucket: null };
 const unknown = { state: "unknown", daysLeft: null, bucket: null };
@@ -60,11 +60,11 @@ test("formatPlate groups Israeli plates and keeps leading zeros", () => {
 });
 
 test("expiryText covers expired, today, upcoming and unknown", () => {
-  expect(expiryText({ state: "expired", daysLeft: -10 }, labels)).toBe("Expired 10 days ago");
-  expect(expiryText({ state: "expired", daysLeft: -1 }, labels)).toBe("Expired yesterday");
-  expect(expiryText({ state: "due", daysLeft: 0 }, labels)).toBe("Expires today");
-  expect(expiryText({ state: "due", daysLeft: 5 }, labels)).toBe("In 5 days");
-  expect(expiryText({ state: "ok", daysLeft: 90 }, labels)).toBe("In 90 days");
+  expect(expiryText({ state: "expired", daysLeft: -10 }, labels)).toBe("منتهية منذ 10 يوم");
+  expect(expiryText({ state: "expired", daysLeft: -1 }, labels)).toBe("انتهت أمس");
+  expect(expiryText({ state: "due", daysLeft: 0 }, labels)).toBe("تنتهي اليوم");
+  expect(expiryText({ state: "due", daysLeft: 5 }, labels)).toBe("بعد 5 يوم");
+  expect(expiryText({ state: "ok", daysLeft: 90 }, labels)).toBe("بعد 90 يوم");
   expect(expiryText(unknown, labels)).toBe(labels.unknown);
 });
 
@@ -128,16 +128,6 @@ test("countVehicles ignores archived vehicles", () => {
 test("personOptionLabel tells people with the same name apart", () => {
   expect(personOptionLabel({ name: "علي أحمد", tzSuffix: "1234" })).toBe("علي أحمد (1234)");
   expect(personOptionLabel({ name: "علي أحمد" })).toBe("علي أحمد");
-});
-
-test("every language defines exactly the same vehicle text keys", () => {
-  const flatten = (object, prefix = "") =>
-    Object.entries(object).flatMap(([key, value]) =>
-      value && typeof value === "object" ? flatten(value, `${prefix}${key}.`) : [`${prefix}${key}`]
-    );
-  const ar = flatten(vehicleStrings.ar).sort();
-  expect(flatten(vehicleStrings.he).sort()).toEqual(ar);
-  expect(flatten(vehicleStrings.en).sort()).toEqual(ar);
 });
 
 test("buildSuggestions ticks empty fields only and never replaces entered data silently", () => {

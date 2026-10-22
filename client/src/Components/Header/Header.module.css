@@ -40,35 +40,6 @@
   margin-inline-start: auto;
 }
 
-.languageSelectWrap,
-.mobileLanguageSelectWrap {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--color-text-on-primary);
-  font-size: 0.9rem;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.languageSelectWrap select,
-.mobileLanguageSelectWrap select {
-  min-height: 34px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: var(--radius-sm);
-  padding: 6px 9px;
-  background: rgba(255, 255, 255, 0.95);
-  color: var(--color-text-primary);
-  font: inherit;
-  outline: none;
-}
-
-.languageSelectWrap select:focus,
-.mobileLanguageSelectWrap select:focus {
-  border-color: var(--color-accent-500);
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.25);
-}
-
 .menuToggle {
   width: 44px;
   height: 44px;
@@ -207,17 +178,6 @@
     padding: 14px 12px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: 12px;
-  }
-
-  .mobileLanguageSelectWrap {
-    justify-content: space-between;
-    width: 100%;
-    padding: 12px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
-  }
-
-  .mobileLanguageSelectWrap select {
-    min-width: 130px;
   }
 
   .mobileNav .logoutButton {

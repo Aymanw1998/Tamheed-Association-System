@@ -18,17 +18,10 @@ test("only a login answer flagged mustChangePassword with a token is a forced ch
   expect(isForcedChange(null)).toBe(false);
 });
 
-test("the forced change screen has every string in ar, he and en", () => {
+test("the forced change screen has its strings", () => {
   const keys = Object.keys(accessStrings.ar.passwordChange).sort();
   expect(keys.length).toBeGreaterThan(5);
-  for (const code of ["he", "en"]) {
-    expect(Object.keys(accessStrings[code].passwordChange).sort()).toEqual(keys);
-    expect(Object.keys(accessStrings[code].passwordChange.errors).sort())
-      .toEqual(Object.keys(accessStrings.ar.passwordChange.errors).sort());
-  }
-  for (const code of ["ar", "he", "en"]) {
-    expect(accessStrings[code].audit.actions.system_recovery).toBeTruthy();
-  }
+  expect(accessStrings.ar.audit.actions.system_recovery).toBeTruthy();
 });
 
 test("the recovery button maps each server answer to a message", () => {
@@ -40,15 +33,13 @@ test("the recovery button maps each server answer to a message", () => {
   expect(recoveryResultKey({ ok: false, status: 502, code: "EMAIL_FAILED" })).toBe("emailFailed");
   expect(recoveryResultKey({ ok: false, status: 500 })).toBe("generic");
   for (const key of ["sent", "notEnough", "cooldown", "notConfigured", "emailFailed", "generic", "button", "confirm"]) {
-    for (const code of ["ar", "he", "en"]) expect(accessStrings[code].systemRecovery[key]).toBeTruthy();
+    expect(accessStrings.ar.systemRecovery[key]).toBeTruthy();
   }
 });
 
-test("the own-password form has its strings in every language", () => {
-  for (const code of ["ar", "he", "en"]) {
-    expect(accessStrings[code].passwordChange.current).toBeTruthy();
-    expect(accessStrings[code].passwordChange.ownTitle).toBeTruthy();
-  }
+test("the own-password form has its strings", () => {
+  expect(accessStrings.ar.passwordChange.current).toBeTruthy();
+  expect(accessStrings.ar.passwordChange.ownTitle).toBeTruthy();
 });
 
 test("the reset-by-email form checks 8 to 128 characters and the confirmation before sending", () => {
@@ -65,10 +56,8 @@ test("the reset-by-email form checks 8 to 128 characters and the confirmation be
   expect(newPasswordError({ currentPassword: "old-pass-1", newPassword: long, confirmPassword: long })).toBe("PASSWORD_TOO_LONG");
 });
 
-test("the reset form's 8-128 hint exists in every language", () => {
-  for (const code of ["ar", "he", "en"]) {
-    expect(accessStrings[code].passwordChange.resetHint).toMatch(/8/);
-    expect(accessStrings[code].passwordChange.resetHint).toMatch(/128/);
-    expect(accessStrings[code].passwordChange.errors.PASSWORD_TOO_LONG).toMatch(/128/);
-  }
+test("the reset form's 8-128 hint exists", () => {
+  expect(accessStrings.ar.passwordChange.resetHint).toMatch(/8/);
+  expect(accessStrings.ar.passwordChange.resetHint).toMatch(/128/);
+  expect(accessStrings.ar.passwordChange.errors.PASSWORD_TOO_LONG).toMatch(/128/);
 });

@@ -2,7 +2,7 @@ import { useEffect, useId, useRef } from "react";
 
 import { useI18n } from "../i18n/I18nContext";
 import { canAccessPath } from "../utils/routeAccess";
-import { can, helpTours, pickText, tourForPath } from "./logic";
+import { can, helpTours, tourForPath } from "./logic";
 import { TOURS } from "./registry";
 import { tourSelector } from "./runTour";
 import styles from "./Tours.module.css";
@@ -10,8 +10,8 @@ import styles from "./Tours.module.css";
 // The "?" help center, the "what's new" list and the new-access card.
 // They only show what they are given and report choices; TourProvider decides.
 
-export const tourName = (tour, language, t) =>
-  t(`tour.names.${tour.id}`, "") || pickText(tour.steps?.[0]?.title, language) || tour.id;
+export const tourName = (tour, t) =>
+  t(`tour.names.${tour.id}`, "") || tour.steps?.[0]?.title || tour.id;
 
 function Modal({ title, onClose, children }) {
   const { dir } = useI18n();
@@ -51,7 +51,7 @@ function CloseButton({ onClose }) {
 }
 
 export function HelpCenter({ pathname, permissions, tours, onClose, onStart, onWhatsNew }) {
-  const { language, t } = useI18n();
+  const { t } = useI18n();
   const h = (key) => t(`tour.help.${key}`);
   const screenTour = tourForPath(pathname);
   const screenOk = Boolean(screenTour && can(permissions, screenTour.requires ?? null));
@@ -86,7 +86,7 @@ export function HelpCenter({ pathname, permissions, tours, onClose, onStart, onW
             return (
               <li key={tour.id} className={styles.row}>
                 <span className={styles.rowMain}>
-                  <span className={styles.rowName}>{tourName(tour, language, t)}</span>
+                  <span className={styles.rowName}>{tourName(tour, t)}</span>
                   <span className={`${styles.status} ${status === "done" ? styles.statusDone : ""}`}>{h(`status.${status}`)}</span>
                 </span>
                 <button type="button" className={styles.primaryButton} onClick={() => onStart(tour.id)}>{h("start")}</button>
@@ -100,7 +100,7 @@ export function HelpCenter({ pathname, permissions, tours, onClose, onStart, onW
 }
 
 export function WhatsNewModal({ releases, seen, permissions, onClose, onShow }) {
-  const { language, t } = useI18n();
+  const { t } = useI18n();
   const w = (key) => t(`tour.whatsNew.${key}`);
   const seenSet = new Set(seen || []);
   const showable = (release) => {
@@ -117,11 +117,11 @@ export function WhatsNewModal({ releases, seen, permissions, onClose, onShow }) 
           {releases.map((release) => (
             <li key={release.id} className={styles.release}>
               <div className={styles.releaseHead}>
-                <h3 className={styles.releaseTitle}>{pickText(release.title, language)}</h3>
+                <h3 className={styles.releaseTitle}>{release.title}</h3>
                 {!seenSet.has(release.id) && <span className={styles.badge}>{w("newBadge")}</span>}
                 <time className={styles.releaseDate} dateTime={release.date}>{release.date}</time>
               </div>
-              <p className={styles.releaseBody}>{pickText(release.body, language)}</p>
+              <p className={styles.releaseBody}>{release.body}</p>
               {showable(release) && (
                 <div className={styles.releaseActions}>
                   <button type="button" className={styles.primaryButton} onClick={() => onShow(release)}>{w("showMe")}</button>

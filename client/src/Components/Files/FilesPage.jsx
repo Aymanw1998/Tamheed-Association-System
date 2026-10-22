@@ -222,7 +222,7 @@ const getShareRoleLabel = (role = "read") =>
   shareRoleOptions.find((option) => option.value === role)?.label || shareRoleOptions[0].label;
 
 export default function FilesPage() {
-  const { dir, language, t } = useI18n();
+  const { dir, t } = useI18n();
   const inputRef = useRef(null);
   const refreshTimerRef = useRef(null);
   const contextMenuRef = useRef(null);
@@ -1082,7 +1082,7 @@ export default function FilesPage() {
                     <span>{formatBytes(file.size)}</span>
                   </div>
 
-                  <div className={styles.cardDate}>{formatDate(file.date, language)}</div>
+                  <div className={styles.cardDate}>{formatDate(file.date)}</div>
 
                   <div className={styles.cardActions}>
                     <button disabled={Boolean(pending)} onClick={() => (file.isDirectory ? openFolder(file) : openFile(file))}>

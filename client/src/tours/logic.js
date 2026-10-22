@@ -90,8 +90,6 @@ export const startupQueue = ({ state, permissions, deferred }, releases = RELEAS
   return queue;
 };
 
-export const pickText = (text, language) => (text && (text[language] || text.ar)) || "";
-
 // The page a tour lives on, for tours the help center can open by navigating.
 export const tourPath = (tourId, sections = SECTIONS) => {
   const entry = Object.values(sections).find((s) => s.tourId === tourId);

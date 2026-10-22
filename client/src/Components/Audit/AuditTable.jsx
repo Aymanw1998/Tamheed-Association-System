@@ -7,7 +7,7 @@ import styles from "./Audit.module.css";
 // Audit rows: time, actor, module, action, target and the field changes.
 // `studentNames` (Map id -> name) turns lesson roster ids into names.
 export default function AuditTable({ items, studentNames, compact = false }) {
-  const { t, language } = useI18n();
+  const { t } = useI18n();
   return (
     <div className={styles.tableWrap}>
       <table className={styles.table}>
@@ -23,7 +23,7 @@ export default function AuditTable({ items, studentNames, compact = false }) {
             const rows = changeRows(row.changes, { studentNames });
             return (
               <tr key={row._id || `${row.at}-${row.targetId}-${row.action}`}>
-                <td className={styles.nowrap}>{row.at ? new Date(row.at).toLocaleString(language, { timeZone: "Asia/Jerusalem" }) : "—"}</td>
+                <td className={styles.nowrap}>{row.at ? new Date(row.at).toLocaleString("ar", { timeZone: "Asia/Jerusalem" }) : "—"}</td>
                 <td>{row.actor === "system" ? t("audit.system") : (row.actorName || row.actor || "—")}</td>
                 {!compact && <td>{t(`perms.modules.${row.module}`, row.module)}</td>}
                 <td>{t(`audit.actions.${row.action}`, row.action)}</td>

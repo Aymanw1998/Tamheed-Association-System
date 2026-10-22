@@ -116,7 +116,7 @@ const leaveOk = async () => {
 const samePath = (a, b) => String(a || "").replace(/\/+$/, "") === String(b || "").replace(/\/+$/, "");
 
 export function TourProvider({ children }) {
-  const { language, dir, t } = useI18n();
+  const { dir, t } = useI18n();
   const location = useLocation();
   const navigate = useNavigate();
   const pathname = location.pathname;
@@ -138,8 +138,8 @@ export function TourProvider({ children }) {
   const pendingRef = useRef(null);
   const triedPathRef = useRef(null);
   const prevPathRef = useRef(pathname);
-  const textRef = useRef({ language, dir, t });
-  textRef.current = { language, dir, t };
+  const textRef = useRef({ dir, t });
+  textRef.current = { dir, t };
 
   // ---------- load + seed ----------
   useEffect(() => {
@@ -238,9 +238,8 @@ export function TourProvider({ children }) {
         giveUp();
         return;
       }
-      const { language: lang, dir: textDir, t: tr } = textRef.current;
+      const { dir: textDir, t: tr } = textRef.current;
       const stop = runTour({ ...tour, steps }, {
-        language: lang,
         dir: textDir,
         t: tr,
         onFinish: (status) => {

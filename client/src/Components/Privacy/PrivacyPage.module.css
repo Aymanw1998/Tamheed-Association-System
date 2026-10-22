@@ -33,25 +33,3 @@
   font-size: 0.9rem;
   margin-top: 0;
 }
-
-.languages {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  justify-content: flex-end;
-}
-
-.languages button {
-  border: 1px solid #c9d3dc;
-  background: #ffffff;
-  border-radius: 6px;
-  padding: 4px 12px;
-  cursor: pointer;
-  font: inherit;
-}
-
-.languages button.active {
-  background: #2a7a8c;
-  border-color: #2a7a8c;
-  color: #ffffff;
-}

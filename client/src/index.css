@@ -73,7 +73,7 @@
   --shadow-lg: 0 12px 32px rgba(17, 26, 32, 0.14);
 
   /* Typography */
-  --font-sans: "IBM Plex Sans Arabic", "IBM Plex Sans Hebrew", "IBM Plex Sans",
+  --font-sans: "IBM Plex Sans Arabic", "IBM Plex Sans",
     "Segoe UI", Tahoma, sans-serif;
   --fs-xs: 12px;
   --fs-sm: 14px;

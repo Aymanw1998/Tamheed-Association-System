@@ -3,8 +3,8 @@ import { RELEASES } from "./releases";
 import { SECTIONS, SECTION_OF } from "./sections";
 import { tourForPath, tourTabs } from "./logic";
 
-const LANGS = ["ar", "he", "en"];
-const filled = (t) => LANGS.every((l) => typeof t?.[l] === "string" && t[l].trim().length > 0);
+// Non-empty text with Arabic letters in it.
+const filled = (t) => typeof t === "string" && t.trim().length > 0 && /[\u0600-\u06FF]/.test(t);
 
 test("tour ids are unique and well formed", () => {
   const ids = TOURS.map((t) => t.id);
@@ -12,11 +12,11 @@ test("tour ids are unique and well formed", () => {
   ids.forEach((id) => expect(id).toMatch(/^[a-z][a-zA-Z0-9-]{0,39}$/));
 });
 
-test("every step has text in all languages, bodies up to 220 chars", () => {
+test("every step has an Arabic title and body, bodies up to 220 chars", () => {
   TOURS.forEach((tour) => tour.steps.forEach((s) => {
     expect(filled(s.title)).toBe(true);
     expect(filled(s.body)).toBe(true);
-    LANGS.forEach((l) => expect(s.body[l].length).toBeLessThanOrEqual(220));
+    expect(s.body.length).toBeLessThanOrEqual(220);
   }));
 });
 

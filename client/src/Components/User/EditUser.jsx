@@ -27,7 +27,7 @@ const safeAsk = async (options) => {
 };
 
 const EditUser = () => {
-  const { t, language } = useI18n();
+  const { t } = useI18n();
   const params = useParams();              // "new" الأحدالجمعة _id
   const navigate = useNavigate();
 
@@ -600,7 +600,7 @@ const EditUser = () => {
         {isEdit && form.lockedAt && (
           <div className={tabStyles.lockRow}>
             <StatusBadge tone="danger">{t("perms.locked")}</StatusBadge>
-            <small>{fillText(t("perms.lockedSince"), { when: new Date(form.lockedAt).toLocaleString(language, { timeZone: "Asia/Jerusalem" }) })}</small>
+            <small>{fillText(t("perms.lockedSince"), { when: new Date(form.lockedAt).toLocaleString("ar", { timeZone: "Asia/Jerusalem" }) })}</small>
             {canStored("users.unlock") && canManage && (
               <button type="button" onClick={handleUnlock} disabled={unlocking}>{t("perms.unlock")}</button>
             )}

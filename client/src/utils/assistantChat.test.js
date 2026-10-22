@@ -148,16 +148,13 @@ describe("createSendGate", () => {
   });
 });
 
-test("errorKey knows BUSY and CONVERSATION_FULL, and every error key has ar/he/en text", () => {
+test("errorKey knows BUSY and CONVERSATION_FULL, and every error key has Arabic text", () => {
   expect(errorKey("BUSY")).toBe("BUSY");
   expect(errorKey("CONVERSATION_FULL")).toBe("CONVERSATION_FULL");
-  for (const lang of ["ar", "he", "en"]) {
-    for (const key of ERROR_KEYS) {
-      expect(typeof assistantStrings[lang].chat.errors[key]).toBe("string");
-      expect(assistantStrings[lang].chat.errors[key].length).toBeGreaterThan(0);
-    }
+  for (const key of ERROR_KEYS) {
+    expect(typeof assistantStrings.ar.chat.errors[key]).toBe("string");
+    expect(assistantStrings.ar.chat.errors[key].length).toBeGreaterThan(0);
   }
-  expect(assistantStrings.en.chat.errors.CONVERSATION_FULL).toMatch(/new/i);
 });
 
 describe("settleTurn", () => {

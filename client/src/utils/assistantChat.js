@@ -108,7 +108,7 @@ export const suggestionKeys = (can) => {
   return ["today", "myReports", "help"];
 };
 
-// Every code with a text under assistant.chat.errors (ar/he/en).
+// Every code with a text under assistant.chat.errors.
 export const ERROR_KEYS = Object.freeze([
   "INVALID_MESSAGE", "NOT_FOUND", "RATE_LIMITED", "NOT_CONFIGURED", "AI_UNAVAILABLE",
   "AI_BUSY", "AI_ERROR", "SERVER_ERROR", "NETWORK", "FORBIDDEN", "SESSION",

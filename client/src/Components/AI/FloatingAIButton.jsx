@@ -55,7 +55,7 @@ function MarkdownText({ text, onNavigate }) {
 }
 
 export default function FloatingAIButton() {
-  const { dir, language, t } = useI18n();
+  const { dir, t } = useI18n();
   const inputRef = useRef(null);
   const messagesEndRef = useRef(null);
   const [open, setOpen] = useState(false);
@@ -433,7 +433,7 @@ export default function FloatingAIButton() {
 
   const explainAlert = (alert) => {
     if (!sending) startNewChat();
-    setInput(`${a("explainPrompt")}${alertText(alert, language)}`);
+    setInput(`${a("explainPrompt")}${alertText(alert)}`);
     setTab("chat");
     focusInput();
   };
@@ -502,9 +502,9 @@ export default function FloatingAIButton() {
       {open && <button type="button" className={styles.backdrop} aria-label={t("common.close")} onClick={() => setOpen(false)} />}
 
       <aside
-        className={`${styles.chatPanel} ${styles[`size_${panelSize}`]} ${open ? styles.chatPanelOpen : ""} ${dir === "ltr" ? styles.ltrPanel : ""}`}
+        className={`${styles.chatPanel} ${styles[`size_${panelSize}`]} ${open ? styles.chatPanelOpen : ""}`}
         dir={dir}
-        lang={language}
+        lang="ar"
         aria-hidden={!open}
       >
         <header className={styles.panelHeader}>
@@ -570,10 +570,10 @@ export default function FloatingAIButton() {
                       <span className={styles.alertMeta}>
                         <i className={styles.alertDot} aria-hidden="true" />
                         <span>{a(`severity.${sev}`)}</span>
-                        <time dateTime={alert.at}>{alertTime(alert.at, language)}</time>
+                        <time dateTime={alert.at}>{alertTime(alert.at)}</time>
                         {!alert.read && <em>{a("unread")}</em>}
                       </span>
-                      <span className={styles.alertText}>{alertText(alert, language)}</span>
+                      <span className={styles.alertText}>{alertText(alert)}</span>
                     </button>
                     {aiOn && <button type="button" data-tour="assistant-explain" className={styles.explainButton} disabled={sending} onClick={() => explainAlert(alert)}>{a("explain")}</button>}
                   </article>
@@ -611,7 +611,7 @@ export default function FloatingAIButton() {
                   <div key={conversation.id} className={`${styles.conversationItem} ${conversation.id === activeId ? styles.conversationActive : ""}`}>
                     <button type="button" className={styles.conversationMain} disabled={sending} onClick={() => openConversation(conversation.id)}>
                       <span>{conversation.title || c("untitled")}</span>
-                      <time dateTime={conversation.updatedAt}>{alertTime(conversation.updatedAt, language)}</time>
+                      <time dateTime={conversation.updatedAt}>{alertTime(conversation.updatedAt)}</time>
                     </button>
                     <button
                       type="button"

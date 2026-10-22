@@ -1,6 +1,6 @@
 import { createThrottle, normalizeAlert, mergeAlerts, safeLink, sortAlerts, unreadCount, alertText, mergeAlert, markReadLocal, alertTime, severityClass } from "./alertDisplay";
 
-const a = (id, at, extra = {}) => ({ id, at, severity: "info", read: false, text: { ar: `ar${id}`, he: `he${id}`, en: `en${id}` }, ...extra });
+const a = (id, at, extra = {}) => ({ id, at, severity: "info", read: false, text: { ar: `ar${id}` }, ...extra });
 
 test("sortAlerts puts newest first without changing the input", () => {
   const list = [a("1", "2026-01-01T10:00:00Z"), a("2", "2026-01-03T10:00:00Z"), a("3", "2026-01-02T10:00:00Z")];
@@ -14,13 +14,11 @@ test("unreadCount counts only unread alerts", () => {
   expect(unreadCount(undefined)).toBe(0);
 });
 
-test("alertText uses the language and falls back to Arabic", () => {
-  const alert = a("1", "x");
-  expect(alertText(alert, "he")).toBe("he1");
-  expect(alertText(alert, "en")).toBe("en1");
-  expect(alertText({ text: { ar: "فقط" } }, "en")).toBe("فقط");
-  expect(alertText({ text: { ar: "فقط", en: "  " } }, "en")).toBe("فقط");
-  expect(alertText({}, "en")).toBe("");
+test("alertText shows the Arabic text", () => {
+  expect(alertText(a("1", "x"))).toBe("ar1");
+  expect(alertText({ text: { ar: "فقط", en: "other" } })).toBe("فقط");
+  expect(alertText({ text: { ar: "  " } })).toBe("");
+  expect(alertText({})).toBe("");
 });
 
 test("mergeAlert adds new alerts, replaces same id and keeps 50 newest", () => {
@@ -42,8 +40,8 @@ test("markReadLocal marks one alert or all", () => {
 
 test("alertTime shows Asia/Jerusalem time", () => {
   // 2026-07-01 12:00 UTC is 15:00 in Jerusalem (summer time).
-  expect(alertTime("2026-07-01T12:00:00Z", "en")).toMatch(/15:00/);
-  expect(alertTime("bad", "en")).toBe("");
+  expect(alertTime("2026-07-01T12:00:00Z")).toMatch(/15:00/);
+  expect(alertTime("bad")).toBe("");
 });
 
 test("severityClass maps severity with info as default", () => {

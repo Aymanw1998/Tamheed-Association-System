@@ -24,10 +24,10 @@ test("joins an event split across chunks, even inside a line or a multi-byte cha
   parser.push("event: del");
   parser.push('ta\ndata: {"te');
   expect(events).toEqual([]);
-  parser.push('xt":"שלום"}\n');
+  parser.push('xt":"مرحبا"}\n');
   expect(events).toEqual([]);
   parser.push("\n");
-  expect(events).toEqual([{ event: "delta", data: { text: "שלום" } }]);
+  expect(events).toEqual([{ event: "delta", data: { text: "مرحبا" } }]);
 });
 
 test("handles CRLF line endings and ignores comments (pings)", () => {

@@ -16,7 +16,7 @@ const notifyChanged = () => window.dispatchEvent(new Event("NOTICES_CHANGED"));
 const emptyDraft = { title: "", body: "", severity: "info" };
 
 export default function NoticesBoard() {
-  const { t, language } = useI18n();
+  const { t } = useI18n();
   const navigate = useNavigate();
   const [filters, setFilters] = useState({ status: "all", category: "", severity: "" });
   const [state, setState] = useState({ loading: true, notices: [], error: "" });
@@ -121,7 +121,7 @@ export default function NoticesBoard() {
                     {n.body && <div className={styles.body}>{n.body}</div>}
                   </td>
                   <td>{t(`notices.category.${n.category}`)}</td>
-                  <td>{new Date(n.createdAt).toLocaleString(language)}</td>
+                  <td>{new Date(n.createdAt).toLocaleString("ar")}</td>
                   <td>{n.createdBy === "system" ? t("notices.system") : n.createdByName}</td>
                   <td>{n.read ? t("notices.read") : <strong>{t("notices.unread")}</strong>}</td>
                   <td className={styles.rowActions}>

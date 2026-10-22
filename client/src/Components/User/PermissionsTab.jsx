@@ -29,7 +29,7 @@ const safeAsk = async (options) => {
 // Permissions of one user (permissions.manage). Rows the signed-in manager
 // may not grant are disabled; the server checks every change again.
 export default function PermissionsTab({ tz }) {
-  const { t, language } = useI18n();
+  const { t } = useI18n();
   const [data, setData] = useState(null);
   const [draft, setDraft] = useState({ grants: [], revokes: [] });
   const [open, setOpen] = useState(() => new Set());
@@ -105,7 +105,7 @@ export default function PermissionsTab({ tz }) {
 
   const who = data.updatedBy === "system" ? t("perms.system") : data.updatedBy;
   const lastChange = data.updatedAt
-    ? fillText(t("perms.lastChange"), { who: who || "—", when: new Date(data.updatedAt).toLocaleString(language, { timeZone: "Asia/Jerusalem" }) })
+    ? fillText(t("perms.lastChange"), { who: who || "—", when: new Date(data.updatedAt).toLocaleString("ar", { timeZone: "Asia/Jerusalem" }) })
     : t("perms.neverChanged");
   const hasSpecial = (data.grants || []).length > 0 || (data.revokes || []).length > 0;
   const canReset = isResettable(data, grantable);

@@ -120,10 +120,6 @@
   transform: translateX(0) scale(1);
 }
 
-.ltrPanel {
-  text-align: left;
-}
-
 .panelHeader {
   display: flex;
   align-items: center;
@@ -158,7 +154,6 @@
 }
 
 .panelActions button,
-.languageSelect,
 .quickPrompts button,
 .composer button {
   border-radius: 8px;
@@ -197,23 +192,6 @@
   padding: 7px 10px;
   background: #ffffff;
   color: #1d4ed8;
-}
-
-.languageSelect {
-  min-height: 34px;
-  max-width: 104px;
-  border: 1px solid #d7e2ee;
-  padding: 6px 8px;
-  background: #ffffff;
-  color: #1d4ed8;
-  font: inherit;
-  font-size: 12px;
-  outline: none;
-}
-
-.languageSelect:focus {
-  border-color: #61a884;
-  box-shadow: 0 0 0 3px rgba(35, 132, 94, 0.13);
 }
 
 .closeButton {
@@ -328,14 +306,6 @@
 .userMessage {
   align-self: flex-end;
   flex-direction: row-reverse;
-}
-
-.ltrPanel .userMessage {
-  align-self: flex-end;
-}
-
-.ltrPanel .assistantMessage {
-  align-self: flex-start;
 }
 
 .userMessage .avatar {

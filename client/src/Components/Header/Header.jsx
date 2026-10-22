@@ -13,7 +13,7 @@ import NewBadge from "../../tours/NewBadge";
 const hasAnyRole = (roles, allowedRoles) => allowedRoles.some((role) => roles.includes(role));
 
 export default function Header() {
-  const { dir, language, languages, setLanguage, t } = useI18n();
+  const { dir, t } = useI18n();
   const [user, setUser] = useState(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -114,19 +114,6 @@ export default function Header() {
     navigate(to);
   };
 
-  const languageSelect = (className) => (
-    <label className={className}>
-      <span>{t("common.language")}</span>
-      <select value={language} onChange={(event) => setLanguage(event.target.value)}>
-        {Object.values(languages).map((item) => (
-          <option key={item.code} value={item.code}>
-            {item.label}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-
   return (
     <header id="header" className={styles.header} ref={headerRef} dir={dir}>
       <div className={styles.headerContent}>
@@ -143,7 +130,6 @@ export default function Header() {
             {user.firstname} {user.lastname} - {displayRole}
           </div>
         )}
-        {/* {!isMobile && languageSelect(styles.languageSelectWrap)} */}
       </div>
 
       <div className={styles.headerContent}>
@@ -208,7 +194,6 @@ export default function Header() {
         {canViewAudit && (
           <a href="/audit" data-tour="menu-audit" onClick={(event) => onNavClick(event, "/audit")}>{t("nav.audit")}<NewBadge section="audit" /></a>
         )}
-        {isMobile && languageSelect(styles.mobileLanguageSelectWrap)}
         <button type="button" onClick={handleLogout} className={styles.logoutButton} title={t("nav.logout")}>{t("nav.logout")}</button>
       </nav>
     </header>

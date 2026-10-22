@@ -1,11 +1,11 @@
 import { driver } from "driver.js";
 import "driver.js/dist/driver.css";
 
-import { pickText, tabEvent, tabSignal, tourTabs } from "./logic";
+import { tabEvent, tabSignal, tourTabs } from "./logic";
 import styles from "./Tours.module.css";
 
 // Shows one tour with driver.js and reports how it ended:
-//   const stop = runTour(tour, { language, dir, t, onFinish });
+//   const stop = runTour(tour, { dir, t, onFinish });
 //   onFinish("done" | "skipped" | "later") runs once; stop() ends it silently.
 //   If driver.js throws while showing a step, the tour is stopped (page usable
 //   again) and onError(error) runs instead of onFinish.
@@ -42,7 +42,7 @@ const emit = (name, detail) => {
 
 const inPopover = (node) => Boolean(node && node.closest && node.closest(".driver-popover"));
 
-export function runTour(tour, { language, dir, t, onFinish, onError }) {
+export function runTour(tour, { dir, t, onFinish, onError }) {
   const steps = Array.isArray(tour?.steps) ? tour.steps : [];
   if (!steps.length) return () => {};
 
@@ -59,8 +59,8 @@ export function runTour(tour, { language, dir, t, onFinish, onError }) {
     steps: steps.map((step) => ({
       element: step.target ? tourSelector(step.target) : undefined,
       popover: {
-        title: escapeHtml(pickText(step.title, language)),
-        description: escapeHtml(pickText(step.body, language)),
+        title: escapeHtml(step.title || ""),
+        description: escapeHtml(step.body || ""),
         ...(step.side ? { side: step.side } : {}),
         ...(step.align ? { align: step.align } : {}),
       },
@@ -86,7 +86,7 @@ export function runTour(tour, { language, dir, t, onFinish, onError }) {
     onDestroyStarted: () => {},
     onPopoverRender: (popover) => {
       popover.wrapper.setAttribute("dir", dir);
-      popover.wrapper.setAttribute("lang", language);
+      popover.wrapper.setAttribute("lang", "ar");
       popover.closeButton.setAttribute("aria-label", label("later"));
       popover.closeButton.setAttribute("title", label("later"));
       // Class names must not contain "driver-popover": driver.js swallows clicks on those.

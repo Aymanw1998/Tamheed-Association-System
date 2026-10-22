@@ -1,5 +1,5 @@
 // Pure helpers for the assistant's alerts tab.
-// An alert: { id, type, severity, text: { ar, he, en }, link, at, read }.
+// An alert: { id, type, severity, text: { ar, ... }, link, at, read }.
 
 export const MAX_ALERTS = 50;
 
@@ -14,11 +14,10 @@ export const sortAlerts = (alerts) =>
 export const unreadCount = (alerts) =>
   (Array.isArray(alerts) ? alerts : []).filter((alert) => alert && !alert.read).length;
 
-// The alert text in the user's language, Arabic when that one is missing.
-export const alertText = (alert, language) => {
-  const text = alert?.text || {};
-  const pick = (code) => (typeof text[code] === "string" && text[code].trim() ? text[code] : "");
-  return pick(language) || pick("ar");
+// The alert's Arabic text (the server may still send other languages; they are ignored).
+export const alertText = (alert) => {
+  const value = alert?.text?.ar;
+  return typeof value === "string" && value.trim() ? value : "";
 };
 
 // A live alert arrives: add it (or replace the same id), newest first, 50 at most.
@@ -34,12 +33,10 @@ export const markReadLocal = (alerts, id) =>
   (Array.isArray(alerts) ? alerts : []).map((alert) =>
     !id || alert.id === id ? { ...alert, read: true } : alert);
 
-const LOCALES = { ar: "ar", he: "he-IL", en: "en-GB" };
-
-export const alertTime = (value, language) => {
+export const alertTime = (value) => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
-  return new Intl.DateTimeFormat(LOCALES[language] || "ar", {
+  return new Intl.DateTimeFormat("ar", {
     timeZone: "Asia/Jerusalem",
     day: "2-digit",
     month: "2-digit",
