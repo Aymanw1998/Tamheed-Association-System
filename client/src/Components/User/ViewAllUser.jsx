@@ -12,7 +12,7 @@ import Button from "../UI/Button.jsx";
 import MobileUserList from "./MobileUserList.jsx";
 import StatusBadge from "../UI/StatusBadge.jsx";
 import { useI18n } from "../../i18n/I18nContext";
-import { canManageTargetClient, resolveRole } from "../../utils/roles";
+import { canManageTargetClient, resolveRole, roleLabel } from "../../utils/roles";
 import { ask } from "../Provides/confirmBus";
 import { useRolePicker, permissionError } from "./RolePickerDialog.jsx";
 
@@ -297,7 +297,7 @@ const ViewAllUser = () => {
             <option value="all">كل الأدوار</option>
             {roleOptions.map((role) => (
               <option key={role} value={role}>
-                {role}
+                {roleLabel(role)}
               </option>
             ))}
           </select>
@@ -305,7 +305,7 @@ const ViewAllUser = () => {
 
         <div className={styles.summary}>
           {status === "active" ? "المستخدمون الفعّالون" : status === "pending" ? "المستخدمون بانتظار الموافقة" : "الحسابات الموقوفة"}: {sortedFilteredUsers.length}
-          {roleFilter !== "all" ? ` - ${roleFilter}` : ""}
+          {roleFilter !== "all" ? ` - ${roleLabel(roleFilter)}` : ""}
         </div>
       </div>
 
@@ -348,7 +348,7 @@ const ViewAllUser = () => {
                     {user.birth_date ? new Date().getFullYear() - new Date(user.birth_date).getFullYear() : "-"}
                   </td>
                   <td data-label="الجنس">{user.gender || "-"}</td>
-                  <td data-label="الدور">{(Array.isArray(user.roles) ? user.roles : []).join(", ") || "-"}</td>
+                  <td data-label="الدور">{roleLabel(resolveRole(user)) || (Array.isArray(user.roles) ? user.roles : []).join("، ") || "-"}</td>
                   <td data-label="الإجراءات">
                     <div className={styles.rowActions}>
                       {user.room !== "waiting" && user.room !== "noActive" && (

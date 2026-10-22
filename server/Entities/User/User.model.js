@@ -22,7 +22,7 @@ const UserModelDef = {
     gender: { type: 'string', required: false, default: '' },
     phone: { type: 'string', required: false, default: '' },
     email: { type: 'string', required: false, default: 'test@test.com' },
-    city: { type: 'string', required: false, default: 'الرمة' },
+    city: { type: 'string', required: false, default: 'الرملة' },
     street: { type: 'string', required: false, default: 'الرملة القديمة' },
     password: {
       type: 'string',

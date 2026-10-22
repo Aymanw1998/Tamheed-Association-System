@@ -1,4 +1,4 @@
-import { ROLES, normalizeRole, resolveRole, assignableRoles, isDemotion, canManageTargetClient } from "./roles";
+import { ROLES, normalizeRole, resolveRole, assignableRoles, isDemotion, canManageTargetClient, roleLabel } from "./roles";
 
 test("roles are listed highest first", () => {
   expect(ROLES).toEqual(["ادارة", "مرشد", "مساعد"]);
@@ -65,4 +65,13 @@ describe("canManageTargetClient mirrors canManageTarget for hiding actions", () 
     expect(canManageTargetClient(null, { _id: "w" })).toBe(false);
     expect(canManageTargetClient(admin, null)).toBe(false);
   });
+});
+
+test("roleLabel shows the proper Arabic name for any stored spelling", () => {
+  expect(roleLabel("ادارة")).toBe("الإدارة");
+  expect(roleLabel("الإدارة")).toBe("الإدارة");
+  expect(roleLabel("مرشدة")).toBe("مرشد");
+  expect(roleLabel("مساعد")).toBe("مساعد مرشد");
+  expect(roleLabel("شيء آخر")).toBe("شيء آخر");
+  expect(roleLabel(null)).toBe("");
 });

@@ -16,6 +16,15 @@ export const normalizeRole = (raw) => {
   return Object.hasOwn(ALIASES, cleaned) ? ALIASES[cleaned] : null;
 };
 
+// Display name of a role; stored values (e.g. "ادارة") stay as they are.
+const LABELS = { "ادارة": "الإدارة", "مرشد": "مرشد", "مساعد": "مساعد مرشد" };
+
+export const roleLabel = (raw) => {
+  const role = normalizeRole(raw);
+  if (role) return LABELS[role];
+  return typeof raw === "string" ? raw : "";
+};
+
 export const resolveRole = (user) => {
   const direct = normalizeRole(user?.role);
   if (direct) return direct;
