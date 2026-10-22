@@ -32,3 +32,6 @@ dev-server.out.log
 rs-start.err.log
 rs-start.out.log
 .claude/
+
+# Local agent scratch (plans workspaces, mockups)
+.superpowers/
