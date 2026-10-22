@@ -35,13 +35,19 @@ function mergeSeenReleases(current, incoming) {
   return [...merged].slice(-MAX_RELEASES);
 }
 
+// The user page's status of the guided journey: the intro chapter's status and
+// how many chapters (journey-*) are done or skipped. The old screen tours' ids
+// (welcome, students, …) are left over from before the journey and not counted.
+const JOURNEY_PREFIX = "journey-";
+const JOURNEY_INTRO = "journey-intro";
+
 function tourSummary(tours) {
-  const summary = { welcome: "none", done: 0, skipped: 0 };
+  const summary = { intro: "none", done: 0, skipped: 0 };
   for (const [id, entry] of Object.entries(tours || {})) {
+    if (!id.startsWith(JOURNEY_PREFIX)) continue;
     const status = entry?.status;
-    if (id === "welcome") {
-      if (TOUR_STATUSES.includes(status)) summary.welcome = status;
-    } else if (status === "done") summary.done += 1;
+    if (id === JOURNEY_INTRO && TOUR_STATUSES.includes(status)) summary.intro = status;
+    if (status === "done") summary.done += 1;
     else if (status === "skipped") summary.skipped += 1;
   }
   return summary;

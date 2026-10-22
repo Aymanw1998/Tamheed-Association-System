@@ -55,12 +55,20 @@ test("mergeSeenReleases validates, dedupes and caps", () => {
   assert.ok(!merged.includes("r0"));
 });
 
-test("tourSummary counts tours other than welcome", () => {
-  assert.deepEqual(tourSummary({}), { welcome: "none", done: 0, skipped: 0 });
+test("tourSummary counts the guided journey's chapters only", () => {
+  assert.deepEqual(tourSummary({}), { intro: "none", done: 0, skipped: 0 });
   assert.deepEqual(
-    tourSummary({ welcome: { status: "skipped" }, students: { status: "done" } }),
-    { welcome: "skipped", done: 1, skipped: 0 },
+    tourSummary({
+      welcome: { status: "done" },
+      students: { status: "done" },
+      "journey-intro": { status: "skipped" },
+      "journey-students": { status: "done" },
+      "journey-lessons": { status: "done" },
+      "journey-files": { status: "skipped" },
+    }),
+    { intro: "skipped", done: 2, skipped: 2 },
   );
+  assert.deepEqual(tourSummary({ "journey-intro": { status: "done" } }), { intro: "done", done: 1, skipped: 0 });
 });
 
 test("applyTour stores the update and enforces the cap", () => {

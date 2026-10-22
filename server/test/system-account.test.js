@@ -151,7 +151,7 @@ test("getOneU answers 404 for the system account by tz or id, except to itself",
 });
 
 test("getOneU adds tourSummary only for an active user (reset works on active users only)", async () => {
-  const tours = { welcome: { status: "done", version: 1 } };
+  const tours = { "journey-intro": { status: "done", version: 1 } };
   const waitingGuide = { ...GUIDE_USER, _id: "g2", tz: "guide-2", tours };
   const closedGuide = { ...GUIDE_USER, _id: "g3", tz: "guide-3", tours };
   const users = createUsers({
@@ -161,7 +161,7 @@ test("getOneU adds tourSummary only for an active user (reset works on active us
   });
   const active = await call("getOneU", ADMIN_USER, { params: { tz: GUIDE_USER.tz } }, users);
   assert.equal(active.body.room, "active");
-  assert.deepEqual(active.body.user.tourSummary, { welcome: "done", done: 0, skipped: 0 });
+  assert.deepEqual(active.body.user.tourSummary, { intro: "done", done: 1, skipped: 0 });
   for (const tz of [waitingGuide.tz, closedGuide.tz]) {
     const { res: out, body } = await call("getOneU", ADMIN_USER, { params: { tz } }, users);
     assert.equal(out.statusCode, 200, tz);
