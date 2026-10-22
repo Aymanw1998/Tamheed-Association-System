@@ -55,7 +55,7 @@ export function ConfirmProvider({ children }) {
               <p>{state.options.message}</p>
             </div>
             <div className="c-actions">
-              <button className="c-btn" onClick={() => close(false)}>
+              <button className="c-btn" data-confirm="cancel" onClick={() => close(false)}>
                 {state.options.cancelText} {/* cancelled*/}
               </button>
               <button

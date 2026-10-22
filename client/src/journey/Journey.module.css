@@ -1,0 +1,40 @@
+/* The ring around the element the guide talks about (clicks pass through it). */
+.highlight {
+  position: fixed;
+  z-index: 9400;
+  border: 3px solid #fe9900;
+  border-radius: 12px;
+  box-shadow: 0 0 0 4px rgba(254, 153, 0, 0.25);
+  pointer-events: none;
+  transition: top 0.2s ease, left 0.2s ease, width 0.2s ease, height 0.2s ease;
+}
+
+/* Which chapter is running, under the orange training bar. */
+.chapterBar {
+  position: fixed;
+  top: 52px;
+  left: 50%;
+  z-index: 9450;
+  transform: translateX(-50%);
+  max-width: calc(100vw - 32px);
+  padding: 6px 16px;
+  background: #164d63;
+  color: #fff;
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(13, 48, 64, 0.25);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .highlight { transition: none; }
+}
+
+@media (max-width: 767px) {
+  .chapterBar { top: 76px; font-size: 13px; }
+}

@@ -38,6 +38,7 @@ import PrivacyPage from '../Privacy/PrivacyPage';
 import { TourProvider } from '../../tours/TourProvider';
 import TrainingBanner from '../../journey/TrainingBanner';
 import { useDemo } from '../../journey/demoMode';
+import { JourneyProvider } from '../../journey/JourneyProvider';
 
 // The assistant (alerts now, chat later) shows for accounts with ai.use.
 
@@ -49,10 +50,12 @@ function ProtectedLayout() {
   return (
     <div style={{ height: "100vh", width: "100vw" }}>
       <TourProvider>
-        <TrainingBanner />
-        <Header key={`header-${epoch}`} />
-        <Outlet key={`outlet-${epoch}`} />
-        {canStored("ai.use") && <FloatingAIButton key={`ai-${epoch}`} />}
+        <JourneyProvider>
+          <TrainingBanner />
+          <Header key={`header-${epoch}`} />
+          <Outlet key={`outlet-${epoch}`} />
+          {canStored("ai.use") && <FloatingAIButton key={`ai-${epoch}`} />}
+        </JourneyProvider>
       </TourProvider>
     </div>
   );

@@ -4,11 +4,7 @@ import { avataaars } from "@dicebear/collection";
 // License: the Avataaars style is by Pablo Stanley, free for personal and
 // commercial use (https://avataaars.com/). @dicebear/core and
 // @dicebear/collection are MIT.
-export const GUIDE_NAMES = { tamheed: "تمهيد", ibrahim: "إبراهيم" };
-export const MOODS = ["explain", "point", "warn", "celebrate"];
-
-// "ذكر" -> Ibrahim; anything else (including unknown) -> Tamheed.
-export const guideFor = (gender) => (gender === "ذكر" ? "ibrahim" : "tamheed");
+export { GUIDE_NAMES, MOODS, guideFor } from "./guideNames";
 
 const LOOKS = {
   tamheed: {
