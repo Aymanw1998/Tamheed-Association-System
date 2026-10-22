@@ -18,7 +18,7 @@ import Button from "../UI/Button";
 ======================= */
 const BASE_MIN = 8 * 60;   // 08:00
 const END_MIN  = 23 * 60;  // 23:00
-const dayNames = ["الاحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"]; // 1..7
+const dayNames = ["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"]; // 1..7
 
 const toHHMM = (min) => {
   const m = Math.max(0, Math.min(min ?? 0, 24 * 60));
@@ -43,7 +43,7 @@ async function saveReschedule({ lesson, newDay, newRoom, newStartMin, onReload }
 
   const confirmed = await ask("change", {
     title: "نقل الدرس",
-    message: `نقل درس "${lesson.name}" إلى ${dayNames[(newDay || 1) - 1]} الساعة ${toHHMM(start)}؟`,
+    message: `هل تريد نقل درس «${lesson.name}» إلى يوم ${dayNames[(newDay || 1) - 1]} الساعة ${toHHMM(start)}؟`,
   }).catch(() => false);
   if (!confirmed) return;
 
@@ -60,13 +60,13 @@ async function saveReschedule({ lesson, newDay, newRoom, newStartMin, onReload }
     const res = await updateLesson(lesson._id, payload);
 
     if (res?.ok || res?.status === 200) {
-      toast.success("تم التحديث بنجاح");
+      toast.success("تم نقل الدرس بنجاح");
       onReload?.();
     } else {
-      toast.error(res?.message || "خطأ في التحديث");
+      toast.error(res?.message || "تعذّر نقل الدرس");
     }
   } catch (e) {
-    toast.error("خطأ في التحديث");
+    toast.error("تعذّر نقل الدرس");
   }
 }
 
@@ -192,10 +192,10 @@ function WeekTimeline({
                       y: e.clientY,
                       content: (
                         <>
-                          <div><b>اسم:</b> {l.name}</div>
-                          <div><b>مرشد:</b> {teacherNames?.[l.teacher] || "..."}</div>
-                          <div><b>ساعة:</b> {toHHMM(getStart(l))}–{toHHMM(getEnd(l))}</div>
-                          <div><b>يوم:</b> {dayNames[(Number(l.date.day) || 1) - 1]}</div>
+                          <div><b>الاسم:</b> {l.name}</div>
+                          <div><b>المرشد:</b> {teacherNames?.[l.teacher] || "…"}</div>
+                          <div><b>الوقت:</b> {toHHMM(getStart(l))}–{toHHMM(getEnd(l))}</div>
+                          <div><b>اليوم:</b> {dayNames[(Number(l.date.day) || 1) - 1]}</div>
                           <div><b>المكان:</b> {roomLabel(l?.room)}</div>
                         </>
                       )
@@ -356,10 +356,10 @@ function DayRoomsTimeline({
                     y: e.clientY,
                     content: (
                       <>
-                        <div><b>اسم:</b> {l.name}</div>
-                        <div><b>مرشد:</b> {teacherNames?.[l.teacher] || "..."}</div>
-                        <div><b>ساعة:</b> {toHHMM(getStart(l))}–{toHHMM(getEnd(l))}</div>
-                        <div><b>يوم:</b> {dayNames[(Number(l.date.day) || 1) - 1]}</div>
+                        <div><b>الاسم:</b> {l.name}</div>
+                        <div><b>المرشد:</b> {teacherNames?.[l.teacher] || "…"}</div>
+                        <div><b>الوقت:</b> {toHHMM(getStart(l))}–{toHHMM(getEnd(l))}</div>
+                        <div><b>اليوم:</b> {dayNames[(Number(l.date.day) || 1) - 1]}</div>
                         <div><b>المكان:</b> {roomLabel(room)}</div>
                       </>
                     )
@@ -466,7 +466,7 @@ export default function ViewAllLesson() {
       setLessons(cleaned);
 
     } catch {
-      toast.error("خطأ في تحميل الدروس");
+      toast.error("تعذّر تحميل الدروس");
       setLessons([]);
       setTeacherNames({});
     } finally {
@@ -564,7 +564,7 @@ export default function ViewAllLesson() {
             aria-expanded={showFilters}
             onClick={() => setShowFilters((open) => !open)}
           >
-            {showFilters ? "إخفاء الفلترة" : "فلترة"}
+            {showFilters ? "إخفاء التصفية" : "التصفية"}
             {activeFilterCount > 0 && <span className={styles.filterCount}>{activeFilterCount}</span>}
           </button>
         )}
@@ -572,14 +572,14 @@ export default function ViewAllLesson() {
           {!isMobile && <div className={styles.filterGroup}>
             <label>نوع الجدول</label>
             <select data-tour="lessons-view-mode" value={viewMode} onChange={(e) => setViewMode(e.target.value)}>
-              <option value="week">اسبوعي (ايام)</option>
-              <option value="dayRooms">يومي (غراف)</option>
+              <option value="week">أسبوعي (حسب الأيام)</option>
+              <option value="dayRooms">يومي (حسب الأماكن)</option>
             </select>
           </div>}
 
           {viewMode === "dayRooms" && (
             <div className={styles.filterGroup}>
-              <label>يوم مختار</label>
+              <label>اليوم</label>
               <select value={selectedDay} onChange={(e)=>setSelectedDay(Number(e.target.value))}>
                 {dayNames.map((d, i)=>(
                   <option key={i+1} value={i+1}>{d}</option>
@@ -589,9 +589,9 @@ export default function ViewAllLesson() {
           )}
 
           {viewMode !== "dayRooms" && !isMobile && <div className={styles.filterGroup}>
-            <label>يوم مختار</label>
+            <label>اليوم</label>
             <select value={filterDay} onChange={(e)=>setFilterDay(Number(e.target.value))}>
-              <option value={0}>كل</option>
+              <option value={0}>الكل</option>
               {dayNames.map((d, i)=>(
                 <option key={i+1} value={i+1}>{d}</option>
               ))}
@@ -601,7 +601,7 @@ export default function ViewAllLesson() {
           <div className={styles.filterGroup}>
             <label>المكان</label>
             <select value={filterRoom} onChange={(e)=>setFilterRoom(e.target.value)}>
-              <option value="all">كل</option>
+              <option value="all">الكل</option>
               {roomOptions.map(r=>(
                 <option key={r} value={r}>{roomLabel(r)}</option>
               ))}
@@ -609,9 +609,9 @@ export default function ViewAllLesson() {
           </div>
 
           <div className={styles.filterGroup}>
-            <label>مرشد</label>
+            <label>المرشد</label>
             <select value={filterTeacher} onChange={(e)=>setFilterTeacher(e.target.value)}>
-              <option value="all">كل</option>
+              <option value="all">الكل</option>
               {(teachers || []).map(t => (
                 <option key={t._id} value={t._id}>{t.firstname} {t.lastname}</option>
               ))}
@@ -623,7 +623,7 @@ export default function ViewAllLesson() {
               id="lesson-search"
               data-tour="lessons-search"
               type="search"
-              placeholder="اسم الدرس..."
+              placeholder="اسم الدرس…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />

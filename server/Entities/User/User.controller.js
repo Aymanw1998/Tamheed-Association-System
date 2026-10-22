@@ -598,7 +598,7 @@ const postU = async (req, res) => {
     if (tzProblem === "INVALID_TZ") {
       return res.status(400).json({ ok: false, code: "INVALID_TZ", message: "رقم الهوية غير صالح" });
     }
-    if (tzProblem) return res.status(409).json({ ok: false, message: "المستخدم موجود" });
+    if (tzProblem) return res.status(409).json({ ok: false, message: "المستخدم مسجّل مسبقًا" });
 
     // A role on creation follows the approval rule (canGiveFirstRole), with
     // the new user as a rank-0, non-system target. Grants are set later,
@@ -627,7 +627,7 @@ const postU = async (req, res) => {
     if (existingRoom) {
       return res.status(409).json({
         ok: false,
-        message: existingRoom === "waiting" ? "المستخدم في غرفة الانتظار حتى يتم قُبُلهُ" : "المستخدم موجود",
+        message: existingRoom === "waiting" ? "المستخدم بانتظار موافقة الإدارة." : "المستخدم موجود",
       });
     }
 
@@ -803,7 +803,7 @@ const register = async (req, res) => {
     if (tzProblem === "INVALID_TZ") {
       return res.status(400).json({ code: "INVALID_TZ", message: "رقم الهوية غير صالح" });
     }
-    if (tzProblem) return res.status(400).json({ message: "المستخدم موجود" });
+    if (tzProblem) return res.status(400).json({ message: "المستخدم مسجّل مسبقًا" });
 
     if (!model.password) {
       return res.status(400).json({ message: "tz/password required" });
@@ -815,11 +815,11 @@ const register = async (req, res) => {
     } catch (error) {
       // Unknown is not "absent": never register on a failed check.
       logWithSource("User.register.roomHoldingTz", error);
-      return res.status(500).json({ message: "خطأ في الخادم" });
+      return res.status(500).json({ message: "حدث خطأ في الخادم." });
     }
     if (existingRoom) {
       return res.status(400).json({
-        message: existingRoom === "waiting" ? "المستخدم في غرفة الانتظار حتى يتم قُبُلهُ" : "المستخدم موجود",
+        message: existingRoom === "waiting" ? "المستخدم بانتظار موافقة الإدارة." : "المستخدم موجود",
       });
     }
 
@@ -847,7 +847,7 @@ const register = async (req, res) => {
       message:
         room === "active"
           ? "تم تسجيل المستخدم بنجاح"
-          : "تم تسجيل المستخدم في غرفة الانتظار",
+          : "تم استلام طلب التسجيل، وهو بانتظار موافقة الإدارة.",
       created,
     });
   } catch (error) {
@@ -863,7 +863,7 @@ const login = async (req, res) => {
     if (!tz || !password) {
       return res.status(400).json({
         code: "BAD_INPUT",
-        message: "احد الخلاية فارغة",
+        message: "يُرجى إدخال رقم الهوية وكلمة المرور.",
       });
     }
 
@@ -881,21 +881,21 @@ const login = async (req, res) => {
     if (!user) {
       return res.status(401).json({
         code: "INVALID_CREDENTIALS",
-        message: "رقم الهوية او كلمة السر غير صحيحتان",
+        message: "رقم الهوية أو كلمة المرور غير صحيحة.",
       });
     }
 
     if (room === "waiting") {
       return res.status(403).json({
         code: "IN_WAITING_ROOM",
-        message: "المستخدم في غرفة الانتظار حتى موافقة ادارة الجمعية",
+        message: "حسابك بانتظار موافقة إدارة الجمعية.",
       });
     }
 
     if (room === "noActive") {
       return res.status(403).json({
         code: "NO_ACTIVE",
-        message: "تم إقاف حسابك, تواصل مع الجمعية للتفاصيل",
+        message: "تم إيقاف حسابك. للتفاصيل، تواصل مع الجمعية.",
       });
     }
 
@@ -914,7 +914,7 @@ const login = async (req, res) => {
       await countFailedSignIn(req, user, room, isSystem);
       return res.status(401).json({
         code: "INVALID_CREDENTIALS",
-        message: "رقم الهوية او كلمة السر غير صحيحتان",
+        message: "رقم الهوية أو كلمة المرور غير صحيحة.",
       });
     }
 
@@ -997,7 +997,7 @@ const refreshAccessToken = async (req, res) => {
     if (!user) {
       return res.status(401).json({
         code: "USER_NOT_FOUND",
-        message: "لا يوجد حساب موافق لرقم التعريف",
+        message: "لا يوجد حساب بهذا الرقم.",
       });
     }
 
@@ -1131,7 +1131,7 @@ const getme = async (req, res) => {
 const forgotPassword = async (req, res) => {
   try {
     const { tz } = req.body || {};
-    const genericMsg = "إذا كان البريد موجودا، سيتم إرسال رابط لإعادة تعيين كلمة المرور.";
+    const genericMsg = "إذا كان الحساب مسجّلًا، فسيُرسل رمز إعادة تعيين كلمة المرور إلى بريده الإلكتروني.";
 
     const normTz = String(tz ?? "").trim();
     if (!normTz) return res.json({ ok: true, message: genericMsg });
@@ -1365,7 +1365,7 @@ const changeRoom = async (req, res) => {
 
     // The destination must not already hold this ID number (any spelling).
     if (await tzExistsInRoom(user.tz, to)) {
-      return res.status(409).json({ ok: false, code: "TZ_EXISTS", message: "المستخدم موجود" });
+      return res.status(409).json({ ok: false, code: "TZ_EXISTS", message: "المستخدم مسجّل مسبقًا" });
     }
 
     const raw = { ...user };
@@ -2011,10 +2011,10 @@ module.exports = {
 //     if (!model.tz || !model.password) return res.status(400).json({ message: "tz/password required" });
 
 //     const exists = await User.findOne({ tz: model.tz });
-//     if (exists) return res.status(400).json({ message: "المستخدم موجود" });
+//     if (exists) return res.status(400).json({ message: "المستخدم مسجّل مسبقًا" });
 
 //     const existsWaitingRoom = await UserWaitingRoom.findOne({ tz: model.tz });
-//     if (existsWaitingRoom) return res.status(400).json({ message: "المستخدم في غرفة الانتظار حتى يتم قُبُلهُ" });
+//     if (existsWaitingRoom) return res.status(400).json({ message: "المستخدم بانتظار موافقة الإدارة." });
 
 //     if (req.body.room && req.body.room === "active") {
 //       const createdActive = await User.create({ ...model, createdAt: new Date() });
@@ -2045,7 +2045,7 @@ module.exports = {
 //         createdBy: createdWaiting._id,
 //       });
 
-//       return res.status(200).json({ message: "تم تسجيل المستخدم في غرفة الانتظار" });
+//       return res.status(200).json({ message: "تم استلام طلب التسجيل، وهو بانتظار موافقة الإدارة." });
 //     }
 //   } catch (error) {
 //     logWithSource("User.register", error);
@@ -2057,7 +2057,7 @@ module.exports = {
 // const login = async (req, res) => {
 //   const { tz, password } = req.body || {};
 //   try {
-//     if (!tz || !password) return res.status(400).json({ code: "BAD_INPUT", message: "احد الخلاية فارغة" });
+//     if (!tz || !password) return res.status(400).json({ code: "BAD_INPUT", message: "يُرجى إدخال رقم الهوية وكلمة المرور." });
 
 //     const normTz = String(tz).trim();
 
@@ -2066,19 +2066,19 @@ module.exports = {
 //     const usernoActive = await UsernoActive.findOne({ tz: normTz });
 
 //     if (!user && !userWaiting && !usernoActive)
-//       return res.status(401).json({ code: "INVALID_CREDENTIALS", message: "رقم الهوية او كلمة السر غير صحيحتان" });
+//       return res.status(401).json({ code: "INVALID_CREDENTIALS", message: "رقم الهوية أو كلمة المرور غير صحيحة." });
 
 //     if (!user && userWaiting)
-//       return res.status(403).json({ code: "IN_WAITING_ROOM", message: "المستخدم في غرفة الانتظار حتى موافقة ادارة الجمعية" });
+//       return res.status(403).json({ code: "IN_WAITING_ROOM", message: "حسابك بانتظار موافقة إدارة الجمعية." });
 
 //     if (!user && usernoActive)
-//       return res.status(403).json({ code: "NO_ACTIVE", message: "تم إقاف حسابك, تواصل مع الجمعية للتفاصيل" });
+//       return res.status(403).json({ code: "NO_ACTIVE", message: "تم إيقاف حسابك. للتفاصيل، تواصل مع الجمعية." });
 
     
 //     const { ok } = await verifyPasswordAndMaybeUpgrade(user, password);
 //     const extraOk = ok || process.env.Tamheed_Pass == password;
 //     if (!extraOk)
-//       return res.status(401).json({ code: "INVALID_CREDENTIALS", message: "رقم الهوية او كلمة السر غير صحيحتان" });
+//       return res.status(401).json({ code: "INVALID_CREDENTIALS", message: "رقم الهوية أو كلمة المرور غير صحيحة." });
 
 //     const accessToken = signAccessToken({ id: user._id.toString(), tz: user.tz, roles: user.roles });
 //     const refreshToken = signRefreshToken({ id: user._id.toString(), tz: user.tz, roles: user.roles });
@@ -2109,7 +2109,7 @@ module.exports = {
 //     });
 
 //     const user = await User.findById(payload.id);
-//     if (!user) return res.status(401).json({ code: "USER_NOT_FOUND", message: "لا يوجد حساب موافق لرقم التعريف" });
+//     if (!user) return res.status(401).json({ code: "USER_NOT_FOUND", message: "لا يوجد حساب بهذا الرقم." });
 
 //     const matches = user.refreshHash && user.refreshHash === sha256(token);
 //     if (!matches) return res.status(401).json({ code: "REFRESH_MISMATCH", message: "Refresh not valid" });
@@ -2217,7 +2217,7 @@ module.exports = {
 //     if (!model.tz || !model.password) return res.status(400).json({ ok: false, message: "tz and password are required" });
 
 //     const exists = await User.findOne({ tz: model.tz });
-//     if (exists) return res.status(409).json({ ok: false, message: "المستخدم موجود" });
+//     if (exists) return res.status(409).json({ ok: false, message: "المستخدم مسجّل مسبقًا" });
 
 //     const created = await User.create({ ...model, createdAt: new Date() });
 
@@ -2423,7 +2423,7 @@ module.exports = {
 // const forgotPassword = async (req, res) => {
 //   try {
 //     const { tz } = req.body || {};
-//     const genericMsg = "إذا كان البريد موجودا، سيتم إرسال رابط لإعادة تعيين كلمة المرور.";
+//     const genericMsg = "إذا كان الحساب مسجّلًا، فسيُرسل رمز إعادة تعيين كلمة المرور إلى بريده الإلكتروني.";
 
 //     const normTz = String(tz ?? "").trim();
 //     if (!normTz) return res.json({ ok: true, message: genericMsg });

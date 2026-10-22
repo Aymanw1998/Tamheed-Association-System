@@ -233,14 +233,14 @@ const EditLesson = () => {
           const fresh = createdId ? await getOneLesson(createdId) : null;
           if (!fresh?.ok || countAdded({ num_in_list: 0 }, fresh.lesson) < expected) toast.warn(t('roster.someNotAdded'));
         }
-        toast.success(`✅ الدرس ${id === 'new'? 'حفظ' : 'حديث' }  بنجاح`);
+        toast.success(id === 'new' ? 'تمت إضافة الدرس بنجاح' : 'تم حفظ الدرس بنجاح');
         navigate(-1);
       } else {
-        toast.warn(resL.message || '❌ خطأ في الحفظ');
+        toast.warn(resL.message || 'تعذّر حفظ الدرس');
       }
     } catch (e) {
       console.error(e);
-      toast.error(e.message || '❌ خطأ في الحفظ');
+      toast.error(e.message || 'تعذّر حفظ الدرس');
     }
   };
 
@@ -252,13 +252,13 @@ const EditLesson = () => {
       const resDL = await deleteLesson(id);
       if(!resDL) return;
       if (resDL.ok) {
-        toast.success('✅ تم حذف الدرس');
+        toast.success('تم حذف الدرس بنجاح');
         navigate(-1);
       } else {
-        toast.warn('❌ لم يتم حذف الدرس');
+        toast.warn('تعذّر حذف الدرس');
       }
     } catch {
-      toast.error('❌ خطأ في الحذف');
+      toast.error('تعذّر حذف الدرس');
     }
   };
 
@@ -266,9 +266,9 @@ const EditLesson = () => {
     <div className={styles.editLessonContainer}>
       {
       isAdmin ? (
-      <center><h1>{id != "new" ? "تحديث بيانات الدرس" : "اضافة درس جديد"}</h1></center>
+      <center><h1>{id != "new" ? "تعديل بيانات الدرس" : "إضافة درس جديد"}</h1></center>
       ) : (
-        <h2>معلومات الكرس</h2>
+        <h2>معلومات الدرس</h2>
       )}
 
       <fieldset className={sectionStyles.formSection} data-tour="lesson-details">
@@ -291,7 +291,7 @@ const EditLesson = () => {
       <fieldset className={sectionStyles.formSection} data-tour="lesson-schedule">
         <legend>الموعد والمكان</legend>
         <div className={styles.formControl}>
-          <label htmlFor="lesson-day">اختر يوم للدرس:<span style={{color: "red"}}>*</span></label>
+          <label htmlFor="lesson-day">يوم الدرس:<span style={{color: "red"}}>*</span></label>
           <select
             name="day"
             id="lesson-day"
@@ -299,7 +299,7 @@ const EditLesson = () => {
             onChange={handleChange}
             disabled={!isAdmin}
           >
-            {['الاحد', 'الاثنين', 'الثلاثاء', 'الاربعاء', 'الخميس','الجمعة','السبت'].map((d, i) => (
+            {['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس','الجمعة','السبت'].map((d, i) => (
               <option value={i+1} key={i+1}>
                 {d}
               </option>
@@ -340,7 +340,7 @@ const EditLesson = () => {
             onChange={handleChange}
             disabled={!isAdmin}
           >
-            <option value="">اختار مكان</option>
+            <option value="">اختر المكان</option>
             {ROOM_OPTIONS.map(({ value, label }) => (
               <option value={value} key={value}>
                 {label}
@@ -354,7 +354,7 @@ const EditLesson = () => {
       <fieldset className={sectionStyles.formSection} data-tour="lesson-staff">
         <legend>الطاقم</legend>
         <div className={styles.formControl}>
-          <label htmlFor="lesson-teacher">مرشد:<span style={{color: "red"}}>*</span></label>
+          <label htmlFor="lesson-teacher">المرشد:<span style={{color: "red"}}>*</span></label>
           {id === 'new' && !viewAll && <small>{t('roster.teacherHint')}</small>}
           <select
             name="teacher"
@@ -363,7 +363,7 @@ const EditLesson = () => {
             onChange={handleChange}
             disabled={!isAdmin}
           >
-            <option value="">اختار مرشد</option>
+            <option value="">اختر المرشد</option>
             {myId && !viewAll && !teachers.some((u) => String(u._id) === myId) && (
               <option value={myId}>{t('common.you')}</option>
             )}
@@ -378,7 +378,7 @@ const EditLesson = () => {
         </div>
 
         <div className={styles.formControl}>
-          <label htmlFor="lesson-helper">مساعد:</label>
+          <label htmlFor="lesson-helper">المساعد:</label>
           <select
             name="helper"
             id="lesson-helper"
@@ -386,7 +386,7 @@ const EditLesson = () => {
             onChange={handleChange}
             disabled={!isAdmin}
           >
-            <option value="">اختار مساعد</option>
+            <option value="">اختر المساعد</option>
             {Array.isArray(helpers) &&
               helpers.map((t) => (
                 <option key={t._id} value={t._id}>
@@ -416,7 +416,7 @@ const EditLesson = () => {
       {isAdmin && (
         <div className={styles.buttonRow} style={{ gap: 8, flexWrap: "wrap" }}>
           <Button type="button" data-tour="lesson-save" onClick={handleSave}>
-            {id !== 'new' ? 'تعديل البيانات' : 'حفظ البيانات'}
+            {id !== 'new' ? 'حفظ التعديلات' : 'حفظ الدرس'}
           </Button>
           {id !== 'new' && canDelete && (
             <Button type="button" variant="danger" data-tour="lesson-delete" onClick={handleDelete}>

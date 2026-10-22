@@ -3,10 +3,10 @@ let _askImpl = null;
 
 // ملاحظة عربية
 const PRESETS = {
-  navigate: { title: 'خروج من الصفحة', message: 'هل أنت متأكد من رغبتك في الخروج من الصفحة؟ توجد تغييرات لم يتم حفظها، وإذا خرجت الآن فلن يتم حفظ هذه التغييرات.', confirmText: 'نعم', cancelText: 'الغاء'},
-  create:   { title: 'إنشاء', message: 'هل أنت متأكد من رغبتك في إنشاء هذا العنصر؟', confirmText: 'نعم',  cancelText: 'الغاء' },
-  change:   { title: 'تغيير', message: 'هل أنت متأكد من حفظ التغييرات؟', confirmText: 'نعم', cancelText: 'الغاء' },
-  delete:   { title: 'حذف', message: 'هل أنت متأكد من حذف هذا العنصر؟', confirmText: 'نعم', cancelText: 'الغاء', danger: true },
+  navigate: { title: 'مغادرة الصفحة', message: 'توجد تغييرات لم تُحفظ، وستُفقد إذا غادرت الصفحة الآن. هل تريد المغادرة؟', confirmText: 'نعم', cancelText: 'إلغاء'},
+  create:   { title: 'تأكيد الإنشاء', message: 'هل تريد إنشاء هذا العنصر؟', confirmText: 'نعم',  cancelText: 'إلغاء' },
+  change:   { title: 'تأكيد الحفظ', message: 'هل تريد حفظ التغييرات؟', confirmText: 'نعم', cancelText: 'إلغاء' },
+  delete:   { title: 'تأكيد الحذف', message: 'هل تريد حذف هذا العنصر؟ لا يمكن التراجع عن هذا الإجراء.', confirmText: 'نعم', cancelText: 'إلغاء', danger: true },
 };
 
 // ملاحظة عربية

@@ -55,7 +55,7 @@ export const submit = async (token, fields, photo) => {
         return {
             ok: false,
             code: err?.response?.data?.code || "",
-            message: errorMessage(err, "تعذّر إرسال الطلب، حاولوا لاحقًا"),
+            message: errorMessage(err, "تعذّر إرسال الطلب. يُرجى المحاولة لاحقًا."),
         };
     }
 };

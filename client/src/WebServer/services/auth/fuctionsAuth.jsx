@@ -15,11 +15,11 @@ function markSignedIn(user, accessToken, expirationTime) {
 export async function register(payload) {
   try {
     const { data, status } = await api.post("/auth/register/", payload, { withCredentials: true });
-    if (![200, 201].includes(status)) throw new Error(data?.message || "التسجيل فشل");
-    return { ok: true, message: data.message || "التسجيل تم بنجاح" };
+    if (![200, 201].includes(status)) throw new Error(data?.message || "تعذّر التسجيل");
+    return { ok: true, message: data.message || "تم التسجيل بنجاح" };
   } catch (err) {
     console.error("Register error:", err?.response?.data || err.message);
-    return { ok: false, message: err.response?.data?.message || err.message || "حدث خطأ أثناء العملية." };
+    return { ok: false, message: err.response?.data?.message || err.message || "تعذّر إتمام العملية." };
   }
 }
 
@@ -29,7 +29,7 @@ export async function register(payload) {
 export async function login(tz, password) {
   const { data, status } = await api.post("/auth/login", { tz, password }, { withCredentials: true });
   if (![200, 201].includes(status) || !data?.ok) {
-    throw new Error(data?.message || "تسجيل الدخول فشل");
+    throw new Error(data?.message || "تعذّر تسجيل الدخول");
   }
   if (isForcedChange(data)) {
     return { mustChangePassword: true, accessToken: data.accessToken };
@@ -43,7 +43,7 @@ export async function login(tz, password) {
 export async function refresh() {
   const data = await refreshSession();
   if (!data?.ok || !data?.accessToken) {
-    throw new Error("الدخول منتهي الصلاحية، الرجاء تسجيل الدخول مرة أخرى.");
+    throw new Error("انتهت الجلسة. يُرجى تسجيل الدخول مرة أخرى.");
   }
 
   setAuthTokens(data.accessToken, data.expirationTime);
@@ -66,7 +66,7 @@ export async function getMe() {
     const { data, status } = res;
 
     if (![200, 201].includes(status) || !data?.ok) {
-      throw new Error(data?.message || "لا يمكن التعرف على المستخدم.");
+      throw new Error(data?.message || "تعذّر التعرّف على المستخدم.");
     }
 
     // Keep what the server granted next to the user so the app can hide UI.
@@ -118,12 +118,12 @@ export async function forgotPassword(tz) {
   try {
     const { data, status } = await api.post("/auth/forgot-password", { tz }, { withCredentials: true });
     if (![200, 201].includes(status) || !data?.ok) {
-      throw new Error(data?.message || "طلب إعادة تعيين كلمة السر فشل");
+      throw new Error(data?.message || "تعذّر طلب إعادة تعيين كلمة المرور");
     }
-    return { ok: true, message: data.message || "طلب إعادة تعيين كلمة السر تم بنجاح", data };
+    return { ok: true, message: data.message || "تم إرسال طلب إعادة تعيين كلمة المرور بنجاح", data };
   } catch (err) {
     console.error("Forgot Password error:", err?.response?.data || err.message);
-    return { ok: false, message: err.response?.data?.message || err.message || "حدث خطأ أثناء العملية." };
+    return { ok: false, message: err.response?.data?.message || err.message || "تعذّر إتمام العملية." };
   }
 }
 
@@ -135,11 +135,11 @@ export async function resetPassword(tz, otp, newPassword, confirmPassword) {
       { withCredentials: true }
     );
     if (![200, 201].includes(status) || !data?.ok) {
-      throw new Error(data?.message || "إعادة تعيين كلمة السر فشل");
+      throw new Error(data?.message || "تعذّرت إعادة تعيين كلمة المرور");
     }
-    return { ok: true, message: data.message || "كلمة السر قد تم تعيينها بنجاح" };
+    return { ok: true, message: data.message || "تم تعيين كلمة المرور بنجاح" };
   } catch (err) {
     console.error("Reset Password error:", err?.response?.data || err.message);
-    return { ok: false, message: err.response?.data?.message || err.message || "حدث خطأ أثناء العملية." };
+    return { ok: false, message: err.response?.data?.message || err.message || "تعذّر إتمام العملية." };
   }
 }

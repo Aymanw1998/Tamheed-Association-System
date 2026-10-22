@@ -97,7 +97,7 @@ const footerHtml = (pageNum, totalPages, dateLabel, authorLabel) => `
       <span>${pageNum}/${totalPages}</span>
       <span>تاريخ الإنشاء: ${escapeHtml(dateLabel)}</span>
     </div>
-    <div class="footer-note">هذه الوثيقة صادرة عبر نظام إدارة جمعية تمهيد وتعتبر وثيقة داخلية سرية</div>
+    <div class="footer-note">هذه الوثيقة صادرة عن نظام إدارة جمعية تمهيد، وهي وثيقة داخلية سرية</div>
   </div>
 `;
 

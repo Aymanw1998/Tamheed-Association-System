@@ -6,10 +6,10 @@ export const getAll = async() => {
     try{
         const {status, data} = await api.get(namespace);
         console.log("getAll report", status, data);
-        if(![200,201].includes(status)) throw new Error('لا يوجد تقارير');
+        if(![200,201].includes(status)) throw new Error('لا توجد تقارير');
         return {ok: true, reports: data.reports || []}
     } catch(err) {
-        return {ok: false, message: err.response.data.message || err.message || 'يوجد خلل في العملية'};
+        return {ok: false, message: err.response.data.message || err.message || 'تعذّر إتمام العملية.'};
     }
 }
 
@@ -22,10 +22,10 @@ export const getOne = async(idOrName) => {
         console.log("getOne student", idOrName);
         const {status, data} = await api.get(`${namespace}/`+idOrName);
         console.log("getOne report", status, data);
-        if(![200,201].includes(status)) throw new Error('لا يوجد تقرير موجود صاحب رقم التعريف هذا: ' + idOrName);
+        if(![200,201].includes(status)) throw new Error('لا يوجد تقرير بهذا المعرّف: ' + idOrName);
         return {ok: true, report: data.report || null}
     } catch(err){
-        return {ok: false, message: err.response.data.message || err.message || 'يوجد خلل في العملية'};
+        return {ok: false, message: err.response.data.message || err.message || 'تعذّر إتمام العملية.'};
     }
 }
 
@@ -45,10 +45,10 @@ export const create = async(payload, {confirm = true} = {}) => {
     try{
         const body = {...payload};
         const { data, status } = await api.post(namespace, body);
-        if (![200,201].includes(status)) throw new Error('الطالب لم يتم إنشاؤه');
+        if (![200,201].includes(status)) throw new Error('تعذّر إنشاء التقرير');
         return {ok: true, report: data.report}
     } catch(err) {
-        return {ok: false, message: err.response.data.message || err.message || 'يوجد خلل في العملية'};
+        return {ok: false, message: err.response.data.message || err.message || 'تعذّر إتمام العملية.'};
     }
 }
 
@@ -69,10 +69,10 @@ export const update= async(idOrName, patch,{confirm = true} = {}) => {
     try{
         const body = {...patch};
         const { data, status } = await api.put(`${namespace}/${encodeURIComponent(idOrName)}`, body);
-        if (![200,201].includes(status)) throw new Error(data?.message || 'الطالب لم يتم تحديثه');
+        if (![200,201].includes(status)) throw new Error(data?.message || 'تعذّر تحديث التقرير');
         return {ok: true, report: data.report}
     } catch(err) {
-        return {ok: false, message: err.response.data.message || err.message || 'يوجد خلل في العملية'};
+        return {ok: false, message: err.response.data.message || err.message || 'تعذّر إتمام العملية.'};
     }
 }
 
@@ -89,9 +89,9 @@ export const deleteR= async(idOrName,{confirm = true} = {}) => {
     }
     try{
         const { data, status } = await api.delete(`${namespace}/${encodeURIComponent(idOrName)}`);
-        if (![200,201].includes(status) || !data?.ok) throw new Error(data?.message || 'الطالب لم يتم حذفه');
+        if (![200,201].includes(status) || !data?.ok) throw new Error(data?.message || 'تعذّر حذف التقرير');
         return {ok: true, report: null}
     } catch(err) {
-        return {ok: false, message: err.response.data.message || err.message || 'يوجد خلل في العملية'};
+        return {ok: false, message: err.response.data.message || err.message || 'تعذّر إتمام العملية.'};
     }
 }

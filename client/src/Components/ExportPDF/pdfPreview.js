@@ -110,7 +110,7 @@ export const showPdfPreview = ({ pdf, images, fileName, title }) => {
     if (e.key === "Escape") close();
   };
 
-  const downloadBtn = makeBtn("تحميل PDF", "pdfpv-download", () => pdf.save(fileName));
+  const downloadBtn = makeBtn("تنزيل PDF", "pdfpv-download", () => pdf.save(fileName));
   const printBtn = makeBtn("طباعة", "pdfpv-print", () => printImages(images));
   const closeBtn = makeBtn("إغلاق", "pdfpv-close", close);
   bar.append(label, downloadBtn, printBtn, closeBtn);

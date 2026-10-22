@@ -151,7 +151,7 @@ const footerHtml = (pageNum, totalPages, generatedAt) => `
       <span>${pageNum}/${totalPages}</span>
       <span>${esc(generatedAt)}</span>
     </div>
-    <div class="footer-note">هذه الوثيقة صادرة عبر نظام إدارة جمعية تمهيد وتعتبر وثيقة داخلية سرية</div>
+    <div class="footer-note">هذه الوثيقة صادرة عن نظام إدارة جمعية تمهيد، وهي وثيقة داخلية سرية</div>
   </div>
 `;
 

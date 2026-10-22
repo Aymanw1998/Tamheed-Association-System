@@ -90,7 +90,7 @@ const fileTypeMeta = {
   audio: { label: "صوت", badge: "AUD", mark: "AUD", iconClass: "documentIconAudio" },
   archive: { label: "أرشيف", badge: "ZIP", mark: "ZIP", iconClass: "documentIconArchive" },
   text: { label: "نص", badge: "TXT", mark: "TXT", iconClass: "documentIconText" },
-  code: { label: "كود", badge: "DEV", mark: "</>", iconClass: "documentIconCode" },
+  code: { label: "شيفرة برمجية", badge: "DEV", mark: "</>", iconClass: "documentIconCode" },
   other: { label: "ملف", badge: "FILE", mark: "FILE", iconClass: "documentIconOther" },
 };
 
@@ -203,11 +203,11 @@ const renameItemOptimistic = (file = {}, newName = "") => ({
 });
 
 const pendingLabel = {
-  uploading: "جار الرفع",
-  chunking: "رفع مجزأ",
-  processing: "جار المعالجة",
-  creating: "جار الإنشاء",
-  renaming: "جار التسمية",
+  uploading: "جارٍ الرفع",
+  chunking: "رفع على أجزاء",
+  processing: "جارٍ المعالجة",
+  creating: "جارٍ الإنشاء",
+  renaming: "جارٍ تغيير الاسم",
 };
 
 const MAX_PARALLEL_UPLOADS = 2;
@@ -264,7 +264,7 @@ export default function FilesPage() {
       if (result?.ok) {
         setUsers(result.users || []);
       } else {
-        setError(result?.message || "تعذر تحميل المستخدمين");
+        setError(result?.message || "تعذّر تحميل المستخدمين");
       }
 
       const nextSharedUsers = {};
@@ -273,7 +273,7 @@ export default function FilesPage() {
       });
       setSharedUsersMap(nextSharedUsers);
     } catch (err) {
-      setError(err?.response?.data?.message || err.message || "تعذر تحميل المستخدمين");
+      setError(err?.response?.data?.message || err.message || "تعذّر تحميل المستخدمين");
     } finally {
       setUsersLoading(false);
     }
@@ -286,7 +286,7 @@ export default function FilesPage() {
       const data = await getStorageShareLinkInfo(shareToken);
       setShareInfo(data?.item || null);
     } catch (err) {
-      setError(err?.response?.data?.message || err.message || "تعذر فتح رابط المشاركة");
+      setError(err?.response?.data?.message || err.message || "تعذّر فتح رابط المشاركة");
     }
   };
 
@@ -315,7 +315,7 @@ export default function FilesPage() {
         loadStorageStats();
       }
     } catch (err) {
-      const message = err?.response?.data?.message || err.message || "تعذر جلب الملفات";
+      const message = err?.response?.data?.message || err.message || "تعذّر تحميل الملفات";
       if (silentError) {
         console.warn("[storage] refresh-after-upload:error", {
           status: err?.response?.status,
@@ -586,7 +586,7 @@ export default function FilesPage() {
         updateUploadJob(job.id, {
           status: "error",
           phase: "error",
-          error: err?.response?.data?.message || err.message || "تعذر رفع الملف",
+          error: err?.response?.data?.message || err.message || "تعذّر رفع الملف",
         });
       }
     } finally {
@@ -655,7 +655,7 @@ export default function FilesPage() {
         syncUploadQueue((prev) => prev.filter((item) => item.id !== jobId));
       }, 900);
     } catch (err) {
-      setError(err?.response?.data?.message || err.message || "تعذر إلغاء الرفع");
+      setError(err?.response?.data?.message || err.message || "تعذّر إلغاء الرفع");
     }
   };
 
@@ -707,14 +707,14 @@ export default function FilesPage() {
     closeContextMenu();
 
     if (uploading) {
-      setError("يوجد رفع نشط الآن. ألغ الرفع أو انتظر حتى يكتمل قبل الحذف.");
+      setError("يجري رفع ملف حاليًا. ألغِ الرفع أو انتظر اكتماله قبل الحذف.");
       return;
     }
 
     const filename = file.path || file.filename || file.name;
     if (!filename) return;
 
-    const confirmed = await ask("delete", { message: `هل تريد حذف "${getDisplayName(file)}"؟` }).catch(() => false);
+    const confirmed = await ask("delete", { message: `هل تريد حذف «${getDisplayName(file)}»؟` }).catch(() => false);
     if (!confirmed) return;
 
     setError("");
@@ -732,7 +732,7 @@ export default function FilesPage() {
       notifyActionTime("تم حذف الملف خلال", startedAt);
     } catch (err) {
       setItems(previousItems);
-      setError(err?.response?.data?.message || err.message || "تعذر حذف الملف");
+      setError(err?.response?.data?.message || err.message || "تعذّر حذف الملف");
     }
   };
 
@@ -769,7 +769,7 @@ export default function FilesPage() {
       notifyActionTime("تم تغيير الاسم خلال", startedAt);
     } catch (err) {
       setItems(previousItems);
-      setError(err?.response?.data?.message || err.message || "تعذر تغيير الاسم");
+      setError(err?.response?.data?.message || err.message || "تعذّر تغيير الاسم");
     }
   };
 
@@ -791,7 +791,7 @@ export default function FilesPage() {
       await loadShareUsers();
       loadFiles({ silentError: true });
     } catch (err) {
-      setError(err?.response?.data?.message || err.message || "تعذر مشاركة العنصر");
+      setError(err?.response?.data?.message || err.message || "تعذّر مشاركة العنصر");
     }
   };
 
@@ -807,7 +807,7 @@ export default function FilesPage() {
         await downloadStorageFile(filename);
       }
     } catch (err) {
-      setError(err?.response?.data?.message || err.message || "تعذر تحميل الملف");
+      setError(err?.response?.data?.message || err.message || "تعذّر تنزيل الملف");
     }
   };
 
@@ -835,7 +835,7 @@ export default function FilesPage() {
       loadFiles({ silentError: true });
     } catch (err) {
       setItems(previousItems);
-      setError(err?.response?.data?.message || err.message || "تعذر إنشاء المجلد");
+      setError(err?.response?.data?.message || err.message || "تعذّر إنشاء المجلد");
     }
   };
 
@@ -867,7 +867,7 @@ export default function FilesPage() {
         await openStorageFile(filename);
       }
     } catch (err) {
-      setError(err?.response?.data?.message || err.message || "تعذر فتح الملف");
+      setError(err?.response?.data?.message || err.message || "تعذّر فتح الملف");
     }
   };
 
@@ -976,7 +976,7 @@ export default function FilesPage() {
                         )}
                       </div>
                     </div>
-                    <div className={styles.uploadProgressBar} aria-label="تقدم رفع الملف">
+                    <div className={styles.uploadProgressBar} aria-label="تقدّم رفع الملف">
                       <span style={{ width: `${job.percent || 0}%` }} />
                     </div>
                     <div className={styles.uploadProgressMeta}>
@@ -1068,7 +1068,7 @@ export default function FilesPage() {
                   </button>
 
                   {pending && (
-                    <div className={styles.inlineProgress} aria-label="تقدم العملية">
+                    <div className={styles.inlineProgress} aria-label="تقدّم العملية">
                       <span style={{ width: `${pending === "uploading" || pending === "chunking" || pending === "processing" ? pendingPercent : 100}%` }} />
                     </div>
                   )}
@@ -1124,7 +1124,7 @@ export default function FilesPage() {
                 className={styles.searchInput}
                 value={userSearch}
                 onChange={(event) => setUserSearch(event.target.value)}
-                placeholder="ابحث بالاسم أو رقم الهوية..."
+                placeholder="ابحث بالاسم أو رقم الهوية…"
               />
               <select
                 className={styles.roleSelect}
@@ -1137,7 +1137,7 @@ export default function FilesPage() {
               </select>
             </div>
             <div className={styles.userList}>
-              {usersLoading && <div className={styles.empty}>جار تحميل المستخدمين...</div>}
+              {usersLoading && <div className={styles.empty}>جارٍ تحميل المستخدمين…</div>}
               {!usersLoading && !filteredUsers.length && (
                 <div className={styles.empty}>لا يوجد مستخدمون مطابقون</div>
               )}
@@ -1149,12 +1149,12 @@ export default function FilesPage() {
                 >
                   <span>
                     {[user.firstname, user.lastname].filter(Boolean).join(" ") || user.tz}
-                    {sharedUsersMap[String(user.tz || "").trim()] ? " - مشترك" : ""}
+                    {sharedUsersMap[String(user.tz || "").trim()] ? " (تمت المشاركة)" : ""}
                   </span>
                   <small>
                     {user.tz}
                     {sharedUsersMap[String(user.tz || "").trim()]
-                      ? ` • ${getShareRoleLabel(sharedUsersMap[String(user.tz || "").trim()]?.role)} • اضغط للتحديث أو الإلغاء`
+                      ? ` • ${getShareRoleLabel(sharedUsersMap[String(user.tz || "").trim()]?.role)} • اضغط لتعديل المشاركة أو إلغائها`
                       : " • اضغط للمشاركة"}
                   </small>
                 </button>

@@ -104,7 +104,7 @@ export default function Dashboard() {
         });
       } catch (err) {
         if (!cancelled) {
-          setError(err?.message || "تعذر تحميل لوحة التحكم");
+          setError(err?.message || "تعذّر تحميل لوحة التحكم");
         }
       } finally {
         if (!cancelled) {
@@ -141,7 +141,7 @@ export default function Dashboard() {
 
     cards.push(
       { label: "الطلاب", value: data.students.length, failed: loadFailed.students },
-      { label: "الدروس اليوم", value: lessonPanel.today.length, failed: loadFailed.lessons },
+      { label: "دروس اليوم", value: lessonPanel.today.length, failed: loadFailed.lessons },
       { label: "التقارير", value: data.reports.length, failed: loadFailed.reports }
     );
 
@@ -192,7 +192,7 @@ export default function Dashboard() {
       removeUserFromWaiting(user.tz);
       toast.success(t("perms.approved"));
     } catch (err) {
-      toast.error(err.message || "تعذر قبول المستخدم");
+      toast.error(err.message || "تعذّر قبول المستخدم");
     } finally {
       setActionLoading("");
     }
@@ -203,14 +203,14 @@ export default function Dashboard() {
     try {
       setActionLoading(key);
       const res = await deleteUser(user.tz, "waiting");
-      if (!res?.ok) throw new Error(res?.message || "تعذر رفض المستخدم");
+      if (!res?.ok) throw new Error(res?.message || "تعذّر رفض المستخدم");
       setData((prev) => ({
         ...prev,
         users: prev.users.filter((item) => !(item.tz === user.tz && item.room === "waiting")),
       }));
       toast.success("تم رفض المستخدم وحذفه");
     } catch (err) {
-      toast.error(err.message || "تعذر رفض المستخدم");
+      toast.error(err.message || "تعذّر رفض المستخدم");
     } finally {
       setActionLoading("");
     }
@@ -221,11 +221,11 @@ export default function Dashboard() {
     try {
       setActionLoading(key);
       const res = await updateStudent(student.tz, { status: "عادي" });
-      if (!res?.ok) throw new Error(res?.message || "تعذر قبول الطالب");
+      if (!res?.ok) throw new Error(res?.message || "تعذّر قبول الطالب");
       removeStudentFromPending(student.tz, "approve");
-      toast.success("تمت الموافقة على الطالب");
+      toast.success("تم قبول الطالب بنجاح");
     } catch (err) {
-      toast.error(err.message || "تعذر قبول الطالب");
+      toast.error(err.message || "تعذّر قبول الطالب");
     } finally {
       setActionLoading("");
     }
@@ -236,11 +236,11 @@ export default function Dashboard() {
     try {
       setActionLoading(key);
       const res = await deleteStudent(student.tz);
-      if (!res?.ok) throw new Error(res?.message || "تعذر رفض الطالب");
+      if (!res?.ok) throw new Error(res?.message || "تعذّر رفض الطالب");
       removeStudentFromPending(student.tz, "reject");
       toast.success("تم رفض الطالب وحذفه");
     } catch (err) {
-      toast.error(err.message || "تعذر رفض الطالب");
+      toast.error(err.message || "تعذّر رفض الطالب");
     } finally {
       setActionLoading("");
     }
@@ -261,7 +261,7 @@ export default function Dashboard() {
       <div className={styles.header}>
         <div>
           <h1>لوحة التحكم</h1>
-          <p>عرض سريع وبسيط لأهم بيانات النظام.</p>
+          <p>نظرة سريعة على أهم بيانات النظام.</p>
         </div>
         <div className={styles.links} data-tour="dashboard-links">
           {canViewUsers && <Link to="/users">المستخدمون</Link>}
@@ -280,7 +280,7 @@ export default function Dashboard() {
             <strong className={!loading && item.failed ? styles.statValueFailed : ""}>
               {loading ? "..." : item.failed ? "-" : item.value}
             </strong>
-            {!loading && item.failed && <small className={styles.statHint}>تعذر تحميل هذه البيانات</small>}
+            {!loading && item.failed && <small className={styles.statHint}>تعذّر تحميل هذه البيانات</small>}
           </div>
         ))}
       </div>
@@ -381,7 +381,7 @@ export default function Dashboard() {
             <Link to="/lessons">كل الدروس</Link>
           </div>
           {loading ? (
-            <p className={styles.empty}>جاري التحميل...</p>
+            <p className={styles.empty}>جارٍ التحميل…</p>
           ) : (
             <>
               {lessonPanel.today.length === 0 && (

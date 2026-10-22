@@ -5,7 +5,7 @@ import { ask } from "../Provides/confirmBus.js";
 import { getLink, rotateLink } from "../../WebServer/services/inviteToken/functionInviteToken.jsx";
 import styles from "./ParentLinkPanel.module.css";
 
-const REASON_LABEL = { exists: "موجود في النظام", pending: "طلب سابق ينتظر" };
+const REASON_LABEL = { exists: "مسجّل مسبقًا", pending: "يوجد طلب سابق قيد الانتظار" };
 
 const registrationUrl = (token) => `${window.location.origin}/register-student/${token}`;
 
@@ -40,7 +40,7 @@ export default function ParentLinkPanel() {
       await navigator.clipboard.writeText(registrationUrl(info.token));
       toast.success("تم نسخ الرابط");
     } catch {
-      toast.warn("لم يتم النسخ، انسخ الرابط يدويًا");
+      toast.warn("تعذّر النسخ، انسخ الرابط يدويًا.");
     }
   };
 
@@ -49,13 +49,13 @@ export default function ParentLinkPanel() {
     try {
       confirmed = await ask("", {
         title: "تغيير الرابط",
-        message: "الرابط الحالي سيتوقف فورًا، وستحتاج لإرسال الرابط الجديد للأهل. هل تريد المتابعة؟",
+        message: "سيتوقف الرابط الحالي فورًا، وستحتاج إلى إرسال الرابط الجديد إلى الأهل. هل تريد المتابعة؟",
         confirmText: "تغيير",
         cancelText: "إلغاء",
         danger: true,
       });
     } catch {
-      toast.error("نافذة التأكيد غير جاهزة الآن");
+      toast.error("تعذّر فتح نافذة التأكيد، حاول مرة أخرى.");
       return;
     }
     if (!confirmed) return;
@@ -67,12 +67,12 @@ export default function ParentLinkPanel() {
       toast.error(res.message);
       return;
     }
-    toast.success("تم تغيير الرابط");
+    toast.success("تم تغيير الرابط بنجاح");
     load();
   };
 
   if (error) return <p className={styles.error}>{error}</p>;
-  if (!info) return <p className={styles.muted}>جاري التحميل...</p>;
+  if (!info) return <p className={styles.muted}>جارٍ التحميل…</p>;
 
   const full = info.usedThisWeek >= info.weeklyLimit;
 
@@ -89,15 +89,15 @@ export default function ParentLinkPanel() {
         />
         <Button size="sm" onClick={copy}>نسخ</Button>
       </div>
-      <p className={styles.muted}>أرسل هذا الرابط للأهل. غيّره فقط إذا وصل لأشخاص غرباء.</p>
+      <p className={styles.muted}>أرسل هذا الرابط إلى الأهل، ولا تغيّره إلا إذا وصل إلى أشخاص غير معنيين.</p>
       <div>
         <Button size="sm" variant="danger" loading={rotating} onClick={rotate}>تغيير الرابط</Button>
       </div>
 
       <div className={styles.usage}>
-        <span>طلبات آخر 7 أيام</span>
+        <span>الطلبات في آخر 7 أيام</span>
         <strong className={full ? styles.full : ""}>{info.usedThisWeek} من {info.weeklyLimit}</strong>
-        {full && <small>الرابط لا يستقبل طلبات جديدة حتى ينخفض العدد.</small>}
+        {full && <small>لن يستقبل الرابط طلبات جديدة حتى ينخفض العدد.</small>}
       </div>
 
       <h3 className={styles.subTitle}>طلبات رُفضت تلقائيًا</h3>
@@ -106,7 +106,7 @@ export default function ParentLinkPanel() {
           {info.attempts.map((attempt, index) => (
             <li key={`${attempt.tz}-${attempt.createdAt}-${index}`}>
               <strong>{attempt.firstname} {attempt.lastname}</strong>
-              <span>هوية {attempt.tz}</span>
+              <span>رقم الهوية: {attempt.tz}</span>
               <span dir="ltr">{attempt.father_phone || attempt.mother_phone || attempt.phone || "-"}</span>
               <span>{REASON_LABEL[attempt.reason] || attempt.reason}</span>
               <em>{formatDate(attempt.createdAt)}</em>

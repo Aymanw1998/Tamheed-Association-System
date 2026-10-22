@@ -14,20 +14,20 @@ const normalizeLesson = (lesson) => {
 export const getAllLesson = async() => {
     try{
         const {data, status} = await api.get('/lesson');
-        if(![200,201].includes(status) || !data.ok) throw new Error ('تعذر تحميل الدروس');
+        if(![200,201].includes(status) || !data.ok) throw new Error ('تعذّر تحميل الدروس');
         return {ok: true, lessons: (data.lessons || data.schema || []).map(normalizeLesson).filter(Boolean)};
     } catch(err) {    
-        return {ok: false, message: err.response.data.message || err.message || 'حدث خطأ أثناء العملية.'};
+        return {ok: false, message: err.response.data.message || err.message || 'تعذّر إتمام العملية.'};
     }
 }
 
 export const getOneLesson = async(_id) => {
     try{
         const {data, status} = await api.get('/lesson/' + _id, );
-        if(![200,201].includes(status) || !data.ok) throw new Error ('تعذر تحميل الدرس');
+        if(![200,201].includes(status) || !data.ok) throw new Error ('تعذّر تحميل الدرس');
         return {ok: true, lesson: normalizeLesson(data.lesson || data.schema)};
     } catch(err) {    
-        return {ok: false, message: err.response.data.message || err.message || 'حدث خطأ أثناء العملية.'};
+        return {ok: false, message: err.response.data.message || err.message || 'تعذّر إتمام العملية.'};
     }
 }
 
@@ -35,11 +35,11 @@ export const getLessonsByQuery = async(params) => {
     try{
     console.log("in func api getLessonsByQuery params", params);
     const {data, status} = await api.get('/lesson/query', {params});
-        if(![200,201].includes(status) || !data.ok) throw new Error ('يوجد خطأ في جلب البيانات');
+        if(![200,201].includes(status) || !data.ok) throw new Error ('تعذّر تحميل البيانات');
         console.log("getLessonsByQuery", data, status);
         return {ok: true, lessons: (data.lessons || data.schema || []).map(normalizeLesson).filter(Boolean)};
     } catch(err) {    
-        return {ok: false, message: err.response.data.message || err.message || 'حدث خطأ أثناء العملية.'};
+        return {ok: false, message: err.response.data.message || err.message || 'تعذّر إتمام العملية.'};
     }
 }
 export const createLesson = async(payload, {confirm = true} = {}) => {
@@ -53,11 +53,11 @@ export const createLesson = async(payload, {confirm = true} = {}) => {
         console.log("create lesson", payload);
         const res = await api.post('/lesson', payload);
         console.log(res);
-        if(![200,201].includes(res.status) || !res.data.ok) throw new Error (data?.message || 'تعذر إنشاء الدرس');
+        if(![200,201].includes(res.status) || !res.data.ok) throw new Error (data?.message || 'تعذّر إنشاء الدرس');
         return {ok: true, lesson: normalizeLesson(res.data.lesson || res.data.schema)};
     } catch(err) {
         console.error(err);
-        return {ok: false, message: err.response.data.message || 'حدث خطأ أثناء العملية.'};
+        return {ok: false, message: err.response.data.message || 'تعذّر إتمام العملية.'};
     }
 }
 export const updateLesson = async(_id, payload, {confirm = true} = {}) => {
@@ -70,10 +70,10 @@ export const updateLesson = async(_id, payload, {confirm = true} = {}) => {
         }
         const {data, status} = await api.put(`/lesson/${encodeURIComponent(_id)}`, payload);
         console.log("update lesson", status, data);
-        if(![200,201].includes(status) || !data.ok) throw new Error (data?.message || 'تعذر تحديث الدرس');
+        if(![200,201].includes(status) || !data.ok) throw new Error (data?.message || 'تعذّر تحديث الدرس');
         return {ok: true, lesson: normalizeLesson(data.lesson || data.schema)};
     } catch(err) {
-        return {ok: false, message: err.response.data.message || err.message || 'حدث خطأ أثناء العملية.'};
+        return {ok: false, message: err.response.data.message || err.message || 'تعذّر إتمام العملية.'};
     }
 }
 
@@ -87,10 +87,10 @@ export const deleteLesson = async(_id, {confirm = true} = {}) => {
         }
         const {data, status} = await api.delete(`/lesson/${encodeURIComponent(_id)}`);
         console.log("delete lesson", status, data);
-        if(![200,201].includes(status) || !data.ok) throw new Error (data?.message || 'لم يتم حذف الدرس');
+        if(![200,201].includes(status) || !data.ok) throw new Error (data?.message || 'تعذّر حذف الدرس');
         return {ok: true, lesson: null};
     } catch(err) {
-        return {ok: false, message: err.response.data.message || err.message || 'حدث خطأ أثناء العملية.'};
+        return {ok: false, message: err.response.data.message || err.message || 'تعذّر إتمام العملية.'};
     }
 }
 
@@ -104,10 +104,10 @@ export async function addToList(lessonId, { list_students = [], list_tz = [] } =
             list_students,
             list_tz,
         });
-        if (![200,201].includes(status) || !data?.ok) throw new Error(data?.message || 'تعذر إضافة الطلاب إلى الدرس');
+        if (![200,201].includes(status) || !data?.ok) throw new Error(data?.message || 'تعذّرت إضافة الطلاب إلى الدرس');
         return {ok: true};
     } catch(err) {
-        return {ok: false, message: err.response?.data?.message || err.message || 'حدث خطأ أثناء العملية.'};
+        return {ok: false, message: err.response?.data?.message || err.message || 'تعذّر إتمام العملية.'};
     }
 }
 
@@ -117,10 +117,10 @@ export async function removeFromList(lessonId, traineeIds = []) {
             id: lessonId,
             list_trainees: traineeIds,
         });
-        if (![200,201].includes(status)) throw new Error(data?.message || 'تعذر إزالة المتدرب من الدرس');
+        if (![200,201].includes(status)) throw new Error(data?.message || 'تعذّرت إزالة الطالب من الدرس');
         return {ok: true, lessons: data.lessons || data.schema};
     } catch(err) {
-        return {ok: false, message: err.response.data.message || err.message || 'حدث خطأ أثناء العملية.'};
+        return {ok: false, message: err.response.data.message || err.message || 'تعذّر إتمام العملية.'};
     }
 }
 

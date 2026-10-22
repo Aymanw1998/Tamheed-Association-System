@@ -51,7 +51,7 @@ const formatDate = (value) => {
 const dayName = (value) => {
   const date = toDate(value);
   if (!date) return "";
-  return ["الاحد", "الاثنين", "الثلاثاء", "الاربعاء", "الخميس", "الجمعة", "السبت"][date.getDay()];
+  return ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"][date.getDay()];
 };
 
 const resetFilters = {
@@ -128,7 +128,7 @@ const ViewAllReport = () => {
       setReports(enrichedReports);
     } catch (error) {
       console.error("Failed to load reports", error);
-      setErr("يوجد خلل في جلب البيانات");
+      setErr("تعذّر تحميل البيانات");
       setReports([]);
     } finally {
       setLoading(false);
@@ -252,7 +252,7 @@ const ViewAllReport = () => {
           <input
             type="search"
             data-tour="reports-search"
-            placeholder="بحث..."
+            placeholder="بحث…"
             aria-label="بحث في التقارير"
             className={styles.searchInput}
             value={searchTerm}
@@ -260,23 +260,23 @@ const ViewAllReport = () => {
           />
 
           <Button ref={addBtnRef} id="page-add-report" data-tour="reports-add" onClick={() => navigate("/reports/new")}>
-            اضافة تقرير جديد
+            إضافة تقرير جديد
           </Button>
 
           <Button variant="secondary" data-tour="reports-refresh" onClick={loadReport} loading={loading}>
-            {loading ? "جاري التحديث" : "تحديث القائمة"}
+            {loading ? "جارٍ التحديث…" : "تحديث القائمة"}
           </Button>
         </div>
 
-        <div className={styles.summary}>مجموع: {sortedFilteredReports.length} تقارير</div>
+        <div className={styles.summary}>عدد التقارير: {sortedFilteredReports.length}</div>
       </div>
 
       {err && <div className={styles.formError}>{err}</div>}
-      {!err && loading && <div className={styles.summary}>جاري تحديث البيانات</div>}
+      {!err && loading && <div className={styles.summary}>جارٍ تحديث البيانات…</div>}
 
       {!loading && !err && (
         <div className={styles.mobileOnly}>
-          <PersonCardList emptyText="لا يوجد بيانات لاظهارها">
+          <PersonCardList emptyText="لا توجد بيانات لعرضها">
             {sortedFilteredReports.map((report) => (
               <PersonCard
                 key={report._id}
@@ -300,12 +300,12 @@ const ViewAllReport = () => {
         <table data-tour="reports-table" className={`table ${styles.subTable} ${styles.desktopOnly}`} style={{ marginTop: 12 }}>
           <thead>
             <tr>
-              <th className={styles.sortable} data-tour="reports-sort" onClick={() => toggleSort("date")}>تاريخ{sortMark("date")}</th>
-              <th className={styles.sortable} onClick={() => toggleSort("day")}>يوم{sortMark("day")}</th>
-              <th className={styles.sortable} onClick={() => toggleSort("stitle")}>اسم التقرير{sortMark("stitle")}</th>
-              <th className={styles.sortable} onClick={() => toggleSort("title")}>عناوين التقرير{sortMark("title")}</th>
-              <th className={styles.sortable} onClick={() => toggleSort("createdBy")}>صاحب التقرير{sortMark("createdBy")}</th>
-              <th>العمليات</th>
+              <th className={styles.sortable} data-tour="reports-sort" onClick={() => toggleSort("date")}>التاريخ{sortMark("date")}</th>
+              <th className={styles.sortable} onClick={() => toggleSort("day")}>اليوم{sortMark("day")}</th>
+              <th className={styles.sortable} onClick={() => toggleSort("stitle")}>عنوان التقرير{sortMark("stitle")}</th>
+              <th className={styles.sortable} onClick={() => toggleSort("title")}>العناوين الثانوية{sortMark("title")}</th>
+              <th className={styles.sortable} onClick={() => toggleSort("createdBy")}>كاتب التقرير{sortMark("createdBy")}</th>
+              <th>الإجراءات</th>
             </tr>
 
             {/* <tr>
@@ -335,10 +335,10 @@ const ViewAllReport = () => {
                   style={{ width: "100%" }}
                 >
                   <option value="">الكل</option>
-                  <option value="0">الاحد</option>
+                  <option value="0">الأحد</option>
                   <option value="1">الاثنين</option>
                   <option value="2">الثلاثاء</option>
-                  <option value="3">الاربعاء</option>
+                  <option value="3">الأربعاء</option>
                   <option value="4">الخميس</option>
                   <option value="5">الجمعة</option>
                   <option value="6">السبت</option>
@@ -347,7 +347,7 @@ const ViewAllReport = () => {
 
               <th>
                 <input
-                  placeholder="فلتر اسم..."
+                  placeholder="تصفية بالعنوان…"
                   value={filters.stitle}
                   onChange={(event) => setFilters((current) => ({ ...current, stitle: event.target.value }))}
                   style={{ width: "100%" }}
@@ -356,7 +356,7 @@ const ViewAllReport = () => {
 
               <th>
                 <input
-                  placeholder="فلتر العنوان..."
+                  placeholder="تصفية بالعنوان الثانوي…"
                   value={filters.title}
                   onChange={(event) => setFilters((current) => ({ ...current, title: event.target.value }))}
                   style={{ width: "100%" }}
@@ -365,7 +365,7 @@ const ViewAllReport = () => {
 
               <th>
                 <input
-                  placeholder="فلتر صاحب التقرير..."
+                  placeholder="تصفية بكاتب التقرير…"
                   value={filters.createBy}
                   onChange={(event) => setFilters((current) => ({ ...current, createBy: event.target.value }))}
                   style={{ width: "100%" }}
@@ -374,7 +374,7 @@ const ViewAllReport = () => {
 
               <th>
                 <Button size="sm" variant="secondary" onClick={() => setFilters(resetFilters)}>
-                  مسح الفلاتر
+                  مسح التصفية
                 </Button>
               </th>
             </tr> */}
@@ -384,10 +384,10 @@ const ViewAllReport = () => {
             {sortedFilteredReports.length > 0 ? (
               sortedFilteredReports.map((report) => (
                 <tr key={report._id}>
-                  <td data-label="تاريخ">{formatDate(report.date)}</td>
-                  <td data-label="يوم">{dayName(report.date)}</td>
-                  <td data-label="اسم التقرير">{report.stitle}</td>
-                  <td data-label="عناوين التقرير">
+                  <td data-label="التاريخ">{formatDate(report.date)}</td>
+                  <td data-label="اليوم">{dayName(report.date)}</td>
+                  <td data-label="عنوان التقرير">{report.stitle}</td>
+                  <td data-label="العناوين الثانوية">
                     <div className={styles.tagList}>
                       {(report.title ?? []).map((tag, index) => (
                         <span key={`${report._id}-title-${index}`} className={styles.tag}>
@@ -396,11 +396,11 @@ const ViewAllReport = () => {
                       ))}
                     </div>
                   </td>
-                  <td data-label="صاحب التقرير">{ownerName(report)}</td>
-                  <td data-label="العمليات">
+                  <td data-label="كاتب التقرير">{ownerName(report)}</td>
+                  <td data-label="الإجراءات">
                     <div className={styles.rowActions}>
                       <Button size="sm" variant="warning" data-tour="reports-open" onClick={() => navigate(`/reports/${report._id}`)}>
-                        للتعديل
+                        تعديل
                       </Button>
                       <Button size="sm" variant="secondary" data-tour="reports-pdf" onClick={() => exportReportPdf(report, report.user)}>
                         ملف التقرير
@@ -412,7 +412,7 @@ const ViewAllReport = () => {
             ) : (
               <tr>
                 <td colSpan={6} style={{ textAlign: "center", padding: 16 }}>
-                  لا يوجد بيانات لاظهارها
+                  لا توجد بيانات لعرضها
                 </td>
               </tr>
             )}
@@ -423,7 +423,7 @@ const ViewAllReport = () => {
       <Fabtn
         anchor="#page-add-report"
         visible={showFab}
-        label="اضافة تقرير جديد"
+        label="إضافة تقرير جديد"
         onClick={() => navigate("/reports/new")}
       />
     </div>

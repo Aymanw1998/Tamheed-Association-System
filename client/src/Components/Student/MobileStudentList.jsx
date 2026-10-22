@@ -16,7 +16,7 @@ export default function MobileStudentList({
   onReject,
 }) {
   return (
-    <PersonCardList emptyText="لا يوجد طلاب في هذا القسم">
+    <PersonCardList emptyText="لا يوجد طلاب في هذه القائمة">
       {students.map((student) => {
         const status = statusOf(student);
         return (

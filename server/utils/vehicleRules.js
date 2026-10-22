@@ -310,7 +310,7 @@ function validateVehicle(input = {}, { today = todayInJerusalem() } = {}) {
 
 function validateLicense(input = {}) {
   const errors = {};
-  if (!isValidDateOnly(input.validUntil)) errors.validUntil = "تاريخ انتهاء الرخصة مطلوب وصحيح";
+  if (!isValidDateOnly(input.validUntil)) errors.validUntil = "تاريخ انتهاء الرخصة مطلوب ويجب أن يكون صالحًا";
   optionalDate(input.validFrom, "تاريخ بدء الصلاحية", errors, "validFrom");
   if (
     !errors.validUntil &&

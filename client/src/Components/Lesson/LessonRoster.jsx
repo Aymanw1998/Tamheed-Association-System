@@ -167,7 +167,7 @@ export default function LessonRoster({
                 <small>{detailsOf(student)}</small>
                 {conflicts[student._id] && (
                   <span className={styles.conflict}>
-                    لديه درس آخر في نفس الوقت: {conflicts[student._id].join("، ")}
+                    لديه درس آخر في الوقت نفسه: {conflicts[student._id].join("، ")}
                   </span>
                 )}
               </span>
@@ -206,7 +206,7 @@ export default function LessonRoster({
         </div>
       )}
 
-      {canEdit && <p className={styles.hint}>التغييرات تُحفظ عند الضغط على "حفظ البيانات".</p>}
+      {canEdit && <p className={styles.hint}>لا تُحفظ التغييرات إلا بعد الضغط على زر الحفظ.</p>}
 
       {pickerOpen && (
         <div className={styles.overlay} onClick={() => setPickerOpen(false)}>
@@ -219,7 +219,7 @@ export default function LessonRoster({
           >
             <div className={styles.pickerHeader}>
               <h3 id="roster-picker-title">إضافة طلاب إلى الدرس</h3>
-              {addedInPicker > 0 && <span className={styles.addedCount}>أُضيف {addedInPicker}</span>}
+              {addedInPicker > 0 && <span className={styles.addedCount}>أُضيف: {addedInPicker}</span>}
             </div>
             <input
               type="search"
@@ -263,11 +263,11 @@ export default function LessonRoster({
             )}
 
             <small className={styles.pickerCount}>
-              {available.length} طالب غير مضاف{pickerQuery.trim() ? " مطابق للبحث" : ""}
+              طلاب غير مضافين{pickerQuery.trim() ? " يطابقون البحث" : ""}: {available.length}
             </small>
 
             {available.length === 0 ? (
-              <p className={styles.empty}>لا يوجد طالب غير مضاف{pickerQuery.trim() ? " مطابق للبحث" : ""}</p>
+              <p className={styles.empty}>لا يوجد طلاب غير مضافين{pickerQuery.trim() ? " يطابقون البحث" : ""}</p>
             ) : (
               <ul className={`${styles.list} ${styles.pickerList}`}>
                 {available.map((student) => (

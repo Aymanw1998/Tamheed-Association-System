@@ -75,14 +75,14 @@ const ViewAllStudent = () => {
     try {
       const res = await getAll();
       if (!res?.ok) {
-        throw new Error(res?.message || "يوجد خلل في جلب البيانات");
+        throw new Error(res?.message || "تعذّر تحميل البيانات");
       }
 
       // The server already scopes the list (responsible and lesson students).
       setStudents(Array.isArray(res.students) ? res.students : []);
     } catch (error) {
       console.error("Student load error", error);
-      setErr("يوجد خلل في جلب البيانات");
+      setErr("تعذّر تحميل البيانات");
       setStudents([]);
     } finally {
       setLoading(false);
@@ -148,7 +148,7 @@ const ViewAllStudent = () => {
   const handleApproveStudent = async (tz) => {
     const res = await update(tz, { status: ACTIVE_STATUS });
     if (!res?.ok) {
-      toast.error(res?.message || "لم يتم قبول الطالب");
+      toast.error(res?.message || "تعذّر قبول الطالب");
       return;
     }
 
@@ -159,7 +159,7 @@ const ViewAllStudent = () => {
   const handleRejectStudent = async (tz) => {
     const res = await deleteS(tz);
     if (!res?.ok) {
-      toast.error(res?.message || "لم يتم رفض الطالب");
+      toast.error(res?.message || "تعذّر رفض الطالب");
       return;
     }
 
@@ -178,7 +178,7 @@ const ViewAllStudent = () => {
           <input
             type="search"
             data-tour="students-search"
-            placeholder="بحث..."
+            placeholder="بحث…"
             aria-label="بحث في قائمة الطلاب"
             className={styles.searchInput}
             value={searchTerm}
@@ -198,7 +198,7 @@ const ViewAllStudent = () => {
           )}
 
           <Button variant="secondary" data-tour="students-refresh" onClick={loadStudent} loading={loading}>
-            {loading ? "جاري التحديث" : "تحديث القائمة"}
+            {loading ? "جارٍ التحديث…" : "تحديث القائمة"}
           </Button>
         </div>
 
@@ -212,17 +212,16 @@ const ViewAllStudent = () => {
         </div>}
 
         <div className={styles.summary}>
-          مجموع: {sortedFilteredStudents.length} طالب{" "}
           {statusFilter === "active"
-            ? "مسجل"
+            ? "الطلاب الفعّالون"
             : statusFilter === "waiting"
-            ? "بانتظار الموافقة"
-            : "غير فعالين"}
+            ? "الطلاب بانتظار الموافقة"
+            : "الطلاب غير الفعّالين"}: {sortedFilteredStudents.length}
         </div>
       </div>
 
       {err && <div className={styles.formError}>{err}</div>}
-      {!err && loading && <div className={styles.emptyState}>جاري تحديث البيانات</div>}
+      {!err && loading && <div className={styles.emptyState}>جارٍ تحديث البيانات…</div>}
 
       {!loading && !err && (
         <div className={styles.mobileOnly}>
@@ -248,7 +247,7 @@ const ViewAllStudent = () => {
               <th>العمر</th>
               <th>الجنس</th>
               <th>الحالة</th>
-              <th>للإجراءات</th>
+              <th>الإجراءات</th>
             </tr>
           </thead>
           <tbody>
@@ -267,7 +266,7 @@ const ViewAllStudent = () => {
                       {student.status || ACTIVE_STATUS}
                     </StatusBadge>
                   </td>
-                  <td data-label="للإجراءات">
+                  <td data-label="الإجراءات">
                     <div className={styles.rowActions}>
                       {student.status === ACTIVE_STATUS && (
                         <>
@@ -276,7 +275,7 @@ const ViewAllStudent = () => {
                             variant="warning"
                             onClick={() => navigate(`/students/${student.tz}`)}
                           >
-                            للتعديل
+                            تعديل
                           </Button>
                           <Button
                             size="sm"
@@ -325,7 +324,7 @@ const ViewAllStudent = () => {
             ) : (
               <tr>
                 <td colSpan={7} className={styles.emptyState}>
-                  لا يوجد طلاب في هذا القسم
+                  لا يوجد طلاب في هذه القائمة
                 </td>
               </tr>
             )}
@@ -336,7 +335,7 @@ const ViewAllStudent = () => {
       <Fabtn
         anchor="#page-add-student"
         visible={showFab && canCreateStudents}
-        label="اضافة طالب جديد"
+        label="إضافة طالب جديد"
         onClick={() => {
           navigate("/students/new");
         }}

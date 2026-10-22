@@ -106,7 +106,7 @@ export const openStorageFile = async (filename) => {
 
   if (!data?.url) {
     fileWindow?.close?.();
-    throw new Error(data?.message || "تعذر إنشاء رابط فتح مؤقت");
+    throw new Error(data?.message || "تعذّر إنشاء رابط فتح مؤقت");
   }
 
   return sendUrlToFileWindow(fileWindow, targetName, data.url);
@@ -120,7 +120,7 @@ export const downloadStorageFile = async (filename) => {
   });
 
   if (!data?.url) {
-    throw new Error(data?.message || "تعذر إنشاء رابط تحميل مؤقت");
+    throw new Error(data?.message || "تعذّر إنشاء رابط تحميل مؤقت");
   }
 
   downloadFromUrl(data.url);
@@ -573,7 +573,7 @@ export const openSharedStorageFile = async (token, relativePath = "") => {
 
   if (!data?.url) {
     fileWindow?.close?.();
-    throw new Error(data?.message || "تعذر إنشاء رابط فتح مؤقت");
+    throw new Error(data?.message || "تعذّر إنشاء رابط فتح مؤقت");
   }
 
   return sendUrlToFileWindow(fileWindow, targetName, data.url);
@@ -586,7 +586,7 @@ export const downloadSharedStorageFile = async (token, relativePath = "") => {
   });
 
   if (!data?.url) {
-    throw new Error(data?.message || "تعذر إنشاء رابط تحميل مؤقت");
+    throw new Error(data?.message || "تعذّر إنشاء رابط تحميل مؤقت");
   }
 
   downloadFromUrl(data.url);

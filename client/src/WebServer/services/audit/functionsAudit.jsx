@@ -7,7 +7,7 @@ const call = async (request) => {
     return { ok: true, ...(data || {}) };
   } catch (err) {
     const body = err.response?.data || {};
-    return { ok: false, status: err.response?.status || 0, code: body.code, message: body.message || err.message || "يوجد خلل في العملية" };
+    return { ok: false, status: err.response?.status || 0, code: body.code, message: body.message || err.message || "تعذّر إتمام العملية." };
   }
 };
 

@@ -228,7 +228,7 @@ export default function AttendancePage() {
         if (!r.ok) throw new Error(r.message);
 
         setDirty(false);
-        toast?.success ? toast.success("حُفظ بنحاح ✅") : console.log("saved");
+        toast?.success ? toast.success("تم حفظ الحضور بنجاح") : console.log("saved");
         } catch (e) {
         toast?.error ? toast.error(e.message) : console.error(e);
         } finally {
@@ -264,21 +264,21 @@ export default function AttendancePage() {
     const headerDateText = useMemo(() => {
         
         if (tab === "today") return ymd(date);
-        return selectedHistoryDate ? selectedHistoryDate.ymd : "اختر تاريخ";
+        return selectedHistoryDate ? selectedHistoryDate.ymd : "اختر تاريخًا";
     }, [tab, date, selectedHistoryDate]);
 
     return (
         <div className={styles.page} dir="rtl">
         {!(isMobile && mobileView === "sheet") && <div className={styles.topbar}>
-            <h2 className={styles.title}>حضور وغياب</h2>
+            <h2 className={styles.title}>الحضور والغياب</h2>
             <div className={styles.tabs} data-tour="calendar-tabs">
             <button className={`${styles.tabBtn} ${tab === "today" ? styles.tabActive : ""}`}
             onClick={() => doChange(setTab,"today")}>
-                درس اليوم
+                دروس اليوم
             </button>
             <button className={`${styles.tabBtn} ${tab === "history" ? styles.tabActive : ""}`}
             onClick={() => doChange(setTab,"history")}>
-                سجل الحضور السابق
+                السجل
             </button>
             </div>
         </div>}
@@ -286,7 +286,7 @@ export default function AttendancePage() {
         <div className={styles.body}>
             {tab === "today" && (<>
             {/* <div className={styles.dateBox}>
-                <label className={styles.label}>تاريخ:</label>
+                <label className={styles.label}>التاريخ:</label>
                 <input
                 className={styles.input}
                 type="date"
@@ -308,7 +308,7 @@ export default function AttendancePage() {
                 <div className={styles.leftTitle}>
                 {tab === "today" ? "دروس اليوم - " + `${ymd(date)}` : "كل الدروس"}
                 </div>
-                {loadingLeft && <div className={styles.small}>جلب البيانات...</div>}
+                {loadingLeft && <div className={styles.small}>جارٍ تحميل البيانات…</div>}
             </div>
 
             <div className={styles.lessonList} data-tour="calendar-lessons">
@@ -332,7 +332,7 @@ export default function AttendancePage() {
                 </button>
                 ))}
                 {!loadingLeft && leftLessons.length === 0 && (
-                <div className={styles.empty}>{tab === "today" ? "لا يوجد دروس في هذا اليوم" : "لا يوجد دروس"}</div>
+                <div className={styles.empty}>{tab === "today" ? "لا توجد دروس في هذا اليوم" : "لا توجد دروس"}</div>
                 )}
                 </div>
             </div>
@@ -342,7 +342,7 @@ export default function AttendancePage() {
                 <div className={styles.datesPanel} data-tour="calendar-dates">
                 <label className={styles.leftTitle} htmlFor="attendance-date">التاريخ:</label>
                 {loadingSheet && historyDates.length === 0 ? (
-                    <div className={styles.small}>جلب البيانات...</div>
+                    <div className={styles.small}>جارٍ تحميل البيانات…</div>
                 ) : historyDates.length === 0 ? (
                     <div className={styles.empty}>لا يوجد حضور مسجّل لهذا الدرس بعد</div>
                 ) : (
@@ -355,7 +355,7 @@ export default function AttendancePage() {
                         if (picked) pickDate(picked);
                     }}
                     >
-                    <option value="" disabled>اختر تاريخ ({historyDates.length})</option>
+                    <option value="" disabled>اختر تاريخًا ({historyDates.length})</option>
                     {historyDates.map((d) => (
                         <option key={d.dateKey} value={String(d.dateKey)}>
                         {attendanceDateLabel(d)}
@@ -383,18 +383,18 @@ export default function AttendancePage() {
             )}
             {!selectedLesson && (
                 <div className={styles.placeholder}>
-                {tab === "today" ? "اختيار درس اولا " : "اختيار درس وتاريخ اولا"}
+                {tab === "today" ? "اختر درسًا أولًا" : "اختر درسًا وتاريخًا أولًا"}
                 </div>
             )}
 
             {selectedLesson && tab === "history" && !selectedHistoryDate && (
                 <div className={styles.placeholder}>
-                اختيار تاريخ للدرس: <b>{selectedLesson.name}</b>
+                اختر تاريخًا للدرس: <b>{selectedLesson.name}</b>
                 </div>
             )}
 
             {loadingSheet && (
-                <div className={styles.placeholder}>جلب البيانات...</div>
+                <div className={styles.placeholder}>جارٍ تحميل البيانات…</div>
             )}
 
             {sheet && (
@@ -408,9 +408,9 @@ export default function AttendancePage() {
                     </div>
 
                     <div className={styles.quickBtns} data-tour="calendar-quick">
-                    <button className={styles.quickBtn} onClick={() => markAll("حاضر")} disabled={loadingSheet}>الكل حاضر</button>
-                    <button className={styles.quickBtn} onClick={() => markAll("متأخر")} disabled={loadingSheet}>الكل متأخر</button>    
-                    <button className={styles.quickBtn} onClick={() => markAll("غائب")} disabled={loadingSheet}>الكل غائب</button>
+                    <button className={styles.quickBtn} onClick={() => markAll("حاضر")} disabled={loadingSheet}>الكل: حاضر</button>
+                    <button className={styles.quickBtn} onClick={() => markAll("متأخر")} disabled={loadingSheet}>الكل: متأخر</button>    
+                    <button className={styles.quickBtn} onClick={() => markAll("غائب")} disabled={loadingSheet}>الكل: غائب</button>
                     </div>
                 </div>
 
@@ -419,8 +419,8 @@ export default function AttendancePage() {
                 <table className={styles.table}>
                     <thead>
                     <tr>
-                        <th>طالب</th>
-                        <th>حالة</th>
+                        <th>الطالب</th>
+                        <th>الحالة</th>
                         <th>ملاحظة</th>
                     </tr>
                     </thead>
@@ -496,7 +496,7 @@ export default function AttendancePage() {
                     غائب: {sheet.items.filter(x => x.status === "غائب").length}
                     </div>
                     <div className={styles.actions}>
-                    {dirty && <span className={styles.miniInfo}>يوجد بيانات لم تُحفظ</span>}
+                    {dirty && <span className={styles.miniInfo}>توجد تغييرات لم تُحفظ</span>}
                     <button className={styles.saveBtn} data-tour="calendar-save" onClick={onSave} disabled={loadingSheet || !dirty}>
                         حفظ
                     </button>
@@ -517,10 +517,10 @@ export default function AttendancePage() {
                 aria-labelledby="attendance-date-title"
                 onClick={(e) => e.stopPropagation()}
             >
-                <h3 id="attendance-date-title" className={styles.dateModalTitle}>اختر تاريخ</h3>
+                <h3 id="attendance-date-title" className={styles.dateModalTitle}>اختر تاريخًا</h3>
                 <div className={styles.small}>{selectedLesson.name}</div>
                 {loadingSheet && historyDates.length === 0 ? (
-                <div className={styles.small}>جلب البيانات...</div>
+                <div className={styles.small}>جارٍ تحميل البيانات…</div>
                 ) : historyDates.length === 0 ? (
                 <div className={styles.empty}>لا يوجد حضور مسجّل لهذا الدرس بعد</div>
                 ) : (

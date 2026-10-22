@@ -39,7 +39,7 @@ export default function LoginPage() {
     }
     const handleLogin = async(e)=> {
         if(tz == "" || password == ""){
-            toast.warn("الرجاء ملء جميع الحقول.");
+            toast.warn("يُرجى تعبئة جميع الحقول.");
             return;
         }
         setLoading(true);
@@ -52,7 +52,7 @@ export default function LoginPage() {
             finishLogin(me);
         } catch (err) {
             console.error('Login error:', err?.response?.data || err.message);
-            toast.error(err?.response?.data?.message || err.message || 'فشل تسجيل الدخول. الرجاء المحاولة مرة أخرى.');
+            toast.error(err?.response?.data?.message || err.message || 'تعذّر تسجيل الدخول. يُرجى المحاولة مرة أخرى.');
         } finally {
         setLoading(false);
         }
@@ -60,7 +60,7 @@ export default function LoginPage() {
 
     function finishLogin(me) {
         if (me?.firstname || me?.lastname) {
-            toast.success(`${[me.firstname, me.lastname].filter(Boolean).join(' ')}, مرحباً بك في النظام!`);
+            toast.success(`مرحبًا بك، ${[me.firstname, me.lastname].filter(Boolean).join(' ')}`);
         }
         const from = location.state?.from?.pathname || '/dashboard';
         navigate(from, { replace: true });
@@ -75,7 +75,7 @@ export default function LoginPage() {
             finishLogin(await login(tz, newPassword));
         } catch (err) {
             // The password did change; the user can sign in with it by hand.
-            toast.error(err?.response?.data?.message || err.message || 'فشل تسجيل الدخول. الرجاء المحاولة مرة أخرى.');
+            toast.error(err?.response?.data?.message || err.message || 'تعذّر تسجيل الدخول. يُرجى المحاولة مرة أخرى.');
         }
     };
 
@@ -102,7 +102,7 @@ export default function LoginPage() {
                 ) : (
                 <div className={styles.loginForm}>
                     <div className={`${styles.logo} ${styles.logoDisNone}`}><img src={LogoIMG}/></div>
-                    <h2>سجل الدخول</h2>
+                    <h2>تسجيل الدخول</h2>
 
                     <label className={styles.fieldLabel} htmlFor="login-tz">رقم الهوية أو البريد الإلكتروني</label>
                     <input id="login-tz" ref={tzRef} name="tz" type="text" placeholder="رقم الهوية أو البريد الإلكتروني" value={tz} onChange={(e)=>setTz(e.target.value)} onKeyDown={handleKeyDown} required />
@@ -132,9 +132,9 @@ export default function LoginPage() {
                     </div>
 
                     <button type="button" className={styles.forgotLink} onClick={() => setShowPopup(true)}>نسيت كلمة المرور؟</button>
-                    <button type="submit" onClick={handleLogin} disabled={loading}>{loading ? '...' : 'أدخل'}</button>
+                    <button type="submit" onClick={handleLogin} disabled={loading}>{loading ? '…' : 'دخول'}</button>
                     <hr />
-                    <button type="button" className={styles.secondaryButton} onClick={()=>navigate("/register")}>{'تسجل كمستخدم'}</button>
+                    <button type="button" className={styles.secondaryButton} onClick={()=>navigate("/register")}>{'التسجيل كمستخدم جديد'}</button>
                 </div>
                 )}
             </div>

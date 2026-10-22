@@ -17,16 +17,16 @@ export default function ForgotPassword() {
         e.preventDefault();
         setMsg("");
 
-        if (!tz.trim()) return setMsg("الرجاء إدخال رقم الهوية.");
+        if (!tz.trim()) return setMsg("يُرجى إدخال رقم الهوية.");
 
         try {
             setLoading(true);
             const res = await forgotPassword(tz.trim());
-            setMsg(res?.message || "سوف يتم إرسال رابط إعادة التعيين إذا كان المستخدم موجودًا.");
+            setMsg(res?.message || "إذا كان المستخدم مسجّلًا، فسيُرسل إليه رمز التحقق.");
             // A refusal (for example a locked account) keeps the user on this step.
             if (res?.ok !== false) setStep(2);
         } catch (err) {
-            setMsg("حدث خطأ أثناء معالجة طلبك. الرجاء المحاولة مرة أخرى.");
+            setMsg("حدث خطأ أثناء معالجة طلبك. يُرجى المحاولة مرة أخرى.");
         } finally {
             setLoading(false);
         }
@@ -40,7 +40,7 @@ export default function ForgotPassword() {
 
     const handleResetPassword = async () => {
         setMsg("");
-        if (!otp.trim() || otp.trim().length !== 6) return setMsg("الرجاء إدخال رمز التحقق الصحيح (6 أرقام).");
+        if (!otp.trim() || otp.trim().length !== 6) return setMsg("يُرجى إدخال رمز التحقق الصحيح (6 أرقام).");
         // Same 8-128 rule as the server (and the forced change), checked before sending.
         const problem = resetPasswordError({ newPassword, confirmPassword });
         if (problem) return setMsg(t(`passwordChange.errors.${problem}`, t("passwordChange.errors.generic")));
@@ -48,7 +48,7 @@ export default function ForgotPassword() {
             setLoading(true);
             const res = await resetPassword(tz.trim(), otp.trim(), newPassword, confirmPassword);
             if (res.ok) {
-                setMsg("تمت إعادة تعيين كلمة السر بنجاح. يمكنك الآن تسجيل الدخول.");
+                setMsg("تمت إعادة تعيين كلمة المرور بنجاح. يمكنك الآن تسجيل الدخول.");
                 setStep(1);
                 setTz("");
                 setOtp("");
@@ -56,10 +56,10 @@ export default function ForgotPassword() {
                 setConfirmPassword("");
             }
             else {
-                setMsg(res.message || "فشل في إعادة تعيين كلمة السر. الرجاء المحاولة مرة أخرى.");
+                setMsg(res.message || "تعذّرت إعادة تعيين كلمة المرور. يُرجى المحاولة مرة أخرى.");
             }
         } catch (err) {
-            setMsg("حدث خطأ أثناء معالجة طلبك. الرجاء المحاولة مرة أخرى.");
+            setMsg("حدث خطأ أثناء معالجة طلبك. يُرجى المحاولة مرة أخرى.");
         }
         finally {
             setLoading(false);
@@ -70,7 +70,7 @@ export default function ForgotPassword() {
         <div className={styles.wrapper}>
             {step === 1 && (
                 <>
-                    <p className={styles.intro}>ادخل رقم الهوية لنرسل رابط لإعادة تعيين كلمة السر</p>
+                    <p className={styles.intro}>أدخل رقم الهوية لنرسل إليك رمز التحقق لإعادة تعيين كلمة المرور</p>
                     <form className={styles.wrapper} onSubmit={onSubmit}>
                         <div className={styles.field}>
                             <label htmlFor="fp-tz">رقم الهوية</label>
@@ -84,7 +84,7 @@ export default function ForgotPassword() {
                             />
                         </div>
                         <Button type="submit" className={styles.submit} loading={loading}>
-                            ارسل رابط إعادة التعيين
+                            إرسال رمز التحقق
                         </Button>
                     </form>
                     {msg && <p className={styles.message}>{msg}</p>}
@@ -95,26 +95,26 @@ export default function ForgotPassword() {
                     <h3 className={styles.tzReminder}>رقم الهوية: <strong>{tz}</strong></h3>
 
                     <div className={styles.field}>
-                        <label htmlFor="fp-otp">رقم التحقق</label>
+                        <label htmlFor="fp-otp">رمز التحقق</label>
                         <input
                             id="fp-otp"
                             type="text"
                             inputMode="numeric"
                             value={otp}
                             onChange={(e) => setOtp(e.target.value)}
-                            placeholder="أدخل رقم التحقق (6 أرقام)"
+                            placeholder="أدخل رمز التحقق (6 أرقام)"
                         />
                     </div>
 
                     <div className={styles.field}>
-                        <label htmlFor="fp-new-password">كلمة السر الجديدة</label>
+                        <label htmlFor="fp-new-password">كلمة المرور الجديدة</label>
                         <div className={styles.passwordWrapper}>
                             <input
                                 id="fp-new-password"
                                 type={showNewPassword ? "text" : "password"}
                                 value={newPassword}
                                 onChange={(e) => setNewPassword(e.target.value)}
-                                placeholder="يكتب كلمة السر الجديدة"
+                                placeholder="اكتب كلمة المرور الجديدة"
                                 aria-describedby="fp-password-hint"
                             />
                             <button
@@ -132,14 +132,14 @@ export default function ForgotPassword() {
                     <p id="fp-password-hint" className={styles.hint}>{t("passwordChange.resetHint")}</p>
 
                     <div className={styles.field}>
-                        <label htmlFor="fp-confirm-password">تأكيد كلمة السر الجديدة</label>
+                        <label htmlFor="fp-confirm-password">تأكيد كلمة المرور الجديدة</label>
                         <div className={styles.passwordWrapper}>
                             <input
                                 id="fp-confirm-password"
                                 type={showConfirmPassword ? "text" : "password"}
                                 value={confirmPassword}
                                 onChange={(e) => setConfirmPassword(e.target.value)}
-                                placeholder="يؤكد كلمة السر الجديدة"
+                                placeholder="أعد كتابة كلمة المرور الجديدة"
                             />
                             <button
                                 type="button"
@@ -154,7 +154,7 @@ export default function ForgotPassword() {
                     </div>
 
                     <Button type="button" className={styles.submit} loading={loading} onClick={handleResetPassword}>
-                        إعادة تعيين كلمة السر
+                        إعادة تعيين كلمة المرور
                     </Button>
 
                     {msg && <p className={styles.message}>{msg}</p>}

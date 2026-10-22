@@ -21,15 +21,15 @@ const createTransporter = () => {
 const sendResetPasswordEmail = async (to, otp) => {
     const transporter = createTransporter();
     const html = `<div style="font-family:Arial;line-height:1.6;align:center;">
-                    <h2>اعادة تعيين كلمة السر</h2>
-                    <p>الكود هو: </p>
+                    <h2>إعادة تعيين كلمة المرور</h2>
+                    <p>رمز التحقق الخاص بك:</p>
                     <div style="font-size:28px;font-weight:700;letter-spacing:4px">${otp}</div>
-                    <p>الكود لحديد 10 دقائق من الان.</p>
+                    <p>الرمز صالح لمدة 10 دقائق من وقت الإرسال. إذا لم تطلب إعادة تعيين كلمة المرور، فتجاهل هذه الرسالة.</p>
                 </div>`;
     await transporter.sendMail({
         from: process.env.SMTP_FROM, // ملاحظة عربية
         to,
-        subject: "اعادة تعيين كلمة السر: " + otp,
+        subject: "رمز إعادة تعيين كلمة المرور: " + otp,
         html,
     });
 }

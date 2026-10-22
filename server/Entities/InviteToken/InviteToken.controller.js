@@ -136,7 +136,7 @@ const validateToken = async (req, res) => {
     });
   } catch (err) {
     logWithSource("InviteToken.validateToken", err);
-    return res.status(500).json({ valid: false, message: "خطأ في فحص الرابط" });
+    return res.status(500).json({ valid: false, message: "تعذّر التحقق من الرابط" });
   }
 };
 
@@ -160,7 +160,7 @@ function readRegistration(body = {}) {
 }
 
 function registrationError(fields) {
-  if (!isValidIsraeliId(fields.tz)) return "رقم الهوية غير صحيح";
+  if (!isValidIsraeliId(fields.tz)) return "رقم الهوية غير صالح";
   if (!fields.firstname || !fields.lastname) return "اسم الطالب واسم العائلة مطلوبان";
   return "";
 }
@@ -204,7 +204,7 @@ const submitRegistration = async (req, res) => {
       return res.status(404).json({
         ok: false,
         valid: false,
-        message: "الرابط غير صالح، اطلبوا الرابط من الجمعية",
+        message: "الرابط غير صالح. يُرجى طلب رابط جديد من الجمعية.",
       });
     }
 
@@ -212,7 +212,7 @@ const submitRegistration = async (req, res) => {
       return res.status(429).json({
         ok: false,
         code: "INTAKE_CLOSED",
-        message: "استقبال الطلبات متوقف مؤقتًا، حاولوا بعد أيام",
+        message: "استقبال الطلبات متوقف مؤقتًا. يُرجى المحاولة بعد بضعة أيام.",
       });
     }
 
@@ -259,7 +259,7 @@ const submitRegistration = async (req, res) => {
   } catch (err) {
     logWithSource("InviteToken.submitRegistration", err);
     if (!res.headersSent) {
-      return res.status(500).json({ ok: false, message: "تعذّر إرسال الطلب، حاولوا لاحقًا" });
+      return res.status(500).json({ ok: false, message: "تعذّر إرسال الطلب. يُرجى المحاولة لاحقًا." });
     }
   }
 };

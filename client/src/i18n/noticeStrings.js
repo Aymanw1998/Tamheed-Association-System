@@ -3,12 +3,12 @@ export const noticeStrings = {
   ar: {
     navTitle: "لوحة الإعلانات", title: "لوحة الإعلانات", bell: "إعلانات غير مقروءة: {n}",
     filters: { all: "الكل", unread: "غير المقروءة", category: "الفئة", severity: "الأهمية", status: "الحالة" },
-    category: { vehicle: "المركبات", system: "النظام", manual: "رسالة إدارة" },
-    severity: { critical: "حرج", important: "مهم", info: "معلومة" },
+    category: { vehicle: "المركبات", system: "النظام", manual: "رسالة من الإدارة" },
+    severity: { critical: "عاجل", important: "مهم", info: "معلومة" },
     cols: { severity: "الأهمية", title: "العنوان", category: "الفئة", date: "التاريخ", author: "الكاتب", status: "الحالة" },
-    read: "مقروء", unread: "جديد", markRead: "تعليم كمقروء", markAll: "تعليم الكل كمقروء", archive: "أرشفة", archiveConfirm: "أرشفة هذا الإعلان لكل المدراء؟", open: "فتح",
+    read: "مقروء", unread: "جديد", markRead: "تحديد كمقروء", markAll: "تحديد الكل كمقروء", archive: "أرشفة", archiveConfirm: "هل تريد أرشفة هذا الإعلان لدى جميع أعضاء الإدارة؟", open: "فتح",
     system: "النظام", empty: "لا توجد إعلانات", newTitle: "إعلان جديد للإدارة",
     f: { title: "العنوان", body: "النص", severity: "الأهمية" }, publish: "نشر",
-    runCheck: "تشغيل فحص المركبات الآن", runDone: "اكتمل الفحص: {n} إعلانات جديدة", published: "تم نشر الإعلان",
+    runCheck: "تشغيل فحص المركبات الآن", runDone: "اكتمل الفحص. الإعلانات الجديدة: {n}", published: "تم نشر الإعلان بنجاح",
   },
 };

@@ -10,7 +10,7 @@ export function ConfirmProvider({ children }) {
     open: false,
     options: {
       title: 'تأكيد العملية',
-      message: 'هل تريد تنفيذ العملية؟',
+      message: 'هل تريد تنفيذ هذه العملية؟',
       confirmText: 'تأكيد',
       cancelText: 'إلغاء',
       danger: false,

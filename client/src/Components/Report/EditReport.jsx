@@ -104,7 +104,7 @@ const MultiTagSelect = ({
             onClick={() => add(q)}
             style={{ padding: 10, cursor: "pointer", borderBottom: "1px solid #f0f0f0", background: "#f9fafb" }}
           >
-            ➕ إضافة: <b>{q}</b>
+            + إضافة: <b>{q}</b>
           </div>
         )}
 
@@ -175,7 +175,7 @@ const EditReport = ({parent = false}) => {
           setErr("التقرير غير موجود");
         }
       } catch (e) {
-        setErr("خلل في جلب البيانات");
+        setErr("تعذّر تحميل البيانات");
       } finally {
         setLoading(false);
       }
@@ -192,10 +192,10 @@ const EditReport = ({parent = false}) => {
           const s = res.users;
           setUsers(s);
         } else {
-          setErr("الاداريين غير موجود");
+          setErr("تعذّر العثور على المستخدمين");
         }
       } catch (e) {
-        setErr("خلل في جلب البيانات");
+        setErr("تعذّر تحميل البيانات");
       } finally {
         setLoading(false);
       }
@@ -223,7 +223,7 @@ const EditReport = ({parent = false}) => {
     if(name === "tz"){
         if (value === "") {
           tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
-          return "املأ الحقل";
+          return "هذا الحقل مطلوب";
         } 
         else if(!isValidIsraeliId(value)){
           tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
@@ -233,7 +233,7 @@ const EditReport = ({parent = false}) => {
           const data = parent ? {ok: false} : await getOne(value)
           if(data.ok){
             tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
-            return "رقم الهوية موجود في النظام"
+            return "رقم الهوية مسجّل مسبقًا في النظام"
           } 
         }
         tag?.style.setProperty('border', '2px solid green'); // ملاحظة عربية
@@ -244,7 +244,7 @@ const EditReport = ({parent = false}) => {
       else if(['firstname', 'lastname', 'father_name', 'mother_name'].includes(name)){
         if (value === "") {
           tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
-          return "املأ الحقل";
+          return "هذا الحقل مطلوب";
         } 
         else{
           tag?.style.setProperty('border', '2px solid green'); // ملاحظة عربية
@@ -286,7 +286,7 @@ const EditReport = ({parent = false}) => {
       else if (['father_phone', 'mother_phone', 'phone', 'email', 'city', 'street'].includes(name)){
         if (value === "") {
           tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
-          return "املأ الحقل";
+          return "هذا الحقل مطلوب";
         } 
         else{
           tag?.style.setProperty('border', '2px solid green'); // ملاحظة عربية
@@ -326,7 +326,7 @@ const EditReport = ({parent = false}) => {
     if (b) { toast.warn(b); return; }
     b = true
     
-    if(form.stitle.length === 0 || form.info === "") return toast.warn("فحص الحقول المطلوبة");
+    if(form.stitle.length === 0 || form.info === "") return toast.warn("يُرجى تعبئة الحقول المطلوبة");
     e.preventDefault();
     try {
       setSaving(true);
@@ -337,11 +337,11 @@ const EditReport = ({parent = false}) => {
       const res = isEdit ? await update(form._id, payload): await create({...payload});
       if(!res) return;
       if(!res.ok) throw new Error(res.message);
-      toast.success(`✅ التقرير ${isEdit ? 'حُديث' : 'حُفِظ'} بنجاح`);
+      toast.success(isEdit ? "تم حفظ التقرير بنجاح" : "تمت إضافة التقرير بنجاح");
       navigate(-1);
     } catch (e) {
       console.error(e);
-      toast.error(e.message || "❌ فشل العملية");
+      toast.error(e.message || "تعذّر إتمام العملية");
     } finally {
       setSaving(false);
     }
@@ -355,10 +355,10 @@ const EditReport = ({parent = false}) => {
       if(!res) return;
       if(!res.ok) throw new Error(res.message);
 
-      toast.success("✅ تم الحذف بنجاح");
+      toast.success("تم الحذف بنجاح");
       navigate(-1);
     } catch (e) {
-      toast.error(e.message || "❌ فشل العملية");
+      toast.error(e.message || "تعذّر إتمام العملية");
     }
   };
   if (loading) return <div className={styles.formContainer}>جارٍ تحميل البيانات…</div>;
@@ -366,7 +366,7 @@ const EditReport = ({parent = false}) => {
 
   return (
     <div className={styles.formContainer}>
-      <center><h1>{isEdit ? "تحديث بيانات التقرير" : "اضافة تقرير جديد"}</h1></center>
+      <center><h1>{isEdit ? "تعديل التقرير" : "إضافة تقرير جديد"}</h1></center>
 
       <fieldset className={sectionStyles.formSection} data-tour="report-title">
         <legend>بيانات التقرير</legend>
@@ -390,7 +390,7 @@ const EditReport = ({parent = false}) => {
           ]}
           value={form.title}
           onChange={(vals) => setForm((prev) => ({ ...prev, title: vals }))}
-          placeholder="اختر عنوان التقرير..."
+          placeholder="اختر عنوانًا ثانويًا…"
           allowCustom={true}
         />
         <label style={{color: "red"}}>{error.title}</label>
@@ -417,14 +417,14 @@ const EditReport = ({parent = false}) => {
             options={users.map(u => ({ label: `${u.firstname} ${u.lastname}`, value: u._id }))}
             value={form.attendance}
             onChange={(vals) => setForm((prev) => ({ ...prev, attendance: vals }))}
-            placeholder="اختر الحاضرين..."
+            placeholder="اختر الحاضرين…"
           />
           <label style={{color: "red"}}>{error.attendance}</label>
         </fieldset>
       )}
       <div className={styles.buttonRow} style={{ gap: 8, flexWrap: "wrap" }}>
         <button type="submit" data-tour="report-save" onClick={handleSubmit} style={{width:"100%"}}>
-          {saving ? "حفظ..." : parent ? "ارسال التفاصيل" : (isEdit ? "تعديل البيانات" : "اضافة التقرير")}
+          {saving ? "جارٍ الحفظ…" : parent ? "إرسال الطلب" : (isEdit ? "حفظ التعديلات" : "إضافة التقرير")}
         </button>
 
         {isEdit && (
@@ -436,7 +436,7 @@ const EditReport = ({parent = false}) => {
         )}
 
         {!parent && (<button type="button" style={{ background: "#6b7280", width:"100%"}} onClick={() => navigate(-1)}>
-          الرجوع للقائمة
+          العودة إلى القائمة
         </button>)}
       </div>
     </div>

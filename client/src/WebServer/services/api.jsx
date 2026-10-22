@@ -57,7 +57,7 @@ const api = axios.create({
 });
 
 // ملاحظة عربية
-function hardResetToLogin(reason = 'انتهت صلاحية تسجيل الدخول، يرجى تسجيل الدخول مرة أخرى') {
+function hardResetToLogin(reason = 'انتهت الجلسة. يُرجى تسجيل الدخول مرة أخرى.') {
   try {
     // ملاحظة عربية
     try {
@@ -148,7 +148,7 @@ api.interceptors.response.use(
         return api.request(original);
       } catch (e) {
         flushQueue(e);
-        hardResetToLogin('انتهت الجلسة، يرجى تسجيل الدخول مرة أخرى');
+        hardResetToLogin('انتهت الجلسة. يُرجى تسجيل الدخول مرة أخرى.');
         return Promise.reject(e);
       } finally {
         isRefreshing = false;
@@ -160,11 +160,11 @@ api.interceptors.response.use(
       status === 401 &&
       ['NO_TOKEN', 'TOKEN_INVALID', 'TOKEN_STALE', 'USER_NOT_FOUND', 'REFRESH_FAILED', 'REFRESH_MISMATCH'].includes(code)
     ) {
-      hardResetToLogin('انتهت صلاحية الرمز');
+      hardResetToLogin('انتهت الجلسة. يُرجى تسجيل الدخول مرة أخرى.');
     }
     // A denied operation does not invalidate an otherwise valid session.
     if (status === 403 && code === 'BLOCKED') {
-      hardResetToLogin('لا توجد صلاحية لهذا الحساب');
+      hardResetToLogin('ليست لهذا الحساب صلاحية الدخول.');
     }
 
     return Promise.reject(error);

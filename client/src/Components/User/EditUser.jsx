@@ -148,7 +148,7 @@ const EditUser = () => {
         }
         setPasswordTouched(false); // ملاحظة عربية
       } catch (e) {
-        setErr("خلل في جلب البيانات");
+        setErr("تعذّر تحميل البيانات");
       } finally {
         setLoading(false);
       }
@@ -176,7 +176,7 @@ const EditUser = () => {
       //console.log(isNew && value === "");
         if (value === "") {
           tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
-          return "املأ الحقل";
+          return "هذا الحقل مطلوب";
         } 
         else if(!isValidIsraeliId(value)){
           tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
@@ -186,7 +186,7 @@ const EditUser = () => {
           const data = await getOne(value)
           if(data.ok){
             tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
-            return "رقم الهوية موجود في النظام"
+            return "رقم الهوية مسجّل مسبقًا في النظام"
           } 
         }
         tag?.style.setProperty('border', '2px solid green'); // ملاحظة عربية
@@ -197,7 +197,7 @@ const EditUser = () => {
       else if(['firstname', 'lastname', 'father_name', 'mother_name'].includes(name)){
         if (value === "") {
           tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
-          return "املأ الحقل";
+          return "هذا الحقل مطلوب";
         } 
         else{
           tag?.style.setProperty('border', '2px solid green'); // ملاحظة عربية
@@ -241,7 +241,7 @@ const EditUser = () => {
       else if (['father_phone', 'mother_phone', 'phone', 'email', 'city', 'street'].includes(name)){
         if (value === "") {
           tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
-          return "املأ الحقل";
+          return "هذا الحقل مطلوب";
         } 
         else{
           tag?.style.setProperty('border', '2px solid green'); // ملاحظة عربية
@@ -249,7 +249,7 @@ const EditUser = () => {
         }
       }
       else if (name === "roles") {
-        if (!value || value.length === 0) return "اختر دورا واحدا على الأقل";
+        if (!value || value.length === 0) return "اختر دورًا واحدًا على الأقل";
         return "";
       }
 
@@ -307,17 +307,17 @@ const EditUser = () => {
 
     // bcrypt / cannot view
     if (!res?.ok) {
-      toast.warn(res?.message || 'لا يمكن عرض كلمة المرور لهذا المستخدم');
+      toast.warn(res?.message || 'لا يمكن عرض كلمة المرور لهذا المستخدم.');
       return;
     }
 
     // The server only reports whether a password is set, never its value.
     setShowPassword(false);
     setForm((prev) => ({ ...prev, password: '' }));
-    toast.info(res.hasPassword ? 'كلمة المرور محددة (لا يمكن عرضها). أدخل كلمة مرور جديدة لتغييرها.' : 'لم يتم تحديد كلمة مرور لهذا المستخدم');
+    toast.info(res.hasPassword ? 'كلمة المرور محددة ولا يمكن عرضها. أدخل كلمة مرور جديدة لتغييرها.' : 'لم تُحدَّد كلمة مرور لهذا المستخدم.');
   } catch (e) {
     console.error(e);
-    toast.error('❌ خطأ في جلب كلمة المرور');
+    toast.error('تعذّر جلب حالة كلمة المرور.');
   } finally {
     setFetchingPassword(false);
   }
@@ -341,7 +341,7 @@ const EditUser = () => {
         b = false;
       }
     }
-    if(!b) return toast.warn("فحص الحقول المطلوبة");
+    if(!b) return toast.warn("يُرجى تعبئة الحقول المطلوبة");
     e.preventDefault();
     try {
       setSaving(true);
@@ -370,32 +370,32 @@ const EditUser = () => {
       const res = isEdit ? await update(form.tz, payload): await create({...payload});
       if(!res) return;
       if(!res.ok) throw new Error(res.message);
-      toast.success(`✅ المستخدم ${isEdit ? 'حُديث' : 'حُفِظ'} بنجاح`);
+      toast.success(isEdit ? "تم حفظ بيانات المستخدم بنجاح" : "تمت إضافة المستخدم بنجاح");
 
       if (photoChange === "remove") {
         const res2 = await deletePhoto(form.tz);
         if(!res2) return;
         if(!res2.ok) {
-          toast.warn("لم يتم حذف صورة المستخدم: " + res2.message);
+          toast.warn("تعذّر حذف صورة المستخدم: " + res2.message);
         }
         else{
-          toast.success("✅ تم حذف صورة المستخدم بنجاح");
+          toast.success("تم حذف صورة المستخدم بنجاح");
         }
       }
       if (photoChange === "upload") {
         const res2 = await uploadPhoto(form.tz, photo);
         if(!res2) return;
         if(!res2.ok) {
-          toast.warn("لم يتم تحميل صورة المستخدم: " + res2.message);
+          toast.warn("تعذّر رفع صورة المستخدم: " + res2.message);
         }
         else{
-          toast.success("✅ تم تحميل صورة المستخدم بنجاح");
+          toast.success("تم رفع صورة المستخدم بنجاح");
         }
       }
       navigate(-1);
     } catch (e) {
       console.error(e);
-      toast.error(e.message || "❌ فشل العملية");
+      toast.error(e.message || "تعذّر إتمام العملية");
     } finally {
       setSaving(false);
     }
@@ -409,10 +409,10 @@ const EditUser = () => {
       if(!res) return;
       if(!res.ok) throw new Error(res.message);
 
-      toast.success("✅ تم الحذف بنجاح");
+      toast.success("تم الحذف بنجاح");
       navigate(-1);
     } catch (e) {
-      toast.error(e.message || "❌ فشل العملية");
+      toast.error(e.message || "تعذّر إتمام العملية");
     }
   };
 
@@ -423,10 +423,10 @@ const EditUser = () => {
       if(!res) return;
       if(!res.ok) throw new Error(res.message);
 
-      toast.success("✅ تم غلق الحساب بنجاح");
+      toast.success("تم إيقاف الحساب بنجاح");
       navigate(-1);
     } catch (e) {
-      toast.error(e.message || "❌ فشل العملية");
+      toast.error(e.message || "تعذّر إتمام العملية");
     }
   }
 
@@ -483,7 +483,7 @@ const EditUser = () => {
 
   return (
     <div className={styles.formContainer}>
-      <center><h1>{isEdit ? "تحديث بيانات المستخدم" : "اضافة مستخدم جديد"}</h1></center>
+      <center><h1>{isEdit ? "تعديل بيانات المستخدم" : "إضافة مستخدم جديد"}</h1></center>
 
       {showTabs && (
         <div className={tabStyles.tabs} data-tour="user-tabs" role="tablist">
@@ -514,7 +514,7 @@ const EditUser = () => {
         <label style={{color: "red"}}>{error.tz}</label>
 
         {showPasswordField && (<>
-        <label>كلمة السر:</label>
+        <label>كلمة المرور:</label>
         <div className={styles.passwordWrapper}>
           <input
             name="password"
@@ -610,7 +610,7 @@ const EditUser = () => {
 
       <fieldset className={sectionStyles.formSection} data-tour="user-personal">
         <legend>البيانات الشخصية</legend>
-        <label>اسم المستخدم:<span style={{color: "red"}}>*</span></label>
+        <label>الاسم الشخصي:<span style={{color: "red"}}>*</span></label>
         <input name="firstname" value={form.firstname} onChange={handleChange} required />
         <label style={{color: "red"}}>{error.firstname}</label>
 
@@ -627,11 +627,11 @@ const EditUser = () => {
         />
         <label style={{color: "red"}}>{error.birth_date}</label>
 
-        <label>جنس:<span style={{color: "red"}}>*</span></label>
+        <label>الجنس:<span style={{color: "red"}}>*</span></label>
         <select name="gender" value={form.gender} onChange={onField}>
-          <option value="">اختار الجنس</option>
+          <option value="">اختر الجنس</option>
           <option value="ذكر">ذكر</option>
-          <option value="انثى">انثى</option>
+          <option value="انثى">أنثى</option>
         </select>
         <label style={{color: "red"}}>{error.gender}</label>
       </fieldset>
@@ -646,7 +646,7 @@ const EditUser = () => {
         <input name="street" value={form.street} onChange={onField} />
         <label style={{color: "red"}}>{error.street}</label>
 
-        <label>هاتف:<span style={{color: "red"}}>*</span></label>
+        <label>الهاتف:<span style={{color: "red"}}>*</span></label>
         <input
           name="phone"
           value={displayPhoneLocal(form.phone)}
@@ -655,7 +655,7 @@ const EditUser = () => {
         />
         <label style={{color: "red"}}>{error.phone}</label>
 
-        <label>بريد الكتروني:<span style={{color: "red"}}>*</span></label>
+        <label>البريد الإلكتروني:<span style={{color: "red"}}>*</span></label>
         <input name="email" value={form.email} onChange={onField} readOnly={!canEditEmail} />
         <label style={{color: "red"}}>{error.email}</label>
       </fieldset>
@@ -681,7 +681,7 @@ const EditUser = () => {
             input.capture = "environment";
             input.click();
           }
-        }> {photo ? "تعديل الاختيار" : "اختر صورة"} </button>
+        }> {photo ? "تغيير الصورة" : "اختر صورة"} </button>
         {photo && (
           <button type="button" onClick={() => setPhoto(null)} style={{ marginInlineStart: "8px" }}>
             حذف الصورة
@@ -702,7 +702,7 @@ const EditUser = () => {
       <div className={styles.buttonRow} style={{ gap: 8, flexWrap: "wrap" }}>
         {canSubmit && (
           <button type="submit" data-tour="user-save" onClick={handleSubmit} style={{width:"100%"}}>
-            {saving ? "حفظ..." : (isEdit ? "تعديل بيانات المستخدم" : "اضافة المستخدم")}
+            {saving ? "جارٍ الحفظ…" : (isEdit ? "حفظ التعديلات" : "إضافة المستخدم")}
           </button>
         )}
         <br/>
@@ -713,14 +713,14 @@ const EditUser = () => {
               {"حذف الحساب"}
             </button>
             <button type="button" style={{ background: "#7f1d1d", margin: "10px" }} onClick={sendToRoomNoActive}>
-              {"غلق الحساب"}
+              {"إيقاف الحساب"}
             </button>
           </div>
           </center>
         )}
         <br/>
         {(<button type="button" style={{ background: "#6b7280", width: "100%" }} onClick={() => navigate(-1)}>
-          الرجوع للقائمة
+          العودة إلى القائمة
         </button>)}
       </div>
       </>

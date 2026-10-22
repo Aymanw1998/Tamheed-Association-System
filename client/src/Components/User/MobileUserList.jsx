@@ -7,7 +7,7 @@ import { useI18n } from "../../i18n/I18nContext";
 
 const ROOM_BADGE = {
   waiting: { tone: "warning", label: "بانتظار الموافقة" },
-  noActive: { tone: "neutral", label: "مُعطل" },
+  noActive: { tone: "neutral", label: "موقوف" },
 };
 
 // Phone layout for the users list, matching the students cards. Active users
@@ -16,7 +16,7 @@ const ROOM_BADGE = {
 export default function MobileUserList({ users, onOpen, onPdf, onActivate, onDelete, onUnlock, canManage = () => true }) {
   const { t } = useI18n();
   return (
-    <PersonCardList emptyText="لا يوجد بيانات لإظهارها">
+    <PersonCardList emptyText="لا توجد بيانات لعرضها">
       {users.map((user) => {
         const badge = ROOM_BADGE[user.room];
         const locked = !badge && Boolean(user.lockedAt);
@@ -33,7 +33,7 @@ export default function MobileUserList({ users, onOpen, onPdf, onActivate, onDel
               badge ? (manageable && (
                 <>
                   <Button size="sm" variant="success" onClick={() => onActivate(user)}>
-                    {user.room === "waiting" ? "موافقة" : "تفعيل"}
+                    {user.room === "waiting" ? "قبول" : "تفعيل"}
                   </Button>
                   <Button size="sm" variant="danger" onClick={() => onDelete(user)}>
                     حذف

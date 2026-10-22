@@ -214,7 +214,7 @@ export function SystemStatusWatcher({ options }) {
         if (!r.data.ok) throw new Error(String(r.status));
         emitHealth(true);
         if (mounted && fails > 0) {
-          push({ variant: "success", description: "✅ يوجد ربط بالخادم", duration: 3000 });
+          push({ variant: "success", description: "تمت استعادة الاتصال بالخادم", duration: 3000 });
 
           fails = 0;
         }
@@ -222,7 +222,7 @@ export function SystemStatusWatcher({ options }) {
         emitHealth(false);
         fails++;
         if (mounted && fails === 1) {
-          push({ variant: "warning", sticky: true, description: "لا يوجد ربط بالخادم, انتظر إعادة الربط", duration: 10000 });
+          push({ variant: "warning", sticky: true, description: "انقطع الاتصال بالخادم. جارٍ إعادة الاتصال…", duration: 10000 });
         }
       }
     };
@@ -240,10 +240,10 @@ export function SystemStatusWatcher({ options }) {
       const now = Math.floor(Date.now() / 1000);
       const left = exp - now;
       if (left <= 0) {
-        push({ variant: "destructive", sticky: true, description: "⛔ زمان استخدام الحساب منتهي الصلاحية, سجل دخولك مرة اخرة" });
+        push({ variant: "destructive", sticky: true, description: "انتهت الجلسة. يُرجى تسجيل الدخول مرة أخرى." });
       } else if (left < warnBeforeExpirySec) {
         const min = Math.max(1, Math.floor(left / 60));
-        push({ variant: "info", description: `ℹ️ زمن الاستخدامك للنظام سينتهي صلاحيته ~${min} د.` });
+        push({ variant: "info", description: `ستنتهي جلستك بعد نحو ${min} د.` });
       }
     };
     const id = window.setInterval(checkExp, 20000);
@@ -301,7 +301,7 @@ export function StatusBadge({ className = "" }) {
         <div className={styles.statusSeg}>
           <span className={`${styles.dot} ${styles[tokenState]}`} />
           <span className={styles.label}>
-            الرمز {minsLeft !== null ? (minsLeft > 60 ? `~${(minsLeft/60).toFixed(0)} س` : `~${minsLeft} د`) : "غير موجود"}
+            الجلسة {minsLeft !== null ? (minsLeft > 60 ? `~${(minsLeft/60).toFixed(0)} س` : `~${minsLeft} د`) : "غير موجود"}
           </span>
         </div>
       </div>

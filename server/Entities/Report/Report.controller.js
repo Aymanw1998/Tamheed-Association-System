@@ -171,7 +171,7 @@ const post = async (req, res) => {
     if (!info || String(info).trim() === "") {
       return res.status(400).json({
         ok: false,
-        message: "يجب ان يكون صلب موضوع",
+        message: "صلب الموضوع مطلوب.",
       });
     }
 
@@ -243,7 +243,7 @@ const put = async (req, res) => {
     if (info !== undefined && String(info).trim() === "") {
       return res.status(400).json({
         ok: false,
-        message: "يجب ان يكون صلب موضوع",
+        message: "صلب الموضوع مطلوب.",
       });
     }
 
@@ -441,7 +441,7 @@ module.exports = {
 
 //     // ✅ fix validation
 //     if (!info || String(info).trim() === "") {
-//       return res.status(400).json({ ok: false, message: "يجب ان يكون صلب موضوع" });
+//       return res.status(400).json({ ok: false, message: "صلب الموضوع مطلوب." });
 //     }
 
 //     const doc = await Report.create({
@@ -490,7 +490,7 @@ module.exports = {
 
 //     // ✅ optional: if info موجود لازم يكون مش فاضي
 //     if (info !== undefined && String(info).trim() === "") {
-//       return res.status(400).json({ ok: false, message: "يجب ان يكون صلب موضوع" });
+//       return res.status(400).json({ ok: false, message: "صلب الموضوع مطلوب." });
 //     }
 
 //     const updateObj = {};

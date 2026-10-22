@@ -71,7 +71,7 @@ const ViewAllUser = () => {
     try {
       const res = await getAll();
       if (!res?.ok) {
-        throw new Error(res?.message || "يوجد خلل في جلب البيانات");
+        throw new Error(res?.message || "تعذّر تحميل البيانات");
       }
 
       const data = Array.isArray(res.users) ? res.users : [];
@@ -79,7 +79,7 @@ const ViewAllUser = () => {
       setUsers(filtered);
     } catch (error) {
       console.error("User load error", error);
-      setErr("يوجد خلل في جلب البيانات");
+      setErr("تعذّر تحميل البيانات");
       setUsers([]);
     } finally {
       setLoading(false);
@@ -187,11 +187,11 @@ const ViewAllUser = () => {
     try {
       const res = await changeStatus(user.tz, "noActive", "active", role);
       if (!res?.ok) throw new Error(permissionError(t, res));
-      toast.success("تم تفعيل المستخدم");
+      toast.success("تم تفعيل المستخدم بنجاح");
       loadUsers();
     } catch (error) {
       console.error(error);
-      toast.error(error.message || "حدث خطأ أثناء تفعيل المستخدم");
+      toast.error(error.message || "تعذّر تفعيل المستخدم");
     }
   };
 
@@ -237,12 +237,12 @@ const ViewAllUser = () => {
   const handleDeleteUser = async (user, from) => {
     try {
       const res = await deleteU(user.tz, from);
-      if (!res?.ok) throw new Error(res?.message || "تعذر حذف المستخدم");
-      toast.success("تم حذف المستخدم");
+      if (!res?.ok) throw new Error(res?.message || "تعذّر حذف المستخدم");
+      toast.success("تم حذف المستخدم بنجاح");
       loadUsers();
     } catch (error) {
       console.error(error);
-      toast.error("حدث خطأ أثناء حذف المستخدم");
+      toast.error("تعذّر حذف المستخدم");
     }
   };
 
@@ -255,7 +255,7 @@ const ViewAllUser = () => {
           <input
             type="search"
             data-tour="users-search"
-            placeholder="بحث..."
+            placeholder="بحث…"
             aria-label="بحث في قائمة المستخدمين"
             className={styles.searchInput}
             value={searchTerm}
@@ -267,7 +267,7 @@ const ViewAllUser = () => {
           </Button>
 
           <Button variant="secondary" data-tour="users-refresh" onClick={loadUsers} loading={loading}>
-            {loading ? "جاري التحديث" : "تحديث القائمة"}
+            {loading ? "جارٍ التحديث…" : "تحديث القائمة"}
           </Button>
 
           {canRecoverSystem && String(userTZ) !== "000000000" &&(
@@ -287,7 +287,7 @@ const ViewAllUser = () => {
         </div>
 
         <div className={styles.filterRow} data-tour="users-role-filter">
-          <label htmlFor="role-filter" style={{ fontWeight: 600 }}>فلترة حسب الدور</label>
+          <label htmlFor="role-filter" style={{ fontWeight: 600 }}>التصفية حسب الدور</label>
           <select
             id="role-filter"
             value={roleFilter}
@@ -304,14 +304,13 @@ const ViewAllUser = () => {
         </div>
 
         <div className={styles.summary}>
-          مجموع: {sortedFilteredUsers.length}{" "}
-          {status === "active" ? "مستخدم مسجل" : status === "pending" ? "مستخدمين بالانتظار" : "مستخدمين حسابات موقوفة"}
+          {status === "active" ? "المستخدمون الفعّالون" : status === "pending" ? "المستخدمون بانتظار الموافقة" : "الحسابات الموقوفة"}: {sortedFilteredUsers.length}
           {roleFilter !== "all" ? ` - ${roleFilter}` : ""}
         </div>
       </div>
 
       {err && <div className={styles.formError}>{err}</div>}
-      {!err && loading && <div className={styles.emptyState}>جاري تحديث البيانات</div>}
+      {!err && loading && <div className={styles.emptyState}>جارٍ تحديث البيانات…</div>}
 
       {!loading && !err && (
         <div className={styles.mobileOnly}>
@@ -336,7 +335,7 @@ const ViewAllUser = () => {
               <th>العمر</th>
               <th>الجنس</th>
               <th>الدور</th>
-              <th>للإجراءات</th>
+              <th>الإجراءات</th>
             </tr>
           </thead>
           <tbody>
@@ -350,13 +349,13 @@ const ViewAllUser = () => {
                   </td>
                   <td data-label="الجنس">{user.gender || "-"}</td>
                   <td data-label="الدور">{(Array.isArray(user.roles) ? user.roles : []).join(", ") || "-"}</td>
-                  <td data-label="للإجراءات">
+                  <td data-label="الإجراءات">
                     <div className={styles.rowActions}>
                       {user.room !== "waiting" && user.room !== "noActive" && (
                         <>
                           {canManage(user) && (
                             <Button size="sm" variant="warning" data-tour="users-edit" onClick={() => navigate(`/users/${user.tz}`)}>
-                              للتعديل
+                              تعديل
                             </Button>
                           )}
                           <Button size="sm" variant="secondary" data-tour="users-pdf" onClick={() => exportUserPdf(user)}>
@@ -374,7 +373,7 @@ const ViewAllUser = () => {
                       {user.room === "waiting" && canManage(user) && (
                         <>
                           <Button size="sm" variant="success" onClick={() => onWaitingToActive(user)}>
-                            موافقة
+                            قبول
                           </Button>
                           <Button size="sm" variant="danger" onClick={() => handleDeleteUser(user, "waiting")}>
                             حذف
@@ -399,7 +398,7 @@ const ViewAllUser = () => {
             ) : (
               <tr>
                 <td colSpan={6} className={styles.emptyState}>
-                  لا يوجد بيانات لإظهارها
+                  لا توجد بيانات لعرضها
                 </td>
               </tr>
             )}
@@ -412,7 +411,7 @@ const ViewAllUser = () => {
       <Fabtn
         anchor="#page-add-user"
         visible={showFab && canCreateUsers}
-        label="اضافة مستخدم جديد"
+        label="إضافة مستخدم جديد"
         onClick={() => {
           navigate("/users/new");
         }}

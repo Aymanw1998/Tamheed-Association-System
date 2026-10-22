@@ -63,7 +63,7 @@ export default function RegisterPage() {
     const validate = async(name = null, value = null) => {
       if(name === "tz"){
           if (value === "") {
-            return "املأ الحقل";
+            return "هذا الحقل مطلوب";
           }
           else if(!isValidIsraeliId(value)){
             return "رقم الهوية غير صالح"
@@ -78,7 +78,7 @@ export default function RegisterPage() {
         //fisrtname, lastname
         else if(['firstname', 'lastname', 'father_name', 'mother_name'].includes(name)){
           if (value === "") {
-            return "املأ الحقل";
+            return "هذا الحقل مطلوب";
           }
           return ""
         }
@@ -104,7 +104,7 @@ export default function RegisterPage() {
         //phone, email, city, street
         else if (['father_phone', 'mother_phone', 'phone', 'email', 'city', 'street'].includes(name)){
           if (value === "") {
-            return "املأ الحقل";
+            return "هذا الحقل مطلوب";
           }
           return ""
         }
@@ -155,7 +155,7 @@ export default function RegisterPage() {
           b = false;
         }
       }
-      if(!b) return toast.warn("فحص الحقول المطلوبة");
+      if(!b) return toast.warn("يُرجى تعبئة الحقول المطلوبة");
       e.preventDefault();
       try {
         setSaving(true);
@@ -165,21 +165,21 @@ export default function RegisterPage() {
         const res = await register(payload);
         if(!res)return;
         if(!res.ok) throw new Error(res.message);
-        toast.success(`✅ المستخدم حُفِظ بنجاح`);
+        toast.success("تم إرسال طلب التسجيل بنجاح");
         if(photo == null) {navigate(-1);return;}
 
         const res2 = await uploadPhoto(form.tz, photo);
         if(!res2) return;
         if(!res2.ok) {
-          toast.warn("لم يتم تحميل صورة المستخدم: " + res2.message);
+          toast.warn("تعذّر رفع الصورة: " + res2.message);
         }
         else{
-          toast.success("✅ تم تحميل صورة المستخدم بنجاح");
+          toast.success("تم رفع الصورة بنجاح");
         }
         navigate(-1);
       } catch (e) {
         console.error(e);
-        toast.error(e.message || "❌ فشل العملية");
+        toast.error(e.message || "تعذّر إتمام العملية");
       } finally {
         setSaving(false);
       }
@@ -187,13 +187,13 @@ export default function RegisterPage() {
   
     return (
       <div className={styles.formContainer}>
-        <h2>اضافة مستخدم جديد</h2>
+        <h2>تسجيل مستخدم جديد</h2>
   
         <label htmlFor="reg-tz">رقم الهوية:</label>
         <input id="reg-tz" name="tz" value={form.tz} onChange={onField} readOnly={!isNew} />
         <span className={styles.fieldError}>{error.tz}</span>
   
-        <label htmlFor="reg-password">كلمة السر:</label>
+        <label htmlFor="reg-password">كلمة المرور:</label>
         <div className={styles.passwordWrapper}>
           <input
             id="reg-password"
@@ -215,7 +215,7 @@ export default function RegisterPage() {
         <span className={styles.fieldError}>{error.password}</span>
 
         {/* No role here: the role is chosen when an administrator approves the account. */}
-        <label htmlFor="reg-firstname">اسم المستخدم:</label>
+        <label htmlFor="reg-firstname">الاسم الشخصي:</label>
         <input
           id="reg-firstname"
           name="firstname"
@@ -245,15 +245,15 @@ export default function RegisterPage() {
         />
         <span className={styles.fieldError}>{error.birth_date}</span>
 
-        <label htmlFor="reg-gender">جنس:</label>
+        <label htmlFor="reg-gender">الجنس:</label>
         <select id="reg-gender" name="gender" value={form.gender} onChange={onField}>
-          <option value="">اختار الجنس</option>
+          <option value="">اختر الجنس</option>
           <option value="ذكر">ذكر</option>
-          <option value="انثى">انثى</option>
+          <option value="انثى">أنثى</option>
         </select>
         <span className={styles.fieldError}>{error.gender}</span>
 
-        <label htmlFor="reg-phone">هاتف:</label>
+        <label htmlFor="reg-phone">الهاتف:</label>
         <input
           id="reg-phone"
           name="phone"
@@ -264,11 +264,11 @@ export default function RegisterPage() {
         />
         <span className={styles.fieldError}>{error.phone}</span>
 
-        <label htmlFor="reg-email">بريد الكتروني:</label>
+        <label htmlFor="reg-email">البريد الإلكتروني:</label>
         <input id="reg-email" name="email" type="email" value={form.email} onChange={onField} />
         <span className={styles.fieldError}>{error.email}</span>
 
-        <label htmlFor="reg-city">بلد:</label>
+        <label htmlFor="reg-city">مدينة السكن:</label>
         <input id="reg-city" name="city" value={form.city} onChange={onField} />
         <span className={styles.fieldError}>{error.city}</span>
 
@@ -287,7 +287,7 @@ export default function RegisterPage() {
               input.capture = "environment";
               input.click();
             }
-          }> {photo? "تعديل الاختيار" : "اختر صورة"} </button>
+          }> {photo? "تغيير الصورة" : "اختر صورة"} </button>
           <br />
   
           {/* معاينة الصورة إذا موجودة */}
@@ -301,8 +301,8 @@ export default function RegisterPage() {
         </div>
   
         <div className={styles.buttonRow} style={{ gap: 8, flexWrap: "wrap" }}>
-          <Button type="submit" onClick={handleSubmit} loading={saving}>اضافة المستخدم</Button>
-          <Button type="button" variant="secondary" onClick={() => navigate(-1)}>الرجوع</Button>
+          <Button type="submit" onClick={handleSubmit} loading={saving}>إرسال طلب التسجيل</Button>
+          <Button type="button" variant="secondary" onClick={() => navigate(-1)}>رجوع</Button>
         </div>
       </div>
     );

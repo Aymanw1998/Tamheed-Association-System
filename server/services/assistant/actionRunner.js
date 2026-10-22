@@ -61,9 +61,9 @@ const ROLE = {
   "مساعد": { he: "עוזר", en: "assistant" },
 };
 const SEVERITY = {
-  critical: { ar: "حرج", he: "קריטי" },
+  critical: { ar: "عاجل", he: "קריטי" },
   important: { ar: "مهم", he: "חשוב" },
-  info: { ar: "للعلم", he: "לידיעה" },
+  info: { ar: "معلومة", he: "לידיעה" },
 };
 
 const err = (error, message) => (message ? { error, message } : { error });

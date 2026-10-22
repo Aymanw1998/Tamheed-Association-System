@@ -22,8 +22,8 @@ export default function StudentStatusFilter({
   const rootRef = useRef(null);
 
   const buttons = [
-    { key: "active", label: "مسجل", badge: counts?.active, color: "var(--color-success-100)" },
-    { key: "waiting", label: "مُنتظرين", badge: counts?.pending, color: "var(--color-warning-100)" },
+    { key: "active", label: "فعّال", badge: counts?.active, color: "var(--color-success-100)" },
+    { key: "waiting", label: "بانتظار الموافقة", badge: counts?.pending, color: "var(--color-warning-100)" },
   ];
 
   const select = (next) => {
@@ -64,7 +64,7 @@ export default function StudentStatusFilter({
       <div
         ref={rootRef}
         role="tablist"
-        aria-label="فلترة الطلاب حسب الحالة"
+        aria-label="تصفية الطلاب حسب الحالة"
         className={styles.group}
       >
         {buttons.map(({ key, label, badge, color }) => {

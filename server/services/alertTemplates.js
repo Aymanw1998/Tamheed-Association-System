@@ -12,7 +12,7 @@ const nameOf = (p) => clip(p.name) || "—";
 
 const VEHICLE_KIND = {
   license: { ar: "الرخصة", he: "הרישיון", en: "Licence" },
-  test: { ar: "الفحص (التست)", he: "הטסט", en: "Roadworthiness test" },
+  test: { ar: "الفحص الدوري", he: "הטסט", en: "Roadworthiness test" },
   insurance: { ar: "التأمين", he: "הביטוח", en: "Insurance" },
 };
 

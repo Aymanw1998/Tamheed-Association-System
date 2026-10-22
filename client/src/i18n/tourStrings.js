@@ -19,7 +19,7 @@ export const tourStrings = {
     prev: "السابق",
     done: "إنهاء",
     later: "لاحقًا",
-    skip: "تخطّي",
+    skip: "تخطٍّ",
     progress: "{current} من {total}",
     names: names.ar,
     userStatus: {
@@ -54,8 +54,8 @@ export const tourStrings = {
     },
     access: {
       title: "صلاحيات جديدة",
-      newSection: "فُتح لك قسم {name} — أريك إياه؟",
-      newAbility: "أُضيفت لك إمكانيات في {name}",
+      newSection: "فُتح لك قسم «{name}». هل تريد التعرّف عليه؟",
+      newAbility: "أُضيفت لك صلاحيات جديدة في قسم «{name}»",
       showMe: "أرني",
       notNow: "ليس الآن",
     },

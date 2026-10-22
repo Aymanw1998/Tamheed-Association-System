@@ -23,8 +23,8 @@ export default class AppErrorBoundary extends React.Component {
     if (this.state.hasError) {
       return (
         <div style={{ padding: 24, textAlign: "center", direction: "rtl" }}>
-          <h2>حدث خلل غير متوقع</h2>
-          <p>تم منع انهيار الصفحة بالكامل. يمكن إعادة التحميل والمتابعة.</p>
+          <h2>حدث خطأ غير متوقع</h2>
+          <p>يمكنك إعادة تحميل الصفحة والمتابعة.</p>
           <button type="button" onClick={this.handleReset}>
             إعادة التحميل
           </button>

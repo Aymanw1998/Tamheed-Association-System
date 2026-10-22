@@ -29,7 +29,7 @@ export const getAll = async() => {
         if(![200,201].includes(status) || !data?.ok) throw new Error('لا يوجد طلاب');
         return {ok: true, students: (data.students || []).map(normalizeStudent).filter(Boolean)}
     } catch(err) {
-        return {ok: false, message: err.response.data.message || err.message || 'يوجد خلل في العملية'};
+        return {ok: false, message: err.response.data.message || err.message || 'تعذّر إتمام العملية.'};
     }
 }
 
@@ -41,10 +41,10 @@ export const getOne = async(idOrName) => {
     try{
         console.log("getOne student", idOrName);
         const {status, data} = await api.get("/student/"+idOrName);
-        if(![200,201].includes(status) || !data?.ok) throw new Error('لا يوجد طالب موجود صاحب رقم التعريف هذا: ' + idOrName);
+        if(![200,201].includes(status) || !data?.ok) throw new Error('لا يوجد طالب بهذا المعرّف: ' + idOrName);
         return {ok: true, student: normalizeStudent(data.student)}
     } catch(err){
-        return {ok: false, message: err.response.data.message || err.message || 'يوجد خلل في العملية'};
+        return {ok: false, message: err.response.data.message || err.message || 'تعذّر إتمام العملية.'};
     }
 }
 
@@ -64,10 +64,10 @@ export const create = async(payload, {confirm = true} = {}) => {
     try{
         const body = {...payload};
         const { data, status } = await api.post('/student', body);
-        if (![200,201].includes(status) || !data?.ok) throw new Error('الطالب لم يتم إنشاؤه');
+        if (![200,201].includes(status) || !data?.ok) throw new Error('تعذّر إنشاء الطالب');
         return {ok: true, student: normalizeStudent(data.student)}
     } catch(err) {
-        return {ok: false, message: err.response.data.message || err.message || 'يوجد خلل في العملية'};
+        return {ok: false, message: err.response.data.message || err.message || 'تعذّر إتمام العملية.'};
     }
 }
 
@@ -88,10 +88,10 @@ export const update= async(idOrName, patch,{confirm = true} = {}) => {
     try{
         const body = {...patch};
         const { data, status } = await api.put(`/student/${encodeURIComponent(idOrName)}`, body);
-        if (![200,201].includes(status) || !data?.ok) throw new Error(data?.message || 'الطالب لم يتم تحديثه');
+        if (![200,201].includes(status) || !data?.ok) throw new Error(data?.message || 'تعذّر تحديث بيانات الطالب');
         return {ok: true, student: normalizeStudent(data.student)}
     } catch(err) {
-        return {ok: false, message: err.response.data.message || err.message || 'يوجد خلل في العملية'};
+        return {ok: false, message: err.response.data.message || err.message || 'تعذّر إتمام العملية.'};
     }
 }
 
@@ -105,10 +105,10 @@ export const uploadPhoto = async(tz, file) => {
                 'Content-Type': 'multipart/form-data',
             },
         });
-        if (![200,201].includes(status) || !data?.ok) throw new Error(data?.message || 'لم يتم تحميل صورة الطالب');
+        if (![200,201].includes(status) || !data?.ok) throw new Error(data?.message || 'تعذّر رفع صورة الطالب');
         return {ok: true, student: data.student}
     } catch(err) {
-        return {ok: false, message: err.response.data.message || err.message || 'يوجد خلل في العملية'};
+        return {ok: false, message: err.response.data.message || err.message || 'تعذّر إتمام العملية.'};
     }
 }
 
@@ -116,10 +116,10 @@ export const deletePhoto = async(tz) => {
     try {
       console.log("deletePhoto student", tz);
         const { data, status } = await api.delete(`/student/photo/${encodeURIComponent(tz)}`);
-        if (![200,201].includes(status) || !data?.ok) throw new Error(data?.message || 'لم يتم حذف الصورة');
+        if (![200,201].includes(status) || !data?.ok) throw new Error(data?.message || 'تعذّر حذف الصورة');
         return {ok: true, photo: data.photo};
     } catch(err) {
-        return {ok: false, message: err.response.data.message || err.message || 'يوجد خلل في العملية'};
+        return {ok: false, message: err.response.data.message || err.message || 'تعذّر إتمام العملية.'};
     }
 }
 /**
@@ -135,10 +135,10 @@ export const deleteS= async(idOrName,{confirm = true} = {}) => {
     }
     try{
         const { data, status } = await api.delete(`/student/${encodeURIComponent(idOrName)}`);
-        if (![200,201].includes(status) || !data?.ok) throw new Error(data?.message || 'الطالب لم يتم حذفه');
+        if (![200,201].includes(status) || !data?.ok) throw new Error(data?.message || 'تعذّر حذف الطالب');
         return {ok: true, student: null}
     } catch(err) {
-        return {ok: false, message: err.response.data.message || err.message || 'يوجد خلل في العملية'};
+        return {ok: false, message: err.response.data.message || err.message || 'تعذّر إتمام العملية.'};
     }
 }
 

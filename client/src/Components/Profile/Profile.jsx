@@ -76,10 +76,10 @@ const Profile = ({parent = false}) => {
                 setPhoto(s.photo || null);
                 setOriginalPhoto(s.photo || null);
             } else {
-            setErr("خلل في جلب البيانات");
+            setErr("تعذّر تحميل البيانات");
             }
         } catch (e) {
-            setErr("خلل في جلب البيانات");
+            setErr("تعذّر تحميل البيانات");
         } finally {
             setLoading(false);
         }
@@ -99,12 +99,12 @@ const Profile = ({parent = false}) => {
     const handleDeletePhotoWithSave = async () => {
         try {
             const res = await deletePhoto(form.tz);
-            if (!res || !res.ok) throw new Error(res?.message || "❌ فشل حذف الصورة");
+            if (!res || !res.ok) throw new Error(res?.message || "تعذّر حذف الصورة");
             setPhoto(null);
-            toast.success("✅ تم حذف الصورة بنجاح");
+            toast.success("تم حذف الصورة بنجاح");
             return true;
         } catch (e) {
-            toast.error(e.message || "❌ فشل حذف الصورة");
+            toast.error(e.message || "تعذّر حذف الصورة");
             return false;
         }
     };
@@ -123,7 +123,7 @@ const Profile = ({parent = false}) => {
         if(name === "tz"){
             if (value === "") {
             tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
-            return "املأ الحقل";
+            return "هذا الحقل مطلوب";
             } 
             else if(!isValidIsraeliId(value)){
             tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
@@ -137,7 +137,7 @@ const Profile = ({parent = false}) => {
         else if(['firstname', 'lastname', 'father_name', 'mother_name'].includes(name)){
             if (value === "") {
             tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
-            return "املأ الحقل";
+            return "هذا الحقل مطلوب";
             } 
             else{
             tag?.style.setProperty('border', '2px solid green'); // ملاحظة عربية
@@ -181,7 +181,7 @@ const Profile = ({parent = false}) => {
         else if (['father_phone', 'mother_phone', 'phone', 'email', 'city', 'street'].includes(name)){
             if (value === "") {
             tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
-            return "املأ الحقل";
+            return "هذا الحقل مطلوب";
             } 
             else{
             tag?.style.setProperty('border', '2px solid green'); // ملاحظة عربية
@@ -189,7 +189,7 @@ const Profile = ({parent = false}) => {
             }
         }
         else if (name === "roles") {
-            if (!value || value.length === 0) return "اختر دورا واحدا على الأقل";
+            if (!value || value.length === 0) return "اختر دورًا واحدًا على الأقل";
             return "";
         }
 
@@ -245,7 +245,7 @@ const Profile = ({parent = false}) => {
                 b = false;
             }
         }
-        if(!b) return toast.warn("فحص الحقول المطلوبة");
+        if(!b) return toast.warn("يُرجى تعبئة الحقول المطلوبة");
         e.preventDefault();
         try {
             setSaving(true);
@@ -256,7 +256,7 @@ const Profile = ({parent = false}) => {
             delete payload.password;
             //console.log("payload", payload);  
             if(parent && !inviteToken){
-                toast.error("رابط التسجيل غير صالح");
+                toast.error("رابط التسجيل غير صالح.");
                 return;
             }
             
@@ -269,7 +269,7 @@ const Profile = ({parent = false}) => {
             const res = await update(form.tz, payload);
             if(!res) return;
             if(!res.ok) throw new Error(res.message);
-            toast.success(`✅ الملف الشخصي تم تحديثه بنجاح`);
+            toast.success("تم حفظ الملف الشخصي بنجاح");
 
             if (photoChange === "remove" && await handleDeletePhotoWithSave()) {
                 setOriginalPhoto(null);
@@ -278,17 +278,17 @@ const Profile = ({parent = false}) => {
                 const res2 = await uploadPhoto(form.tz, photo);
                 if(!res2) return;
                 if(!res2.ok) {
-                    toast.warn("لم يتم تحميل صورة : " + res2.message);
+                    toast.warn("تعذّر رفع الصورة: " + res2.message);
                 }
                 else{
                     setPhoto(res2.photo || null);
                     setOriginalPhoto(res2.photo || null);
-                    toast.success("✅ تم تحميل صورة بنجاح");
+                    toast.success("تم رفع الصورة بنجاح");
                 }
             }
         } catch (e) {
             console.error(e);
-            toast.error(e.message || "❌ فشل العملية");
+            toast.error(e.message || "تعذّر إتمام العملية");
         } finally {
             setSaving(false);
         }
@@ -314,7 +314,7 @@ const Profile = ({parent = false}) => {
 
         <fieldset className={sectionStyles.formSection} data-tour="profile-personal">
             <legend>البيانات الشخصية</legend>
-            <label>اسمي:</label>
+            <label>الاسم الشخصي:</label>
             <input name="firstname" value={form.firstname} onChange={handleChange} required />
             <label style={{color: "red"}}>{error.firstname}</label>
 
@@ -331,11 +331,11 @@ const Profile = ({parent = false}) => {
             />
             <label style={{color: "red"}}>{error.birth_date}</label>
 
-            <label>جنس:</label>
+            <label>الجنس:</label>
             <select name="gender" value={form.gender} onChange={onField}>
-                <option value="">اختار الجنس</option>
+                <option value="">اختر الجنس</option>
                 <option value="ذكر">ذكر</option>
-                <option value="انثى">انثى</option>
+                <option value="انثى">أنثى</option>
             </select>
             <label style={{color: "red"}}>{error.gender}</label>
         </fieldset>
@@ -350,7 +350,7 @@ const Profile = ({parent = false}) => {
             <input name="street" value={form.street} onChange={onField} />
             <label style={{color: "red"}}>{error.street}</label>
 
-            <label>هاتف:</label>
+            <label>الهاتف:</label>
             <input
                 name="phone"
                 value={displayPhoneLocal(form.phone)}
@@ -359,13 +359,13 @@ const Profile = ({parent = false}) => {
             />
             <label style={{color: "red"}}>{error.phone}</label>
 
-            <label>بريد الكتروني:</label>
+            <label>البريد الإلكتروني:</label>
             <input name="email" value={form.email} onChange={onField} />
             <label style={{color: "red"}}>{error.email}</label>
         </fieldset>
 
         <div style={{ marginBottom: "16px" }} data-tour="profile-photo">
-            <label>صورة المستخدم:</label>
+            <label>الصورة الشخصية:</label>
             <button onClick={
             ()=> {
                 const input = document.createElement('input');
@@ -375,7 +375,7 @@ const Profile = ({parent = false}) => {
                 input.capture = "environment";
                 input.click();
             }
-            }> {photo ? "تعديل الاختيار" : "اختر صورة"} </button>
+            }> {photo ? "تغيير الصورة" : "اختر صورة"} </button>
             {photo && (
                 <button type="button" onClick={handleDeletePhoto} style={{ marginInlineStart: "8px" }}>
                     حذف الصورة
@@ -397,7 +397,7 @@ const Profile = ({parent = false}) => {
 
         <div className={styles.buttonRow} style={{ gap: 8, flexWrap: "wrap" }}>
             <button type="submit" data-tour="profile-save" onClick={handleSubmit}>
-            {saving ? "حفظ..." :  "تعديل البيانات"}
+            {saving ? "جارٍ الحفظ…" : "حفظ التعديلات"}
             </button>
         </div>
         </div>

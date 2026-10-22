@@ -219,7 +219,7 @@ const postS = async (req, res) => {
     if (exists?.result?.length) {
       return res.status(409).json({
         ok: false,
-        message: "الطالب موجود",
+        message: "الطالب مسجّل مسبقًا",
       });
     }
 
@@ -289,7 +289,7 @@ const putS = async (req, res) => {
       const taken = await StudentModelDef.get({ tz: String(newData.tz).trim() });
       const own = String(existing.result[0]._id);
       if ((taken?.result || []).some((s) => String(s._id) !== own)) {
-        return res.status(409).json({ ok: false, code: "TZ_EXISTS", message: "الطالب موجود" });
+        return res.status(409).json({ ok: false, code: "TZ_EXISTS", message: "الطالب مسجّل مسبقًا" });
       }
     }
 

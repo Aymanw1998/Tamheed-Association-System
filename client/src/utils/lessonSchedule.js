@@ -1,5 +1,5 @@
 // Lesson days run 1 (Sunday) to 7 (Saturday).
-export const DAY_NAMES = ["الاحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+export const DAY_NAMES = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
 
 export const startOf = (lesson) => lesson?.date?.startMin ?? (lesson?.date?.hh ?? 8) * 60;
 export const endOf = (lesson) => lesson?.date?.endMin ?? startOf(lesson) + 45;

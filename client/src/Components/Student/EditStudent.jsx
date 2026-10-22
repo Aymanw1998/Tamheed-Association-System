@@ -123,7 +123,7 @@ const EditStudent = ({parent = false}) => {
           setErr("الطالب غير موجود");
         }
       } catch (e) {
-        setErr("خلل في جلب البيانات");
+        setErr("تعذّر تحميل البيانات");
       } finally {
         setLoading(false);
       }
@@ -163,7 +163,7 @@ const EditStudent = ({parent = false}) => {
     if(name === "tz"){
         if (value === "") {
           tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
-          return "املأ الحقل";
+          return "هذا الحقل مطلوب";
         } 
         else if(!isValidIsraeliId(value)){
           tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
@@ -173,7 +173,7 @@ const EditStudent = ({parent = false}) => {
           const data = parent ? {ok: false} : await getOne(value)
           if(data.ok){
             tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
-            return "رقم الهوية موجود في النظام"
+            return "رقم الهوية مسجّل مسبقًا في النظام"
           } 
         }
         tag?.style.setProperty('border', '2px solid green'); // ملاحظة عربية
@@ -191,7 +191,7 @@ const EditStudent = ({parent = false}) => {
       else if(['firstname', 'lastname'].includes(name)){
         if (value === "") {
           tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
-          return "املأ الحقل";
+          return "هذا الحقل مطلوب";
         } 
         else{
           tag?.style.setProperty('border', '2px solid green'); // ملاحظة عربية
@@ -233,7 +233,7 @@ const EditStudent = ({parent = false}) => {
       else if (['city', 'street'].includes(name)){
         if (value === "") {
           tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
-          return "املأ الحقل";
+          return "هذا الحقل مطلوب";
         } 
         else{
           tag?.style.setProperty('border', '2px solid green'); // ملاحظة عربية
@@ -288,7 +288,7 @@ const EditStudent = ({parent = false}) => {
         b = false;
       }
     }
-    if(!b) return toast.warn("فحص الحقول المطلوبة");
+    if(!b) return toast.warn("يُرجى تعبئة الحقول المطلوبة");
     e.preventDefault();
     try {
       setSaving(true);
@@ -302,7 +302,7 @@ const EditStudent = ({parent = false}) => {
             setInviteStatus({ checking: false, valid: true, open: false });
             return;
           }
-          throw new Error(res.code === "RATE_LIMITED" ? "حاولوا بعد ساعة" : res.message);
+          throw new Error(res.code === "RATE_LIMITED" ? "تجاوزتم عدد الطلبات المسموح به. يُرجى المحاولة بعد ساعة." : res.message);
         }
         setSubmitted(true);
         return;
@@ -317,7 +317,7 @@ const EditStudent = ({parent = false}) => {
       const res = isEdit ? await update(form.tz, payload): await create({...payload});
       if(!res) return;
       if(!res.ok) throw new Error(res.message);
-      toast.success(`✅ الطالب ${isEdit ? 'حُديث' : 'حُفِظ'} بنجاح`);
+      toast.success(isEdit ? "تم حفظ بيانات الطالب بنجاح" : "تمت إضافة الطالب بنجاح");
 
       if (photoChange === "remove") {
         await handleDeletePhotoWithSave();
@@ -326,16 +326,16 @@ const EditStudent = ({parent = false}) => {
         const res2 = await uploadPhoto(form.tz, photo);
         if(!res2) return;
         if(!res2.ok) {
-          toast.warn("لم يتم تحميل صورة الطالب: " + res2.message);
+          toast.warn("تعذّر رفع صورة الطالب: " + res2.message);
         }
         else{
-          toast.success("✅ تم تحميل صورة الطالب بنجاح");
+          toast.success("تم رفع صورة الطالب بنجاح");
         }
       }
       navigate(-1);
     } catch (e) {
       console.error(e);
-      toast.error(e.message || "❌ فشل العملية");
+      toast.error(e.message || "تعذّر إتمام العملية");
     } finally {
       setSaving(false);
     }
@@ -344,12 +344,12 @@ const EditStudent = ({parent = false}) => {
   const handleDeletePhotoWithSave = async () => {
     try {
         const res = await deletePhoto(form.tz);
-        if (!res || !res.ok) throw new Error(res?.message || "❌ فشل حذف الصورة");
+        if (!res || !res.ok) throw new Error(res?.message || "تعذّر حذف الصورة");
         setPhoto(null);
-        toast.success("✅ تم حذف الصورة بنجاح");
+        toast.success("تم حذف الصورة بنجاح");
         return true;
     } catch (e) {
-        toast.error(e.message || "❌ فشل حذف الصورة");
+        toast.error(e.message || "تعذّر حذف الصورة");
         return false;
     }
 };
@@ -362,10 +362,10 @@ const EditStudent = ({parent = false}) => {
       if(!res) return;
       if(!res.ok) throw new Error(res.message);
 
-      toast.success("✅ تم الحذف بنجاح");
+      toast.success("تم الحذف بنجاح");
       navigate(-1);
     } catch (e) {
-      toast.error(e.message || "❌ فشل العملية");
+      toast.error(e.message || "تعذّر إتمام العملية");
     }
   };
   // ملاحظة عربية
@@ -373,7 +373,7 @@ const EditStudent = ({parent = false}) => {
     if (inviteStatus.checking) {
       return (
         <div className={styles.formContainer}>
-          جار فحص صلاحية رابط التسجيل...
+          جارٍ التحقق من صلاحية رابط التسجيل…
         </div>
       );
     }
@@ -381,7 +381,7 @@ const EditStudent = ({parent = false}) => {
       return (
         <div className={styles.formContainer} style={{ color: "#b91c1c", textAlign: "center" }}>
           <h2>الرابط غير صالح</h2>
-          <p>اطلبوا الرابط من الجمعية.</p>
+          <p>يُرجى طلب رابط جديد من الجمعية.</p>
         </div>
       );
     }
@@ -389,7 +389,7 @@ const EditStudent = ({parent = false}) => {
       return (
         <div className={styles.formContainer} style={{ textAlign: "center" }}>
           <h2>استقبال الطلبات متوقف مؤقتًا</h2>
-          <p>حاولوا بعد أيام.</p>
+          <p>يُرجى المحاولة مرة أخرى بعد بضعة أيام.</p>
         </div>
       );
     }
@@ -408,7 +408,7 @@ const EditStudent = ({parent = false}) => {
 
   return (
     <div className={styles.formContainer}>
-      <h2 style={{textAlign: "center"}}>{parent ? "طلب تسجيل طالب" : isEdit ? "تحديث بيانات الطالب" : "اضافة طالب جديد"}</h2>
+      <h2 style={{textAlign: "center"}}>{parent ? "طلب تسجيل طالب" : isEdit ? "تعديل بيانات الطالب" : "إضافة طالب جديد"}</h2>
 
       <fieldset className={sectionStyles.formSection} data-tour="student-details">
         <legend>بيانات الطالب</legend>
@@ -416,7 +416,7 @@ const EditStudent = ({parent = false}) => {
         <input name="tz" value={form.tz} onChange={onField} readOnly={!isNew} />
         {error.tz != "" && <label style={{color: "red"}}>{error.tz}</label>}
 
-        <label>اسم الطالب: <span style={{color: "red"}}>*</span></label>
+        <label>الاسم الشخصي: <span style={{color: "red"}}>*</span></label>
         <input name="firstname" value={form.firstname} onChange={handleChange} required />
         {error.firstname != "" && <label style={{color: "red"}}>{error.firstname}</label>}
 
@@ -433,11 +433,11 @@ const EditStudent = ({parent = false}) => {
         />
         {error.birth_date != "" && <label style={{color: "red"}}>{error.birth_date}</label>}
 
-        <label>جنس: <span style={{color: "red"}}>*</span></label>
+        <label>الجنس: <span style={{color: "red"}}>*</span></label>
         <select name="gender" value={form.gender} onChange={onField}>
-          <option value="">اختار الجنس</option>
+          <option value="">اختر الجنس</option>
           <option value="ذكر">ذكر</option>
-          <option value="انثى">انثى</option>
+          <option value="انثى">أنثى</option>
         </select>
         {error.gender != "" && <label style={{color: "red"}}>{error.gender}</label>}
       </fieldset>
@@ -452,7 +452,7 @@ const EditStudent = ({parent = false}) => {
         <input name="street" value={form.street} onChange={onField} />
         {error.street != "" && <label style={{color: "red"}}>{error.street}</label>}
 
-        <label>هاتف:</label>
+        <label>الهاتف:</label>
         <input
           name="phone"
           value={displayPhoneLocal(form.phone)}
@@ -461,18 +461,18 @@ const EditStudent = ({parent = false}) => {
         />
         {error.phone != "" && <label style={{color: "red"}}>{error.phone}</label>}
 
-        <label>بريد الكتروني:</label>
+        <label>البريد الإلكتروني:</label>
         <input name="email" value={form.email} onChange={onField} />
         {error.email !="" && <label style={{color: "red"}}>{error.email}</label>}
       </fieldset>
 
       <fieldset className={sectionStyles.formSection} data-tour="student-study">
         <legend>الدراسة</legend>
-        <label>مدرسة: <span style={{color: "red"}}>*</span></label>
+        <label>المدرسة: <span style={{color: "red"}}>*</span></label>
         <input name="school" value={form.school} onChange={handleChange} required />
         {error.school != "" && <label style={{color: "red"}}>{error.school}</label>}
 
-        <label>صف: <span style={{color: "red"}}>*</span></label>
+        <label>الصف: <span style={{color: "red"}}>*</span></label>
         <input name="layer" value={form.layer} onChange={handleChange} required />
         {error.layer != "" && <label style={{color: "red"}}>{error.layer}</label>}
 
@@ -498,31 +498,31 @@ const EditStudent = ({parent = false}) => {
         <legend>الأهل <span className={sectionStyles.optionalTag}>اختياري</span></legend>
         <label>الأب:</label>
         <div className={sectionStyles.parentRow}>
-          <input name="father_name" value={form.father_name} onChange={handleChange} placeholder="اسم الاب" />
+          <input name="father_name" value={form.father_name} onChange={handleChange} placeholder="اسم الأب" />
           <input
             name="father_phone"
             value={displayPhoneLocal(form.father_phone)}
             onChange={(e) => onPhoneChange('father_phone', e.target.value)}
             placeholder="052-123-4567"
           />
-          <input name="father_work" value={form.father_work} onChange={handleChange} placeholder="عمل الاب" />
+          <input name="father_work" value={form.father_work} onChange={handleChange} placeholder="عمل الأب" />
         </div>
 
         <label>الأم:</label>
         <div className={sectionStyles.parentRow}>
-          <input name="mother_name" value={form.mother_name} onChange={handleChange} placeholder="اسم الام" />
+          <input name="mother_name" value={form.mother_name} onChange={handleChange} placeholder="اسم الأم" />
           <input
             name="mother_phone"
             value={displayPhoneLocal(form.mother_phone)}
             onChange={(e) => onPhoneChange('mother_phone', e.target.value)}
             placeholder="052-123-4567"
           />
-          <input name="mother_work" value={form.mother_work} onChange={handleChange} placeholder="عمل الام" />
+          <input name="mother_work" value={form.mother_work} onChange={handleChange} placeholder="عمل الأم" />
         </div>
       </fieldset>
 
       <fieldset className={sectionStyles.formSection} data-tour="student-health">
-        <legend>الصحة وملاحظات</legend>
+        <legend>الصحة والملاحظات</legend>
         <label>الحالة الصحية: <span style={{color: "red"}}>*</span></label>
         <textarea name="health_status" rows={4} value={form.health_status || ""} onChange={handleChange} required />
         {error.health_status != "" && <label style={{color: "red"}}>{error.health_status}</label>}
@@ -544,7 +544,7 @@ const EditStudent = ({parent = false}) => {
             input.capture = "environment";
             input.click();
           }
-        }> {photo ? "تعديل الاختيار" : "اختر صورة"} </button>
+        }> {photo ? "تغيير الصورة" : "اختر صورة"} </button>
         {photo && <button style={{marginLeft: "18px", backgroundColor: "red"}} onClick={()=>setPhoto(null)}>إزالة الصورة</button>}
         <br />
 
@@ -560,7 +560,7 @@ const EditStudent = ({parent = false}) => {
 
       <div className={styles.buttonRow} style={{ gap: 8, flexWrap: "wrap" }}>
         <button type="submit" data-tour="student-save" onClick={handleSubmit} style={{width:"100%"}}>
-          {saving ? "حفظ..." : parent ? "ارسال التفاصيل" : (isEdit ? "تعديل البيانات" : "اضافة الطالب")}
+          {saving ? "جارٍ الحفظ…" : parent ? "إرسال الطلب" : (isEdit ? "حفظ التعديلات" : "إضافة الطالب")}
         </button>
 
         {isEdit && !parent && (
@@ -572,7 +572,7 @@ const EditStudent = ({parent = false}) => {
         )}
 
         {!parent && (<button type="button" style={{ background: "#6b7280", width: "100%" }} onClick={() => navigate(-1)}>
-          الرجوع للقائمة
+          العودة إلى القائمة
         </button>)}
       </div>
       {/* Students are audited by _id (older rows by tz). */}
