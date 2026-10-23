@@ -1,9 +1,8 @@
 const buckets = new Map();
 
-const getClientKey = (req, scope) => {
-  const forwarded = String(req.get("x-forwarded-for") || "").split(",")[0].trim();
-  return `${scope}:${forwarded || req.ip || req.socket?.remoteAddress || "unknown"}`;
-};
+// req.ip honours Express "trust proxy" (1 hop). The raw first X-Forwarded-For
+// value is client-supplied, so it must never key a bucket.
+const getClientKey = (req, scope) => `${scope}:${req.ip || req.socket?.remoteAddress || "unknown"}`;
 
 const rateLimit = ({ windowMs = 60 * 1000, max = 60, scope = "global", keyFn } = {}) => {
   return (req, res, next) => {

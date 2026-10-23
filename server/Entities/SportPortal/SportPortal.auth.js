@@ -19,7 +19,6 @@ const NO_SECRET = "SPORT_SESSION_SECRET is not set";
 
 const GENERIC_CODE_MESSAGE = "إذا كان الرقم مسجّلًا ولديه بريد، سيصله رمز. لم يصلك؟ توجّه إلى المرشد";
 const BAD_CODE_MESSAGE = "الرمز غير صحيح أو انتهت صلاحيته";
-const LOCKED_MESSAGE = "محاولات كثيرة. حاول بعد 10 دقائق";
 const SERVER_ERROR = "حدث خطأ غير متوقع، حاول مرة أخرى";
 
 const rows = (r) => (r?.success && Array.isArray(r.result) ? r.result : []);
@@ -58,6 +57,7 @@ function createSportAuth(deps = {}) {
     try {
       const tz = String(req.body?.tz ?? "").trim();
       if (!tz) return generic();
+      secret(); // fails closed before any code is created or sent
 
       const found = rows(await students.get({ tz }));
       if (found.length > 1) {
@@ -71,9 +71,12 @@ function createSportAuth(deps = {}) {
       if (!(await hasSportRow(studentId))) return generic();
 
       const existing = rows(await codes.get({ studentId }))[0];
+      let attempts = 0;
       if (existing) {
         if (existing.lockedUntil && new Date(existing.lockedUntil).getTime() > now()) return generic();
         if (existing.sentAt && now() - new Date(existing.sentAt).getTime() < RESEND_MS) return generic();
+        // A new code does not wipe the wrong guesses; only a lock that has run out does.
+        attempts = existing.lockedUntil ? 0 : Number(existing.attempts) || 0;
       }
 
       const code = makeCode();
@@ -82,10 +85,13 @@ function createSportAuth(deps = {}) {
         codeHash: sha256(code),
         expiresAt: new Date(now() + CODE_TTL_MS),
         sentAt: new Date(now()),
-        attempts: 0,
+        attempts,
         lockedUntil: null,
       });
-      await sendCode(String(student.email).trim(), code);
+      // Not awaited: the response time must not tell a real ID from an unknown one.
+      Promise.resolve()
+        .then(() => sendCode(String(student.email).trim(), code))
+        .catch((e) => log("SportPortal.requestCode", e));
       return generic();
     } catch (err) {
       log("SportPortal.requestCode", err);
@@ -99,27 +105,28 @@ function createSportAuth(deps = {}) {
       const tz = String(req.body?.tz ?? "").trim();
       const code = String(req.body?.code ?? "").trim();
       const secretValue = secret();
-      if (!tz || !code) return bad();
+      if (!tz || !/^[0-9]{6}$/.test(code)) return bad();
 
       const found = rows(await students.get({ tz }));
       if (found.length !== 1) return bad();
       const studentId = String(found[0]._id);
 
-      const stored = rows(await codes.get({ studentId }))[0];
+      let stored = rows(await codes.get({ studentId }))[0];
       if (!stored) return bad();
-      if (stored.lockedUntil && new Date(stored.lockedUntil).getTime() > now()) {
-        return res.status(429).json({ ok: false, message: LOCKED_MESSAGE });
+      if (stored.lockedUntil) {
+        // Locked: refused exactly like a wrong code, even for the right one.
+        if (new Date(stored.lockedUntil).getTime() > now()) return bad();
+        await codes.updateExisting({ studentId }, { attempts: 0, lockedUntil: null });
+        stored = { ...stored, attempts: 0, lockedUntil: null };
       }
       if (!stored.codeHash || new Date(stored.expiresAt).getTime() <= now()) return bad();
 
       if (sha256(code) !== stored.codeHash) {
-        const attempts = (Number(stored.attempts) || 0) + 1;
-        const locked = attempts >= MAX_ATTEMPTS;
-        await codes.updateExisting({ studentId }, {
-          attempts: locked ? 0 : attempts,
-          lockedUntil: locked ? new Date(now() + LOCK_MS) : null,
-        });
-        if (locked) return res.status(429).json({ ok: false, message: LOCKED_MESSAGE });
+        // Atomic $inc: concurrent guesses each count.
+        const after = await codes.increment({ studentId }, "attempts", 1);
+        if (Number(after?.result?.attempts) >= MAX_ATTEMPTS) {
+          await codes.updateExisting({ studentId }, { lockedUntil: new Date(now() + LOCK_MS) });
+        }
         return bad();
       }
 
@@ -178,5 +185,4 @@ module.exports = {
   COOKIE_NAME,
   GENERIC_CODE_MESSAGE,
   BAD_CODE_MESSAGE,
-  LOCKED_MESSAGE,
 };

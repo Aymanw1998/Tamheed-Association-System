@@ -2,6 +2,7 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 const jwt = require("jsonwebtoken");
 
+process.env.PASSWORD_ENC_KEY_HEX = process.env.PASSWORD_ENC_KEY_HEX || "0".repeat(64);
 process.env.SPORT_SESSION_SECRET = "test-sport-session-secret";
 process.env.JWT_ACCESS_SECRET = "test-access-secret";
 process.env.JWT_REFRESH_SECRET = "test-refresh-secret";
@@ -22,6 +23,11 @@ function store(seed = []) {
       const hit = docs.find((d) => matches(d, f));
       if (hit) Object.assign(hit, patch); else docs.push({ _id: `d${next++}`, ...f, ...patch });
       return { success: true };
+    },
+    async increment(f, field, by = 1) {
+      const hit = docs.find((d) => matches(d, f));
+      if (hit) hit[field] = (Number(hit[field]) || 0) + by;
+      return { success: true, result: hit ? { ...hit } : null };
     },
     async updateExisting(f, patch) {
       const hit = docs.find((d) => matches(d, f));
@@ -68,6 +74,7 @@ function setup({ students, players, codes } = {}) {
   return { auth, stores, sent, logs, clock };
 }
 
+const BAD = { ok: false, message: "الرمز غير صحيح أو انتهت صلاحيته" };
 const ask = async (auth, tz) => { const r = res(); await auth.requestCode({ body: { tz } }, r); return r; };
 const verify = async (auth, tz, code) => { const r = res(); await auth.verify({ body: { tz, code } }, r); return r; };
 const GENERIC = { ok: true, message: GENERIC_CODE_MESSAGE };
@@ -120,14 +127,17 @@ test("five wrong codes lock the ID for 10 minutes", async () => {
   for (let i = 0; i < 4; i++) {
     const r = await verify(auth, "100000009", "000000");
     assert.equal(r.statusCode, 400);
-    assert.deepEqual(r.body, { ok: false, message: "الرمز غير صحيح أو انتهت صلاحيته" });
+    assert.deepEqual(r.body, BAD);
   }
+  // The fifth wrong code locks; locked answers exactly like a wrong code.
   const fifth = await verify(auth, "100000009", "000000");
-  assert.equal(fifth.statusCode, 429);
-  assert.deepEqual(fifth.body, { ok: false, message: "محاولات كثيرة. حاول بعد 10 دقائق" });
+  assert.equal(fifth.statusCode, 400);
+  assert.deepEqual(fifth.body, BAD);
   // Even the right code is refused while locked.
   const locked = await verify(auth, "100000009", "123456");
-  assert.equal(locked.statusCode, 429);
+  assert.equal(locked.statusCode, 400);
+  assert.deepEqual(locked.body, BAD);
+  assert.equal(locked.cookies.length, 0);
   clock.t += 10 * 60 * 1000 + 1;
   // The lock has passed, but the code itself expired by now (10 minutes).
   const after = await verify(auth, "100000009", "123456");
@@ -258,19 +268,103 @@ test("requireSportStudent refuses a wrong typ and a student who left the sport s
   }
 });
 
-test("a sport session cookie does not open /api/student", () => {
+test("a sport session cookie does not open /api/student", async () => {
   const token = jwt.sign({ sub: "s1", typ: "sport-student" }, process.env.SPORT_SESSION_SECRET);
-  const req = { headers: { cookie: `tamheed_sport=${token}` }, cookies: { tamheed_sport: token } };
-  const r = res();
-  let called = false;
-  requireAuth(req, r, () => { called = true; });
-  assert.equal(called, false);
-  assert.equal(r.statusCode, 401);
-  assert.equal(r.body.code, "NO_TOKEN");
+  const express = require("express");
+  const cookieParser = require("cookie-parser");
+  const app = express();
+  app.use(cookieParser());
+  // The real Student router: its first guard is the real requireAuth.
+  app.use("/api/student", require("../Entities/Student/Student.route"));
+  const server = app.listen(0);
+  try {
+    const out = await fetch(`http://127.0.0.1:${server.address().port}/api/student/`, {
+      headers: { Cookie: `tamheed_sport=${token}` },
+    });
+    assert.equal(out.status, 401);
+    assert.equal((await out.json()).code, "NO_TOKEN");
+  } finally { server.close(); }
+});
 
-  // The Student router is guarded by that same middleware.
-  const fs = require("node:fs");
-  const route = fs.readFileSync(require.resolve("../Entities/Student/Student.route.js"), "utf8");
-  assert.match(route, /authMiddleware/);
-  assert.match(route, /router\.use\(\s*protect/);
+test("request-code does not wait for the mail", async () => {
+  const { stores } = setup();
+  const auth = createSportAuth({
+    ...stores, sendCode: () => new Promise(() => {}), makeCode: () => "123456", log() {},
+  });
+  const r = await Promise.race([ask(auth, "100000009"), new Promise((ok) => setTimeout(() => ok("timeout"), 500))]);
+  assert.notEqual(r, "timeout");
+  assert.deepEqual(r.body, GENERIC);
+});
+
+test("a failing mailer is logged and the answer stays generic", async () => {
+  const { stores, logs } = setup();
+  const auth = createSportAuth({
+    ...stores, sendCode: async () => { throw new Error("smtp down"); }, makeCode: () => "123456", log: (...a) => logs.push(a),
+  });
+  const r = await ask(auth, "100000009");
+  assert.deepEqual(r.body, GENERIC);
+  await new Promise((ok) => setImmediate(ok));
+  assert.equal(logs.length, 1);
+});
+
+test("re-requesting a code does not reset the wrong-guess count", async () => {
+  const { auth, clock } = setup();
+  await ask(auth, "100000009");
+  for (let i = 0; i < 4; i++) await verify(auth, "100000009", "000000");
+  clock.t += 61 * 1000;
+  await ask(auth, "100000009");
+  const r = await verify(auth, "100000009", "000000"); // fifth guess in total -> lock
+  assert.equal(r.statusCode, 400);
+  const right = await verify(auth, "100000009", "123456");
+  assert.equal(right.statusCode, 400);
+  assert.equal(right.cookies.length, 0);
+});
+
+test("attempts restart once a lock has run out", async () => {
+  const { auth, clock } = setup();
+  await ask(auth, "100000009");
+  for (let i = 0; i < 5; i++) await verify(auth, "100000009", "000000");
+  clock.t += 10 * 60 * 1000 + 1;
+  await ask(auth, "100000009");
+  assert.equal((await verify(auth, "100000009", "000000")).statusCode, 400);
+  assert.equal((await verify(auth, "100000009", "123456")).statusCode, 200);
+});
+
+test("verify refuses a code that is not 6 digits without burning an attempt", async () => {
+  const { auth, stores } = setup();
+  await ask(auth, "100000009");
+  for (const code of ["12345", "1234567", "abcdef", "12 456", ""]) {
+    const r = await verify(auth, "100000009", code);
+    assert.equal(r.statusCode, 400);
+    assert.deepEqual(r.body, BAD);
+  }
+  assert.equal(stores.codes.docs()[0].attempts, 0);
+});
+
+test("request-code without SPORT_SESSION_SECRET is generic, logs, and creates nothing", async () => {
+  const { auth, stores, sent, logs } = setup();
+  const saved = process.env.SPORT_SESSION_SECRET;
+  delete process.env.SPORT_SESSION_SECRET;
+  try {
+    const r = await ask(auth, "100000009");
+    assert.deepEqual(r.body, GENERIC);
+    assert.equal(stores.codes.docs().length, 0);
+    assert.equal(sent.length, 0);
+    assert.equal(logs.length, 1);
+  } finally { process.env.SPORT_SESSION_SECRET = saved; }
+});
+
+test("rateLimit buckets by req.ip, so a spoofed X-Forwarded-For gets no fresh bucket", () => {
+  const { rateLimit } = require("../middleware/rateLimit");
+  const limit = rateLimit({ windowMs: 60000, max: 2, scope: "spoof-test" });
+  const hit = (xff) => {
+    const r = res();
+    r.set = () => r;
+    let passed = false;
+    limit({ ip: "9.9.9.9", get: () => xff }, r, () => { passed = true; });
+    return passed;
+  };
+  assert.equal(hit("1.1.1.1"), true);
+  assert.equal(hit("2.2.2.2"), true);
+  assert.equal(hit("3.3.3.3"), false);
 });

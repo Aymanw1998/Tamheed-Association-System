@@ -30,6 +30,10 @@ SportLoginCodeModelDef.update = async function (filter, newData) {
     return await api.update({ dbName: this.dbName, collection: this.collections.active, filter, newData });
 };
 
+SportLoginCodeModelDef.increment = async function (filter, field, by = 1) {
+    return await api.increment({ dbName: this.dbName, collection: this.collections.active, filter, field, by });
+};
+
 SportLoginCodeModelDef.updateExisting = async function (filter, newData) {
     return await api.updateExisting({ dbName: this.dbName, collection: this.collections.active, filter, newData });
 };
