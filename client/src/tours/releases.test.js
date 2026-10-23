@@ -12,7 +12,7 @@ test("modules map to known sections or null", () => {
 });
 
 test("every section's «أرني» opens a real chapter of the journey", () => {
-  Object.values(SECTIONS).forEach(({ chapterId }) => expect(CHAPTER_IDS.has(chapterId)).toBe(true));
+  Object.values(SECTIONS).forEach(({ chapterId }) => expect(chapterId === null || CHAPTER_IDS.has(chapterId)).toBe(true));
 });
 
 test("releases are well formed", () => {

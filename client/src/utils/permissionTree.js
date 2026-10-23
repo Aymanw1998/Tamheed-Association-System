@@ -4,7 +4,7 @@
 import { PERMISSION_TREE, ALL_KEYS } from "./permissionKeys";
 
 // Reserved modules are not shown until they are built.
-export const HIDDEN_MODULES = ["sports", "finance"];
+export const HIDDEN_MODULES = ["finance"];
 
 export const visibleModules = () => Object.keys(PERMISSION_TREE).filter((m) => !HIDDEN_MODULES.includes(m));
 

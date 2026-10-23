@@ -6,7 +6,7 @@ const modules = {
     dashboard: "لوحة التحكم", calendar: "التقويم", students: "الطلاب", lessons: "الدروس",
     attendance: "الحضور والغياب", reports: "التقارير", vehicles: "المركبات", files: "الملفات",
     notices: "الإعلانات", users: "المستخدمون", ai: "المساعد الذكي", permissions: "الصلاحيات",
-    audit: "سجل التغييرات", systemRecovery: "استعادة حساب النظام", storage: "التخزين",
+    audit: "سجل التغييرات", sports: "الرياضة", systemRecovery: "استعادة حساب النظام", storage: "التخزين",
   },
 };
 
@@ -52,6 +52,8 @@ export const accessStrings = {
         UNKNOWN_ROLE: "دور غير معروف", ROLE_REQUIRED: "اختر دورًا للمستخدم", generic: "تعذّر إتمام العملية",
       },
       modules: modules.ar, leaves: leaves.ar,
+      // Module-specific leaf names; they win over the shared `leaves`.
+      leavesByModule: { sports: { coach: "تدريب الفرق", manage: "إدارة الرياضة" } },
     },
     audit: {
       navTitle: "سجل التغييرات", title: "سجل التغييرات", recent: "آخر التغييرات", openAll: "عرض السجل الكامل",

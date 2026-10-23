@@ -10,7 +10,7 @@ export const PERMISSION_TREE = {
   notices: ["view", "post", "runCheck"],
   users: ["view", "create", "edit", "approve", "delete", "changeRole", "passwords", "unlock"],
   ai: ["use"], permissions: ["manage"], audit: ["view"], systemRecovery: ["reset"],
-  sports: ["view"], finance: ["view"],
+  sports: ["view", "coach", "manage"], finance: ["view"],
 };
 
 export const ALL_KEYS = Object.entries(PERMISSION_TREE).flatMap(([module, leaves]) =>

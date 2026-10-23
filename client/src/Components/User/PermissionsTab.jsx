@@ -61,7 +61,7 @@ export default function PermissionsTab({ tz }) {
 
   const keyLabel = (key) => {
     const [module, leaf] = key.split(".");
-    return `${t(`perms.modules.${module}`, module)}: ${t(`perms.leaves.${leaf}`, leaf)}`;
+    return `${t(`perms.modules.${module}`, module)}: ${t(`perms.leavesByModule.${module}.${leaf}`, t(`perms.leaves.${leaf}`, leaf))}`;
   };
 
   const persist = async (next, successText) => {
@@ -165,7 +165,7 @@ export default function PermissionsTab({ tz }) {
                             disabled={!allowed || saving}
                             onChange={(e) => setDraft(toggleKey(state, key, e.target.checked))}
                           />
-                          {t(`perms.leaves.${key.split(".")[1]}`, key)}
+                          {t(`perms.leavesByModule.${key}`, t(`perms.leaves.${key.split(".")[1]}`, key))}
                         </label>
                         {SOURCE_TONE[source] && <StatusBadge tone={SOURCE_TONE[source]}>{t(`perms.source.${source}`)}</StatusBadge>}
                       </li>

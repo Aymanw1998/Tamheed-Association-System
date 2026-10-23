@@ -7,9 +7,9 @@ import { PERMISSION_TREE } from "./permissionKeys";
 const studentLeaves = PERMISSION_TREE.students.map((l) => `students.${l}`);
 
 describe("visible modules", () => {
-  test("sports and finance are hidden", () => {
-    expect(HIDDEN_MODULES).toEqual(["sports", "finance"]);
-    expect(visibleModules()).not.toContain("sports");
+  test("only finance is hidden; sports is visible", () => {
+    expect(HIDDEN_MODULES).toEqual(["finance"]);
+    expect(visibleModules()).toContain("sports");
     expect(visibleModules()).not.toContain("finance");
     expect(visibleModules()).toContain("students");
   });

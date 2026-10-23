@@ -157,3 +157,11 @@ test("assistant spelling variants normalize to the assistant role", () => {
     assert.equal(normalizeRole(spelling), ASSISTANT, spelling);
   }
 });
+
+test("sports opens view, coach and manage but stays grant-only and out of every role default", () => {
+  assert.deepEqual([...expandKeys(["sports"])].sort(), ["sports.coach", "sports.manage", "sports.view"]);
+  for (const [role, keys] of Object.entries(ROLE_DEFAULTS)) {
+    assert.deepEqual([...expandKeys(keys)].filter((k) => k.startsWith("sports.")), [], role);
+  }
+  assert.deepEqual([...GRANT_ONLY_MODULES].sort(), ["finance", "sports"]);
+});

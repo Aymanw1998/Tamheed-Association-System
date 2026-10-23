@@ -12,7 +12,7 @@ const PERMISSION_TREE = {
   notices: ["view", "post", "runCheck"],
   users: ["view", "create", "edit", "approve", "delete", "changeRole", "passwords", "unlock"],
   ai: ["use"], permissions: ["manage"], audit: ["view"], systemRecovery: ["reset"],
-  sports: ["view"], finance: ["view"], // reserved
+  sports: ["view", "coach", "manage"], finance: ["view"], // finance reserved
 };
 
 const ROLE_DEFAULTS = {

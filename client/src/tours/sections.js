@@ -11,6 +11,7 @@ export const SECTIONS = {
   notices: { path: "/notices", chapterId: "journey-notices" },
   users: { path: "/users", chapterId: "journey-users" },
   audit: { path: "/audit", chapterId: "journey-audit" },
+  sports: { path: "/sports", chapterId: null },
 };
 
 export const SECTION_OF = {
@@ -28,6 +29,6 @@ export const SECTION_OF = {
   audit: "audit",
   ai: null,
   systemRecovery: null,
-  sports: null,
+  sports: "sports",
   finance: null,
 };

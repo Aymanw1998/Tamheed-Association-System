@@ -24,7 +24,7 @@ export default function MyPermissions({ permissions }) {
           {groups.map(({ module, keys }) => (
             <li key={module}>
               <strong>{t(`perms.modules.${module}`, module)}</strong>
-              {keys.map((key) => t(`perms.leaves.${key.split(".")[1]}`, key)).join("، ")}
+              {keys.map((key) => t(`perms.leavesByModule.${key}`, t(`perms.leaves.${key.split(".")[1]}`, key))).join("، ")}
             </li>
           ))}
         </ul>
