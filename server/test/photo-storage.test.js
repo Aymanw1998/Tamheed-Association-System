@@ -80,6 +80,7 @@ function loadUserController(model, storage, audit = auditStub()) {
     jsonwebtoken: {},
     path,
     "./User.model": { UserModelDef: model },
+    "../../utils/otp": require("../utils/otp"),
     "../../utils/sendEmail": {},
     "../../utils/jwt": {},
     "../../utils/textEncoding": require("../utils/textEncoding"),

@@ -247,6 +247,7 @@ function loadController({ users = [], env = {}, sendThrows = false, sendHangs = 
         },
       },
     },
+    "../../utils/otp": require("../utils/otp"),
     "../../utils/sendEmail": {
       sendResetPasswordEmail: async (to, otp) => { calls.resets.push({ to, otp }); },
       smtpConfigured: () => smtp,

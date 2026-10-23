@@ -27,6 +27,7 @@ function loadController(storedPassword = FAKE_HASH, extra = {}) {
         async update() { return { success: true }; },
       },
     },
+    "../../utils/otp": require("../utils/otp"),
     "../../utils/sendEmail": {},
     "../../utils/jwt": {
       signAccessToken: () => "access",

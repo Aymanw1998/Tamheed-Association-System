@@ -52,6 +52,8 @@ const PUBLIC_ROUTES = {
   // with a single-use 60 s ticket from POST /ticket, and the handler re-loads
   // the user (active, not locked) exactly as loadActor does before streaming.
   "Live/Live.route.js": ["GET /stream"],
+  // Student sign-in for the sport site: its own cookie and requireSportStudent, never staff auth.
+  "SportPortal/SportPortal.route.js": ["POST /request-code", "POST /verify", "POST /logout"],
 };
 
 // Routes any active signed-in user may call (loadActor, no key): the

@@ -65,6 +65,7 @@ function loadUserController(users) {
     jsonwebtoken: {},
     path,
     "./User.model": { UserModelDef: users },
+    "../../utils/otp": require("../utils/otp"),
     "../../utils/sendEmail": {},
     "../../utils/jwt": {},
     "../../utils/textEncoding": require("../utils/textEncoding"),

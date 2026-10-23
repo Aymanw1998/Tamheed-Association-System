@@ -29,6 +29,7 @@ function loadController() {
         },
       },
     },
+    "../../utils/otp": require("../utils/otp"),
     "../../utils/sendEmail": {},
     "../../utils/jwt": {},
     "../../utils/textEncoding": require("../utils/textEncoding"),

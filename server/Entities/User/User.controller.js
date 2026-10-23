@@ -4,6 +4,7 @@ const path = require("path");
 
 const { UserModelDef } = require("./User.model");
 
+const { generateOtp6 } = require("../../utils/otp");
 const sendEmail = require("../../utils/sendEmail");
 const { sendResetPasswordEmail } = sendEmail;
 const {
@@ -374,10 +375,6 @@ function removeEmpty(obj = {}) {
     }
   });
   return out;
-}
-
-function generateOtp6() {
-  return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
 const isBcryptHash = (val) =>

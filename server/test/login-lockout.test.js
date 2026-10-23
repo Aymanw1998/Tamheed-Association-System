@@ -88,6 +88,7 @@ function loadController({ user, room = "active", env = {}, ...opts } = {}) {
         },
       },
     },
+    "../../utils/otp": require("../utils/otp"),
     "../../utils/sendEmail": {
       sendResetPasswordEmail: async (...args) => { calls.emails.push(args); },
     },

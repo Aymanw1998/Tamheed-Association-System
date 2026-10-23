@@ -100,6 +100,7 @@ app.use('/api/auth', require('./Entities/User/Auth.route'))
 app.use('/api/attendance', require('./Entities/Attendance/Attendance.route'))
 app.use('/api/student', require('./Entities/Student/Student.route'))
 app.use('/api/sports', require('./Entities/Sport/Sport.route'));
+app.use('/api/sport-portal', require('./Entities/SportPortal/SportPortal.route'));
 app.use('/api/inviteToken', require('./Entities/InviteToken/InviteToken.route'))
 app.use('/api/report', require('./Entities/Report/Report.route'));
 app.use('/api/vehicle', require('./Entities/Vehicle/Vehicle.route'));
