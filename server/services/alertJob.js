@@ -240,8 +240,20 @@ async function runAlertJob({ now = new Date(), deps = createDeps() } = {}) {
   }
 }
 
-function createDeps() {
+// The unique lockKey index (Notice.model) makes the insert the lock.
+async function acquireLock(lockKey, clock) {
   const { JobRunModelDef } = require("../Entities/Notice/Notice.model");
+  try {
+    // lockedAt is a Date: the 7-day TTL index removes old lock rows.
+    await JobRunModelDef.create({ job: JOB, date: clock.date, lockKey, lockedAt: new Date() });
+    return true;
+  } catch (error) {
+    if (isDuplicate(error)) return false;
+    throw error;
+  }
+}
+
+function createDeps() {
   const { LessonModelDef } = require("../Entities/Lesson/Lesson.model");
   const { AttendanceModelDef } = require("../Entities/Attendance/Attendance.model");
   const { SportLessonModelDef } = require("../Entities/Sport/SportLesson.model");
@@ -268,17 +280,7 @@ function createDeps() {
     reportsBetween: async (from, to) => rows(await ReportModelDef.get({ date: { $gte: from, $lt: to } })),
     deleteStaleConversations: (cutoff) =>
       require("../Entities/AiConversation/AiConversation.model").AiConversationModelDef.deleteUnusedBefore(cutoff),
-    // The unique lockKey index (Notice.model) makes the insert the lock.
-    async acquireLock(lockKey, clock) {
-      try {
-        // lockedAt is a Date: the 7-day TTL index removes old lock rows.
-        await JobRunModelDef.create({ job: JOB, date: clock.date, lockKey, lockedAt: new Date() });
-        return true;
-      } catch (error) {
-        if (isDuplicate(error)) return false;
-        throw error;
-      }
-    },
+    acquireLock,
     log: (...args) => logWithSource("[alertJob]", ...args),
   };
 }
@@ -289,4 +291,4 @@ function startAlertJob() {
     runAlertJob().catch((err) => console.error("[alertJob] run failed:", err?.message || err)), { timezone: TIME_ZONE });
 }
 
-module.exports = { runAlertJob, startAlertJob, jerusalemClock, createDeps };
+module.exports = { runAlertJob, startAlertJob, jerusalemClock, createDeps, acquireLock };

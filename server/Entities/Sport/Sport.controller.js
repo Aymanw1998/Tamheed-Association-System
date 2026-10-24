@@ -9,6 +9,7 @@ const { audit } = require("../../utils/audit");
 const { LessonModelDef } = require("../Lesson/Lesson.model");
 const { ageOn, buildCard, israelToday, dayOfDate } = require("../../utils/sportCards");
 const { conflictsInRoom9 } = require("../../utils/lessonConflict");
+const { notifyCardChanged } = require("../../utils/cardPush");
 
 const SERVER_ERROR = "حدث خطأ غير متوقع، حاول مرة أخرى";
 const NOT_FOUND = { student: "الطالب غير موجود", player: "اللاعب غير موجود", lesson: "الدرس غير موجود" };
@@ -236,8 +237,18 @@ const bumpStat = handle("bumpStat", async (req, res) => {
   const player = rows(await SportPlayerModelDef.get({ studentId: String(req.params.studentId), sportId: String(sport._id) }))[0];
   if (!player) return fail(res, 404, NOT_FOUND.player);
   const value = await SportPlayerModelDef.bumpStat(player._id, key, delta);
+  cardChanged([String(player.studentId)]);
   return res.status(200).json({ ok: true, value });
 });
+
+// Fire and forget: a push problem never reaches the response.
+function cardChanged(studentIds) {
+  try {
+    Promise.resolve(notifyCardChanged(studentIds)).catch((err) => logWithSource("cardChanged failed:", err?.message || err));
+  } catch (err) {
+    logWithSource("cardChanged failed:", err?.message || err);
+  }
+}
 
 /* ---------- lessons ---------- */
 
@@ -429,6 +440,7 @@ const saveAttendance = handle("saveAttendance", async (req, res) => {
     if (existing) await SportAttendanceModelDef.updateExisting({ _id: existing._id }, { status, updatedAt: now });
     else await SportAttendanceModelDef.create({ sportLessonId, studentId, date, status, createdAt: now, updatedAt: now });
   }
+  cardChanged([...latest.keys()]);
   await record(req, "update", "attendance", { _id: lesson._id, date, count: latest.size }, lesson.name);
   return res.status(200).json({ ok: true });
 });

@@ -14,6 +14,7 @@ const SportPlayerModelDef = {
         jerseyNumber: { type: "number", required: false, default: null },
         position: { type: "string", required: false, default: "" },
         stats: { type: "object", default: {} }, // { [statKey]: number }
+        lastCardPushAt: { type: "date", required: false, default: null },
         createdAt: { type: "date", required: false, default: () => new Date() },
         updatedAt: { type: "date", required: false, default: () => new Date() },
     },

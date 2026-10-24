@@ -133,6 +133,8 @@ startVehicleExpiryJob();
 // Periodic alerts: every 15 minutes, 07:00-21:00 Asia/Jerusalem.
 const { startAlertJob } = require('./services/alertJob');
 startAlertJob();
+// Training reminders to sport players, every 5 minutes.
+require('./services/sportPushJob').startSportPushJob();
 // **********************************END - AUTO_PROCCESS ***************************
 
 

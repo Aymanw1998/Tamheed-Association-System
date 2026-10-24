@@ -89,6 +89,7 @@ function world({ regular = [], sportLessons = [], attendance = [], students = ST
     "../Student/Student.model": { StudentModelDef: createStore(students) },
     "../Lesson/Lesson.model": { LessonModelDef: regularStore },
     "../../middleware/logger": { logWithSource() {} },
+    "../../utils/cardPush": { notifyCardChanged: async () => 0 },
     "../../utils/sportCards": require("../utils/sportCards"),
     "../../utils/lessonConflict": require("../utils/lessonConflict"),
     ...audit.deps,

@@ -109,6 +109,7 @@ function world({ players, withSport = true } = {}) {
     "./SportAttendance.model": { SportAttendanceModelDef: attendance },
     "../Student/Student.model": { StudentModelDef: students },
     "../../middleware/logger": { logWithSource() {} },
+    "../../utils/cardPush": { notifyCardChanged: async () => 0 },
     "../Lesson/Lesson.model": { LessonModelDef: createStore([]) },
     "../../utils/sportCards": require("../utils/sportCards"),
     "../../utils/lessonConflict": require("../utils/lessonConflict"),
