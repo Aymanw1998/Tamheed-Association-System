@@ -23,7 +23,9 @@ function sportStatic(distDir, sportHost) {
       if (err) return next(err);
       if (req.method !== "GET" || !req.accepts("html")) return next();
       return res.sendFile(path.join(distDir, "index.html"), (sendErr) => {
-        if (sendErr && !res.headersSent) next(sendErr);
+        // Not built yet (or unreadable): a plain answer, never the error text,
+        // which would show the server's file path.
+        if (sendErr && !res.headersSent) res.status(503).type("text/plain; charset=utf-8").send("الموقع قيد التحديث، حاول لاحقًا.");
       });
     });
   };

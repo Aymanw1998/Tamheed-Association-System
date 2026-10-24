@@ -78,6 +78,12 @@ test("sportStatic serves the sport app by host and passes other hosts on", async
       headers: { "X-Forwarded-Host": "system.tamheed-ramla.org", Accept: "text/html" },
     });
     assert.equal(other.status, 418);
+
+    // Not built yet: a plain 503, never the error text with the server's file path.
+    fs.rmSync(path.join(dir, "index.html"));
+    const missing = await fetch(`${base}/`, { headers: sportHeaders });
+    assert.equal(missing.status, 503);
+    assert.doesNotMatch(await missing.text(), /index\.html|ENOENT/);
   } finally {
     server.closeAllConnections();
     await new Promise((resolve) => server.close(resolve));
