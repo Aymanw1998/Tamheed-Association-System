@@ -2036,3 +2036,42 @@ The new screens were not checked in a browser.
 **Requesting Codex review.** No live Codex connection; this entry is the handoff.
 
 **Delivery state:** committed with the owner's approval; not pushed.
+
+## 2026-10-24: Tamheed apps phase 1 (installable PWAs, push, offline attendance)
+
+**Owner request:**
+- Make the system and the sport site installable as apps (PWA), with offline reading.
+- Record attendance offline and sync it later.
+- Send web push to phones: staff get no-attendance alerts and new notices, and players get a reminder before training and a message when their card changes.
+- Staff can turn notifications on in their profile; players opt in from the sport site.
+
+**Changes (3ff1bb8..HEAD):**
+- **Server:**
+  - `Entities/Push/` (`Push.route.js`, `PushSubscription.model.js`) and `utils/push.js` add web push subscriptions and a sender. Only push-service endpoints are accepted, and subscriptions are limited per user.
+  - `services/alertJob.js`, `alertEngine.js`, `alertAccess.js`, `alertTemplates.js` and `Notice.controller.js` push no-attendance alerts and new notices to staff. Empty sport lessons are skipped.
+  - `services/sportPushJob.js` and `utils/cardPush.js` remind players before training and tell them when their card changes. `SportPlayer.model.js` and `server.js` are updated to match.
+  - `Attendance.controller.js`, `Attendance.model.js`, `Sport.controller.js` and `SportAttendance.model.js` tell the client when a save replaced someone else's mark.
+  - `SportPortal.route.js` and `config/.env.example` gain the push routes and the three `VAPID_*` settings.
+- **Client (system):**
+  - PWA shell: `index.js`, `service-worker.js`, `serviceWorkerRegistration.js`, `public/index.html`, `public/manifest.json`, icons, `pwa/AppChrome.jsx`, `pwa/shouldCache.js`.
+  - Offline attendance: `pwa/attendanceQueue.js` and `pwa/queuedSave.js` keep only the latest queued mark per lesson and date. `pwa/QueueStatus.jsx` shows the queue. `AttendancePage.jsx`, `Sport/AttendanceTab.jsx` and `functionsAttendance.jsx` use it.
+  - Notifications opt-in: `pwa/pushOptIn.js` and the «إشعارات الهاتف» section in `Profile.jsx`.
+  - Session end clears cached data: `pwa/clearApiCache.js`, `WebServer/utils/logoutScheduler.js`, `accessScheduler.js`, `api.jsx` and `fuctionsAuth.jsx`.
+- **Sport site (`sport/`):**
+  - Installable as an app, with `service-worker.js`, `serviceWorkerRegistration.js`, `public/manifest.json`, icons, `pwa/AppChrome.jsx` and `pwa/shouldCache.js`. The offline card is cached, and the reminder button is `pwa/PushButton.jsx` with `pwa/pushOptIn.js`.
+  - Pages and styles: `App.jsx`, `HomePage.jsx`, `LoginPage.jsx`, `styles.css`.
+
+**Verification:**
+- server 822/822 (`npm test --prefix server`, run for this entry).
+- client 595 tests, sport 42 tests, per the owner's run before this entry.
+- Client and sport builds are clean.
+- Nothing has been tried on a real phone yet.
+
+**Open notes for review:**
+- No device testing: Android install, iOS Add to Home Screen, and push delivery are not checked on real devices.
+- No tests for the push opt-in UI (`Profile.jsx` section and `PushButton.jsx`).
+- Re-subscribe edge cases are untested for both staff and students: an expired or replaced push subscription, and a student who signs in on a second device.
+
+**Requesting Codex review.** No live Codex connection; this entry is the handoff.
+
+**Delivery state:** committed with the owner's approval; not pushed.
