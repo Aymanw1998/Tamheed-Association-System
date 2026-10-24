@@ -2006,3 +2006,33 @@ Not tested against a live server: a real student sign-in needs an emailed code.
 **Requesting Codex review.** No live Codex connection; this entry is the handoff.
 
 **Delivery state:** committed with the owner's approval; not pushed.
+
+## 2026-10-24: Sports section: search by ID or name, player card, lesson rows
+
+**Owner request:** in the system's «الرياضة» section:
+- add a child by ID number or free search, with all students listed when the search is empty;
+- show the player's card with photo and the ID number in «اللاعبون»;
+- lessons as rows, not a weekly grid, added by day, start time and end time only;
+- add a student to a lesson the same way, and the student becomes a player automatically.
+
+The owner explicitly reversed the earlier rule that hid ID numbers from sports staff.
+
+**Changes (84057f1..f806314):**
+- **`server/Entities/Sport/Sport.controller.js` and `Sport.route.js`:**
+  - Search matches the ID number or the name. An empty query returns all students. Results include `tz` and `photo`, with no cap.
+  - `/players` adds `tz`, `photo` and `birthDate`.
+  - A lesson's name is optional. The server generates «كرة القدم · <اليوم> <HH:MM>» and stores `nameGenerated`, and it regenerates the name only for generated names.
+  - `studentIds` is optional on lesson PUT, so the roster is kept.
+  - New `POST /lessons/:id/players`, which creates the player when needed, and `DELETE /lessons/:id/players/:studentId`. Both need coach or manage.
+- **`server/Entities/Sport/SportLesson.model.js`:** adds `nameGenerated`.
+- **Client:** new `StudentPicker.jsx`, `LessonRosterDialog.jsx`, `PlayerCardModal.jsx` and `PlayerCardModal.module.css`. Updated `PlayersTab`, `LessonsTab`, `AddPlayerDialog`, `sportForm`, `functionsSport` and `sportStrings`.
+
+**Verification:**
+- server 787/787 and client 560/560, and the client build is clean;
+- task review approved, and the minor findings were fixed in f806314.
+
+The new screens were not checked in a browser.
+
+**Requesting Codex review.** No live Codex connection; this entry is the handoff.
+
+**Delivery state:** committed with the owner's approval; not pushed.
