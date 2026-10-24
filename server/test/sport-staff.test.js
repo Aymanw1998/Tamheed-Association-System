@@ -57,7 +57,7 @@ const sid = (n) => `${"5".repeat(23)}${n}`;
 const STUDENTS = [1, 2, 3, 4].map((n) => ({
   _id: sid(n), tz: `80000000${n}`, firstname: `Fa${n}`, lastname: `Ki${n}`, birth_date: "2012-01-01",
   gender: n === 3 ? "أنثى" : "ذكر", layer: n === 2 ? "ب" : "أ", school: n === 4 ? "مدرسة ب" : "مدرسة أ",
-  email: `s${n}@example.com`, health_status: "secret", father_phone: "0500000000", notes: "secret",
+  email: `s${n}@example.com`, photo: n === 1 ? "https://example.com/p1.jpg" : "", health_status: "secret", father_phone: "0500000000", notes: "secret",
 }));
 const SPORT = hex("a");
 const LESSON_A = hex("c");
@@ -114,7 +114,7 @@ function world({ players, withSport = true } = {}) {
     "../../utils/lessonConflict": require("../utils/lessonConflict"),
     ...audit.deps,
   });
-  return { controller, routes: loadRoutes(controller), sports, players: playerStore, lessons, attendance, audit };
+  return { controller, routes: loadRoutes(controller), sports, students, players: playerStore, lessons, attendance, audit };
 }
 
 // The real router, recording each route's chain (router.use first).
@@ -157,6 +157,7 @@ test("the route table is exactly the football staff API", () => {
     "GET /", "PUT /stats", "GET /players", "GET /students/search",
     "PUT /players/:studentId", "DELETE /players/:studentId", "POST /players/:studentId/stats",
     "GET /lessons", "POST /lessons", "PUT /lessons/:id", "DELETE /lessons/:id",
+    "POST /lessons/:id/players", "DELETE /lessons/:id/players/:studentId",
     "GET /lessons/:id/attendance", "PUT /lessons/:id/attendance", "GET /attendance/today",
   ]);
 });
@@ -228,7 +229,7 @@ test("GET /players lists football players with lessons, values and attendance, a
   const r = await call(ctx, VIEWER, "get", "/players");
   assert.equal(r.statusCode, 200);
   assert.equal(r.body.players.length, 2);
-  const expected = ["age", "attendance", "firstname", "gender", "jerseyNumber", "lastname", "layer", "lessons", "position", "school", "studentId", "values"];
+  const expected = ["age", "attendance", "birthDate", "firstname", "gender", "jerseyNumber", "lastname", "layer", "lessons", "photo", "position", "school", "studentId", "tz", "values"];
   for (const p of r.body.players) assert.deepEqual(Object.keys(p).sort(), expected);
   const one = r.body.players.find((p) => p.studentId === sid(1));
   assert.deepEqual(plain(one.lessons), [{ _id: LESSON_A, name: "أشبال الأحد", day: 1, startMin: 1000 }]);
@@ -242,7 +243,10 @@ test("GET /players lists football players with lessons, values and attendance, a
   assert.equal(two.attendance.absent, 1);
   const text = JSON.stringify(r.body);
   assert.equal(text.includes("secret"), false);
-  assert.equal(text.includes("80000000"), false);
+  assert.equal(one.tz, "800000001");
+  assert.equal(one.photo, "https://example.com/p1.jpg");
+  assert.equal(two.photo, "");
+  assert.equal(one.birthDate, "2012-01-01");
 });
 
 test("a sports.coach-only actor reads GET /players", async () => {
@@ -273,21 +277,42 @@ test("a sports.view-only actor gets 403 on the stat buttons", async () => {
   assert.equal(ctx.players.all()[0].stats[STAT], 3);
 });
 
-test("student search matches names only, never tz, and never returns tz", async () => {
+test("student search: empty q returns everyone, ordered by name, with tz and photo", async () => {
+  const ctx = world();
+  const search = (q) => call(ctx, COACH, "get", "/students/search", { query: q === undefined ? {} : { q } });
+  for (const r of [await search(""), await search(undefined), await search("  ")]) {
+    assert.equal(r.statusCode, 200);
+    assert.deepEqual(r.body.students.map((s) => s._id), [sid(1), sid(2), sid(3), sid(4)]);
+  }
+  const all = (await search("")).body.students;
+  assert.deepEqual(Object.keys(all[0]).sort(), ["_id", "age", "firstname", "gender", "isPlayer", "lastname", "layer", "photo", "school", "tz"]);
+  assert.equal(all[0].tz, "800000001");
+  assert.equal(all[0].photo, "https://example.com/p1.jpg");
+  assert.equal(all[1].photo, "");
+  assert.equal(all[0].isPlayer, true);
+  assert.equal(all[2].isPlayer, false);
+  assert.equal(JSON.stringify(all).includes("secret"), false);
+});
+
+test("student search is not capped at 20", async () => {
+  const ctx = world();
+  for (let i = 0; i < 30; i += 1) {
+    await ctx.students.create({ tz: `70000${i}`, firstname: `Bulk${i}`, lastname: "X", birth_date: "2012-01-01" });
+  }
+  assert.equal((await call(ctx, COACH, "get", "/students/search", { query: {} })).body.students.length, 34);
+});
+
+test("student search matches a tz fragment or a name", async () => {
   const ctx = world();
   const search = (q) => call(ctx, COACH, "get", "/students/search", { query: { q } });
-  assert.deepEqual(plain((await search("F")).body.students), []);
-  const byName = await search("fa3");
-  assert.equal(byName.body.students.length, 1);
-  assert.deepEqual(Object.keys(byName.body.students[0]).sort(), ["_id", "age", "firstname", "gender", "isPlayer", "lastname", "layer", "school"]);
-  assert.equal(byName.body.students[0].isPlayer, false);
+  assert.deepEqual((await search("800000003")).body.students.map((s) => s._id), [sid(3)]);
+  assert.deepEqual((await search("00003")).body.students.map((s) => s._id), [sid(3)]);
+  assert.equal((await search("80000000")).body.students.length, 4);
+  assert.deepEqual((await search("fa3")).body.students.map((s) => s._id), [sid(3)]);
+  assert.deepEqual((await search("KI2")).body.students.map((s) => s._id), [sid(2)]);
+  assert.deepEqual((await search("fa1 ki1")).body.students.map((s) => s._id), [sid(1)]);
   assert.equal((await search("fa1")).body.students[0].isPlayer, true);
-  assert.deepEqual(plain((await search("80000000")).body.students), []);
-  assert.deepEqual(plain((await search("00000")).body.students), []);
-  assert.equal((await search("l")).body.students.length, 0); // one character is too short
-  const both = await search("ki1");
-  for (const s of both.body.students) assert.equal("tz" in s, false);
-  assert.equal(JSON.stringify(both.body).includes("80000000"), false);
+  assert.deepEqual(plain((await search("zzz")).body.students), []);
   assert.equal((await call(ctx, VIEWER, "get", "/students/search", { query: { q: "F1" } })).statusCode, 403);
 });
 
@@ -299,6 +324,8 @@ test("student search filters narrow by layer, gender and school", async () => {
   assert.deepEqual(await ids({ gender: "أنثى" }), [sid(3)]);
   assert.deepEqual(await ids({ school: "مدرسة ب" }), [sid(4)]);
   assert.deepEqual(await ids({ layer: "أ", gender: "ذكر" }), [sid(1), sid(4)]);
+  const empty = (await call(ctx, COACH, "get", "/students/search", { query: { layer: "ب" } })).body.students.map((s) => s._id);
+  assert.deepEqual(empty, [sid(2)]); // filters also narrow an empty search
 });
 
 test("PUT /players/:studentId validates jersey, position, lessons and student", async () => {

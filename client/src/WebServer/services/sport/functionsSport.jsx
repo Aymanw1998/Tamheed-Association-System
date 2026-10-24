@@ -40,6 +40,11 @@ export const getLessons = () => call(() => api.get(`${namespace}/lessons`));
 export const createLesson = (payload) => call(() => api.post(`${namespace}/lessons`, payload));
 export const updateLesson = (id, payload) => call(() => api.put(`${namespace}/lessons/${enc(id)}`, payload));
 export const deleteLesson = (id) => call(() => api.delete(`${namespace}/lessons/${enc(id)}`));
+// Any student can join a lesson; a student who is not yet a player becomes one.
+export const addLessonPlayer = (lessonId, studentId) =>
+  call(() => api.post(`${namespace}/lessons/${enc(lessonId)}/players`, { studentId }));
+export const removeLessonPlayer = (lessonId, studentId) =>
+  call(() => api.delete(`${namespace}/lessons/${enc(lessonId)}/players/${enc(studentId)}`));
 
 // Attendance.
 export const getAttendance = (lessonId, date) =>

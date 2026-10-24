@@ -5,6 +5,8 @@ import { ask } from "../Provides/confirmBus";
 import Button from "../UI/Button.jsx";
 import { bumpStat, deletePlayer } from "../../WebServer/services/sport/functionsSport";
 import AddPlayerDialog from "./AddPlayerDialog";
+import PlayerCardModal from "./PlayerCardModal";
+import { Silhouette } from "./PlayerCardModal";
 import styles from "./Sport.module.css";
 
 const fullName = (p) => `${p.firstname || ""} ${p.lastname || ""}`.trim();
@@ -19,6 +21,7 @@ export default function PlayersTab({ sport, players, lessons, canCoach, reload }
   const [gender, setGender] = useState("");
   const [dialog, setDialog] = useState(null); // null | { player? }
   const [pending, setPending] = useState({});
+  const [cardOf, setCardOf] = useState(null); // studentId whose card is open
 
   useEffect(() => setRows(players), [players]);
 
@@ -30,7 +33,7 @@ export default function PlayersTab({ sport, players, lessons, canCoach, reload }
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
     return rows
-      .filter((p) => !q || fullName(p).toLowerCase().includes(q))
+      .filter((p) => !q || fullName(p).toLowerCase().includes(q) || String(p.tz || "").includes(q))
       .filter((p) => !lessonId || p.lessons.some((l) => l._id === lessonId))
       .filter((p) => !age || String(p.age) === age)
       .filter((p) => !gender || p.gender === gender)
@@ -97,6 +100,7 @@ export default function PlayersTab({ sport, players, lessons, canCoach, reload }
           <thead>
             <tr>
               <th>{label("name")}</th>
+              <th>{label("tz")}</th>
               <th>{label("age")}</th>
               <th>{label("lessons")}</th>
               <th>{label("jersey")}</th>
@@ -109,7 +113,15 @@ export default function PlayersTab({ sport, players, lessons, canCoach, reload }
           <tbody>
             {visible.length > 0 ? visible.map((p) => (
               <tr key={p.studentId}>
-                <td data-label={label("name")}><span className={styles.name}>{fullName(p)}</span></td>
+                <td data-label={label("name")}>
+                  <button type="button" className={styles.nameButton} title={label("openCard")} onClick={() => setCardOf(p.studentId)}>
+                    {p.photo
+                      ? <img className={styles.thumb} src={p.photo} alt={label("photoAlt")} />
+                      : <Silhouette className={`${styles.thumb} ${styles.thumbEmpty}`} />}
+                    <span className={styles.name}>{fullName(p)}</span>
+                  </button>
+                </td>
+                <td data-label={label("tz")}>{p.tz || label("none")}</td>
                 <td data-label={label("age")}>{p.age ?? label("none")}</td>
                 <td data-label={label("lessons")}>{p.lessons.length ? p.lessons.map((l) => l.name).join("، ") : label("none")}</td>
                 <td data-label={label("jersey")}>{p.jerseyNumber ?? label("none")}</td>
@@ -142,11 +154,15 @@ export default function PlayersTab({ sport, players, lessons, canCoach, reload }
                 )}
               </tr>
             )) : (
-              <tr><td colSpan={6 + stats.length + (canCoach ? 1 : 0)} className={styles.emptyState}>{label("empty")}</td></tr>
+              <tr><td colSpan={7 + stats.length + (canCoach ? 1 : 0)} className={styles.emptyState}>{label("empty")}</td></tr>
             )}
           </tbody>
         </table>
       </div>
+
+      {cardOf && rows.find((p) => p.studentId === cardOf) && (
+        <PlayerCardModal player={rows.find((p) => p.studentId === cardOf)} stats={stats} onClose={() => setCardOf(null)} />
+      )}
 
       {dialog && (
         <AddPlayerDialog

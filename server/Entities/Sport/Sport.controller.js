@@ -13,6 +13,7 @@ const { conflictsInRoom9 } = require("../../utils/lessonConflict");
 const SERVER_ERROR = "حدث خطأ غير متوقع، حاول مرة أخرى";
 const NOT_FOUND = { student: "الطالب غير موجود", player: "اللاعب غير موجود", lesson: "الدرس غير موجود" };
 const SPORT_ROOM = "9";
+const DAY_NAMES = ["", "الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
 const STATUSES = ["حاضر", "غائب", "متأخر"];
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const FOOTBALL = { name: "كرة القدم", icon: "⚽" };
@@ -111,6 +112,13 @@ const setStats = handle("setStats", async (req, res) => {
 const studentMap = async () => new Map(rows(await StudentModelDef.get({})).map((s) => [String(s._id), s]));
 const inLesson = (lesson, studentId) => (lesson.players || []).some((p) => String(p.studentId) === String(studentId));
 
+// "YYYY-MM-DD" from a stored birth date, or null.
+function birthDateOf(value) {
+  if (!value) return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+}
+
 const listPlayers = handle("listPlayers", async (req, res) => {
   const sport = await ensureFootball();
   const sportId = String(sport._id);
@@ -129,6 +137,7 @@ const listPlayers = handle("listPlayers", async (req, res) => {
     out.push({
       studentId: String(p.studentId), firstname: s.firstname, lastname: s.lastname, age: ageOn(s.birth_date, now),
       gender: s.gender, layer: s.layer || "", school: s.school || "",
+      tz: String(s.tz || ""), photo: s.photo || "", birthDate: birthDateOf(s.birth_date),
       jerseyNumber: card.jerseyNumber, position: card.position,
       lessons: lessonRows.filter((l) => inLesson(l, p.studentId))
         .map((l) => ({ _id: String(l._id), name: l.name, day: l.date?.day, startMin: l.date?.startMin })),
@@ -138,11 +147,9 @@ const listPlayers = handle("listPlayers", async (req, res) => {
   return res.status(200).json({ ok: true, players: out });
 });
 
-// Name only: ids (tz) are never matched and never returned.
+// q matches the ID number (digits) or the name; an empty q lists every student.
 const searchStudents = handle("searchStudents", async (req, res) => {
-  const q = text(req.query?.q);
-  if ([...q].length < 2) return res.status(200).json({ ok: true, students: [] });
-  const needle = q.toLowerCase();
+  const needle = text(req.query?.q).toLowerCase();
   const layer = text(req.query?.layer);
   const gender = text(req.query?.gender);
   const school = text(req.query?.school);
@@ -150,12 +157,13 @@ const searchStudents = handle("searchStudents", async (req, res) => {
   const playerIds = new Set(rows(await SportPlayerModelDef.get({ sportId: String(sport._id) })).map((p) => String(p.studentId)));
   const now = new Date();
   const students = rows(await StudentModelDef.get({}))
-    .filter((s) => [s.firstname, s.lastname, fullName(s)].some((v) => String(v || "").toLowerCase().includes(needle)))
+    .filter((s) => !needle || [String(s.tz || ""), s.firstname, s.lastname, fullName(s)].some((v) => String(v || "").toLowerCase().includes(needle)))
     .filter((s) => (!layer || s.layer === layer) && (!gender || s.gender === gender) && (!school || s.school === school))
-    .slice(0, 20)
+    .sort((a, b) => fullName(a).localeCompare(fullName(b), "ar"))
     .map((s) => ({
-      _id: String(s._id), firstname: s.firstname, lastname: s.lastname, age: ageOn(s.birth_date, now),
-      gender: s.gender, layer: s.layer || "", school: s.school || "", isPlayer: playerIds.has(String(s._id)),
+      _id: String(s._id), firstname: s.firstname, lastname: s.lastname, tz: String(s.tz || ""), photo: s.photo || "",
+      age: ageOn(s.birth_date, now), gender: s.gender, layer: s.layer || "", school: s.school || "",
+      isPlayer: playerIds.has(String(s._id)),
     }));
   return res.status(200).json({ ok: true, students });
 });
@@ -238,18 +246,21 @@ const BAD_ATTENDANCE_DATE = "لا يمكن تسجيل الحضور في هذا �
 
 const isMinute = (n) => Number.isInteger(n) && n >= 0 && n <= 1440;
 
-// Returns { name, date } or { error }.
+const pad2 = (n) => String(n).padStart(2, "0");
+const generatedName = (date) => `${FOOTBALL.name} · ${DAY_NAMES[date.day]} ${pad2(Math.floor(date.startMin / 60))}:${pad2(date.startMin % 60)}`;
+
+// Returns { name, date } or { error }. A missing or blank name is generated.
 function parseLesson(body) {
   const name = text(body?.name);
-  if (!name) return { error: "اسم الدرس مطلوب" };
   if ([...name].length > 60) return { error: "اسم الدرس طويل جدًا (حتى 60 حرفًا)" };
   const day = Number(body?.date?.day);
   const startMin = Number(body?.date?.startMin);
   const endMin = Number(body?.date?.endMin);
   if (!Number.isInteger(day) || day < 1 || day > 7) return { error: "اليوم غير صحيح" };
   if (!isMinute(startMin) || !isMinute(endMin) || startMin >= endMin) return { error: "وقت الدرس غير صحيح" };
-  if (!Array.isArray(body?.studentIds)) return { error: "قائمة اللاعبين غير صحيحة" };
-  return { name, date: { day, startMin, endMin } };
+  if (body?.studentIds !== undefined && !Array.isArray(body.studentIds)) return { error: "قائمة اللاعبين غير صحيحة" };
+  const date = { day, startMin, endMin };
+  return { name: name || generatedName(date), date };
 }
 
 async function lessonPlayers(lesson, students) {
@@ -283,7 +294,10 @@ async function saveLesson(req, res, current) {
   if (parsed.error) return fail(res, 400, parsed.error);
   const sport = await ensureFootball();
   const sportId = String(sport._id);
-  const wanted = uniqueIds(req.body.studentIds);
+  // Without studentIds the roster is untouched (the lesson form has no players).
+  const wanted = req.body.studentIds === undefined
+    ? (current?.players || []).map((p) => String(p.studentId))
+    : uniqueIds(req.body.studentIds);
   const playerIds = new Set(rows(await SportPlayerModelDef.get({ sportId })).map((p) => String(p.studentId)));
   if (wanted.some((id) => !playerIds.has(id))) return fail(res, 400, "اللاعبون المحددون غير صحيحين");
 
@@ -298,9 +312,10 @@ async function saveLesson(req, res, current) {
   const now = new Date();
   const kept = new Map((current?.players || []).map((p) => [String(p.studentId), p.joinedAt]));
   const players = wanted.map((studentId) => ({ studentId, joinedAt: kept.get(studentId) || now }));
+  const { name, date } = parsed;
   const saved = current
-    ? await SportLessonModelDef.updateExisting({ _id: current._id }, { ...parsed, room: SPORT_ROOM, players, updatedAt: now })
-    : await SportLessonModelDef.create({ sportId, ...parsed, room: SPORT_ROOM, players, createdAt: now, updatedAt: now });
+    ? await SportLessonModelDef.updateExisting({ _id: current._id }, { name, date, room: SPORT_ROOM, players, updatedAt: now })
+    : await SportLessonModelDef.create({ sportId, name, date, room: SPORT_ROOM, players, createdAt: now, updatedAt: now });
   const lesson = saved?.result;
   await record(req, current ? "update" : "create", "lesson", lesson, parsed.name, current || null);
   return res.status(current ? 200 : 201).json({ ok: true, lesson: presentLesson(lesson, await lessonPlayers(lesson)) });
@@ -321,6 +336,46 @@ const deleteLesson = handle("deleteLesson", async (req, res) => {
   await SportLessonModelDef.delete({ _id: current._id });
   await record(req, "delete", "lesson", null, current.name, current);
   return res.status(200).json({ ok: true });
+});
+
+/* ---------- roster ---------- */
+
+// Adds any student to the lesson; a student who is not yet a player becomes one.
+const addLessonPlayer = handle("addLessonPlayer", async (req, res) => {
+  const lesson = await findOne(SportLessonModelDef, req.params.id);
+  if (!lesson) return fail(res, 404, NOT_FOUND.lesson);
+  const student = await findOne(StudentModelDef, req.body?.studentId);
+  if (!student) return fail(res, 404, NOT_FOUND.student);
+  const sport = await ensureFootball();
+  const sportId = String(sport._id);
+  const studentId = String(student._id);
+  const now = new Date();
+  let player = rows(await SportPlayerModelDef.get({ studentId, sportId }))[0];
+  if (!player) {
+    player = (await SportPlayerModelDef.create({ studentId, sportId, jerseyNumber: null, position: "", stats: {}, createdAt: now, updatedAt: now }))?.result;
+    await record(req, "create", "player", player, fullName(student));
+  }
+  let current = lesson;
+  if (!inLesson(lesson, studentId)) {
+    const players = [...(lesson.players || []), { studentId, joinedAt: now }];
+    current = (await SportLessonModelDef.updateExisting({ _id: lesson._id }, { players, updatedAt: now }))?.result;
+    await record(req, "update", "lesson", current, lesson.name, lesson);
+  }
+  return res.status(200).json({ ok: true, lesson: presentLesson(current, await lessonPlayers(current)) });
+});
+
+// Removes the student from this lesson only; attendance and the player row stay.
+const removeLessonPlayer = handle("removeLessonPlayer", async (req, res) => {
+  const lesson = await findOne(SportLessonModelDef, req.params.id);
+  if (!lesson) return fail(res, 404, NOT_FOUND.lesson);
+  const studentId = String(req.params.studentId);
+  let current = lesson;
+  if (inLesson(lesson, studentId)) {
+    const players = (lesson.players || []).filter((p) => String(p.studentId) !== studentId);
+    current = (await SportLessonModelDef.updateExisting({ _id: lesson._id }, { players, updatedAt: new Date() }))?.result;
+    await record(req, "update", "lesson", current, lesson.name, lesson);
+  }
+  return res.status(200).json({ ok: true, lesson: presentLesson(current, await lessonPlayers(current)) });
 });
 
 /* ---------- attendance ---------- */
@@ -384,5 +439,5 @@ const todayLessons = handle("todayLessons", async (req, res) => {
 
 module.exports = {
   ensureFootball, getSport, setStats, listPlayers, searchStudents, savePlayer, deletePlayer, bumpStat,
-  listLessons, createLesson, updateLesson, deleteLesson, getAttendance, saveAttendance, todayLessons,
+  listLessons, createLesson, updateLesson, deleteLesson, addLessonPlayer, removeLessonPlayer, getAttendance, saveAttendance, todayLessons,
 };

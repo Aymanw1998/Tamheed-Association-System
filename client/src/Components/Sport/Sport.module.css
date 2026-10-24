@@ -16,6 +16,12 @@
 .muted { color: var(--color-text-secondary); font-size: var(--fs-sm); }
 .name { font-weight: 700; }
 .tableWrap { overflow-x: auto; }
+.thumb { width: 36px; height: 36px; flex: none; border-radius: 50%; object-fit: cover; background: var(--color-primary-50); border: 1px solid var(--color-border); }
+.thumbEmpty { padding: 3px; background: var(--color-primary-700); }
+.nameButton { display: inline-flex; align-items: center; gap: var(--space-2); font: inherit; background: none; border: 0; padding: 0; cursor: pointer; color: inherit; text-align: start; }
+.nameButton:hover .name { text-decoration: underline; }
+.resultInfo { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
+.rosterList { list-style: none; margin: 0 0 var(--space-3); padding: 0; display: flex; flex-direction: column; gap: var(--space-1); max-height: 320px; overflow: auto; }
 
 .stat { display: inline-flex; align-items: center; gap: var(--space-2); }
 .statValue { min-width: 2ch; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; }

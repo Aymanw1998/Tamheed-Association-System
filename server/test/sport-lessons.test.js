@@ -93,7 +93,7 @@ function world({ regular = [], sportLessons = [], attendance = [], students = ST
     "../../utils/lessonConflict": require("../utils/lessonConflict"),
     ...audit.deps,
   }, frozenDate(NOW));
-  return { routes: loadRoutes(controller), lessons, attendance: attendanceStore };
+  return { routes: loadRoutes(controller), lessons, players, audit, attendance: attendanceStore };
 }
 
 function loadRoutes(controller) {
@@ -158,10 +158,32 @@ test("only a manager changes lessons; coaches and viewers read or mark", async (
   assert.equal((await call(ctx, COACH, "delete", "/lessons/:id", { params: { id } })).statusCode, 403);
 });
 
+test("a lesson with no or blank name gets a generated name; an explicit name is kept", async () => {
+  const ctx = world();
+  const noName = await create(ctx, { name: undefined, studentIds: [] });
+  assert.equal(noName.statusCode, 201);
+  assert.equal(noName.body.lesson.name, "كرة القدم · الأحد 16:40");
+  const blank = await create(ctx, { name: "   ", date: { day: 7, startMin: 65, endMin: 120 }, studentIds: [] });
+  assert.equal(blank.body.lesson.name, "كرة القدم · السبت 01:05");
+  const kept = await create(ctx, { name: "أشبال", date: { day: 3, startMin: 600, endMin: 660 }, studentIds: [] });
+  assert.equal(kept.body.lesson.name, "أشبال");
+  const put = await call(ctx, MANAGER, "put", "/lessons/:id", { params: { id: kept.body.lesson._id }, body: { date: { day: 4, startMin: 17 * 60, endMin: 18 * 60 } } });
+  assert.equal(put.statusCode, 200);
+  assert.equal(put.body.lesson.name, "كرة القدم · الأربعاء 17:00");
+});
+
+test("PUT without studentIds keeps the roster", async () => {
+  const ctx = world();
+  const id = (await create(ctx)).body.lesson._id;
+  const r = await call(ctx, MANAGER, "put", "/lessons/:id", { params: { id }, body: { date: { day: 1, startMin: 1010, endMin: 1070 } } });
+  assert.equal(r.statusCode, 200);
+  assert.deepEqual(r.body.lesson.players.map((p) => p.studentId), [sid(1), sid(2)]);
+});
+
 test("validation: name, times and players", async () => {
   const ctx = world();
   const bad = [
-    { name: "  " },
+    { name: "x".repeat(61) },
     { date: { day: 1, startMin: 600, endMin: 600 } },
     { date: { day: 1, startMin: 700, endMin: 600 } },
     { date: { day: 1, startMin: -1, endMin: 60 } },
@@ -207,6 +229,69 @@ test("PUT keeps joinedAt of staying players, stamps new ones, and does not confl
   assert.notEqual(before, undefined);
   assert.equal(new Date(byId[sid(3)]).toISOString(), NOW);
   assert.equal((await call(ctx, MANAGER, "put", "/lessons/:id", { params: { id: hex("9") }, body: body() })).statusCode, 404);
+});
+
+/* ================= roster ================= */
+
+const addPlayer = (ctx, id, studentId, u = COACH) => call(ctx, u, "post", "/lessons/:id/players", { params: { id }, body: { studentId } });
+
+test("POST /lessons/:id/players makes a non-player a player and adds them once", async () => {
+  const ctx = world();
+  const id = (await create(ctx)).body.lesson._id;
+  const r = await addPlayer(ctx, id, sid(4));
+  assert.equal(r.statusCode, 200);
+  assert.equal(r.body.ok, true);
+  assert.deepEqual(r.body.lesson.players.map((p) => p.studentId), [sid(1), sid(2), sid(4)]);
+  assert.equal(new Date(r.body.lesson.players[2].joinedAt).toISOString(), NOW);
+  const row = ctx.players.all().find((p) => p.studentId === sid(4));
+  assert.equal(row.jerseyNumber, null);
+  assert.equal(row.position, "");
+  assert.deepEqual(JSON.parse(JSON.stringify(row.stats)), {});
+  assert.equal(ctx.audit.find({ module: "sports", action: "create", targetType: "player" }).length, 1);
+  const again = await addPlayer(ctx, id, sid(4));
+  assert.equal(again.statusCode, 200);
+  assert.equal(ctx.lessons.all()[0].players.length, 3);
+  assert.equal(ctx.players.all().filter((p) => p.studentId === sid(4)).length, 1);
+});
+
+test("adding an existing player keeps their number and position", async () => {
+  const ctx = world();
+  await ctx.players.updateExisting({ studentId: sid(3) }, { jerseyNumber: 8, position: "حارس" });
+  const id = (await create(ctx)).body.lesson._id;
+  const r = await addPlayer(ctx, id, sid(3), MANAGER);
+  assert.equal(r.statusCode, 200);
+  const row = ctx.players.all().find((p) => p.studentId === sid(3));
+  assert.equal(row.jerseyNumber, 8);
+  assert.equal(row.position, "حارس");
+});
+
+test("POST /lessons/:id/players: unknown student 404, unknown lesson 404, viewer 403", async () => {
+  const ctx = world();
+  const id = (await create(ctx)).body.lesson._id;
+  const unknown = await addPlayer(ctx, id, hex("0"));
+  assert.equal(unknown.statusCode, 404);
+  assert.equal(unknown.body.message, "الطالب غير موجود");
+  assert.equal((await addPlayer(ctx, id, "nope")).statusCode, 404);
+  assert.equal((await addPlayer(ctx, hex("9"), sid(4))).statusCode, 404);
+  assert.equal((await addPlayer(ctx, id, sid(4), VIEWER)).statusCode, 403);
+  assert.equal(ctx.players.all().length, 3);
+});
+
+test("DELETE /lessons/:id/players/:studentId removes from that lesson only", async () => {
+  const ctx = world();
+  const a = (await create(ctx)).body.lesson._id;
+  const b = (await create(ctx, { name: "آخر", date: { day: 2, startMin: 1000, endMin: 1060 } })).body.lesson._id;
+  await call(ctx, COACH, "put", "/lessons/:id/attendance", { params: { id: a }, body: { date: TODAY, marks: [{ studentId: sid(1), status: "حاضر" }] } });
+  const del = (id, studentId, u = COACH) => call(ctx, u, "delete", "/lessons/:id/players/:studentId", { params: { id, studentId } });
+  const r = await del(a, sid(1));
+  assert.equal(r.statusCode, 200);
+  assert.deepEqual(r.body.lesson.players.map((p) => p.studentId), [sid(2)]);
+  assert.equal(ctx.lessons.all().find((l) => l._id === b).players.length, 2);
+  assert.equal(ctx.attendance.all().length, 1);
+  assert.equal(ctx.players.all().some((p) => p.studentId === sid(1)), true);
+  assert.equal((await del(a, sid(1))).statusCode, 200); // already gone: no-op
+  assert.equal((await del(hex("9"), sid(1))).statusCode, 404);
+  assert.equal((await del(b, sid(1), VIEWER)).statusCode, 403);
 });
 
 /* ================= attendance ================= */
