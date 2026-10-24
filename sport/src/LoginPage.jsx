@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { requestCode, verifyCode } from "./api.js";
+import { requestCode, verifyCode, GENERIC_ERROR_MESSAGE } from "./api.js";
 import logo from "./logo.png";
 
 const digits = (v, max) => v.replace(/\D/g, "").slice(0, max);
-const GENERIC_ERROR = "حدث خطأ، حاول مرة أخرى";
+const GENERIC_ERROR = GENERIC_ERROR_MESSAGE;
 
 export default function LoginPage({ onSignedIn }) {
   const [step, setStep] = useState("tz");
