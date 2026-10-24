@@ -12,12 +12,31 @@ const { logWithSource } = require("../../middleware/logger");
 const SERVER_ERROR = "حدث خطأ غير متوقع، حاول مرة أخرى";
 const BAD_SUBSCRIPTION = { ok: false, code: "BAD_SUBSCRIPTION", message: "اشتراك الإشعارات غير صالح" };
 
+const MAX_ENDPOINT = 1000;
+const MAX_KEY = 200;
+const MAX_PER_OWNER = 10;
+// Only the browsers' own push services: the server POSTs to this address, so
+// anything else (localhost, internal hosts, look-alike domains) is refused.
+const PUSH_HOSTS = new Set(["fcm.googleapis.com", "web.push.apple.com"]);
+const PUSH_SUFFIXES = [".push.services.mozilla.com", ".notify.windows.com", ".push.apple.com"];
+
+const allowedEndpoint = (endpoint) => {
+  let url;
+  try { url = new URL(endpoint); } catch { return false; }
+  if (url.protocol !== "https:" || url.username || url.password || url.port) return false;
+  const host = url.hostname.toLowerCase();
+  return PUSH_HOSTS.has(host) || PUSH_SUFFIXES.some((suffix) => host.endsWith(suffix) && host.length > suffix.length);
+};
+
+const NO_OWNER = { ok: false, code: "NO_OWNER" };
+
 const clean = (subscription) => {
   const endpoint = subscription?.endpoint;
   const p256dh = subscription?.keys?.p256dh;
   const auth = subscription?.keys?.auth;
   if (![endpoint, p256dh, auth].every((v) => typeof v === "string" && v)) return null;
-  if (!/^https:\/\//i.test(endpoint)) return null;
+  if (endpoint.length > MAX_ENDPOINT || p256dh.length > MAX_KEY || auth.length > MAX_KEY) return null;
+  if (!allowedEndpoint(endpoint)) return null;
   return { endpoint, keys: { p256dh, auth } };
 };
 
@@ -29,6 +48,7 @@ function subscribeHandlers({ store, owner, source }) {
         const sub = clean(req.body?.subscription);
         if (!sub) return res.status(400).json(BAD_SUBSCRIPTION);
         const who = owner(req);
+        if (!who) return res.status(401).json(NO_OWNER);
         await store.upsert({
           kind: who.kind,
           tz: who.tz ?? null,
@@ -36,6 +56,7 @@ function subscribeHandlers({ store, owner, source }) {
           ...sub,
           createdAt: new Date(),
         });
+        await store.trimOwner(who, MAX_PER_OWNER);
         return res.status(200).json({ ok: true });
       } catch (error) {
         logWithSource(`${source}.subscribe`, error);
@@ -47,6 +68,7 @@ function subscribeHandlers({ store, owner, source }) {
         const endpoint = req.body?.subscription?.endpoint;
         if (typeof endpoint !== "string" || !endpoint) return res.status(400).json(BAD_SUBSCRIPTION);
         const who = owner(req);
+        if (!who) return res.status(401).json(NO_OWNER);
         await store.remove(endpoint, who.kind === "staff" ? { tz: who.tz } : { studentId: who.studentId });
         return res.status(200).json({ ok: true });
       } catch (error) {
@@ -57,8 +79,8 @@ function subscribeHandlers({ store, owner, source }) {
   };
 }
 
-const staffOwner = (req) => ({ kind: "staff", tz: String(req.actor.tz) });
-const sportOwner = (req) => ({ kind: "sport", studentId: String(req.sportStudent._id) });
+const staffOwner = (req) => (req.actor?.tz ? { kind: "staff", tz: String(req.actor.tz) } : null);
+const sportOwner = (req) => (req.sportStudent?._id ? { kind: "sport", studentId: String(req.sportStudent._id) } : null);
 
 function createPushRouter({ requireAuth, loadActor, store, push }) {
   const router = express.Router();

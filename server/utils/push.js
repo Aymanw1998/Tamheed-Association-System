@@ -1,6 +1,8 @@
 // Web push sender. VAPID keys come only from the environment; without them
 // every send is a no-op. `webpush` and `subscriptions` are injected so tests
 // never touch the network or the database.
+const { logWithSource } = require("../middleware/logger");
+
 const GONE = new Set([404, 410]);
 
 function createPush({ webpush, subscriptions, env = process.env }) {
@@ -24,9 +26,16 @@ function createPush({ webpush, subscriptions, env = process.env }) {
           await subscriptions.remove(row.endpoint);
           return "removed";
         }
-        throw err;
+        throw Object.assign(new Error("push failed"), { statusCode: err?.statusCode, pushEndpoint: row.endpoint });
       }
     }));
+    // One line per send: status code and push-service host only (no URL, no keys).
+    const failures = results.filter((r) => r.status === "rejected");
+    if (failures.length) {
+      const hostOf = (endpoint) => { try { return new URL(endpoint).hostname; } catch { return "unknown"; } };
+      const detail = failures.map((r) => `${r.reason?.statusCode || "error"}@${hostOf(r.reason?.pushEndpoint)}`).join(", ");
+      logWithSource("Push.send failed:", detail);
+    }
     return {
       sent: results.filter((r) => r.status === "fulfilled" && r.value === "sent").length,
       removed: results.filter((r) => r.status === "fulfilled" && r.value === "removed").length,

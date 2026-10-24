@@ -55,6 +55,16 @@ PushSubscriptionModelDef.remove = async function (endpoint, owner = {}) {
     return await api.delete({ dbName: this.dbName, collection: this.collections.active, filter });
 };
 
+// Keeps the owner's newest `max` subscriptions; the oldest are deleted.
+PushSubscriptionModelDef.trimOwner = async function (owner, max) {
+    const filter = owner.kind === "staff" ? { kind: "staff", tz: String(owner.tz) } : { kind: "sport", studentId: String(owner.studentId) };
+    const list = rows(await api.read({ dbName: this.dbName, collection: this.collections.active, filter }));
+    if (list.length <= max) return 0;
+    const oldest = list.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)).slice(0, list.length - max);
+    for (const row of oldest) await this.remove(row.endpoint);
+    return oldest.length;
+};
+
 const PUSH_SUBSCRIPTION_INDEXES = [{ key: { endpoint: 1 }, options: { unique: true } }];
 const ensurePushSubscriptionIndexes = (collection) => ensureIndexes(
     collection || collectionOf({ dbName: PushSubscriptionModelDef.dbName, collection: PushSubscriptionModelDef.collections.active }),

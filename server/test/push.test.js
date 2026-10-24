@@ -14,7 +14,7 @@ const { createPushRouter, createSportSubscribeRouter } = require("../Entities/Pu
 const { PushSubscriptionModelDef, PUSH_SUBSCRIPTION_INDEXES } = require("../Entities/Push/PushSubscription.model");
 
 const ENV = { VAPID_PUBLIC_KEY: "pub-key", VAPID_PRIVATE_KEY: "priv-key", VAPID_SUBJECT: "mailto:ops@example.com" };
-const sub = (n, extra) => ({ endpoint: `https://push.example/${n}`, keys: { p256dh: `p${n}`, auth: `a${n}` }, ...extra });
+const sub = (n, extra) => ({ endpoint: `https://fcm.googleapis.com/fcm/send/${n}`, keys: { p256dh: `p${n}`, auth: `a${n}` }, ...extra });
 
 // In-memory subscription store with the same surface as the model.
 function memoryStore(rows = []) {
@@ -27,6 +27,10 @@ function memoryStore(rows = []) {
       const i = docs.findIndex((d) => d.endpoint === doc.endpoint);
       if (i >= 0) docs[i] = { ...docs[i], ...doc };
       else docs.push({ ...doc });
+    },
+    async trimOwner(owner, max) {
+      const mine = docs.filter((d) => (owner.kind === "staff" ? d.kind === "staff" && d.tz === owner.tz : d.kind === "sport" && d.studentId === owner.studentId));
+      mine.sort((a, b) => a.createdAt - b.createdAt).slice(0, Math.max(0, mine.length - max)).forEach((d) => docs.splice(docs.indexOf(d), 1));
     },
     async remove(endpoint, owner) {
       for (let i = docs.length - 1; i >= 0; i -= 1) {
@@ -62,7 +66,7 @@ test("sendToStaff sends only to that tz, to every one of its devices", async () 
   const payload = { title: "t", body: "b", url: "/x" };
   const result = await push.sendToStaff(["111"], payload);
   assert.deepEqual(result, { sent: 2, removed: 0 });
-  assert.deepEqual(webpush.calls.map((c) => c.endpoint).sort(), ["https://push.example/1", "https://push.example/2"]);
+  assert.deepEqual(webpush.calls.map((c) => c.endpoint).sort(), ["https://fcm.googleapis.com/fcm/send/1", "https://fcm.googleapis.com/fcm/send/2"]);
   assert.equal(webpush.calls[0].payload, JSON.stringify(payload));
 });
 
@@ -74,22 +78,22 @@ test("sendToStudents sends only to sport subscriptions of those students", async
   ]);
   const push = createPush({ webpush, subscriptions, env: ENV });
   assert.deepEqual(await push.sendToStudents(["s1"], { title: "t", body: "b", url: "/" }), { sent: 1, removed: 0 });
-  assert.deepEqual(webpush.calls.map((c) => c.endpoint), ["https://push.example/1"]);
+  assert.deepEqual(webpush.calls.map((c) => c.endpoint), ["https://fcm.googleapis.com/fcm/send/1"]);
 });
 
 test("a 410 or 404 removes that subscription, the others still get the push", async () => {
   for (const code of [410, 404]) {
-    const webpush = stubWebpush({ "https://push.example/1": code });
+    const webpush = stubWebpush({ "https://fcm.googleapis.com/fcm/send/1": code });
     const subscriptions = memoryStore([{ kind: "staff", tz: "111", ...sub(1) }, { kind: "staff", tz: "111", ...sub(2) }]);
     const push = createPush({ webpush, subscriptions, env: ENV });
     assert.deepEqual(await push.sendToStaff(["111"], { title: "t", body: "b", url: "/" }), { sent: 1, removed: 1 });
-    assert.deepEqual(subscriptions.docs.map((d) => d.endpoint), ["https://push.example/2"]);
+    assert.deepEqual(subscriptions.docs.map((d) => d.endpoint), ["https://fcm.googleapis.com/fcm/send/2"]);
     assert.equal(webpush.calls.length, 2);
   }
 });
 
 test("other failures keep the subscription and are not counted as sent", async () => {
-  const webpush = stubWebpush({ "https://push.example/1": 500 });
+  const webpush = stubWebpush({ "https://fcm.googleapis.com/fcm/send/1": 500 });
   const subscriptions = memoryStore([{ kind: "staff", tz: "111", ...sub(1) }]);
   const push = createPush({ webpush, subscriptions, env: ENV });
   assert.deepEqual(await push.sendToStaff(["111"], { title: "t", body: "b", url: "/" }), { sent: 0, removed: 0 });
@@ -202,4 +206,90 @@ test("the real sport router answers 401 on the subscribe routes without the cook
     assert.equal((await post(`${base}/api/sport-portal/push/subscribe`, { subscription: sub(1) })).status, 401);
     assert.equal((await del(`${base}/api/sport-portal/push/subscribe`, { subscription: sub(1) })).status, 401);
   } finally { server.close(); }
+});
+
+test("only real push-service endpoints are accepted; everything else is 400", async () => {
+  const store = memoryStore();
+  const push = createPush({ webpush: stubWebpush(), subscriptions: store, env: ENV });
+  const { server, base } = await serve(staffApp(store, push));
+  try {
+    const url = `${base}/api/push/subscribe`;
+    const headers = { "x-tz": "111" };
+    const keys = { p256dh: "p", auth: "a" };
+    for (const endpoint of [
+      "https://127.0.0.1/x", "https://localhost/x", "https://evil.example.com/x",
+      "https://fcm.googleapis.com.evil.com/x", "https://evilfcm.googleapis.com/x", "https://push.services.mozilla.com/x",
+      "https://fcm.googleapis.com@evil.com/x", "http://fcm.googleapis.com/x", "https://x.notify.windows.com.evil.com/x",
+      "https://fcm.googleapis.com:8443/x", "not a url",
+    ]) {
+      assert.equal((await post(url, { subscription: { endpoint, keys } }, headers)).status, 400, endpoint);
+    }
+    assert.equal(store.docs.length, 0);
+    for (const endpoint of [
+      "https://fcm.googleapis.com/fcm/send/abc", "https://updates.push.services.mozilla.com/wpush/v2/abc",
+      "https://db5p.notify.windows.com/w/?token=abc", "https://web.push.apple.com/abc", "https://x.push.apple.com/abc",
+    ]) {
+      assert.equal((await post(url, { subscription: { endpoint, keys } }, headers)).status, 200, endpoint);
+    }
+  } finally { server.close(); }
+});
+
+test("length limits answer 400; a missing actor tz answers 401", async () => {
+  const store = memoryStore();
+  const push = createPush({ webpush: stubWebpush(), subscriptions: store, env: ENV });
+  const app = staffApp(store, push);
+  const { server, base } = await serve(app);
+  try {
+    const url = `${base}/api/push/subscribe`;
+    const headers = { "x-tz": "111" };
+    const ok = { endpoint: "https://fcm.googleapis.com/fcm/send/abc", keys: { p256dh: "p", auth: "a" } };
+    const longEndpoint = `https://fcm.googleapis.com/${"a".repeat(1000)}`;
+    assert.equal((await post(url, { subscription: { ...ok, endpoint: longEndpoint } }, headers)).status, 400);
+    assert.equal((await post(url, { subscription: { ...ok, keys: { p256dh: "p".repeat(201), auth: "a" } } }, headers)).status, 400);
+    assert.equal((await post(url, { subscription: { ...ok, keys: { p256dh: "p", auth: "a".repeat(201) } } }, headers)).status, 400);
+    assert.equal((await post(url, { subscription: ok }, headers)).status, 200);
+  } finally { server.close(); }
+  const noTz = express();
+  noTz.use(express.json());
+  noTz.use("/api/push", createPushRouter({
+    requireAuth: (req, res, next) => { req.user = {}; next(); },
+    loadActor: (req, res, next) => { req.actor = {}; next(); },
+    store, push,
+  }));
+  const second = await serve(noTz);
+  try {
+    assert.equal((await post(`${second.base}/api/push/subscribe`, { subscription: sub(2) })).status, 401);
+    assert.equal((await del(`${second.base}/api/push/subscribe`, { subscription: sub(2) })).status, 401);
+  } finally { second.server.close(); }
+});
+
+test("an owner keeps at most 10 subscriptions: the 11th removes the oldest", async () => {
+  const store = memoryStore();
+  const push = createPush({ webpush: stubWebpush(), subscriptions: store, env: ENV });
+  const { server, base } = await serve(staffApp(store, push));
+  try {
+    for (let n = 1; n <= 11; n += 1) {
+      assert.equal((await post(`${base}/api/push/subscribe`, { subscription: sub(n) }, { "x-tz": "111" })).status, 200);
+      await new Promise((r) => setTimeout(r, 3));
+    }
+    const ends = store.docs.map((d) => d.endpoint);
+    assert.equal(ends.length, 10);
+    assert.ok(!ends.includes(sub(1).endpoint));
+    assert.ok(ends.includes(sub(11).endpoint));
+  } finally { server.close(); }
+});
+
+test("a failed send is logged once with status and host only", async () => {
+  const webpush = stubWebpush({ "https://fcm.googleapis.com/fcm/send/1": 500, "https://fcm.googleapis.com/fcm/send/2": 429 });
+  const subscriptions = memoryStore([{ kind: "staff", tz: "111", ...sub(1) }, { kind: "staff", tz: "111", ...sub(2) }]);
+  const lines = [];
+  const original = console.log;
+  console.log = (...args) => lines.push(args.join(" "));
+  try {
+    await createPush({ webpush, subscriptions, env: ENV }).sendToStaff(["111"], { title: "t", body: "b", url: "/" });
+  } finally { console.log = original; }
+  assert.equal(lines.length, 1);
+  assert.match(lines[0], /500@fcm.googleapis.com/);
+  assert.match(lines[0], /429@fcm.googleapis.com/);
+  assert.ok(!lines[0].includes("/fcm/send/") && !lines[0].includes("p1"));
 });
