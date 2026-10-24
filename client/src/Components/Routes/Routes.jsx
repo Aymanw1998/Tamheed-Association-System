@@ -56,7 +56,7 @@ function ProtectedLayout() {
           <TrainingBanner />
           <Header key={`header-${epoch}`} />
           <Outlet key={`outlet-${epoch}`} />
-          {canStored("ai.use") && <FloatingAIButton key={`ai-${epoch}`} />}
+          {/* {canStored("ai.use") && <FloatingAIButton key={`ai-${epoch}`} />} */}
         </TourProvider>
       </JourneyProvider>
     </div>

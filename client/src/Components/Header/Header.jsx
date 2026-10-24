@@ -181,9 +181,9 @@ export default function Header() {
         {(canStored("sports.view") || canStored("sports.coach") || canStored("sports.manage")) && (
           <a href="/sports" data-tour="menu-sports" onClick={(event) => onNavClick(event, "/sports")}>{t("nav.sports")}</a>
         )}
-        {canViewAudit && (
+        {/* {canViewAudit && (
           <a href="/audit" data-tour="menu-audit" onClick={(event) => onNavClick(event, "/audit")}>{t("nav.audit")}<NewBadge section="audit" /></a>
-        )}
+        )} */}
         <button type="button" onClick={handleLogout} className={styles.logoutButton} title={t("nav.logout")}>{t("nav.logout")}</button>
       </nav>
     </header>
