@@ -37,7 +37,7 @@ export default function LessonRosterDialog({ lesson, canEdit, onClose, reload })
 
   const remove = async (player) => {
     const confirmed = await ask("delete", {
-      title: t("sport.lessons.removePlayer"), message: `${fullName(player)}؟`, confirmText: t("sport.lessons.removePlayer"),
+      title: t("sport.lessons.removePlayer"), message: t("sport.lessons.removeConfirm"), confirmText: t("sport.lessons.removePlayer"),
     }).catch(() => false);
     if (!confirmed) return;
     setBusy(true);

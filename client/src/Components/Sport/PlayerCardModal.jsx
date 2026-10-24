@@ -101,7 +101,7 @@ function IdFace({ player, t }) {
         <circle cx="230" cy="126" r="54" />
       </svg>
       <div className={styles.idBar}>
-        <span>{t("sport.card.brand")} · كرة القدم</span>
+        <span>{t("sport.card.brandFull")}</span>
         <LogoBadge className={styles.idLogo} />
       </div>
       <div className={styles.idMain}>

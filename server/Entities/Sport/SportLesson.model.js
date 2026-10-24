@@ -11,6 +11,7 @@ const SportLessonModelDef = {
     fields: {
         sportId: { type: "string", required: true },
         name: { type: "string", required: true },
+        nameGenerated: { type: "boolean", required: false, default: false }, // the server made the name from day and time
         // day: 1 = Sunday (الأحد) .. 7 = Saturday, like Lesson.date.day; times are minutes from midnight.
         date: { type: "object", required: true },
         room: { type: "string", required: false, default: "9" },

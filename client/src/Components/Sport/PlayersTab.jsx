@@ -5,8 +5,7 @@ import { ask } from "../Provides/confirmBus";
 import Button from "../UI/Button.jsx";
 import { bumpStat, deletePlayer } from "../../WebServer/services/sport/functionsSport";
 import AddPlayerDialog from "./AddPlayerDialog";
-import PlayerCardModal from "./PlayerCardModal";
-import { Silhouette } from "./PlayerCardModal";
+import PlayerCardModal, { Silhouette } from "./PlayerCardModal";
 import styles from "./Sport.module.css";
 
 const fullName = (p) => `${p.firstname || ""} ${p.lastname || ""}`.trim();

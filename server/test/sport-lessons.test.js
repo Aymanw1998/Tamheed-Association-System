@@ -169,7 +169,24 @@ test("a lesson with no or blank name gets a generated name; an explicit name is 
   assert.equal(kept.body.lesson.name, "أشبال");
   const put = await call(ctx, MANAGER, "put", "/lessons/:id", { params: { id: kept.body.lesson._id }, body: { date: { day: 4, startMin: 17 * 60, endMin: 18 * 60 } } });
   assert.equal(put.statusCode, 200);
-  assert.equal(put.body.lesson.name, "كرة القدم · الأربعاء 17:00");
+  assert.equal(put.body.lesson.name, "أشبال"); // a custom name is kept
+});
+
+test("PUT regenerates a generated name when the time changes, and keeps a custom name", async () => {
+  const ctx = world();
+  const gen = (await create(ctx, { name: undefined, studentIds: [] })).body.lesson;
+  assert.equal(gen.nameGenerated, true);
+  const custom = (await create(ctx, { name: "كرة القدم · الأحد 09:00", date: { day: 2, startMin: 600, endMin: 660 }, studentIds: [] })).body.lesson;
+  assert.equal(custom.nameGenerated, false);
+  const put = (id, date) => call(ctx, MANAGER, "put", "/lessons/:id", { params: { id }, body: { date } });
+  const a = await put(gen._id, { day: 1, startMin: 17 * 60, endMin: 18 * 60 });
+  assert.equal(a.body.lesson.name, "كرة القدم · الأحد 17:00");
+  assert.equal(a.body.lesson.nameGenerated, true);
+  const b = await put(custom._id, { day: 2, startMin: 700, endMin: 760 });
+  assert.equal(b.body.lesson.name, "كرة القدم · الأحد 09:00");
+  assert.equal(b.body.lesson.nameGenerated, false);
+  const list = await call(ctx, VIEWER, "get", "/lessons");
+  assert.equal(JSON.stringify(list.body.lessons.map((l) => l.nameGenerated)), "[true,false]");
 });
 
 test("PUT without studentIds keeps the roster", async () => {

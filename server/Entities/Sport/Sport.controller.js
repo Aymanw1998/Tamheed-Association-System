@@ -260,7 +260,7 @@ function parseLesson(body) {
   if (!isMinute(startMin) || !isMinute(endMin) || startMin >= endMin) return { error: "وقت الدرس غير صحيح" };
   if (body?.studentIds !== undefined && !Array.isArray(body.studentIds)) return { error: "قائمة اللاعبين غير صحيحة" };
   const date = { day, startMin, endMin };
-  return { name: name || generatedName(date), date };
+  return { name, date };
 }
 
 async function lessonPlayers(lesson, students) {
@@ -273,7 +273,7 @@ async function lessonPlayers(lesson, students) {
 }
 
 const presentLesson = (lesson, players) => ({
-  _id: String(lesson._id), name: lesson.name, date: lesson.date, room: lesson.room || SPORT_ROOM, players,
+  _id: String(lesson._id), name: lesson.name, nameGenerated: Boolean(lesson.nameGenerated), date: lesson.date, room: lesson.room || SPORT_ROOM, players,
 });
 
 const byStart = (a, b) => (a.date?.startMin || 0) - (b.date?.startMin || 0);
@@ -312,10 +312,17 @@ async function saveLesson(req, res, current) {
   const now = new Date();
   const kept = new Map((current?.players || []).map((p) => [String(p.studentId), p.joinedAt]));
   const players = wanted.map((studentId) => ({ studentId, joinedAt: kept.get(studentId) || now }));
-  const { name, date } = parsed;
+  const { date } = parsed;
+  // A blank name is generated; on update it is regenerated only if the stored name was generated.
+  let name = parsed.name;
+  let nameGenerated = false;
+  if (!name) {
+    if (current && !current.nameGenerated) name = current.name;
+    else { name = generatedName(date); nameGenerated = true; }
+  }
   const saved = current
-    ? await SportLessonModelDef.updateExisting({ _id: current._id }, { name, date, room: SPORT_ROOM, players, updatedAt: now })
-    : await SportLessonModelDef.create({ sportId, name, date, room: SPORT_ROOM, players, createdAt: now, updatedAt: now });
+    ? await SportLessonModelDef.updateExisting({ _id: current._id }, { name, nameGenerated, date, room: SPORT_ROOM, players, updatedAt: now })
+    : await SportLessonModelDef.create({ sportId, name, nameGenerated, date, room: SPORT_ROOM, players, createdAt: now, updatedAt: now });
   const lesson = saved?.result;
   await record(req, current ? "update" : "create", "lesson", lesson, parsed.name, current || null);
   return res.status(current ? 200 : 201).json({ ok: true, lesson: presentLesson(lesson, await lessonPlayers(lesson)) });
