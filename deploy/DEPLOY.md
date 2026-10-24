@@ -115,11 +115,11 @@ sudo certbot --nginx -d הדומיין-שלך
 אתר הספורט יושב על אותו שרת, ומזוהה לפי שם המארח (`sport.<domain>`).
 
 1. **DNS:** מוסיפים רשומת `A` בשם `sport` שמצביעה על כתובת ה-IP של השרת (כמו הדומיין הראשי).
-2. **nginx:** הבלוק השני בקובץ `deploy/nginx-tamheed.conf` כבר נכלל בסעיף 6. ה-`sed` שם מחליף גם את `sport.example.org` לשם הדומיין שלך. אחר כך מפיקים תעודה:
+2. **nginx:** בהתקנה חדשה, הבלוק השני בקובץ `deploy/nginx-tamheed.conf` כבר נכלל בסעיף 6, וה-`sed` שם מחליף גם את `sport.example.org` לשם הדומיין שלך. בשרת שכבר פועל, certbot כבר שינה את הקובץ `/etc/nginx/sites-available/tamheed`, ולכן אין להעתיק אותו מחדש. מוסיפים לסוף הקובץ רק את בלוק ה-`server` של הספורט (עם שם הדומיין שלך), ואז מריצים `sudo nginx -t && sudo systemctl reload nginx`. אחר כך מפיקים תעודה:
    ```bash
    sudo certbot --nginx -d sport.<domain>
    ```
-3. **קובץ ההגדרות** (`server/config/.env`): מוסיפים (או משנים) את שני המשתנים האלה:
+3. **קובץ ההגדרות** (`server/config/.env`): מוסיפים (או משנים) את המשתנים האלה:
 
    | משתנה | ערך בשרת |
    | --- | --- |
