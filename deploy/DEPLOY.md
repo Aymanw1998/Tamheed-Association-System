@@ -43,10 +43,10 @@ sudo ufw enable
 ## 2. הורדת הקוד
 
 ```bash
-cd /opt
+cd /var/www
 sudo git clone https://github.com/Aymanw1998/Tamheed-Association-System.git tamheed
-sudo chown -R $USER:$USER /opt/tamheed
-cd /opt/tamheed
+sudo chown -R $USER:$USER /var/www/tamheed
+cd /var/www/tamheed
 ```
 
 ## 3. קובץ ההגדרות של השרת
@@ -110,6 +110,38 @@ sudo apt install -y certbot python3-certbot-nginx
 sudo certbot --nginx -d הדומיין-שלך
 ```
 
+## موقع الرياضة
+
+אתר הספורט יושב על אותו שרת, ומזוהה לפי שם המארח (`sport.<domain>`).
+
+1. **DNS:** מוסיפים רשומת `A` בשם `sport` שמצביעה על כתובת ה-IP של השרת (כמו הדומיין הראשי).
+2. **nginx:** הבלוק השני בקובץ `deploy/nginx-tamheed.conf` כבר נכלל בסעיף 6. ה-`sed` שם מחליף גם את `sport.example.org` לשם הדומיין שלך. אחר כך מפיקים תעודה:
+   ```bash
+   sudo certbot --nginx -d sport.<domain>
+   ```
+3. **קובץ ההגדרות** (`server/config/.env`): מוסיפים (או משנים) את שני המשתנים האלה:
+
+   | משתנה | ערך בשרת |
+   | --- | --- |
+   | `SERVE_CLIENT` | `true` (חובה: בלי זה השרת לא מגיש את אתר הספורט) |
+   | `SPORT_HOST` | `sport.<domain>` |
+   | `SPORT_SESSION_SECRET` | מחרוזת ארוכה ואקראית, שנוצרת בפקודה הבאה |
+
+   ```bash
+   node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+   ```
+
+   הערך שמודפס הוא הסוד. מעתיקים אותו ל-`.env`, ולא שומרים אותו בשום מקום אחר.
+4. **הפעלה מחדש עם הערכים החדשים:**
+   ```bash
+   pm2 restart tamheed --update-env
+   ```
+5. **בדיקה:**
+   ```bash
+   curl -sI https://sport.<domain>
+   ```
+   מצפים לתשובה `200` (או `302`) עם כותרות HTTPS. תשובת `502` פירושה שהשרת לא עלה, ואז בודקים `pm2 logs tamheed`.
+
 ## 7. בדיקה אחרי ההעלאה
 
 1. נכנסים ל-`https://הדומיין-שלך` עם חשבון מערכת, ומחליפים סיסמה.
@@ -124,7 +156,7 @@ sudo certbot --nginx -d הדומיין-שלך
 אחרי כל push:
 
 ```bash
-cd /opt/tamheed && bash deploy/update.sh
+cd /var/www/tamheed && bash deploy/update.sh
 ```
 
 ## אם משהו לא עובד
