@@ -12,19 +12,19 @@ const notices = {
       target: "notices-list",
       mood: "point",
       title: "الإعلانات",
-      body: "لاحظ الإعلانات الجديدة بخط عريض. فيها رسائل الإدارة وتنبيهات المركبات والنظام.",
+      body: "الإعلانات الجديدة بخط عريض، ومنها رسائل الإدارة.",
     },
     {
       target: "notices-filters",
       mood: "point",
       title: "التصفية",
-      body: "من هنا تعرض غير المقروءة فقط، أو فئة معيّنة، أو درجة أهمية.",
+      body: "اعرض غير المقروءة فقط، أو حسب الفئة أو الأهمية.",
     },
     {
       target: "notices-mark-all",
       mood: "point",
       title: "تحديد الكل كمقروء",
-      body: "سأحدّد كل الإعلانات كمقروءة، فيختفي عددها من الجرس في الأعلى.",
+      body: "سأحدّد الكل كمقروء، فيختفي العدد من الجرس.",
       action: { type: "click", target: "notices-mark-all" },
     },
     {
@@ -32,7 +32,7 @@ const notices = {
       requires: "notices.runCheck",
       mood: "point",
       title: "فحص المركبات",
-      body: "سأشغّل فحص مواعيد المركبات الآن، فتظهر رسالة بعدد الإعلانات الجديدة التي أنشأها.",
+      body: "سأشغّل فحص المواعيد، فتظهر رسالة بعدد الإعلانات الجديدة.",
       action: { type: "click", target: "notices-run-check" },
     },
     {
@@ -71,7 +71,7 @@ const notices = {
       requires: "notices.post",
       mood: "point",
       title: "نشر الإعلان",
-      body: "سأضغط «نشر»، فتظهر رسالة نجاح ويظهر الإعلان في القائمة.",
+      body: "سأضغط «نشر»، فيظهر الإعلان في القائمة.",
       action: { type: "click", target: "notices-submit" },
     },
     {
@@ -79,7 +79,7 @@ const notices = {
       requires: "notices.post",
       mood: "warn",
       title: "أرشفة إعلان",
-      body: "الأرشفة تخفي الإعلان عن جميع أعضاء الإدارة. سأفتح نافذة التأكيد لترى شكلها فقط.",
+      body: "الأرشفة تخفي الإعلان عن الجميع، وسأعرض التأكيد فقط.",
       action: { type: "click", target: "notices-archive" },
     },
     {

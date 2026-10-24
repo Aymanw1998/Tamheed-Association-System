@@ -39,7 +39,7 @@ const users = {
       requires: ["users.view", "users.approve"],
       mood: "point",
       title: "قبول حساب",
-      body: "سأضغط «قبول». لا يُقبل حساب إلا بدور، فتُفتح نافذة اختيار الدور.",
+      body: "سأضغط «قبول» لاختيار الدور أولًا.",
       action: { type: "click", target: "users-approve" },
     },
     {
@@ -47,7 +47,7 @@ const users = {
       requires: ["users.view", "users.approve"],
       mood: "explain",
       title: "اختيار الدور",
-      body: "تعرض القائمة الأدوار الأدنى من دورك فقط. سأعتمد الدور المقترح.",
+      body: "تعرض القائمة الأدوار الأدنى من دورك، وسأعتمد المقترح.",
     },
     {
       target: "role-picker-approve",
@@ -68,7 +68,7 @@ const users = {
       target: "users-table",
       mood: "point",
       title: "قائمة المستخدمين",
-      body: "لكل حساب دوره وأزراره. لا يظهر «تعديل» إلا للحسابات الأدنى من دورك.",
+      body: "لا يظهر «تعديل» إلا للحسابات الأدنى من دورك.",
     },
     {
       target: "users-edit",
@@ -81,14 +81,14 @@ const users = {
       target: "user-account",
       mood: "explain",
       title: "بيانات الحساب",
-      body: "رقم الهوية لا يتغيّر بعد التسجيل، وتحته دور المستخدم. الدور يُحفظ وحده، لا مع بقية البيانات.",
+      body: "رقم الهوية ثابت، والدور يُحفظ وحده.",
     },
     {
       target: "user-role-select",
       requires: "users.changeRole",
       mood: "explain",
       title: "تغيير الدور",
-      body: "أختار دور «مرشد». خفض الدور يلغي الصلاحيات الخاصة، لذلك يطلب النظام تأكيدًا عند الخفض.",
+      body: "أختار دور «مرشد»، وخفض الدور يتطلب تأكيدًا.",
       action: { type: "select", target: "user-role-select", value: "مرشد" },
     },
     {
@@ -104,7 +104,7 @@ const users = {
       requires: ["users.changeRole", "permissions.manage"],
       mood: "point",
       title: "إضافة صلاحيات",
-      body: "يسأل النظام هل تضيف صلاحيات خاصة الآن. سأضغط «الآن» لننتقل إلى تبويب الصلاحيات.",
+      body: "سأضغط «الآن» لإضافة صلاحيات خاصة.",
       action: { type: "click", target: "confirm-ok" },
     },
     {
@@ -120,7 +120,7 @@ const users = {
       requires: "permissions.manage",
       mood: "explain",
       title: "صلاحيات الحساب",
-      body: "لكل قسم مفتاح، وتحته عملياته. بجانب كل عملية مصدرها: من الدور، أو ممنوحة، أو مسحوبة.",
+      body: "لكل قسم عملياته، ومصدر كل عملية بجانبها.",
     },
     {
       target: "perms-expand-students",
@@ -135,7 +135,7 @@ const users = {
       requires: "permissions.manage",
       mood: "explain",
       title: "منح صلاحية",
-      body: "سأمنح عملية «إضافة»، فيستطيع صاحب الحساب إضافة الطلاب.",
+      body: "سأمنح عملية «إضافة» لصاحب الحساب.",
       action: { type: "click", target: "perms-grant-example" },
     },
     {
@@ -143,7 +143,7 @@ const users = {
       requires: "permissions.manage",
       mood: "point",
       title: "حفظ الصلاحيات",
-      body: "سأضغط «حفظ». يعرض النظام ما أُضيف وما سُحب، ويطلب التأكيد.",
+      body: "سأضغط «حفظ»، ويطلب النظام التأكيد.",
       action: { type: "click", target: "perms-save" },
     },
     {
@@ -151,7 +151,7 @@ const users = {
       requires: "permissions.manage",
       mood: "point",
       title: "تأكيد المنح",
-      body: "سأؤكد، فتظهر رسالة نجاح وتُعلَّم العملية «ممنوح».",
+      body: "سأؤكد، فتُعلَّم العملية «ممنوح».",
       action: { type: "click", target: "confirm-ok" },
     },
     {

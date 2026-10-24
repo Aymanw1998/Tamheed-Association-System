@@ -1,12 +1,19 @@
-/* The ring around the element the guide talks about (clicks pass through it). */
+/* The soft frame around the element the guide talks about. Its large shadow
+   dims the rest of the page lightly. Clicks pass through it. */
 .highlight {
   position: fixed;
   z-index: 10100;
-  border: 3px solid #fe9900;
+  border: 2px solid #257a97;
   border-radius: 12px;
-  box-shadow: 0 0 0 4px rgba(254, 153, 0, 0.25);
+  box-shadow: 0 0 0 9999px rgba(15, 30, 40, 0.28), 0 0 14px 3px rgba(37, 122, 151, 0.55);
   pointer-events: none;
   transition: top 0.2s ease, left 0.2s ease, width 0.2s ease, height 0.2s ease;
+  animation: framePulse 2s ease-in-out infinite;
+}
+
+@keyframes framePulse {
+  0%, 100% { box-shadow: 0 0 0 9999px rgba(15, 30, 40, 0.28), 0 0 8px 2px rgba(37, 122, 151, 0.4); }
+  50% { box-shadow: 0 0 0 9999px rgba(15, 30, 40, 0.28), 0 0 18px 5px rgba(37, 122, 151, 0.7); }
 }
 
 /* Which chapter is running, under the orange training bar. */
@@ -32,7 +39,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .highlight { transition: none; }
+  .highlight { transition: none; animation: none; }
 }
 
 @media (max-width: 767px) {

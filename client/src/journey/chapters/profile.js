@@ -12,13 +12,13 @@ const profile = {
       target: "profile-account",
       mood: "point",
       title: "بيانات حسابك",
-      body: "هذه صفحتك أنت. رقم هويتك للعرض فقط، ولا يتغيّر من هنا.",
+      body: "هذه صفحتك، ورقم هويتك للعرض فقط.",
     },
     {
       target: "profile-password",
       mood: "explain",
       title: "تغيير كلمة المرور",
-      body: "سأملأ نموذج تغيير كلمة المرور لترى خطواته، ثم ألغيه دون إرسال.",
+      body: "سأملأ نموذج كلمة المرور ثم ألغيه دون إرسال.",
     },
     {
       target: "password-current",
@@ -31,7 +31,7 @@ const profile = {
       target: "password-new",
       mood: "explain",
       title: "كلمة المرور الجديدة",
-      body: "ثم الجديدة: ثمانية أحرف على الأقل، ومختلفة عن الحالية.",
+      body: "ثم الجديدة: ثمانية أحرف على الأقل ومختلفة.",
       action: { type: "type", target: "password-new", value: "demo-new-2026" },
     },
     {
@@ -45,7 +45,7 @@ const profile = {
       target: "password-cancel",
       mood: "explain",
       title: "لن أرسل التغيير",
-      body: "عند الضغط على «تغيير كلمة المرور» تنتهي جلساتك الأخرى. في التدريب سأضغط «إلغاء»، فتُمسح الحقول.",
+      body: "«تغيير كلمة المرور» ينهي جلساتك الأخرى، فسأضغط «إلغاء».",
       action: { type: "click", target: "password-cancel" },
     },
     {
@@ -64,7 +64,7 @@ const profile = {
       target: "profile-save",
       mood: "point",
       title: "حفظ التعديلات",
-      body: "بعد تعديل بياناتك اضغط «حفظ التعديلات». هذا آخر فصل في المسار، ويمكنك العودة إلى أي فصل من زر «؟».",
+      body: "اضغط «حفظ التعديلات» بعد التعديل، وهذا آخر فصل.",
     },
   ],
 };

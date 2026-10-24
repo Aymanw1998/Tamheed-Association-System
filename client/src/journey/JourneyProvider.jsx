@@ -316,7 +316,7 @@ export function JourneyProvider({ children, targetWaitMs = TARGET_WAIT_MS }) {
     };
   }, [run, forward, targetWaitMs]);
 
-  // The ring and the guide's arrow follow the target.
+  // The ring follows the target.
   const shownEl = shown && shown.el;
   useEffect(() => {
     if (!shownEl) {
@@ -524,7 +524,6 @@ export function JourneyProvider({ children, targetWaitMs = TARGET_WAIT_MS }) {
               mood={current.step.mood || "explain"}
               title={fill(current.step.title, name)}
               body={fill(current.step.body, name)}
-              targetRect={rect}
               onNext={onNext}
               onPrev={onPrev}
               onPause={stopJourney}

@@ -180,3 +180,14 @@ test("the files chapter uploads without the file picker", () => {
   // Nothing is typed or selected into a file input.
   actions.filter((a) => a.type === "type" || a.type === "select").forEach((a) => expect(a.target).not.toMatch(/upload|file-input/));
 });
+test("every step text is short: body up to 80 characters, title up to 4 words", () => {
+  const tooLong = [];
+  CHAPTERS.forEach((chapter) => {
+    chapter.steps.forEach((step, i) => {
+      const where = `${chapter.id}#${i}`;
+      if (step.body && step.body.length > 80) tooLong.push(`${where} body (${step.body.length})`);
+      if (step.title && step.title.trim().split(/\s+/).length > 4) tooLong.push(`${where} title`);
+    });
+  });
+  expect(tooLong).toEqual([]);
+});

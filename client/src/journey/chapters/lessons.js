@@ -19,20 +19,20 @@ const lessons = {
       target: "lessons-filters",
       mood: "point",
       title: "التصفية والعرض",
-      body: "من هنا تُصفّى الدروس حسب اليوم أو المكان أو المرشد، وتُختار طريقة العرض.",
+      body: "صفِّ الدروس حسب اليوم أو المكان أو المرشد.",
     },
     {
       target: "lessons-calendar",
       mood: "point",
       title: "برنامج الدروس",
-      body: "هنا برنامج الأسبوع. كل مربع درس، والضغط عليه يفتح تفاصيله.",
+      body: "برنامج الأسبوع: اضغط على أي درس لتفاصيله.",
     },
     {
       target: "lessons-add",
       requires: "lessons.create",
       mood: "point",
       title: "درس جديد",
-      body: "سأفتح لك نموذج درس جديد، وأملؤه أمامك.",
+      body: "سأفتح نموذج درس جديد وأملؤه أمامك.",
       action: { type: "click", target: "lessons-add" },
     },
     {
@@ -56,7 +56,7 @@ const lessons = {
       requires: "lessons.create",
       mood: "explain",
       title: "ساعة البدء",
-      body: "أحدد ساعة البدء، فيضبط النظام ساعة الانتهاء بعد خمس وأربعين دقيقة على الأقل.",
+      body: "أحدد ساعة البدء، والدرس لا يقل عن خمس وأربعين دقيقة.",
       action: { type: "select", target: "lesson-start", value: "16:00" },
     },
     {
@@ -72,7 +72,7 @@ const lessons = {
       requires: ["lessons.create", "students.viewAll"],
       mood: "explain",
       title: "المرشد",
-      body: "أختار المرشد المسؤول عن الدرس، والمساعد اختياري.",
+      body: "أختار المرشد المسؤول، والمساعد اختياري.",
       action: { type: "select", target: "lesson-teacher", value: DEMO_GUIDE_ID },
     },
     {
@@ -88,7 +88,7 @@ const lessons = {
       requires: "lessons.create",
       mood: "explain",
       title: "نافذة إضافة الطلاب",
-      body: "هنا الطلاب غير المضافين إلى الدرس. ابحث بالاسم، أو أضف طالبًا برقم هويته الكامل.",
+      body: "ابحث بالاسم، أو أضف طالبًا برقم هويته.",
     },
     {
       target: "roster-picker-add",
@@ -111,14 +111,14 @@ const lessons = {
       requires: "lessons.create",
       mood: "point",
       title: "قائمة طلاب الدرس",
-      body: "لاحظ أن الطالب أُضيف إلى القائمة. لا تُحفظ التغييرات إلا بعد حفظ الدرس.",
+      body: "تمت إضافة الطالب، ولا يُحفظ إلا بحفظ الدرس.",
     },
     {
       target: "lesson-save",
       requires: "lessons.create",
       mood: "point",
       title: "حفظ الدرس",
-      body: "سأضغط «حفظ الدرس». يطلب النظام تأكيد الإنشاء أولًا.",
+      body: "سأضغط «حفظ الدرس» ثم أؤكد الإنشاء.",
       action: { type: "click", target: "lesson-save" },
     },
     {
@@ -134,7 +134,7 @@ const lessons = {
       requires: "lessons.edit",
       mood: "point",
       title: "فتح درس",
-      body: "سأفتح درسًا موجودًا لترى تفاصيله وقائمة طلابه.",
+      body: "سأفتح درسًا موجودًا لترى تفاصيله.",
       action: { type: "click", target: "lessons-open" },
     },
     {
@@ -142,14 +142,14 @@ const lessons = {
       requires: "lessons.edit",
       mood: "point",
       title: "قائمة طلاب الدرس",
-      body: "لاحظ قائمة طلاب هذا الدرس: يمكن البحث فيها، وإضافة طلاب وإزالتهم، ثم حفظ التعديلات.",
+      body: "قائمة طلاب الدرس: بحث وإضافة وإزالة ثم حفظ.",
     },
     {
       target: "lesson-delete",
       requires: ["lessons.edit", "lessons.delete"],
       mood: "warn",
       title: "حذف الدرس",
-      body: "حذف الدرس نهائي ولا يمكن التراجع عنه. سأفتح نافذة التأكيد لترى شكلها فقط.",
+      body: "حذف الدرس نهائي، وسأعرض نافذة التأكيد فقط.",
       action: { type: "click", target: "lesson-delete" },
     },
     {

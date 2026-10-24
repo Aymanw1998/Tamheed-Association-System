@@ -25,7 +25,7 @@ const reports = {
       requires: "reports.create",
       mood: "point",
       title: "تقرير جديد",
-      body: "سأفتح لك نموذج تقرير جديد، وأكتبه أمامك.",
+      body: "سأفتح نموذج تقرير جديد وأكتبه أمامك.",
       action: { type: "click", target: "reports-add" },
     },
     {
@@ -49,7 +49,7 @@ const reports = {
       requires: "reports.create",
       mood: "point",
       title: "اختيار الاقتراح",
-      body: "سأختار الاقتراح المطابق. يمكنك إضافة أكثر من عنوان ثانوي.",
+      body: "سأختار الاقتراح، ويمكنك إضافة أكثر من عنوان.",
       action: { type: "click", target: "report-tag-option" },
     },
     {
@@ -65,7 +65,7 @@ const reports = {
       requires: "reports.create",
       mood: "point",
       title: "حفظ التقرير",
-      body: "سأضغط «إضافة التقرير». يطلب النظام تأكيد الإنشاء أولًا.",
+      body: "سأضغط «إضافة التقرير» ثم أؤكد الإنشاء.",
       action: { type: "click", target: "report-save" },
     },
     {
@@ -80,14 +80,14 @@ const reports = {
       target: "reports-pdf",
       mood: "point",
       title: "تصدير PDF",
-      body: "سأعرض التقرير كملف PDF. في وضع التدريب تظهر معاينة فقط، بلا تنزيل أو طباعة.",
+      body: "سأعرض التقرير كملف PDF للمعاينة بلا تنزيل.",
       action: { type: "click", target: "reports-pdf" },
     },
     {
       target: null,
       mood: "explain",
       title: "تجهيز المعاينة",
-      body: "يستغرق تجهيز الملف لحظات، وسأنتظر حتى تظهر المعاينة.",
+      body: "تجهيز الملف يستغرق لحظات، وسأنتظر المعاينة.",
       action: { type: "wait", ms: 1500 },
     },
     {
@@ -109,7 +109,7 @@ const reports = {
       requires: "reports.delete",
       mood: "warn",
       title: "حذف التقرير",
-      body: "حذف التقرير نهائي ولا يمكن التراجع عنه. سأفتح نافذة التأكيد لترى شكلها فقط.",
+      body: "حذف التقرير نهائي، وسأعرض نافذة التأكيد فقط.",
       action: { type: "click", target: "report-delete" },
     },
     {

@@ -11,7 +11,7 @@ const attendance = {
       target: "calendar-tabs",
       mood: "point",
       title: "اليوم والسجل",
-      body: "«دروس اليوم» لتسجيل حضور اليوم، و«السجل» لمراجعة ما سُجّل سابقًا.",
+      body: "«دروس اليوم» لتسجيل الحضور، و«السجل» لمراجعته.",
     },
     {
       target: "calendar-lessons",
@@ -53,7 +53,7 @@ const attendance = {
       requires: "attendance.record",
       mood: "point",
       title: "حاضر",
-      body: "وأسجّل الطالب الثالث حاضرًا. يمكنك أيضًا كتابة ملاحظة بجانب كل طالب.",
+      body: "وأسجّل الطالب الثالث حاضرًا.",
       action: { type: "click", target: "calendar-mark-present" },
     },
     {
@@ -61,7 +61,7 @@ const attendance = {
       requires: "attendance.record",
       mood: "point",
       title: "حفظ الحضور",
-      body: "لا يُحفظ شيء قبل الضغط على «حفظ». سأحفظ الآن، فتظهر رسالة نجاح.",
+      body: "لا يُحفظ شيء قبل «حفظ»، وسأحفظ الآن.",
       action: { type: "click", target: "calendar-save" },
     },
     {
@@ -82,7 +82,7 @@ const attendance = {
       target: "calendar-dates",
       mood: "point",
       title: "اختيار التاريخ",
-      body: "لاحظ قائمة التواريخ: يُختار منها اليوم لعرض سجله وتعديله إن لزم.",
+      body: "اختر تاريخًا لعرض سجله وتعديله.",
     },
   ],
 };

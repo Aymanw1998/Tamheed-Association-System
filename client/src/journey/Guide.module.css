@@ -90,23 +90,6 @@
 .secondary:disabled { opacity: 0.5; cursor: default; }
 .link { background: transparent; color: #566268; border: 1px solid transparent; text-decoration: underline; }
 
-.arrow {
-  position: fixed;
-  inset: 0;
-  width: 100vw;
-  height: 100vh;
-  pointer-events: none;
-}
-
-.arrowPath {
-  fill: none;
-  stroke: #fe9900;
-  stroke-width: 4;
-  stroke-linecap: round;
-  stroke-dasharray: 10 8;
-  animation: arrowFlow 0.8s linear infinite;
-}
-
 .confetti {
   position: fixed;
   inset: 0;
@@ -125,14 +108,13 @@
 }
 
 @keyframes bubbleIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-@keyframes arrowFlow { to { stroke-dashoffset: -18; } }
 @keyframes confettiFall {
   0% { opacity: 1; transform: translateY(0) rotate(0); }
   100% { opacity: 0; transform: translateY(100vh) rotate(540deg); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .bubble, .arrowPath, .confetti span { animation: none; }
+  .bubble, .confetti span { animation: none; }
   .confetti span { opacity: 0; }
 }
 

@@ -15,7 +15,7 @@ const students = {
       target: "students-search",
       mood: "point",
       title: "البحث",
-      body: "لاحظ حقل البحث: يكفي أن تكتب فيه اسم الطالب أو رقم هويته لتصفية القائمة فورًا.",
+      body: "اكتب اسم الطالب أو هويته لتصفية القائمة.",
     },
     {
       target: "students-status-filter",
@@ -35,7 +35,7 @@ const students = {
       requires: "students.create",
       mood: "point",
       title: "إضافة طالب",
-      body: "سأفتح لك نموذج إضافة طالب جديد، وأملؤه أمامك حقلًا حقلًا.",
+      body: "سأفتح نموذج طالب جديد وأملؤه أمامك.",
       action: { type: "click", target: "students-add" },
     },
     {
@@ -43,7 +43,7 @@ const students = {
       requires: "students.create",
       mood: "explain",
       title: "رقم الهوية",
-      body: "أبدأ برقم الهوية. يتحقق النظام من صحته، ومن أنه غير مسجّل مسبقًا.",
+      body: "أبدأ برقم الهوية، ويتحقق النظام منه.",
       action: { type: "type", target: "student-tz", value: "000000018" },
     },
     {
@@ -99,7 +99,7 @@ const students = {
       requires: "students.create",
       mood: "explain",
       title: "الصف",
-      body: "ثم صفّه الدراسي. بيانات الأهل والصحة اختيارية ويمكن إكمالها لاحقًا.",
+      body: "ثم صفّه الدراسي، وبقية البيانات اختيارية.",
       action: { type: "type", target: "student-layer", value: "السادس" },
     },
     {
@@ -107,7 +107,7 @@ const students = {
       requires: "students.create",
       mood: "point",
       title: "حفظ الطالب",
-      body: "سأضغط «إضافة الطالب». يطلب النظام تأكيد الإنشاء أولًا.",
+      body: "سأضغط «إضافة الطالب»، فيطلب النظام التأكيد.",
       action: { type: "click", target: "student-save" },
     },
     {
@@ -115,7 +115,7 @@ const students = {
       requires: "students.create",
       mood: "point",
       title: "تأكيد الإنشاء",
-      body: "سأضغط «نعم». تظهر رسالة نجاح، ويعود النظام إلى قائمة الطلاب.",
+      body: "سأضغط «نعم»، فتظهر رسالة نجاح.",
       action: { type: "click", target: "confirm-ok" },
     },
     {
@@ -129,7 +129,7 @@ const students = {
       target: "student-details",
       mood: "point",
       title: "بيانات الطالب",
-      body: "الاسم وتاريخ الميلاد والجنس. لاحظ أن رقم الهوية لا يتغيّر بعد التسجيل.",
+      body: "الاسم وتاريخ الميلاد والجنس، ورقم الهوية ثابت.",
     },
     {
       target: "student-parents",
@@ -148,7 +148,7 @@ const students = {
       requires: "students.delete",
       mood: "warn",
       title: "حذف الطالب",
-      body: "الحذف نهائي ولا يمكن التراجع عنه. سأفتح نافذة التأكيد لترى شكلها فقط.",
+      body: "الحذف نهائي، وسأعرض نافذة التأكيد فقط.",
       action: { type: "click", target: "student-delete" },
     },
     {
@@ -179,28 +179,28 @@ const students = {
       requires: "students.parentLink",
       mood: "explain",
       title: "الرابط الثابت",
-      body: "لاحظ الرابط الثابت: يُرسَل إلى الأهل ليملؤوا بيانات أبنائهم، ثم يظهر طلبهم في قائمة الانتظار.",
+      body: "الرابط الثابت يُرسل للأهل، وطلبهم يظهر في الانتظار.",
     },
     {
       target: "parent-link-copy",
       requires: "students.parentLink",
       mood: "point",
       title: "نسخ الرابط",
-      body: "«نسخ» يضع الرابط في الحافظة لتلصقه في رسالة إلى الأهل.",
+      body: "«نسخ» ينسخ الرابط لتلصقه في رسالة.",
     },
     {
       target: "parent-link-usage",
       requires: "students.parentLink",
       mood: "point",
       title: "عدد الطلبات",
-      body: "لاحظ عدد الطلبات في آخر سبعة أيام. عند بلوغ الحدّ يتوقف الرابط عن استقبال طلبات جديدة.",
+      body: "عدد الطلبات آخر سبعة أيام، وللرابط حدّ أقصى.",
     },
     {
       target: "parent-link-rotate",
       requires: "students.parentLink",
       mood: "warn",
       title: "تغيير الرابط",
-      body: "تغيير الرابط يوقف الرابط الحالي فورًا. سأفتح نافذة التأكيد لترى شكلها فقط.",
+      body: "تغيير الرابط يوقف القديم، وسأعرض التأكيد فقط.",
       action: { type: "click", target: "parent-link-rotate" },
     },
     {
@@ -208,7 +208,7 @@ const students = {
       requires: "students.parentLink",
       mood: "explain",
       title: "إلغاء التغيير",
-      body: "سأضغط «إلغاء»، فيبقى الرابط كما هو. لا يُغيَّر الرابط إلا إذا وصل إلى أشخاص غير معنيين.",
+      body: "سأضغط «إلغاء» فيبقى الرابط كما هو.",
       action: { type: "cancelConfirm" },
     },
     {

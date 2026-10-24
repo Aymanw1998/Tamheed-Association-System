@@ -15,7 +15,7 @@ const files = {
       target: "files-path",
       mood: "point",
       title: "مكانك في الملفات",
-      body: "لاحظ هذا السطر: يبيّن المجلد الذي تقف فيه، والضغط على أي جزء منه يعيدك إليه.",
+      body: "هذا السطر يبيّن مجلدك الحالي، واضغط لتعود إليه.",
     },
     {
       target: "files-storage",
@@ -27,14 +27,14 @@ const files = {
       target: "files-upload",
       mood: "point",
       title: "رفع ملف",
-      body: "سأرفع ملفًّا. في وضع التدريب أختار ملفًّا تجريبيًّا جاهزًا، فلا تُفتح نافذة اختيار الملفات من جهازك.",
+      body: "سأرفع ملفًّا تجريبيًّا جاهزًا دون نافذة اختيار.",
       action: { type: "click", target: "files-upload" },
     },
     {
       target: "files-items",
       mood: "explain",
       title: "الملف المرفوع",
-      body: "بعد اكتمال الرفع تظهر رسالة نجاح، ويظهر ملف «خطة الأسبوع» بين الملفات.",
+      body: "تظهر رسالة نجاح وملف «خطة الأسبوع» بين الملفات.",
     },
     {
       target: "files-new-folder",
@@ -61,7 +61,7 @@ const files = {
       target: "files-search",
       mood: "point",
       title: "البحث",
-      body: "لاحظ حقل البحث: يصفّي ما في المجلد الحالي بالاسم أو بصاحب الملف.",
+      body: "ابحث بالاسم أو بصاحب الملف.",
     },
     {
       target: "files-share",
@@ -74,21 +74,21 @@ const files = {
       target: "files-share-role",
       mood: "explain",
       title: "نوع الصلاحية",
-      body: "أختار «تعديل»، فيستطيع الزميل إضافة الملفات وتعديلها، دون أن يشارك المجلد مع غيره.",
+      body: "أختار «تعديل» ليتمكّن الزميل من الإضافة والتعديل.",
       action: { type: "select", target: "files-share-role", value: "write" },
     },
     {
       target: "files-share-user",
       mood: "point",
       title: "اختيار الزميل",
-      body: "سأختار أول زميل في القائمة، فتظهر رسالة نجاح وعبارة «تمت المشاركة» بجانب اسمه.",
+      body: "سأختار أول زميل، فتظهر رسالة «تمت المشاركة».",
       action: { type: "click", target: "files-share-user" },
     },
     {
       target: "files-share-dialog",
       mood: "explain",
       title: "إلغاء المشاركة",
-      body: "الضغط على الزميل مرة أخرى بالصلاحية نفسها يلغي المشاركة معه.",
+      body: "الضغط عليه مرة أخرى يلغي المشاركة.",
     },
     {
       target: "files-share-close",
@@ -101,7 +101,7 @@ const files = {
       target: "files-delete",
       mood: "warn",
       title: "حذف عنصر",
-      body: "حذف المجلد يحذف كل ما فيه، ولا يمكن التراجع عنه. سأفتح نافذة التأكيد لترى شكلها فقط.",
+      body: "حذف المجلد يحذف محتواه نهائيًا، وسأعرض التأكيد فقط.",
       action: { type: "click", target: "files-delete" },
     },
     {

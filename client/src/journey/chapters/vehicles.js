@@ -15,19 +15,19 @@ const vehicles = {
       target: "vehicles-summary",
       mood: "point",
       title: "ملخّص المركبات",
-      body: "لاحظ البطاقات: عدد المركبات، والمستندات المنتهية أو القريبة من الانتهاء. الضغط على بطاقة يصفّي القائمة.",
+      body: "بطاقات الأعداد، والضغط على بطاقة يصفّي القائمة.",
     },
     {
       target: "vehicles-filters",
       mood: "point",
       title: "البحث والتصفية",
-      body: "ابحث برقم اللوحة أو بالاسم، وصفِّ حسب النوع والحالة والمستندات.",
+      body: "ابحث برقم اللوحة أو الاسم، أو صفِّ بالنوع والحالة.",
     },
     {
       target: "vehicles-table",
       mood: "point",
       title: "قائمة المركبات",
-      body: "لكل مركبة موعد انتهاء الرخصة والفحص الدوري والتأمين، بلون يبيّن قرب الموعد.",
+      body: "موعد انتهاء كل مستند بلون يبيّن قرب الموعد.",
     },
     {
       target: "vehicles-open",
@@ -40,13 +40,13 @@ const vehicles = {
       target: "vehicle-basic",
       mood: "explain",
       title: "البيانات الأساسية",
-      body: "رقم اللوحة والنوع والطراز والمسؤول عن المركبة. من يملك صلاحية التعديل يجد زر «تعديل» في الأعلى.",
+      body: "بيانات المركبة، وزر «تعديل» لمن يملك الصلاحية.",
     },
     {
       target: "vehicle-tabs",
       mood: "point",
       title: "أقسام الملف",
-      body: "لكل مركبة رخصة وفحص دوري وتأمين ومستندات وسجل تغييرات، ولكل منها تبويب.",
+      body: "لكل مركبة رخصة وفحص وتأمين، ولكل منها تبويب.",
     },
     {
       target: "vehicle-documents",
@@ -61,7 +61,7 @@ const vehicles = {
       requires: "vehicles.documents",
       mood: "point",
       title: "عرض مستند",
-      body: "سأعرض نسخة الرخصة. في وضع التدريب يظهر المستند داخل الصفحة، بلا تنزيل.",
+      body: "سأعرض نسخة الرخصة داخل الصفحة بلا تنزيل.",
       action: { type: "click", target: "vehicle-doc-view" },
     },
     {
@@ -83,7 +83,7 @@ const vehicles = {
       target: "vehicle-next-test",
       mood: "explain",
       title: "موعد الفحص القادم",
-      body: "لاحظ موعد الفحص القادم ولون حالته: يتغيّر اللون كلما اقترب الموعد.",
+      body: "لاحظ موعد الفحص القادم، ولونه يتغيّر مع قربه.",
     },
     {
       target: "vehicle-record-add",
@@ -122,7 +122,7 @@ const vehicles = {
       requires: "vehicles.compliance",
       mood: "point",
       title: "حفظ الفحص",
-      body: "سأضغط «حفظ»، فتظهر رسالة نجاح ويُضاف الفحص إلى السجل.",
+      body: "سأضغط «حفظ»، فتظهر رسالة نجاح.",
       action: { type: "click", target: "vehicle-record-save" },
     },
     {
@@ -130,7 +130,7 @@ const vehicles = {
       requires: "vehicles.archive",
       mood: "warn",
       title: "أرشفة المركبة",
-      body: "الأرشفة تخرج المركبة من العمل وتوقف تنبيهاتها. سأفتح نافذة التأكيد لترى شكلها فقط.",
+      body: "الأرشفة توقف المركبة وتنبيهاتها، وسأعرض التأكيد فقط.",
       action: { type: "click", target: "vehicle-archive" },
     },
     {
