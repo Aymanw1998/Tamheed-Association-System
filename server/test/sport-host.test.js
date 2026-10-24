@@ -65,10 +65,14 @@ test("sportStatic serves the sport app by host and passes other hosts on", async
     const shell = await fetch(`${base}/students/card/12`, { headers: sportHeaders });
     assert.equal(shell.status, 200);
     assert.match(await shell.text(), /sport shell/);
+    assert.equal(shell.headers.get("x-content-type-options"), "nosniff");
+    assert.equal(shell.headers.get("x-frame-options"), "DENY");
 
     const asset = await fetch(`${base}/assets/app.js`, { headers: sportHeaders });
     assert.equal(asset.status, 200);
     assert.match(await asset.text(), /sport/);
+    assert.equal(asset.headers.get("x-content-type-options"), "nosniff");
+    assert.equal(asset.headers.get("x-frame-options"), "DENY");
 
     const other = await fetch(`${base}/students/card/12`, {
       headers: { "X-Forwarded-Host": "system.tamheed-ramla.org", Accept: "text/html" },

@@ -109,6 +109,7 @@ function createSportPortalController(deps = {}) {
       stream.on("error", fail);
       res.set("Content-Type", "image/jpeg");
       res.set("Cache-Control", "private, max-age=3600");
+      res.set("X-Content-Type-Options", "nosniff");
       stream.pipe(res);
       return undefined;
     } catch (err) {

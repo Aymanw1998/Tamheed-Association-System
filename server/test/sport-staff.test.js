@@ -258,8 +258,10 @@ test("student search spans all students, needs 2 characters, and returns limited
   assert.deepEqual(plain((await call(ctx, COACH, "get", "/students/search", { query: { q: "F" } })).body.students), []);
   const byName = await call(ctx, COACH, "get", "/students/search", { query: { q: "f3" } });
   assert.equal(byName.body.students.length, 1);
-  assert.deepEqual(Object.keys(byName.body.students[0]).sort(), ["_id", "birth_date", "email", "firstname", "gender", "lastname", "tz"]);
-  assert.equal((await call(ctx, COACH, "get", "/students/search", { query: { q: "80000000" } })).body.students.length, 3);
+  assert.deepEqual(Object.keys(byName.body.students[0]).sort(), ["_id", "birth_date", "email", "firstname", "gender", "lastname"]);
+  const byId = await call(ctx, COACH, "get", "/students/search", { query: { q: "80000000" } });
+  assert.deepEqual(plain(byId.body.students), []);
+  for (const s of byName.body.students) assert.equal("tz" in s, false);
   assert.equal((await call(ctx, VIEWER, "get", "/students/search", { query: { q: "F1" } })).statusCode, 403);
 });
 

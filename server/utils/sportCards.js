@@ -10,7 +10,7 @@ function ageOn(birthDate, now) {
     now.getUTCMonth() < b.getUTCMonth() ||
     (now.getUTCMonth() === b.getUTCMonth() && now.getUTCDate() < b.getUTCDate());
   if (beforeBirthday) age -= 1;
-  return age;
+  return age < 0 ? null : age;
 }
 
 // A training counts when it is recorded, already started, and not before joining.

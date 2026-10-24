@@ -133,6 +133,7 @@ test("photo streams through the server and never redirects", async () => {
   assert.equal(r.headers["Cache-Control"], "private, max-age=3600");
   assert.equal(r.headers["Content-Type"], "image/jpeg");
   assert.equal(r.headers.Location, undefined);
+  assert.equal(r.headers["X-Content-Type-Options"], "nosniff");
 });
 
 test("photo answers 404 when there is none, and when the download fails", async () => {

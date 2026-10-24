@@ -226,10 +226,10 @@ const searchStudents = handle("searchStudents", async (req, res) => {
   if ([...q].length < 2) return res.status(200).json({ ok: true, students: [] });
   const needle = q.toLowerCase();
   const students = rows(await StudentModelDef.get({}))
-    .filter((s) => [s.firstname, s.lastname, s.tz].some((v) => String(v || "").toLowerCase().includes(needle)))
+    .filter((s) => [s.firstname, s.lastname].some((v) => String(v || "").toLowerCase().includes(needle)))
     .slice(0, 20)
     .map((s) => ({
-      _id: String(s._id), firstname: s.firstname, lastname: s.lastname, tz: s.tz,
+      _id: String(s._id), firstname: s.firstname, lastname: s.lastname,
       birth_date: s.birth_date, gender: s.gender, email: s.email,
     }));
   return res.status(200).json({ ok: true, students });

@@ -10,6 +10,7 @@ test("ageOn counts whole years and gives null for bad dates", () => {
   assert.equal(ageOn("2015-06-10", new Date("2026-06-10")), 11);
   assert.equal(ageOn(null, NOW), null);
   assert.equal(ageOn("garbage", NOW), null);
+  assert.equal(ageOn("2030-01-01", NOW), null);
 });
 
 test("attendancePercent counts only recorded past trainings after joining", () => {

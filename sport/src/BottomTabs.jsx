@@ -9,7 +9,7 @@ export default function BottomTabs({ tab, onChange }) {
       {TABS.map((t) => (
         <button key={t.id} className={tab === t.id ? "on" : ""} onClick={() => onChange(t.id)}>
           <i>{t.icon}</i>
-          {t.label}
+          <span>{t.label}</span>
         </button>
       ))}
     </nav>

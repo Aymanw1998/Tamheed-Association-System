@@ -17,6 +17,8 @@ function sportStatic(distDir, sportHost) {
   const serveFiles = express.static(distDir);
   return (req, res, next) => {
     if (!isSportHost(req, sportHost) || API_PATH_RE.test(req.path)) return next();
+    res.set("X-Content-Type-Options", "nosniff");
+    res.set("X-Frame-Options", "DENY");
     return serveFiles(req, res, (err) => {
       if (err) return next(err);
       if (req.method !== "GET" || !req.accepts("html")) return next();
