@@ -15,7 +15,7 @@ const store = (seed) => {
   const docs = seed.map((d, i) => ({ _id: d._id || `d${i}`, ...d }));
   const matches = (d, f = {}) =>
     Object.entries(f).every(([k, v]) => {
-      if (k === "members.studentId") return (d.members || []).some((m) => String(m.studentId) === String(v));
+      if (k === "players.studentId") return (d.players || []).some((m) => String(m.studentId) === String(v));
       return String(d[k]) === String(v);
     });
   return { async get(f) { return { success: true, result: docs.filter((d) => matches(d, f)).map((d) => ({ ...d })) }; } };
@@ -41,28 +41,38 @@ const ME = { tz: "100000009", email: "me@example.com", photo: "https://drive.exa
 const MATE = { tz: "100000017", email: "mate@example.com", photo: "https://drive.example/d/MATEPHOTO12345/view", birth: "2011-07-01T00:00:00Z" };
 const COACH = { tz: "100000025", email: "coach@example.com" };
 
-function setup({ students, players, files } = {}) {
+const LESSONS = [
+  { _id: "l1", sportId: "sp1", name: "تدريب الأحد", date: { day: 1, startMin: 960, endMin: 1020 }, room: "9",
+    players: [{ studentId: "s1", joinedAt: new Date("2026-01-01T00:00:00Z") }, { studentId: "s2", joinedAt: new Date("2026-01-01T00:00:00Z") }] },
+  { _id: "l2", sportId: "sp1", name: "تدريب الأربعاء", date: { day: 4, startMin: 1020, endMin: 1080 }, room: "9",
+    players: [{ studentId: "s1", joinedAt: new Date("2026-01-01T00:00:00Z") }] },
+  { _id: "l3", sportId: "sp1", name: "تدريب الخميس", date: { day: 5, startMin: 600, endMin: 660 }, room: "9",
+    players: [{ studentId: "s2", joinedAt: new Date("2026-01-01T00:00:00Z") }] },
+];
+const rec = (sportLessonId, date, status, studentId = "s1") => ({ sportLessonId, studentId, date, status });
+const RECORDS = [
+  rec("l1", "2026-05-03", "حاضر"), rec("l1", "2026-05-10", "غائب"), rec("l2", "2026-05-06", "متأخر"),
+  rec("l1", "2026-05-03", "غائب", "s2"), rec("l3", "2026-05-07", "حاضر", "s2"),
+];
+
+function setup({ students, players, lessons, records, files } = {}) {
   const logs = [];
   const stores = {
     students: store(students || [
       { _id: "s1", tz: ME.tz, email: ME.email, firstname: "علي", lastname: "حداد", photo: ME.photo, birth_date: ME.birth },
       { _id: "s2", tz: MATE.tz, email: MATE.email, firstname: "سامر", lastname: "نصار", photo: MATE.photo, birth_date: MATE.birth },
     ]),
-    players: store(players || [{ studentId: "s1", sportId: "sp1", jerseyNumber: 7, position: "حارس" }]),
+    players: store(players || [
+      { studentId: "s1", sportId: "sp1", jerseyNumber: 7, position: "حارس", stats: { s_aa: 3 } },
+      { studentId: "s2", sportId: "sp1", jerseyNumber: 9, position: "مهاجم", stats: { s_aa: 11 } },
+    ]),
   };
   const auth = createSportAuth({ ...stores, log: (...a) => logs.push(a) });
   const portal = createSportPortalController({
     ...stores,
-    sports: store([{ _id: "sp1", name: "كرة القدم", icon: "⚽", stats: [{ key: "s_aa", label: "أهداف" }] }]),
-    teams: store([{
-      _id: "t1", name: "الفريق أ", sportId: "sp1", coachIds: ["u1"],
-      members: [{ studentId: "s1", joinedAt: "2026-01-01T00:00:00Z" }, { studentId: "s2", joinedAt: "2026-01-01T00:00:00Z" }],
-    }]),
-    trainings: store([
-      { _id: "r1", teamId: "t1", sportId: "sp1", startsAt: "2026-02-01T10:00:00Z", recorded: true, presentIds: ["s1"], place: "الملعب" },
-      { _id: "r2", teamId: "t1", sportId: "sp1", startsAt: "2026-12-01T10:00:00Z", recorded: false, presentIds: [], place: "الملعب" },
-    ]),
-    users: store([{ _id: "u1", firstname: "خالد", lastname: "عمر", tz: COACH.tz, email: COACH.email, password: "x" }]),
+    ensureSport: async () => ({ _id: "sp1", name: "كرة القدم", icon: "⚽", stats: [{ key: "s_aa", label: "أهداف" }] }),
+    lessons: store(lessons || LESSONS),
+    attendance: store(records || RECORDS),
     files: files || { extractFileId: () => "PHOTOFILEID123", downloadStream: async () => { const s = new PassThrough(); s.end("IMG"); return s; } },
     log: (...a) => logs.push(a),
     now: () => new Date("2026-06-01T00:00:00Z"),
@@ -80,37 +90,66 @@ function setup({ students, players, files } = {}) {
   return { portal, call, logs };
 }
 
-test("me returns only the signed-in student's own card data", async () => {
+test("me returns the card, lessons, next lesson and history of the signed-in student", async () => {
   const { portal, call } = setup();
   const r = await call(portal.me, "s1");
   assert.equal(r.statusCode, 200);
-  assert.equal(r.body.ok, true);
-  assert.deepEqual(r.body.student, { firstname: "علي", lastname: "حداد", age: 14, hasPhoto: true });
-  assert.equal(r.body.cards.length, 1);
-  assert.equal(r.body.cards[0].jerseyNumber, 7);
-  assert.equal(r.body.cards[0].stats.attendance, 100);
-  assert.equal(r.body.nextTraining.place, "الملعب");
-  assert.deepEqual(r.body.teams[0].coachNames, ["خالد عمر"]);
-  assert.deepEqual(r.body.teams[0].sport, { name: "كرة القدم", icon: "⚽" });
+  assert.deepEqual(r.body, {
+    ok: true,
+    student: { firstname: "علي", lastname: "حداد", age: 14, birthDate: "2012-03-15", hasPhoto: true },
+    card: {
+      sport: { name: "كرة القدم", icon: "⚽" },
+      jerseyNumber: 7,
+      position: "حارس",
+      statDefs: [{ key: "s_aa", label: "أهداف" }],
+      values: { s_aa: 3 },
+      attendance: { rate: 67, present: 1, absent: 1, late: 1 },
+    },
+    lessons: [
+      { name: "تدريب الأحد", day: 1, startMin: 960, endMin: 1020 },
+      { name: "تدريب الأربعاء", day: 4, startMin: 1020, endMin: 1080 },
+    ],
+    nextLesson: { name: "تدريب الأربعاء", day: 4, startMin: 1020, endMin: 1080 },
+    history: [
+      { date: "2026-05-10", lessonName: "تدريب الأحد", status: "غائب" },
+      { date: "2026-05-06", lessonName: "تدريب الأربعاء", status: "متأخر" },
+      { date: "2026-05-03", lessonName: "تدريب الأحد", status: "حاضر" },
+    ],
+  });
+});
+
+test("the response holds nothing about other students", async () => {
+  const { portal, call } = setup();
+  const r = await call(portal.me, "s1");
   const text = JSON.stringify(r.body);
-  for (const v of [ME.tz, ME.email, ME.photo, "PHOTOFILEID123", "2012-03-15", MATE.tz, MATE.email, MATE.photo, "2011-07-01", COACH.tz, COACH.email]) {
+  for (const v of ["سامر", "نصار", "s2", "تدريب الخميس", ME.tz, ME.email, ME.photo, "PHOTOFILEID123", MATE.tz, MATE.email, MATE.photo, "2011-07-01"]) {
     assert.ok(!text.includes(v), `leaked ${v}`);
   }
-  for (const k of ["tz", "email", "photo", "birth_date", "password"]) {
+  for (const k of ["tz", "email", "photo", "birth_date", "password", "studentId", "_id"]) {
     assert.ok(!text.includes(`"${k}"`), `key ${k}`);
   }
 });
 
-test("teammates appear by first and last name only", async () => {
-  const { portal, call } = setup();
+test("history is newest first, capped at 60, and skips records of deleted lessons", async () => {
+  const dated = Array.from({ length: 70 }, (_, i) => rec("l1", new Date(Date.UTC(2026, 0, 1 + i)).toISOString().slice(0, 10), "حاضر"));
+  const { portal, call } = setup({ records: [...dated, rec("gone", "2026-05-30", "حاضر")] });
   const r = await call(portal.me, "s1");
-  assert.deepEqual(r.body.teams[0].members, [
-    { firstname: "علي", lastname: "حداد" },
-    { firstname: "سامر", lastname: "نصار" },
-  ]);
+  assert.equal(r.body.history.length, 60);
+  assert.equal(r.body.history[0].date, dated[69].date);
+  assert.ok(r.body.history.every((h, i, a) => i === 0 || a[i - 1].date >= h.date));
+  assert.ok(r.body.history.every((h) => h.lessonName === "تدريب الأحد"));
 });
 
-test("a student removed from sport gets 401", async () => {
+test("a student with no lessons or records gets empty lists and a null rate", async () => {
+  const { portal, call } = setup({ lessons: [], records: [] });
+  const r = await call(portal.me, "s1");
+  assert.deepEqual(r.body.lessons, []);
+  assert.equal(r.body.nextLesson, null);
+  assert.deepEqual(r.body.history, []);
+  assert.deepEqual(r.body.card.attendance, { rate: null, present: 0, absent: 0, late: 0 });
+});
+
+test("a student whose player row was deleted gets 401", async () => {
   const { portal, call } = setup({ players: [{ studentId: "s2", sportId: "sp1" }] });
   const r = await call(portal.me, "s1");
   assert.equal(r.statusCode, 401);

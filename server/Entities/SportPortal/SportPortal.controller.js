@@ -1,36 +1,33 @@
-const { SportModelDef } = require("../Sport/Sport.model");
-const { SportTeamModelDef } = require("../Sport/SportTeam.model");
+const { ensureFootball } = require("../Sport/Sport.controller");
 const { SportPlayerModelDef } = require("../Sport/SportPlayer.model");
-const { SportTrainingModelDef } = require("../Sport/SportTraining.model");
-const { StudentModelDef } = require("../Student/Student.model");
-const { UserModelDef } = require("../User/User.model");
+const { SportLessonModelDef } = require("../Sport/SportLesson.model");
+const { SportAttendanceModelDef } = require("../Sport/SportAttendance.model");
 const drive = require("../../services/googleDrive.service");
-const { ageOn, buildCards, nextTraining } = require("../../utils/sportCards");
+const { ageOn, buildCard, nextLesson } = require("../../utils/sportCards");
 const { logWithSource } = require("../../middleware/logger");
 
 const SERVER_ERROR = "حدث خطأ غير متوقع، حاول مرة أخرى";
+const HISTORY_LIMIT = 60;
 const rows = (r) => (r?.success && Array.isArray(r.result) ? r.result : []);
 const sid = (v) => String(v);
+const slot = (l) => ({ name: l.name, day: l.date.day, startMin: l.date.startMin, endMin: l.date.endMin });
+// "YYYY-MM-DD" from the stored birth date, or null.
+const birthDay = (v) => {
+  const d = v ? new Date(v) : null;
+  return d && !Number.isNaN(d.getTime()) ? d.toISOString().slice(0, 10) : null;
+};
 
 // Dependencies are injectable so the handlers can be tested without a database.
 function createSportPortalController(deps = {}) {
   const {
-    sports = SportModelDef,
-    teams = SportTeamModelDef,
+    ensureSport = ensureFootball,
     players = SportPlayerModelDef,
-    trainings = SportTrainingModelDef,
-    users = UserModelDef,
-    students = StudentModelDef,
+    lessons = SportLessonModelDef,
+    attendance = SportAttendanceModelDef,
     files = drive,
     log = logWithSource,
     now = () => new Date(),
   } = deps;
-
-  const coachName = async (userId) => {
-    const u = rows(await users.get({ _id: sid(userId) }, "active"))[0];
-    if (!u) return null;
-    return [u.firstname, u.lastname].filter(Boolean).join(" ") || null;
-  };
 
   const me = async (req, res) => {
     try {
@@ -38,41 +35,25 @@ function createSportPortalController(deps = {}) {
       const studentId = sid(student._id);
       const at = now();
 
-      const myPlayers = rows(await players.get({ studentId }));
-      const myTeams = rows(await teams.get({ "members.studentId": studentId }));
-      const sportIds = new Set([...myPlayers.map((p) => sid(p.sportId)), ...myTeams.map((t) => sid(t.sportId))]);
-      const mySports = rows(await sports.get({})).filter((s) => sportIds.has(sid(s._id)));
-      const myTrainings = [];
-      for (const t of myTeams) myTrainings.push(...rows(await trainings.get({ teamId: sid(t._id) })));
+      const player = rows(await players.get({ studentId }))[0];
+      if (!player) return res.status(401).json({ ok: false, code: "SPORT_AUTH" });
+      const sport = await ensureSport();
 
-      const input = { players: myPlayers, sports: mySports, teams: myTeams, trainings: myTrainings, studentId, now: at };
-      const sportById = new Map(mySports.map((s) => [sid(s._id), s]));
+      // Only this student's own rows are read; nothing of anyone else is loaded into the answer.
+      const myLessons = rows(await lessons.get({ "players.studentId": studentId }))
+        .filter((l) => (l.players || []).some((p) => sid(p.studentId) === studentId));
+      const records = rows(await attendance.get({ studentId }));
+      const byId = new Map(myLessons.map((l) => [sid(l._id), l]));
 
-      // Teammates: first and last name only, nothing else from their records.
-            const teamsOut = [];
-      for (const t of myTeams) {
-        const sport = sportById.get(sid(t.sportId));
-        const coachNames = [];
-        for (const id of t.coachIds || []) {
-          const name = await coachName(id);
-          if (name) coachNames.push(name);
-        }
-        const members = [];
-        for (const m of t.members || []) {
-          if (sid(m.studentId) === studentId) {
-            members.push({ firstname: student.firstname || "", lastname: student.lastname || "" });
-          } else {
-            const mate = rows(await students.get({ _id: sid(m.studentId) }))[0];
-            if (mate) members.push({ firstname: mate.firstname || "", lastname: mate.lastname || "" });
-          }
-        }
-        teamsOut.push({
-          name: t.name,
-          sport: { name: sport?.name || "", icon: sport?.icon || "" },
-          coachNames,
-          members,
-        });
-      }
+      const history = records
+        .filter((r) => byId.has(sid(r.sportLessonId)))
+        .sort((x, y) => (x.date < y.date ? 1 : x.date > y.date ? -1 : 0))
+        .slice(0, HISTORY_LIMIT)
+        .map((r) => ({ date: r.date, lessonName: byId.get(sid(r.sportLessonId)).name, status: r.status }));
+
+      const card = buildCard({ player, sport, lessons: myLessons, records });
+      const { statDefs, values, attendance: summary, jerseyNumber, position } = card;
+      const ordered = [...myLessons].sort((x, y) => x.date.day - y.date.day || x.date.startMin - y.date.startMin);
 
       return res.json({
         ok: true,
@@ -80,11 +61,20 @@ function createSportPortalController(deps = {}) {
           firstname: student.firstname || "",
           lastname: student.lastname || "",
           age: ageOn(student.birth_date, at),
+          birthDate: birthDay(student.birth_date),
           hasPhoto: Boolean(student.photo),
         },
-        cards: buildCards(input),
-        nextTraining: nextTraining(input),
-        teams: teamsOut,
+        card: {
+          sport: { name: sport.name, icon: sport.icon },
+          jerseyNumber,
+          position,
+          statDefs,
+          values,
+          attendance: summary,
+        },
+        lessons: ordered.map(slot),
+        nextLesson: nextLesson(myLessons, at),
+        history,
       });
     } catch (err) {
       log("SportPortal.me", err);

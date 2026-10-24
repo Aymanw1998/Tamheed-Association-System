@@ -205,12 +205,8 @@ const StartServer = async () => {
       .catch((err) => console.error('AiRates index:', err.message));
     await require('./Entities/AiPendingAction/AiPendingAction.model').ensurePendingActionIndexes()
       .catch((err) => console.error('AiPendingActions index:', err.message));
-    await require('./Entities/Sport/SportTeam.model').ensureSportTeamIndexes()
-      .catch((err) => console.error('SportTeams index:', err.message));
     await require('./Entities/Sport/SportPlayer.model').ensureSportPlayerIndexes()
       .catch((err) => console.error('SportPlayers index:', err.message));
-    await require('./Entities/Sport/SportTraining.model').ensureSportTrainingIndexes()
-      .catch((err) => console.error('SportTrainings index:', err.message));
     await require('./Entities/Sport/SportLoginCode.model').ensureSportLoginCodeIndexes()
       .catch((err) => console.error('SportLoginCodes index:', err.message));
     await require('./Entities/Sport/SportAttendance.model').ensureSportAttendanceIndexes()
