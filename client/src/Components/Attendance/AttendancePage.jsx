@@ -8,6 +8,8 @@ import { canStored, getStoredUserId } from "../../utils/session";
 import { roomLabel } from "../../utils/rooms";
 import { attendanceDateLabel } from "../../utils/attendanceDates";
 import { ask } from "../Provides/confirmBus";
+import { isOffline, noResponse, queueAttendance } from "../../pwa/queuedSave";
+import { OVERWRITTEN_MESSAGE, SAVED_OFFLINE_MESSAGE } from "../../pwa/attendanceQueue";
 
 
 const pad2 = (n) => String(n).padStart(2, "0");
@@ -226,11 +228,27 @@ export default function AttendancePage() {
             notes: it.notes || "",
         }));
 
-        const r = await saveAttendanceSheet(selectedLesson._id, usedDate, items);
-        if (!r.ok) throw new Error(r.message);
+        const lessonId = selectedLesson._id;
+        const r = isOffline() ? { ok: false, status: 0 } : await saveAttendanceSheet(lessonId, usedDate, items);
+        if (!r.ok && (isOffline() || noResponse(r))) {
+            // No connection: keep the save on this device and send it later.
+            const kept = await queueAttendance({
+                kind: "general",
+                url: "/attendance/bulk-save",
+                body: { lessonId, ...usedDate, items },
+                label: selectedLesson.name || "حضور",
+            });
+            if (kept) {
+                setDirty(false);
+                toast.success(SAVED_OFFLINE_MESSAGE);
+                return;
+            }
+        }
+        if (!r.ok) throw new Error(r.message || "تعذّر إتمام العملية.");
 
         setDirty(false);
         toast?.success ? toast.success("تم حفظ الحضور بنجاح") : console.log("saved");
+        if (r.overwritten?.length) toast.warn(OVERWRITTEN_MESSAGE);
         } catch (e) {
         toast?.error ? toast.error(e.message) : console.error(e);
         } finally {

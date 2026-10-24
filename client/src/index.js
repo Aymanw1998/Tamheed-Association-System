@@ -6,6 +6,7 @@ import reportWebVitals from "./reportWebVitals";
 import AppErrorBoundary from "./Components/Global/AppErrorBoundary";
 import { ConfirmProvider } from "./Components/Provides/ConfirmContext";
 import AppChrome from "./pwa/AppChrome";
+import QueueStatus from "./pwa/QueueStatus";
 import * as serviceWorkerRegistration from "./serviceWorkerRegistration";
 import { ToastProvider, SystemStatusWatcher, StatusBadge, useToast, toast } from "./ALERT/SystemToasts";
 
@@ -70,6 +71,7 @@ root.render(
       <DevToastPing />
 
       <AppChrome />
+      <QueueStatus />
     </ToastProvider>
   </ConfirmProvider>
 );

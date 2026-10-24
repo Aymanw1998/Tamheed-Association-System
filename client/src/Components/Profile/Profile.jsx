@@ -12,6 +12,7 @@ import { photoAction } from "../../utils/photoChange";
 import { getStoredPermissions } from "../../utils/session";
 import MyPermissions from "./MyPermissions.jsx";
 import ChangeOwnPassword from "./ChangeOwnPassword.jsx";
+import { isSubscribed, pushSupported, subscribeStaff, unsubscribeStaff } from "../../pwa/pushOptIn";
 
 const Profile = ({parent = false}) => {
     const [form, setForm] = useState({
@@ -48,6 +49,19 @@ const Profile = ({parent = false}) => {
     const [loading, setLoading] = useState(false);
     const [saving, setSaving]   = useState(false);
     const [err, setErr]         = useState(null);
+    const [pushOn, setPushOn] = useState(false);
+    const [pushBusy, setPushBusy] = useState(false);
+    useEffect(() => { isSubscribed().then(setPushOn); }, []);
+    const togglePush = async () => {
+        setPushBusy(true);
+        const res = pushOn ? await unsubscribeStaff() : await subscribeStaff();
+        setPushBusy(false);
+        if (!res.ok) {
+            toast.warn(res.reason === "denied" ? "لم يُسمح بالإشعارات في إعدادات المتصفح" : "تعذّر تغيير إعداد الإشعارات");
+            return;
+        }
+        setPushOn(!pushOn);
+    };
     const [myPermissions, setMyPermissions] = useState(getStoredPermissions);
 
 
@@ -311,6 +325,16 @@ const Profile = ({parent = false}) => {
         </fieldset>
 
         <ChangeOwnPassword />
+
+        {pushSupported() && (
+            <fieldset className={sectionStyles.formSection}>
+                <legend>إشعارات الهاتف</legend>
+                <label>
+                    <input type="checkbox" checked={pushOn} disabled={pushBusy} onChange={togglePush} />
+                    {" "}إشعارات الهاتف
+                </label>
+            </fieldset>
+        )}
 
         <fieldset className={sectionStyles.formSection} data-tour="profile-personal">
             <legend>البيانات الشخصية</legend>

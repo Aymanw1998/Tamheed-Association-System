@@ -21,9 +21,9 @@ export const saveAttendanceSheet = async (lessonId, { year, month, day }, items)
         items,
         });
         if (![200, 201].includes(status) || !data.ok) throw new Error(data?.message || "failed");
-        return { ok: true };
+        return { ok: true, overwritten: data.overwritten || [] };
     } catch (err) {
-        return { ok: false, message: err?.response?.data?.message || err.message };
+        return { ok: false, status: err?.response?.status || 0, message: err?.response?.data?.message || err.message };
     }
 };
 

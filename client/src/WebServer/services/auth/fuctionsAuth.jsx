@@ -6,6 +6,10 @@ import { rememberSessionUser } from "../../../utils/session";
 import { isForcedChange } from "../../../utils/passwordChange";
 import { stopDemo } from "../../../journey/demoMode";
 import { clearApiCache } from "../../../pwa/clearApiCache";
+import { pending, clear as clearQueue } from "../../../pwa/attendanceQueue";
+import { unsubscribeStaff } from "../../../pwa/pushOptIn";
+import { ask } from "../../../Components/Provides/confirmBus";
+import { getStoredUserTz } from "../../../utils/session";
 
 function markSignedIn(user, accessToken, expirationTime) {
   // A new session never starts on top of the previous person's cached data.
@@ -14,6 +18,8 @@ function markSignedIn(user, accessToken, expirationTime) {
   scheduleAccessRefresh(accessToken);
   localStorage.setItem("isLoggedIn", "1");
   rememberSessionUser(user);
+  // Lets the app send this user's attendance that was waiting on the device.
+  try { window.dispatchEvent(new Event("tamheed:signed-in")); } catch {}
 }
 
 export async function register(payload) {
@@ -83,9 +89,30 @@ export async function getMe() {
   }
 }
 
+// Resolves false when the user chose to keep their unsent attendance (the
+// sign-out is cancelled). A broken IndexedDB never blocks signing out.
 export async function logout() {
+  const tz = getStoredUserTz();
+  let hasQueue = false;
+  try {
+    hasQueue = !!tz && (await pending(tz)).length > 0;
+  } catch {}
+  if (hasQueue) {
+    const ok = await ask({
+      title: "حضور لم يُرسل",
+      message: "لديك حضور لم يُرسل بعد. هل تريد حذفه والخروج؟",
+      confirmText: "حذفه والخروج",
+      cancelText: "إلغاء",
+      danger: true,
+    }).catch(() => false);
+    if (!ok) return false;
+  }
+
   // Leave training mode first, so the sign-out reaches the server for real.
   stopDemo();
+  // Stop phone notifications for this device while the session still works, so
+  // a shared device does not keep receiving this user's notifications.
+  try { await unsubscribeStaff(); } catch {}
   try {
     await api.post("/auth/logout", {}, { withCredentials: true });
   } catch {}
@@ -93,6 +120,7 @@ export async function logout() {
   // Drop cached API answers so the next person on this device sees none of
   // them. Never throws, so it cannot stop the sign-out.
   await clearApiCache();
+  if (hasQueue) { try { await clearQueue(tz); } catch {} }
 
   clearAccessRefresh();
   setAuthTokens(null);
