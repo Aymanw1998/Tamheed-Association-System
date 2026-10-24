@@ -1902,3 +1902,49 @@ real database.
 **Requesting Codex review.** No live Codex connection; this entry is the handoff.
 
 **Delivery state:** committed with the owner's approval; not pushed.
+
+## 2026-10-24: Tamheed Sport phase 1 (sport site and the «الرياضة» section)
+
+**Owner request:** a sub-site at sport.<domain> for the association's students,
+sharing the system's database. Each student signs in with their ID number and
+a code sent to their email, and sees their own FIFA-style player card per
+sport, their next training and their teams. Staff manage sports, teams,
+players and trainings in a new «الرياضة» section. Spec:
+`docs/superpowers/specs/2026-10-24-tamheed-sport-design.md`. Plan:
+`docs/superpowers/plans/2026-10-24-tamheed-sport-phase1.md`.
+
+**Changes (8f90e55..e37991d, 14 commits):**
+- **Permissions:** `sports` module (view, coach, manage) on server and client.
+- **Data:** `server/Entities/Sport/*` models and `server/utils/sportCards.js`.
+- **Staff API:** `/api/sports` in `Sport.controller.js` and `Sport.route.js`.
+- **Student sign-in:** `server/Entities/SportPortal/*` with `server/utils/otp.js`. Cookie `tamheed_sport`, a separate `SPORT_SESSION_SECRET`, uniform answers, a per-student lock and an IP rate limit keyed on `req.ip`.
+- **Hosting:** `server/utils/sportHost.js` serves `sport/dist` by host name, only when `SERVE_CLIENT=true`.
+- **Staff client:** `client/src/Components/Sport/*`.
+- **Student site:** the Vite app in `sport/`.
+- **Deployment:** `deploy/update.sh`, a nginx sport block, and a «موقع الرياضة» section in `DEPLOY.md`.
+
+**Review:** subagent-driven, with a task review after each task and a final
+whole-branch review. The final review raised one Important finding: the
+coach student search matched and returned `tz`. It was fixed in e37991d,
+together with these smaller fixes:
+- IP limit 30;
+- nosniff and X-Frame-Options on sport responses;
+- `ageOn` returns null for a future birth date;
+- larger tab hit area.
+
+**Verification:**
+- server 748/748, client 50 suites / 538 tests, sport 15/15;
+- the client and sport builds are clean;
+- the sport UI was checked at 360px against a mock API with made-up data.
+
+Not tested against a live server: a real sign-in needs a real student and an
+emailed code.
+
+**Open notes for review:**
+- A user needs `sports.view` together with `coach` or `manage`.
+- Student sessions (30 days) cannot be revoked one by one.
+- The staff refresh cookie (domain-wide) also reaches the sport host. This predates the branch.
+
+**Requesting Codex review.** No live Codex connection; this entry is the handoff.
+
+**Delivery state:** committed with the owner's approval; not pushed.
