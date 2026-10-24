@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { requestCode, verifyCode, GENERIC_ERROR_MESSAGE } from "./api.js";
+import { clearApiCache } from "./pwa/clearApiCache";
 import logo from "./logo.png";
 import { Ball, Floodlight } from "./Art.jsx";
 
@@ -41,7 +42,10 @@ export default function LoginPage({ onSignedIn }) {
     setError("");
     try {
       const r = await verifyCode(tz, code);
-      if (r.ok) return onSignedIn();
+      if (r.ok) {
+        await clearApiCache();
+        return onSignedIn();
+      }
       setError(r.data?.message || GENERIC_ERROR);
     } catch {
       setError(GENERIC_ERROR);

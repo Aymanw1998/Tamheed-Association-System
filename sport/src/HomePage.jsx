@@ -1,5 +1,6 @@
 import FlipCard from "./FlipCard.jsx";
 import { CalendarIcon } from "./Art.jsx";
+import PushButton from "./pwa/PushButton.jsx";
 import { lessonTime, nextLessonLabel } from "./format.js";
 
 // Football lessons are always held in room 9.
@@ -31,6 +32,7 @@ export default function HomePage({ me }) {
           )}
         </div>
       </section>
+      <PushButton />
     </>
   );
 }

@@ -443,3 +443,6 @@ svg.id-img { height: 86%; }
 .guide-skip { border: 0; background: transparent; color: var(--gold); padding: 0 8px; }
 .guide-actions button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 .top-actions { display: inline-flex; align-items: center; }
+
+/* ---------- Push opt-in ---------- */
+.push-btn { display: block; width: 100%; margin-top: 12px; }

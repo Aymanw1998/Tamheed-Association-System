@@ -7,7 +7,16 @@ import StadiumHeader from "./StadiumHeader.jsx";
 import BottomTabs from "./BottomTabs.jsx";
 import { Ball } from "./Art.jsx";
 import FirstVisitGuide from "./guide/FirstVisitGuide.jsx";
+import AppChrome from "./pwa/AppChrome.jsx";
+import { clearApiCache } from "./pwa/clearApiCache";
+import { unsubscribeSport } from "./pwa/pushOptIn";
 import { hasSeenGuide, markGuideSeen } from "./guide/guideSteps.js";
+
+// Session ended: forget cached answers and stop pushes for this device (best effort, 3s cap).
+async function endSession() {
+  await Promise.race([unsubscribeSport(), new Promise((resolve) => setTimeout(resolve, 3000))]).catch(() => {});
+  await clearApiCache();
+}
 
 export default function App() {
   const [state, setState] = useState("loading"); // loading | out | in | error
@@ -23,7 +32,10 @@ export default function App() {
   const load = async () => {
     try {
       const r = await getMe();
-      if (r.status === 401) return setState("out");
+      if (r.status === 401) {
+        setState("out");
+        return endSession();
+      }
       if (!r.ok) return setState("error");
       setMe(r.data);
       setState("in");
@@ -38,6 +50,8 @@ export default function App() {
   }, []);
 
   const onLogout = async () => {
+    // Unsubscribe first: it needs the sport cookie that logout removes.
+    await endSession();
     try {
       await logout();
     } catch {
@@ -49,20 +63,23 @@ export default function App() {
     setState("out");
   };
 
+  const chrome = <AppChrome aboveTabs={state === "in"} />;
   if (state === "loading") {
     return (
       <div className="center-note">
         <Ball className="loading-ball" />
         <p>جارٍ التحميل…</p>
+        {chrome}
       </div>
     );
   }
-  if (state === "out") return <LoginPage onSignedIn={load} />;
+  if (state === "out") return (<><LoginPage onSignedIn={load} />{chrome}</>);
   if (state === "error") {
     return (
       <div className="center-note">
         <p>حدث خطأ، حاول مرة أخرى</p>
         <button className="btn" onClick={load}>إعادة المحاولة</button>
+        {chrome}
       </div>
     );
   }
@@ -74,6 +91,7 @@ export default function App() {
         {tab === "home" ? <HomePage me={me} /> : <LessonsPage me={me} />}
       </main>
       <BottomTabs tab={tab} onChange={setTab} />
+      {chrome}
       {guideOpen && <FirstVisitGuide firstname={me.student.firstname} gender={me.student.gender} onClose={closeGuide} />}
     </div>
   );
