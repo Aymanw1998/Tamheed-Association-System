@@ -420,7 +420,7 @@ svg.id-img { height: 86%; }
 .guide-avatar svg { width: 100%; height: 100%; display: block; }
 .guide-bubble {
   position: relative; flex: 1; min-width: 0; padding: 12px 14px; border-radius: 16px;
-  background: #fff; color: var(--ink); font-size: 15px; line-height: 1.6; overflow-wrap: anywhere;
+  background: #fff; color: var(--ink); font-size: 15px; line-height: 1.6; overflow-wrap: break-word;
 }
 .guide-bubble::before {
   content: ""; position: absolute; inset-inline-start: -7px; bottom: 22px; width: 14px; height: 14px;
