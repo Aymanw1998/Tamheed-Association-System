@@ -6,11 +6,19 @@ import LessonsPage from "./LessonsPage.jsx";
 import StadiumHeader from "./StadiumHeader.jsx";
 import BottomTabs from "./BottomTabs.jsx";
 import { Ball } from "./Art.jsx";
+import FirstVisitGuide from "./guide/FirstVisitGuide.jsx";
+import { hasSeenGuide, markGuideSeen } from "./guide/guideSteps.js";
 
 export default function App() {
   const [state, setState] = useState("loading"); // loading | out | in | error
   const [me, setMe] = useState(null);
   const [tab, setTab] = useState("home");
+  const [guideOpen, setGuideOpen] = useState(false);
+
+  const closeGuide = () => {
+    markGuideSeen();
+    setGuideOpen(false);
+  };
 
   const load = async () => {
     try {
@@ -19,6 +27,7 @@ export default function App() {
       if (!r.ok) return setState("error");
       setMe(r.data);
       setState("in");
+      if (!hasSeenGuide()) setGuideOpen(true);
     } catch {
       setState("error");
     }
@@ -36,6 +45,7 @@ export default function App() {
     }
     setMe(null);
     setTab("home");
+    setGuideOpen(false);
     setState("out");
   };
 
@@ -59,11 +69,12 @@ export default function App() {
 
   return (
     <div className="app">
-      <StadiumHeader firstname={me.student.firstname} sportName={me.card.sport.name} onLogout={onLogout} />
+      <StadiumHeader firstname={me.student.firstname} sportName={me.card.sport.name} onLogout={onLogout} onHelp={() => setGuideOpen(true)} />
       <main className="content">
         {tab === "home" ? <HomePage me={me} /> : <LessonsPage me={me} />}
       </main>
       <BottomTabs tab={tab} onChange={setTab} />
+      {guideOpen && <FirstVisitGuide firstname={me.student.firstname} gender={me.student.gender} onClose={closeGuide} />}
     </div>
   );
 }

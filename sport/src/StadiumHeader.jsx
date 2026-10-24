@@ -1,7 +1,7 @@
 import { Ball, Floodlight, LogoBadge } from "./Art.jsx";
 
 // «الملعب الليلي»: floodlights over a dark pitch, the pitch arc, the ball and the logo.
-export default function StadiumHeader({ firstname, sportName, onLogout }) {
+export default function StadiumHeader({ firstname, sportName, onLogout, onHelp }) {
   return (
     <header className="stadium">
       <div className="stadium-sky" aria-hidden="true">
@@ -22,9 +22,10 @@ export default function StadiumHeader({ firstname, sportName, onLogout }) {
       </div>
       <div className="stadium-top">
         <LogoBadge className="hero-logo" />
-        <button type="button" className="logout" onClick={onLogout}>
-          خروج
-        </button>
+        <span className="top-actions">
+          <button type="button" className="help-btn" onClick={onHelp} aria-label="جولة تعريفية" title="جولة تعريفية">؟</button>
+          <button type="button" className="logout" onClick={onLogout}>خروج</button>
+        </span>
       </div>
       <div className="stadium-hello">
         <h1>أهلاً {firstname} 👋</h1>

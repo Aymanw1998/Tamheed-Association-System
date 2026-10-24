@@ -398,3 +398,48 @@ svg.id-img { height: 86%; }
 .loading-ball { width: 46px; height: 46px; animation: spin 1.2s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .loading-ball { animation: none; } }
+
+/* ---------- First-visit guide ---------- */
+.help-btn {
+  width: 32px; height: 32px; margin-inline-end: 8px; border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, .35); background: rgba(255, 255, 255, .12);
+  color: #fff; font: inherit; font-size: 17px; font-weight: 900; cursor: pointer;
+}
+.help-btn:hover, .help-btn:focus-visible { background: rgba(255, 255, 255, .22); }
+.guide-overlay {
+  position: fixed; inset: 0; z-index: 50; display: flex; align-items: flex-end; justify-content: center;
+  background: rgba(7, 27, 39, .72); overflow: hidden;
+}
+.guide-sheet {
+  width: 100%; max-width: 480px; box-sizing: border-box; padding: 16px 14px calc(16px + env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, var(--navy) 0%, var(--night) 100%);
+  border-top: 3px solid var(--orange); border-radius: 22px 22px 0 0; color: #fff;
+}
+.guide-row { display: flex; align-items: flex-end; gap: 10px; min-width: 0; }
+.guide-avatar { flex: none; width: 96px; height: 96px; }
+.guide-avatar svg { width: 100%; height: 100%; display: block; }
+.guide-bubble {
+  position: relative; flex: 1; min-width: 0; padding: 12px 14px; border-radius: 16px;
+  background: #fff; color: var(--ink); font-size: 15px; line-height: 1.6; overflow-wrap: anywhere;
+}
+.guide-bubble::before {
+  content: ""; position: absolute; inset-inline-start: -7px; bottom: 22px; width: 14px; height: 14px;
+  background: #fff; transform: rotate(45deg);
+}
+.guide-bubble:focus { outline: none; }
+.guide-bubble:focus-visible { outline: 3px solid var(--orange); outline-offset: 2px; }
+.guide-name { display: block; margin-bottom: 4px; font-size: 14px; font-weight: 900; color: var(--orange-deep); }
+.guide-bubble p { margin: 0; }
+.guide-dots { display: flex; justify-content: center; gap: 6px; margin: 12px 0 10px; }
+.guide-dots span { width: 8px; height: 8px; border-radius: 50%; background: rgba(255, 255, 255, .3); }
+.guide-dots span.on { background: var(--orange); }
+.guide-actions { display: flex; align-items: center; gap: 8px; }
+.guide-actions button {
+  font: inherit; font-size: 15px; font-weight: 800; min-height: 44px; padding: 0 18px;
+  border-radius: 12px; cursor: pointer;
+}
+.guide-next { margin-inline-start: auto; border: 0; background: linear-gradient(90deg, var(--orange), #ffc061); color: var(--navy); }
+.guide-prev { border: 1px solid rgba(255, 255, 255, .4); background: transparent; color: #fff; }
+.guide-skip { border: 0; background: transparent; color: var(--gold); padding: 0 8px; }
+.guide-actions button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+.top-actions { display: inline-flex; align-items: center; }

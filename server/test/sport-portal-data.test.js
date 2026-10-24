@@ -59,7 +59,7 @@ function setup({ students, players, lessons, records, files } = {}) {
   const logs = [];
   const stores = {
     students: store(students || [
-      { _id: "s1", tz: ME.tz, email: ME.email, firstname: "علي", lastname: "حداد", photo: ME.photo, birth_date: ME.birth },
+      { _id: "s1", tz: ME.tz, email: ME.email, firstname: "علي", gender: "ذكر", lastname: "حداد", photo: ME.photo, birth_date: ME.birth },
       { _id: "s2", tz: MATE.tz, email: MATE.email, firstname: "سامر", lastname: "نصار", photo: MATE.photo, birth_date: MATE.birth },
     ]),
     players: store(players || [
@@ -96,7 +96,7 @@ test("me returns the card, lessons, next lesson and history of the signed-in stu
   assert.equal(r.statusCode, 200);
   assert.deepEqual(r.body, {
     ok: true,
-    student: { firstname: "علي", lastname: "حداد", age: 14, birthDate: "2012-03-15", hasPhoto: true },
+    student: { firstname: "علي", lastname: "حداد", gender: "ذكر", age: 14, birthDate: "2012-03-15", hasPhoto: true },
     card: {
       sport: { name: "كرة القدم", icon: "⚽" },
       jerseyNumber: 7,

@@ -59,6 +59,7 @@ function createSportPortalController(deps = {}) {
         ok: true,
         student: {
           firstname: student.firstname || "",
+          gender: student.gender || "",
           lastname: student.lastname || "",
           age: ageOn(student.birth_date, at),
           birthDate: birthDay(student.birth_date),
