@@ -10,6 +10,7 @@ const RESTRICTED = [
   { pattern: /^\/students(\/|$)/, key: "students.view" },
   { pattern: /^\/lessons\/new$/, key: "lessons.create" },
   { pattern: /^\/vehicles(\/|$)/, key: "vehicles.view" },
+  { pattern: /^\/sports(\/|$)/, key: "sports.view" },
   { pattern: /^\/audit(\/|$)/, key: "audit.view" },
 ];
 

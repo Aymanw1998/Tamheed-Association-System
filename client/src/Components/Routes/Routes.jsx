@@ -32,6 +32,7 @@ import AttendancePage from '../Attendance/AttendancePage';
 import FilesPage from '../Files/FilesPage';
 import ViewAllVehicle from '../Vehicle/ViewAllVehicle';
 import EditVehicle from '../Vehicle/EditVehicle';
+import SportPage from '../Sport/SportPage';
 import FloatingAIButton from '../AI/FloatingAIButton';
 import { canStored } from '../../utils/session';
 import PrivacyPage from '../Privacy/PrivacyPage';
@@ -95,6 +96,8 @@ export default function CRoutes() {
 
             <Route path="/vehicles" element={<ViewAllVehicle/>} />
             <Route path="/vehicles/:id" element={<EditVehicle/>} />
+
+            <Route path="/sports" element={<SportPage/>} />
 
             <Route path="/notices" element={<NoticesBoard/>} />
             <Route path="/audit" element={<AuditPage/>} />

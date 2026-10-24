@@ -6,6 +6,7 @@ import { accessStrings } from "./accessStrings";
 import { assistantStrings } from "./assistantStrings";
 import { rosterStrings } from "./rosterStrings";
 import { tourStrings } from "./tourStrings";
+import { sportStrings } from "./sportStrings";
 
 // The app is Arabic-only and right-to-left.
 const translations = {
@@ -89,6 +90,8 @@ const translations = {
 const dictionary = translations.ar;
 dictionary.vehicles = vehicleStrings.ar;
 dictionary.nav.vehicles = vehicleStrings.ar.navTitle;
+dictionary.sport = sportStrings.ar;
+dictionary.nav.sports = sportStrings.ar.navTitle;
 dictionary.notices = noticeStrings.ar;
 dictionary.nav.notices = noticeStrings.ar.navTitle;
 dictionary.roster = rosterStrings.ar;
