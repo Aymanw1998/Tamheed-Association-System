@@ -112,7 +112,10 @@ export async function logout() {
   stopDemo();
   // Stop phone notifications for this device while the session still works, so
   // a shared device does not keep receiving this user's notifications.
-  try { await unsubscribeStaff(); } catch {}
+  // Capped, so it can never hold up the sign-out.
+  try {
+    await Promise.race([unsubscribeStaff(), new Promise((resolve) => setTimeout(resolve, 3000))]);
+  } catch {}
   try {
     await api.post("/auth/logout", {}, { withCredentials: true });
   } catch {}

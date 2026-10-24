@@ -20,10 +20,10 @@ export const saveAttendanceSheet = async (lessonId, { year, month, day }, items)
         lessonId, year, month, day,
         items,
         });
-        if (![200, 201].includes(status) || !data.ok) throw new Error(data?.message || "failed");
+        if (![200, 201].includes(status) || !data.ok) throw Object.assign(new Error(data?.message || "failed"), { status });
         return { ok: true, overwritten: data.overwritten || [] };
     } catch (err) {
-        return { ok: false, status: err?.response?.status || 0, message: err?.response?.data?.message || err.message };
+        return { ok: false, status: err?.response?.status || err?.status || 0, message: err?.response?.data?.message || err.message };
     }
 };
 

@@ -1,6 +1,6 @@
 import {
   enqueue, pending, flush, othersPending, clear, failedItems, retryFailed,
-  createMemoryBackend, setBackend,
+  createMemoryBackend, setBackend, dropKey,
 } from "./attendanceQueue";
 
 const item = (queuedAt, extra = {}) => ({
@@ -97,4 +97,47 @@ test("a send that throws keeps the item and stops", async () => {
   const res = await flush("A", async () => { throw new Error("boom"); });
   expect(res.sent).toBe(0);
   expect(await pending("A")).toHaveLength(1);
+});
+
+test("queuing the same sheet twice keeps only the last", async () => {
+  await enqueue("A", item(1, { key: "k1", body: { v: "old" } }));
+  await enqueue("A", item(2, { key: "k1", body: { v: "new" } }));
+  await enqueue("A", item(3, { key: "k2" }));
+  const rows = await pending("A");
+  expect(rows).toHaveLength(2);
+  expect(rows.find((r) => r.key === "k1").body.v).toBe("new");
+});
+
+test("the same key for another user is untouched", async () => {
+  await enqueue("A", item(1, { key: "k1" }));
+  await enqueue("B", item(2, { key: "k1" }));
+  expect(await pending("A")).toHaveLength(1);
+  expect(await pending("B")).toHaveLength(1);
+});
+
+test("an online save drops the stale queued item, pending or failed", async () => {
+  await enqueue("A", item(1, { key: "k2" }));
+  await enqueue("A", item(2, { key: "k1" }));
+  await flush("A", async (it) => (it.key === "k2" ? { ok: false, status: 400 } : { ok: false, status: 0 }));
+  expect(await failedItems("A")).toHaveLength(1);
+  await dropKey("A", "k1");
+  await dropKey("A", "k2");
+  expect(await pending("A")).toEqual([]);
+});
+
+test.each([503, 500, 408, 429])("a %i keeps the item and stops", async (status) => {
+  await enqueue("A", item(1));
+  await enqueue("A", item(2));
+  const send = jest.fn(async () => ({ ok: false, status }));
+  const res = await flush("A", send);
+  expect(send).toHaveBeenCalledTimes(1);
+  expect(res.failed).toEqual([]);
+  expect(await pending("A")).toHaveLength(2);
+});
+
+test("a failing remove after a successful send does not reject the flush", async () => {
+  const mem = createMemoryBackend();
+  setBackend({ ...mem, remove: async () => { throw new Error("db"); } });
+  await enqueue("A", item(1));
+  await expect(flush("A", async () => ({ ok: true, status: 200 }))).resolves.toMatchObject({ sent: 1 });
 });

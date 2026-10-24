@@ -3,7 +3,7 @@ import { useI18n } from "../../i18n/I18nContext";
 import { toast } from "../../ALERT/SystemToasts";
 import { ask } from "../Provides/confirmBus";
 import Button from "../UI/Button.jsx";
-import { isOffline, noResponse, queueAttendance } from "../../pwa/queuedSave";
+import { dropQueuedSheet, isOffline, noResponse, queueAttendance } from "../../pwa/queuedSave";
 import { OVERWRITTEN_MESSAGE, SAVED_OFFLINE_MESSAGE } from "../../pwa/attendanceQueue";
 import { getAttendance, getTodayLessons, saveAttendance } from "../../WebServer/services/sport/functionsSport";
 import { DAY_NAMES, endOf, startOf, toHHMM } from "../../utils/lessonSchedule";
@@ -92,15 +92,16 @@ export default function AttendanceTab({ lessons, canCoach }) {
     const marks = sheet.filter((p) => p.status).map((p) => ({ studentId: p.studentId, status: p.status }));
     if (!marks.length) return toast.warn(t("sport.attendance.nothingToSave"));
     setSaving(true);
+    const queued = {
+      kind: "sport",
+      url: `/sports/lessons/${encodeURIComponent(lessonId)}/attendance`,
+      body: { date, marks },
+      label: lesson?.name || "حضور",
+    };
     const res = isOffline() ? { ok: false, status: 0 } : await saveAttendance(lessonId, date, marks);
     if (!res.ok && (isOffline() || noResponse(res))) {
       // No connection: keep the save on this device and send it later.
-      const kept = await queueAttendance({
-        kind: "sport",
-        url: `/sports/lessons/${encodeURIComponent(lessonId)}/attendance`,
-        body: { date, marks },
-        label: lesson?.name || "حضور",
-      });
+      const kept = await queueAttendance(queued);
       if (kept) {
         setSaving(false);
         setDirty(false);
@@ -109,6 +110,7 @@ export default function AttendanceTab({ lessons, canCoach }) {
     }
     setSaving(false);
     if (!res.ok) return toast.warn(res.message);
+    await dropQueuedSheet(queued);
     setDirty(false);
     toast.success(t("sport.attendance.saved"));
     if (res.overwritten?.length) toast.warn(OVERWRITTEN_MESSAGE);

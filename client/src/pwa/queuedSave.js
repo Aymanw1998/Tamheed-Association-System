@@ -1,7 +1,22 @@
 // Glue between the attendance screens and the offline queue.
 import api from "../WebServer/services/api";
 import { getStoredUserTz } from "../utils/session";
-import { enqueue, flush } from "./attendanceQueue";
+import { dropKey, enqueue, flush } from "./attendanceQueue";
+
+// Identifies one sheet: the same lesson and date always give the same key.
+export function attendanceKey(item) {
+  const b = item.body || {};
+  // The sport url already holds the lesson id; the general one has it in the body.
+  const when = item.kind === "sport" ? b.date : [b.lessonId, b.year, b.month, b.day].join("-");
+  return [item.kind, item.url, when].join("|");
+}
+
+// After a successful online save, any older queued copy of that sheet is stale.
+export async function dropQueuedSheet(item) {
+  const tz = getStoredUserTz();
+  if (!tz) return;
+  try { await dropKey(tz, attendanceKey(item)); } catch {}
+}
 
 // True when the browser says it is offline, so a save should not even be tried.
 export const isOffline = () => typeof navigator !== "undefined" && navigator.onLine === false;
@@ -14,7 +29,7 @@ export async function queueAttendance(item) {
   const tz = getStoredUserTz();
   if (!tz) return false;
   try {
-    await enqueue(tz, { ...item, queuedAt: Date.now() });
+    await enqueue(tz, { ...item, key: attendanceKey(item), queuedAt: Date.now() });
     return true;
   } catch {
     return false;

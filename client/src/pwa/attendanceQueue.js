@@ -69,8 +69,12 @@ const changed = () => {
 
 export async function enqueue(userTz, item) {
   if (!key(userTz)) throw new Error("no user");
+  // One item per user and key (lesson + date): the newest sheet replaces any
+  // older pending or failed one, so a stale sheet is never sent later.
+  if (item.key) await dropKey(userTz, item.key, true);
   const id = await db().put({
     userTz: key(userTz),
+    key: item.key,
     kind: item.kind,
     url: item.url,
     body: item.body,
@@ -80,6 +84,13 @@ export async function enqueue(userTz, item) {
   });
   changed();
   return id;
+}
+
+// Removes this user's items with the given key (pending or failed).
+export async function dropKey(userTz, itemKey, silent) {
+  if (!key(userTz) || !itemKey) return;
+  for (const row of await mine(userTz)) if (row.key === itemKey) await db().remove(row.id);
+  if (!silent) changed();
 }
 
 // Everything waiting for this user, including items that were rejected.
@@ -117,8 +128,8 @@ const running = new Map();
 
 // send(item) resolves to { ok, status, message?, overwritten? }.
 //  ok                      -> removed from the queue
-//  401 or no response (0)  -> kept, flush stops (session expired / still offline)
-//  any other error status  -> marked failed, flush continues
+//  401, no response (0), 408, 429, 5xx -> kept, flush stops (session expired, offline, server busy)
+//  any other error status              -> marked failed, flush continues
 export function flush(userTz, send) {
   const k = key(userTz);
   if (!k) return Promise.resolve({ sent: 0, failed: [], overwritten: [] });
@@ -129,14 +140,14 @@ export function flush(userTz, send) {
       let res;
       try { res = await send(row); } catch { break; }
       if (res?.ok) {
-        await db().remove(row.id);
+        try { await db().remove(row.id); } catch {}
         out.sent += 1;
         for (const o of res.overwritten || []) if (!out.overwritten.includes(o)) out.overwritten.push(o);
-      } else if (!res || res.status === 401 || !res.status) {
+      } else if (!res || !res.status || res.status === 401 || res.status === 408 || res.status === 429 || res.status >= 500) {
         break;
       } else {
         const message = res.message || "تعذّر إرسال الحضور";
-        await db().put({ ...row, failed: true, message });
+        try { await db().put({ ...row, failed: true, message }); } catch {}
         out.failed.push({ item: row, message });
       }
     }

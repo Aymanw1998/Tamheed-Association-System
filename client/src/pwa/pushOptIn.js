@@ -15,6 +15,12 @@ function keyToBytes(base64) {
   return Uint8Array.from(raw, (c) => c.charCodeAt(0));
 }
 
+function sameKey(current, wanted) {
+  if (!current) return true; // browser does not expose it: keep the subscription
+  const a = new Uint8Array(current);
+  return a.length === wanted.length && a.every((v, i) => v === wanted[i]);
+}
+
 async function currentSubscription() {
   const reg = await navigator.serviceWorker.getRegistration();
   if (!reg) return { reg: null, sub: null };
@@ -37,11 +43,18 @@ export async function subscribeStaff() {
     if ((await Notification.requestPermission()) !== "granted") return { ok: false, reason: "denied" };
     const { data } = await api.get("/push/key");
     if (!data?.ok || !data.key) return { ok: false, reason: "unavailable" };
-    const { reg, sub: existing } = await currentSubscription();
+    const { reg, sub: found } = await currentSubscription();
     if (!reg) return { ok: false, reason: "unavailable" };
+    const serverKey = keyToBytes(data.key);
+    let existing = found;
+    // A subscription made with another server key can never receive pushes.
+    if (existing && !sameKey(existing.options?.applicationServerKey, serverKey)) {
+      await existing.unsubscribe();
+      existing = null;
+    }
     const sub = existing || (await reg.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: keyToBytes(data.key),
+      applicationServerKey: serverKey,
     }));
     await api.post("/push/subscribe", { subscription: sub.toJSON() });
     return { ok: true };

@@ -51,7 +51,11 @@ const Profile = ({parent = false}) => {
     const [err, setErr]         = useState(null);
     const [pushOn, setPushOn] = useState(false);
     const [pushBusy, setPushBusy] = useState(false);
-    useEffect(() => { isSubscribed().then(setPushOn); }, []);
+    useEffect(() => {
+        let live = true;
+        isSubscribed().then((on) => { if (live) setPushOn(on); });
+        return () => { live = false; };
+    }, []);
     const togglePush = async () => {
         setPushBusy(true);
         const res = pushOn ? await unsubscribeStaff() : await subscribeStaff();

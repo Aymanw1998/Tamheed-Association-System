@@ -13,7 +13,11 @@ jest.mock("../api", () => ({
 }));
 jest.mock("../../utils/accessScheduler", () => ({ scheduleAccessRefresh: jest.fn(), clearAccessRefresh: jest.fn() }));
 
+jest.mock("../../../Components/Provides/confirmBus", () => ({ ask: jest.fn() }));
+
 import api from "../api";
+import { ask } from "../../../Components/Provides/confirmBus";
+import { createMemoryBackend, enqueue, pending, setBackend } from "../../../pwa/attendanceQueue";
 import { logout } from "./fuctionsAuth";
 import { isDemo, startDemo, stopDemo } from "../../../journey/demoMode";
 
@@ -54,5 +58,33 @@ describe("login clears the cached API data", () => {
     await login("x", "y");
     expect(del).toHaveBeenCalledWith("tamheed-api");
     delete global.caches;
+  });
+});
+
+describe("logout with unsent attendance", () => {
+  beforeEach(async () => {
+    setBackend(createMemoryBackend());
+    localStorage.setItem("user_tz", "A");
+    localStorage.setItem("accessToken", "tok");
+    await enqueue("A", { kind: "general", url: "/x", body: {}, label: "x", queuedAt: 1 });
+    api.post.mockResolvedValue({ data: { ok: true } });
+    ask.mockReset();
+  });
+  afterEach(() => localStorage.clear());
+
+  test("cancel aborts: returns false and nothing is touched", async () => {
+    ask.mockResolvedValue(false);
+    expect(await logout()).toBe(false);
+    expect(api.post).not.toHaveBeenCalled();
+    expect(localStorage.getItem("accessToken")).toBe("tok");
+    expect(await pending("A")).toHaveLength(1);
+    expect(window.location.assign).not.toHaveBeenCalled();
+  });
+
+  test("OK clears the queue and signs out", async () => {
+    ask.mockResolvedValue(true);
+    await logout();
+    expect(await pending("A")).toEqual([]);
+    expect(window.location.assign).toHaveBeenCalledWith("/");
   });
 });
