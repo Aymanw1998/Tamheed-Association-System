@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import styles from "./ViewAllLesson.module.css";
 import { getAll as getAllUsers } from "../../WebServer/services/user/functionsUser";
-import { getAllLesson, updateLesson } from "../../WebServer/services/lesson/functionsLesson";
+import { getAllLesson, getSportSchedule, updateLesson } from "../../WebServer/services/lesson/functionsLesson";
 import { useNavigate } from "react-router-dom";
 import Fabtn from "./../Global/Fabtn/Fabtn";
 import { toast } from "../../ALERT/SystemToasts";
@@ -9,6 +9,7 @@ import { canStored } from "../../utils/session";
 import { isLessonVisible } from "../../utils/lessonVisibility";
 import { roomLabel } from "../../utils/rooms";
 import { lessonDayOf } from "../../utils/lessonSchedule";
+import { SYSTEM_TEACHER, lessonLabel, mergeSchedule } from "../../utils/sportSchedule";
 import MobileLessonList from "./MobileLessonList";
 import { ask } from "../Provides/confirmBus";
 import Button from "../UI/Button";
@@ -82,6 +83,7 @@ function WeekTimeline({
   onReload,
   setTooltip,
   teacherNames,
+  onShowDetails,
 }) {
   const byDay = useMemo(() => {
     const map = {1:[],2:[],3:[],4:[],5:[],6:[],7:[]};
@@ -179,8 +181,13 @@ function WeekTimeline({
                   className={styles.lessonBlock}
                   data-tour="lessons-open"
                   style={{ top, height }}
-                  draggable={canEdit && canStored("lessons.edit")}
+                  draggable={!l.readOnly && canEdit && canStored("lessons.edit")}
                   onClick={(ev) => {
+                    if (l.readOnly) {
+                      ev.stopPropagation();
+                      onShowDetails?.(l);
+                      return;
+                    }
                     if (!canStored("lessons.edit")) return;
                     ev.stopPropagation();
                     navigate(`/lessons/${l._id}`);
@@ -193,8 +200,8 @@ function WeekTimeline({
                       y: e.clientY,
                       content: (
                         <>
-                          <div><b>الاسم:</b> {l.name}</div>
-                          <div><b>المرشد:</b> {teacherNames?.[l.teacher] || "…"}</div>
+                          <div><b>الاسم:</b> {lessonLabel(l)}</div>
+                          <div><b>المرشد:</b> {l.readOnly ? SYSTEM_TEACHER : (teacherNames?.[l.teacher] || "…")}</div>
                           <div><b>الوقت:</b> {toHHMM(getStart(l))}–{toHHMM(getEnd(l))}</div>
                           <div><b>اليوم:</b> {dayNames[(Number(l.date.day) || 1) - 1]}</div>
                           <div><b>المكان:</b> {roomLabel(l?.room)}</div>
@@ -205,7 +212,7 @@ function WeekTimeline({
                   onMouseMove={(e) => setTooltip?.({ x: e.clientX, y: e.clientY })}
                   onMouseLeave={() => setTooltip?.({ show: false })}
                 >
-                  <div className={styles.lessonTitle}>{l.name}</div>
+                  <div className={styles.lessonTitle}>{lessonLabel(l)}</div>
                   <div className={styles.lessonMeta}>
                     {toHHMM(getStart(l))}–{toHHMM(getEnd(l))}
                     {" · "}
@@ -234,6 +241,7 @@ function DayRoomsTimeline({
   onReload,
   setTooltip,
   teacherNames,
+  onShowDetails,
 }) {
   const roomsList = useMemo(() => {
     const uid = localStorage.getItem("user_id");
@@ -345,8 +353,13 @@ function DayRoomsTimeline({
                 className={styles.lessonBlock}
                 data-tour="lessons-open"
                 style={{ top, height }}
-                draggable={canEdit && canStored("lessons.edit")}
-                onClick={() => {
+                draggable={!l.readOnly && canEdit && canStored("lessons.edit")}
+                onClick={(ev) => {
+                  if (l.readOnly) {
+                    ev.stopPropagation();
+                    onShowDetails?.(l);
+                    return;
+                  }
                   if (!canStored("lessons.edit")) return;
                   navigate(`/lessons/${l._id}`);
                 }}
@@ -358,8 +371,8 @@ function DayRoomsTimeline({
                     y: e.clientY,
                     content: (
                       <>
-                        <div><b>الاسم:</b> {l.name}</div>
-                        <div><b>المرشد:</b> {teacherNames?.[l.teacher] || "…"}</div>
+                        <div><b>الاسم:</b> {lessonLabel(l)}</div>
+                        <div><b>المرشد:</b> {l.readOnly ? SYSTEM_TEACHER : (teacherNames?.[l.teacher] || "…")}</div>
                         <div><b>الوقت:</b> {toHHMM(getStart(l))}–{toHHMM(getEnd(l))}</div>
                         <div><b>اليوم:</b> {dayNames[(Number(l.date.day) || 1) - 1]}</div>
                         <div><b>المكان:</b> {roomLabel(room)}</div>
@@ -370,7 +383,7 @@ function DayRoomsTimeline({
                 onMouseMove={(e) => setTooltip?.({ x: e.clientX, y: e.clientY })}
                 onMouseLeave={() => setTooltip?.({ show: false })}
               >
-                <div className={styles.lessonTitle}>{l.name}</div>
+                <div className={styles.lessonTitle}>{lessonLabel(l)}</div>
                 <div className={styles.lessonMeta}>
                   {toHHMM(getStart(l))}–{toHHMM(getEnd(l))}
                 </div>
@@ -384,12 +397,43 @@ function DayRoomsTimeline({
 }
 
 /* =======================
+   Read-only football lesson details
+======================= */
+function SportLessonDetails({ lesson, canOpenSports, onClose, onOpenSports }) {
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const name = lessonLabel(lesson);
+  return (
+    <div className={styles.detailsBackdrop} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className={styles.detailsBox} role="dialog" aria-modal="true" aria-label={name}>
+        <h2 className={styles.detailsTitle}>{name}</h2>
+        <p><b>اليوم والوقت:</b> {dayNames[(Number(lesson.date?.day) || 1) - 1]} {toHHMM(getStart(lesson))}–{toHHMM(getEnd(lesson))}</p>
+        <p><b>المكان:</b> {roomLabel(lesson.room)}</p>
+        <p><b>المرشد:</b> {SYSTEM_TEACHER}</p>
+        <p><b>عدد اللاعبين:</b> {lesson.playersCount ?? 0}</p>
+        <div className={styles.detailsActions}>
+          {canOpenSports && (
+            <button type="button" className={styles.detailsLink} onClick={onOpenSports}>إدارة من قسم الرياضة</button>
+          )}
+          <button type="button" className={styles.detailsClose} onClick={onClose}>إغلاق</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* =======================
    MAIN PAGE
 ======================= */
 export default function ViewAllLesson() {
   const navigate = useNavigate();
   const canEditLessons = canStored("lessons.edit");
   const canCreateLessons = canStored("lessons.create");
+  const canSeeSports = ["sports.view", "sports.coach", "sports.manage"].some((key) => canStored(key));
 
   const [showFab, setShowFab] = useState(false);
   const [addBtnEl, setAddBtnEl] = useState(null);
@@ -424,6 +468,7 @@ export default function ViewAllLesson() {
   const [lessons, setLessons] = useState([]);
   const [teachers, setTeachers] = useState([]);
   const [teacherNames, setTeacherNames] = useState({});
+  const [details, setDetails] = useState(null); // a read-only sport lesson
   // Tooltips
   const [tooltipInfo, setTooltipInfo] = useState({ show:false, content:"", x:0, y:0 });
 
@@ -453,10 +498,14 @@ export default function ViewAllLesson() {
   const loadData = async () => {
     try {
       setIsLoading(true);
-      const res = await getAllLesson();
+      const [res, sportRes] = await Promise.all([getAllLesson(), getSportSchedule()]);
       if (!res?.ok) throw new Error(res?.message || "Load failed");
 
-      const list = Array.isArray(res.lessons) ? res.lessons : [];
+      // Football lessons are extra and read-only: the schedule still loads without them.
+      const list = mergeSchedule(
+        Array.isArray(res.lessons) ? res.lessons : [],
+        sportRes?.ok ? sportRes.lessons : [],
+      );
       // clean list_students
       const cleaned = list.map(lesson => ({
         ...lesson,
@@ -654,6 +703,7 @@ export default function ViewAllLesson() {
                 onReload={loadData}
                 setTooltip={(t)=> setTooltipInfo(prev => ({ ...prev, ...t }))}
                 teacherNames={teacherNames}
+                onShowDetails={setDetails}
               />
             ) : (
               <DayRoomsTimeline
@@ -665,6 +715,7 @@ export default function ViewAllLesson() {
                 onReload={loadData}
                 setTooltip={(t)=> setTooltipInfo(prev => ({ ...prev, ...t }))}
                 teacherNames={teacherNames}
+                onShowDetails={setDetails}
               />
             )}
           </div>
@@ -676,9 +727,19 @@ export default function ViewAllLesson() {
               onDayChange={setMobileDay}
               teacherNames={teacherNames}
               onOpen={canEditLessons ? (l) => navigate(`/lessons/${l._id}`) : undefined}
+              onShowDetails={setDetails}
             />
           </div>
         </>
+      )}
+
+      {details && (
+        <SportLessonDetails
+          lesson={details}
+          canOpenSports={canSeeSports}
+          onClose={() => setDetails(null)}
+          onOpenSports={() => navigate("/sports")}
+        />
       )}
 
       {/* Tooltip */}

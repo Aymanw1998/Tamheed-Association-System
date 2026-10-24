@@ -21,6 +21,17 @@ export const getAllLesson = async() => {
     }
 }
 
+// Football lessons for the general schedule (read-only, room 9).
+export const getSportSchedule = async() => {
+    try{
+        const {data, status} = await api.get('/lesson/sport-schedule');
+        if(![200,201].includes(status) || !data.ok) throw new Error ('تعذّر تحميل دروس الرياضة');
+        return {ok: true, lessons: Array.isArray(data.lessons) ? data.lessons : []};
+    } catch(err) {
+        return {ok: false, message: err.response?.data?.message || err.message || 'تعذّر إتمام العملية.'};
+    }
+}
+
 export const getOneLesson = async(_id) => {
     try{
         const {data, status} = await api.get('/lesson/' + _id, );

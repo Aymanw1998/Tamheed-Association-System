@@ -346,3 +346,60 @@
     min-width: 0;
   }
 }
+
+/* ===== Read-only football lesson details ===== */
+.detailsBackdrop{
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(13, 48, 64, 0.55);
+}
+
+.detailsBox{
+  width: min(360px, 100%);
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  direction: rtl;
+}
+
+.detailsTitle{
+  margin: 0 0 var(--space-3);
+  font-size: 1.1rem;
+}
+
+.detailsBox p{ margin: var(--space-1) 0; }
+
+.detailsActions{
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: flex-end;
+  margin-top: var(--space-4);
+}
+
+.detailsLink,
+.detailsClose{
+  min-height: 40px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-full);
+  font: inherit;
+  cursor: pointer;
+}
+
+.detailsLink{
+  border: 0;
+  background: var(--color-primary-600);
+  color: var(--color-text-on-primary);
+}
+
+.detailsClose{
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+}

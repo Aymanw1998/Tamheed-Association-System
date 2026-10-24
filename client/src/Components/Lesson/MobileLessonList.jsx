@@ -2,11 +2,13 @@ import React, { useEffect, useMemo, useRef } from "react";
 import styles from "./MobileLessonList.module.css";
 import { DAY_NAMES, countLessonsByDay, endOf, lessonsForDay, startOf, toHHMM } from "../../utils/lessonSchedule";
 import { isNamedPlace, roomLabel } from "../../utils/rooms";
+import { SYSTEM_TEACHER, lessonLabel } from "../../utils/sportSchedule";
 
 // Phone layout for the lesson program: one day at a time, picked from a row of
 // day chips, with the lessons listed by start time. `onOpen` is omitted for
 // users who can't open a lesson, which leaves the cards as plain text.
-export default function MobileLessonList({ lessons, day, onDayChange, teacherNames, onOpen }) {
+// Read-only football lessons never go to `onOpen`: they open `onShowDetails`.
+export default function MobileLessonList({ lessons, day, onDayChange, teacherNames, onOpen, onShowDetails }) {
   const counts = useMemo(() => countLessonsByDay(lessons), [lessons]);
   const dayLessons = useMemo(() => lessonsForDay(lessons, day), [lessons, day]);
   const selectedChip = useRef(null);
@@ -47,25 +49,28 @@ export default function MobileLessonList({ lessons, day, onDayChange, teacherNam
         {dayLessons.map((lesson) => {
           const card = (
             <>
-              <span className={styles.name}>{lesson.name}</span>
+              <span className={styles.name}>{lessonLabel(lesson)}</span>
               <span className={styles.meta}>
                 <span className={`${styles.place} ${isNamedPlace(lesson.room) ? styles.placeNamed : ""}`}>
                   {roomLabel(lesson.room)}
                 </span>
-                {teacherNames?.[lesson.teacher] && <span>{teacherNames[lesson.teacher]}</span>}
-                <span>الطلاب: {(lesson.list_students || []).length}</span>
+                {lesson.readOnly
+                  ? <span>{SYSTEM_TEACHER}</span>
+                  : teacherNames?.[lesson.teacher] && <span>{teacherNames[lesson.teacher]}</span>}
+                <span>{lesson.readOnly ? `اللاعبون: ${lesson.playersCount ?? 0}` : `الطلاب: ${(lesson.list_students || []).length}`}</span>
               </span>
             </>
           );
 
+          const open = lesson.readOnly ? onShowDetails : onOpen;
           return (
             <li key={lesson._id} className={styles.row}>
               <span className={styles.time}>
                 {toHHMM(startOf(lesson))}
                 <small>{toHHMM(endOf(lesson))}</small>
               </span>
-              {onOpen ? (
-                <button type="button" className={`${styles.card} ${styles.cardButton}`} data-tour="lessons-open" onClick={() => onOpen(lesson)}>
+              {open ? (
+                <button type="button" className={`${styles.card} ${styles.cardButton}`} data-tour="lessons-open" onClick={() => open(lesson)}>
                   {card}
                 </button>
               ) : (

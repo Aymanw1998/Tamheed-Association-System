@@ -56,3 +56,27 @@
   .cards tr { margin-bottom: 1rem; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); padding: 10px; }
   .cards td::before { content: attr(data-label); font-weight: bold; width: 6.5em; display: inline-block; }
 }
+
+/* Lessons tab (the grid itself reuses ViewAllLesson.module.css) */
+.lessonsBar { display: flex; justify-content: flex-end; margin-bottom: var(--space-3); }
+.lessonButton { font: inherit; text-align: start; width: auto; cursor: pointer; }
+.lessonButton[disabled], .lessonStatic { cursor: default; }
+.timeRow { display: flex; gap: var(--space-3); }
+.timeRow .field { flex: 1 1 0; }
+.playerChecks { max-height: 220px; overflow: auto; padding: var(--space-2); border: 1px solid var(--color-border); border-radius: var(--radius-md); }
+.formActionsSpread { justify-content: space-between; }
+
+/* Attendance tab */
+.attBar { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: flex-end; margin-bottom: var(--space-3); }
+.attBar .field { flex: 1 1 200px; min-width: 0; }
+.attBar select { font: inherit; padding: 10px 12px; border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); background: var(--color-surface); }
+.notice { padding: 12px 14px; border-radius: var(--radius-md); background: var(--color-primary-50); color: var(--color-primary-700); margin-bottom: var(--space-3); }
+.quick { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-3); }
+.pills { display: inline-flex; gap: var(--space-1); flex-wrap: wrap; }
+.pill { font: inherit; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--color-border-strong); background: var(--color-surface); cursor: pointer; }
+.pill:disabled { cursor: default; opacity: 0.7; }
+.pillPresent[aria-pressed="true"] { background: var(--color-success-500); border-color: var(--color-success-500); color: #fff; }
+.pillAbsent[aria-pressed="true"] { background: var(--color-danger-500); border-color: var(--color-danger-500); color: #fff; }
+.pillLate[aria-pressed="true"] { background: var(--color-warning-500); border-color: var(--color-warning-500); color: #fff; }
+.attFooter { position: sticky; bottom: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-3); margin-top: var(--space-3); background: var(--color-surface); border-top: 1px solid var(--color-border); }
+.attCounts { color: var(--color-text-secondary); font-size: var(--fs-sm); }

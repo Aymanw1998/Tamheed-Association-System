@@ -18,3 +18,8 @@ test("with the filter on, only own lessons show without lessons.viewAll", () => 
 test("lessons.viewAll sees every lesson even with the filter on", () => {
   expect(isLessonVisible(other, { showMyLessons: true, canViewAll: true, uid: "u1" })).toBe(true);
 });
+
+test("read-only sport lessons are visible even in the my-lessons filter", () => {
+  const sport = { readOnly: true, teacher: null };
+  expect(isLessonVisible(sport, { showMyLessons: true, canViewAll: false, uid: "u1" })).toBe(true);
+});

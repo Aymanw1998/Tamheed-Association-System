@@ -4,6 +4,8 @@ import { canStored } from "../../utils/session";
 import { getLessons, getPlayers, getSport } from "../../WebServer/services/sport/functionsSport";
 import PlayersTab from "./PlayersTab";
 import StatsSettingsTab from "./StatsSettingsTab";
+import LessonsTab from "./LessonsTab";
+import AttendanceTab from "./AttendanceTab";
 import styles from "./Sport.module.css";
 
 export default function SportPage() {
@@ -49,9 +51,8 @@ export default function SportPage() {
       {!loading && !error && (
         <>
           {tab === "players" && <PlayersTab {...props} />}
-          {/* Task 7 replaces these two placeholders. */}
-          {tab === "lessons" && <div className={styles.emptyState}>{t("sport.soon")}</div>}
-          {tab === "attendance" && <div className={styles.emptyState}>{t("sport.soon")}</div>}
+          {tab === "lessons" && <LessonsTab {...props} />}
+          {tab === "attendance" && <AttendanceTab {...props} />}
           {tab === "settings" && canManage && <StatsSettingsTab {...props} />}
         </>
       )}
