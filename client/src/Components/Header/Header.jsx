@@ -178,7 +178,7 @@ export default function Header() {
         {canViewVehicles && (
           <a href="/vehicles" data-tour="menu-vehicles" onClick={(event) => onNavClick(event, "/vehicles")}>{t("nav.vehicles")}<NewBadge section="vehicles" /></a>
         )}
-        {canStored("sports.view") && (
+        {(canStored("sports.view") || canStored("sports.coach") || canStored("sports.manage")) && (
           <a href="/sports" data-tour="menu-sports" onClick={(event) => onNavClick(event, "/sports")}>{t("nav.sports")}</a>
         )}
         {canViewAudit && (

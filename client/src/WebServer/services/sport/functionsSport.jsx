@@ -21,29 +21,29 @@ const call = async (request) => {
 
 const enc = encodeURIComponent;
 
-export const getSports = () => call(() => api.get(namespace));
-export const createSport = (payload) => call(() => api.post(namespace, payload));
-export const updateSport = (id, payload) => call(() => api.put(`${namespace}/${enc(id)}`, payload));
-export const deleteSport = (id) => call(() => api.delete(`${namespace}/${enc(id)}`));
+// The sport (football) and its stat settings.
+export const getSport = () => call(() => api.get(namespace));
+export const setStats = (stats) => call(() => api.put(`${namespace}/stats`, { stats }));
 
-export const getCoaches = () => call(() => api.get(`${namespace}/coaches`));
-
-export const getTeams = () => call(() => api.get(`${namespace}/teams`));
-export const createTeam = (payload) => call(() => api.post(`${namespace}/teams`, payload));
-export const updateTeam = (id, payload) => call(() => api.put(`${namespace}/teams/${enc(id)}`, payload));
-export const deleteTeam = (id) => call(() => api.delete(`${namespace}/teams/${enc(id)}`));
-export const setTeamMembers = (id, studentIds) =>
-  call(() => api.put(`${namespace}/teams/${enc(id)}/members`, { studentIds }));
-
+// Players. Always send the full lessonIds list when saving: leaving it out
+// removes the player from every lesson.
 export const getPlayers = () => call(() => api.get(`${namespace}/players`));
-export const searchStudents = (q) => call(() => api.get(`${namespace}/students/search`, { params: { q } }));
-export const savePlayer = (studentId, sportId, payload) =>
-  call(() => api.put(`${namespace}/players/${enc(studentId)}/${enc(sportId)}`, payload));
-export const deletePlayer = (studentId, sportId) =>
-  call(() => api.delete(`${namespace}/players/${enc(studentId)}/${enc(sportId)}`));
+export const searchStudents = (params) => call(() => api.get(`${namespace}/students/search`, { params }));
+export const savePlayer = (studentId, payload) =>
+  call(() => api.put(`${namespace}/players/${enc(studentId)}`, payload));
+export const deletePlayer = (studentId) => call(() => api.delete(`${namespace}/players/${enc(studentId)}`));
+export const bumpStat = (studentId, key, delta) =>
+  call(() => api.post(`${namespace}/players/${enc(studentId)}/stats`, { key, delta }));
 
-export const getTrainings = (teamId) => call(() => api.get(`${namespace}/teams/${enc(teamId)}/trainings`));
-export const createTraining = (teamId, payload) =>
-  call(() => api.post(`${namespace}/teams/${enc(teamId)}/trainings`, payload));
-export const updateTraining = (id, payload) => call(() => api.put(`${namespace}/trainings/${enc(id)}`, payload));
-export const deleteTraining = (id) => call(() => api.delete(`${namespace}/trainings/${enc(id)}`));
+// Lessons.
+export const getLessons = () => call(() => api.get(`${namespace}/lessons`));
+export const createLesson = (payload) => call(() => api.post(`${namespace}/lessons`, payload));
+export const updateLesson = (id, payload) => call(() => api.put(`${namespace}/lessons/${enc(id)}`, payload));
+export const deleteLesson = (id) => call(() => api.delete(`${namespace}/lessons/${enc(id)}`));
+
+// Attendance.
+export const getAttendance = (lessonId, date) =>
+  call(() => api.get(`${namespace}/lessons/${enc(lessonId)}/attendance`, { params: date ? { date } : {} }));
+export const saveAttendance = (lessonId, date, marks) =>
+  call(() => api.put(`${namespace}/lessons/${enc(lessonId)}/attendance`, { date, marks }));
+export const getTodayLessons = () => call(() => api.get(`${namespace}/attendance/today`));

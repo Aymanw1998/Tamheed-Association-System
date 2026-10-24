@@ -1,21 +1,20 @@
-import { validateSport, validateJersey } from "./sportForm";
+import { validateStats, validateJersey } from "./sportForm";
 
-describe("validateSport", () => {
-  test("a valid sport has no errors", () => {
-    expect(validateSport({ name: "كرة القدم", icon: "⚽", stats: [{ label: "أهداف" }] })).toEqual({});
-  });
-  test("a name is required", () => {
-    expect(validateSport({ name: "  ", icon: "", stats: [] }).name).toBeTruthy();
+describe("validateStats", () => {
+  const labels = (...l) => l.map((label) => ({ label }));
+  test.each([0, 1, 4])("accepts %s non-blank stats", (n) => {
+    expect(validateStats(labels(...["أهداف", "تمريرات", "تصديات", "أخطاء"].slice(0, n)))).toEqual({});
   });
   test("rejects 5 stats", () => {
-    const stats = ["a", "b", "c", "d", "e"].map((label) => ({ label }));
-    expect(validateSport({ name: "x", icon: "", stats }).stats).toBeTruthy();
+    expect(validateStats(labels("a", "b", "c", "d", "e")).list).toEqual(expect.any(String));
   });
-  test("rejects blank stat labels", () => {
-    expect(validateSport({ name: "x", icon: "", stats: [{ label: " " }] }).stats).toBeTruthy();
+  test("rejects a blank label and points at its index", () => {
+    const errors = validateStats(labels("أهداف", "  "));
+    expect(errors[1]).toEqual(expect.any(String));
+    expect(errors[0]).toBeUndefined();
   });
-  test("rejects an icon longer than 4 characters", () => {
-    expect(validateSport({ name: "x", icon: "abcde", stats: [] }).icon).toBeTruthy();
+  test("treats a missing list as empty", () => {
+    expect(validateStats(undefined)).toEqual({});
   });
 });
 

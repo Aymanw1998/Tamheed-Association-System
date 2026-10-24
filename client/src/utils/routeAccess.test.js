@@ -44,7 +44,9 @@ test("a user without permissions (legacy session) only reaches the shared pages"
   expect(canAccessPath("/users", undefined)).toBe(false);
 });
 
-test("/sports needs sports.view", () => {
+test("/sports needs any of sports.view, coach or manage", () => {
+  expect(canAccessPath("/sports", ["sports.coach"])).toBe(true);
+  expect(canAccessPath("/sports", ["sports.manage"])).toBe(true);
   expect(canAccessPath("/sports", ["sports.view"])).toBe(true);
   expect(canAccessPath("/sports", [])).toBe(false);
   expect(canAccessPath("/sports/", ["students.view"])).toBe(false);

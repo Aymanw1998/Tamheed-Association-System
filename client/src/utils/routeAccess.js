@@ -10,7 +10,7 @@ const RESTRICTED = [
   { pattern: /^\/students(\/|$)/, key: "students.view" },
   { pattern: /^\/lessons\/new$/, key: "lessons.create" },
   { pattern: /^\/vehicles(\/|$)/, key: "vehicles.view" },
-  { pattern: /^\/sports(\/|$)/, key: "sports.view" },
+  { pattern: /^\/sports(\/|$)/, any: ["sports.view", "sports.coach", "sports.manage"] },
   { pattern: /^\/audit(\/|$)/, key: "audit.view" },
 ];
 
@@ -18,5 +18,5 @@ export const canAccessPath = (pathname, permissions) => {
   const path = String(pathname || "").replace(/\/+$/, "") || "/";
   const rule = RESTRICTED.find(({ pattern }) => pattern.test(path));
   if (!rule) return true;
-  return hasPermission(permissions, rule.key);
+  return rule.any ? rule.any.some((key) => hasPermission(permissions, key)) : hasPermission(permissions, rule.key);
 };

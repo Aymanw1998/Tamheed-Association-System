@@ -1,29 +1,27 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "../../i18n/I18nContext";
 import { canStored } from "../../utils/session";
-import { getCoaches, getPlayers, getSports, getTeams } from "../../WebServer/services/sport/functionsSport";
-import SportsTab from "./SportsTab";
-import TeamsTab from "./TeamsTab";
+import { getLessons, getPlayers, getSport } from "../../WebServer/services/sport/functionsSport";
 import PlayersTab from "./PlayersTab";
-import TrainingsTab from "./TrainingsTab";
+import StatsSettingsTab from "./StatsSettingsTab";
 import styles from "./Sport.module.css";
 
 export default function SportPage() {
   const { t, dir } = useI18n();
   const canManage = canStored("sports.manage");
   const canCoach = canManage || canStored("sports.coach");
-  const [tab, setTab] = useState(canManage ? "sports" : "teams");
-  const [data, setData] = useState({ sports: [], teams: [], players: [], coaches: [] });
+  const [tab, setTab] = useState("players");
+  const [data, setData] = useState({ sport: null, players: [], lessons: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
-    const [sports, teams, players, coaches] = await Promise.all([getSports(), getTeams(), getPlayers(), getCoaches()]);
-    const failed = [sports, teams, players, coaches].find((r) => !r.ok);
+    const [sport, players, lessons] = await Promise.all([getSport(), getPlayers(), getLessons()]);
+    const failed = [sport, players, lessons].find((r) => !r.ok);
     if (failed) setError(failed.message || t("sport.loadError"));
     else {
       setError("");
-      setData({ sports: sports.sports || [], teams: teams.teams || [], players: players.players || [], coaches: coaches.coaches || [] });
+      setData({ sport: sport.sport, players: players.players || [], lessons: lessons.lessons || [] });
     }
     setLoading(false);
   }, [t]);
@@ -31,17 +29,14 @@ export default function SportPage() {
   useEffect(() => { load(); }, [load]);
 
   const tabs = useMemo(
-    () => [...(canManage ? ["sports"] : []), "teams", "players", "trainings"],
+    () => ["players", "lessons", "attendance", ...(canManage ? ["settings"] : [])],
     [canManage],
   );
   const props = { ...data, canManage, canCoach, reload: load };
 
   return (
     <div className={styles.page} dir={dir}>
-      <div className={styles.header}>
-        <h1>{t("sport.title")}</h1>
-        <p>{t("sport.subtitle")}</p>
-      </div>
+      <h1 className={styles.pageTitle}>{t("sport.title")}</h1>
       <div className={styles.tabs} role="tablist">
         {tabs.map((key) => (
           <button key={key} type="button" role="tab" aria-selected={tab === key} className={styles.tab} onClick={() => setTab(key)}>
@@ -49,14 +44,15 @@ export default function SportPage() {
           </button>
         ))}
       </div>
-      {loading && <div className={styles.state}>{t("sport.loading")}</div>}
-      {!loading && error && <div className={`${styles.state} ${styles.stateError}`} role="alert">{error}</div>}
+      {loading && <div className={styles.emptyState}>{t("sport.loading")}</div>}
+      {!loading && error && <div className={styles.formError} role="alert">{error}</div>}
       {!loading && !error && (
         <>
-          {tab === "sports" && canManage && <SportsTab {...props} />}
-          {tab === "teams" && <TeamsTab {...props} />}
           {tab === "players" && <PlayersTab {...props} />}
-          {tab === "trainings" && <TrainingsTab {...props} />}
+          {/* Task 7 replaces these two placeholders. */}
+          {tab === "lessons" && <div className={styles.emptyState}>{t("sport.soon")}</div>}
+          {tab === "attendance" && <div className={styles.emptyState}>{t("sport.soon")}</div>}
+          {tab === "settings" && canManage && <StatsSettingsTab {...props} />}
         </>
       )}
     </div>
