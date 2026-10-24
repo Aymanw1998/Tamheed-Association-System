@@ -35,3 +35,7 @@ rs-start.out.log
 
 # Local agent scratch (plans workspaces, mockups)
 .superpowers/
+
+# sport site
+sport/dist
+sport/node_modules
