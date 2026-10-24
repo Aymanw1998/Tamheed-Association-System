@@ -3,6 +3,8 @@ const { logWithSource } = require("../../middleware/logger.js");
 const { runVehicleExpiryCheck } = require("../../services/vehicleExpiryJob.js");
 const { audit } = require("../../utils/audit.js");
 const { actorRef, actorDisplayName } = require("../../utils/permissions.js");
+const { recipientsFor } = require("../../services/alertEngine.js");
+const { push } = require("../../utils/push.js");
 
 const SERVER_ERROR = "حدث خطأ غير متوقع، حاول مرة أخرى";
 const SEVERITIES = ["critical", "important", "info"];
@@ -54,6 +56,13 @@ const create = handle("create", async (req, res) => {
     module: "notices", action: "create", targetType: "notice",
     targetId: notice?._id, targetLabel: title, after: notice,
   });
+  // Phones of everyone who can read the board, except the author. Never fatal.
+  try {
+    const tzs = (await recipientsFor({ permission: "notices.view" })).filter((tz) => tz !== String(req.actor.tz));
+    await push.sendToStaff(tzs, { title, body: "", url: "/notices" });
+  } catch (err) {
+    logWithSource("Notice.create push", err);
+  }
   return res.status(201).json({ ok: true, notice });
 });
 

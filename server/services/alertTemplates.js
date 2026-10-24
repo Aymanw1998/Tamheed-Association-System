@@ -78,6 +78,12 @@ const ALERT_TEMPLATES = {
     he: (p) => `השיעור ${clip(p.lesson) || "—"} הסתיים היום ללא רישום נוכחות`,
     en: (p) => `Lesson ${clip(p.lesson) || "—"} ended today with no attendance recorded`,
   },
+  sport_lesson_no_attendance: {
+    severity: "important",
+    ar: (p) => `درس ${clip(p.lesson) || "—"} انتهى دون تسجيل حضور`,
+    he: (p) => `שיעור הספורט ${clip(p.lesson) || "—"} הסתיים ללא רישום נוכחות`,
+    en: (p) => `Sport lesson ${clip(p.lesson) || "—"} ended with no attendance recorded`,
+  },
   absence_streak: {
     severity: "important",
     ar: (p) => `${nameOf(p)} غاب ${Number(p.count) || 3} مرات متتالية`,

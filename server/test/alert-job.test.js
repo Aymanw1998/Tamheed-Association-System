@@ -44,7 +44,7 @@ function alertStore() {
   };
 }
 
-function fakeDeps({ lessons = [lesson()], attendance = [], reports = [], users = USERS, store = alertStore(), locks = new Set() } = {}) {
+function fakeDeps({ lessons = [lesson()], attendance = [], sportLessons = [], sportAttendance = [], reports = [], users = USERS, store = alertStore(), locks = new Set() } = {}) {
   const engine = createAlertEngine({
     listActiveUsers: async () => users.map((u) => ({ ...u })),
     findStudentById: async (id) => (id === STUDENT._id ? { ...STUDENT } : null),
@@ -65,6 +65,8 @@ function fakeDeps({ lessons = [lesson()], attendance = [], reports = [], users =
       .sort((a, b) => b.dateKey - a.dateKey)
       .slice(0, limit),
     findStudent: async (id) => (id === STUDENT._id ? { ...STUDENT } : null),
+    listSportLessons: async () => sportLessons.map((l) => ({ ...l })),
+    sportAttendanceForDate: async (date) => sportAttendance.filter((r) => r.date === date),
     reportsBetween: async (from, to) => reports.filter((r) => new Date(r.date) >= from && new Date(r.date) < to),
     async acquireLock(key) {
       deps.lockCalls += 1;
@@ -274,4 +276,38 @@ test("a failed conversation cleanup is reported and does not stop the alert chec
   const result = await runAlertJob({ now: at("14:00"), deps });
   assert.ok(result.errors.some((e) => e.startsWith("conversation_cleanup")));
   assert.ok(recipientsOf(deps.store, "lesson_no_attendance").length > 0);
+});
+
+/* ---------------------- sport lessons without attendance */
+
+const COACH = { _id: "c".repeat(24), tz: "t-coach", firstname: "Co", lastname: "Ach", role: HELPER, roles: [HELPER], permissionGrants: ["sports.coach"] };
+const SPORT_BOSS = { _id: "m".repeat(24), tz: "t-sport-mgr", firstname: "Ma", lastname: "Nager", role: HELPER, roles: [HELPER], permissionGrants: ["sports.manage"] };
+// 2026-10-18 is a Sunday (day 1). 17:00-18:30.
+const sun = (hhmm) => new Date(`2026-10-18T${hhmm}:00+03:00`);
+const sportLesson = (extra = {}) => ({ _id: "9".repeat(24), name: "Boxing", date: { day: 1, startMin: 1020, endMin: 1110 }, ...extra });
+
+test("a sport lesson that ended with no attendance alerts sport staff once, then dedups", async () => {
+  const users = [...USERS, COACH, SPORT_BOSS];
+  const deps = fakeDeps({ users, lessons: [], sportLessons: [sportLesson()] });
+  const first = await runAlertJob({ now: sun("19:00"), deps });
+  assert.deepEqual(recipientsOf(deps.store, "sport_lesson_no_attendance"), ["t-coach", "t-sport-mgr"]);
+  assert.equal(first.raised, 2);
+  const doc = deps.store.docs.find((d) => d.type === "sport_lesson_no_attendance");
+  assert.equal(doc.dedupKey, `sport_no_att:${"9".repeat(24)}:2026-10-18`);
+  assert.equal(doc.text.ar, "درس Boxing انتهى دون تسجيل حضور");
+  const second = await runAlertJob({ now: sun("19:15"), deps });
+  assert.equal(second.raised, 0);
+});
+
+test("a sport lesson with attendance saved today, not yet ended, or on another day raises nothing", async () => {
+  const users = [...USERS, COACH];
+  const saved = fakeDeps({ users, lessons: [], sportLessons: [sportLesson()], sportAttendance: [{ sportLessonId: "9".repeat(24), studentId: "s1", date: "2026-10-18", status: PRESENT }] });
+  await runAlertJob({ now: sun("19:00"), deps: saved });
+  assert.equal(recipientsOf(saved.store, "sport_lesson_no_attendance").length, 0);
+  const early = fakeDeps({ users, lessons: [], sportLessons: [sportLesson()] });
+  await runAlertJob({ now: sun("18:00"), deps: early });
+  assert.equal(recipientsOf(early.store, "sport_lesson_no_attendance").length, 0);
+  const other = fakeDeps({ users, lessons: [], sportLessons: [sportLesson({ date: { day: 2, startMin: 1020, endMin: 1110 } })] });
+  await runAlertJob({ now: sun("19:00"), deps: other });
+  assert.equal(recipientsOf(other.store, "sport_lesson_no_attendance").length, 0);
 });

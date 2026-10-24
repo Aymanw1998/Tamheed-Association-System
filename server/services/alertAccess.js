@@ -17,6 +17,7 @@ const ALERT_ACCESS = {
   vehicle_test: has("vehicles.view"),
   vehicle_insurance: has("vehicles.view"),
   absence_streak: has("attendance.view"),
+  sport_lesson_no_attendance: (actor) => can(actor, "sports.coach") || can(actor, "sports.manage"),
   // About the user's own work or own account.
   lesson_no_attendance: always,
   report_missing: always,

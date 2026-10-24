@@ -21,6 +21,9 @@ const { can, effectivePermissions, isSystemTz } = require("../utils/permissions"
 const SEVERITIES = new Set(["critical", "important", "info"]);
 const LANGS = ["ar", "he", "en"];
 
+// Alert types that also go to the recipients' phones (web push).
+const PUSHED_TYPES = new Set(["lesson_no_attendance", "sport_lesson_no_attendance"]);
+
 const SELECTORS = ["permission", "permissions", "tz", "userIds", "scopeOfStudent"];
 
 function createAlertEngine({
@@ -29,6 +32,8 @@ function createAlertEngine({
   lessonsWithStudent,
   store,
   systemTz,
+  push = null,
+  log = (...args) => console.error("[alertEngine]", ...args),
   now = () => new Date(),
 } = {}) {
   const sysTz = () => (systemTz === undefined ? process.env.SYSTEM_ADMIN_TZ : systemTz);
@@ -105,6 +110,14 @@ function createAlertEngine({
       });
       if (res?.created) created.push(recipientTz);
     }
+    // Phones of the new recipients: only no-attendance alerts, never fatal.
+    if (PUSHED_TYPES.has(type) && created.length && push) {
+      try {
+        await push.sendToStaff(created, { title: "تمهيد", body: text.ar, url: link || "/" });
+      } catch (error) {
+        log("push failed", error?.message || error);
+      }
+    }
     return { created };
   }
 
@@ -127,6 +140,8 @@ function getAlertEngine() {
     findStudentById: async (id) => (await StudentModelDef.get({ _id: idMatch(id) }))?.result?.[0] || null,
     lessonsWithStudent: async (id) => (await LessonModelDef.get({ list_students: idMatch(id) }))?.result || [],
     store: AlertModelDef,
+    // Loaded on first send so a missing push setup never breaks alerts.
+    push: { sendToStaff: (...args) => require("../utils/push").push.sendToStaff(...args) },
   });
   return defaultEngine;
 }

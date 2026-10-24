@@ -213,6 +213,8 @@ function world() {
       async publishNotice(data) { const notice = { _id: `notice-${notices.length + 1}`, ...data }; notices.push(notice); return { created: true, notice }; },
     },
     "../../services/vehicleExpiryJob.js": {},
+    "../../services/alertEngine.js": { async recipientsFor() { return []; } },
+    "../../utils/push.js": { push: { async sendToStaff() { return { sent: 0, removed: 0 }; } } },
   });
   const userController = load("User/User.controller.js", {
     ...common,

@@ -5,6 +5,7 @@ const test = require("node:test");
 const vm = require("node:vm");
 const { permissionMiddlewareStub, actorFor } = require("./helpers/actors");
 const { auditStub } = require("./helpers/auditStub");
+const { createAlertEngine } = require("../services/alertEngine");
 
 const ADMIN = { _id: "a".repeat(24), tz: "111111118", firstname: "Ad", lastname: "Min", roles: ["ادارة"], email: "admin@example.com" };
 const GUIDE = { _id: "b".repeat(24), tz: "222222226", firstname: "Gu", lastname: "Ide", roles: ["مرشد"], vehiclePermissions: ["view", "compliance"] };
@@ -26,7 +27,7 @@ function load(file, dependencies) {
   return module.exports;
 }
 
-function setup({ extraUsers = [] } = {}) {
+function setup({ extraUsers = [], pushFails = false } = {}) {
   const rows = [];
   let next = 1;
   const matches = (doc, filter) => Object.entries(filter).every(([k, v]) =>
@@ -50,14 +51,18 @@ function setup({ extraUsers = [] } = {}) {
     "../../middleware/logger.js": { logWithSource() {} },
   };
   const audit = auditStub();
+  const pushes = [];
+  const engine = createAlertEngine({ listActiveUsers: async () => users.map((u) => ({ ...u })), findStudentById: async () => null, lessonsWithStudent: async () => [], store: {} });
   const service = load("Notice.service.js", { ...common, "./Notice.model.js": { NoticeModelDef } });
   const controller = load("Notice.controller.js", {
     ...common,
     ...audit.deps,
     "./Notice.service.js": service,
+    "../../services/alertEngine.js": engine,
+    "../../utils/push.js": { push: { async sendToStaff(...args) { if (pushFails) throw new Error("push down"); pushes.push(args); return { sent: 1, removed: 0 }; } } },
     "../../services/vehicleExpiryJob.js": { async runVehicleExpiryCheck() { return { created: 0, emailed: 0 }; } },
   });
-  return { service, controller, rows, audit, routes: loadRoutes(controller) };
+  return { service, controller, rows, audit, pushes, routes: loadRoutes(controller) };
 }
 
 // The real Notice router, recording each route's chain (router.use first).
@@ -220,4 +225,23 @@ test("a notice posted by the system is stored as \"system\" / \"النظام\" a
     assert.ok(!JSON.stringify(ctx.rows).includes(SYSTEM_TZ));
     assert.ok(!JSON.stringify(ctx.rows).includes("Sys Tem"));
   });
+});
+
+test("a new notice pushes its title to every notices.view holder except the author", async () => {
+  const ctx = setup();
+  const r = await guarded(ctx, ADMIN, "create", { body: { title: "اجتماع", body: "غدًا", severity: "info" } });
+  assert.equal(r.statusCode, 201);
+  assert.equal(ctx.pushes.length, 1);
+  const [tzs, payload] = ctx.pushes[0];
+  assert.ok(tzs.includes(READER.tz));
+  assert.ok(!tzs.includes(ADMIN.tz), "author excluded");
+  assert.ok(!tzs.includes(REVOKED.tz), "no notices access");
+  assert.ok(!tzs.includes(GUIDE.tz));
+  assert.deepEqual({ ...payload }, { title: "اجتماع", body: "", url: "/notices" });
+});
+
+test("a push failure does not fail publishing a notice", async () => {
+  const ctx = setup({ pushFails: true });
+  const r = await guarded(ctx, ADMIN, "create", { body: { title: "اجتماع", body: "x", severity: "info" } });
+  assert.equal(r.statusCode, 201);
 });

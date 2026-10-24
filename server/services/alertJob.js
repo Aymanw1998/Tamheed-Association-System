@@ -1,6 +1,9 @@
 // Periodic alerts, every 15 minutes between 07:00 and 21:00 Asia/Jerusalem:
 //   lesson_no_attendance  a lesson that ended today has no attendance rows
 //                         -> its teacher and helper, and lessons.viewAll holders
+//   sport_lesson_no_attendance  a sport lesson that ended today has no
+//                         SportAttendance rows for today -> sports.coach and
+//                         sports.manage holders
 //   absence_streak        a student's latest three recorded rows are absences
 //                         (nightly automatic absences are skipped); one alert
 //                         per run of absences -> users whose scope includes
@@ -99,6 +102,25 @@ async function checkLessonsWithoutAttendance(deps, clock, lessons) {
   return raised;
 }
 
+async function checkSportLessonsWithoutAttendance(deps, clock) {
+  const ended = ((await deps.listSportLessons()) || []).filter((l) =>
+    Number(l?.date?.day) === clock.dow && Number(l.date.endMin) <= clock.minutes);
+  if (!ended.length) return 0;
+  const recorded = new Set(((await deps.sportAttendanceForDate(clock.date)) || []).map((r) => String(r.sportLessonId)));
+  let raised = 0;
+  for (const lesson of ended) {
+    const id = String(lesson._id);
+    if (recorded.has(id)) continue;
+    raised += await raise(deps, "sport_lesson_no_attendance", {
+      params: { lesson: lesson.name },
+      rule: [{ permission: "sports.coach" }, { permission: "sports.manage" }],
+      link: "/sports",
+      dedupKey: `sport_no_att:${id}:${clock.date}`,
+    });
+  }
+  return raised;
+}
+
 // Newest first: by dateKey, then by the time the row was last written.
 const newestFirst = (a, b) => (Number(b.dateKey) - Number(a.dateKey))
   || (new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0));
@@ -188,6 +210,7 @@ async function runAlertJob({ now = new Date(), deps = createDeps() } = {}) {
     }
     const checks = [
       ["lesson_no_attendance", () => checkLessonsWithoutAttendance(deps, clock, lessons)],
+      ["sport_lesson_no_attendance", () => checkSportLessonsWithoutAttendance(deps, clock)],
       ["absence_streak", () => checkAbsenceStreaks(deps, clock)],
       ["report_missing", () => checkMissingReports(deps, clock, lessons, now)],
     ];
@@ -216,6 +239,8 @@ function createDeps() {
   const { JobRunModelDef } = require("../Entities/Notice/Notice.model");
   const { LessonModelDef } = require("../Entities/Lesson/Lesson.model");
   const { AttendanceModelDef } = require("../Entities/Attendance/Attendance.model");
+  const { SportLessonModelDef } = require("../Entities/Sport/SportLesson.model");
+  const { SportAttendanceModelDef } = require("../Entities/Sport/SportAttendance.model");
   const { StudentModelDef } = require("../Entities/Student/Student.model");
   const { ReportModelDef } = require("../Entities/Report/Report.model");
   const { UserModelDef } = require("../Entities/User/User.model");
@@ -233,6 +258,8 @@ function createDeps() {
     attendanceOfStudent: async (studentId, toKey, limit) =>
       (await AttendanceModelDef.latestOfStudent(studentId, toKey, limit)) || [],
     findStudent: async (id) => rows(await StudentModelDef.get({ _id: String(id) }))[0] || null,
+    listSportLessons: async () => rows(await SportLessonModelDef.get({})),
+    sportAttendanceForDate: async (date) => rows(await SportAttendanceModelDef.get({ date })),
     reportsBetween: async (from, to) => rows(await ReportModelDef.get({ date: { $gte: from, $lt: to } })),
     deleteStaleConversations: (cutoff) =>
       require("../Entities/AiConversation/AiConversation.model").AiConversationModelDef.deleteUnusedBefore(cutoff),
