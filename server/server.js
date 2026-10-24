@@ -75,7 +75,7 @@ app.set('trust proxy', 1); // ملاحظة عربية
 if (process.env.SERVE_CLIENT === 'true') {
   const clientBuild = path.join(__dirname, '..', 'client', 'build');
   // The sport site on its own host name; must come before the system client.
-  app.use(sportStatic(path.join(__dirname, '..', 'sport', 'dist'), process.env.SPORT_HOST));
+  app.use(sportStatic(path.join(__dirname, '..', 'sport', 'build'), process.env.SPORT_HOST));
   app.use(express.static(clientBuild));
   app.get(/^\/(?!api(\/|$)).*/, (req, res, next) =>
     req.accepts('html') ? res.sendFile(path.join(clientBuild, 'index.html')) : next()

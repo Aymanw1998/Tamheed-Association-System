@@ -37,5 +37,5 @@ rs-start.out.log
 .superpowers/
 
 # sport site
-sport/dist
+sport/build
 sport/node_modules

@@ -1983,3 +1983,26 @@ Not tested against a live server: a real student sign-in needs an emailed code.
 **Requesting Codex review.** No live Codex connection; this entry is the handoff.
 
 **Delivery state:** committed with the owner's approval; not pushed.
+
+## 2026-10-24: Sport site moved from Vite to Create React App
+
+**Owner request:**
+- Build the sport site the same way as the client: CRA, with output in `build`.
+
+**Changes:**
+- `sport/` now uses `react-scripts` 5.0.1, like `client/`. It has `public/index.html`, `src/index.js`, the `proxy` setting and `eslintConfig`.
+- `vite.config.js` is gone, and so is the root `index.html`.
+- Tests run on Jest; the Vitest imports were removed.
+- `sport/.env.development` sets `PORT=3001`, so the dev server does not clash with the client's 3000.
+- The build goes to `sport/build`, as the client's does. To match, `server/server.js` now serves `sport/build` and `.gitignore` ignores `sport/build`.
+- `deploy/update.sh` is unchanged; it still runs `npm ci` and `npm run build` in `sport/`.
+
+**Verification:**
+- sport: 21/21 (Jest);
+- `CI=true npm run build --prefix sport` is clean;
+- server: 778/778;
+- the built site was checked at 360px against a mock API.
+
+**Requesting Codex review.** No live Codex connection; this entry is the handoff.
+
+**Delivery state:** committed with the owner's approval; not pushed.
