@@ -1,12 +1,14 @@
-// Adds made-up sport data to try the sport site, or removes exactly that data.
+// Adds made-up football data to try the sport site, or removes exactly that data.
 //
 //   node scripts/seedSportDemo.js --email=you@example.com   add the demo data
 //   node scripts/seedSportDemo.js --remove                  remove all of it
 //
 // Everything it creates is marked so --remove finds it and nothing else:
-// sports whose name ends with DEMO_MARK, and students whose last name is
-// DEMO_MARK with a tz that starts with DEMO_TZ_PREFIX. The --email address goes
-// on one demo student only, so you can sign in to the sport site as that student.
+// students whose last name is DEMO_MARK with a tz that starts with DEMO_TZ_PREFIX,
+// the lessons that hold only them (by demo lesson name), and their players and
+// attendance. The --email address goes on one demo student only, so you can sign
+// in to the sport site as that student. Football itself is the real sport
+// (ensureFootball) and is never deleted; its stats are set only when it has none.
 const path = require("path");
 const dotenv = require("dotenv");
 
@@ -14,48 +16,41 @@ dotenv.config({ path: path.join(__dirname, "..", "config", ".env") });
 
 const mongoose = require("mongoose");
 const { StudentModelDef } = require("../Entities/Student/Student.model");
-const { SportModelDef } = require("../Entities/Sport/Sport.model");
-const { SportTeamModelDef } = require("../Entities/Sport/SportTeam.model");
+const { SportLessonModelDef } = require("../Entities/Sport/SportLesson.model");
+const { SportAttendanceModelDef } = require("../Entities/Sport/SportAttendance.model");
 const { SportPlayerModelDef } = require("../Entities/Sport/SportPlayer.model");
-const { SportTrainingModelDef } = require("../Entities/Sport/SportTraining.model");
+const { SportModelDef } = require("../Entities/Sport/Sport.model");
 const { SportLoginCodeModelDef } = require("../Entities/Sport/SportLoginCode.model");
+const { ensureFootball } = require("../Entities/Sport/Sport.controller");
+const { dayOfDate, israelToday } = require("../utils/sportCards");
 
 const DEMO_MARK = "تجريبي";
 const DEMO_TZ_PREFIX = "99990";
 const DAY = 24 * 60 * 60 * 1000;
+const WEEKS = 6;
 
-const SPORTS = [
-  {
-    name: `كرة القدم ${DEMO_MARK}`, icon: "⚽",
-    stats: ["أهداف", "تمريرات حاسمة", "مباريات كاملة"],
-    positions: ["حارس", "مدافع", "وسط", "مهاجم"],
-    teams: ["أشبال تمهيد", "نجوم الرملة"],
-  },
-  {
-    name: `كرة السلة ${DEMO_MARK}`, icon: "🏀",
-    stats: ["نقاط", "متابعات", "تمريرات", "رميات ثلاثية"],
-    positions: ["صانع ألعاب", "جناح", "لاعب ارتكاز"],
-    teams: ["صقور تمهيد"],
-  },
-  {
-    name: `كرة الطائرة ${DEMO_MARK}`, icon: "🏐",
-    stats: ["إرسال ناجح", "صدّات"],
-    positions: ["معدّ", "ضارب", "ليبرو"],
-    teams: ["فريق الطائرة"],
-  },
+const STATS = [
+  { key: "s_demo1", label: "أهداف" },
+  { key: "s_demo2", label: "تمريرات حاسمة" },
+  { key: "s_demo3", label: "مباريات" },
 ];
-
+const POSITIONS = ["حارس", "مدافع", "وسط", "مهاجم"];
+// day: 1 = الأحد .. 7 = السبت; times are minutes from midnight.
+const LESSONS = [
+  { name: "أشبال الأحد", day: 1, startMin: 17 * 60, endMin: 18 * 60 + 30 },
+  { name: "نجوم الثلاثاء", day: 3, startMin: 18 * 60, endMin: 19 * 60 },
+  { name: "أشبال الأربعاء", day: 4, startMin: 17 * 60, endMin: 18 * 60 + 30 },
+];
 const FIRST_NAMES = [
   "يوسف", "آدم", "محمد", "عمر", "كريم", "سامي", "رامي", "ليث", "زيد", "أمير",
   "مريم", "لين", "سلمى", "جنى", "رهف", "تالا", "نور", "ريم", "دانة", "سارة",
 ];
-const PLACES = ["الملعب البلدي", "قاعة المدرسة", "ملعب الحي"];
 
 const rows = (res) => (Array.isArray(res?.result) ? res.result : []);
 const pick = (list) => list[Math.floor(Math.random() * list.length)];
 const between = (min, max) => min + Math.floor(Math.random() * (max - min + 1));
 const shuffle = (list) => [...list].sort(() => Math.random() - 0.5);
-const statKey = (i) => `s_demo${i}`;
+const deleted = (res) => res?.result?.deletedCount || 0;
 
 const arg = (name) => {
   const hit = process.argv.slice(2).find((a) => a === `--${name}` || a.startsWith(`--${name}=`));
@@ -63,26 +58,39 @@ const arg = (name) => {
   return hit.includes("=") ? hit.slice(hit.indexOf("=") + 1) : true;
 };
 
+// "YYYY-MM-DD" plus n days, with no time zone involved.
+const addDays = (date, n) => new Date(new Date(date + "T00:00:00Z").getTime() + n * DAY).toISOString().slice(0, 10);
+
+// The latest date strictly before `today` that falls on `day` (1 = الأحد).
+function lastWeekday(today, day) {
+  let d = addDays(today, -1);
+  while (dayOfDate(d) !== day) d = addDays(d, -1);
+  return d;
+}
+
 async function findDemo() {
-  const sports = rows(await SportModelDef.get({})).filter((s) => String(s.name || "").endsWith(DEMO_MARK));
-  const sportIds = sports.map((s) => String(s._id));
   const students = rows(await StudentModelDef.get({ lastname: DEMO_MARK }))
     .filter((s) => String(s.tz || "").startsWith(DEMO_TZ_PREFIX));
   const studentIds = students.map((s) => String(s._id));
-  return { sports, sportIds, students, studentIds };
+  // A lesson is demo data when it has a demo lesson name and only demo students in it.
+  const names = new Set(LESSONS.map((l) => l.name));
+  const lessons = studentIds.length
+    ? rows(await SportLessonModelDef.get({ "players.studentId": { $in: studentIds } }))
+      .filter((l) => names.has(l.name) && (l.players || []).every((p) => studentIds.includes(String(p.studentId))))
+    : [];
+  return { students, studentIds, lessons, lessonIds: lessons.map((l) => String(l._id)) };
 }
 
 async function remove() {
-  const { sportIds, studentIds } = await findDemo();
+  const { studentIds, lessonIds } = await findDemo();
   const counts = {
-    trainings: (await SportTrainingModelDef.delete({ sportId: { $in: sportIds } }))?.result?.deletedCount || 0,
-    teams: (await SportTeamModelDef.delete({ sportId: { $in: sportIds } }))?.result?.deletedCount || 0,
-    players: (await SportPlayerModelDef.delete({ $or: [{ sportId: { $in: sportIds } }, { studentId: { $in: studentIds } }] }))?.result?.deletedCount || 0,
-    loginCodes: (await SportLoginCodeModelDef.delete({ studentId: { $in: studentIds } }))?.result?.deletedCount || 0,
-    sports: (await SportModelDef.delete({ _id: { $in: sportIds } }))?.result?.deletedCount || 0,
-    students: (await StudentModelDef.delete({ _id: { $in: studentIds } }))?.result?.deletedCount || 0,
+    attendance: deleted(await SportAttendanceModelDef.delete({ $or: [{ sportLessonId: { $in: lessonIds } }, { studentId: { $in: studentIds } }] })),
+    lessons: deleted(await SportLessonModelDef.delete({ _id: { $in: lessonIds } })),
+    players: deleted(await SportPlayerModelDef.delete({ studentId: { $in: studentIds } })),
+    loginCodes: deleted(await SportLoginCodeModelDef.delete({ studentId: { $in: studentIds } })),
+    students: deleted(await StudentModelDef.delete({ _id: { $in: studentIds } })),
   };
-  console.log("Demo sport data removed:");
+  console.log("Demo sport data removed (football itself is kept):");
   console.table(counts);
 }
 
@@ -98,20 +106,27 @@ async function freeTz(taken) {
 
 async function seed(email) {
   const existing = await findDemo();
-  if (existing.sports.length || existing.students.length) {
+  if (existing.lessons.length || existing.students.length) {
     throw new Error("Demo data already exists. Run with --remove first.");
   }
 
   const now = new Date();
+  const football = await ensureFootball();
+  const sportId = String(football._id);
+  let stats = football.stats || [];
+  if (!stats.length) {
+    await SportModelDef.updateExisting({ _id: football._id }, { stats: STATS, updatedAt: now });
+    stats = STATS;
+  }
+
   const taken = new Set();
   const names = shuffle(FIRST_NAMES);
   const students = [];
   for (let i = 0; i < 16; i += 1) {
-    const firstname = names[i % names.length];
     const age = between(9, 15);
     const created = await StudentModelDef.create({
       tz: await freeTz(taken),
-      firstname,
+      firstname: names[i % names.length],
       lastname: DEMO_MARK,
       birth_date: new Date(now.getFullYear() - age, between(0, 11), between(1, 28)),
       gender: i % 2 === 0 ? "ذكر" : "أنثى",
@@ -126,65 +141,65 @@ async function seed(email) {
   }
   const me = students[0];
 
-  let teamCount = 0;
-  let trainingCount = 0;
-  let playerCount = 0;
-  for (const def of SPORTS) {
-    const sport = (await SportModelDef.create({
+  // Each student is in 1-2 lessons; the signed-in demo student is in the first two.
+  const members = LESSONS.map(() => []);
+  students.forEach((s, i) => {
+    const first = i === 0 ? 0 : i % LESSONS.length;
+    const picked = new Set([first]);
+    if (i === 0) picked.add(1);
+    else if (Math.random() < 0.4) picked.add((first + 1 + between(0, LESSONS.length - 2)) % LESSONS.length);
+    picked.forEach((l) => members[l].push(s));
+  });
+
+  // Members count from joinedAt, so it is before the first seeded week.
+  const joinedAt = new Date(now.getTime() - (WEEKS + 2) * 7 * DAY);
+  const today = israelToday(now);
+  let attendanceCount = 0;
+  const seen = new Set();
+  for (const [l, def] of LESSONS.entries()) {
+    const lesson = (await SportLessonModelDef.create({
+      sportId,
       name: def.name,
-      icon: def.icon,
-      stats: def.stats.map((label, i) => ({ key: statKey(i + 1), label })),
+      date: { day: def.day, startMin: def.startMin, endMin: def.endMin },
+      room: "9",
+      players: members[l].map((s) => ({ studentId: String(s._id), joinedAt })),
+      createdAt: now,
+      updatedAt: now,
     })).result;
-    const sportId = String(sport._id);
 
-    // The signed-in demo student plays every sport; the others get a random share.
-    const roster = [me, ...shuffle(students.slice(1)).slice(0, between(6, 9))];
-    const jerseys = shuffle(Array.from({ length: 30 }, (_, i) => i + 1));
-    for (const [i, s] of roster.entries()) {
-      await SportPlayerModelDef.create({
-        studentId: String(s._id),
-        sportId,
-        jerseyNumber: i === roster.length - 1 ? null : jerseys[i],
-        position: pick(def.positions),
-      });
-      playerCount += 1;
-    }
-
-    // Split the roster across the sport's teams; the demo student is in the first.
-    const perTeam = Math.ceil(roster.length / def.teams.length);
-    for (const [t, teamName] of def.teams.entries()) {
-      const teamRoster = roster.slice(t * perTeam, (t + 1) * perTeam);
-      if (t > 0 && !teamRoster.length) continue;
-      const joinedAt = new Date(now.getTime() - 45 * DAY);
-      const team = (await SportTeamModelDef.create({
-        name: teamName,
-        sportId,
-        coachIds: [],
-        members: teamRoster.map((s) => ({ studentId: String(s._id), joinedAt })),
-      })).result;
-      teamCount += 1;
-
-      // Eight past trainings with attendance, then one upcoming at 17:00.
-      for (let k = 8; k >= 1; k -= 1) {
-        const startsAt = new Date(now.getTime() - k * 4 * DAY);
-        startsAt.setHours(17, 0, 0, 0);
-        const presentIds = teamRoster.filter(() => Math.random() < 0.8).map((s) => String(s._id));
-        await SportTrainingModelDef.create({
-          teamId: String(team._id), sportId, startsAt, place: pick(PLACES), presentIds, recorded: true,
+    const latest = lastWeekday(today, def.day);
+    for (let w = 0; w < WEEKS; w += 1) {
+      const date = addDays(latest, -7 * w);
+      for (const s of members[l]) {
+        let status;
+        const roll = Math.random();
+        // The sign-in student gets all three statuses in their first lesson.
+        if (s === me && l === 0 && w < 3) status = ["حاضر", "غائب", "متأخر"][w];
+        else status = roll < 0.7 ? "حاضر" : roll < 0.8 ? "متأخر" : "غائب";
+        await SportAttendanceModelDef.create({
+          sportLessonId: String(lesson._id), studentId: String(s._id), date, status, createdAt: now, updatedAt: now,
         });
-        trainingCount += 1;
+        seen.add(status);
+        attendanceCount += 1;
       }
-      const next = new Date(now.getTime() + between(1, 3) * DAY);
-      next.setHours(17, 0, 0, 0);
-      await SportTrainingModelDef.create({
-        teamId: String(team._id), sportId, startsAt: next, place: pick(PLACES), presentIds: [], recorded: false,
-      });
-      trainingCount += 1;
     }
   }
 
+  // Every demo student plays; the last one has no jersey number yet.
+  const jerseys = shuffle(Array.from({ length: 30 }, (_, i) => i + 1));
+  for (const [i, s] of students.entries()) {
+    await SportPlayerModelDef.create({
+      studentId: String(s._id),
+      sportId,
+      jerseyNumber: i === students.length - 1 ? null : jerseys[i],
+      position: pick(POSITIONS),
+      stats: Object.fromEntries(stats.map((d) => [d.key, between(0, 25)])),
+    });
+  }
+
   console.log("Demo sport data added:");
-  console.table({ students: students.length, sports: SPORTS.length, teams: teamCount, players: playerCount, trainings: trainingCount });
+  console.table({ students: students.length, lessons: LESSONS.length, players: students.length, attendance: attendanceCount });
+  console.log(`Statuses seeded: ${[...seen].join(", ")}`);
   console.log(`Sign in to the sport site with ID number ${me.tz}${email ? "; the code goes to the email you gave." : " (no --email given, so no code can be sent)."}`);
 }
 

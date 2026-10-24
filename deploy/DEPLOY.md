@@ -141,6 +141,7 @@ sudo certbot --nginx -d הדומיין-שלך
    curl -sI https://sport.<domain>
    ```
    מצפים לתשובה `200` (או `302`) עם כותרות HTTPS. תשובת `502` פירושה שהשרת לא עלה, ואז בודקים `pm2 logs tamheed`.
+6. **נתוני הדגמה (אופציונלי):** `cd server && node scripts/seedSportDemo.js --email=you@example.com` מוסיף תלמידים, שיעורי כדורגל ונוכחות לדוגמה כדי לנסות את האתר, ו-`node scripts/seedSportDemo.js --remove` מסיר רק אותם (כדורגל עצמו נשאר).
 
 ## 7. בדיקה אחרי ההעלאה
 

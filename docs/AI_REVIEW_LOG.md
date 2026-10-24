@@ -1948,3 +1948,38 @@ emailed code.
 **Requesting Codex review.** No live Codex connection; this entry is the handoff.
 
 **Delivery state:** committed with the owner's approval; not pushed.
+
+## 2026-10-24: Tamheed Sport v2 (football lessons, attendance, stats, flip card)
+
+**Owner request:** rebuild the sport section around one sport, football. The
+association's football sessions become lessons in the outdoor room, with
+per-session attendance, configurable player stats and a flip player card on
+the sport site. Spec: `docs/superpowers/specs/2026-10-24-tamheed-sport-v2-design.md`.
+Plan: `docs/superpowers/plans/2026-10-24-tamheed-sport-v2.md`.
+
+**Changes (f4cbd4a..HEAD):**
+- **Data (server):** new `SportLesson.model.js` and `SportAttendance.model.js`; `SportPlayer.model.js` gains `stats`; `SportTeam.model.js` and `SportTraining.model.js` are removed; `api.js` gains a helper for conditional writes; `server.js` registers the new indexes.
+- **Calculations:** `server/utils/sportCards.js` is rebuilt (`israelToday`, `dayOfDate`, attendance rate from each member's `joinedAt`, next lesson, `buildCard`); `server/utils/lessonConflict.js` checks room 9 both ways.
+- **Staff API:** `Sport.controller.js` and `Sport.route.js` are rewritten (`ensureFootball`, players, stats and stat settings, lessons, attendance, today's lessons).
+- **Lesson schedule:** `Lesson.controller.js` and `Lesson.route.js` show sport lessons read-only and check conflicts.
+- **Student portal:** `SportPortal.controller.js` serves the card, lessons and attendance history.
+- **Tests (server):** `sport-lessons`, `lesson-sport-schedule`, `sport-staff`, `sport-cards` and `sport-portal-data`, plus small updates to `assistant-actions`, `lesson-attendance-audit` and `student-scope-routes`.
+- **Staff client:** `client/src/Components/Sport/*` (players, lessons, attendance and stat settings tabs; the sports, teams and trainings tabs are removed), `sportStrings.js`, `functionsSport.jsx`, `functionsLesson.jsx`, `ViewAllLesson.jsx` and its CSS, `sportSchedule.js`, `lessonVisibility.js`, `routeAccess.js` and their tests.
+- **Student site (`sport/src/*`):** stadium theme, flip player card (`FlipCard.jsx`, `Art.jsx`, `StadiumHeader.jsx`), `LessonsPage.jsx`, `HomePage.jsx`, `LoginPage.jsx`, `BottomTabs.jsx`, `format.js` and its test, `styles.css`; `PlayerCard.jsx` and `TeamsPage.jsx` are removed.
+- **Demo data and docs:** `server/scripts/seedSportDemo.js` is rewritten for football lessons; `deploy/DEPLOY.md` gets one line on the script.
+
+**Verification:**
+- server 773/773, client 51 suites / 551 tests, sport 21/21.
+- The demo script was run against a local MongoDB (scratch database, no remote server touched). It seeded 16 demo students, 3 lessons, 16 players and 126 attendance records with all three statuses. Every date was in the past and on its lesson's weekday. `buildCard` built a card with stat values and an attendance rate. A second seed was refused.
+- `--remove` left 0 demo documents. A non-demo student and a non-demo sport survived, and football was kept. The test documents and the scratch database were then removed.
+
+Not tested against a live server: a real student sign-in needs an emailed code.
+
+**Open notes for review:**
+- `--remove` deletes demo players, so demo stat values go, but football's stat labels set by the seed (when it had none) stay.
+- A lesson counts as demo data only when it has one of the three demo lesson names and holds only demo students.
+- Student sessions (30 days) still cannot be revoked one by one.
+
+**Requesting Codex review.** No live Codex connection; this entry is the handoff.
+
+**Delivery state:** committed with the owner's approval; not pushed.
