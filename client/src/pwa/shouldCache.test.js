@@ -14,6 +14,11 @@ describe("shouldCache", () => {
     ["/api/sport-portal/photo", "GET"],
     ["/api/sport-portal/request-code", "GET"],
     ["/api/sport-portal/verify", "GET"],
+    ["/api/live/stream?ticket=abc", "GET"],
+    ["/api/LIVE/stream", "GET"],
+    ["/api/invitetoken/validate", "GET"],
+    ["/api/vehicle/12/documents/5/download", "GET"],
+    ["/api/storage-backend/file/1", "GET"],
     ["/static/x.js", "GET"],
   ])("does not cache %s %s", (url, method) => expect(shouldCache(url, method)).toBe(false));
 });

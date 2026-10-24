@@ -14,11 +14,11 @@ function isStandalone() {
   }
 }
 
-// Shown only when the browser can receive pushes, the choice has not been made
-// yet, and (on iOS) the site is installed on the home screen.
+// Shown only when the browser can receive pushes, notifications are not blocked
+// and there is no subscription yet, and (on iOS) the site is installed on the home screen.
 function canOffer() {
   if (typeof window === "undefined" || !("PushManager" in window) || !("Notification" in window)) return false;
-  if (Notification.permission !== "default") return false;
+  if (Notification.permission === "denied") return false; // "default" and "granted" (no subscription yet) may be offered
   if (isIos() && !isStandalone()) return false;
   return pushSupported();
 }

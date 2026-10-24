@@ -3,6 +3,7 @@ import { refreshSession, setAuthTokens } from '../services/api';
 import { getAccessExpiryMs } from './authTiming';
 import { getLogoutDeadline } from './logoutScheduler';
 import { clearApiCache } from '../../pwa/clearApiCache';
+import { dropDevicePush } from '../../pwa/pushOptIn';
 
 let refreshTimerId = null;
 
@@ -25,6 +26,7 @@ export function scheduleAccessRefresh(accessToken, skewMs = 60_000) {
     const logoutDeadline = getLogoutDeadline();
     if (logoutDeadline && now >= logoutDeadline - 2_000) {
       clearApiCache();
+      dropDevicePush();
       try { localStorage.clear(); sessionStorage.clear(); } catch {}
       window.location.assign('/');
       return;
@@ -67,6 +69,7 @@ export function bindAccessTokenRefreshListener() {
 
 function hardResetToLogin() {
   clearApiCache();
+  dropDevicePush();
   try { 
     localStorage.clear(); 
     sessionStorage.clear(); 

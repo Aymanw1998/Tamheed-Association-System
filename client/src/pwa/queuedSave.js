@@ -2,6 +2,7 @@
 import api from "../WebServer/services/api";
 import { getStoredUserTz } from "../utils/session";
 import { dropKey, enqueue, flush } from "./attendanceQueue";
+import { isDemo } from "../journey/demoMode";
 
 // Identifies one sheet: the same lesson and date always give the same key.
 export function attendanceKey(item) {
@@ -26,6 +27,7 @@ export const noResponse = (result) => !!result && result.ok === false && !result
 // Keeps a save on this device for the signed-in user. Resolves true when it
 // was stored, false when it could not be (no user, or no IndexedDB).
 export async function queueAttendance(item) {
+  if (isDemo()) return false; // training mode never stores real attendance
   const tz = getStoredUserTz();
   if (!tz) return false;
   try {
@@ -54,6 +56,7 @@ export async function sendQueued(item) {
 
 // Sends the signed-in user's queue; never anyone else's.
 export function flushCurrentUser() {
+  if (isDemo()) return Promise.resolve(null); // training mode never sends real attendance
   const tz = getStoredUserTz();
   if (!tz || localStorage.getItem("isLoggedIn") !== "1") return Promise.resolve(null);
   return flush(tz, sendQueued).catch(() => null);

@@ -5,6 +5,7 @@ import {
   OVERWRITTEN_MESSAGE, QUEUE_CHANGED_EVENT, clearOthers, failedItems, othersPending, pending, retryFailed,
 } from "./attendanceQueue";
 import { flushCurrentUser } from "./queuedSave";
+import { subscribeDemo } from "../journey/demoMode";
 
 export const SIGNED_IN_EVENT = "tamheed:signed-in";
 
@@ -55,10 +56,12 @@ export default function QueueStatus() {
     sync();
     window.addEventListener("online", sync);
     window.addEventListener(SIGNED_IN_EVENT, sync);
+    const offDemo = subscribeDemo((on) => { if (!on) sync(); }); // training mode ended
     window.addEventListener(QUEUE_CHANGED_EVENT, refresh);
     return () => {
       window.removeEventListener("online", sync);
       window.removeEventListener(SIGNED_IN_EVENT, sync);
+      offDemo();
       window.removeEventListener(QUEUE_CHANGED_EVENT, refresh);
     };
   }, [sync, refresh]);

@@ -12,7 +12,7 @@ import { photoAction } from "../../utils/photoChange";
 import { getStoredPermissions } from "../../utils/session";
 import MyPermissions from "./MyPermissions.jsx";
 import ChangeOwnPassword from "./ChangeOwnPassword.jsx";
-import { isSubscribed, pushSupported, subscribeStaff, unsubscribeStaff } from "../../pwa/pushOptIn";
+import { isSubscribed, pushSupported, resyncStaff, subscribeStaff, unsubscribeStaff } from "../../pwa/pushOptIn";
 
 const Profile = ({parent = false}) => {
     const [form, setForm] = useState({
@@ -53,7 +53,11 @@ const Profile = ({parent = false}) => {
     const [pushBusy, setPushBusy] = useState(false);
     useEffect(() => {
         let live = true;
-        isSubscribed().then((on) => { if (live) setPushOn(on); });
+        isSubscribed().then((on) => {
+            if (!live) return;
+            setPushOn(on);
+            if (on) resyncStaff(); // repairs an earlier failed POST; idempotent on the server
+        });
         return () => { live = false; };
     }, []);
     const togglePush = async () => {

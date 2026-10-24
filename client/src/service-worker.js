@@ -15,12 +15,15 @@ precacheAndRoute(self.__WB_MANIFEST);
 // SPA navigations fall back to the app shell, except API paths.
 registerRoute(
   new NavigationRoute(createHandlerBoundToURL("/index.html"), {
-    denylist: [/^\/api\//, /\/[^/?]+\.[^/]+$/],
+    denylist: [/^\/api\//i, /\/[^/?]+\.[^/]+$/],
   })
 );
 
 registerRoute(
-  ({ url, request }) => url.origin === self.location.origin && shouldCache(url.href, request.method),
+  ({ url, request }) =>
+    url.origin === self.location.origin &&
+    !String(request.headers.get("Accept") || "").includes("text/event-stream") &&
+    shouldCache(url.href, request.method),
   new NetworkFirst({
     cacheName: API_CACHE,
     networkTimeoutSeconds: 4,

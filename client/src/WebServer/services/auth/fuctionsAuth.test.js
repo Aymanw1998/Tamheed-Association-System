@@ -46,6 +46,25 @@ test("logout stops training mode before calling the server", async () => {
   expect(window.location.assign).toHaveBeenCalledWith("/");
 });
 
+describe("login drops the device push subscription", () => {
+  afterEach(() => { delete navigator.serviceWorker; });
+  test("a successful login unsubscribes this device", async () => {
+    const unsubscribe = jest.fn().mockResolvedValue(true);
+    Object.defineProperty(navigator, "serviceWorker", {
+      configurable: true,
+      value: { getRegistration: jest.fn().mockResolvedValue({ pushManager: { getSubscription: jest.fn().mockResolvedValue({ unsubscribe }) } }) },
+    });
+    api.post.mockResolvedValueOnce({
+      status: 200,
+      data: { ok: true, accessToken: "t", expirationTime: 1, user: { id: 1 } },
+    });
+    const { login } = require("./fuctionsAuth");
+    await login("x", "y");
+    await new Promise((r) => setTimeout(r, 0));
+    expect(unsubscribe).toHaveBeenCalled();
+  });
+});
+
 describe("login clears the cached API data", () => {
   test("a successful login empties the cache", async () => {
     const del = jest.fn().mockResolvedValue(true);

@@ -2,6 +2,7 @@
 const KEY = 'LOGOUT_DEADLINE_MS';
 const MAX_DAYS = 7;
 import { clearApiCache } from '../../pwa/clearApiCache';
+import { dropDevicePush } from '../../pwa/pushOptIn';
 
 let logoutTimer = null;
 
@@ -55,6 +56,7 @@ export function cancelAutoLogout() {
 
 function doLogoutNow() {
   clearApiCache();
+  dropDevicePush();
   try {
     localStorage.clear();
     sessionStorage.clear();

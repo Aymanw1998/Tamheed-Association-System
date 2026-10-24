@@ -7,13 +7,14 @@ import { isForcedChange } from "../../../utils/passwordChange";
 import { stopDemo } from "../../../journey/demoMode";
 import { clearApiCache } from "../../../pwa/clearApiCache";
 import { pending, clear as clearQueue } from "../../../pwa/attendanceQueue";
-import { unsubscribeStaff } from "../../../pwa/pushOptIn";
+import { dropDevicePush, unsubscribeStaff } from "../../../pwa/pushOptIn";
 import { ask } from "../../../Components/Provides/confirmBus";
 import { getStoredUserTz } from "../../../utils/session";
 
 function markSignedIn(user, accessToken, expirationTime) {
   // A new session never starts on top of the previous person's cached data.
   clearApiCache();
+  dropDevicePush();
   setAuthTokens(accessToken, expirationTime);
   scheduleAccessRefresh(accessToken);
   localStorage.setItem("isLoggedIn", "1");

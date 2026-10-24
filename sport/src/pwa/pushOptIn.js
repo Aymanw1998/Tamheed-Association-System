@@ -51,7 +51,9 @@ export async function isSubscribed() {
 export async function subscribeSport() {
   try {
     if (!pushSupported()) return { ok: false, reason: "unavailable" };
-    if ((await Notification.requestPermission()) !== "granted") return { ok: false, reason: "denied" };
+    // Already granted: just subscribe, without asking again.
+    const permission = Notification.permission === "granted" ? "granted" : await Notification.requestPermission();
+    if (permission !== "granted") return { ok: false, reason: "denied" };
     const res = await fetch(KEY_URL, { credentials: "same-origin" });
     const data = res.ok ? await res.json() : null;
     if (!data?.ok || !data.key) return { ok: false, reason: "unavailable" };

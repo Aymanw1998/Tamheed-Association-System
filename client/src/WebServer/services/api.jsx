@@ -4,6 +4,7 @@ import { markSessionExpired } from '../utils/sessionMessages'; // ملاحظة �
 import { singleFlight } from '../utils/singleFlight';
 import { installDemoAdapter } from '../../journey/demoAdapter';
 import { clearApiCache } from '../../pwa/clearApiCache';
+import { dropDevicePush } from '../../pwa/pushOptIn';
 
 // The API is always reached on the same origin as the page: in development the
 // CRA dev server proxies /api to the local server (see "proxy" in package.json),
@@ -69,6 +70,7 @@ function hardResetToLogin(reason = 'انتهت الجلسة. يُرجى تسجي
     }
 
     clearApiCache();
+    dropDevicePush();
     localStorage.setItem('LOGOUT_BROADCAST', JSON.stringify({ ts: Date.now(), reason }));
     localStorage.removeItem('accessToken');
     localStorage.removeItem('accessTokenExp');

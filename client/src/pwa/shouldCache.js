@@ -6,7 +6,10 @@ const NEVER = [
   /^\/api\/sport-portal\/request-code(\/|$)/i,
   /^\/api\/sport-portal\/verify(\/|$)/i,
   /^\/api\/sport-portal\/photo(\/|$)/i,
-  /^\/api\/storage(\/|$)/i,
+  /^\/api\/storage/i,
+  /^\/api\/live(\/|$)/i,
+  /^\/api\/invitetoken(\/|$)/i,
+  /\/documents\/[^/]+\/download$/i,
 ];
 
 export function shouldCache(url, method) {

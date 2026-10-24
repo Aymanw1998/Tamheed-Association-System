@@ -63,6 +63,33 @@ export async function subscribeStaff() {
   }
 }
 
+// Browser only, no API call: after a forced session end or a new sign-in the
+// device must not stay subscribed for the previous user. Best effort, ~3s cap.
+// The server row removes itself when the push service answers 410.
+export async function dropDevicePush() {
+  let timer;
+  const work = (async () => {
+    try {
+      if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
+      const { sub } = await currentSubscription();
+      if (sub) await sub.unsubscribe();
+    } catch {}
+  })();
+  const cap = new Promise((resolve) => { timer = setTimeout(resolve, 3000); });
+  try { await Promise.race([work, cap]); } catch {}
+  clearTimeout(timer);
+}
+
+// Re-sends an existing browser subscription (idempotent on the server), so a
+// failed earlier POST is repaired. Best effort.
+export async function resyncStaff() {
+  try {
+    if (!pushSupported()) return;
+    const { sub } = await currentSubscription();
+    if (sub) await api.post("/push/subscribe", { subscription: sub.toJSON() });
+  } catch {}
+}
+
 // Best effort: the device stops receiving even if the server cannot be reached.
 export async function unsubscribeStaff() {
   try {
