@@ -1,4 +1,3 @@
-import { describe, it, expect } from "vitest";
 import { shapeResult, TOO_MANY_MESSAGE, GENERIC_ERROR_MESSAGE } from "./api.js";
 
 describe("shapeResult", () => {
