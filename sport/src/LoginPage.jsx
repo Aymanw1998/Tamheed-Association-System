@@ -62,7 +62,7 @@ export default function LoginPage({ onSignedIn }) {
         <span className="logo-badge login-logo">
           <img src={logo} alt="شعار جمعية تمهيد" />
         </span>
-        <h1>تمهيد سبورت</h1>
+        <h1>تمهيد - رياضة</h1>
         <p className="login-sub">بوابة لاعبي كرة القدم</p>
         <div className="login-panel">
           {step === "tz" ? (

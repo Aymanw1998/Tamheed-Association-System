@@ -28,7 +28,7 @@ export default function StadiumHeader({ firstname, sportName, onLogout }) {
       </div>
       <div className="stadium-hello">
         <h1>أهلاً {firstname} 👋</h1>
-        <p>تمهيد سبورت · {sportName}</p>
+        <p>تمهيد - رياضة · {sportName}</p>
       </div>
     </header>
   );

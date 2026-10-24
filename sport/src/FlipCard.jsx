@@ -82,7 +82,7 @@ export function IdFace({ student, card, lessons }) {
         <circle cx="230" cy="126" r="54" />
       </svg>
       <div className="id-bar">
-        <span>تمهيد سبورت · {card.sport?.name}</span>
+        <span>تمهيد - رياضة · {card.sport?.name}</span>
         <LogoBadge className="id-logo" />
       </div>
       <div className="id-main">

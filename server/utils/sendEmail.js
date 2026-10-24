@@ -36,7 +36,7 @@ const sendResetPasswordEmail = async (to, otp) => {
 const sendSportLoginCodeEmail = async (to, code) => {
     const transporter = createTransporter();
     const html = `<div style="font-family:Arial;line-height:1.6;align:center;">
-                    <h2>الدخول إلى تمهيد سبورت</h2>
+                    <h2>الدخول إلى تمهيد - رياضة</h2>
                     <p>رمز الدخول الخاص بك:</p>
                     <div style="font-size:28px;font-weight:700;letter-spacing:4px">${code}</div>
                     <p>الرمز صالح لمدة 10 دقائق من وقت الإرسال. إذا لم تطلب الدخول، فتجاهل هذه الرسالة.</p>
@@ -44,7 +44,7 @@ const sendSportLoginCodeEmail = async (to, code) => {
     await transporter.sendMail({
         from: process.env.SMTP_FROM,
         to,
-        subject: "رمز الدخول إلى تمهيد سبورت: " + code,
+        subject: "رمز الدخول إلى تمهيد - رياضة: " + code,
         html,
     });
 }
