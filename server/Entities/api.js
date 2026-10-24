@@ -85,6 +85,15 @@ const api = {
     return { success: true, result: { modifiedCount: res.modifiedCount } };
   },
 
+  // Removes the given fields from every matching document. Never upserts.
+  async unsetMany({ dbName, collection, filter, fields }) {
+    await ensureConnected();
+    const Model = getModel(dbName, collection);
+    const unset = Object.fromEntries(fields.map((f) => [f, 1]));
+    const res = await Model.updateMany(filter, { $unset: unset });
+    return { success: true, result: { modifiedCount: res.modifiedCount } };
+  },
+
   // NOTE: upserts by design - most callers use this to set fields on a
   // record they know exists (by tz/_id/etc), and a couple of flows
   // (Attendance bulkSave) rely on it creating the row if it's missing.

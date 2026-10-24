@@ -52,50 +52,67 @@ const user = (c, tz, extra) => ({ _id: hex(c), tz, firstname: `U${c}`, lastname:
 const GUIDE = user("1", "900000001");
 const MANAGER = user("2", "900000002", { permissionGrants: ["sports.manage"] });
 const COACH = user("3", "900000003", { permissionGrants: ["sports.coach"] });
-const OTHER_COACH = user("4", "900000004", { permissionGrants: ["sports.coach"] });
 const VIEWER = user("5", "900000005", { permissionGrants: ["sports.view"] });
 const sid = (n) => `${"5".repeat(23)}${n}`;
-const STUDENTS = [1, 2, 3].map((n) => ({
-  _id: sid(n), tz: `80000000${n}`, firstname: `F${n}`, lastname: `L${n}`, birth_date: "2012-01-01", gender: "ذكر",
-  email: `s${n}@example.com`, photo: "https://example.test/p.png",
-  health_status: "secret", father_phone: "0500000000", notes: "secret", address: "x", phone: "0500000001",
+const STUDENTS = [1, 2, 3, 4].map((n) => ({
+  _id: sid(n), tz: `80000000${n}`, firstname: `Fa${n}`, lastname: `Ki${n}`, birth_date: "2012-01-01",
+  gender: n === 3 ? "أنثى" : "ذكر", layer: n === 2 ? "ب" : "أ", school: n === 4 ? "مدرسة ب" : "مدرسة أ",
+  email: `s${n}@example.com`, health_status: "secret", father_phone: "0500000000", notes: "secret",
 }));
-const SPORT_A = hex("a");
-const SPORT_B = hex("b");
-const TEAM = hex("c");
-const TRAINING = hex("e");
+const SPORT = hex("a");
+const LESSON_A = hex("c");
+const LESSON_B = hex("e");
+const STAT = "s_00000001";
+const STAT2 = "s_00000002";
 
-function world({ players, teams, trainings } = {}) {
-  const sports = createStore([
-    { _id: SPORT_A, name: "كرة القدم", icon: "⚽", stats: [{ key: "s_00000001", label: "أهداف" }] },
-    { _id: SPORT_B, name: "السباحة", icon: "🏊", stats: [] },
-  ]);
-  const teamStore = createStore(teams || [
-    { _id: TEAM, name: "الفريق", sportId: SPORT_A, coachIds: [COACH._id], members: [{ studentId: sid(1), joinedAt: "2026-01-01T00:00:00.000Z" }] },
-  ]);
+function world({ players, withSport = true } = {}) {
+  const sports = createStore(withSport ? [
+    { _id: SPORT, name: "كرة القدم", icon: "⚽", stats: [{ key: STAT, label: "أهداف" }, { key: STAT2, label: "تمريرات" }] },
+  ] : []);
   const playerStore = createStore(players || [
-    { _id: hex("f"), studentId: sid(1), sportId: SPORT_A, jerseyNumber: 7, position: "مهاجم" },
-    { _id: hex("9"), studentId: sid(2), sportId: SPORT_A, jerseyNumber: null, position: "" },
+    { _id: hex("f"), studentId: sid(1), sportId: SPORT, jerseyNumber: 7, position: "مهاجم", stats: { [STAT]: 3, [STAT2]: 5 } },
+    { _id: hex("9"), studentId: sid(2), sportId: SPORT, jerseyNumber: null, position: "" },
   ]);
-  const trainingStore = createStore(trainings || [
-    { _id: TRAINING, teamId: TEAM, sportId: SPORT_A, startsAt: "2026-02-01T10:00:00.000Z", place: "الملعب", presentIds: [], recorded: false },
+  // Stand-ins for the two atomic model helpers (api.increment / api.unsetMany in production).
+  playerStore.bumpStat = async (id, key, delta) => {
+    const doc = playerStore.all().find((d) => d._id === id);
+    const next = Math.max(0, (Number(doc.stats?.[key]) || 0) + delta);
+    await playerStore.updateExisting({ _id: id }, { stats: { ...(doc.stats || {}), [key]: next } });
+    return next;
+  };
+  playerStore.unsetStats = async (keys) => {
+    for (const d of playerStore.all()) {
+      if (!d.stats) continue;
+      const stats = { ...d.stats };
+      for (const k of keys) delete stats[k];
+      await playerStore.updateExisting({ _id: d._id }, { stats });
+    }
+    return { success: true };
+  };
+  const lessons = createStore([
+    { _id: LESSON_A, sportId: SPORT, name: "أشبال الأحد", date: { day: 1, startMin: 1000, endMin: 1060 }, room: "9",
+      players: [{ studentId: sid(1), joinedAt: "2026-01-01T00:00:00.000Z" }] },
+    { _id: LESSON_B, sportId: SPORT, name: "ناشئو الثلاثاء", date: { day: 3, startMin: 1000, endMin: 1060 }, room: "9",
+      players: [{ studentId: sid(2), joinedAt: "2026-01-01T00:00:00.000Z" }] },
+  ]);
+  const attendance = createStore([
+    { _id: hex("7"), sportLessonId: LESSON_A, studentId: sid(1), date: "2026-02-01", status: "حاضر" },
+    { _id: hex("8"), sportLessonId: LESSON_B, studentId: sid(2), date: "2026-02-03", status: "غائب" },
   ]);
   const students = createStore(STUDENTS);
-  const users = createStore([GUIDE, MANAGER, COACH, OTHER_COACH, VIEWER]);
   const audit = auditStub();
   const controller = load("Sport/Sport.controller.js", {
     crypto: require("node:crypto"),
     "./Sport.model": { SportModelDef: sports },
-    "./SportTeam.model": { SportTeamModelDef: teamStore },
     "./SportPlayer.model": { SportPlayerModelDef: playerStore },
-    "./SportTraining.model": { SportTrainingModelDef: trainingStore },
+    "./SportLesson.model": { SportLessonModelDef: lessons },
+    "./SportAttendance.model": { SportAttendanceModelDef: attendance },
     "../Student/Student.model": { StudentModelDef: students },
-    "../User/User.model": { UserModelDef: users },
     "../../middleware/logger": { logWithSource() {} },
-    "../../utils/permissions": require("../utils/permissions"),
+    "../../utils/sportCards": require("../utils/sportCards"),
     ...audit.deps,
   });
-  return { controller, routes: loadRoutes(controller), sports, teams: teamStore, players: playerStore, trainings: trainingStore, audit };
+  return { controller, routes: loadRoutes(controller), sports, players: playerStore, lessons, attendance, audit };
 }
 
 // The real router, recording each route's chain (router.use first).
@@ -132,165 +149,204 @@ async function call(ctx, u, method, routePath, extra = {}) {
   return r;
 }
 
-test("a guide without sports keys gets 403 on GET /api/sports and every other route", async () => {
+test("the route table is exactly the football staff API", () => {
   const ctx = world();
-  assert.equal((await call(ctx, GUIDE, "get", "/")).statusCode, 403);
+  assert.deepEqual(ctx.routes.map((r) => `${r.method.toUpperCase()} ${r.path}`), [
+    "GET /", "PUT /stats", "GET /players", "GET /students/search",
+    "PUT /players/:studentId", "DELETE /players/:studentId", "POST /players/:studentId/stats",
+  ]);
+});
+
+test("a guide without sports keys gets 403 on every route", async () => {
+  const ctx = world();
   for (const route of ctx.routes) {
-    const r = await call(ctx, GUIDE, route.method, route.path, { params: { id: TEAM, studentId: sid(1), sportId: SPORT_A } });
+    const r = await call(ctx, GUIDE, route.method, route.path, { params: { studentId: sid(1) } });
     assert.equal(r.statusCode, 403, `${route.method} ${route.path}`);
   }
-  assert.equal((await call(ctx, VIEWER, "get", "/")).statusCode, 200);
-  assert.equal((await call(ctx, VIEWER, "post", "/", { body: { name: "x" } })).statusCode, 403);
 });
 
-test("creating a sport with five stats is refused, a blank name or label too", async () => {
-  const ctx = world();
-  const five = ["a", "b", "c", "d", "e"].map((label) => ({ label }));
-  assert.equal((await call(ctx, MANAGER, "post", "/", { body: { name: "س", icon: "⚽", stats: five } })).statusCode, 400);
-  assert.equal((await call(ctx, MANAGER, "post", "/", { body: { name: "  ", stats: [] } })).statusCode, 400);
-  assert.equal((await call(ctx, MANAGER, "post", "/", { body: { name: "س", stats: [{ label: " " }] } })).statusCode, 400);
-  assert.equal((await call(ctx, MANAGER, "post", "/", { body: { name: "س", icon: "⚽⚽⚽⚽⚽" } })).statusCode, 400);
-  const ok = await call(ctx, MANAGER, "post", "/", { body: { name: " الجري ", icon: "🏃", stats: [{ label: "سرعة" }] } });
-  assert.equal(ok.statusCode, 201);
-  assert.equal(ok.body.sport.name, "الجري");
-  assert.match(ok.body.sport.stats[0].key, /^s_[0-9a-f]{8}$/);
-  assert.equal(ctx.audit.find({ module: "sports", action: "create", targetType: "sport" }).length, 1);
+test("GET / creates football once and returns it", async () => {
+  const ctx = world({ withSport: false });
+  const a = await call(ctx, VIEWER, "get", "/");
+  const b = await call(ctx, VIEWER, "get", "/");
+  assert.equal(a.statusCode, 200);
+  assert.equal(a.body.sport.name, "كرة القدم");
+  assert.equal(a.body.sport.icon, "⚽");
+  assert.deepEqual(plain(a.body.sport.stats), []);
+  assert.equal(ctx.sports.all().length, 1);
+  assert.equal(b.body.sport._id, a.body.sport._id);
 });
 
-test("renaming a stat keeps its key, a new stat gets a fresh key", async () => {
-  const ctx = world();
-  const r = await call(ctx, MANAGER, "put", "/:id", {
-    params: { id: SPORT_A },
-    body: { name: "كرة القدم", icon: "⚽", stats: [{ key: "s_00000001", label: "تسجيل" }, { label: "تمريرات" }, { key: "s_forged00", label: "مزوّر" }] },
-  });
-  assert.equal(r.statusCode, 200);
-  const stats = plain(r.body.sport.stats);
-  assert.deepEqual(stats[0], { key: "s_00000001", label: "تسجيل" });
-  assert.match(stats[1].key, /^s_[0-9a-f]{8}$/);
-  assert.notEqual(stats[1].key, stats[2].key);
-  assert.notEqual(stats[2].key, "s_forged00");
-});
-
-test("a sport with teams or players cannot be deleted, an unused one can", async () => {
-  const ctx = world();
-  const blocked = await call(ctx, MANAGER, "delete", "/:id", { params: { id: SPORT_A } });
-  assert.equal(blocked.statusCode, 409);
-  assert.equal(blocked.body.message, "لا يمكن حذف رياضة لها فرق أو لاعبون");
-  assert.equal((await call(ctx, MANAGER, "delete", "/:id", { params: { id: SPORT_B } })).statusCode, 200);
+test("concurrent first calls still create one sport", async () => {
+  const ctx = world({ withSport: false });
+  await Promise.all([call(ctx, VIEWER, "get", "/"), call(ctx, VIEWER, "get", "/players")]);
   assert.equal(ctx.sports.all().length, 1);
 });
 
-test("coaches are active users holding sports.coach or sports.manage", async () => {
+test("PUT /stats refuses five stats or a blank label, and only a manager may call it", async () => {
   const ctx = world();
-  const r = await call(ctx, VIEWER, "get", "/coaches");
-  assert.deepEqual(plain(r.body.coaches).map((c) => c.id).sort(), [MANAGER._id, COACH._id, OTHER_COACH._id].sort());
-  assert.deepEqual(Object.keys(r.body.coaches[0]).sort(), ["firstname", "id", "lastname"]);
-  const bad = await call(ctx, MANAGER, "post", "/teams", { body: { name: "ف", sportId: SPORT_A, coachIds: [GUIDE._id] } });
-  assert.equal(bad.statusCode, 400);
-  const good = await call(ctx, MANAGER, "post", "/teams", { body: { name: "ف", sportId: SPORT_A, coachIds: [COACH._id] } });
-  assert.equal(good.statusCode, 201);
+  const five = ["a", "b", "c", "d", "e"].map((label) => ({ label }));
+  assert.equal((await call(ctx, MANAGER, "put", "/stats", { body: { stats: five } })).statusCode, 400);
+  assert.equal((await call(ctx, MANAGER, "put", "/stats", { body: { stats: [{ label: "  " }] } })).statusCode, 400);
+  assert.equal((await call(ctx, MANAGER, "put", "/stats", { body: { stats: "x" } })).statusCode, 400);
+  assert.equal((await call(ctx, COACH, "put", "/stats", { body: { stats: [] } })).statusCode, 403);
+  assert.equal(plain(ctx.sports.all()[0].stats).length, 2);
 });
 
-test("the team list carries coach and member names", async () => {
+test("renaming keeps a key, new and forged keys get fresh s_<hex> keys", async () => {
   const ctx = world();
-  const r = await call(ctx, VIEWER, "get", "/teams");
-  assert.deepEqual(plain(r.body.teams[0].coachNames), ["U3 N3"]);
-  assert.equal(r.body.teams[0].members[0].firstname, "F1");
+  const r = await call(ctx, MANAGER, "put", "/stats", {
+    body: { stats: [{ key: STAT, label: "تسجيل" }, { label: "تصديات" }, { key: "s_forged00", label: "مزوّر" }] },
+  });
+  assert.equal(r.statusCode, 200);
+  const stats = plain(r.body.sport.stats);
+  assert.deepEqual(stats[0], { key: STAT, label: "تسجيل" });
+  assert.match(stats[1].key, /^s_[0-9a-f]{8}$/);
+  assert.match(stats[2].key, /^s_[0-9a-f]{8}$/);
+  assert.notEqual(stats[1].key, stats[2].key);
+  assert.notEqual(stats[2].key, "s_forged00");
+  assert.equal(ctx.audit.find({ module: "sports", action: "update", targetType: "sport" }).length, 1);
 });
 
-test("a coach who is not on the team cannot change its trainings; a manager can", async () => {
+test("removing a stat key unsets it from every player and GET /players no longer shows it", async () => {
   const ctx = world();
-  const body = { place: "قاعة" };
-  assert.equal((await call(ctx, OTHER_COACH, "put", "/trainings/:id", { params: { id: TRAINING }, body })).statusCode, 403);
-  assert.equal((await call(ctx, OTHER_COACH, "delete", "/trainings/:id", { params: { id: TRAINING } })).statusCode, 403);
-  assert.equal((await call(ctx, OTHER_COACH, "post", "/teams/:id/trainings", { params: { id: TEAM }, body: { startsAt: "2026-03-01T10:00:00Z" } })).statusCode, 403);
-  assert.equal((await call(ctx, MANAGER, "put", "/trainings/:id", { params: { id: TRAINING }, body })).statusCode, 200);
-  assert.equal((await call(ctx, COACH, "put", "/trainings/:id", { params: { id: TRAINING }, body })).statusCode, 200);
-  assert.equal((await call(ctx, COACH, "delete", "/trainings/:id", { params: { id: TRAINING } })).statusCode, 200);
+  const r = await call(ctx, MANAGER, "put", "/stats", { body: { stats: [{ key: STAT, label: "أهداف" }] } });
+  assert.equal(r.statusCode, 200);
+  assert.equal(STAT2 in ctx.players.all()[0].stats, false);
+  assert.equal(ctx.players.all()[0].stats[STAT], 3);
+  const list = await call(ctx, VIEWER, "get", "/players");
+  const p = list.body.players.find((x) => x.studentId === sid(1));
+  assert.deepEqual(plain(p.values), { [STAT]: 3 });
 });
 
-test("trainings are created unrecorded and listed newest first", async () => {
-  const ctx = world();
-  const created = await call(ctx, COACH, "post", "/teams/:id/trainings", { params: { id: TEAM }, body: { startsAt: "2026-03-01T10:00:00Z", place: "الملعب" } });
-  assert.equal(created.statusCode, 201);
-  assert.equal(created.body.training.recorded, false);
-  assert.deepEqual(plain(created.body.training.presentIds), []);
-  assert.equal((await call(ctx, COACH, "post", "/teams/:id/trainings", { params: { id: TEAM }, body: { startsAt: "nope" } })).statusCode, 400);
-  const list = await call(ctx, VIEWER, "get", "/teams/:id/trainings", { params: { id: TEAM } });
-  assert.deepEqual(list.body.trainings.map((t) => t._id), [created.body.training._id, TRAINING]);
-});
-
-test("members must be players of the team's sport and keep their joinedAt", async () => {
-  const ctx = world();
-  const bad = await call(ctx, COACH, "put", "/teams/:id/members", { params: { id: TEAM }, body: { studentIds: [sid(1), sid(3)] } });
-  assert.equal(bad.statusCode, 400);
-  assert.equal((await call(ctx, OTHER_COACH, "put", "/teams/:id/members", { params: { id: TEAM }, body: { studentIds: [sid(1)] } })).statusCode, 403);
-  const ok = await call(ctx, COACH, "put", "/teams/:id/members", { params: { id: TEAM }, body: { studentIds: [sid(1), sid(2)] } });
-  assert.equal(ok.statusCode, 200);
-  const members = plain(ctx.teams.all()[0].members);
-  assert.equal(members.find((m) => m.studentId === sid(1)).joinedAt, "2026-01-01T00:00:00.000Z");
-  assert.ok(members.find((m) => m.studentId === sid(2)).joinedAt);
-});
-
-test("saving attendance marks the training recorded and rejects non-members", async () => {
-  const ctx = world();
-  const bad = await call(ctx, COACH, "put", "/trainings/:id", { params: { id: TRAINING }, body: { presentIds: [sid(2)] } });
-  assert.equal(bad.statusCode, 400);
-  assert.equal(ctx.trainings.all()[0].recorded, false);
-  const ok = await call(ctx, COACH, "put", "/trainings/:id", { params: { id: TRAINING }, body: { presentIds: [sid(1)] } });
-  assert.equal(ok.statusCode, 200);
-  assert.equal(ok.body.training.recorded, true);
-  assert.deepEqual(plain(ok.body.training.presentIds), [sid(1)]);
-});
-
-test("player list exposes only sport fields", async () => {
+test("GET /players lists football players with lessons, values and attendance, and no private fields", async () => {
   const ctx = world();
   const r = await call(ctx, VIEWER, "get", "/players");
+  assert.equal(r.statusCode, 200);
   assert.equal(r.body.players.length, 2);
-  const expected = ["birth_date", "email", "firstname", "gender", "jerseyNumber", "lastname", "photo", "position", "sportId", "studentId"];
+  const expected = ["age", "attendance", "firstname", "gender", "jerseyNumber", "lastname", "layer", "lessons", "position", "school", "studentId", "values"];
   for (const p of r.body.players) assert.deepEqual(Object.keys(p).sort(), expected);
-  assert.equal(JSON.stringify(r.body).includes("secret"), false);
-  assert.equal(JSON.stringify(r.body).includes("father_phone"), false);
+  const one = r.body.players.find((p) => p.studentId === sid(1));
+  assert.deepEqual(plain(one.lessons), [{ _id: LESSON_A, name: "أشبال الأحد", day: 1, startMin: 1000 }]);
+  assert.deepEqual(plain(one.values), { [STAT]: 3, [STAT2]: 5 });
+  assert.equal(one.attendance.present, 1);
+  assert.equal(one.attendance.rate, 100);
+  assert.equal(one.jerseyNumber, 7);
+  assert.equal(typeof one.age, "number");
+  const two = r.body.players.find((p) => p.studentId === sid(2));
+  assert.deepEqual(plain(two.values), { [STAT]: 0, [STAT2]: 0 });
+  assert.equal(two.attendance.absent, 1);
+  const text = JSON.stringify(r.body);
+  assert.equal(text.includes("secret"), false);
+  assert.equal(text.includes("80000000"), false);
 });
 
-test("student search spans all students, needs 2 characters, and returns limited fields", async () => {
+test("a sports.coach-only actor reads GET /players", async () => {
   const ctx = world();
-  assert.deepEqual(plain((await call(ctx, COACH, "get", "/students/search", { query: { q: "F" } })).body.students), []);
-  const byName = await call(ctx, COACH, "get", "/students/search", { query: { q: "f3" } });
+  assert.equal((await call(ctx, COACH, "get", "/players")).statusCode, 200);
+});
+
+test("stat buttons: +1, -1, floor at 0, unknown key and bad delta give 400", async () => {
+  const ctx = world();
+  const params = { studentId: sid(1) };
+  const post = (p, body) => call(ctx, COACH, "post", "/players/:studentId/stats", { params: p, body });
+  const up = await post(params, { key: STAT, delta: 1 });
+  assert.equal(up.statusCode, 200);
+  assert.equal(up.body.value, 4);
+  assert.equal((await post(params, { key: STAT, delta: -1 })).body.value, 3);
+  const floor = await post({ studentId: sid(2) }, { key: STAT, delta: -1 });
+  assert.equal(floor.statusCode, 200);
+  assert.equal(floor.body.value, 0);
+  assert.equal((await post(params, { key: "s_nope0000", delta: 1 })).statusCode, 400);
+  assert.equal((await post(params, { key: STAT, delta: 5 })).statusCode, 400);
+  assert.equal((await post({ studentId: sid(3) }, { key: STAT, delta: 1 })).statusCode, 404);
+});
+
+test("a sports.view-only actor gets 403 on the stat buttons", async () => {
+  const ctx = world();
+  const r = await call(ctx, VIEWER, "post", "/players/:studentId/stats", { params: { studentId: sid(1) }, body: { key: STAT, delta: 1 } });
+  assert.equal(r.statusCode, 403);
+  assert.equal(ctx.players.all()[0].stats[STAT], 3);
+});
+
+test("student search matches names only, never tz, and never returns tz", async () => {
+  const ctx = world();
+  const search = (q) => call(ctx, COACH, "get", "/students/search", { query: { q } });
+  assert.deepEqual(plain((await search("F")).body.students), []);
+  const byName = await search("fa3");
   assert.equal(byName.body.students.length, 1);
-  assert.deepEqual(Object.keys(byName.body.students[0]).sort(), ["_id", "birth_date", "email", "firstname", "gender", "lastname"]);
-  const byId = await call(ctx, COACH, "get", "/students/search", { query: { q: "80000000" } });
-  assert.deepEqual(plain(byId.body.students), []);
-  for (const s of byName.body.students) assert.equal("tz" in s, false);
+  assert.deepEqual(Object.keys(byName.body.students[0]).sort(), ["_id", "age", "firstname", "gender", "isPlayer", "lastname", "layer", "school"]);
+  assert.equal(byName.body.students[0].isPlayer, false);
+  assert.equal((await search("fa1")).body.students[0].isPlayer, true);
+  assert.deepEqual(plain((await search("80000000")).body.students), []);
+  assert.deepEqual(plain((await search("00000")).body.students), []);
+  assert.equal((await search("l")).body.students.length, 0); // one character is too short
+  const both = await search("ki1");
+  for (const s of both.body.students) assert.equal("tz" in s, false);
+  assert.equal(JSON.stringify(both.body).includes("80000000"), false);
   assert.equal((await call(ctx, VIEWER, "get", "/students/search", { query: { q: "F1" } })).statusCode, 403);
 });
 
-test("a player is created with a validated jersey number and position", async () => {
+test("student search filters narrow by layer, gender and school", async () => {
   const ctx = world();
-  const params = { studentId: sid(3), sportId: SPORT_A };
-  assert.equal((await call(ctx, COACH, "put", "/players/:studentId/:sportId", { params, body: { jerseyNumber: 100 } })).statusCode, 400);
-  assert.equal((await call(ctx, COACH, "put", "/players/:studentId/:sportId", { params, body: { jerseyNumber: 1.5 } })).statusCode, 400);
-  assert.equal((await call(ctx, COACH, "put", "/players/:studentId/:sportId", { params, body: { position: "x".repeat(31) } })).statusCode, 400);
-  const ok = await call(ctx, COACH, "put", "/players/:studentId/:sportId", { params, body: { jerseyNumber: "10", position: " حارس " } });
-  assert.equal(ok.statusCode, 200);
-  assert.equal(ok.body.player.jerseyNumber, 10);
-  assert.equal(ok.body.player.position, "حارس");
-  const cleared = await call(ctx, COACH, "put", "/players/:studentId/:sportId", { params, body: { jerseyNumber: null } });
-  assert.equal(cleared.body.player.jerseyNumber, null);
-  assert.equal(ctx.players.all().filter((p) => p.studentId === sid(3)).length, 1);
+  const ids = async (extra) => (await call(ctx, COACH, "get", "/students/search", { query: { q: "fa", ...extra } })).body.students.map((s) => s._id);
+  assert.equal((await ids()).length, 4);
+  assert.deepEqual(await ids({ layer: "ب" }), [sid(2)]);
+  assert.deepEqual(await ids({ gender: "أنثى" }), [sid(3)]);
+  assert.deepEqual(await ids({ school: "مدرسة ب" }), [sid(4)]);
+  assert.deepEqual(await ids({ layer: "أ", gender: "ذكر" }), [sid(1), sid(4)]);
 });
 
-test("deleting a player removes them from that sport's teams", async () => {
+test("PUT /players/:studentId validates jersey, position, lessons and student", async () => {
   const ctx = world();
-  const r = await call(ctx, COACH, "delete", "/players/:studentId/:sportId", { params: { studentId: sid(1), sportId: SPORT_A } });
+  const put = (studentId, body) => call(ctx, COACH, "put", "/players/:studentId", { params: { studentId }, body });
+  assert.equal((await put(sid(3), { jerseyNumber: 100 })).statusCode, 400);
+  assert.equal((await put(sid(3), { jerseyNumber: 0 })).statusCode, 400);
+  assert.equal((await put(sid(3), { jerseyNumber: 1.5 })).statusCode, 400);
+  assert.equal((await put(sid(3), { position: "x".repeat(31) })).statusCode, 400);
+  assert.equal((await put(sid(3), { lessonIds: "x" })).statusCode, 400);
+  assert.equal((await put(sid(3), { lessonIds: [hex("0")] })).statusCode, 400);
+  assert.equal((await put(hex("0"), { jerseyNumber: 5 })).statusCode, 404);
+  assert.equal((await call(ctx, VIEWER, "put", "/players/:studentId", { params: { studentId: sid(3) }, body: {} })).statusCode, 403);
+  assert.equal(ctx.players.all().length, 2);
+});
+
+test("saving a player joins listed lessons with joinedAt, keeps joinedAt on re-save, and leaves unlisted lessons", async () => {
+  const ctx = world();
+  const put = (body) => call(ctx, COACH, "put", "/players/:studentId", { params: { studentId: sid(3) }, body });
+  const first = await put({ jerseyNumber: "10", position: " حارس ", lessonIds: [LESSON_A] });
+  assert.equal(first.statusCode, 200);
+  assert.equal(first.body.player.jerseyNumber, 10);
+  assert.equal(first.body.player.position, "حارس");
+  const joined = plain(ctx.lessons.all()[0].players).find((p) => p.studentId === sid(3));
+  assert.ok(joined.joinedAt);
+  assert.equal(ctx.audit.find({ module: "sports", action: "create", targetType: "player" }).length, 1);
+  await put({ jerseyNumber: 11, lessonIds: [LESSON_A] });
+  const again = plain(ctx.lessons.all()[0].players).filter((p) => p.studentId === sid(3));
+  assert.equal(again.length, 1);
+  assert.equal(again[0].joinedAt, joined.joinedAt);
+  assert.equal(ctx.players.all().filter((p) => p.studentId === sid(3)).length, 1);
+  assert.ok(plain(ctx.lessons.all()[0].players).some((p) => p.studentId === sid(1) && p.joinedAt === "2026-01-01T00:00:00.000Z"));
+  await put({ jerseyNumber: null, lessonIds: [LESSON_B] });
+  assert.equal(plain(ctx.lessons.all()[0].players).some((p) => p.studentId === sid(3)), false);
+  assert.equal(plain(ctx.lessons.all()[1].players).some((p) => p.studentId === sid(3)), true);
+  assert.equal(ctx.players.all().find((p) => p.studentId === sid(3)).jerseyNumber, null);
+});
+
+test("re-saving an existing player keeps their stats", async () => {
+  const ctx = world();
+  await call(ctx, COACH, "put", "/players/:studentId", { params: { studentId: sid(1) }, body: { jerseyNumber: 9, lessonIds: [LESSON_A] } });
+  assert.equal(ctx.players.all()[0].stats[STAT], 3);
+  assert.equal(ctx.players.all()[0].jerseyNumber, 9);
+});
+
+test("DELETE removes the player from every lesson and keeps attendance rows", async () => {
+  const ctx = world();
+  const r = await call(ctx, COACH, "delete", "/players/:studentId", { params: { studentId: sid(1) } });
   assert.equal(r.statusCode, 200);
   assert.equal(ctx.players.all().some((p) => p.studentId === sid(1)), false);
-  assert.deepEqual(plain(ctx.teams.all()[0].members), []);
-});
-
-test("deleting a team deletes its trainings, and every write is audited", async () => {
-  const ctx = world();
-  assert.equal((await call(ctx, MANAGER, "delete", "/teams/:id", { params: { id: TEAM } })).statusCode, 200);
-  assert.equal(ctx.trainings.all().length, 0);
-  assert.equal(ctx.audit.find({ module: "sports", action: "delete", targetType: "team" }).length, 1);
+  assert.equal(plain(ctx.lessons.all()[0].players).some((p) => p.studentId === sid(1)), false);
+  assert.equal(ctx.attendance.all().length, 2);
+  assert.equal(ctx.audit.find({ module: "sports", action: "delete", targetType: "player" }).length, 1);
+  assert.equal((await call(ctx, COACH, "delete", "/players/:studentId", { params: { studentId: sid(1) } })).statusCode, 404);
 });
