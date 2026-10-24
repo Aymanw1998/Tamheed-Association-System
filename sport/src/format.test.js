@@ -1,49 +1,102 @@
 import { describe, it, expect } from "vitest";
-import { formatTrainingDate, attendanceLabel, statCells, cardSubtitle } from "./format.js";
+import {
+  lessonTime,
+  historyLabel,
+  cardCells,
+  nextLessonLabel,
+  attendanceLabel,
+  lessonDays,
+  birthDateLabel,
+} from "./format.js";
 
 // Local-time dates so the test does not depend on the machine's time zone.
-const now = new Date(2026, 9, 24, 10, 0); // Saturday 24 Oct 2026
+const now = new Date(2026, 9, 24, 10, 0); // Saturday 24 Oct 2026 (day 7)
 
-describe("formatTrainingDate", () => {
+describe("lessonTime", () => {
+  it("shows the day and the time range", () => {
+    expect(lessonTime({ day: 1, startMin: 1020, endMin: 1110 })).toBe("الأحد 17:00–18:30");
+  });
+  it("pads single-digit hours and minutes", () => {
+    expect(lessonTime({ day: 4, startMin: 545, endMin: 605 })).toBe("الأربعاء 09:05–10:05");
+  });
+});
+
+describe("historyLabel", () => {
+  it("shows the weekday, day/month and status", () => {
+    expect(historyLabel({ date: "2026-10-25", status: "حاضر" })).toBe("الأحد 25/10 · حاضر");
+  });
+  it("works for a Saturday", () => {
+    expect(historyLabel({ date: "2026-10-31", status: "غائب" })).toBe("السبت 31/10 · غائب");
+  });
+});
+
+describe("cardCells", () => {
+  const statDefs = [
+    { key: "a", label: "أهداف" },
+    { key: "b", label: "تمريرات حاسمة" },
+    { key: "c", label: "تسديدات" },
+    { key: "d", label: "تصديات" },
+  ];
+  const card = {
+    statDefs,
+    values: { a: 7, b: 3, c: 0 },
+    attendance: { rate: 92, present: 10, absent: 1, late: 2 },
+  };
+  it("holds attendance, lateness, then the stats in order: 6 cells", () => {
+    const cells = cardCells(card);
+    expect(cells).toHaveLength(6);
+    expect(cells[0]).toEqual({ label: "الحضور", value: "92%" });
+    expect(cells[1]).toEqual({ label: "التأخير", value: "2" });
+    expect(cells.slice(2).map((c) => c.label)).toEqual(["أهداف", "تمريرات حاسمة", "تسديدات", "تصديات"]);
+    expect(cells.slice(2).map((c) => c.value)).toEqual(["7", "3", "0", "0"]);
+  });
+  it("shows a dash when there is no rate yet", () => {
+    const cells = cardCells({ ...card, attendance: { rate: null, present: 0, absent: 0, late: 0 } });
+    expect(cells[0].value).toBe("—");
+    expect(cells[1].value).toBe("0");
+  });
+  it("never returns more than 6 cells", () => {
+    const many = ["a", "b", "c", "d", "e"].map((key) => ({ key, label: key }));
+    expect(cardCells({ statDefs: many, values: {}, attendance: null })).toHaveLength(6);
+  });
+});
+
+describe("nextLessonLabel", () => {
   it("says today with the time", () => {
-    expect(formatTrainingDate(new Date(2026, 9, 24, 17, 0).toISOString(), now)).toBe("اليوم 17:00");
+    expect(nextLessonLabel({ day: 7, startMin: 1020 }, now)).toBe("اليوم 17:00");
   });
   it("says tomorrow with the time", () => {
-    expect(formatTrainingDate(new Date(2026, 9, 25, 9, 5).toISOString(), now)).toBe("غدًا 09:05");
+    expect(nextLessonLabel({ day: 1, startMin: 1020 }, now)).toBe("غدًا 17:00");
   });
-  it("uses the weekday, day/month and time for later dates", () => {
-    const out = formatTrainingDate(new Date(2026, 10, 2, 17, 0).toISOString(), now);
-    expect(out).toMatch(/^\S+ 2\/11 · 17:00$/);
-    expect(out).toContain("الاثنين");
+  it("uses the weekday for later days", () => {
+    expect(nextLessonLabel({ day: 4, startMin: 1020 }, now)).toBe("الأربعاء 17:00");
+  });
+  it("uses the weekday when today's lesson time has passed (next week)", () => {
+    expect(nextLessonLabel({ day: 7, startMin: 540 }, now)).toBe("السبت 09:00");
   });
 });
 
 describe("attendanceLabel", () => {
-  it("shows a dash for null", () => {
-    expect(attendanceLabel(null)).toBe("—");
-  });
+  it("shows a dash for null", () => expect(attendanceLabel(null)).toBe("—"));
   it("shows a percent", () => {
     expect(attendanceLabel(92)).toBe("92%");
     expect(attendanceLabel(0)).toBe("0%");
   });
 });
 
-describe("statCells", () => {
-  const sport = { stats: [{ key: "a", label: "أهداف" }, { key: "b", label: "تمريرات" }] };
-  it("holds matches, attendance, then the sport stats in order, never age", () => {
-    const cells = statCells({ sport, stats: { matches: 0, attendance: null, values: { a: 0, b: 0 } } });
-    expect(cells.map((c) => c.label)).toEqual(["مباريات", "الحضور", "أهداف", "تمريرات"]);
-    expect(cells[1].value).toBe("—");
+describe("lessonDays", () => {
+  it("lists each day once, in week order, joined by an Arabic comma", () => {
+    const lessons = [
+      { day: 4, startMin: 1020 },
+      { day: 1, startMin: 1020 },
+      { day: 1, startMin: 600 },
+    ];
+    expect(lessonDays(lessons)).toBe("الأحد، الأربعاء");
   });
-  it("caps the sport stats at four", () => {
-    const stats = ["a", "b", "c", "d", "e"].map((key) => ({ key, label: key }));
-    expect(statCells({ sport: { stats }, stats: { values: {} } })).toHaveLength(6);
-  });
+  it("shows a dash with no lessons", () => expect(lessonDays([])).toBe("—"));
 });
 
-describe("cardSubtitle", () => {
-  it("joins age and position", () => expect(cardSubtitle(11, "مهاجم")).toBe("11 سنة · مهاجم"));
-  it("shows the position alone without age", () => expect(cardSubtitle(null, "مهاجم")).toBe("مهاجم"));
-  it("shows the age alone without a position", () => expect(cardSubtitle(11, "")).toBe("11 سنة"));
-  it("shows nothing when both are empty", () => expect(cardSubtitle(null, "")).toBe(""));
+describe("birthDateLabel", () => {
+  it("formats DD/MM/YYYY", () => expect(birthDateLabel("2015-05-10")).toBe("10/05/2015"));
+  it("shows a dash when missing", () => expect(birthDateLabel(null)).toBe("—"));
 });

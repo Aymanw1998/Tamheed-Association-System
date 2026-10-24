@@ -1,52 +1,35 @@
-import { useRef, useState } from "react";
-import PlayerCard from "./PlayerCard.jsx";
-import { formatTrainingDate } from "./format.js";
+import FlipCard from "./FlipCard.jsx";
+import { CalendarIcon } from "./Art.jsx";
+import { lessonTime, nextLessonLabel } from "./format.js";
+
+// Football lessons are always held in room 9.
+const PLACE = "التدريب الخارجي";
 
 export default function HomePage({ me }) {
-  const { cards, nextTraining, student } = me;
-  const [index, setIndex] = useState(0);
-  const rowRef = useRef(null);
-
-  const onScroll = () => {
-    const el = rowRef.current;
-    if (!el || !el.clientWidth) return;
-    // RTL scrolling uses negative offsets in some browsers, so take the absolute value.
-    setIndex(Math.min(cards.length - 1, Math.round(Math.abs(el.scrollLeft) / el.clientWidth)));
-  };
-
+  const next = me.nextLesson;
   return (
     <>
-      {cards.length > 0 && (
-        <>
-          <div className="cards-row" ref={rowRef} onScroll={onScroll}>
-            {cards.map((c) => (
-              <div className="card-slide" key={c.sport.id}>
-                <PlayerCard card={c} student={student} />
-              </div>
-            ))}
+      <FlipCard me={me} />
+      <section className="panel next">
+        <span className="next-icon">
+          <CalendarIcon />
+        </span>
+        <div className="next-body">
+          <div className="next-head">
+            <h2>الدرس القادم</h2>
+            {next && <span className="pill">{nextLessonLabel(next, new Date())}</span>}
           </div>
-          {cards.length > 1 && (
-            <div className="dots" aria-hidden="true">
-              {cards.map((c, i) => (
-                <span key={c.sport.id} className={i === index ? "on" : ""} />
-              ))}
-            </div>
+          {next ? (
+            <>
+              <b>{next.name}</b>
+              <small>
+                {lessonTime(next)} · {PLACE}
+              </small>
+            </>
+          ) : (
+            <p className="muted">لا يوجد درس قادم</p>
           )}
-        </>
-      )}
-      <section className="box">
-        <h4>التدريب القادم</h4>
-        {nextTraining ? (
-          <div className="row">
-            <span>
-              {nextTraining.sportIcon} {nextTraining.teamName}
-              {nextTraining.place ? ` · ${nextTraining.place}` : ""}
-            </span>
-            <span className="pill">{formatTrainingDate(nextTraining.startsAt, new Date())}</span>
-          </div>
-        ) : (
-          <p className="muted">لا يوجد تدريب قادم</p>
-        )}
+        </div>
       </section>
     </>
   );

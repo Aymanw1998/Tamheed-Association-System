@@ -2,9 +2,10 @@ import { useEffect, useState } from "react";
 import { getMe, logout } from "./api.js";
 import LoginPage from "./LoginPage.jsx";
 import HomePage from "./HomePage.jsx";
-import TeamsPage from "./TeamsPage.jsx";
+import LessonsPage from "./LessonsPage.jsx";
+import StadiumHeader from "./StadiumHeader.jsx";
 import BottomTabs from "./BottomTabs.jsx";
-import logo from "./logo.png";
+import { Ball } from "./Art.jsx";
 
 export default function App() {
   const [state, setState] = useState("loading"); // loading | out | in | error
@@ -38,7 +39,14 @@ export default function App() {
     setState("out");
   };
 
-  if (state === "loading") return <div className="center-note">جارٍ التحميل…</div>;
+  if (state === "loading") {
+    return (
+      <div className="center-note">
+        <Ball className="loading-ball" />
+        <p>جارٍ التحميل…</p>
+      </div>
+    );
+  }
   if (state === "out") return <LoginPage onSignedIn={load} />;
   if (state === "error") {
     return (
@@ -51,16 +59,9 @@ export default function App() {
 
   return (
     <div className="app">
-      <header className="topbar">
-        <img src={logo} alt="" />
-        <div className="topbar-title">
-          <b>أهلاً {me.student.firstname} 👋</b>
-          <span>تمهيد سبورت</span>
-        </div>
-        <button className="link-btn" onClick={onLogout}>خروج</button>
-      </header>
+      <StadiumHeader firstname={me.student.firstname} sportName={me.card.sport.name} onLogout={onLogout} />
       <main className="content">
-        {tab === "home" ? <HomePage me={me} /> : <TeamsPage teams={me.teams} />}
+        {tab === "home" ? <HomePage me={me} /> : <LessonsPage me={me} />}
       </main>
       <BottomTabs tab={tab} onChange={setTab} />
     </div>

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { requestCode, verifyCode, GENERIC_ERROR_MESSAGE } from "./api.js";
 import logo from "./logo.png";
+import { Ball, Floodlight } from "./Art.jsx";
 
 const digits = (v, max) => v.replace(/\D/g, "").slice(0, max);
 const GENERIC_ERROR = GENERIC_ERROR_MESSAGE;
@@ -51,35 +52,49 @@ export default function LoginPage({ onSignedIn }) {
 
   return (
     <div className="login">
-      <img className="login-logo" src={logo} alt="شعار جمعية تمهيد" />
-      <h1>تمهيد سبورت</h1>
-      {step === "tz" ? (
-        <form onSubmit={send} className="login-form">
-          <label htmlFor="tz">رقم الهوية</label>
-          <input
-            id="tz"
-            inputMode="numeric"
-            autoComplete="off"
-            value={tz}
-            onChange={(e) => setTz(digits(e.target.value, 9))}
-          />
-          <button className="btn" disabled={busy || tz.length < 5}>أرسل الرمز</button>
-        </form>
-      ) : (
-        <form onSubmit={verify} className="login-form">
-          {message && <p className="note">{message}</p>}
-          <label htmlFor="code">الرمز</label>
-          <input
-            id="code"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            value={code}
-            onChange={(e) => setCode(digits(e.target.value, 6))}
-          />
-          <button className="btn" disabled={busy || code.length !== 6}>دخول</button>
-        </form>
-      )}
-      {error && <p className="error" role="alert">{error}</p>}
+      <div className="login-hero" aria-hidden="true">
+        <Floodlight className="mast mast-r" />
+        <Floodlight className="mast mast-l" />
+        <span className="beam beam-r" />
+        <span className="beam beam-l" />
+      </div>
+      <div className="login-inner">
+        <span className="logo-badge login-logo">
+          <img src={logo} alt="شعار جمعية تمهيد" />
+        </span>
+        <h1>تمهيد سبورت</h1>
+        <p className="login-sub">بوابة لاعبي كرة القدم</p>
+        <div className="login-panel">
+          {step === "tz" ? (
+            <form onSubmit={send} className="login-form">
+              <label htmlFor="tz">رقم الهوية</label>
+              <input
+                id="tz"
+                inputMode="numeric"
+                autoComplete="off"
+                value={tz}
+                onChange={(e) => setTz(digits(e.target.value, 9))}
+              />
+              <button className="btn" disabled={busy || tz.length < 5}>أرسل الرمز</button>
+            </form>
+          ) : (
+            <form onSubmit={verify} className="login-form">
+              {message && <p className="note">{message}</p>}
+              <label htmlFor="code">الرمز</label>
+              <input
+                id="code"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                value={code}
+                onChange={(e) => setCode(digits(e.target.value, 6))}
+              />
+              <button className="btn" disabled={busy || code.length !== 6}>دخول</button>
+            </form>
+          )}
+          {error && <p className="error" role="alert">{error}</p>}
+        </div>
+        <Ball className="login-ball" />
+      </div>
     </div>
   );
 }
