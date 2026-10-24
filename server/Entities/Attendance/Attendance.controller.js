@@ -226,6 +226,7 @@ const bulkSave = async (req, res) => {
     }
 
     const dateKey = calcDateKey(y, m, d);
+    const actorId = String(req.actor.id);
 
     // Rows as they were before the save, to count what this save changed.
     const previous = await AttendanceModelDef.get({ lesson: String(lessonId), dateKey }).catch(() => null);
@@ -248,11 +249,18 @@ const bulkSave = async (req, res) => {
             notes: item.notes ?? "",
             // Saved by a person: no longer a nightly automatic absence.
             auto: false,
+            updatedBy: actorId,
             updatedAt: new Date(),
           }
         )
       )
     );
+
+    // Marks this save replaced that another person had saved with a different status.
+    const overwritten = [...new Set(items.filter((item) => {
+      const old = previousByStudent.get(String(item.studentId));
+      return old && old.status !== (item.status ?? DEFAULT_STATUS) && old.updatedBy && String(old.updatedBy) !== actorId;
+    }).map((item) => String(item.studentId)))];
 
     const rowsChanged = items.filter((item) => {
       const old = previousByStudent.get(String(item.studentId));
@@ -274,6 +282,7 @@ const bulkSave = async (req, res) => {
     return res.status(200).json({
       ok: true,
       schema: { result: results },
+      overwritten,
     });
   } catch (error) {
     logWithSource("Attendance.bulkSave", error);

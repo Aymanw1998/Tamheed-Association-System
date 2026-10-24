@@ -435,14 +435,17 @@ const saveAttendance = handle("saveAttendance", async (req, res) => {
   const now = new Date();
   // The last mark for a student wins.
   const latest = new Map(marks.map((m) => [String(m.studentId), m.status]));
+  const actorId = String(req.actor.id);
+  const overwritten = [];
   for (const [studentId, status] of latest) {
     const existing = rows(await SportAttendanceModelDef.get({ sportLessonId, studentId, date }))[0];
-    if (existing) await SportAttendanceModelDef.updateExisting({ _id: existing._id }, { status, updatedAt: now });
-    else await SportAttendanceModelDef.create({ sportLessonId, studentId, date, status, createdAt: now, updatedAt: now });
+    if (existing && existing.status !== status && existing.updatedBy && String(existing.updatedBy) !== actorId) overwritten.push(studentId);
+    if (existing) await SportAttendanceModelDef.updateExisting({ _id: existing._id }, { status, updatedBy: actorId, updatedAt: now });
+    else await SportAttendanceModelDef.create({ sportLessonId, studentId, date, status, updatedBy: actorId, createdAt: now, updatedAt: now });
   }
   cardChanged([...latest.keys()]);
   await record(req, "update", "attendance", { _id: lesson._id, date, count: latest.size }, lesson.name);
-  return res.status(200).json({ ok: true });
+  return res.status(200).json({ ok: true, overwritten });
 });
 
 const todayLessons = handle("todayLessons", async (req, res) => {

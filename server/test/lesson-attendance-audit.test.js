@@ -278,3 +278,46 @@ test("the nightly job marks the rows it creates auto: true; a teacher's save set
   } }), createRes());
   assert.equal(attendance.all().find((r) => r.student === "s2").auto, false);
 });
+
+/* ================= overwritten marks (conflict signal) ================= */
+
+test("bulk-save reports students whose mark was replaced by a different user", async () => {
+  const lessons = createStore([{ _id: "lesson-1", name: "Math", date: { day: 7, startMin: 600, endMin: 645 }, list_students: ["s1", "s2"] }]);
+  const attendance = createStore([{ lesson: "lesson-1", student: "s2", dateKey: 20261017, status: "غائب", notes: "", auto: true }]);
+  const controller = load("Attendance/Attendance.controller.js", {
+    "./Attendance.model": { AttendanceModelDef: attendance },
+    "../Lesson/Lesson.model": { LessonModelDef: lessons },
+    "../User/User.model": { UserModelDef: createStore() },
+    "../Student/Student.model": { StudentModelDef: createStore() },
+    "../../utils/permissions": require("../utils/permissions"),
+    "../../utils/studentScope": require("../utils/studentScope"),
+    "../../utils/attendanceMarks": require("../utils/attendanceMarks"),
+    "../../middleware/logger": { logWithSource() {} },
+    ...auditStub().deps,
+  });
+  const userB = { _id: "b".repeat(24), tz: "222222226", roles: ["ادارة"] };
+  const reqB = (extra) => ({ ...req(extra), actor: actorFor(userB) });
+  const save = async (r, items) => {
+    const out = createRes();
+    await controller.bulkSave(r({ body: { lessonId: "lesson-1", year: 2026, month: 10, day: 17, items } }), out);
+    return out;
+  };
+
+  const first = await save(req, [{ studentId: "s1", status: "حاضر" }]);
+  assert.deepEqual([...first.body.overwritten], []);
+  assert.equal(attendance.all().find((r) => r.student === "s1").updatedBy, ADMIN._id);
+
+  const same = await save(req, [{ studentId: "s1", status: "غائب" }]);
+  assert.deepEqual([...same.body.overwritten], [], "own row");
+
+  assert.deepEqual([...(await save(reqB, [{ studentId: "s1", status: "غائب" }])).body.overwritten], [], "same status");
+  await save(req, [{ studentId: "s1", status: "غائب" }]);
+  assert.deepEqual([...(await save(reqB, [{ studentId: "s1", status: "حاضر" }])).body.overwritten], ["s1"]);
+  assert.equal(attendance.all().find((r) => r.student === "s1").updatedBy, userB._id);
+
+  assert.deepEqual([...(await save(req, [{ studentId: "s2", status: "حاضر" }])).body.overwritten], [], "auto row has no updatedBy");
+
+  await save(req, [{ studentId: "s1", status: "حاضر" }]);
+  await save(req, [{ studentId: "s1", status: "حاضر" }]);
+  assert.equal(attendance.all().filter((r) => r.student === "s1").length, 1);
+});

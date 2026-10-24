@@ -13,6 +13,7 @@ const SportAttendanceModelDef = {
         studentId: { type: "string", required: true },
         date: { type: "string", required: true }, // "YYYY-MM-DD", Israel local time
         status: { type: "string", required: true }, // حاضر | غائب | متأخر
+        updatedBy: { type: "string", required: false },
         createdAt: { type: "date", required: false },
         updatedAt: { type: "date", required: false },
     },

@@ -22,6 +22,8 @@ const AttendanceModelDef = {
     notes: { type: "string", required: false, default: "" },
     // true: created absent by the nightly job; false: saved by a person.
     auto: { type: "boolean", required: false },
+    // The user who last saved this row (absent on nightly automatic rows).
+    updatedBy: { type: "string", required: false },
 
     createdAt: {
       type: "date",

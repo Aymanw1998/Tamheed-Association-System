@@ -158,7 +158,7 @@ test("saving attendance pushes only the students whose mark was saved", async ()
   const calls = [];
   const { controller, LESSON } = controllerWorld(async (ids) => { calls.push([...ids]); });
   const r = res();
-  await controller.saveAttendance({ params: { id: LESSON }, body: { date: "2026-10-25", marks: [{ studentId: "p1", status: "حاضر" }] }, user: {} }, r);
+  await controller.saveAttendance({ params: { id: LESSON }, body: { date: "2026-10-25", marks: [{ studentId: "p1", status: "حاضر" }] }, user: {}, actor: { id: "u1" } }, r);
   assert.equal(r.statusCode, 200);
   assert.deepEqual(calls, [["p1"]]);
 });

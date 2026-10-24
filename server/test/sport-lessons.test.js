@@ -423,3 +423,22 @@ test("conflictsInRoom9: room 9, shared staff, sport lessons and ignoreId", () =>
   assert.equal(conflictsInRoom9({ date, room: "9", teacher: "t1" }, { sportLessons: [{ _id: "s1", date }] }), true);
   assert.equal(conflictsInRoom9(candidate, {}), false);
 });
+
+test("attendance: reports marks replaced by a different user, never the user's own or auto rows", async () => {
+  const { ctx, id } = await lessonWorld();
+  const as = (u, marks) => call(ctx, u, "put", "/lessons/:id/attendance", { params: { id }, body: { date: TODAY, marks } });
+  const first = await as(COACH, [{ studentId: sid(1), status: "حاضر" }]);
+  assert.equal(first.statusCode, 200);
+  assert.deepEqual([...first.body.overwritten], []);
+  assert.equal(ctx.attendance.all()[0].updatedBy, COACH._id);
+  assert.deepEqual([...(await as(COACH, [{ studentId: sid(1), status: "غائب" }])).body.overwritten], [], "own row");
+  assert.deepEqual([...(await as(MANAGER, [{ studentId: sid(1), status: "غائب" }])).body.overwritten], [], "same status");
+  await as(COACH, [{ studentId: sid(1), status: "غائب" }]);
+  assert.deepEqual([...(await as(MANAGER, [{ studentId: sid(1), status: "حاضر" }])).body.overwritten], [sid(1)]);
+  assert.equal(ctx.attendance.all()[0].updatedBy, MANAGER._id);
+  // A row with no updatedBy (legacy/automatic) is never reported.
+  await ctx.attendance.create({ sportLessonId: id, studentId: sid(2), date: TODAY, status: "غائب" });
+  assert.deepEqual([...(await as(COACH, [{ studentId: sid(2), status: "حاضر" }])).body.overwritten], []);
+  await as(COACH, [{ studentId: sid(1), status: "حاضر" }]);
+  assert.equal(ctx.attendance.all().filter((r) => r.studentId === sid(1)).length, 1);
+});
