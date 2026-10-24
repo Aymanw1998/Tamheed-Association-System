@@ -24,6 +24,7 @@ const crypto = require("crypto")
 dotenv.config({path: './config/.env'});
 const { ensureSystemAdmin } = require('./scripts/ensureSystemAdmin');
 const { createFatalShutdown } = require('./utils/fatalShutdown');
+const { sportStatic } = require('./utils/sportHost');
 //Craete app
 const app = express();
 app.use(logger);
@@ -73,6 +74,8 @@ app.set('trust proxy', 1); // ملاحظة عربية
 // Mounted before helmet so the CRA bundle isn't subject to helmet's default CSP.
 if (process.env.SERVE_CLIENT === 'true') {
   const clientBuild = path.join(__dirname, '..', 'client', 'build');
+  // The sport site on its own host name; must come before the system client.
+  app.use(sportStatic(path.join(__dirname, '..', 'sport', 'dist'), process.env.SPORT_HOST));
   app.use(express.static(clientBuild));
   app.get(/^\/(?!api(\/|$)).*/, (req, res, next) =>
     req.accepts('html') ? res.sendFile(path.join(clientBuild, 'index.html')) : next()
