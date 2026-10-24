@@ -6,10 +6,15 @@ const { SportAttendanceModelDef } = require("./SportAttendance.model");
 const { StudentModelDef } = require("../Student/Student.model");
 const { logWithSource } = require("../../middleware/logger");
 const { audit } = require("../../utils/audit");
-const { ageOn, buildCard } = require("../../utils/sportCards");
+const { LessonModelDef } = require("../Lesson/Lesson.model");
+const { ageOn, buildCard, israelToday, dayOfDate } = require("../../utils/sportCards");
+const { conflictsInRoom9 } = require("../../utils/lessonConflict");
 
 const SERVER_ERROR = "حدث خطأ غير متوقع، حاول مرة أخرى";
-const NOT_FOUND = { student: "الطالب غير موجود", player: "اللاعب غير موجود" };
+const NOT_FOUND = { student: "الطالب غير موجود", player: "اللاعب غير موجود", lesson: "الدرس غير موجود" };
+const SPORT_ROOM = "9";
+const STATUSES = ["حاضر", "غائب", "متأخر"];
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const FOOTBALL = { name: "كرة القدم", icon: "⚽" };
 const MAX_STATS = 4;
 const OBJECT_ID = /^[a-f0-9]{24}$/i;
@@ -226,6 +231,157 @@ const bumpStat = handle("bumpStat", async (req, res) => {
   return res.status(200).json({ ok: true, value });
 });
 
+/* ---------- lessons ---------- */
+
+const CONFLICT = "يوجد تعارض";
+const BAD_ATTENDANCE_DATE = "لا يمكن تسجيل الحضور في هذا التاريخ";
+
+const isMinute = (n) => Number.isInteger(n) && n >= 0 && n <= 1440;
+
+// Returns { name, date } or { error }.
+function parseLesson(body) {
+  const name = text(body?.name);
+  if (!name) return { error: "اسم الدرس مطلوب" };
+  if ([...name].length > 60) return { error: "اسم الدرس طويل جدًا (حتى 60 حرفًا)" };
+  const day = Number(body?.date?.day);
+  const startMin = Number(body?.date?.startMin);
+  const endMin = Number(body?.date?.endMin);
+  if (!Number.isInteger(day) || day < 1 || day > 7) return { error: "اليوم غير صحيح" };
+  if (!isMinute(startMin) || !isMinute(endMin) || startMin >= endMin) return { error: "وقت الدرس غير صحيح" };
+  if (!Array.isArray(body?.studentIds)) return { error: "قائمة اللاعبين غير صحيحة" };
+  return { name, date: { day, startMin, endMin } };
+}
+
+async function lessonPlayers(lesson, students) {
+  const map = students || await studentMap();
+  return (lesson.players || []).map((p) => {
+    const s = map.get(String(p.studentId));
+    return { studentId: String(p.studentId), firstname: s?.firstname || "", lastname: s?.lastname || "", joinedAt: p.joinedAt };
+  });
+}
+
+const presentLesson = (lesson, players) => ({
+  _id: String(lesson._id), name: lesson.name, date: lesson.date, room: lesson.room || SPORT_ROOM, players,
+});
+
+const byStart = (a, b) => (a.date?.startMin || 0) - (b.date?.startMin || 0);
+
+const listLessons = handle("listLessons", async (req, res) => {
+  const sport = await ensureFootball();
+  const [found, students] = await Promise.all([SportLessonModelDef.get({ sportId: String(sport._id) }), studentMap()]);
+  const lessons = [];
+  for (const l of rows(found).sort((a, b) => (a.date?.day || 0) - (b.date?.day || 0) || byStart(a, b))) {
+    lessons.push(presentLesson(l, await lessonPlayers(l, students)));
+  }
+  return res.status(200).json({ ok: true, lessons });
+});
+
+// Shared by create and update. `current` is the lesson being edited, if any.
+async function saveLesson(req, res, current) {
+  const parsed = parseLesson(req.body);
+  if (parsed.error) return fail(res, 400, parsed.error);
+  const sport = await ensureFootball();
+  const sportId = String(sport._id);
+  const wanted = uniqueIds(req.body.studentIds);
+  const playerIds = new Set(rows(await SportPlayerModelDef.get({ sportId })).map((p) => String(p.studentId)));
+  if (wanted.some((id) => !playerIds.has(id))) return fail(res, 400, "اللاعبون المحددون غير صحيحين");
+
+  const [regular, sportLessons] = await Promise.all([
+    LessonModelDef.get({ "date.day": parsed.date.day }), SportLessonModelDef.get({}),
+  ]);
+  const candidate = { date: parsed.date, room: SPORT_ROOM };
+  if (conflictsInRoom9(candidate, { lessons: rows(regular), sportLessons: rows(sportLessons), ignoreId: current?._id })) {
+    return fail(res, 409, CONFLICT);
+  }
+
+  const now = new Date();
+  const kept = new Map((current?.players || []).map((p) => [String(p.studentId), p.joinedAt]));
+  const players = wanted.map((studentId) => ({ studentId, joinedAt: kept.get(studentId) || now }));
+  const saved = current
+    ? await SportLessonModelDef.updateExisting({ _id: current._id }, { ...parsed, room: SPORT_ROOM, players, updatedAt: now })
+    : await SportLessonModelDef.create({ sportId, ...parsed, room: SPORT_ROOM, players, createdAt: now, updatedAt: now });
+  const lesson = saved?.result;
+  await record(req, current ? "update" : "create", "lesson", lesson, parsed.name, current || null);
+  return res.status(current ? 200 : 201).json({ ok: true, lesson: presentLesson(lesson, await lessonPlayers(lesson)) });
+}
+
+const createLesson = handle("createLesson", (req, res) => saveLesson(req, res, null));
+
+const updateLesson = handle("updateLesson", async (req, res) => {
+  const current = await findOne(SportLessonModelDef, req.params.id);
+  if (!current) return fail(res, 404, NOT_FOUND.lesson);
+  return saveLesson(req, res, current);
+});
+
+const deleteLesson = handle("deleteLesson", async (req, res) => {
+  const current = await findOne(SportLessonModelDef, req.params.id);
+  if (!current) return fail(res, 404, NOT_FOUND.lesson);
+  await SportAttendanceModelDef.delete({ sportLessonId: String(current._id) });
+  await SportLessonModelDef.delete({ _id: current._id });
+  await record(req, "delete", "lesson", null, current.name, current);
+  return res.status(200).json({ ok: true });
+});
+
+/* ---------- attendance ---------- */
+
+// "Today" is read from `new Date()` at call time, so tests can stub the clock.
+// A real calendar date, not after today (Israel time), on the lesson's weekday.
+function validAttendanceDate(date, lesson) {
+  if (!DATE_RE.test(date)) return false;
+  const parsed = new Date(`${date}T00:00:00Z`);
+  if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== date) return false;
+  return date <= israelToday(new Date()) && dayOfDate(date) === lesson.date?.day;
+}
+
+const getAttendance = handle("getAttendance", async (req, res) => {
+  const lesson = await findOne(SportLessonModelDef, req.params.id);
+  if (!lesson) return fail(res, 404, NOT_FOUND.lesson);
+  const date = text(req.query?.date) || israelToday(new Date());
+  if (!validAttendanceDate(date, lesson)) return fail(res, 400, BAD_ATTENDANCE_DATE);
+  const marked = new Map(rows(await SportAttendanceModelDef.get({ sportLessonId: String(lesson._id), date }))
+    .map((r) => [String(r.studentId), r.status]));
+  const players = (await lessonPlayers(lesson)).map((p) => ({
+    studentId: p.studentId, firstname: p.firstname, lastname: p.lastname, status: marked.get(p.studentId) || null,
+  }));
+  return res.status(200).json({ ok: true, date, players });
+});
+
+const saveAttendance = handle("saveAttendance", async (req, res) => {
+  const lesson = await findOne(SportLessonModelDef, req.params.id);
+  if (!lesson) return fail(res, 404, NOT_FOUND.lesson);
+  const date = text(req.body?.date);
+  if (!validAttendanceDate(date, lesson)) return fail(res, 400, BAD_ATTENDANCE_DATE);
+  const marks = req.body?.marks;
+  if (!Array.isArray(marks)) return fail(res, 400, "بيانات الحضور غير صحيحة");
+  for (const m of marks) {
+    if (!inLesson(lesson, m?.studentId)) return fail(res, 400, "الطالب ليس في هذا الدرس");
+    if (!STATUSES.includes(m?.status)) return fail(res, 400, "حالة الحضور غير صحيحة");
+  }
+  const sportLessonId = String(lesson._id);
+  const now = new Date();
+  // The last mark for a student wins.
+  const latest = new Map(marks.map((m) => [String(m.studentId), m.status]));
+  for (const [studentId, status] of latest) {
+    const existing = rows(await SportAttendanceModelDef.get({ sportLessonId, studentId, date }))[0];
+    if (existing) await SportAttendanceModelDef.updateExisting({ _id: existing._id }, { status, updatedAt: now });
+    else await SportAttendanceModelDef.create({ sportLessonId, studentId, date, status, createdAt: now, updatedAt: now });
+  }
+  await record(req, "update", "attendance", { _id: lesson._id, date, count: latest.size }, lesson.name);
+  return res.status(200).json({ ok: true });
+});
+
+const todayLessons = handle("todayLessons", async (req, res) => {
+  const sport = await ensureFootball();
+  const date = israelToday(new Date());
+  const day = dayOfDate(date);
+  const lessons = rows(await SportLessonModelDef.get({ sportId: String(sport._id) }))
+    .filter((l) => l.date?.day === day)
+    .sort(byStart)
+    .map((l) => ({ _id: String(l._id), name: l.name, date: l.date }));
+  return res.status(200).json({ ok: true, date, lessons });
+});
+
 module.exports = {
   ensureFootball, getSport, setStats, listPlayers, searchStudents, savePlayer, deletePlayer, bumpStat,
+  listLessons, createLesson, updateLesson, deleteLesson, getAttendance, saveAttendance, todayLessons,
 };

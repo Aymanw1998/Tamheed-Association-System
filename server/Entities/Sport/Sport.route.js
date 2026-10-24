@@ -15,5 +15,12 @@ router.get("/students/search", requirePermission("sports.coach", "sports.manage"
 router.put("/players/:studentId", requirePermission("sports.coach", "sports.manage"), controller.savePlayer);
 router.delete("/players/:studentId", requirePermission("sports.coach", "sports.manage"), controller.deletePlayer);
 router.post("/players/:studentId/stats", requirePermission("sports.coach", "sports.manage"), controller.bumpStat);
+router.get("/lessons", requirePermission("sports.view", "sports.coach", "sports.manage"), controller.listLessons);
+router.post("/lessons", requirePermission("sports.manage"), controller.createLesson);
+router.put("/lessons/:id", requirePermission("sports.manage"), controller.updateLesson);
+router.delete("/lessons/:id", requirePermission("sports.manage"), controller.deleteLesson);
+router.get("/lessons/:id/attendance", requirePermission("sports.view", "sports.coach", "sports.manage"), controller.getAttendance);
+router.put("/lessons/:id/attendance", requirePermission("sports.coach", "sports.manage"), controller.saveAttendance);
+router.get("/attendance/today", requirePermission("sports.view", "sports.coach", "sports.manage"), controller.todayLessons);
 
 module.exports = router;

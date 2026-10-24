@@ -109,7 +109,9 @@ function world({ players, withSport = true } = {}) {
     "./SportAttendance.model": { SportAttendanceModelDef: attendance },
     "../Student/Student.model": { StudentModelDef: students },
     "../../middleware/logger": { logWithSource() {} },
+    "../Lesson/Lesson.model": { LessonModelDef: createStore([]) },
     "../../utils/sportCards": require("../utils/sportCards"),
+    "../../utils/lessonConflict": require("../utils/lessonConflict"),
     ...audit.deps,
   });
   return { controller, routes: loadRoutes(controller), sports, players: playerStore, lessons, attendance, audit };
@@ -154,6 +156,8 @@ test("the route table is exactly the football staff API", () => {
   assert.deepEqual(ctx.routes.map((r) => `${r.method.toUpperCase()} ${r.path}`), [
     "GET /", "PUT /stats", "GET /players", "GET /students/search",
     "PUT /players/:studentId", "DELETE /players/:studentId", "POST /players/:studentId/stats",
+    "GET /lessons", "POST /lessons", "PUT /lessons/:id", "DELETE /lessons/:id",
+    "GET /lessons/:id/attendance", "PUT /lessons/:id/attendance", "GET /attendance/today",
   ]);
 });
 
