@@ -36,6 +36,8 @@ function createSportAuth(deps = {}) {
   const {
     students = StudentModelDef,
     players = SportPlayerModelDef,
+    // Loaded on first use, so requiring this file does not pull in the staff controller.
+    ensureSport = () => require("../Sport/Sport.controller").ensureFootball(),
     codes = SportLoginCodeModelDef,
     sendCode = sendSportLoginCodeEmail,
     makeCode = generateOtp6,
@@ -50,7 +52,11 @@ function createSportAuth(deps = {}) {
     return value;
   };
 
-  const hasSportRow = async (studentId) => rows(await players.get({ studentId: String(studentId) })).length > 0;
+  // Only a football player row counts; rows of any other (old) sport do not.
+  const hasSportRow = async (studentId) => {
+    const sport = await ensureSport();
+    return rows(await players.get({ studentId: String(studentId), sportId: String(sport._id) })).length > 0;
+  };
 
   const requestCode = async (req, res) => {
     const generic = () => res.json({ ok: true, message: GENERIC_CODE_MESSAGE });

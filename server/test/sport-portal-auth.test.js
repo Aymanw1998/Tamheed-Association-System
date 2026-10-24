@@ -66,6 +66,7 @@ function setup({ students, players, codes } = {}) {
   };
   const auth = createSportAuth({
     ...stores,
+    ensureSport: async () => ({ _id: "x" }),
     sendCode: async (to, code) => { sent.push({ to, code }); },
     makeCode: () => "123456",
     log: (...args) => logs.push(args),
@@ -289,7 +290,7 @@ test("a sport session cookie does not open /api/student", async () => {
 test("request-code does not wait for the mail", async () => {
   const { stores } = setup();
   const auth = createSportAuth({
-    ...stores, sendCode: () => new Promise(() => {}), makeCode: () => "123456", log() {},
+    ...stores, ensureSport: async () => ({ _id: "x" }), sendCode: () => new Promise(() => {}), makeCode: () => "123456", log() {},
   });
   const r = await Promise.race([ask(auth, "100000009"), new Promise((ok) => setTimeout(() => ok("timeout"), 500))]);
   assert.notEqual(r, "timeout");
@@ -299,7 +300,7 @@ test("request-code does not wait for the mail", async () => {
 test("a failing mailer is logged and the answer stays generic", async () => {
   const { stores, logs } = setup();
   const auth = createSportAuth({
-    ...stores, sendCode: async () => { throw new Error("smtp down"); }, makeCode: () => "123456", log: (...a) => logs.push(a),
+    ...stores, ensureSport: async () => ({ _id: "x" }), sendCode: async () => { throw new Error("smtp down"); }, makeCode: () => "123456", log: (...a) => logs.push(a),
   });
   const r = await ask(auth, "100000009");
   assert.deepEqual(r.body, GENERIC);
@@ -367,4 +368,34 @@ test("rateLimit buckets by req.ip, so a spoofed X-Forwarded-For gets no fresh bu
   assert.equal(hit("1.1.1.1"), true);
   assert.equal(hit("2.2.2.2"), true);
   assert.equal(hit("3.3.3.3"), false);
+});
+
+test("a student whose only player row belongs to another sport cannot sign in", async () => {
+  const { auth, sent, stores } = setup({
+    students: [{ _id: "s9", tz: "100000041", email: "old@example.com" }],
+    players: [{ studentId: "s9", sportId: "old" }],
+  });
+  const r = await ask(auth, "100000041");
+  assert.deepEqual(r.body, GENERIC);
+  assert.equal(sent.length, 0);
+  assert.equal(stores.codes.docs().length, 0);
+
+  // Even with a valid stored code, verify refuses and sets no cookie.
+  stores.codes.docs().push({ _id: "c1", studentId: "s9", codeHash: sha256("123456"), expiresAt: new Date(Date.parse("2026-01-01T10:05:00Z")), attempts: 0, lockedUntil: null });
+  const v = await verify(auth, "100000041", "123456");
+  assert.equal(v.statusCode, 400);
+  assert.equal(v.cookies.length, 0);
+});
+
+test("a session of a student with no football row is refused with 401", async () => {
+  const { auth } = setup({
+    students: [{ _id: "s9", tz: "100000041", email: "old@example.com" }],
+    players: [{ studentId: "s9", sportId: "old" }],
+  });
+  const token = jwt.sign({ sub: "s9", typ: "sport-student" }, process.env.SPORT_SESSION_SECRET, { algorithm: "HS256" });
+  const r = res();
+  let passed = false;
+  await auth.requireSportStudent({ cookies: { tamheed_sport: token } }, r, () => { passed = true; });
+  assert.equal(passed, false);
+  assert.equal(r.statusCode, 401);
 });

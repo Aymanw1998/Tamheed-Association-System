@@ -72,7 +72,7 @@ const STUDENTS = [1, 2, 3, 4].map((n) => ({
 const SPORT = hex("a");
 const SUNDAY = { day: 1, startMin: 1000, endMin: 1060 };
 
-function world({ regular = [], sportLessons = [], attendance = [] } = {}) {
+function world({ regular = [], sportLessons = [], attendance = [], students = STUDENTS } = {}) {
   const sports = createStore([{ _id: SPORT, name: "كرة القدم", icon: "⚽", stats: [] }]);
   // Players 1, 2 and 3 are football players; student 4 is not.
   const players = createStore([1, 2, 3].map((n) => ({ _id: hex(String(n)), studentId: sid(n), sportId: SPORT, stats: {} })));
@@ -86,7 +86,7 @@ function world({ regular = [], sportLessons = [], attendance = [] } = {}) {
     "./SportPlayer.model": { SportPlayerModelDef: players },
     "./SportLesson.model": { SportLessonModelDef: lessons },
     "./SportAttendance.model": { SportAttendanceModelDef: attendanceStore },
-    "../Student/Student.model": { StudentModelDef: createStore(STUDENTS) },
+    "../Student/Student.model": { StudentModelDef: createStore(students) },
     "../Lesson/Lesson.model": { LessonModelDef: regularStore },
     "../../middleware/logger": { logWithSource() {} },
     "../../utils/sportCards": require("../utils/sportCards"),
@@ -245,6 +245,15 @@ test("attendance GET defaults to today and shows null for unmarked players", asy
   assert.equal(r.statusCode, 200);
   assert.equal(r.body.date, TODAY);
   assert.ok(r.body.players.every((p) => p.status === null));
+});
+
+test("lists and attendance skip players whose student no longer exists", async () => {
+  const ctx = world({ students: STUDENTS.filter((s) => s._id !== sid(2)) });
+  const id = (await create(ctx)).body.lesson._id;
+  const list = await call(ctx, VIEWER, "get", "/lessons");
+  assert.deepEqual(list.body.lessons[0].players.map((p) => p.studentId), [sid(1)]);
+  const att = await call(ctx, VIEWER, "get", "/lessons/:id/attendance", { params: { id } });
+  assert.deepEqual(att.body.players.map((p) => p.studentId), [sid(1)]);
 });
 
 test("attendance: non-members and bad statuses are 400, and nothing is written", async () => {

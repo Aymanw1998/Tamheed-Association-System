@@ -254,9 +254,10 @@ function parseLesson(body) {
 
 async function lessonPlayers(lesson, students) {
   const map = students || await studentMap();
-  return (lesson.players || []).map((p) => {
+  // A player whose student no longer exists is skipped, so no blank-name row appears.
+  return (lesson.players || []).filter((p) => map.has(String(p.studentId))).map((p) => {
     const s = map.get(String(p.studentId));
-    return { studentId: String(p.studentId), firstname: s?.firstname || "", lastname: s?.lastname || "", joinedAt: p.joinedAt };
+    return { studentId: String(p.studentId), firstname: s.firstname || "", lastname: s.lastname || "", joinedAt: p.joinedAt };
   });
 }
 

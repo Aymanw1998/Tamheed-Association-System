@@ -67,7 +67,7 @@ function setup({ students, players, lessons, records, files } = {}) {
       { studentId: "s2", sportId: "sp1", jerseyNumber: 9, position: "مهاجم", stats: { s_aa: 11 } },
     ]),
   };
-  const auth = createSportAuth({ ...stores, log: (...a) => logs.push(a) });
+  const auth = createSportAuth({ ...stores, ensureSport: async () => ({ _id: "sp1" }), log: (...a) => logs.push(a) });
   const portal = createSportPortalController({
     ...stores,
     ensureSport: async () => ({ _id: "sp1", name: "كرة القدم", icon: "⚽", stats: [{ key: "s_aa", label: "أهداف" }] }),
@@ -189,4 +189,26 @@ test("photo answers 404 when there is none, and when the download fails", async 
   assert.deepEqual(r2.body, { ok: false });
   assert.equal(broken.logs.length, 1);
   assert.equal(r2.headers.Location, undefined);
+});
+
+test("me answers 401 for a student whose only player row belongs to another sport", async () => {
+  const { call, portal } = setup({
+    students: [{ _id: "s9", tz: "100000041", email: "old@example.com", firstname: "قديم", lastname: "لاعب" }],
+    players: [{ studentId: "s9", sportId: "old", jerseyNumber: 3 }],
+  });
+  const r = await call(portal.me, "s9");
+  assert.equal(r.statusCode, 401);
+  assert.deepEqual(r.body, { ok: false, code: "SPORT_AUTH" });
+});
+
+test("me does not read another sport's row when the student has both", async () => {
+  const { call, portal } = setup({
+    players: [
+      { studentId: "s1", sportId: "old", jerseyNumber: 99, position: "قديم", stats: {} },
+      { studentId: "s1", sportId: "sp1", jerseyNumber: 7, position: "حارس", stats: { s_aa: 3 } },
+    ],
+  });
+  const r = await call(portal.me, "s1");
+  assert.equal(r.statusCode, 200);
+  assert.equal(r.body.card.jerseyNumber, 7);
 });

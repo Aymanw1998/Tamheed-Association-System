@@ -128,7 +128,7 @@ async function seed(email) {
       tz: await freeTz(taken),
       firstname: names[i % names.length],
       lastname: DEMO_MARK,
-      birth_date: new Date(now.getFullYear() - age, between(0, 11), between(1, 28)),
+      birth_date: new Date(Date.UTC(now.getFullYear() - age, between(0, 11), between(1, 28))),
       gender: i % 2 === 0 ? "ذكر" : "أنثى",
       email: i === 0 ? email : "",
       notes: "طالب تجريبي لموقع الرياضة. يُحذف مع: node scripts/seedSportDemo.js --remove",

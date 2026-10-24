@@ -35,9 +35,9 @@ function createSportPortalController(deps = {}) {
       const studentId = sid(student._id);
       const at = now();
 
-      const player = rows(await players.get({ studentId }))[0];
-      if (!player) return res.status(401).json({ ok: false, code: "SPORT_AUTH" });
       const sport = await ensureSport();
+      const player = rows(await players.get({ studentId, sportId: sid(sport._id) }))[0];
+      if (!player) return res.status(401).json({ ok: false, code: "SPORT_AUTH" });
 
       // Only this student's own rows are read; nothing of anyone else is loaded into the answer.
       const myLessons = rows(await lessons.get({ "players.studentId": studentId }))
