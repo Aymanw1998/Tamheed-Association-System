@@ -52,6 +52,8 @@ function lessonSetup(seed = [], users = []) {
   const audit = auditStub();
   const controller = load("Lesson/Lesson.controller.js", {
     "./Lesson.model": { LessonModelDef: lessons },
+    "../Sport/SportLesson.model": { SportLessonModelDef: { async get() { return { success: true, result: [] }; } } },
+    "../../utils/lessonConflict": require("../utils/lessonConflict"),
     "../User/User.model": { UserModelDef: createStore(users) },
     "../../utils/permissions": require("../utils/permissions"),
     "../../middleware/logger": { logWithSource() {} },
@@ -224,6 +226,8 @@ test("a teacher or helper value that is not an ObjectId is not looked up (no Cas
     const lessons = createStore();
     const controller = load("Lesson/Lesson.controller.js", {
       "./Lesson.model": { LessonModelDef: lessons },
+      "../Sport/SportLesson.model": { SportLessonModelDef: { async get() { return { success: true, result: [] }; } } },
+      "../../utils/lessonConflict": require("../utils/lessonConflict"),
       "../User/User.model": { UserModelDef: strictUsers },
       "../../utils/permissions": require("../utils/permissions"),
       "../../middleware/logger": { logWithSource() {} },

@@ -201,6 +201,8 @@ function world() {
   const lessonController = load("Lesson/Lesson.controller.js", {
     ...common,
     "./Lesson.model": { LessonModelDef: lessons },
+    "../Sport/SportLesson.model": { SportLessonModelDef: { async get() { return { success: true, result: [] }; } } },
+    "../../utils/lessonConflict": require("../utils/lessonConflict"),
     "../User/User.model": { UserModelDef: users },
     "../Student/Student.model": { StudentModelDef: students },
   });

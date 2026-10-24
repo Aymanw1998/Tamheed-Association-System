@@ -4,6 +4,8 @@ const { audit } = require("../../utils/audit");
 const { UserModelDef } = require("../User/User.model");
 const { isSystemTz } = require("../../utils/permissions");
 const { StudentModelDef } = require("../Student/Student.model");
+const { SportLessonModelDef } = require("../Sport/SportLesson.model");
+const { conflictsInRoom9 } = require("../../utils/lessonConflict");
 const { createStudentScope, mergeRoster, scopeLesson } = require("../../utils/studentScope");
 
 // Student scope: null (students.viewAll, today's behaviour) or the Set of
@@ -100,19 +102,6 @@ const safeNotify = async (payload) => {
 
 const toInt = (v, d = 0) => Number.isFinite(Number(v)) ? Number(v) : d;
 const clamp = (n, min, max) => Math.max(min, Math.min(n, max));
-
-const overlap = (a1, a2, b1, b2) => a1 < b2 && b1 < a2;
-
-function isConflict(a, b) {
-  if (!overlap(a.date.startMin, a.date.endMin, b.date.startMin, b.date.endMin))
-    return false;
-
-  return (
-    String(a.room) === String(b.room) ||
-    (a.teacher && b.teacher && String(a.teacher) === String(b.teacher)) ||
-    (a.helper && b.helper && String(a.helper) === String(b.helper))
-  );
-}
 
 function buildLesson(body) {
   const start = clamp(toInt(body?.date?.startMin, 9 * 60), 0, 1439);
@@ -218,6 +207,29 @@ const getLessonsByQuery = async (req, res) => {
   }
 };
 
+// Football lessons for the general schedule: read-only, room 9, no player ids.
+const getSportSchedule = async (req, res) => {
+  try {
+    const result = await SportLessonModelDef.get({});
+    return res.status(200).json({
+      ok: true,
+      lessons: (result?.result || []).map((l) => ({
+        _id: l._id,
+        name: l.name,
+        date: l.date,
+        room: "9",
+        teacher: null,
+        readOnly: true,
+        kind: "sport",
+        playersCount: Array.isArray(l.players) ? l.players.length : 0,
+      })),
+    });
+  } catch (err) {
+    logWithSource("Lesson.getSportSchedule", err);
+    return res.status(500).json({ ok: false });
+  }
+};
+
 // CREATE
 const postOne = async (req, res) => {
   try {
@@ -241,8 +253,9 @@ const postOne = async (req, res) => {
     if (await namesSystemAccount([model.teacher, model.helper])) return res.status(400).json(SYSTEM_STAFF);
 
     const sameDay = await LessonModelDef.get({ "date.day": model.date.day });
+    const sportDay = await SportLessonModelDef.get({ "date.day": model.date.day });
 
-    const conflict = (sameDay?.result || []).some((l) => isConflict(model, l));
+    const conflict = conflictsInRoom9(model, { lessons: sameDay?.result || [], sportLessons: sportDay?.result || [] });
 
     if (conflict) {
       return res.status(409).json({
@@ -294,10 +307,13 @@ const putOne = async (req, res) => {
     if (await namesSystemAccount([req.body?.teacher, req.body?.helper])) return res.status(400).json(SYSTEM_STAFF);
 
     const sameDay = await LessonModelDef.get({ "date.day": next.date.day });
+    const sportDay = await SportLessonModelDef.get({ "date.day": next.date.day });
 
-    const conflict = (sameDay?.result || []).some(
-      (l) => String(l._id) !== String(id) && isConflict(next, l)
-    );
+    const conflict = conflictsInRoom9(next, {
+      lessons: sameDay?.result || [],
+      sportLessons: sportDay?.result || [],
+      ignoreId: id,
+    });
 
     if (conflict) {
       return res.status(409).json({ ok: false, message: "يوجد تعارض" });
@@ -447,6 +463,7 @@ module.exports = {
   getAll,
   getOne,
   getLessonsByQuery,
+  getSportSchedule,
   postOne,
   putOne,
   deleteOne,
