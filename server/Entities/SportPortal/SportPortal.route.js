@@ -2,6 +2,7 @@ const express = require("express");
 const auth = require("./SportPortal.auth");
 const portal = require("./SportPortal.controller");
 const { rateLimit } = require("../../middleware/rateLimit");
+const push = require("../Push/Push.route");
 
 const router = express.Router();
 
@@ -13,5 +14,9 @@ router.post("/verify", loginLimit, auth.verify);
 router.post("/logout", auth.logout);
 router.get("/me", auth.requireSportStudent, portal.me);
 router.get("/photo", auth.requireSportStudent, portal.photo);
+
+const pushHandlers = push.subscribeHandlers({ store: push.store, owner: push.sportOwner, source: "SportPush" });
+router.post("/push/subscribe", auth.requireSportStudent, pushHandlers.subscribe);
+router.delete("/push/subscribe", auth.requireSportStudent, pushHandlers.unsubscribe);
 
 module.exports = router;

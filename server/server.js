@@ -103,6 +103,7 @@ app.use('/api/auth', require('./Entities/User/Auth.route'))
 app.use('/api/attendance', require('./Entities/Attendance/Attendance.route'))
 app.use('/api/student', require('./Entities/Student/Student.route'))
 app.use('/api/sports', require('./Entities/Sport/Sport.route'));
+app.use('/api/push', require('./Entities/Push/Push.route'));
 app.use('/api/sport-portal', require('./Entities/SportPortal/SportPortal.route'));
 app.use('/api/inviteToken', require('./Entities/InviteToken/InviteToken.route'))
 app.use('/api/report', require('./Entities/Report/Report.route'));
@@ -209,6 +210,8 @@ const StartServer = async () => {
       .catch((err) => console.error('SportPlayers index:', err.message));
     await require('./Entities/Sport/SportLoginCode.model').ensureSportLoginCodeIndexes()
       .catch((err) => console.error('SportLoginCodes index:', err.message));
+    await require('./Entities/Push/PushSubscription.model').ensurePushSubscriptionIndexes()
+      .catch((err) => console.error('PushSubscriptions index:', err.message));
     await require('./Entities/Sport/SportAttendance.model').ensureSportAttendanceIndexes()
       .catch((err) => console.error('SportAttendance index:', err.message));
     await require('./Entities/Sport/SportLesson.model').ensureSportLessonIndexes()

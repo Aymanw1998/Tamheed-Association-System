@@ -53,7 +53,9 @@ const PUBLIC_ROUTES = {
   // the user (active, not locked) exactly as loadActor does before streaming.
   "Live/Live.route.js": ["GET /stream"],
   // Student sport site (sign-in, me, photo): its own cookie and requireSportStudent, never staff auth.
-  "SportPortal/SportPortal.route.js": ["POST /request-code", "POST /verify", "POST /logout", "GET /me", "GET /photo"],
+  "SportPortal/SportPortal.route.js": ["POST /request-code", "POST /verify", "POST /logout", "GET /me", "GET /photo", "POST /push/subscribe", "DELETE /push/subscribe"],
+  // The VAPID public key the browser needs before it can subscribe; nothing private.
+  "Push/Push.route.js": ["GET /key"],
 };
 
 // Routes any active signed-in user may call (loadActor, no key): the
@@ -65,6 +67,8 @@ const ANY_ACTOR_ROUTES = {
   "Live/Live.route.js": ["POST /ticket"], // a ticket for one's own live channel
   // One's own alert inbox: every query is filtered by the caller's tz.
   "Alert/Alert.route.js": ["GET /", "POST /read-all", "POST /:id/read"],
+  // One's own push subscription: stored and removed under the caller's tz.
+  "Push/Push.route.js": ["POST /subscribe", "DELETE /subscribe"],
   // One's own tour state: every write targets the caller's own record.
   "routes/tours.routes.js": ["GET /", "POST /item/:id", "POST /known-keys", "POST /releases/seen"],
 };
