@@ -1,6 +1,8 @@
 // src/WebServer/utils/logoutScheduler.js
 const KEY = 'LOGOUT_DEADLINE_MS';
 const MAX_DAYS = 7;
+import { clearApiCache } from '../../pwa/clearApiCache';
+
 let logoutTimer = null;
 
 export function setLogoutDeadline(days) {
@@ -52,6 +54,7 @@ export function cancelAutoLogout() {
 }
 
 function doLogoutNow() {
+  clearApiCache();
   try {
     localStorage.clear();
     sessionStorage.clear();

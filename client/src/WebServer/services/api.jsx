@@ -3,6 +3,7 @@ import axios from 'axios';
 import { markSessionExpired } from '../utils/sessionMessages'; // ملاحظة عربية
 import { singleFlight } from '../utils/singleFlight';
 import { installDemoAdapter } from '../../journey/demoAdapter';
+import { clearApiCache } from '../../pwa/clearApiCache';
 
 // The API is always reached on the same origin as the page: in development the
 // CRA dev server proxies /api to the local server (see "proxy" in package.json),
@@ -67,6 +68,7 @@ function hardResetToLogin(reason = 'انتهت الجلسة. يُرجى تسجي
       localStorage.setItem('SESSION_EXPIRED_REASON', reason);
     }
 
+    clearApiCache();
     localStorage.setItem('LOGOUT_BROADCAST', JSON.stringify({ ts: Date.now(), reason }));
     localStorage.removeItem('accessToken');
     localStorage.removeItem('accessTokenExp');

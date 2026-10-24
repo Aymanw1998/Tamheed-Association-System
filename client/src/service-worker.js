@@ -20,7 +20,7 @@ registerRoute(
 );
 
 registerRoute(
-  ({ url, request }) => shouldCache(url.href, request.method),
+  ({ url, request }) => url.origin === self.location.origin && shouldCache(url.href, request.method),
   new NetworkFirst({
     cacheName: API_CACHE,
     networkTimeoutSeconds: 4,
@@ -59,7 +59,11 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const target = new URL((event.notification.data && event.notification.data.url) || "/", self.location.origin).href;
+  let target = new URL("/", self.location.origin).href;
+  try {
+    const u = new URL((event.notification.data && event.notification.data.url) || "/", self.location.origin);
+    if (u.origin === self.location.origin) target = u.href;
+  } catch {}
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
       for (const c of list) {

@@ -1,11 +1,12 @@
 // Which requests the service worker may keep in the API cache: only plain
 // GETs under /api/, and never the sign-in, code, photo or file endpoints.
+// Matching ignores case, because the server treats paths that way.
 const NEVER = [
-  /^\/api\/auth(\/|$)/,
-  /^\/api\/sport-portal\/request-code(\/|$)/,
-  /^\/api\/sport-portal\/verify(\/|$)/,
-  /^\/api\/sport-portal\/photo(\/|$)/,
-  /^\/api\/storage(\/|$)/,
+  /^\/api\/auth(\/|$)/i,
+  /^\/api\/sport-portal\/request-code(\/|$)/i,
+  /^\/api\/sport-portal\/verify(\/|$)/i,
+  /^\/api\/sport-portal\/photo(\/|$)/i,
+  /^\/api\/storage(\/|$)/i,
 ];
 
 export function shouldCache(url, method) {
@@ -16,6 +17,6 @@ export function shouldCache(url, method) {
   } catch {
     return false;
   }
-  if (!path.startsWith("/api/")) return false;
+  if (!/^\/api\//i.test(path)) return false;
   return !NEVER.some((re) => re.test(path));
 }

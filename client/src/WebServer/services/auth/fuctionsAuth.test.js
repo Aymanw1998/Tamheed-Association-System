@@ -41,3 +41,18 @@ test("logout stops training mode before calling the server", async () => {
   expect(isDemo()).toBe(false);
   expect(window.location.assign).toHaveBeenCalledWith("/");
 });
+
+describe("login clears the cached API data", () => {
+  test("a successful login empties the cache", async () => {
+    const del = jest.fn().mockResolvedValue(true);
+    global.caches = { delete: del };
+    api.post.mockResolvedValueOnce({
+      status: 200,
+      data: { ok: true, accessToken: "t", expirationTime: 1, user: { id: 1 } },
+    });
+    const { login } = require("./fuctionsAuth");
+    await login("x", "y");
+    expect(del).toHaveBeenCalledWith("tamheed-api");
+    delete global.caches;
+  });
+});

@@ -95,7 +95,11 @@ export default function AppChrome() {
     let done = false;
     const go = () => { if (!done) { done = true; window.location.reload(); } };
     navigator.serviceWorker?.addEventListener("controllerchange", go);
-    worker.postMessage({ type: "SKIP_WAITING" });
+    try {
+      worker.postMessage({ type: "SKIP_WAITING" });
+    } catch {
+      go();
+    }
     setTimeout(go, 3000);
   };
 

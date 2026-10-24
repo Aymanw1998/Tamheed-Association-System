@@ -9,6 +9,7 @@ describe("shouldCache", () => {
   test.each([
     ["/api/attendance/bulk-save", "POST"],
     ["/api/auth/refresh", "GET"],
+    ["/api/AUTH/refresh", "GET"],
     ["/api/storage/file/1", "GET"],
     ["/api/sport-portal/photo", "GET"],
     ["/api/sport-portal/request-code", "GET"],

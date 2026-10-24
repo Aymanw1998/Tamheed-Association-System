@@ -5,8 +5,11 @@ import { scheduleAccessRefresh, clearAccessRefresh } from "../../utils/accessSch
 import { rememberSessionUser } from "../../../utils/session";
 import { isForcedChange } from "../../../utils/passwordChange";
 import { stopDemo } from "../../../journey/demoMode";
+import { clearApiCache } from "../../../pwa/clearApiCache";
 
 function markSignedIn(user, accessToken, expirationTime) {
+  // A new session never starts on top of the previous person's cached data.
+  clearApiCache();
   setAuthTokens(accessToken, expirationTime);
   scheduleAccessRefresh(accessToken);
   localStorage.setItem("isLoggedIn", "1");
@@ -88,13 +91,8 @@ export async function logout() {
   } catch {}
 
   // Drop cached API answers so the next person on this device sees none of
-  // them. A cache problem must never stop the sign-out.
-  try {
-    navigator.serviceWorker?.controller?.postMessage({ type: "CLEAR_API_CACHE" });
-  } catch {}
-  try {
-    if (typeof caches !== "undefined") await caches.delete("tamheed-api");
-  } catch {}
+  // them. Never throws, so it cannot stop the sign-out.
+  await clearApiCache();
 
   clearAccessRefresh();
   setAuthTokens(null);
