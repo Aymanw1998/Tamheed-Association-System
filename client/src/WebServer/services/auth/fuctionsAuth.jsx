@@ -87,6 +87,15 @@ export async function logout() {
     await api.post("/auth/logout", {}, { withCredentials: true });
   } catch {}
 
+  // Drop cached API answers so the next person on this device sees none of
+  // them. A cache problem must never stop the sign-out.
+  try {
+    navigator.serviceWorker?.controller?.postMessage({ type: "CLEAR_API_CACHE" });
+  } catch {}
+  try {
+    if (typeof caches !== "undefined") await caches.delete("tamheed-api");
+  } catch {}
+
   clearAccessRefresh();
   setAuthTokens(null);
   localStorage.clear();

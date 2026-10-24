@@ -5,6 +5,8 @@ import App from "./App";
 import reportWebVitals from "./reportWebVitals";
 import AppErrorBoundary from "./Components/Global/AppErrorBoundary";
 import { ConfirmProvider } from "./Components/Provides/ConfirmContext";
+import AppChrome from "./pwa/AppChrome";
+import * as serviceWorkerRegistration from "./serviceWorkerRegistration";
 import { ToastProvider, SystemStatusWatcher, StatusBadge, useToast, toast } from "./ALERT/SystemToasts";
 
 const installSafeStorageDefaults = () => {
@@ -66,8 +68,13 @@ root.render(
       <StatusBadge />
 
       <DevToastPing />
+
+      <AppChrome />
     </ToastProvider>
   </ConfirmProvider>
 );
 
 reportWebVitals();
+
+// Only registers in production builds.
+serviceWorkerRegistration.register();
