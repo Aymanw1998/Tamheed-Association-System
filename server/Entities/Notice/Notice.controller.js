@@ -57,12 +57,13 @@ const create = handle("create", async (req, res) => {
     targetId: notice?._id, targetLabel: title, after: notice,
   });
   // Phones of everyone who can read the board, except the author. Never fatal.
-  try {
-    const tzs = (await recipientsFor({ permission: "notices.view" })).filter((tz) => tz !== String(req.actor.tz));
-    await push.sendToStaff(tzs, { title, body: "", url: "/notices" });
-  } catch (err) {
-    logWithSource("Notice.create push", err);
-  }
+  // Not awaited: the response never waits for the push services.
+  Promise.resolve()
+    .then(async () => {
+      const tzs = (await recipientsFor({ permission: "notices.view" })).filter((tz) => tz !== String(req.actor.tz));
+      await push.sendToStaff(tzs, { title, body: "", url: "/notices" });
+    })
+    .catch((err) => logWithSource("Notice.create push", err));
   return res.status(201).json({ ok: true, notice });
 });
 

@@ -44,12 +44,14 @@ function alertStore() {
   };
 }
 
-function fakeDeps({ lessons = [lesson()], attendance = [], sportLessons = [], sportAttendance = [], reports = [], users = USERS, store = alertStore(), locks = new Set() } = {}) {
+function fakeDeps({ push = null, lessons = [lesson()], attendance = [], sportLessons = [], sportAttendance = [], reports = [], users = USERS, store = alertStore(), locks = new Set() } = {}) {
   const engine = createAlertEngine({
     listActiveUsers: async () => users.map((u) => ({ ...u })),
     findStudentById: async (id) => (id === STUDENT._id ? { ...STUDENT } : null),
     lessonsWithStudent: async (id) => lessons.filter((l) => (l.list_students || []).includes(id)),
     store,
+    push,
+    log() {},
     systemTz: SYSTEM_TZ,
   });
   const deps = {
@@ -284,7 +286,7 @@ const COACH = { _id: "c".repeat(24), tz: "t-coach", firstname: "Co", lastname: "
 const SPORT_BOSS = { _id: "m".repeat(24), tz: "t-sport-mgr", firstname: "Ma", lastname: "Nager", role: HELPER, roles: [HELPER], permissionGrants: ["sports.manage"] };
 // 2026-10-18 is a Sunday (day 1). 17:00-18:30.
 const sun = (hhmm) => new Date(`2026-10-18T${hhmm}:00+03:00`);
-const sportLesson = (extra = {}) => ({ _id: "9".repeat(24), name: "Boxing", date: { day: 1, startMin: 1020, endMin: 1110 }, ...extra });
+const sportLesson = (extra = {}) => ({ _id: "9".repeat(24), name: "Boxing", date: { day: 1, startMin: 1020, endMin: 1110 }, players: [{ studentId: "s1", joinedAt: "2026-09-01T10:00:00Z" }], ...extra });
 
 test("a sport lesson that ended with no attendance alerts sport staff once, then dedups", async () => {
   const users = [...USERS, COACH, SPORT_BOSS];
@@ -310,4 +312,29 @@ test("a sport lesson with attendance saved today, not yet ended, or on another d
   const other = fakeDeps({ users, lessons: [], sportLessons: [sportLesson({ date: { day: 2, startMin: 1020, endMin: 1110 } })] });
   await runAlertJob({ now: sun("19:00"), deps: other });
   assert.equal(recipientsOf(other.store, "sport_lesson_no_attendance").length, 0);
+});
+
+test("a sport lesson with no players, or whose only player joins later, never alerts", async () => {
+  const users = [...USERS, COACH];
+  const empty = fakeDeps({ users, lessons: [], sportLessons: [sportLesson({ players: [] })] });
+  await runAlertJob({ now: sun("19:00"), deps: empty });
+  assert.equal(recipientsOf(empty.store, "sport_lesson_no_attendance").length, 0);
+  const later = fakeDeps({ users, lessons: [], sportLessons: [sportLesson({ players: [{ studentId: "s1", joinedAt: "2026-10-19T08:00:00Z" }] })] });
+  await runAlertJob({ now: sun("19:00"), deps: later });
+  assert.equal(recipientsOf(later.store, "sport_lesson_no_attendance").length, 0);
+  const today = fakeDeps({ users, lessons: [], sportLessons: [sportLesson({ players: [{ studentId: "s1", joinedAt: "2026-10-18T05:00:00Z" }] })] });
+  await runAlertJob({ now: sun("19:00"), deps: today });
+  assert.equal(recipientsOf(today.store, "sport_lesson_no_attendance").length, 1);
+});
+
+test("the sport alert pushes once to the sport recipients; the next run pushes nothing", async () => {
+  const sent = [];
+  const push = { sendToStaff: async (tzs, payload) => { sent.push([tzs, payload]); return { sent: 1, removed: 0 }; } };
+  const deps = fakeDeps({ push, users: [...USERS, COACH, SPORT_BOSS], lessons: [], sportLessons: [sportLesson()] });
+  await runAlertJob({ now: sun("19:00"), deps });
+  assert.equal(sent.length, 1);
+  assert.deepEqual([...sent[0][0]].sort(), ["t-coach", "t-sport-mgr"]);
+  assert.equal(sent[0][1].body, "درس Boxing انتهى دون تسجيل حضور");
+  await runAlertJob({ now: sun("19:15"), deps });
+  assert.equal(sent.length, 1);
 });

@@ -17,6 +17,7 @@
 // Dependencies are injectable for tests.
 const cron = require("node-cron");
 const { renderAlert, defaultSeverity } = require("./alertTemplates");
+const { israelToday } = require("../utils/sportCards");
 
 const JOB = "alerts";
 const CLEANUP_JOB = "ai-conversations-cleanup";
@@ -102,9 +103,13 @@ async function checkLessonsWithoutAttendance(deps, clock, lessons) {
   return raised;
 }
 
+// A lesson nobody had joined by today cannot have attendance: no alert.
+const hasPlayerToday = (lesson, clock) => (Array.isArray(lesson.players) ? lesson.players : []).some((p) =>
+  !p?.joinedAt || israelToday(new Date(p.joinedAt)) <= clock.date);
+
 async function checkSportLessonsWithoutAttendance(deps, clock) {
   const ended = ((await deps.listSportLessons()) || []).filter((l) =>
-    Number(l?.date?.day) === clock.dow && Number(l.date.endMin) <= clock.minutes);
+    Number(l?.date?.day) === clock.dow && Number(l.date.endMin) <= clock.minutes && hasPlayerToday(l, clock));
   if (!ended.length) return 0;
   const recorded = new Set(((await deps.sportAttendanceForDate(clock.date)) || []).map((r) => String(r.sportLessonId)));
   let raised = 0;

@@ -231,6 +231,7 @@ test("a new notice pushes its title to every notices.view holder except the auth
   const ctx = setup();
   const r = await guarded(ctx, ADMIN, "create", { body: { title: "اجتماع", body: "غدًا", severity: "info" } });
   assert.equal(r.statusCode, 201);
+  await new Promise((resolve) => setImmediate(resolve)); // the push is not awaited by create
   assert.equal(ctx.pushes.length, 1);
   const [tzs, payload] = ctx.pushes[0];
   assert.ok(tzs.includes(READER.tz));
