@@ -213,6 +213,10 @@ const StartServer = async () => {
       .catch((err) => console.error('SportTrainings index:', err.message));
     await require('./Entities/Sport/SportLoginCode.model').ensureSportLoginCodeIndexes()
       .catch((err) => console.error('SportLoginCodes index:', err.message));
+    await require('./Entities/Sport/SportAttendance.model').ensureSportAttendanceIndexes()
+      .catch((err) => console.error('SportAttendance index:', err.message));
+    await require('./Entities/Sport/SportLesson.model').ensureSportLessonIndexes()
+      .catch((err) => console.error('SportLessons index:', err.message));
     catchUpVehicleExpiryCheck().catch((err) => console.error('Vehicle expiry catch-up:', err.message));
 
     // Ends the open live streams, drops every connection and exits; a hard
