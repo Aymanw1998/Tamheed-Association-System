@@ -96,6 +96,21 @@ const alreadyUsed = (action) => reply(409, "ALREADY_USED", {
 
 /* ------------------------------------------------------------ action types */
 
+// The lock key of the item a type writes to (the same keys the routes lock),
+// or null when the action has no existing target (it only creates), in which
+// case it runs without a lock check: report, notice.
+const TARGET_KEYS = {
+  attendance: async (p) => `attendance:${p.lessonId}:${p.date}`,
+  add_student_to_lesson: async (p) => `lesson:${p.lessonId}`,
+  approve_user: async (p, controllers) => {
+    const user = await controllers.user.getUserInRoomByTz(p.tz, "waiting");
+    return user?._id ? `user:${user._id}` : null;
+  },
+  report: async () => null,
+  notice: async () => null,
+};
+const heldMessage = (holder) => `مفتوح الآن لدى ${holder?.name || ""} (${holder?.tz || ""})`;
+
 // Each type: the route's permission gate, prepare() (rules + summary, run at
 // proposal AND at approval) and run() (the controller call).
 const TYPES = {
@@ -417,6 +432,22 @@ function createActionRunner({ deps } = {}) {
       .map(cardOf);
   }
 
+  // Actions obey item locks: if anyone holds the target, the action does not
+  // run. Returns the failed outcome (with the holder message), or null.
+  async function heldOutcome(action) {
+    const d = getDeps();
+    const keyOf = TARGET_KEYS[action.type];
+    const key = keyOf ? await keyOf(action.params, d.controllers) : null;
+    if (!key) return null;
+    try {
+      await (d.assertFree || require("../../middleware/lockGuard").assertFree)(key);
+    } catch (error) {
+      if (error?.status !== 423) throw error;
+      return { ok: false, status: 423, result: { code: "LOCKED" }, message: heldMessage(error.holder) };
+    }
+    return null;
+  }
+
   async function execute(action, req) {
     const def = TYPES[action.type];
     const out = await def.run(action.params, req, getDeps().controllers);
@@ -498,7 +529,7 @@ function createActionRunner({ deps } = {}) {
 
     let outcome;
     try {
-      outcome = await execute(action, requestFor(actor, ip));
+      outcome = (await heldOutcome(action)) || await execute(action, requestFor(actor, ip));
     } catch (error) {
       d.log?.("execute failed", { type: action.type, error: String(error?.name || "Error") });
       outcome = { ok: false, status: 500, result: { code: null } };
@@ -506,8 +537,9 @@ function createActionRunner({ deps } = {}) {
     d.log?.("approved", { actor: String(actor.id ?? ""), type: action.type, id: String(action._id), status: outcome.status });
     if (!outcome.ok) {
       await finish({ status: "failed", result: outcome.result });
-      const code = outcome.status === 403 ? "FORBIDDEN" : outcome.status >= 500 ? "FAILED" : "NOT_POSSIBLE";
+      const code = outcome.status === 403 ? "FORBIDDEN" : outcome.status >= 500 || outcome.status === 423 ? "FAILED" : "NOT_POSSIBLE";
       await note(actor, action, code);
+      if (outcome.status === 423) return reply(423, "FAILED", { message: outcome.message });
       return reply(code === "FORBIDDEN" ? 403 : code === "FAILED" ? 500 : 422, code);
     }
     await finish({ status: "done", result: outcome.result });

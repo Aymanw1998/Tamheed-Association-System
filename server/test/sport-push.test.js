@@ -2,6 +2,7 @@
 // (cardPush, hooked into the staff sport controller). Everything is stubbed:
 // no database, no network.
 const assert = require("node:assert/strict");
+const live = require("./helpers/liveStubs");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
@@ -93,6 +94,7 @@ function load(file, dependencies, DateImpl = Date) {
   vm.runInNewContext(fs.readFileSync(filename, "utf8"), {
     module, Date: DateImpl, Set, Map, Number, String, Array, Promise, console: { log() {}, warn() {}, error() {} },
     require(name) {
+      if (!Object.hasOwn(dependencies, name) && Object.hasOwn(live.deps, name)) return live.deps[name];
       assert.ok(Object.hasOwn(dependencies, name), `Unexpected dependency: ${name}`);
       return dependencies[name];
     },

@@ -7,6 +7,8 @@ const { StudentModelDef } = require("../Student/Student.model");
 const { SportLessonModelDef } = require("../Sport/SportLesson.model");
 const { conflictsInRoom9 } = require("../../utils/lessonConflict");
 const { createStudentScope, mergeRoster, scopeLesson } = require("../../utils/studentScope");
+const { checkVersion } = require("../../middleware/lockGuard");
+const { notifyChange } = require("../../services/liveHub");
 
 // Student scope: null (students.viewAll, today's behaviour) or the Set of
 // student _ids the actor may see. Hidden ids never leave the server; the
@@ -269,6 +271,7 @@ const postOne = async (req, res) => {
       createdAt: new Date(),
     });
     await recordLesson(req, "create", null, created?.result || model);
+    notifyChange("lesson", created?.result?._id);
 
     return res.status(201).json({ ok: true, lesson: created });
   } catch (err) {
@@ -290,6 +293,9 @@ const putOne = async (req, res) => {
     const current = existingRes.result[0];
     const next = buildLesson({ ...current, ...req.body });
     const visible = await scope.visibleStudentIds(req.actor);
+    // A form saved on top of a newer version is refused (the screen keeps the draft).
+    const stale = checkVersion(current, req, (doc) => scopeLesson(doc, visible));
+    if (stale) return res.status(409).json(stale);
     if (visible) {
       // Staff changes only on a lesson he is already on (so he can never
       // put himself on someone else's lesson and see its students).
@@ -324,6 +330,7 @@ const putOne = async (req, res) => {
       { ...next, updatedAt: new Date() }
     );
     await recordLesson(req, "update", current, { ...current, ...next });
+    notifyChange("lesson", id);
 
     const lesson = visible && updated?.result ? { ...updated, result: scopeLesson(updated.result, visible) } : updated;
     return res.status(200).json({ ok: true, lesson });
@@ -343,6 +350,7 @@ const deleteOne = async (req, res) => {
 
     await LessonModelDef.delete({ _id: id });
     if (existing) await recordLesson(req, "delete", existing, null);
+    notifyChange("lesson", id);
 
     return res.status(200).json({ ok: true, removed: true });
   } catch (err) {
@@ -380,9 +388,10 @@ const addToList = async (req, res) => {
 
     await LessonModelDef.update(
       { _id: id },
-      { list_students: updatedList }
+      { list_students: updatedList, updatedAt: new Date() }
     );
     await recordLesson(req, "update", lesson, { ...lesson, list_students: updatedList });
+    notifyChange("lesson", id);
 
     return res.status(200).json({ ok: true });
   } catch (err) {
@@ -415,9 +424,10 @@ const removeFromList = async (req, res) => {
 
     await LessonModelDef.update(
       { _id: id },
-      { list_students: updated }
+      { list_students: updated, updatedAt: new Date() }
     );
     await recordLesson(req, "update", lesson, { ...lesson, list_students: updated });
+    notifyChange("lesson", id);
 
     return res.status(200).json({ ok: true });
   } catch (err) {

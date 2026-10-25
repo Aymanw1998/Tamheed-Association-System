@@ -7,6 +7,8 @@ const { audit } = require("../../utils/audit");
 const { isSystemTz, SYSTEM_ACTOR_NAME } = require("../../utils/permissions");
 const { createStudentScope } = require("../../utils/studentScope");
 const { ABSENT_STATUS, AUTO_ABSENCE_NOTE } = require("../../utils/attendanceMarks");
+const { checkVersion } = require("../../middleware/lockGuard");
+const { notifyChange } = require("../../services/liveHub");
 
 // Student scope: null (students.viewAll) or the Set of visible student _ids.
 const scope = createStudentScope({ lessonModel: LessonModelDef, studentModel: StudentModelDef });
@@ -74,7 +76,7 @@ function normalizeAttendanceRow(row = {}) {
   };
 }
 
-async function ensureMissingRows({ students, lessonId, y, m, d, existingMap, dateKey }) {
+async function ensureMissingRows({ students, lessonId, y, m, d, existingMap, dateKey, stamp = new Date() }) {
   const missingStudents = students.filter(
     (student) => !existingMap.has(String(student._id))
   );
@@ -92,8 +94,8 @@ async function ensureMissingRows({ students, lessonId, y, m, d, existingMap, dat
         dateKey,
         status: DEFAULT_STATUS,
         notes: "",
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        createdAt: stamp,
+        updatedAt: stamp,
       }).catch((error) => {
         logWithSource("Attendance.ensureMissingRows", error);
         return null;
@@ -149,6 +151,7 @@ const getSheet = async (req, res) => {
       existingRows.map((row) => [String(row.student), row])
     );
 
+    const stamp = new Date();
     await ensureMissingRows({
       students,
       lessonId,
@@ -157,7 +160,13 @@ const getSheet = async (req, res) => {
       d,
       existingMap,
       dateKey,
+      stamp,
     });
+    // The sheet's version (what bulk-save compares baseVersion with): the
+    // newest updatedAt of its rows, including the rows created just now.
+    const stamps = existingRows.map((row) => row.updatedAt).filter(Boolean).map((v) => new Date(v).getTime());
+    if (students.some((student) => !existingMap.has(String(student._id)))) stamps.push(stamp.getTime());
+    const version = stamps.length ? new Date(Math.max(...stamps)).toISOString() : null;
 
     const items = students.map((student) => {
       const row = existingMap.get(String(student._id));
@@ -187,6 +196,7 @@ const getSheet = async (req, res) => {
         month: m,
         day: d,
         dateKey,
+        version,
         items,
       },
     });
@@ -231,6 +241,16 @@ const bulkSave = async (req, res) => {
     // Rows as they were before the save, to count what this save changed.
     const previous = await AttendanceModelDef.get({ lesson: String(lessonId), dateKey }).catch(() => null);
     const previousByStudent = new Map((previous?.result || []).map((row) => [String(row.student), row]));
+
+    // The sheet's version is the newest updatedAt among its rows: a save made
+    // on top of an older sheet is refused (the screen keeps the draft).
+    const newest = (previous?.result || []).reduce((max, row) => {
+      const at = row.updatedAt ? new Date(row.updatedAt).getTime() : 0;
+      return at > max ? at : max;
+    }, 0);
+    const lastRow = (previous?.result || []).find((row) => row.updatedAt && new Date(row.updatedAt).getTime() === newest);
+    const stale = newest ? checkVersion({ updatedAt: new Date(newest), updatedBy: lastRow?.updatedBy }, req) : null;
+    if (stale) return res.status(409).json(stale);
 
     const results = await Promise.all(
       items.map((item) =>
@@ -277,6 +297,7 @@ const bulkSave = async (req, res) => {
         before: null,
         after: { lesson: String(lessonId), date, rowsSaved: items.length, rowsChanged },
       });
+      notifyChange("attendance", `${lessonId}:${date}`);
     }
 
     return res.status(200).json({

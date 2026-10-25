@@ -1,4 +1,5 @@
 const assert = require("node:assert/strict");
+const live = require("./helpers/liveStubs");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
@@ -36,6 +37,7 @@ function load(file, dependencies) {
   vm.runInNewContext(fs.readFileSync(filename, "utf8"), {
     module, Date, Set, Map, Number, String, Array, console: { log() {}, warn() {}, error() {} },
     require(name) {
+      if (!Object.hasOwn(dependencies, name) && Object.hasOwn(live.deps, name)) return live.deps[name];
       assert.ok(Object.hasOwn(dependencies, name), `Unexpected dependency: ${name}`);
       return dependencies[name];
     },
@@ -381,4 +383,44 @@ test("DELETE removes the player from every lesson and keeps attendance rows", as
   assert.equal(ctx.attendance.all().length, 2);
   assert.equal(ctx.audit.find({ module: "sports", action: "delete", targetType: "player" }).length, 1);
   assert.equal((await call(ctx, COACH, "delete", "/players/:studentId", { params: { studentId: sid(1) } })).statusCode, 404);
+});
+
+test("player writes announce the change and tell exactly that student's sport screen", async () => {
+  const ctx = world();
+  live.changes.length = 0;
+  live.students.length = 0;
+  const bump = await call(ctx, COACH, "post", "/players/:studentId/stats", { params: { studentId: sid(1) }, body: { key: STAT, delta: 1 } });
+  assert.equal(bump.statusCode, 200);
+  assert.deepEqual(live.changes, [["player", sid(1)]]);
+  assert.deepEqual(live.students, [[[sid(1)], "me"]]);
+
+  live.changes.length = 0;
+  live.students.length = 0;
+  const saved = await call(ctx, COACH, "put", "/players/:studentId", { params: { studentId: sid(3) }, body: { jerseyNumber: 9, position: "x", lessonIds: [LESSON_B] } });
+  assert.equal(saved.statusCode, 200);
+  assert.deepEqual(live.changes, [["player", sid(3)], ["sportLesson", LESSON_B]]);
+  assert.deepEqual(live.students, [[[sid(3)], "me"]]);
+
+  live.changes.length = 0;
+  live.students.length = 0;
+  const removed = await call(ctx, COACH, "delete", "/players/:studentId", { params: { studentId: sid(3) } });
+  assert.equal(removed.statusCode, 200);
+  assert.deepEqual(live.changes, [["player", sid(3)], ["sportLesson", LESSON_B]]);
+  assert.deepEqual(live.students, [[[sid(3)], "me"]]);
+
+  live.changes.length = 0;
+  live.students.length = 0;
+  assert.equal((await call(ctx, COACH, "post", "/players/:studentId/stats", { params: { studentId: sid(1) }, body: { key: STAT, delta: 5 } })).statusCode, 400);
+  assert.deepEqual(live.changes, []);
+  assert.deepEqual(live.students, []);
+});
+
+test("changing the sport's stats announces `sport` and tells every player", async () => {
+  const ctx = world();
+  live.changes.length = 0;
+  live.students.length = 0;
+  const r = await call(ctx, MANAGER, "put", "/stats", { body: { stats: [{ key: STAT, label: "أهداف" }] } });
+  assert.equal(r.statusCode, 200);
+  assert.deepEqual(live.changes, [["sport", SPORT]]);
+  assert.deepEqual(live.students.map(([ids, type]) => [[...ids].sort(), type]), [[[sid(1), sid(2)], "me"]]);
 });

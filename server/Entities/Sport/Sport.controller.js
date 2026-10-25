@@ -10,6 +10,8 @@ const { LessonModelDef } = require("../Lesson/Lesson.model");
 const { ageOn, buildCard, israelToday, dayOfDate } = require("../../utils/sportCards");
 const { conflictsInRoom9 } = require("../../utils/lessonConflict");
 const { notifyCardChanged } = require("../../utils/cardPush");
+const { checkVersion } = require("../../middleware/lockGuard");
+const { notifyChange, liveHub } = require("../../services/liveHub");
 
 const SERVER_ERROR = "حدث خطأ غير متوقع، حاول مرة أخرى";
 const NOT_FOUND = { student: "الطالب غير موجود", player: "اللاعب غير موجود", lesson: "الدرس غير موجود" };
@@ -36,6 +38,11 @@ const text = (v) => String(v ?? "").trim();
 const rows = (r) => (r?.success && Array.isArray(r.result) ? r.result : []);
 const fullName = (p) => `${p?.firstname || ""} ${p?.lastname || ""}`.trim();
 const uniqueIds = (list) => [...new Set((Array.isArray(list) ? list : []).map(String))];
+
+// Tells the students whose sport view changed (their open sport screens
+// reload); a no-op when nobody listens.
+const tellStudents = (ids) => liveHub.toStudents(uniqueIds(ids), "me");
+const playerIdsOf = (lesson) => (lesson?.players || []).map((p) => String(p.studentId));
 
 // _id filters are only built from ids that look like ObjectIds.
 async function findOne(model, id) {
@@ -105,6 +112,8 @@ const setStats = handle("setStats", async (req, res) => {
   const sport = updated?.result;
   await SportPlayerModelDef.unsetStats(removed);
   await record(req, "update", "sport", sport, current.name, current);
+  notifyChange("sport", String(current._id));
+  tellStudents(rows(await SportPlayerModelDef.get({ sportId: String(current._id) })).map((p) => p.studentId));
   return res.status(200).json({ ok: true, sport: presentSport(sport) });
 });
 
@@ -196,16 +205,21 @@ const savePlayer = handle("savePlayer", async (req, res) => {
     ? await SportPlayerModelDef.updateExisting({ _id: existing._id }, { jerseyNumber, position, updatedAt: now })
     : await SportPlayerModelDef.create({ studentId, sportId, jerseyNumber, position, stats: {}, createdAt: now, updatedAt: now });
 
+  const changedLessons = [];
   for (const lesson of lessons) {
     const member = inLesson(lesson, studentId);
     const want = wanted.has(String(lesson._id));
     if (want === member) continue;
+    changedLessons.push(String(lesson._id));
     const players = want
       ? [...(lesson.players || []), { studentId, joinedAt: now }]
       : (lesson.players || []).filter((p) => String(p.studentId) !== studentId);
     await SportLessonModelDef.updateExisting({ _id: lesson._id }, { players, updatedAt: now });
   }
   await record(req, existing ? "update" : "create", "player", saved?.result, fullName(student), existing || null);
+  notifyChange("player", studentId);
+  for (const lessonId of changedLessons) notifyChange("sportLesson", lessonId);
+  tellStudents([studentId]);
   return res.status(200).json({ ok: true, player: saved?.result });
 });
 
@@ -217,14 +231,19 @@ const deletePlayer = handle("deletePlayer", async (req, res) => {
   if (!existing) return fail(res, 404, NOT_FOUND.player);
   await SportPlayerModelDef.delete({ _id: existing._id });
   // Attendance rows stay: they are history.
+  const changedLessons = [];
   for (const lesson of rows(await SportLessonModelDef.get({ sportId }))) {
     if (!inLesson(lesson, studentId)) continue;
+    changedLessons.push(String(lesson._id));
     await SportLessonModelDef.updateExisting(
       { _id: lesson._id },
       { players: (lesson.players || []).filter((p) => String(p.studentId) !== studentId), updatedAt: new Date() },
     );
   }
   await record(req, "delete", "player", null, studentId, existing);
+  notifyChange("player", studentId);
+  for (const lessonId of changedLessons) notifyChange("sportLesson", lessonId);
+  tellStudents([studentId]);
   return res.status(200).json({ ok: true });
 });
 
@@ -238,6 +257,8 @@ const bumpStat = handle("bumpStat", async (req, res) => {
   if (!player) return fail(res, 404, NOT_FOUND.player);
   const value = await SportPlayerModelDef.bumpStat(player._id, key, delta);
   cardChanged([String(player.studentId)]);
+  notifyChange("player", String(player.studentId));
+  tellStudents([player.studentId]);
   return res.status(200).json({ ok: true, value });
 });
 
@@ -301,6 +322,9 @@ const listLessons = handle("listLessons", async (req, res) => {
 
 // Shared by create and update. `current` is the lesson being edited, if any.
 async function saveLesson(req, res, current) {
+  // A form saved on top of a newer version is refused (the screen keeps the draft).
+  const stale = current ? checkVersion(current, req) : null;
+  if (stale) return res.status(409).json(stale);
   const parsed = parseLesson(req.body);
   if (parsed.error) return fail(res, 400, parsed.error);
   const sport = await ensureFootball();
@@ -336,6 +360,8 @@ async function saveLesson(req, res, current) {
     : await SportLessonModelDef.create({ sportId, name, nameGenerated, date, room: SPORT_ROOM, players, createdAt: now, updatedAt: now });
   const lesson = saved?.result;
   await record(req, current ? "update" : "create", "lesson", lesson, parsed.name, current || null);
+  notifyChange("sportLesson", String(lesson._id));
+  tellStudents([...playerIdsOf(current), ...playerIdsOf(lesson)]);
   return res.status(current ? 200 : 201).json({ ok: true, lesson: presentLesson(lesson, await lessonPlayers(lesson)) });
 }
 
@@ -353,6 +379,8 @@ const deleteLesson = handle("deleteLesson", async (req, res) => {
   await SportAttendanceModelDef.delete({ sportLessonId: String(current._id) });
   await SportLessonModelDef.delete({ _id: current._id });
   await record(req, "delete", "lesson", null, current.name, current);
+  notifyChange("sportLesson", String(current._id));
+  tellStudents(playerIdsOf(current));
   return res.status(200).json({ ok: true });
 });
 
@@ -372,13 +400,16 @@ const addLessonPlayer = handle("addLessonPlayer", async (req, res) => {
   if (!player) {
     player = (await SportPlayerModelDef.create({ studentId, sportId, jerseyNumber: null, position: "", stats: {}, createdAt: now, updatedAt: now }))?.result;
     await record(req, "create", "player", player, fullName(student));
+    notifyChange("player", studentId);
   }
   let current = lesson;
   if (!inLesson(lesson, studentId)) {
     const players = [...(lesson.players || []), { studentId, joinedAt: now }];
     current = (await SportLessonModelDef.updateExisting({ _id: lesson._id }, { players, updatedAt: now }))?.result;
     await record(req, "update", "lesson", current, lesson.name, lesson);
+    notifyChange("sportLesson", String(lesson._id));
   }
+  tellStudents([studentId, ...playerIdsOf(current)]);
   return res.status(200).json({ ok: true, lesson: presentLesson(current, await lessonPlayers(current)) });
 });
 
@@ -392,7 +423,9 @@ const removeLessonPlayer = handle("removeLessonPlayer", async (req, res) => {
     const players = (lesson.players || []).filter((p) => String(p.studentId) !== studentId);
     current = (await SportLessonModelDef.updateExisting({ _id: lesson._id }, { players, updatedAt: new Date() }))?.result;
     await record(req, "update", "lesson", current, lesson.name, lesson);
+    notifyChange("sportLesson", String(lesson._id));
   }
+  tellStudents([studentId, ...playerIdsOf(lesson)]);
   return res.status(200).json({ ok: true, lesson: presentLesson(current, await lessonPlayers(current)) });
 });
 
@@ -445,6 +478,8 @@ const saveAttendance = handle("saveAttendance", async (req, res) => {
   }
   cardChanged([...latest.keys()]);
   await record(req, "update", "attendance", { _id: lesson._id, date, count: latest.size }, lesson.name);
+  notifyChange("sportAttendance", `${sportLessonId}:${date}`);
+  tellStudents([...latest.keys()]);
   return res.status(200).json({ ok: true, overwritten });
 });
 

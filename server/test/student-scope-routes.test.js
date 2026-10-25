@@ -649,3 +649,11 @@ test("a student update stamps updatedAt, announces the change, and refuses a sta
   const fresh = await call(w.student.putS, reqAs(ADMIN, { params: { tz: S[0].tz }, body: { firstname: "C", baseVersion: new Date(saved.updatedAt).toISOString() } }));
   assert.equal(fresh.statusCode, 200);
 });
+
+test("a staff student update tells that student's own sport screen (name or photo may have changed)", async () => {
+  const w = world();
+  live.students.length = 0;
+  const saved = await call(w.student.putS, reqAs(ADMIN, { params: { tz: S[0].tz }, body: { firstname: "Renamed" } }));
+  assert.equal(saved.statusCode, 200);
+  assert.deepEqual(live.students, [[[S[0]._id], "me"]]);
+});

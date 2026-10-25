@@ -1,4 +1,5 @@
 const assert = require("node:assert/strict");
+const live = require("./helpers/liveStubs");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
@@ -36,6 +37,7 @@ function load(file, dependencies) {
   vm.runInNewContext(fs.readFileSync(filename, "utf8"), {
     module, Date, console: { log() {}, warn() {}, error() {} },
     require(name) {
+      if (!Object.hasOwn(dependencies, name) && Object.hasOwn(live.deps, name)) return live.deps[name];
       assert.ok(Object.hasOwn(dependencies, name), `Unexpected dependency: ${name}`);
       return dependencies[name];
     },
@@ -320,4 +322,80 @@ test("bulk-save reports students whose mark was replaced by a different user", a
   await save(req, [{ studentId: "s1", status: "حاضر" }]);
   await save(req, [{ studentId: "s1", status: "حاضر" }]);
   assert.equal(attendance.all().filter((r) => r.student === "s1").length, 1);
+});
+
+test("lesson writes stamp updatedAt, announce the change, and a stale form save is 409 with nothing announced", async () => {
+  const { controller, lessons } = lessonSetup();
+  live.changes.length = 0;
+  const created = createRes();
+  await controller.postOne(req({ body: { name: "Math", teacher: "t1", room: "1", date: { day: 2, startMin: 600, endMin: 645 } } }), created);
+  const id = lessons.all()[0]._id;
+  assert.deepEqual(live.changes, [["lesson", id]]);
+
+  live.changes.length = 0;
+  const first = createRes();
+  await controller.putOne(req({ params: { id }, body: { name: "A", baseVersion: "2000-01-01T00:00:00.000Z" } }), first);
+  assert.equal(first.statusCode, 200, "no stored version yet, nothing to be stale against");
+  const stored = lessons.all()[0];
+  assert.ok(Number.isFinite(Date.parse(stored.updatedAt)));
+  assert.deepEqual(live.changes, [["lesson", id]]);
+
+  live.changes.length = 0;
+  const stale = createRes();
+  await controller.putOne(req({ params: { id }, body: { name: "B", baseVersion: "2000-01-01T00:00:00.000Z" } }), stale);
+  assert.equal(stale.statusCode, 409);
+  assert.equal(stale.body.code, "STALE");
+  assert.equal(stale.body.current.name, "A");
+  assert.deepEqual(live.changes, []);
+  assert.equal(lessons.all()[0].name, "A");
+
+  const fresh = createRes();
+  await controller.putOne(req({ params: { id }, body: { name: "C", baseVersion: new Date(stored.updatedAt).toISOString() } }), fresh);
+  assert.equal(fresh.statusCode, 200);
+
+  // Roster add/remove and delete take no version check but announce and stamp.
+  live.changes.length = 0;
+  await controller.addToList(req({ params: { id }, body: { list_students: ["s1"], baseVersion: "2000-01-01T00:00:00.000Z" } }), createRes());
+  await controller.removeFromList(req({ params: { id }, body: { list_students: ["s1"] } }), createRes());
+  await controller.deleteOne(req({ params: { id } }), createRes());
+  assert.deepEqual(live.changes, [["lesson", id], ["lesson", id], ["lesson", id]]);
+});
+
+test("attendance bulk-save: refused (409) on top of an older sheet, otherwise announced; the sheet reports its version", async () => {
+  const lessons = createStore([{ _id: "lesson-1", name: "Math", date: { day: 2, startMin: 600, endMin: 645 }, list_students: ["s1"] }]);
+  const attendance = createStore([
+    { lesson: "lesson-1", student: "s1", dateKey: 20261025, status: "حاضر", notes: "", updatedAt: new Date("2026-10-25T10:00:00.000Z") },
+    { lesson: "lesson-1", student: "s2", dateKey: 20261025, status: "حاضر", notes: "", updatedAt: new Date("2026-10-25T10:05:00.000Z") },
+  ]);
+  const audit = auditStub();
+  const controller = load("Attendance/Attendance.controller.js", {
+    "./Attendance.model": { AttendanceModelDef: attendance },
+    "../Lesson/Lesson.model": { LessonModelDef: lessons },
+    "../User/User.model": { UserModelDef: createStore() },
+    "../Student/Student.model": { StudentModelDef: createStore([{ _id: "s1", tz: "1", firstname: "A", lastname: "B" }]) },
+    "../../utils/permissions": require("../utils/permissions"),
+    "../../utils/studentScope": require("../utils/studentScope"),
+    "../../utils/attendanceMarks": require("../utils/attendanceMarks"),
+    "../../middleware/logger": { logWithSource() {} },
+    ...audit.deps,
+  });
+  const body = (baseVersion) => ({ lessonId: "lesson-1", year: 2026, month: 10, day: 25, items: [{ studentId: "s1", status: "غائب" }], baseVersion });
+
+  const sheet = createRes();
+  await controller.getSheet(req({ query: { lessonId: "lesson-1", year: "2026", month: "10", day: "25" } }), sheet);
+  assert.equal(sheet.body.schema.version, "2026-10-25T10:05:00.000Z");
+
+  live.changes.length = 0;
+  const stale = createRes();
+  await controller.bulkSave(req({ body: body("2026-10-25T10:00:00.000Z") }), stale);
+  assert.equal(stale.statusCode, 409);
+  assert.equal(stale.body.code, "STALE");
+  assert.equal(attendance.all().find((r) => r.student === "s1").status, "حاضر", "nothing written");
+  assert.deepEqual(live.changes, []);
+
+  const ok = createRes();
+  await controller.bulkSave(req({ body: body("2026-10-25T10:05:00.000Z") }), ok);
+  assert.equal(ok.statusCode, 200);
+  assert.deepEqual(live.changes, [["attendance", "lesson-1:2026-10-25"]]);
+  assert.ok(new Date(attendance.all().find((r) => r.student === "s1").updatedAt) > new Date("2026-10-25T10:05:00.000Z"));
 });

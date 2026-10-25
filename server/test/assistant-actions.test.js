@@ -243,6 +243,12 @@ function world() {
   });
 
   const clock = { now: NOW };
+  // Item locks held by someone: key -> holder { name, tz } (assertFree throws 423 for them).
+  const held = {};
+  const assertFree = async (key) => {
+    if (!held[key]) return;
+    throw Object.assign(new Error("locked"), { status: 423, holder: held[key] });
+  };
   const pending = pendingStore();
   const conversations = conversationStore();
   conversations.docs.push({ _id: CONV, ownerTz: G1.tz, title: "t", messages: [], createdAt: NOW, updatedAt: NOW });
@@ -259,6 +265,7 @@ function world() {
       },
       pending,
       conversations,
+      assertFree,
       now: () => clock.now,
       systemTz: SYSTEM_TZ,
       log() {},
@@ -274,7 +281,7 @@ function world() {
       log() {},
     },
   });
-  return { students, lessons, attendance, reports, users, notices, audit, pending, conversations, runner, registry, clock };
+  return { students, lessons, attendance, reports, users, notices, audit, pending, conversations, runner, registry, clock, held };
 }
 
 const guide = () => actorFor(G1);
@@ -998,4 +1005,65 @@ test("GET /api/ai/conversations/:id includes the conversation's open action card
     assert.equal((await fetch(`${base}/api/ai/conversations/${theirs._id}`, { headers: { "x-tz": G1.tz } })).status, 404);
     assert.deepEqual(asked, [[G1.tz, mine._id]], "never asked for another user's conversation");
   } finally { server.close(); }
+});
+
+/* ------------------------------------------------------------ item locks */
+
+const HOLDER = { name: "Holder Name", tz: "900000001" };
+const HELD_MESSAGE = "مفتوح الآن لدى Holder Name (900000001)";
+
+test("an attendance action on a sheet someone holds FAILS with the holder message and writes nothing", async () => {
+  const w = world();
+  const { pendingActionId } = await propose(w, "propose_attendance", attendanceInput());
+  w.held[`attendance:${L1._id}:2026-10-20`] = HOLDER;
+  const before = structuredClone(w.attendance.all());
+  const out = await w.runner.approve({ actor: guide(), id: pendingActionId, ip: "127.0.0.1" });
+  assert.equal(out.status, 423);
+  assert.equal(out.body.ok, false);
+  assert.equal(out.body.code, "FAILED");
+  assert.equal(out.body.message, HELD_MESSAGE);
+  assert.deepEqual(w.attendance.all(), before, "the model is unchanged");
+  assert.equal(w.pending.docs[0].status, "failed");
+  assert.equal(conv(w).messages.at(-1).content.includes("FAILED"), true);
+  assert.equal(conv(w).messages.at(-1).content.includes("Holder"), false, "the holder never reaches the model");
+});
+
+test("the same lesson on another date, or a free sheet, is not blocked", async () => {
+  const w = world();
+  w.held[`attendance:${L1._id}:2026-10-19`] = HOLDER;
+  const { pendingActionId } = await propose(w, "propose_attendance", attendanceInput());
+  const out = await w.runner.approve({ actor: guide(), id: pendingActionId, ip: "127.0.0.1" });
+  assert.equal(out.status, 200, JSON.stringify(out.body));
+});
+
+test("add student to a lesson that someone holds FAILS and the roster is unchanged", async () => {
+  const w = world();
+  const { pendingActionId } = await propose(w, "propose_add_student_to_lesson", { lessonId: L1._id, tz: S5.tz }, admin(), ADMIN_CONV);
+  assert.ok(pendingActionId);
+  w.held[`lesson:${L1._id}`] = HOLDER;
+  const out = await w.runner.approve({ actor: admin(), id: pendingActionId, ip: "127.0.0.1" });
+  assert.equal(out.status, 423);
+  assert.equal(out.body.message, HELD_MESSAGE);
+  assert.deepEqual(w.lessons.all().find((l) => l._id === L1._id).list_students, [S1._id, S2._id]);
+});
+
+test("approve user while the waiting user is held FAILS; the user stays waiting", async () => {
+  const w = world();
+  const { pendingActionId } = await propose(w, "propose_approve_user", { tz: NEWCOMER.tz, role: "مساعد" }, admin(), ADMIN_CONV);
+  assert.ok(pendingActionId);
+  w.held[`user:${NEWCOMER._id}`] = HOLDER;
+  const out = await w.runner.approve({ actor: admin(), id: pendingActionId, ip: "127.0.0.1" });
+  assert.equal(out.status, 423);
+  assert.equal(out.body.message, HELD_MESSAGE);
+  assert.equal(w.users.all("waiting").some((u) => u._id === NEWCOMER._id), true);
+});
+
+test("report and notice have no existing target, so they run with no lock check", async () => {
+  const w = world();
+  w.assertCalls = 0;
+  for (const key of Object.keys(w.held)) delete w.held[key];
+  const { pendingActionId } = await propose(w, "propose_report", { date: "2026-10-20", title: "T", text: "Body" });
+  w.held["report:anything"] = HOLDER;
+  const out = await w.runner.approve({ actor: guide(), id: pendingActionId, ip: "127.0.0.1" });
+  assert.equal(out.status, 200, JSON.stringify(out.body));
 });

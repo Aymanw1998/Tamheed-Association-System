@@ -1,4 +1,5 @@
 const assert = require("node:assert/strict");
+const live = require("./helpers/liveStubs");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
@@ -46,6 +47,7 @@ function load(file, dependencies, DateImpl = Date) {
   vm.runInNewContext(fs.readFileSync(filename, "utf8"), {
     module, Date: DateImpl, Set, Map, Number, String, Array, console: { log() {}, warn() {}, error() {} },
     require(name) {
+      if (!Object.hasOwn(dependencies, name) && Object.hasOwn(live.deps, name)) return live.deps[name];
       assert.ok(Object.hasOwn(dependencies, name), `Unexpected dependency: ${name}`);
       return dependencies[name];
     },
@@ -441,4 +443,68 @@ test("attendance: reports marks replaced by a different user, never the user's o
   assert.deepEqual([...(await as(COACH, [{ studentId: sid(2), status: "حاضر" }])).body.overwritten], []);
   await as(COACH, [{ studentId: sid(1), status: "حاضر" }]);
   assert.equal(ctx.attendance.all().filter((r) => r.studentId === sid(1)).length, 1);
+});
+
+/* ================= locks, versions and live announcements ================= */
+
+test("sport attendance announces sportAttendance and tells exactly the marked students", async () => {
+  const ctx = world();
+  const id = (await create(ctx)).body.lesson._id;
+  live.changes.length = 0;
+  live.students.length = 0;
+  const r = await save(ctx, id, TODAY, [{ studentId: sid(1), status: "حاضر" }, { studentId: sid(2), status: "غائب" }]);
+  assert.equal(r.statusCode, 200);
+  assert.deepEqual(live.changes, [["sportAttendance", `${id}:${TODAY}`]]);
+  assert.deepEqual(live.students, [[[sid(1), sid(2)], "me"]]);
+
+  live.changes.length = 0;
+  live.students.length = 0;
+  assert.equal((await save(ctx, id, "2026-10-26", [])).statusCode, 400);
+  assert.deepEqual(live.changes, []);
+  assert.deepEqual(live.students, []);
+});
+
+test("sport lesson create, edit, roster and delete announce sportLesson and tell its players", async () => {
+  const ctx = world();
+  live.changes.length = 0;
+  live.students.length = 0;
+  const made = await create(ctx);
+  const id = made.body.lesson._id;
+  assert.deepEqual(live.changes, [["sportLesson", id]]);
+  assert.deepEqual(live.students, [[[sid(1), sid(2)], "me"]]);
+
+  live.changes.length = 0;
+  live.students.length = 0;
+  await call(ctx, COACH, "post", "/lessons/:id/players", { params: { id }, body: { studentId: sid(3) } });
+  assert.deepEqual(live.changes, [["sportLesson", id]]);
+  assert.deepEqual([...live.students[0][0]].sort(), [sid(1), sid(2), sid(3)]);
+
+  live.changes.length = 0;
+  live.students.length = 0;
+  await call(ctx, COACH, "delete", "/lessons/:id/players/:studentId", { params: { id, studentId: sid(3) } });
+  assert.deepEqual(live.changes, [["sportLesson", id]]);
+  assert.ok(live.students[0][0].includes(sid(3)), "the removed student is told too");
+
+  live.changes.length = 0;
+  live.students.length = 0;
+  await call(ctx, MANAGER, "delete", "/lessons/:id", { params: { id } });
+  assert.deepEqual(live.changes, [["sportLesson", id]]);
+  assert.deepEqual(live.students, [[[sid(1), sid(2)], "me"]]);
+});
+
+test("a sport lesson form saved on top of a newer version is 409 STALE and changes nothing", async () => {
+  const ctx = world();
+  const id = (await create(ctx)).body.lesson._id;
+  const stored = ctx.lessons.all().find((l) => l._id === id);
+  assert.ok(Number.isFinite(Date.parse(stored.updatedAt)));
+  live.changes.length = 0;
+  live.students.length = 0;
+  const stale = await call(ctx, MANAGER, "put", "/lessons/:id", { params: { id }, body: { ...body({ name: "جديد" }), baseVersion: "2000-01-01T00:00:00.000Z" } });
+  assert.equal(stale.statusCode, 409);
+  assert.equal(stale.body.code, "STALE");
+  assert.equal(stale.body.current.name, "أشبال الأحد");
+  assert.deepEqual(live.changes, []);
+  assert.deepEqual(live.students, []);
+  const fresh = await call(ctx, MANAGER, "put", "/lessons/:id", { params: { id }, body: { ...body({ name: "جديد" }), baseVersion: new Date(stored.updatedAt).toISOString() } });
+  assert.equal(fresh.statusCode, 200);
 });

@@ -241,3 +241,64 @@ test("report update and delete while another tab holds report:<id> are 423", asy
   const mine = await call("PUT", "/:id", makeReq("tab-a", { params: { id: "r1" } }));
   assert.deepEqual(mine.calls, ["put"]);
 });
+
+test("lesson writes and roster changes while another tab holds lesson:<id> are 423; creating takes no lock check", async () => {
+  const locks = fakeLocks({ "lesson:l1": { clientId: "tab-a", ...HOLDER } });
+  const { call } = loadRoutes("Lesson/Lesson.route.js", { locks });
+  for (const [method, route] of [["PUT", "/:id"], ["DELETE", "/:id"], ["POST", "/addToList/:id"], ["POST", "/removeFromList/:id"]]) {
+    const { res, calls } = await call(method, route, makeReq("tab-b", { params: { id: "l1" } }));
+    assert.equal(res.statusCode, 423, `${method} ${route}`);
+    assert.deepEqual(res.body.holder, HOLDER);
+    assert.deepEqual(calls, []);
+  }
+  locks.asked.length = 0;
+  const created = await call("POST", "/", makeReq("tab-b"));
+  assert.equal(created.res.statusCode, 200);
+  assert.equal(locks.asked.length, 0);
+});
+
+test("attendance bulk-save is locked per lesson AND date: a held sheet gives 423, another date of the lesson is free", async () => {
+  const locks = fakeLocks({ "attendance:L1:2026-10-25": { clientId: "tab-a", ...HOLDER } });
+  const { call } = loadRoutes("Attendance/Attendance.route.js", { locks });
+  const body = (day) => ({ lessonId: "L1", year: 2026, month: 10, day, items: [] });
+  const blocked = await call("POST", "/bulk-save", makeReq("tab-b", { body: body(25) }));
+  assert.equal(blocked.res.statusCode, 423);
+  assert.deepEqual(blocked.res.body.holder, HOLDER);
+  assert.deepEqual(blocked.calls, []);
+  const other = await call("POST", "/bulk-save", makeReq("tab-b", { body: body(26) }));
+  assert.equal(other.res.statusCode, 200);
+  assert.deepEqual(other.calls, ["bulkSave"]);
+  const mine = await call("POST", "/bulk-save", makeReq("tab-a", { body: body(25) }));
+  assert.deepEqual(mine.calls, ["bulkSave"]);
+});
+
+test("sport writes: a stats bump while another tab holds player:<studentId> is 423, and every item kind has its own key", async () => {
+  const held = {
+    "player:s1": { clientId: "tab-a", ...HOLDER },
+    "sportLesson:sl1": { clientId: "tab-a", ...HOLDER },
+    "sportAttendance:sl1:2026-10-25": { clientId: "tab-a", ...HOLDER },
+  };
+  const locks = fakeLocks(held);
+  const { call } = loadRoutes("Sport/Sport.route.js", { locks });
+  const cases = [
+    ["POST", "/players/:studentId/stats", { params: { studentId: "s1" } }],
+    ["PUT", "/players/:studentId", { params: { studentId: "s1" } }],
+    ["DELETE", "/players/:studentId", { params: { studentId: "s1" } }],
+    ["PUT", "/lessons/:id", { params: { id: "sl1" } }],
+    ["DELETE", "/lessons/:id", { params: { id: "sl1" } }],
+    ["POST", "/lessons/:id/players", { params: { id: "sl1" } }],
+    ["DELETE", "/lessons/:id/players/:studentId", { params: { id: "sl1", studentId: "s9" } }],
+    ["PUT", "/lessons/:id/attendance", { params: { id: "sl1" }, body: { date: "2026-10-25" } }],
+  ];
+  for (const [method, route, extra] of cases) {
+    const { res, calls } = await call(method, route, makeReq("tab-b", extra));
+    assert.equal(res.statusCode, 423, `${method} ${route}`);
+    assert.deepEqual(calls, []);
+  }
+  const free = await call("PUT", "/lessons/:id/attendance", makeReq("tab-b", { params: { id: "sl1" }, body: { date: "2026-10-26" } }));
+  assert.equal(free.res.statusCode, 200);
+  locks.asked.length = 0;
+  const created = await call("POST", "/lessons", makeReq("tab-b"));
+  assert.equal(created.res.statusCode, 200);
+  assert.equal(locks.asked.length, 0);
+});
