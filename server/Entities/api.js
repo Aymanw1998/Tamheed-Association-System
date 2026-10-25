@@ -148,6 +148,21 @@ const api = {
     return { success: true, result: toPlain(updated) };
   },
 
+  // Conditional upsert for locks: sets `newData` on the document matching the
+  // filter, or creates it. When the filter does not match but the unique key
+  // already exists, MongoDB throws E11000 (duplicate key), which the caller
+  // reads as "someone else holds it". Returns the document after the write.
+  async acquireOne({ dbName, collection, filter, newData }) {
+    await ensureConnected();
+    const Model = getModel(dbName, collection);
+    const updated = await Model.findOneAndUpdate(
+      filter,
+      { $set: newData },
+      { new: true, upsert: true }
+    ).lean();
+    return { success: true, result: toPlain(updated) };
+  },
+
   async delete({ dbName, collection, filter }) {
     await ensureConnected();
     const Model = getModel(dbName, collection);

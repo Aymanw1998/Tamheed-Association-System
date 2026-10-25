@@ -112,6 +112,8 @@ app.use('/api/notices', require('./Entities/Notice/Notice.route'));
 app.use('/api/audit', require('./Entities/Audit/Audit.route'));
 // Signed-in live channel (ticket + SSE); replaces the old open /api/events.
 app.use('/api/live', require('./Entities/Live/Live.route'));
+// Item locks owned by a browser tab (acquire, heartbeat, release).
+app.use('/api/locks', require('./Entities/Lock/Lock.route'));
 // Each signed-in user's own alert inbox (AiAlerts).
 app.use('/api/alerts', require('./Entities/Alert/Alert.route'));
 app.use('/api/tours', require('./routes/tours.routes'));
@@ -212,6 +214,8 @@ const StartServer = async () => {
       .catch((err) => console.error('SportPlayers index:', err.message));
     await require('./Entities/Sport/SportLoginCode.model').ensureSportLoginCodeIndexes()
       .catch((err) => console.error('SportLoginCodes index:', err.message));
+    await require('./Entities/Lock/Lock.model').ensureLockIndexes()
+      .catch((err) => console.error('Locks index:', err.message));
     await require('./Entities/Push/PushSubscription.model').ensurePushSubscriptionIndexes()
       .catch((err) => console.error('PushSubscriptions index:', err.message));
     await require('./Entities/Sport/SportAttendance.model').ensureSportAttendanceIndexes()

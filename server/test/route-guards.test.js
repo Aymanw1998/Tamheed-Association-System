@@ -69,6 +69,9 @@ const ANY_ACTOR_ROUTES = {
   "Alert/Alert.route.js": ["GET /", "POST /read-all", "POST /:id/read"],
   // One's own push subscription: stored and removed under the caller's tz.
   "Push/Push.route.js": ["POST /subscribe", "DELETE /subscribe"],
+  // Item locks: any signed-in user; the holder is their browser tab. The
+  // force-release route is the only one with a permission (EXACT_GUARDS).
+  "Lock/Lock.route.js": ["POST /acquire", "POST /heartbeat", "POST /release", "GET /:key"],
   // One's own tour state: every write targets the caller's own record.
   "routes/tours.routes.js": ["GET /", "POST /item/:id", "POST /known-keys", "POST /releases/seen"],
 };
@@ -154,6 +157,7 @@ const EXACT_GUARDS = {
     "POST /system/recover": "systemRecovery.reset",
   },
   "Vehicle/Vehicle.route.js": { "DELETE /:id": "vehicles.delete" },
+  "Lock/Lock.route.js": { "POST /force-release": "permissions.manage" },
   "Notice/Notice.route.js": { "POST /:id/archive": "notices.post" },
   "Lesson/Lesson.route.js": {
     "POST /copy-month": "lessons.copyMonth",
