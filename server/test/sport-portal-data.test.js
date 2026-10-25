@@ -2,6 +2,7 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 const { PassThrough } = require("node:stream");
 const jwt = require("jsonwebtoken");
+const crypto = require("node:crypto");
 
 process.env.PASSWORD_ENC_KEY_HEX = process.env.PASSWORD_ENC_KEY_HEX || "0".repeat(64);
 process.env.SPORT_SESSION_SECRET = "test-sport-session-secret";
@@ -96,7 +97,7 @@ test("me returns the card, lessons, next lesson and history of the signed-in stu
   assert.equal(r.statusCode, 200);
   assert.deepEqual(r.body, {
     ok: true,
-    student: { firstname: "علي", lastname: "حداد", gender: "ذكر", age: 14, birthDate: "2012-03-15", hasPhoto: true },
+    student: { firstname: "علي", lastname: "حداد", gender: "ذكر", age: 14, birthDate: "2012-03-15", hasPhoto: true, photoVersion: crypto.createHash("sha1").update(ME.photo).digest("hex").slice(0, 10) },
     card: {
       sport: { name: "كرة القدم", icon: "⚽" },
       jerseyNumber: 7,
@@ -116,6 +117,20 @@ test("me returns the card, lessons, next lesson and history of the signed-in stu
       { date: "2026-05-03", lessonName: "تدريب الأحد", status: "حاضر" },
     ],
   });
+});
+
+test("photoVersion changes when the photo changes, and is null with no photo", async () => {
+  const base = { _id: "s1", tz: ME.tz, email: ME.email, firstname: "علي", lastname: "حداد", birth_date: ME.birth };
+  const s1 = setup({ students: [{ ...base, photo: ME.photo }] });
+  const first = (await s1.call(s1.portal.me, "s1")).body.student.photoVersion;
+  const s2 = setup({ students: [{ ...base, photo: "https://drive.example/d/NEWPHOTO99/view" }] });
+  const second = (await s2.call(s2.portal.me, "s1")).body.student.photoVersion;
+  const s3 = setup({ students: [{ ...base, photo: "" }] });
+  const none = (await s3.call(s3.portal.me, "s1")).body.student;
+  assert.match(first, /^[0-9a-f]{10}$/);
+  assert.notEqual(first, second);
+  assert.equal(none.photoVersion, null);
+  assert.equal(none.hasPhoto, false);
 });
 
 test("the response holds nothing about other students", async () => {

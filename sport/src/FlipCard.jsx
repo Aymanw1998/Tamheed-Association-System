@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { PHOTO_URL } from "./api.js";
+import { photoUrl } from "./api.js";
 import { cardCells, lessonDays, birthDateLabel, attendanceLabel } from "./format.js";
 import { Silhouette, LogoBadge, FlipIcon } from "./Art.jsx";
 
@@ -7,10 +7,11 @@ import { Silhouette, LogoBadge, FlipIcon } from "./Art.jsx";
 const SHIELD =
   "M0 34 Q0 16 18 14 L100 6 Q132 0 164 6 L246 14 Q264 16 264 34 L264 318 Q264 332 250 338 L142 381 Q132 385 122 381 L14 338 Q0 332 0 318 Z";
 
-function Photo({ hasPhoto, className }) {
-  const [failed, setFailed] = useState(false);
-  if (!hasPhoto || failed) return <Silhouette className={className} />;
-  return <img className={className} src={PHOTO_URL} alt="" onError={() => setFailed(true)} />;
+function Photo({ hasPhoto, version, className }) {
+  const src = photoUrl(version);
+  const [failedSrc, setFailedSrc] = useState(null);
+  if (!hasPhoto || failedSrc === src) return <Silhouette className={className} />;
+  return <img className={className} src={src} alt="" onError={() => setFailedSrc(src)} />;
 }
 
 export function FifaFace({ student, card }) {
@@ -35,7 +36,7 @@ export function FifaFace({ student, card }) {
         </div>
 
         <div className="fifa-photo">
-          <Photo hasPhoto={student.hasPhoto} className="fifa-img" />
+          <Photo hasPhoto={student.hasPhoto} version={student.photoVersion} className="fifa-img" />
         </div>
 
         <div className="fifa-name">{name}</div>
@@ -102,7 +103,7 @@ export function IdFace({ student, card, lessons }) {
           </p>
         </div>
         <div className="id-photo">
-          <Photo hasPhoto={student.hasPhoto} className="id-img" />
+          <Photo hasPhoto={student.hasPhoto} version={student.photoVersion} className="id-img" />
         </div>
       </div>
       {card.jerseyNumber != null && <div className="id-num" aria-hidden="true">{card.jerseyNumber}</div>}

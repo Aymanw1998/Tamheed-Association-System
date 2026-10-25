@@ -37,3 +37,5 @@ export const requestCode = (tz) => call("/request-code", { method: "POST", body:
 export const verifyCode = (tz, code) => call("/verify", { method: "POST", body: JSON.stringify({ tz, code }) });
 export const logout = () => call("/logout", { method: "POST" });
 export const PHOTO_URL = `${BASE}/photo`;
+// The version changes with the photo, so a new photo is not hidden by the browser cache.
+export const photoUrl = (version) => (version ? `${PHOTO_URL}?v=${encodeURIComponent(version)}` : PHOTO_URL);

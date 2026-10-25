@@ -2075,3 +2075,24 @@ The new screens were not checked in a browser.
 **Requesting Codex review.** No live Codex connection; this entry is the handoff.
 
 **Delivery state:** committed with the owner's approval; not pushed.
+
+## 2026-10-25: Sport site shows staff changes without signing in again
+
+**Owner report:** after a player's data changed in the system, the sport site kept showing the old data until the student signed out and in again.
+
+**Root cause:**
+- The site loaded `/me` only once, when it opened. An installed app stays open in the background, so returning to it showed stale data.
+- Separately, `/photo` has a fixed URL that is cached for an hour, so a new photo stayed hidden.
+
+**Changes:**
+- `sport/src/refreshOnReturn.js` (new): when the signed-in app is shown again, gets focus or comes back online, it quietly re-fetches `/me`, at most once per 15 seconds. Wired in `sport/src/App.jsx`.
+- `/me` returns `student.photoVersion`, a short hash of the photo link (`server/Entities/SportPortal/SportPortal.controller.js`).
+- The card loads `/api/sport-portal/photo?v=<version>` (`sport/src/api.js`, `sport/src/FlipCard.jsx`).
+
+**Verification:**
+- server 823/823, sport 49/49, and the sport build is clean;
+- in the browser against a mock whose `/me` value changes, the card value updated when the app returned to view.
+
+**Requesting Codex review.** No live Codex connection; this entry is the handoff.
+
+**Delivery state:** committed with the owner's approval; not pushed.

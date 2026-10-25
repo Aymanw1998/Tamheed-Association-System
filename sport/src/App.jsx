@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getMe, logout } from "./api.js";
 import LoginPage from "./LoginPage.jsx";
 import HomePage from "./HomePage.jsx";
@@ -11,6 +11,7 @@ import AppChrome from "./pwa/AppChrome.jsx";
 import { clearApiCache } from "./pwa/clearApiCache";
 import { unsubscribeSport } from "./pwa/pushOptIn";
 import { hasSeenGuide, markGuideSeen } from "./guide/guideSteps.js";
+import { attachRefresh } from "./refreshOnReturn";
 
 // Session ended: forget cached answers and stop pushes for this device (best effort, 3s cap).
 async function endSession() {
@@ -48,6 +49,24 @@ export default function App() {
   useEffect(() => {
     load();
   }, []);
+
+  // While signed in, reload quietly when the app comes back to the screen, so
+  // changes the staff made (stats, attendance, name, photo) show without signing in again.
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  useEffect(() => attachRefresh(async () => {
+    if (stateRef.current !== "in") return;
+    try {
+      const r = await getMe();
+      if (r.status === 401) {
+        setState("out");
+        return endSession();
+      }
+      if (r.ok) setMe(r.data);
+    } catch {
+      // Keep what is on screen; the next return tries again.
+    }
+  }), []);
 
   const onLogout = async () => {
     // Unsubscribe first: it needs the sport cookie that logout removes.

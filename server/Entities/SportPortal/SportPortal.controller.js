@@ -1,3 +1,4 @@
+const crypto = require("crypto");
 const { ensureFootball } = require("../Sport/Sport.controller");
 const { SportPlayerModelDef } = require("../Sport/SportPlayer.model");
 const { SportLessonModelDef } = require("../Sport/SportLesson.model");
@@ -10,6 +11,9 @@ const SERVER_ERROR = "حدث خطأ غير متوقع، حاول مرة أخرى
 const HISTORY_LIMIT = 60;
 const rows = (r) => (r?.success && Array.isArray(r.result) ? r.result : []);
 const sid = (v) => String(v);
+// Changes whenever the photo link changes, so the app asks for the new photo
+// instead of showing the old one from the browser cache. Reveals nothing of the link.
+const photoVersion = (link) => (link ? crypto.createHash("sha1").update(String(link)).digest("hex").slice(0, 10) : null);
 const slot = (l) => ({ name: l.name, day: l.date.day, startMin: l.date.startMin, endMin: l.date.endMin });
 // "YYYY-MM-DD" from the stored birth date, or null.
 const birthDay = (v) => {
@@ -64,6 +68,7 @@ function createSportPortalController(deps = {}) {
           age: ageOn(student.birth_date, at),
           birthDate: birthDay(student.birth_date),
           hasPhoto: Boolean(student.photo),
+          photoVersion: photoVersion(student.photo),
         },
         card: {
           sport: { name: sport.name, icon: sport.icon },
