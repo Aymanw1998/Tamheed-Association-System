@@ -33,8 +33,8 @@ export function StaleNotice({ message, draft }) {
 // Returns true when it handled the error (409 STALE or 423 LOCKED): the draft
 // is left untouched and a notice is passed to setNotice (a string or an element).
 export function handleSaveError(err, { draft = "", setNotice } = {}) {
-  const status = err?.response?.status;
-  const data = err?.response?.data || {};
+  const status = err?.response?.status ?? err?.status;
+  const data = err?.response?.data ?? err?.data ?? {};
   if (status === 409 && data.code === "STALE") {
     const current = data.current || {};
     const who = current.updatedByName || current.updatedBy?.name || "مستخدم آخر";

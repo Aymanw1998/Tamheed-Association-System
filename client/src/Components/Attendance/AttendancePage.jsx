@@ -155,7 +155,7 @@ export default function AttendancePage() {
 
     useLiveRefresh(["attendance", "lesson"], () => {
         loadLeft(true);
-        if (!dirty && sheet) reloadSheet();
+        if (!dirty && !loadingSheet && sheet) reloadSheet();
     });
     useReloadOnUnblock(lock.status, reloadSheet);
 

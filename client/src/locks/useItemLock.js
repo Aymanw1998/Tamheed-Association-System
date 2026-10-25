@@ -32,7 +32,10 @@ function showStillHere(onStay) {
 // them): status is "held".
 export default function useItemLock(key, { enabled = true } = {}) {
   const active = Boolean(key) && enabled;
-  const [state, setState] = useState({ key, status: active ? "loading" : "held", holder: null });
+  // A viewer who may not edit never takes the lock, but must not enter an item
+  // someone else holds: he only watches it (GET /locks/:key).
+  const watching = Boolean(key) && !enabled;
+  const [state, setState] = useState({ key, status: active || watching ? "loading" : "held", holder: null });
   const stateRef = useRef(state);
   const apply = useCallback((next) => {
     stateRef.current = next;
@@ -43,6 +46,29 @@ export default function useItemLock(key, { enabled = true } = {}) {
   const controls = useRef({});
 
   useEffect(() => {
+    if (watching && !isDemo()) {
+      let alive = true;
+      const check = async () => {
+        try {
+          const { data } = await api.get(`/locks/${encodeURIComponent(key)}`);
+          if (!alive) return;
+          apply({ key, status: data?.holder ? "blocked" : "held", holder: data?.holder || null });
+        } catch {
+          if (alive && stateRef.current.key !== key) apply({ key, status: "held", holder: null });
+        }
+      };
+      apply({ key, status: "loading", holder: null });
+      check();
+      const timer = setInterval(check, RETRY_MS);
+      const offLock = liveEvents.on("lock", (payload) => {
+        if (payload?.key === key) check();
+      });
+      return () => {
+        alive = false;
+        clearInterval(timer);
+        offLock();
+      };
+    }
     if (!active || isDemo()) {
       apply({ key, status: "held", holder: null });
       return undefined;
@@ -183,11 +209,11 @@ export default function useItemLock(key, { enabled = true } = {}) {
       if (wasHeld) sendRelease();
       controls.current = {};
     };
-  }, [key, active, apply]);
+  }, [key, active, watching, apply]);
 
   const release = useCallback(() => controls.current.release?.(), []);
   const retry = useCallback(() => controls.current.retry?.(), []);
-  if (!active) return { status: "held", holder: null, release, retry };
+  if (!active && !watching) return { status: "held", holder: null, release, retry };
   if (state.key !== key) return { status: "loading", holder: null, release, retry };
   return { status: state.status, holder: state.holder, release, retry };
 }

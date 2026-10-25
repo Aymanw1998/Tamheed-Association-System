@@ -4,7 +4,7 @@ import { act } from "react";
 
 jest.mock("../WebServer/services/api", () => ({
   __esModule: true,
-  default: { post: jest.fn() },
+  default: { post: jest.fn(), get: jest.fn() },
   API_BASE_URL: "/api",
   getAuthToken: () => "tok",
 }));
@@ -200,5 +200,61 @@ describe("stale save", () => {
     expect(notice).toContain("Ali");
     expect(handleSaveError(err(500, {}), { setNotice: () => {} })).toBe(false);
     expect(withBaseVersion({ a: 1 }, { updatedAt: "T" })).toEqual({ a: 1, baseVersion: "T" });
+  });
+});
+
+describe("flat service results", () => {
+  test("handleSaveError reads a flat 409 and a flat 423", () => {
+    let notice;
+    expect(handleSaveError({ ok: false, status: 409, data: { code: "STALE", current: { updatedByName: "Sara" } } }, { draft: "x", setNotice: (n) => { notice = n; } })).toBe(true);
+    expect(notice).toBeTruthy();
+    expect(handleSaveError({ ok: false, status: 423, data: { holder: { name: "Ali", tz: "t1" } } }, { setNotice: (n) => { notice = n; } })).toBe(true);
+    expect(notice).toContain("Ali");
+    expect(handleSaveError({ ok: false, status: 500, data: {} }, { setNotice: () => {} })).toBe(false);
+  });
+});
+
+describe("viewer without edit permission", () => {
+  function ViewerProbe({ lockKey }) {
+    latest = useItemLock(lockKey, { enabled: false });
+    return null;
+  }
+  const mountViewer = async () => {
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+    await act(async () => root.render(<ViewerProbe lockKey="student:1" />));
+  };
+
+  test("a held key gives blocked, a release event gives held, and it never posts", async () => {
+    const holder = { name: "Ali", tz: "t1" };
+    api.get.mockReset();
+    api.get.mockResolvedValueOnce({ data: { ok: true, holder } });
+    await mountViewer();
+    expect(api.get).toHaveBeenCalledWith("/locks/student%3A1");
+    expect(latest.status).toBe("blocked");
+    expect(latest.holder).toEqual(holder);
+    api.get.mockResolvedValue({ data: { ok: true, holder: null } });
+    await act(async () => liveEvents.emit("lock", { key: "student:1" }));
+    expect(latest.status).toBe("held");
+    await advance(20000);
+    expect(api.post).not.toHaveBeenCalled();
+  });
+
+  test("it re-checks every 15 seconds", async () => {
+    api.get.mockReset();
+    api.get.mockResolvedValue({ data: { ok: true, holder: null } });
+    await mountViewer();
+    expect(latest.status).toBe("held");
+    await advance(15000);
+    expect(api.get).toHaveBeenCalledTimes(2);
+  });
+
+  test("training mode stays held without calls", async () => {
+    isDemo.mockReturnValue(true);
+    api.get.mockReset();
+    await mountViewer();
+    expect(latest.status).toBe("held");
+    expect(api.get).not.toHaveBeenCalled();
   });
 });
