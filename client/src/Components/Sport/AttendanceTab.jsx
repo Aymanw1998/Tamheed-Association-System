@@ -9,6 +9,13 @@ import { getAttendance, getTodayLessons, saveAttendance } from "../../WebServer/
 import { DAY_NAMES, endOf, startOf, toHHMM } from "../../utils/lessonSchedule";
 import { lessonDates } from "../../utils/sportSchedule";
 import styles from "./Sport.module.css";
+import useItemLock from "../../locks/useItemLock";
+import LockedScreen from "../../locks/LockedScreen";
+import SaveNotice from "../../locks/SaveNotice";
+import forceRelease from "../../locks/forceRelease";
+import useReloadOnUnblock from "../../locks/useReloadOnUnblock";
+import useLiveRefresh from "../../locks/useLiveRefresh";
+import { handleSaveError } from "../../locks/staleSave";
 
 const STATUSES = [
   { value: "حاضر", key: "present", cls: "pillPresent" },
@@ -23,7 +30,7 @@ const dateLabel = (ymd) => {
 
 // Takes attendance for a football lesson: opens on today's first lesson, and
 // any lesson can be reopened on an earlier date of its weekday.
-export default function AttendanceTab({ lessons, canCoach }) {
+export default function AttendanceTab({ lessons, canCoach, reload }) {
   const { t, dir } = useI18n();
   const [today, setToday] = useState("");
   const [todayLessons, setTodayLessons] = useState(null); // null while loading
@@ -34,6 +41,12 @@ export default function AttendanceTab({ lessons, canCoach }) {
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState(null);
+  // One sheet = one football lesson on one date.
+  const lockKey = lessonId && date ? `sportAttendance:${lessonId}:${date}` : null;
+  const lock = useItemLock(lockKey, { enabled: Boolean(canCoach) });
+  const readonly = lock.status === "readonly";
+  const blocked = lock.status === "blocked";
 
   const lesson = useMemo(() => lessons.find((l) => l._id === lessonId) || null, [lessons, lessonId]);
   const dates = useMemo(() => (lesson && today ? lessonDates(lesson.date.day, today, 26) : []), [lesson, today]);
@@ -53,8 +66,8 @@ export default function AttendanceTab({ lessons, canCoach }) {
     return () => { live = false; };
   }, []);
 
-  const loadSheet = useCallback(async (id, ymd) => {
-    setLoadingSheet(true);
+  const loadSheet = useCallback(async (id, ymd, quiet = false) => {
+    if (!quiet) setLoadingSheet(true);
     setError("");
     const res = await getAttendance(id, ymd);
     setLoadingSheet(false);
@@ -62,6 +75,14 @@ export default function AttendanceTab({ lessons, canCoach }) {
     setSheet(res.players || []);
     setDirty(false);
   }, []);
+
+  // Someone else's change refreshes the lessons and, when nothing is waiting
+  // to be saved, the open sheet.
+  useLiveRefresh(["sportAttendance", "sportLesson", "player", "sport"], () => {
+    reload?.();
+    if (!dirty && lessonId && date) loadSheet(lessonId, date, true);
+  });
+  useReloadOnUnblock(lock.status, () => lessonId && date && loadSheet(lessonId, date, true));
 
   useEffect(() => {
     if (lessonId && date) loadSheet(lessonId, date);
@@ -109,7 +130,11 @@ export default function AttendanceTab({ lessons, canCoach }) {
       }
     }
     setSaving(false);
-    if (!res.ok) return toast.warn(res.message);
+    if (!res.ok) {
+      if (handleSaveError(res, { setNotice })) return;
+      return toast.warn(res.message);
+    }
+    setNotice(null);
     await dropQueuedSheet(queued);
     setDirty(false);
     toast.success(t("sport.attendance.saved"));
@@ -151,8 +176,10 @@ export default function AttendanceTab({ lessons, canCoach }) {
 
       {error && <div className={styles.formError} role="alert">{error}</div>}
       {loadingSheet && <div className={styles.emptyState}>{t("sport.attendance.loading")}</div>}
+      {blocked && lockKey && <LockedScreen holder={lock.holder} onForceRelease={forceRelease(lockKey)} />}
+      {!blocked && <SaveNotice notice={notice} />}
 
-      {sheet && !loadingSheet && (
+      {sheet && !loadingSheet && !blocked && (
         <>
           {!canCoach && <div className={styles.notice}>{t("sport.attendance.readOnly")}</div>}
           {sheet.length === 0 ? (
@@ -161,9 +188,9 @@ export default function AttendanceTab({ lessons, canCoach }) {
             <>
               {canCoach && (
                 <div className={styles.quick}>
-                  <Button size="sm" variant="secondary" onClick={() => markAll("حاضر")}>{t("sport.attendance.allPresent")}</Button>
-                  <Button size="sm" variant="secondary" onClick={() => markAll("متأخر")}>{t("sport.attendance.allLate")}</Button>
-                  <Button size="sm" variant="secondary" onClick={() => markAll("غائب")}>{t("sport.attendance.allAbsent")}</Button>
+                  <Button size="sm" variant="secondary" disabled={readonly} onClick={() => markAll("حاضر")}>{t("sport.attendance.allPresent")}</Button>
+                  <Button size="sm" variant="secondary" disabled={readonly} onClick={() => markAll("متأخر")}>{t("sport.attendance.allLate")}</Button>
+                  <Button size="sm" variant="secondary" disabled={readonly} onClick={() => markAll("غائب")}>{t("sport.attendance.allAbsent")}</Button>
                 </div>
               )}
               <div className={styles.tableWrap}>
@@ -183,7 +210,7 @@ export default function AttendanceTab({ lessons, canCoach }) {
                                 type="button"
                                 className={`${styles.pill} ${styles[s.cls]}`}
                                 aria-pressed={p.status === s.value}
-                                disabled={!canCoach}
+                                disabled={!canCoach || readonly}
                                 onClick={() => mark(p.studentId, s.value)}
                               >
                                 {t(`sport.attendance.${s.key}`)}
@@ -202,7 +229,7 @@ export default function AttendanceTab({ lessons, canCoach }) {
                   {t("sport.attendance.present")}: {count("حاضر")} • {t("sport.attendance.late")}: {count("متأخر")} • {t("sport.attendance.absent")}: {count("غائب")}
                   {dirty && <> • {t("sport.attendance.unsaved")}</>}
                 </div>
-                {canCoach && <Button onClick={save} loading={saving} disabled={!dirty}>{t("sport.attendance.save")}</Button>}
+                {canCoach && <Button onClick={save} loading={saving} disabled={!dirty || readonly}>{t("sport.attendance.save")}</Button>}
               </div>
             </>
           )}

@@ -9,7 +9,7 @@ export const getAll = async() => {
         if(![200,201].includes(status)) throw new Error('لا توجد تقارير');
         return {ok: true, reports: data.reports || []}
     } catch(err) {
-        return {ok: false, message: err.response.data.message || err.message || 'تعذّر إتمام العملية.'};
+        return {ok: false, status: err.response?.status, data: err.response?.data, message: err.response?.data?.message || err.message || 'تعذّر إتمام العملية.'};
     }
 }
 
@@ -25,7 +25,7 @@ export const getOne = async(idOrName) => {
         if(![200,201].includes(status)) throw new Error('لا يوجد تقرير بهذا المعرّف: ' + idOrName);
         return {ok: true, report: data.report || null}
     } catch(err){
-        return {ok: false, message: err.response.data.message || err.message || 'تعذّر إتمام العملية.'};
+        return {ok: false, status: err.response?.status, data: err.response?.data, message: err.response?.data?.message || err.message || 'تعذّر إتمام العملية.'};
     }
 }
 
@@ -48,7 +48,7 @@ export const create = async(payload, {confirm = true} = {}) => {
         if (![200,201].includes(status)) throw new Error('تعذّر إنشاء التقرير');
         return {ok: true, report: data.report}
     } catch(err) {
-        return {ok: false, message: err.response.data.message || err.message || 'تعذّر إتمام العملية.'};
+        return {ok: false, status: err.response?.status, data: err.response?.data, message: err.response?.data?.message || err.message || 'تعذّر إتمام العملية.'};
     }
 }
 
@@ -72,7 +72,7 @@ export const update= async(idOrName, patch,{confirm = true} = {}) => {
         if (![200,201].includes(status)) throw new Error(data?.message || 'تعذّر تحديث التقرير');
         return {ok: true, report: data.report}
     } catch(err) {
-        return {ok: false, message: err.response.data.message || err.message || 'تعذّر إتمام العملية.'};
+        return {ok: false, status: err.response?.status, data: err.response?.data, message: err.response?.data?.message || err.message || 'تعذّر إتمام العملية.'};
     }
 }
 
@@ -92,6 +92,6 @@ export const deleteR= async(idOrName,{confirm = true} = {}) => {
         if (![200,201].includes(status) || !data?.ok) throw new Error(data?.message || 'تعذّر حذف التقرير');
         return {ok: true, report: null}
     } catch(err) {
-        return {ok: false, message: err.response.data.message || err.message || 'تعذّر إتمام العملية.'};
+        return {ok: false, status: err.response?.status, data: err.response?.data, message: err.response?.data?.message || err.message || 'تعذّر إتمام العملية.'};
     }
 }

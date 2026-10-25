@@ -10,6 +10,13 @@ import { attendanceDateLabel } from "../../utils/attendanceDates";
 import { ask } from "../Provides/confirmBus";
 import { dropQueuedSheet, isOffline, noResponse, queueAttendance } from "../../pwa/queuedSave";
 import { OVERWRITTEN_MESSAGE, SAVED_OFFLINE_MESSAGE } from "../../pwa/attendanceQueue";
+import useItemLock from "../../locks/useItemLock";
+import LockedScreen from "../../locks/LockedScreen";
+import SaveNotice from "../../locks/SaveNotice";
+import forceRelease from "../../locks/forceRelease";
+import useReloadOnUnblock from "../../locks/useReloadOnUnblock";
+import useLiveRefresh from "../../locks/useLiveRefresh";
+import { handleSaveError } from "../../locks/staleSave";
 
 
 const pad2 = (n) => String(n).padStart(2, "0");
@@ -27,7 +34,7 @@ const toHHMM = (min) => {
 };
 
 // tourStatus: the status whose button carries a journey anchor (one per row, first rows only).
-const StatusPill = ({ value, onChange, tourStatus = null }) => {
+const StatusPill = ({ value, onChange, tourStatus = null, disabled = false }) => {
     const opts = ["حاضر", "غائب", "متأخر"];
     return (
         <div className={styles.pills}>
@@ -35,6 +42,7 @@ const StatusPill = ({ value, onChange, tourStatus = null }) => {
             <button
             key={s}
             type="button"
+            disabled={disabled}
             className={`${styles.pill} ${value === s ? styles.pillActive : ""}`}
             data-tour={s !== tourStatus ? undefined : s === "حاضر" ? "calendar-mark-present" : s === "غائب" ? "calendar-mark-absent" : "calendar-mark-late"}
             style={value === s ? { backgroundColor: s === "حاضر" ? "var(--color-success-500)" : s === "غائب" ? "var(--color-danger-500)" : "var(--color-warning-500)" } : {} }
@@ -71,6 +79,17 @@ export default function AttendancePage() {
     // sheet
     const [sheet, setSheet] = useState(null);
     const [dirty, setDirty] = useState(false);
+    const [notice, setNotice] = useState(null);
+
+    // One sheet = one lesson on one date. The lock key is made of the same
+    // year, month and day the save sends, so the server finds the same lock.
+    const usedDate = tab === "today" ? date : selectedHistoryDate;
+    const lockKey = selectedLesson && usedDate && usedDate.year && usedDate.month && usedDate.day
+        ? `attendance:${selectedLesson._id}:${usedDate.year}-${pad2(usedDate.month)}-${pad2(usedDate.day)}`
+        : null;
+    const lock = useItemLock(lockKey, { enabled: canStored("attendance.record") });
+    const readonly = lock.status === "readonly";
+    const blocked = lock.status === "blocked";
 
     //searchText
     const [searchLesson, setSearchLesson] = useState("");
@@ -103,9 +122,8 @@ export default function AttendancePage() {
         return () => window.removeEventListener("keydown", onKey);
     }, [dateModalOpen]);
     // load left side
-    useEffect(() => {
-        const load = async () => {
-        setLoadingLeft(true);
+    const loadLeft = async (quiet = false) => {
+        if (!quiet) setLoadingLeft(true);
         try {
             if (tab === "today") {
             const r = await getLessonsToday();
@@ -121,8 +139,28 @@ export default function AttendancePage() {
         } finally {
             setLoadingLeft(false);
         }
-        };
-        load();
+    };
+
+    // Reads the open sheet again (a new version after our own save, or after
+    // someone else's); it never replaces edits still waiting to be saved.
+    const reloadSheet = async () => {
+        if (!selectedLesson || !usedDate) return;
+        try {
+            const r = await getAttendanceSheet(selectedLesson._id, usedDate);
+            if (r.ok) setSheet(r.sheet);
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    useLiveRefresh(["attendance", "lesson"], () => {
+        loadLeft(true);
+        if (!dirty && sheet) reloadSheet();
+    });
+    useReloadOnUnblock(lock.status, reloadSheet);
+
+    useEffect(() => {
+        loadLeft();
         // reset selections when switching tab
         setSelectedLesson(null);
         setSheet(null);
@@ -142,6 +180,7 @@ export default function AttendancePage() {
     }, [tab, preselectedLessonId, todayLessons, loadingLeft]);
 
     const openLessonToday = async (lesson) => {
+        setNotice(null);
         setSelectedLesson(lesson);
         setSelectedHistoryDate(null);
         setSheet(null);
@@ -180,6 +219,7 @@ export default function AttendancePage() {
 
     const openHistoryDate = async (dObj) => {
         if (!selectedLesson) return;
+        setNotice(null);
         setSelectedHistoryDate(dObj);
         setSheet(null);
         setDirty(false);
@@ -217,7 +257,6 @@ export default function AttendancePage() {
 
     const onSave = async () => {
         if (!selectedLesson || !sheet) return;
-        const usedDate = tab === "today" ? date : selectedHistoryDate;
         if (!usedDate) return;
 
         setLoadingSheet(true);
@@ -235,7 +274,7 @@ export default function AttendancePage() {
             body: { lessonId, ...usedDate, items },
             label: selectedLesson.name || "حضور",
         };
-        const r = isOffline() ? { ok: false, status: 0 } : await saveAttendanceSheet(lessonId, usedDate, items);
+        const r = isOffline() ? { ok: false, status: 0 } : await saveAttendanceSheet(lessonId, usedDate, items, sheet.version);
         if (!r.ok && (isOffline() || noResponse(r))) {
             // No connection: keep the save on this device and send it later.
             const kept = await queueAttendance(queued);
@@ -245,10 +284,16 @@ export default function AttendancePage() {
                 return;
             }
         }
-        if (!r.ok) throw new Error(r.message || "تعذّر إتمام العملية.");
+        if (!r.ok) {
+            const draft = sheet.items.filter((it) => it.notes).map((it) => `${it.studentName}: ${it.notes}`).join("\n");
+            if (handleSaveError(r, { draft, setNotice })) return;
+            throw new Error(r.message || "تعذّر إتمام العملية.");
+        }
         await dropQueuedSheet(queued);
 
+        setNotice(null);
         setDirty(false);
+        await reloadSheet(); // the saved sheet has a new version
         toast?.success ? toast.success("تم حفظ الحضور بنجاح") : console.log("saved");
         if (r.overwritten?.length) toast.warn(OVERWRITTEN_MESSAGE);
         } catch (e) {
@@ -421,7 +466,13 @@ export default function AttendancePage() {
                 <div className={styles.placeholder}>جارٍ تحميل البيانات…</div>
             )}
 
-            {sheet && (
+            {blocked && lockKey && (
+                <LockedScreen holder={lock.holder} onForceRelease={forceRelease(lockKey)} />
+            )}
+
+            {!blocked && <SaveNotice notice={notice} />}
+
+            {sheet && !blocked && (
                 <div className={styles.sheet}>
                 <div className={styles.sheetHeader}>
                     <div>
@@ -432,9 +483,9 @@ export default function AttendancePage() {
                     </div>
 
                     <div className={styles.quickBtns} data-tour="calendar-quick">
-                    <button className={styles.quickBtn} onClick={() => markAll("حاضر")} disabled={loadingSheet}>الكل: حاضر</button>
-                    <button className={styles.quickBtn} onClick={() => markAll("متأخر")} disabled={loadingSheet}>الكل: متأخر</button>    
-                    <button className={styles.quickBtn} onClick={() => markAll("غائب")} disabled={loadingSheet}>الكل: غائب</button>
+                    <button className={styles.quickBtn} onClick={() => markAll("حاضر")} disabled={loadingSheet || readonly}>الكل: حاضر</button>
+                    <button className={styles.quickBtn} onClick={() => markAll("متأخر")} disabled={loadingSheet || readonly}>الكل: متأخر</button>    
+                    <button className={styles.quickBtn} onClick={() => markAll("غائب")} disabled={loadingSheet || readonly}>الكل: غائب</button>
                     </div>
                 </div>
 
@@ -460,11 +511,13 @@ export default function AttendancePage() {
                             value={it.status}
                             onChange={(s) => updateItem(it.studentId, { status: s })}
                             tourStatus={["غائب", "متأخر", "حاضر"][idx] || null}
+                            disabled={readonly}
                             />
                         </td>
                         <td>
                             <input
                             className={styles.noteInput}
+                            disabled={readonly}
                             value={it.notes || ""}
                             onChange={(e) =>
                                 updateItem(it.studentId, { notes: e.target.value })
@@ -495,6 +548,7 @@ export default function AttendancePage() {
                         value={it.status}
                         onChange={(s) => updateItem(it.studentId, { status: s })}
                         tourStatus={["غائب", "متأخر", "حاضر"][idx] || null}
+                        disabled={readonly}
                         />
                     </div>
 
@@ -503,6 +557,7 @@ export default function AttendancePage() {
                         <input
                         className={styles.noteInput}
                         placeholder="أدخل ملاحظة"
+                        disabled={readonly}
                         value={it.notes || ""}
                         onChange={(e) =>
                             updateItem(it.studentId, { notes: e.target.value })
@@ -523,7 +578,7 @@ export default function AttendancePage() {
                     </div>
                     <div className={styles.actions}>
                     {dirty && <span className={styles.miniInfo}>توجد تغييرات لم تُحفظ</span>}
-                    <button className={styles.saveBtn} data-tour="calendar-save" onClick={onSave} disabled={loadingSheet || !dirty}>
+                    <button className={styles.saveBtn} data-tour="calendar-save" onClick={onSave} disabled={loadingSheet || !dirty || readonly}>
                         حفظ
                     </button>
                     </div>

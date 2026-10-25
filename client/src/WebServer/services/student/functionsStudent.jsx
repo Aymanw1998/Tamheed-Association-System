@@ -29,7 +29,7 @@ export const getAll = async() => {
         if(![200,201].includes(status) || !data?.ok) throw new Error('لا يوجد طلاب');
         return {ok: true, students: (data.students || []).map(normalizeStudent).filter(Boolean)}
     } catch(err) {
-        return {ok: false, message: err.response.data.message || err.message || 'تعذّر إتمام العملية.'};
+        return {ok: false, status: err.response?.status, data: err.response?.data, message: err.response?.data?.message || err.message || 'تعذّر إتمام العملية.'};
     }
 }
 
@@ -44,7 +44,7 @@ export const getOne = async(idOrName) => {
         if(![200,201].includes(status) || !data?.ok) throw new Error('لا يوجد طالب بهذا المعرّف: ' + idOrName);
         return {ok: true, student: normalizeStudent(data.student)}
     } catch(err){
-        return {ok: false, message: err.response.data.message || err.message || 'تعذّر إتمام العملية.'};
+        return {ok: false, status: err.response?.status, data: err.response?.data, message: err.response?.data?.message || err.message || 'تعذّر إتمام العملية.'};
     }
 }
 
@@ -67,7 +67,7 @@ export const create = async(payload, {confirm = true} = {}) => {
         if (![200,201].includes(status) || !data?.ok) throw new Error('تعذّر إنشاء الطالب');
         return {ok: true, student: normalizeStudent(data.student)}
     } catch(err) {
-        return {ok: false, message: err.response.data.message || err.message || 'تعذّر إتمام العملية.'};
+        return {ok: false, status: err.response?.status, data: err.response?.data, message: err.response?.data?.message || err.message || 'تعذّر إتمام العملية.'};
     }
 }
 
@@ -91,7 +91,7 @@ export const update= async(idOrName, patch,{confirm = true} = {}) => {
         if (![200,201].includes(status) || !data?.ok) throw new Error(data?.message || 'تعذّر تحديث بيانات الطالب');
         return {ok: true, student: normalizeStudent(data.student)}
     } catch(err) {
-        return {ok: false, message: err.response.data.message || err.message || 'تعذّر إتمام العملية.'};
+        return {ok: false, status: err.response?.status, data: err.response?.data, message: err.response?.data?.message || err.message || 'تعذّر إتمام العملية.'};
     }
 }
 
@@ -108,7 +108,7 @@ export const uploadPhoto = async(tz, file) => {
         if (![200,201].includes(status) || !data?.ok) throw new Error(data?.message || 'تعذّر رفع صورة الطالب');
         return {ok: true, student: data.student}
     } catch(err) {
-        return {ok: false, message: err.response.data.message || err.message || 'تعذّر إتمام العملية.'};
+        return {ok: false, status: err.response?.status, data: err.response?.data, message: err.response?.data?.message || err.message || 'تعذّر إتمام العملية.'};
     }
 }
 
@@ -119,7 +119,7 @@ export const deletePhoto = async(tz) => {
         if (![200,201].includes(status) || !data?.ok) throw new Error(data?.message || 'تعذّر حذف الصورة');
         return {ok: true, photo: data.photo};
     } catch(err) {
-        return {ok: false, message: err.response.data.message || err.message || 'تعذّر إتمام العملية.'};
+        return {ok: false, status: err.response?.status, data: err.response?.data, message: err.response?.data?.message || err.message || 'تعذّر إتمام العملية.'};
     }
 }
 /**
@@ -138,7 +138,7 @@ export const deleteS= async(idOrName,{confirm = true} = {}) => {
         if (![200,201].includes(status) || !data?.ok) throw new Error(data?.message || 'تعذّر حذف الطالب');
         return {ok: true, student: null}
     } catch(err) {
-        return {ok: false, message: err.response.data.message || err.message || 'تعذّر إتمام العملية.'};
+        return {ok: false, status: err.response?.status, data: err.response?.data, message: err.response?.data?.message || err.message || 'تعذّر إتمام العملية.'};
     }
 }
 

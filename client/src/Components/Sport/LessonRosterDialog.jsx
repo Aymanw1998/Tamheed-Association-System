@@ -6,6 +6,11 @@ import Button from "../UI/Button.jsx";
 import { addLessonPlayer, removeLessonPlayer } from "../../WebServer/services/sport/functionsSport";
 import StudentPicker from "./StudentPicker";
 import styles from "./Sport.module.css";
+import useItemLock from "../../locks/useItemLock";
+import LockedScreen from "../../locks/LockedScreen";
+import SaveNotice from "../../locks/SaveNotice";
+import forceRelease from "../../locks/forceRelease";
+import { handleSaveError } from "../../locks/staleSave";
 
 const fullName = (p) => `${p.firstname || ""} ${p.lastname || ""}`.trim();
 
@@ -15,7 +20,13 @@ export default function LessonRosterDialog({ lesson, canEdit, onClose, reload })
   const { t } = useI18n();
   const [adding, setAdding] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState(null);
   const players = lesson?.players || [];
+  // Only someone who can change the roster holds the lesson.
+  const lockKey = lesson ? `sportLesson:${lesson._id}` : null;
+  const lock = useItemLock(lockKey, { enabled: Boolean(canEdit) });
+  const readonly = lock.status === "readonly";
+  const mayEdit = canEdit && !readonly;
 
   useEffect(() => {
     const onKey = (e) => { if (e.key === "Escape") onClose(); };
@@ -29,7 +40,11 @@ export default function LessonRosterDialog({ lesson, canEdit, onClose, reload })
     setBusy(true);
     const res = await addLessonPlayer(lesson._id, student._id);
     setBusy(false);
-    if (!res.ok) return toast.warn(res.message);
+    if (!res.ok) {
+      if (handleSaveError(res, { setNotice })) return;
+      return toast.warn(res.message);
+    }
+    setNotice(null);
     toast.success(t("sport.lessons.added"));
     setAdding(false);
     reload();
@@ -43,7 +58,11 @@ export default function LessonRosterDialog({ lesson, canEdit, onClose, reload })
     setBusy(true);
     const res = await removeLessonPlayer(lesson._id, player.studentId);
     setBusy(false);
-    if (!res.ok) return toast.warn(res.message);
+    if (!res.ok) {
+      if (handleSaveError(res, { setNotice })) return;
+      return toast.warn(res.message);
+    }
+    setNotice(null);
     toast.success(t("sport.lessons.rosterRemoved"));
     reload();
   };
@@ -59,7 +78,15 @@ export default function LessonRosterDialog({ lesson, canEdit, onClose, reload })
           <Button size="sm" variant="ghost" onClick={onClose} aria-label={t("sport.close")}>✕</Button>
         </div>
 
-        {adding ? (
+        <SaveNotice notice={notice} />
+        {lock.status === "blocked" ? (
+          <>
+            <LockedScreen holder={lock.holder} onForceRelease={forceRelease(lockKey)} />
+            <div className={styles.dialogActions}>
+              <Button variant="secondary" onClick={onClose}>{t("sport.close")}</Button>
+            </div>
+          </>
+        ) : adding ? (
           <>
             <StudentPicker
               pickLabel={t("sport.dialog.pick")}
@@ -72,7 +99,7 @@ export default function LessonRosterDialog({ lesson, canEdit, onClose, reload })
           </>
         ) : (
           <>
-            {canEdit && (
+            {mayEdit && (
               <div className={styles.lessonsBar}>
                 <Button onClick={() => setAdding(true)}>{t("sport.lessons.addStudent")}</Button>
               </div>
@@ -82,7 +109,7 @@ export default function LessonRosterDialog({ lesson, canEdit, onClose, reload })
               {players.map((p) => (
                 <li key={p.studentId} className={styles.result}>
                   <span className={styles.name}>{fullName(p)}</span>
-                  {canEdit && <Button size="sm" variant="danger" disabled={busy} onClick={() => remove(p)}>{t("sport.lessons.removePlayer")}</Button>}
+                  {mayEdit && <Button size="sm" variant="danger" disabled={busy} onClick={() => remove(p)}>{t("sport.lessons.removePlayer")}</Button>}
                 </li>
               ))}
             </ul>

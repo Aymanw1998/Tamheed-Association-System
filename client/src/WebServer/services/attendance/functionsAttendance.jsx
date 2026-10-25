@@ -9,21 +9,22 @@ export const getAttendanceSheet = async (lessonId, { year, month, day }) => {
         if (![200, 201].includes(status) || !data.ok) throw new Error(data?.message || "failed");
         return { ok: true, sheet: data.schema };
     } catch (err) {
-        return { ok: false, message: err?.response?.data?.message || err.message };
+        return {ok: false, status: err.response?.status, data: err.response?.data, message: err?.response?.data?.message || err.message };
     }
 };
 
-export const saveAttendanceSheet = async (lessonId, { year, month, day }, items) => {
+export const saveAttendanceSheet = async (lessonId, { year, month, day }, items, baseVersion) => {
     try {
         console.log("saveAttendanceSheet", { lessonId, year, month, day, items });
         const { data, status } = await api.post("/attendance/bulk-save", {
         lessonId, year, month, day,
         items,
+        baseVersion,
         });
         if (![200, 201].includes(status) || !data.ok) throw Object.assign(new Error(data?.message || "failed"), { status });
         return { ok: true, overwritten: data.overwritten || [] };
     } catch (err) {
-        return { ok: false, status: err?.response?.status || err?.status || 0, message: err?.response?.data?.message || err.message };
+        return { ok: false, status: err?.response?.status || err?.status || 0, data: err?.response?.data, message: err?.response?.data?.message || err.message };
     }
 };
 
@@ -35,6 +36,6 @@ export const getLessonDates = async (lessonId) => {
         if (![200, 201].includes(status) || !data.ok) throw new Error(data?.message || "failed");
         return { ok: true, dates: data.schema || [] };
     } catch (err) {
-        return { ok: false, message: err?.response?.data?.message || err.message };
+        return {ok: false, status: err.response?.status, data: err.response?.data, message: err?.response?.data?.message || err.message };
     }
 };

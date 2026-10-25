@@ -13,6 +13,13 @@ import { isRequiredStudentField, responsibleGuideOptions } from "../../utils/stu
 import RecentChanges from "../Audit/RecentChanges.jsx";
 import { useI18n } from "../../i18n/I18nContext";
 import { isValidIsraeliId } from "../../utils/israeliId";
+import useItemLock from "../../locks/useItemLock";
+import LockedScreen from "../../locks/LockedScreen";
+import ReadOnlyArea from "../../locks/ReadOnlyArea";
+import SaveNotice from "../../locks/SaveNotice";
+import forceRelease from "../../locks/forceRelease";
+import useReloadOnUnblock from "../../locks/useReloadOnUnblock";
+import { handleSaveError, withBaseVersion } from "../../locks/staleSave";
 
 const EditStudent = ({parent = false}) => {
   const params = useParams();              // "new" الأحدالجمعة _id
@@ -79,6 +86,13 @@ const EditStudent = ({parent = false}) => {
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving]   = useState(false);
   const [err, setErr]         = useState(null);
+  // The document as opened: its updatedAt is the baseVersion of the save.
+  const [opened, setOpened]   = useState(null);
+  const [notice, setNotice]   = useState(null);
+  // Students are opened by ID number, but the lock is on the stored _id.
+  const lockKey = isEdit && !parent && opened?._id ? `student:${opened._id}` : null;
+  const lock = useItemLock(lockKey, { enabled: canStored("students.edit") });
+  const readonly = lock.status === "readonly";
 
 
   // Parents arrive through the fixed registration link /register-student/:token.
@@ -105,30 +119,35 @@ const EditStudent = ({parent = false}) => {
   }
   useEffect(()=>{loadTeachers()},[])
 
+  const load = async () => {
+    try {
+      setLoading(true);
+      setErr(null);
+      const res = await getOne(id); // ملاحظة عربية
+      if(!res.ok) throw new Error(res.message);
+      if (res) {
+        const s = res.student;
+        setForm({ ...s, main_teacher: s.main_teacher || "" });
+        setPhoto(s.photo || null);
+        setOriginalPhoto(s.photo || null);
+        setOpened(s);
+      } else {
+        setErr("الطالب غير موجود");
+      }
+    } catch (e) {
+      setErr("تعذّر تحميل البيانات");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!isEdit) return;
     if  (parent) return;
-    (async () => {
-      try {
-        setLoading(true);
-        setErr(null);
-        const res = await getOne(id); // ملاحظة عربية
-        if(!res.ok) throw new Error(res.message);
-        if (res) {
-          const s = res.student;
-          setForm({ ...s, main_teacher: s.main_teacher || "" });
-          setPhoto(s.photo || null);
-          setOriginalPhoto(s.photo || null);
-        } else {
-          setErr("الطالب غير موجود");
-        }
-      } catch (e) {
-        setErr("تعذّر تحميل البيانات");
-      } finally {
-        setLoading(false);
-      }
-    })();
+    load();
   }, [id, isEdit]);
+
+  useReloadOnUnblock(lock.status, load);
 
     // ملاحظة عربية
   useEffect(() => {
@@ -314,9 +333,13 @@ const EditStudent = ({parent = false}) => {
       delete payload.photo;
       const photoChange = photoAction(originalPhoto, photo);
 
-      const res = isEdit ? await update(form.tz, payload): await create({...payload});
+      const res = isEdit ? await update(form.tz, withBaseVersion(payload, opened)): await create({...payload});
       if(!res) return;
-      if(!res.ok) throw new Error(res.message);
+      if(!res.ok) {
+        if (handleSaveError(res, { draft: [form.health_status, form.notes].filter(Boolean).join("\n"), setNotice })) return;
+        throw new Error(res.message);
+      }
+      setNotice(null);
       toast.success(isEdit ? "تم حفظ بيانات الطالب بنجاح" : "تمت إضافة الطالب بنجاح");
 
       if (photoChange === "remove") {
@@ -405,11 +428,16 @@ const EditStudent = ({parent = false}) => {
 
   if (loading) return <div className={styles.formContainer}>جارٍ تحميل البيانات…</div>;
   if (err)      return <div className={styles.formContainer} style={{color:"#b91c1c"}}>{err}</div>;
+  if (lock.status === "blocked") {
+    return <LockedScreen holder={lock.holder} onForceRelease={forceRelease(lockKey)} />;
+  }
 
   return (
     <div className={styles.formContainer}>
       <h2 style={{textAlign: "center"}}>{parent ? "طلب تسجيل طالب" : isEdit ? "تعديل بيانات الطالب" : "إضافة طالب جديد"}</h2>
 
+      <SaveNotice notice={notice} />
+      <ReadOnlyArea readonly={readonly} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <fieldset className={sectionStyles.formSection} data-tour="student-details">
         <legend>بيانات الطالب</legend>
         <label>رقم الهوية: <span style={{color: "red"}}>*</span></label>
@@ -558,15 +586,16 @@ const EditStudent = ({parent = false}) => {
           />
         )}
       </div>
+      </ReadOnlyArea>
 
       <div className={styles.buttonRow} style={{ gap: 8, flexWrap: "wrap" }}>
-        <button type="submit" data-tour="student-save" onClick={handleSubmit} style={{width:"100%"}}>
+        <button type="submit" data-tour="student-save" onClick={handleSubmit} disabled={readonly} style={{width:"100%"}}>
           {saving ? "جارٍ الحفظ…" : parent ? "إرسال الطلب" : (isEdit ? "حفظ التعديلات" : "إضافة الطالب")}
         </button>
 
         {isEdit && !parent && (
           <center>
-            <button type="button" data-tour="student-delete" style={{ background: "#7f1d1d", width: "100%" }} onClick={handleHardDelete}>
+            <button type="button" data-tour="student-delete" style={{ background: "#7f1d1d", width: "100%" }} onClick={handleHardDelete} disabled={readonly}>
               حذف
             </button>
           </center>

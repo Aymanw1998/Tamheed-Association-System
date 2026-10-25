@@ -20,6 +20,13 @@ import tabStyles from "./PermissionsTab.module.css";
 import ChangeOwnPassword from "../Profile/ChangeOwnPassword.jsx";
 import { isValidIsraeliId } from "../../utils/israeliId";
 import { resetUserTours } from "../../WebServer/services/tours/functionsTours.jsx";
+import useItemLock from "../../locks/useItemLock";
+import LockedScreen from "../../locks/LockedScreen";
+import ReadOnlyArea from "../../locks/ReadOnlyArea";
+import SaveNotice from "../../locks/SaveNotice";
+import forceRelease from "../../locks/forceRelease";
+import useReloadOnUnblock from "../../locks/useReloadOnUnblock";
+import { handleSaveError, withBaseVersion } from "../../locks/staleSave";
 
 const safeAsk = async (options) => {
   try { return await ask("change", options); } catch { return false; }
@@ -81,6 +88,10 @@ const EditUser = () => {
   const [tabKey, setTabKey] = useState(0);
   const [unlocking, setUnlocking] = useState(false);
   const [resettingTours, setResettingTours] = useState(false);
+  // The user as opened: its updatedAt is the baseVersion of the save. Users
+  // are opened by ID number, but the lock is on the stored _id.
+  const [opened, setOpened] = useState(null);
+  const [notice, setNotice] = useState(null);
 
   const isSelf = isEdit && Boolean(form._id) && String(form._id) === String(getStoredUserId());
   const canChangeRole = canStored("users.changeRole");
@@ -97,41 +108,49 @@ const EditUser = () => {
   const canEditEmail = isNew || isSelf || canStored("users.passwords");
   // Editing someone one may not manage is refused; the page is then read-only.
   const canSubmit = !isEdit || isSelf || canManage;
+  const lockKey = isEdit && opened?._id ? `user:${opened._id}` : null;
+  const lock = useItemLock(lockKey, { enabled: canSubmit });
+  const readonly = lock.status === "readonly";
   const showTabs = isEdit && canManagePermissions;
   // Roles below the viewer's own (all for the system account); the server
   // applies the same rule to approvals, new accounts and role changes.
   const viewerRoles = viewerAssignableRoles();
   const newUserRoles = canStored("users.create") ? viewerRoles : [];
 
+  const load = async () => {
+    try {
+      //console.log("load training");
+      setLoading(true);
+      setErr(null);
+      const res = await getOne(id); // ملاحظة عربية
+      if(!res.ok) throw new Error(res.message);
+      if (res) {
+        const s = res.user;
+        const role = resolveRole(s);
+        s.roles = role ? [role] : [];
+        setCurrentRole(role);
+        setRoleChoice(role || "");
+        setForm(s);
+        setPhoto(s.photo || null);
+        setOriginalPhoto(s.photo || null);
+        setOpened(s);
+      } else {
+        setErr("المستخدم غير موجود");
+      }
+      setPasswordTouched(false); // ملاحظة عربية
+    } catch (e) {
+      setErr("تعذّر تحميل البيانات");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!isEdit) return;
-    (async () => {
-      try {
-        //console.log("load training");
-        setLoading(true);
-        setErr(null);
-        const res = await getOne(id); // ملاحظة عربية
-        if(!res.ok) throw new Error(res.message);
-        if (res) {
-          const s = res.user;
-          const role = resolveRole(s);
-          s.roles = role ? [role] : [];
-          setCurrentRole(role);
-          setRoleChoice(role || "");
-          setForm(s);
-          setPhoto(s.photo || null);
-          setOriginalPhoto(s.photo || null);
-        } else {
-          setErr("المستخدم غير موجود");
-        }
-        setPasswordTouched(false); // ملاحظة عربية
-      } catch (e) {
-        setErr("تعذّر تحميل البيانات");
-      } finally {
-        setLoading(false);
-      }
-    })();
+    load();
   }, [id, isEdit]);
+
+  useReloadOnUnblock(lock.status, load);
 
   const handlePhoto = (e) => {
     const file = e.target.files[0];
@@ -345,9 +364,12 @@ const EditUser = () => {
       if (isEdit || !newUserRoles.includes(payload.roles?.[0])) delete payload.roles;
       const photoChange = photoAction(originalPhoto, photo);
 
-      const res = isEdit ? await update(form.tz, payload): await create({...payload});
+      const res = isEdit ? await update(form.tz, withBaseVersion(payload, opened)): await create({...payload});
       if(!res) return;
-      if(!res.ok) throw new Error(res.message);
+      if(!res.ok) {
+        if (handleSaveError(res, { draft: [form.firstname, form.lastname].filter(Boolean).join(" "), setNotice })) return;
+        throw new Error(res.message);
+      }
       toast.success(isEdit ? "تم حفظ بيانات المستخدم بنجاح" : "تمت إضافة المستخدم بنجاح");
 
       if (photoChange === "remove") {
@@ -458,10 +480,14 @@ const EditUser = () => {
 
   if (loading) return <div className={styles.formContainer}>جارٍ تحميل البيانات…</div>;
   if (err)      return <div className={styles.formContainer} style={{color:"#b91c1c"}}>{err}</div>;
+  if (lock.status === "blocked") {
+    return <LockedScreen holder={lock.holder} onForceRelease={forceRelease(lockKey)} />;
+  }
 
   return (
     <div className={styles.formContainer}>
       <center><h1>{isEdit ? "تعديل بيانات المستخدم" : "إضافة مستخدم جديد"}</h1></center>
+      <SaveNotice notice={notice} />
 
       {showTabs && (
         <div className={tabStyles.tabs} data-tour="user-tabs" role="tablist">
@@ -482,10 +508,10 @@ const EditUser = () => {
       )}
 
       {showTabs && tab === "permissions" ? (
-        <div data-tour="user-permissions"><PermissionsTab key={tabKey} tz={form.tz} /></div>
+        <ReadOnlyArea readonly={readonly} data-tour="user-permissions"><PermissionsTab key={tabKey} tz={form.tz} /></ReadOnlyArea>
       ) : (
       <>
-
+      <ReadOnlyArea readonly={readonly} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <fieldset className={sectionStyles.formSection} data-tour="user-account">
         <legend>بيانات الحساب</legend>
         <label>رقم الهوية:<span style={{color: "red"}}>*</span></label>
@@ -677,10 +703,11 @@ const EditUser = () => {
           />
         )}
       </div>
+      </ReadOnlyArea>
 
       <div className={styles.buttonRow} style={{ gap: 8, flexWrap: "wrap" }}>
         {canSubmit && (
-          <button type="submit" data-tour="user-save" onClick={handleSubmit} style={{width:"100%"}}>
+          <button type="submit" data-tour="user-save" onClick={handleSubmit} disabled={readonly} style={{width:"100%"}}>
             {saving ? "جارٍ الحفظ…" : (isEdit ? "حفظ التعديلات" : "إضافة المستخدم")}
           </button>
         )}
@@ -688,10 +715,10 @@ const EditUser = () => {
         {isEdit && canManage && (
           <center>
           <div style={{margin: "0 auto"}} data-tour="user-account-actions">
-            <button type="button" style={{ background: "#7f1d1d", margin: "10px" }} onClick={handleHardDelete}>
+            <button type="button" style={{ background: "#7f1d1d", margin: "10px" }} onClick={handleHardDelete} disabled={readonly}>
               {"حذف الحساب"}
             </button>
-            <button type="button" style={{ background: "#7f1d1d", margin: "10px" }} onClick={sendToRoomNoActive}>
+            <button type="button" style={{ background: "#7f1d1d", margin: "10px" }} onClick={sendToRoomNoActive} disabled={readonly}>
               {"إيقاف الحساب"}
             </button>
           </div>

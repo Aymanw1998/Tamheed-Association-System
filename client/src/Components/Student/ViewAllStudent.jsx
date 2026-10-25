@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { deleteS, getAll, update } from "../../WebServer/services/student/functionsStudent.jsx";
+import useLiveRefresh from "../../locks/useLiveRefresh";
 import styles from "./Student.module.css";
 import Fabtn from "../Global/Fabtn/Fabtn";
 import { toast } from "../../ALERT/SystemToasts";
@@ -68,9 +69,10 @@ const ViewAllStudent = () => {
     return () => io.disconnect();
   }, [addBtnEl]);
 
-  const loadStudent = useCallback(async () => {
-    setLoading(true);
-    setErr(null);
+  // quiet: a live refresh keeps the list on screen instead of showing the loading state.
+  const loadStudent = useCallback(async ({ quiet = false } = {}) => {
+    if (!quiet) setLoading(true);
+    if (!quiet) setErr(null);
 
     try {
       const res = await getAll();
@@ -82,6 +84,7 @@ const ViewAllStudent = () => {
       setStudents(Array.isArray(res.students) ? res.students : []);
     } catch (error) {
       console.error("Student load error", error);
+      if (quiet) return;
       setErr("تعذّر تحميل البيانات");
       setStudents([]);
     } finally {
@@ -92,6 +95,7 @@ const ViewAllStudent = () => {
   useEffect(() => {
     loadStudent();
   }, [loadStudent]);
+  useLiveRefresh(["student", "lesson"], () => loadStudent({ quiet: true }));
 
   const counts = useMemo(() => {
     return students.reduce(

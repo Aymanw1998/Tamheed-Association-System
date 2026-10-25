@@ -6,6 +6,7 @@ import Button from "../UI/Button.jsx";
 import { setStats } from "../../WebServer/services/sport/functionsSport";
 import { MAX_STATS, validateStats } from "./sportForm";
 import styles from "./Sport.module.css";
+import useLiveRefresh from "../../locks/useLiveRefresh";
 
 export default function StatsSettingsTab({ sport, reload }) {
   const { t } = useI18n();
@@ -14,6 +15,8 @@ export default function StatsSettingsTab({ sport, reload }) {
   const [errors, setErrors] = useState({});
   const [busy, setBusy] = useState(false);
   const label = (key) => t(`sport.settings.${key}`);
+  // The stat list is edited here, so a refresh only updates the parent's copy; it never replaces what is typed.
+  useLiveRefresh(["sport"], reload);
 
   const rename = (i, value) => setList((l) => l.map((s, j) => (j === i ? { ...s, label: value } : s)));
   const add = () => setList((l) => [...l, { label: "" }]);

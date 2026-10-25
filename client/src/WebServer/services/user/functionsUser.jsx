@@ -39,7 +39,7 @@ export const getAll = async (rooms = null) => {
     if (![200,201].includes(status) || !data?.ok) throw new Error('لا يوجد مستخدمون');
     return {ok: true, users: (data.users || []).map(normalizeUser)};
   } catch(err) {
-    return {ok: false, message: err.response.data.message || err.message || 'تعذّر إتمام العملية.'};
+    return {ok: false, status: err.response?.status, data: err.response?.data, message: err.response?.data?.message || err.message || 'تعذّر إتمام العملية.'};
   }
 };
 
@@ -51,7 +51,7 @@ export const getUserById = async (tzOrId, {publicMode = false} = {}) => {
     if (![200,201].includes(status) || !data?.ok) throw new Error('لا يوجد مستخدم بالمعرّف: ' + tzOrId);
     return {ok: true, user: normalizeUser(data.user)};
   } catch (err) {
-    return {ok: false, message: err.response.data.message || err.message || 'تعذّر إتمام العملية.'};
+    return {ok: false, status: err.response?.status, data: err.response?.data, message: err.response?.data?.message || err.message || 'تعذّر إتمام العملية.'};
   }
 };
 
@@ -68,7 +68,7 @@ export const create = async (payload, {confirm = true} = {}) => {
     if (![200,201].includes(status) || !data?.ok) throw new Error('تعذّر إنشاء المستخدم');
     return { ok: true, user: extractUser(data) };
   } catch (err) {
-    return {ok: false, message: err.response.data.message || err.message || 'تعذّر إتمام العملية.'};
+    return {ok: false, status: err.response?.status, data: err.response?.data, message: err.response?.data?.message || err.message || 'تعذّر إتمام العملية.'};
   }
 };
 
@@ -85,7 +85,7 @@ export const update = async (tz, petch, {confirm = true} = {}) => {
     if (![200,201].includes(status) || !data?.ok) throw new Error('تعذّر تحديث بيانات المستخدم');
     return { ok: true, user: extractUser(data.user) };
   } catch (err) {
-    return {ok: false, message: err.response.data.message || err.message || 'تعذّر إتمام العملية.'};
+    return {ok: false, status: err.response?.status, data: err.response?.data, message: err.response?.data?.message || err.message || 'تعذّر إتمام العملية.'};
   }
 };
 
@@ -101,7 +101,7 @@ export const uploadPhoto = async(tz, file) => {
         if (![200,201].includes(status) || !data?.ok) throw new Error(data?.message || 'تعذّر رفع الصورة');
         return {ok: true, photo: data.photo}
     } catch(err) {
-        return {ok: false, message: err.response.data.message || err.message || 'تعذّر إتمام العملية.'};
+        return {ok: false, status: err.response?.status, data: err.response?.data, message: err.response?.data?.message || err.message || 'تعذّر إتمام العملية.'};
     }
 }
 
@@ -111,7 +111,7 @@ export const deletePhoto = async(tz) => {
         if (![200,201].includes(status) || !data?.ok) throw new Error(data?.message || 'تعذّر حذف الصورة');
         return {ok: true, photo: data.photo};
     } catch(err) {
-        return {ok: false, message: err.response.data.message || err.message || 'تعذّر إتمام العملية.'};
+        return {ok: false, status: err.response?.status, data: err.response?.data, message: err.response?.data?.message || err.message || 'تعذّر إتمام العملية.'};
     }
 }
 
@@ -129,7 +129,7 @@ export const deleteU = async (tz, from = "active", {confirm = true} = {}) => {
     if (![200,201].includes(status) || !data?.ok) throw new Error ('تعذّر حذف المستخدم');
     return { ok: true, user: null };
   } catch (err) {
-    return {ok: false, message: err.response.data.message || err.message || 'تعذّر إتمام العملية.'};
+    return {ok: false, status: err.response?.status, data: err.response?.data, message: err.response?.data?.message || err.message || 'تعذّر إتمام العملية.'};
   }
 };
 
@@ -142,7 +142,7 @@ export const addSub = async (userId, subId, start, end) => {
     return { ok: true, user: extractUser(data.data) };
   } catch (err) {
     const msg = err?.response?.data?.message || err.message || "خطأ في إضافة الاشتراك";
-    return {ok: false, message: err.response.data.message || err.message || 'تعذّر إتمام العملية.'};
+    return {ok: false, status: err.response?.status, data: err.response?.data, message: err.response?.data?.message || err.message || 'تعذّر إتمام العملية.'};
   }
 };
 
@@ -156,7 +156,7 @@ export const removeSub = async (_userId) => {
     return { ok: true, user: extractUser(data) };
   } catch (err) {
     const msg = err?.response?.data?.message || err.message || "خطأ في إزالة الاشتراك";
-    return {ok: false, message: err.response.data.message || err.message || 'تعذّر إتمام العملية.'};
+    return {ok: false, status: err.response?.status, data: err.response?.data, message: err.response?.data?.message || err.message || 'تعذّر إتمام العملية.'};
   }
 };
 export const viewPassword = async (tz) => {

@@ -7,6 +7,9 @@ import { bumpStat, deletePlayer } from "../../WebServer/services/sport/functions
 import AddPlayerDialog from "./AddPlayerDialog";
 import PlayerCardModal, { Silhouette } from "./PlayerCardModal";
 import styles from "./Sport.module.css";
+import withLock from "../../locks/withLock";
+import useLiveRefresh from "../../locks/useLiveRefresh";
+import { handleSaveError } from "../../locks/staleSave";
 
 const fullName = (p) => `${p.firstname || ""} ${p.lastname || ""}`.trim();
 
@@ -23,6 +26,7 @@ export default function PlayersTab({ sport, players, lessons, canCoach, reload }
   const [cardOf, setCardOf] = useState(null); // studentId whose card is open
 
   useEffect(() => setRows(players), [players]);
+  useLiveRefresh(["player", "sport", "sportLesson", "sportAttendance"], reload);
 
   const ages = useMemo(
     () => [...new Set(rows.map((p) => p.age).filter((a) => a !== null && a !== undefined))].sort((a, b) => a - b),
@@ -43,9 +47,20 @@ export default function PlayersTab({ sport, players, lessons, canCoach, reload }
     const id = `${p.studentId}:${key}`;
     if (pending[id]) return;
     setPending((m) => ({ ...m, [id]: true }));
-    const res = await bumpStat(p.studentId, key, delta);
+    let res;
+    try {
+      // The player is locked only for the length of this click.
+      res = await withLock(`player:${p.studentId}`, () => bumpStat(p.studentId, key, delta));
+    } catch (err) {
+      setPending((m) => ({ ...m, [id]: false }));
+      if (handleSaveError(err, { setNotice: (message) => toast.warn(message) })) return;
+      return toast.warn(err?.response?.data?.message || err?.message);
+    }
     setPending((m) => ({ ...m, [id]: false }));
-    if (!res.ok) return toast.warn(res.message);
+    if (!res.ok) {
+      if (handleSaveError(res, { setNotice: (message) => toast.warn(message) })) return;
+      return toast.warn(res.message);
+    }
     setRows((list) => list.map((x) => (x.studentId === p.studentId ? { ...x, values: { ...x.values, [key]: res.value } } : x)));
   };
 

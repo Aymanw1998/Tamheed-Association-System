@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getAll } from "../../WebServer/services/report/functionsReport.jsx";
+import useLiveRefresh from "../../locks/useLiveRefresh";
 import { getAll as getUsers } from "../../WebServer/services/user/functionsUser.jsx";
 import { getMe } from "../../WebServer/services/auth/fuctionsAuth.jsx";
 import styles from "./Report.module.css";
@@ -99,9 +100,10 @@ const ViewAllReport = () => {
     return () => observer.disconnect();
   }, [addBtnEl]);
 
-  const loadReport = useCallback(async () => {
-    setLoading(true);
-    setErr(null);
+  // quiet: a live refresh keeps the list on screen instead of showing the loading state.
+  const loadReport = useCallback(async ({ quiet = false } = {}) => {
+    if (!quiet) setLoading(true);
+    if (!quiet) setErr(null);
 
     try {
       // GET /user/ (the full list) is admin-only. Non-admins only ever see
@@ -128,6 +130,7 @@ const ViewAllReport = () => {
       setReports(enrichedReports);
     } catch (error) {
       console.error("Failed to load reports", error);
+      if (quiet) return;
       setErr("تعذّر تحميل البيانات");
       setReports([]);
     } finally {
@@ -138,6 +141,7 @@ const ViewAllReport = () => {
   useEffect(() => {
     loadReport();
   }, [loadReport]);
+  useLiveRefresh(["report", "user"], () => loadReport({ quiet: true }));
 
   const sortedFilteredReports = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();

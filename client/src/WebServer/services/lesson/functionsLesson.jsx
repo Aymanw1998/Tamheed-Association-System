@@ -17,7 +17,7 @@ export const getAllLesson = async() => {
         if(![200,201].includes(status) || !data.ok) throw new Error ('تعذّر تحميل الدروس');
         return {ok: true, lessons: (data.lessons || data.schema || []).map(normalizeLesson).filter(Boolean)};
     } catch(err) {    
-        return {ok: false, message: err.response.data.message || err.message || 'تعذّر إتمام العملية.'};
+        return {ok: false, status: err.response?.status, data: err.response?.data, message: err.response?.data?.message || err.message || 'تعذّر إتمام العملية.'};
     }
 }
 
@@ -28,7 +28,7 @@ export const getSportSchedule = async() => {
         if(![200,201].includes(status) || !data.ok) throw new Error ('تعذّر تحميل دروس الرياضة');
         return {ok: true, lessons: Array.isArray(data.lessons) ? data.lessons : []};
     } catch(err) {
-        return {ok: false, message: err.response?.data?.message || err.message || 'تعذّر إتمام العملية.'};
+        return {ok: false, status: err.response?.status, data: err.response?.data, message: err.response?.data?.message || err.message || 'تعذّر إتمام العملية.'};
     }
 }
 
@@ -38,7 +38,7 @@ export const getOneLesson = async(_id) => {
         if(![200,201].includes(status) || !data.ok) throw new Error ('تعذّر تحميل الدرس');
         return {ok: true, lesson: normalizeLesson(data.lesson || data.schema)};
     } catch(err) {    
-        return {ok: false, message: err.response.data.message || err.message || 'تعذّر إتمام العملية.'};
+        return {ok: false, status: err.response?.status, data: err.response?.data, message: err.response?.data?.message || err.message || 'تعذّر إتمام العملية.'};
     }
 }
 
@@ -50,7 +50,7 @@ export const getLessonsByQuery = async(params) => {
         console.log("getLessonsByQuery", data, status);
         return {ok: true, lessons: (data.lessons || data.schema || []).map(normalizeLesson).filter(Boolean)};
     } catch(err) {    
-        return {ok: false, message: err.response.data.message || err.message || 'تعذّر إتمام العملية.'};
+        return {ok: false, status: err.response?.status, data: err.response?.data, message: err.response?.data?.message || err.message || 'تعذّر إتمام العملية.'};
     }
 }
 export const createLesson = async(payload, {confirm = true} = {}) => {
@@ -68,7 +68,7 @@ export const createLesson = async(payload, {confirm = true} = {}) => {
         return {ok: true, lesson: normalizeLesson(res.data.lesson || res.data.schema)};
     } catch(err) {
         console.error(err);
-        return {ok: false, message: err.response.data.message || 'تعذّر إتمام العملية.'};
+        return {ok: false, status: err.response?.status, data: err.response?.data, message: err.response?.data?.message || 'تعذّر إتمام العملية.'};
     }
 }
 export const updateLesson = async(_id, payload, {confirm = true} = {}) => {
@@ -84,7 +84,7 @@ export const updateLesson = async(_id, payload, {confirm = true} = {}) => {
         if(![200,201].includes(status) || !data.ok) throw new Error (data?.message || 'تعذّر تحديث الدرس');
         return {ok: true, lesson: normalizeLesson(data.lesson || data.schema)};
     } catch(err) {
-        return {ok: false, message: err.response.data.message || err.message || 'تعذّر إتمام العملية.'};
+        return {ok: false, status: err.response?.status, data: err.response?.data, message: err.response?.data?.message || err.message || 'تعذّر إتمام العملية.'};
     }
 }
 
@@ -101,7 +101,7 @@ export const deleteLesson = async(_id, {confirm = true} = {}) => {
         if(![200,201].includes(status) || !data.ok) throw new Error (data?.message || 'تعذّر حذف الدرس');
         return {ok: true, lesson: null};
     } catch(err) {
-        return {ok: false, message: err.response.data.message || err.message || 'تعذّر إتمام العملية.'};
+        return {ok: false, status: err.response?.status, data: err.response?.data, message: err.response?.data?.message || err.message || 'تعذّر إتمام العملية.'};
     }
 }
 
@@ -118,7 +118,7 @@ export async function addToList(lessonId, { list_students = [], list_tz = [] } =
         if (![200,201].includes(status) || !data?.ok) throw new Error(data?.message || 'تعذّرت إضافة الطلاب إلى الدرس');
         return {ok: true};
     } catch(err) {
-        return {ok: false, message: err.response?.data?.message || err.message || 'تعذّر إتمام العملية.'};
+        return {ok: false, status: err.response?.status, data: err.response?.data, message: err.response?.data?.message || err.message || 'تعذّر إتمام العملية.'};
     }
 }
 
@@ -131,7 +131,7 @@ export async function removeFromList(lessonId, traineeIds = []) {
         if (![200,201].includes(status)) throw new Error(data?.message || 'تعذّرت إزالة الطالب من الدرس');
         return {ok: true, lessons: data.lessons || data.schema};
     } catch(err) {
-        return {ok: false, message: err.response.data.message || err.message || 'تعذّر إتمام العملية.'};
+        return {ok: false, status: err.response?.status, data: err.response?.data, message: err.response?.data?.message || err.message || 'تعذّر إتمام العملية.'};
     }
 }
 
@@ -162,6 +162,6 @@ export const getLessonsToday = async () => {
         if (![200, 201].includes(status) || !data.ok) throw new Error(data?.message || "failed");
         return { ok: true, lessons: (data.lessons || []).map(normalizeLesson).filter(Boolean) };
     } catch (err) {
-        return { ok: false, message: err?.response?.data?.message || err.message };
+        return {ok: false, status: err.response?.status, data: err.response?.data, message: err?.response?.data?.message || err.message };
     }
 };

@@ -24,6 +24,12 @@ import AttachmentsBar from "./AttachmentsBar.jsx";
 import { VehicleDocuments, VehicleHistory } from "./VehicleDocuments.jsx";
 import useVehiclePermissions from "./useVehiclePermissions";
 import styles from "./Vehicle.module.css";
+import useItemLock from "../../locks/useItemLock";
+import LockedScreen from "../../locks/LockedScreen";
+import SaveNotice from "../../locks/SaveNotice";
+import forceRelease from "../../locks/forceRelease";
+import useReloadOnUnblock from "../../locks/useReloadOnUnblock";
+import { handleSaveError, withBaseVersion } from "../../locks/staleSave";
 
 const emptyForm = {
   plate: "",
@@ -77,6 +83,12 @@ export default function EditVehicle() {
   const canView = access.can("view");
   const canEdit = access.can("edit");
   const archived = vehicle?.status === "archived";
+  // Only someone who can change the vehicle holds its lock; a reader never blocks others.
+  const canWrite = canEdit || access.can("compliance") || access.can("documents") || access.can("archive");
+  const lockKey = isNew ? null : `vehicle:${id}`;
+  const lock = useItemLock(lockKey, { enabled: canWrite });
+  const readonly = lock.status === "readonly";
+  const [notice, setNotice] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -98,6 +110,8 @@ export default function EditVehicle() {
     if (!isNew && canView) load();
     else setLoading(false);
   }, [access.loading, isNew, canView, load]);
+
+  useReloadOnUnblock(lock.status, load);
 
   useEffect(() => {
     if (!canEdit) return;
@@ -163,13 +177,15 @@ export default function EditVehicle() {
     setSaving(true);
     setErrors({});
     const payload = buildPayload();
-    const res = isNew ? await createVehicle(payload) : await updateVehicle(id, payload);
+    const res = isNew ? await createVehicle(payload) : await updateVehicle(id, withBaseVersion(payload, vehicle));
     setSaving(false);
     if (!res.ok) {
+      if (!isNew && handleSaveError(res, { draft: form.notes, setNotice })) return;
       setErrors(res.errors || {});
       if (res.errors?.plate || res.errors?.type || res.errors?.year || res.errors?.responsibleId) setTab("basic");
       return toast.warn(res.message);
     }
+    setNotice(null);
     toast.success(isNew ? t("vehicles.created") : t("vehicles.updated"));
     if (isNew) {
       // The same component stays mounted when the address changes to the new
@@ -259,6 +275,15 @@ export default function EditVehicle() {
     );
   }
 
+  if (lock.status === "blocked") {
+    return (
+      <div className={styles.page} dir={dir}>
+        <LockedScreen holder={lock.holder} onForceRelease={forceRelease(lockKey)} />
+        <Button variant="secondary" onClick={() => navigate("/vehicles")}>{t("vehicles.back")}</Button>
+      </div>
+    );
+  }
+
   const isTrailer = form.type === "trailer";
   const tabs = [
     { key: "basic", enabled: true },
@@ -270,8 +295,8 @@ export default function EditVehicle() {
     { key: "history", enabled: !isNew },
   ].filter((item) => !item.hidden);
   const activeTab = tabs.some((item) => item.key === tab) ? tab : "basic";
-  const canWriteRecords = access.can("compliance");
-  const fieldsDisabled = !editing;
+  const canWriteRecords = access.can("compliance") && !readonly;
+  const fieldsDisabled = !editing || readonly;
 
   return (
     <div className={styles.page} dir={dir}>
@@ -296,15 +321,15 @@ export default function EditVehicle() {
         </div>
         <div className={styles.actionsRow}>
           {!isNew && canEdit && !archived && !editing && (
-            <Button data-tour="vehicle-edit" onClick={() => setEditing(true)}>{t("vehicles.edit")}</Button>
+            <Button data-tour="vehicle-edit" disabled={readonly} onClick={() => setEditing(true)}>{t("vehicles.edit")}</Button>
           )}
           {!isNew && access.can("archive") && (
-            <Button variant={archived ? "success" : "danger"} data-tour="vehicle-archive" loading={busy} onClick={toggleArchive}>
+            <Button variant={archived ? "success" : "danger"} data-tour="vehicle-archive" loading={busy} disabled={readonly} onClick={toggleArchive}>
               {archived ? t("vehicles.restore") : t("vehicles.archive")}
             </Button>
           )}
           {!isNew && access.isAdmin && !deleting && (
-            <Button variant="danger" data-tour="vehicle-delete" onClick={() => setDeleting({ text: "", busy: false, error: "" })}>{t("vehicles.del.button")}</Button>
+            <Button variant="danger" data-tour="vehicle-delete" disabled={readonly} onClick={() => setDeleting({ text: "", busy: false, error: "" })}>{t("vehicles.del.button")}</Button>
           )}
           <Button variant="secondary" onClick={() => navigate("/vehicles")}>{t("vehicles.back")}</Button>
         </div>
@@ -352,6 +377,7 @@ export default function EditVehicle() {
         ))}
       </div>
       {isNew && <p className={styles.note}>{t("vehicles.savedFirst")}</p>}
+      <SaveNotice notice={notice} />
 
       <div role="tabpanel" id={`vehicle-panel-${activeTab}`} aria-labelledby={`vehicle-tab-${activeTab}`}>
         {(activeTab === "basic" || activeTab === "trailer") && (
@@ -362,7 +388,7 @@ export default function EditVehicle() {
                 linkedType="vehicle"
                 defaultKind="other"
                 canAccess={access.can("documents")}
-                canUpload={access.can("documents") && !archived}
+                canUpload={access.can("documents") && !archived && !readonly}
                 onVehicle={onVehicle}
               />
             )}
@@ -387,7 +413,7 @@ export default function EditVehicle() {
                 <Field id="v-owner" label={t("vehicles.f.registeredOwner")} value={form.registeredOwner} onChange={setField("registeredOwner")} disabled={fieldsDisabled} />
                 {canEdit && editing ? (
                   <Field id="v-responsible" type="select" label={t("vehicles.f.responsible")} value={form.responsibleId}
-                    onChange={setField("responsibleId")} options={responsibleOptions} error={errors.responsibleId} />
+                    onChange={setField("responsibleId")} options={responsibleOptions} error={errors.responsibleId} disabled={readonly} />
                 ) : (
                   <Field id="v-responsible" label={t("vehicles.f.responsible")} value={vehicle?.responsibleName || ""} onChange={() => {}} disabled />
                 )}
@@ -418,7 +444,7 @@ export default function EditVehicle() {
 
             {editing && (
               <div className={styles.actionsRow}>
-                <Button type="submit" loading={saving}>{isNew ? t("vehicles.save") : t("vehicles.saveChanges")}</Button>
+                <Button type="submit" loading={saving} disabled={readonly}>{isNew ? t("vehicles.save") : t("vehicles.saveChanges")}</Button>
                 {!isNew && <Button type="button" variant="secondary" onClick={cancelEdit}>{t("vehicles.cancel")}</Button>}
               </div>
             )}
@@ -432,7 +458,7 @@ export default function EditVehicle() {
             vehicle={vehicle}
             canEdit={canWriteRecords}
             canAccessDocs={access.can("documents")}
-            canUploadDocs={access.can("documents")}
+            canUploadDocs={access.can("documents") && !readonly}
             onVehicle={onVehicle}
             onDirtyChange={reportDirty}
           />
@@ -442,7 +468,7 @@ export default function EditVehicle() {
           <VehicleDocuments
             vehicle={vehicle}
             canAccess={access.can("documents")}
-            canUpload={access.can("documents")}
+            canUpload={access.can("documents") && !readonly}
             onVehicle={onVehicle}
             onDirtyChange={reportDirty}
           />

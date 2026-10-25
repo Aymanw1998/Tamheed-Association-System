@@ -13,6 +13,7 @@ const call = async (request) => {
     return {
       ok: false,
       status: err.response?.status || 0,
+      data: err.response?.data,
       message: body.message || err.message || "تعذّر إتمام العملية.",
       errors: body.errors || {},
     };

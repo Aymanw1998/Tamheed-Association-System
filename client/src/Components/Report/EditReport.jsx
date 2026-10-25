@@ -9,6 +9,13 @@ import sectionStyles from "../UI/FormSection.module.css";
 import { SHOW_REPORT_ATTENDEES } from "./reportOptions";
 import { toast } from "../../ALERT/SystemToasts.jsx";
 import { canStored } from "../../utils/session";
+import useItemLock from "../../locks/useItemLock";
+import LockedScreen from "../../locks/LockedScreen";
+import ReadOnlyArea from "../../locks/ReadOnlyArea";
+import SaveNotice from "../../locks/SaveNotice";
+import forceRelease from "../../locks/forceRelease";
+import useReloadOnUnblock from "../../locks/useReloadOnUnblock";
+import { handleSaveError, withBaseVersion } from "../../locks/staleSave";
 
 const MultiTagSelect = ({
   options = [],
@@ -161,29 +168,40 @@ const EditReport = ({parent = false}) => {
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving]   = useState(false);
   const [err, setErr]         = useState(null);
+  // The report as opened: its updatedAt is the baseVersion of the save.
+  const [opened, setOpened]   = useState(null);
+  const [notice, setNotice]   = useState(null);
+  const lockKey = isEdit ? `report:${id}` : null;
+  const lock = useItemLock(lockKey, { enabled: canStored("reports.editOwn") || canStored("reports.editAll") });
+  const readonly = lock.status === "readonly";
 
+
+  const load = async () => {
+    try {
+      setLoading(true);
+      setErr(null);
+      const res = await getOne(id);
+      if(!res.ok) throw new Error(res.message);
+      if (res) {
+        const s = res.report;
+        setForm(s);
+        setOpened(s);
+      } else {
+        setErr("التقرير غير موجود");
+      }
+    } catch (e) {
+      setErr("تعذّر تحميل البيانات");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!isEdit) return;
-    (async () => {
-      try {
-        setLoading(true);
-        setErr(null);
-        const res = await getOne(id);
-        if(!res.ok) throw new Error(res.message);
-        if (res) {
-          const s = res.report;
-          setForm(s);
-        } else {
-          setErr("التقرير غير موجود");
-        }
-      } catch (e) {
-        setErr("تعذّر تحميل البيانات");
-      } finally {
-        setLoading(false);
-      }
-    })();
+    load();
   }, [id, isEdit]);
+
+  useReloadOnUnblock(lock.status, load);
 
   const getUsers = async () => {
       try {
@@ -337,9 +355,12 @@ const EditReport = ({parent = false}) => {
 
       const payload = { ...form };
       
-      const res = isEdit ? await update(form._id, payload): await create({...payload});
+      const res = isEdit ? await update(form._id, withBaseVersion(payload, opened)): await create({...payload});
       if(!res) return;
-      if(!res.ok) throw new Error(res.message);
+      if(!res.ok) {
+        if (handleSaveError(res, { draft: form.info, setNotice })) return;
+        throw new Error(res.message);
+      }
       toast.success(isEdit ? "تم حفظ التقرير بنجاح" : "تمت إضافة التقرير بنجاح");
       navigate(-1);
     } catch (e) {
@@ -366,11 +387,16 @@ const EditReport = ({parent = false}) => {
   };
   if (loading) return <div className={styles.formContainer}>جارٍ تحميل البيانات…</div>;
   if (err)      return <div className={styles.formContainer} style={{color:"#b91c1c"}}>{err}</div>;
+  if (lock.status === "blocked") {
+    return <LockedScreen holder={lock.holder} onForceRelease={forceRelease(lockKey)} />;
+  }
 
   return (
     <div className={styles.formContainer}>
       <center><h1>{isEdit ? "تعديل التقرير" : "إضافة تقرير جديد"}</h1></center>
 
+      <SaveNotice notice={notice} />
+      <ReadOnlyArea readonly={readonly} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <fieldset className={sectionStyles.formSection} data-tour="report-title">
         <legend>بيانات التقرير</legend>
         <label>عنوان التقرير:<span style={{color: "red"}}>*</span></label>
@@ -428,14 +454,15 @@ const EditReport = ({parent = false}) => {
           <label style={{color: "red"}}>{error.attendance}</label>
         </fieldset>
       )}
+      </ReadOnlyArea>
       <div className={styles.buttonRow} style={{ gap: 8, flexWrap: "wrap" }}>
-        <button type="submit" data-tour="report-save" onClick={handleSubmit} style={{width:"100%"}}>
+        <button type="submit" data-tour="report-save" onClick={handleSubmit} disabled={readonly} style={{width:"100%"}}>
           {saving ? "جارٍ الحفظ…" : parent ? "إرسال الطلب" : (isEdit ? "حفظ التعديلات" : "إضافة التقرير")}
         </button>
 
         {isEdit && (
           <>
-            <button type="button" data-tour="report-delete" style={{ background: "#7f1d1d", width:"100%" }} onClick={handleHardDelete}>
+            <button type="button" data-tour="report-delete" style={{ background: "#7f1d1d", width:"100%" }} onClick={handleHardDelete} disabled={readonly}>
               حذف
             </button>
           </>

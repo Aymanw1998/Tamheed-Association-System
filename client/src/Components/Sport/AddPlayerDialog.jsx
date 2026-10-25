@@ -6,6 +6,12 @@ import { savePlayer } from "../../WebServer/services/sport/functionsSport";
 import { validateJersey } from "./sportForm";
 import StudentPicker from "./StudentPicker";
 import styles from "./Sport.module.css";
+import useItemLock from "../../locks/useItemLock";
+import LockedScreen from "../../locks/LockedScreen";
+import ReadOnlyArea from "../../locks/ReadOnlyArea";
+import SaveNotice from "../../locks/SaveNotice";
+import forceRelease from "../../locks/forceRelease";
+import { handleSaveError } from "../../locks/staleSave";
 
 const fullName = (p) => `${p.firstname || ""} ${p.lastname || ""}`.trim();
 
@@ -21,6 +27,11 @@ export default function AddPlayerDialog({ lessons, player, onClose, onSaved }) {
   const [lessonIds, setLessonIds] = useState(editing ? (player.lessons || []).map((l) => l._id) : []);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState(null);
+  // Editing an existing player locks him; adding a new one has nothing to lock yet.
+  const lockKey = editing ? `player:${player.studentId}` : null;
+  const lock = useItemLock(lockKey);
+  const readonly = lock.status === "readonly";
   const title = t(editing ? "sport.players.editTitle" : "sport.dialog.title");
 
   useEffect(() => {
@@ -44,7 +55,10 @@ export default function AddPlayerDialog({ lessons, player, onClose, onSaved }) {
       lessonIds,
     });
     setBusy(false);
-    if (!res.ok) return setError(res.message);
+    if (!res.ok) {
+      if (handleSaveError(res, { draft: position, setNotice })) return;
+      return setError(res.message);
+    }
     toast.success(t("sport.saved"));
     onSaved();
   };
@@ -57,6 +71,10 @@ export default function AddPlayerDialog({ lessons, player, onClose, onSaved }) {
           <Button size="sm" variant="ghost" onClick={onClose} aria-label={t("sport.close")}>✕</Button>
         </div>
 
+        {lock.status === "blocked" ? (
+          <LockedScreen holder={lock.holder} onForceRelease={forceRelease(lockKey)} />
+        ) : (
+        <ReadOnlyArea readonly={readonly}>
         {!picked && (
           <>
             <StudentPicker
@@ -98,10 +116,14 @@ export default function AddPlayerDialog({ lessons, player, onClose, onSaved }) {
           </>
         )}
 
+        </ReadOnlyArea>
+        )}
+
+        <SaveNotice notice={notice} />
         {error && <div className={styles.formError} role="alert">{error}</div>}
         <div className={styles.dialogActions}>
           <Button variant="secondary" onClick={onClose}>{t("sport.cancel")}</Button>
-          {picked && <Button type="submit" loading={busy}>{t("sport.save")}</Button>}
+          {picked && lock.status !== "blocked" && <Button type="submit" loading={busy} disabled={readonly}>{t("sport.save")}</Button>}
         </div>
       </form>
     </div>

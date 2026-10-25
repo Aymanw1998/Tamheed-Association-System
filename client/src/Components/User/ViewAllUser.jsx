@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { changeStatus, deleteU, getAll, unlockUser, recoverSystemAccount } from "../../WebServer/services/user/functionsUser.jsx";
+import useLiveRefresh from "../../locks/useLiveRefresh";
 import { recoveryResultKey } from "../../utils/passwordChange";
 import styles from "./User.module.css";
 import Fabtn from "../Global/Fabtn/Fabtn.jsx";
@@ -63,10 +64,11 @@ const ViewAllUser = () => {
     return () => io.disconnect();
   }, [addBtnEl]);
 
-  const loadUsers = useCallback(async () => {
+  // quiet: a live refresh keeps the list on screen instead of showing the loading state.
+  const loadUsers = useCallback(async ({ quiet = false } = {}) => {
     console.log("UserId", userTZ, "Viewer", viewer);
-    setLoading(true);
-    setErr(null);
+    if (!quiet) setLoading(true);
+    if (!quiet) setErr(null);
 
     try {
       const res = await getAll();
@@ -79,6 +81,7 @@ const ViewAllUser = () => {
       setUsers(filtered);
     } catch (error) {
       console.error("User load error", error);
+      if (quiet) return;
       setErr("تعذّر تحميل البيانات");
       setUsers([]);
     } finally {
@@ -89,6 +92,7 @@ const ViewAllUser = () => {
   useEffect(() => {
     loadUsers();
   }, [loadUsers]);
+  useLiveRefresh(["user"], () => loadUsers({ quiet: true }));
 
   const roleOptions = useMemo(() => {
     const uniqueRoles = new Set();

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { archiveVehicle, getAllVehicles, restoreVehicle } from "../../WebServer/services/vehicle/functionsVehicle.jsx";
+import useLiveRefresh from "../../locks/useLiveRefresh";
 import { useI18n } from "../../i18n/I18nContext";
 import { toast } from "../../ALERT/SystemToasts";
 import { ask } from "../Provides/confirmBus";
@@ -33,12 +34,13 @@ export default function ViewAllVehicle() {
 
   const canView = access.can("view");
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError("");
+  // quiet: a live refresh keeps the list on screen instead of showing the loading state.
+  const load = useCallback(async ({ quiet = false } = {}) => {
+    if (!quiet) setLoading(true);
+    if (!quiet) setError("");
     const res = await getAllVehicles();
     if (res.ok) setVehicles(res.vehicles || []);
-    else setError(res.message || t("vehicles.loadError"));
+    else if (!quiet) setError(res.message || t("vehicles.loadError"));
     setLoading(false);
   }, [t]);
 
@@ -46,6 +48,7 @@ export default function ViewAllVehicle() {
     if (!access.loading && canView) load();
     if (!access.loading && !canView) setLoading(false);
   }, [access.loading, canView, load]);
+  useLiveRefresh(["vehicle"], () => { if (!access.loading && canView) load({ quiet: true }); });
 
   const setFilter = (key) => (value) => setFilters((prev) => ({ ...prev, [key]: value }));
   const visible = useMemo(() => filterVehicles(vehicles, filters), [vehicles, filters]);

@@ -21,6 +21,12 @@ import { ROOM_OPTIONS } from '../../utils/rooms';
 import sectionStyles from '../UI/FormSection.module.css';
 import LessonRoster from './LessonRoster';
 import Button from '../UI/Button';
+import useItemLock from '../../locks/useItemLock';
+import LockedScreen from '../../locks/LockedScreen';
+import SaveNotice from '../../locks/SaveNotice';
+import forceRelease from '../../locks/forceRelease';
+import useReloadOnUnblock from '../../locks/useReloadOnUnblock';
+import { handleSaveError, withBaseVersion } from '../../locks/staleSave';
 const EditLesson = () => {
   const { id } = useParams(); // ملاحظة عربية
   const { t } = useI18n();
@@ -89,6 +95,13 @@ const EditLesson = () => {
   const [helpers, setHelpers] = useState([]);
   const [allLessons, setAllLessons] = useState([]);
   const [loaded, setLoaded] = useState(false);
+  // The lesson as opened: its updatedAt is the baseVersion of the save.
+  const [opened, setOpened] = useState(null);
+  const [notice, setNotice] = useState(null);
+  const lockKey = id === 'new' ? null : `lesson:${id}`;
+  const lock = useItemLock(lockKey, { enabled: isAdmin });
+  const readonly = lock.status === 'readonly';
+  const editing = isAdmin && !readonly;
   // Counts the server sends for display are not edits.
   const editable = useMemo(() => {
     const { hiddenCount, num_in_list, ...rest } = lesson;
@@ -134,6 +147,7 @@ const EditLesson = () => {
         const l = resL.lesson;
         if (l) {
           setLesson({...l, list_students: l.list_students.filter(t => t != null && t != undefined)});
+          setOpened(l);
         } else {
           navigate(-1);
         }
@@ -158,6 +172,8 @@ const EditLesson = () => {
     setLoaded(false);
     loadData().finally(() => setLoaded(true));
   }, [id]);
+
+  useReloadOnUnblock(lock.status, loadData);
 
   // ملاحظة عربية
   const handleChange = (e) => {
@@ -222,7 +238,7 @@ const EditLesson = () => {
       const resL =
         id === 'new'
           ? await createLesson({ ...body, ...buildAddPayload({ ids: lesson.list_students, looked: pendingLooked }) })
-          : await updateLesson(id, body);
+          : await updateLesson(id, withBaseVersion(body, opened));
 
       if (!resL) return;
       if (resL.ok) {
@@ -236,6 +252,7 @@ const EditLesson = () => {
         toast.success(id === 'new' ? 'تمت إضافة الدرس بنجاح' : 'تم حفظ الدرس بنجاح');
         navigate(-1);
       } else {
+        if (handleSaveError(resL, { draft: lesson.name, setNotice })) return;
         toast.warn(resL.message || 'تعذّر حفظ الدرس');
       }
     } catch (e) {
@@ -262,8 +279,13 @@ const EditLesson = () => {
     }
   };
 
+  if (lock.status === 'blocked') {
+    return <LockedScreen holder={lock.holder} onForceRelease={forceRelease(lockKey)} />;
+  }
+
   return (
     <div className={styles.editLessonContainer}>
+      <SaveNotice notice={notice} />
       {
       isAdmin ? (
       <center><h1>{id != "new" ? "تعديل بيانات الدرس" : "إضافة درس جديد"}</h1></center>
@@ -283,7 +305,7 @@ const EditLesson = () => {
             value={lesson.name}
             onChange={handleChange}
             placeholder="أدخل اسم الدرس"
-            disabled={!isAdmin}
+            disabled={!editing}
           />
           <label style={{color: "red"}}>{error.name}</label>
         </div>
@@ -299,7 +321,7 @@ const EditLesson = () => {
             data-tour="lesson-day"
             value={lesson.date.day}
             onChange={handleChange}
-            disabled={!isAdmin}
+            disabled={!editing}
           >
             {['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس','الجمعة','السبت'].map((d, i) => (
               <option value={i+1} key={i+1}>
@@ -319,7 +341,7 @@ const EditLesson = () => {
             id="lesson-start"
             data-tour="lesson-start"
               onChange={(e) => handleTimeChange('start', e.target.value)}
-              disabled={!isAdmin}
+              disabled={!editing}
             />
           </div>
           <div className={styles.formControl}>
@@ -329,7 +351,7 @@ const EditLesson = () => {
               value={toHHMM(lesson.date.endMin)}
             id="lesson-end"
               onChange={(e) => handleTimeChange('end', e.target.value)}
-              disabled={!isAdmin}
+              disabled={!editing}
             />
           </div>
         </div>
@@ -342,7 +364,7 @@ const EditLesson = () => {
             data-tour="lesson-room"
             value={lesson.room}
             onChange={handleChange}
-            disabled={!isAdmin}
+            disabled={!editing}
           >
             <option value="">اختر المكان</option>
             {ROOM_OPTIONS.map(({ value, label }) => (
@@ -366,7 +388,7 @@ const EditLesson = () => {
             data-tour="lesson-teacher"
             value={lesson.teacher}
             onChange={handleChange}
-            disabled={!isAdmin}
+            disabled={!editing}
           >
             <option value="">اختر المرشد</option>
             {myId && !viewAll && !teachers.some((u) => String(u._id) === myId) && (
@@ -389,7 +411,7 @@ const EditLesson = () => {
             id="lesson-helper"
             value={lesson.helper}
             onChange={handleChange}
-            disabled={!isAdmin}
+            disabled={!editing}
           >
             <option value="">اختر المساعد</option>
             {Array.isArray(helpers) &&
@@ -409,10 +431,10 @@ const EditLesson = () => {
           lesson={lesson}
           students={students}
           allLessons={allLessons}
-          canEdit={isAdmin}
+          canEdit={editing}
           hiddenCount={lesson.hiddenCount}
           pending={pendingLooked}
-          onLookupAdd={isAdmin ? addFoundStudent : undefined}
+          onLookupAdd={editing ? addFoundStudent : undefined}
           onRemovePending={(student) => setPendingLooked((prev) => prev.filter((x) => x._id !== student._id))}
           onChange={(ids) => setLesson((prev) => ({ ...prev, list_students: ids }))}
         />
@@ -420,11 +442,11 @@ const EditLesson = () => {
 
       {isAdmin && (
         <div className={styles.buttonRow} style={{ gap: 8, flexWrap: "wrap" }}>
-          <Button type="button" data-tour="lesson-save" onClick={handleSave}>
+          <Button type="button" data-tour="lesson-save" onClick={handleSave} disabled={readonly}>
             {id !== 'new' ? 'حفظ التعديلات' : 'حفظ الدرس'}
           </Button>
           {id !== 'new' && canDelete && (
-            <Button type="button" variant="danger" data-tour="lesson-delete" onClick={handleDelete}>
+            <Button type="button" variant="danger" data-tour="lesson-delete" onClick={handleDelete} disabled={readonly}>
             حذف
             </Button>
           )}

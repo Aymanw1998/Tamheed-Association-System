@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import styles from "./ViewAllLesson.module.css";
 import { getAll as getAllUsers } from "../../WebServer/services/user/functionsUser";
 import { getAllLesson, getSportSchedule, updateLesson } from "../../WebServer/services/lesson/functionsLesson";
+import useLiveRefresh from "../../locks/useLiveRefresh";
 import { useNavigate } from "react-router-dom";
 import Fabtn from "./../Global/Fabtn/Fabtn";
 import { toast } from "../../ALERT/SystemToasts";
@@ -495,9 +496,10 @@ export default function ViewAllLesson() {
     }
   };
 
-  const loadData = async () => {
+  // quiet: a live refresh keeps the schedule on screen instead of showing the loading state.
+  const loadData = async ({ quiet = false } = {}) => {
     try {
-      setIsLoading(true);
+      if (!quiet) setIsLoading(true);
       const [res, sportRes] = await Promise.all([getAllLesson(), getSportSchedule()]);
       if (!res?.ok) throw new Error(res?.message || "Load failed");
 
@@ -517,6 +519,7 @@ export default function ViewAllLesson() {
       setLessons(cleaned);
 
     } catch {
+      if (quiet) return;
       toast.error("تعذّر تحميل الدروس");
       setLessons([]);
       setTeacherNames({});
@@ -527,6 +530,7 @@ export default function ViewAllLesson() {
 
   useEffect(() => { loadTeachers(); }, []);
   useEffect(() => { loadData(); }, []);
+  useLiveRefresh(["lesson", "sportLesson", "user"], () => { loadData({ quiet: true }); loadTeachers(); });
   useEffect(() => {
     const names = {};
     (teachers || []).forEach((teacher) => {
