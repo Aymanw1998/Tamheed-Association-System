@@ -1,0 +1,160 @@
+import React from "react";
+import { createRoot } from "react-dom/client";
+import { act } from "react";
+
+jest.mock("../WebServer/services/api", () => ({
+  __esModule: true,
+  default: { post: jest.fn() },
+  API_BASE_URL: "/api",
+  getAuthToken: () => "tok",
+}));
+
+import api from "../WebServer/services/api";
+import { liveEvents } from "../WebServer/services/live/liveStream";
+import useItemLock from "./useItemLock";
+import { getClientId } from "./clientId";
+import { handleSaveError, withBaseVersion } from "./staleSave";
+
+global.IS_REACT_ACT_ENVIRONMENT = true;
+
+let container, root, latest;
+function Probe({ lockKey }) {
+  latest = useItemLock(lockKey);
+  return null;
+}
+const mountHook = async (key = "student:1") => {
+  container = document.createElement("div");
+  document.body.appendChild(container);
+  root = createRoot(container);
+  await act(async () => root.render(<Probe lockKey={key} />));
+};
+const advance = (ms) => act(async () => { jest.advanceTimersByTime(ms); });
+const err = (status, data) => Object.assign(new Error("x"), { response: { status, data } });
+const calls = (path) => api.post.mock.calls.filter((c) => c[0] === path);
+
+beforeEach(() => {
+  jest.useFakeTimers();
+  api.post.mockReset();
+});
+afterEach(async () => {
+  if (root) await act(async () => root.unmount());
+  root = null;
+  container?.remove();
+  document.body.innerHTML = "";
+  jest.useRealTimers();
+});
+
+test("acquire ok gives held", async () => {
+  api.post.mockResolvedValue({ data: { ok: true } });
+  await mountHook();
+  expect(latest.status).toBe("held");
+  expect(calls("/locks/acquire")[0][1]).toEqual({ key: "student:1" });
+});
+
+test("acquire 423 gives blocked with the holder, and a lock event re-acquires", async () => {
+  const holder = { name: "Ali", tz: "t1" };
+  api.post.mockRejectedValueOnce(err(423, { code: "LOCKED", holder }));
+  await mountHook();
+  expect(latest.status).toBe("blocked");
+  expect(latest.holder).toEqual(holder);
+  api.post.mockResolvedValue({ data: { ok: true } });
+  await act(async () => liveEvents.emit("lock", { key: "student:2" }));
+  expect(latest.status).toBe("blocked");
+  await act(async () => liveEvents.emit("lock", { key: "student:1" }));
+  expect(latest.status).toBe("held");
+});
+
+test("blocked re-tries every 15 s", async () => {
+  api.post.mockRejectedValueOnce(err(423, { holder: { name: "Ali", tz: "t1" } }));
+  await mountHook();
+  api.post.mockResolvedValue({ data: { ok: true } });
+  await advance(15000);
+  expect(latest.status).toBe("held");
+});
+
+test("heartbeat 410 gives readonly", async () => {
+  api.post.mockResolvedValueOnce({ data: { ok: true } });
+  await mountHook();
+  api.post.mockRejectedValue(err(410, { code: "LOST" }));
+  await advance(20000);
+  expect(calls("/locks/heartbeat")).toHaveLength(1);
+  expect(latest.status).toBe("readonly");
+});
+
+test("10 minutes idle shows the dialog; 60 s more releases and goes readonly", async () => {
+  api.post.mockResolvedValue({ data: { ok: true } });
+  await mountHook();
+  await advance(10 * 60 * 1000);
+  expect(document.body.textContent).toContain("هل ما زلت هنا؟");
+  expect(document.body.textContent).toContain("نعم، ما زلت هنا");
+  await advance(60 * 1000);
+  expect(latest.status).toBe("readonly");
+  expect(calls("/locks/release")).toHaveLength(1);
+  expect(document.body.textContent).not.toContain("هل ما زلت هنا؟");
+});
+
+test("answering the dialog keeps the lock", async () => {
+  api.post.mockResolvedValue({ data: { ok: true } });
+  await mountHook();
+  await advance(10 * 60 * 1000);
+  await act(async () => document.querySelector("button.c-btn-primary").click());
+  await advance(60 * 1000);
+  expect(latest.status).toBe("held");
+  expect(calls("/locks/release")).toHaveLength(0);
+});
+
+test("unmount calls release", async () => {
+  api.post.mockResolvedValue({ data: { ok: true } });
+  await mountHook();
+  await act(async () => root.unmount());
+  root = null;
+  expect(calls("/locks/release")[0][1]).toEqual({ key: "student:1" });
+});
+
+test("pagehide sends a beacon with the client id in the body", async () => {
+  api.post.mockResolvedValue({ data: { ok: true } });
+  navigator.sendBeacon = jest.fn(() => true);
+  await mountHook();
+  window.dispatchEvent(new Event("pagehide"));
+  expect(navigator.sendBeacon).toHaveBeenCalledTimes(1);
+  expect(navigator.sendBeacon.mock.calls[0][0]).toBe("/api/locks/release");
+  delete navigator.sendBeacon;
+});
+
+test("two different sessionStorage values give different client ids", () => {
+  sessionStorage.setItem("tamheed-client-id", "tab-a");
+  const a = getClientId();
+  sessionStorage.setItem("tamheed-client-id", "tab-b");
+  expect(getClientId()).not.toBe(a);
+  sessionStorage.removeItem("tamheed-client-id");
+  expect(getClientId()).toBeTruthy();
+  expect(getClientId()).toBe(sessionStorage.getItem("tamheed-client-id"));
+});
+
+describe("stale save", () => {
+  test("409 keeps the draft, shows the message, returns true", async () => {
+    let notice;
+    const handled = handleSaveError(err(409, { code: "STALE", current: { updatedByName: "Sara" } }), {
+      draft: "my text",
+      setNotice: (n) => { notice = n; },
+    });
+    expect(handled).toBe(true);
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const r = createRoot(host);
+    await act(async () => r.render(notice));
+    expect(host.textContent).toContain("تم تعديل هذا العنصر من قِبل Sara أثناء غيابك");
+    expect(host.querySelector("textarea").value).toBe("my text");
+    expect(host.querySelector("textarea").readOnly).toBe(true);
+    expect(host.textContent).toContain("نسخ");
+    await act(async () => r.unmount());
+  });
+
+  test("423 shows the holder; other errors return false; withBaseVersion", () => {
+    let notice;
+    expect(handleSaveError(err(423, { holder: { name: "Ali", tz: "t1" } }), { setNotice: (n) => { notice = n; } })).toBe(true);
+    expect(notice).toContain("Ali");
+    expect(handleSaveError(err(500, {}), { setNotice: () => {} })).toBe(false);
+    expect(withBaseVersion({ a: 1 }, { updatedAt: "T" })).toEqual({ a: 1, baseVersion: "T" });
+  });
+});

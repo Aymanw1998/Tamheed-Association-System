@@ -8,7 +8,8 @@ const { createLocks } = require("../../services/locks");
 // Item locks, owned by a browser tab (header X-Client-Id).
 //   POST /acquire        { key } -> 200 { ok, lock } | 423 { ok:false, code:"LOCKED", holder }
 //   POST /heartbeat      { key } -> 200 { ok:true }  | 410 { ok:false, code:"LOST" }
-//   POST /release        { key } -> 200 { ok:true }   (no-op for a non-owner)
+//   POST /release        { key } -> 200 { ok:true }   (no-op for a non-owner;
+//                          a beacon may send { clientId, token } in the body)
 //   POST /force-release  { key } -> 200 { ok:true }   (permissions.manage)
 //   GET  /:key                   -> 200 { ok, holder|null }
 // Any signed-in user may take a lock; the holder is always the tab, so the
@@ -25,7 +26,7 @@ function createLockRouter({ requireAuth, loadActor, requirePermission, locks }) 
   const readInput = (keyOf) => (req, res, next) => {
     const key = keyOf(req);
     if (typeof key !== "string" || !KEY_PATTERN.test(key)) return res.status(400).json(BAD_KEY);
-    const clientId = req.get("X-Client-Id");
+    const clientId = req.get("X-Client-Id") || (typeof req.body?.clientId === "string" ? req.body.clientId : "");
     if (!clientId || clientId.length > 100) return res.status(400).json(NO_CLIENT);
     req.lockKey = key;
     req.clientId = clientId;
@@ -33,6 +34,14 @@ function createLockRouter({ requireAuth, loadActor, requirePermission, locks }) 
   };
   const fromBody = readInput((req) => req.body?.key);
   const fromParam = readInput((req) => req.params.key);
+  // navigator.sendBeacon (tab closing) cannot set headers: /release also takes
+  // the access token and the client id from the body when the headers are absent.
+  const beaconHeaders = (req, res, next) => {
+    if (!req.headers.authorization && typeof req.body?.token === "string" && req.body.token) {
+      req.headers.authorization = `Bearer ${req.body.token}`;
+    }
+    return next();
+  };
   const guard = (name, fn) => async (req, res) => {
     try {
       return await fn(req, res);
@@ -74,7 +83,7 @@ function createLockRouter({ requireAuth, loadActor, requirePermission, locks }) 
 
   router.post("/acquire", requireAuth, loadActor, fromBody, acquire);
   router.post("/heartbeat", requireAuth, loadActor, fromBody, heartbeat);
-  router.post("/release", requireAuth, loadActor, fromBody, release);
+  router.post("/release", beaconHeaders, requireAuth, loadActor, fromBody, release);
   router.post("/force-release", requireAuth, loadActor, requirePermission("permissions.manage"), fromBody, forceRelease);
   router.get("/:key", requireAuth, loadActor, fromParam, holder);
 

@@ -5,6 +5,7 @@ import { singleFlight } from '../utils/singleFlight';
 import { installDemoAdapter } from '../../journey/demoAdapter';
 import { clearApiCache } from '../../pwa/clearApiCache';
 import { dropDevicePush } from '../../pwa/pushOptIn';
+import { getClientId } from '../../locks/clientId';
 
 // The API is always reached on the same origin as the page: in development the
 // CRA dev server proxies /api to the local server (see "proxy" in package.json),
@@ -81,8 +82,10 @@ function hardResetToLogin(reason = 'انتهت الجلسة. يُرجى تسجي
 
 // ملاحظة عربية
 api.interceptors.request.use((config) => {
+  config.headers = config.headers || {};
+  // Names this browser tab as the owner of the locks it takes.
+  config.headers['X-Client-Id'] = getClientId();
   if (accessToken) {
-    config.headers = config.headers || {};
     config.headers['Authorization'] = `Bearer ${accessToken}`;
   }
   return config;

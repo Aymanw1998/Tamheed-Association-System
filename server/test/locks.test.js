@@ -155,7 +155,8 @@ test("a failed acquire does not broadcast", async () => {
 async function startApp() {
   const ctx = setup();
   const requireAuth = (req, res, next) => {
-    const tz = req.headers["x-tz"];
+    const bearer = (req.headers.authorization || "").replace(/^Bearer /, "");
+    const tz = req.headers["x-tz"] || bearer;
     if (!tz) return res.status(401).json({ code: "NO_TOKEN" });
     req.user = { tz };
     return next();
@@ -174,7 +175,7 @@ async function startApp() {
     const res = await fetch(`${base}/api/locks${path}`, { method, headers, body: body ? JSON.stringify(body) : undefined });
     return { status: res.status, body: await res.json() };
   };
-  return { ...ctx, server, call };
+  return { ...ctx, server, call, base };
 }
 
 test("routes: acquire, locked by another tab (even the same user), release", async () => {
@@ -193,6 +194,21 @@ test("routes: acquire, locked by another tab (even the same user), release", asy
     assert.deepEqual(own.body, { ok: true, holder: null });
     assert.equal((await call("POST", "/release", { tz: GUIDE_U.tz, client: "tab-1", body: key })).status, 200);
     assert.equal((await call("POST", "/acquire", { tz: ADMIN_U.tz, client: "tab-3", body: key })).status, 200);
+  } finally { server.close(); }
+});
+
+test("routes: release accepts the client id and token from the body (sendBeacon)", async () => {
+  const { server, call, base } = await startApp();
+  try {
+    const key = { key: "student:78" };
+    assert.equal((await call("POST", "/acquire", { tz: GUIDE_U.tz, client: "tab-1", body: key })).status, 200);
+    const res = await fetch(`${base}/api/locks/release`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ...key, clientId: "tab-1", token: GUIDE_U.tz }),
+    });
+    assert.equal(res.status, 200);
+    assert.equal((await call("POST", "/acquire", { tz: ADMIN_U.tz, client: "tab-2", body: key })).status, 200);
   } finally { server.close(); }
 });
 

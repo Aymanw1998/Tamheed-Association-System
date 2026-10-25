@@ -8,10 +8,12 @@ import { isDemo, subscribeDemo } from "../../../journey/demoMode";
 // reuse a spent ticket, so on any error the stream is closed and reopened
 // here with a new ticket after a growing delay.
 //
-//   const close = openLiveStream({ onAlert, onStorage, onOpen });  ...  close();
+//   const close = openLiveStream({ onAlert, onStorage, onChange, onLock, onOpen });  ...  close();
 //
 // onStorage(payload): a file or folder the user can see changed
 //                     ({ module, action, ts } only: reload to see what).
+// onChange(payload): an item changed ({ entity, id } only: reload through the API).
+// onLock(payload):    an item's lock changed ({ key } only).
 // onAlert(payload):   a personal alert.
 // onOpen():           the stream (re)opened; events sent while it was closed
 //                     are not replayed, so reload what the page shows.
@@ -35,7 +37,27 @@ async function defaultRequestTicket() {
   return data?.ticket || null;
 }
 
-export function openLiveStream({ onAlert, onStorage, onOpen, deps = {} } = {}) {
+// A tiny bus the app-wide stream (LiveEventsProvider) feeds, so any screen can
+// listen without opening its own connection. Types: "change", "lock", "open".
+const busListeners = new Map();
+export const liveEvents = {
+  on(type, fn) {
+    if (!busListeners.has(type)) busListeners.set(type, new Set());
+    busListeners.get(type).add(fn);
+    return () => busListeners.get(type)?.delete(fn);
+  },
+  emit(type, payload) {
+    for (const fn of [...(busListeners.get(type) || [])]) {
+      try {
+        fn(payload);
+      } catch (error) {
+        console.error("live event listener error", error);
+      }
+    }
+  },
+};
+
+export function openLiveStream({ onAlert, onStorage, onChange, onLock, onOpen, deps = {} } = {}) {
   const {
     requestTicket = defaultRequestTicket,
     EventSourceImpl = typeof window !== "undefined" ? window.EventSource : undefined,
@@ -119,6 +141,8 @@ export function openLiveStream({ onAlert, onStorage, onOpen, deps = {} } = {}) {
     };
     es.addEventListener("storage", deliver(onStorage));
     es.addEventListener("alert", deliver(onAlert));
+    es.addEventListener("change", deliver(onChange));
+    es.addEventListener("lock", deliver(onLock));
   }
 
   const unsubscribeDemo = subscribeDemo((on) => {

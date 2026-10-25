@@ -40,6 +40,7 @@ import { TourProvider } from '../../tours/TourProvider';
 import TrainingBanner from '../../journey/TrainingBanner';
 import { useDemo } from '../../journey/demoMode';
 import { JourneyProvider } from '../../journey/JourneyProvider';
+import LiveEventsProvider from '../../locks/LiveEventsProvider';
 
 // The assistant (alerts now, chat later) shows for accounts with ai.use.
 
@@ -51,6 +52,7 @@ function ProtectedLayout() {
   return (
     <div style={{ height: "100vh", width: "100vw" }}>
       {/* The journey wraps the help center: every «أرني» and «ابدأ» runs it. */}
+      <LiveEventsProvider />
       <JourneyProvider>
         <TourProvider>
           <TrainingBanner />
