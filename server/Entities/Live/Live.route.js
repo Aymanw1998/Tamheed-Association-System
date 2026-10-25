@@ -6,6 +6,7 @@ const { logWithSource } = require("../../middleware/logger");
 const { LIVE_TICKET_TTL_SECONDS } = require("./LiveTicket.model");
 const { createOverlapCursor } = require("../../services/overlapCursor");
 const { canSeeAlertType } = require("../../services/alertAccess");
+const { liveHub } = require("../../services/liveHub");
 
 // The signed-in live channel (replaces the old open /api/events).
 //   POST /ticket          requireAuth + loadActor -> { ok, ticket } (single use, 60 s)
@@ -27,7 +28,7 @@ const RECHECK_EVERY_POLLS = 6;
 const MAX_STREAM_MS = 60 * 60 * 1000;
 // Only these LiveEvent types reach the browser. Alerts come from AiAlerts
 // (see `alerts` below), not from LiveEvents.
-const STREAM_TYPES = new Set(["storage"]);
+const STREAM_TYPES = new Set(["storage", "change", "lock"]);
 const TICKET_INVALID = { code: "TICKET_INVALID", message: "رابط البث غير صالح أو منتهي" };
 const SERVER_ERROR = "حدث خطأ غير متوقع، حاول مرة أخرى";
 
@@ -50,6 +51,8 @@ function createLiveRouter({
   events,
   // AiAlerts store with since(tz, from, limit) -> unread rows, oldest first.
   alerts = null,
+  // Instant `change` / `lock` events from this process (services/liveHub).
+  hub = liveHub,
   now = () => Date.now(),
   pollMs = POLL_MS,
   pingMs = PING_MS,
@@ -144,6 +147,7 @@ function createLiveRouter({
     let pollTimer = null;
     let pingTimer = null;
     let capTimer = null;
+    let unsubscribe = () => {};
 
     const finish = () => {
       if (closed) return;
@@ -152,6 +156,7 @@ function createLiveRouter({
       clearInterval(pingTimer);
       clearTimeout(capTimer);
       openStreams.delete(finish);
+      unsubscribe();
       res.end();
     };
 
@@ -183,6 +188,15 @@ function createLiveRouter({
       }
     };
 
+    // Instant events: written at once, not on the next poll. A write after the
+    // stream closed throws, which makes the hub drop this subscriber.
+    unsubscribe = hub.subscribe("staff", tz, (type, payload) => {
+      if (closed) throw new Error("stream closed");
+      res.write(`event: ${type}
+data: ${JSON.stringify(payload ?? {})}
+
+`);
+    });
     openStreams.add(finish);
     pollTimer = setInterval(poll, pollMs);
     pingTimer = setInterval(() => { if (!closed) res.write(": ping\n\n"); }, pingMs);
