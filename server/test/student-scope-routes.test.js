@@ -1,4 +1,5 @@
 const assert = require("node:assert/strict");
+const live = require("./helpers/liveStubs");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
@@ -47,6 +48,8 @@ function load(file, dependencies) {
   vm.runInNewContext(fs.readFileSync(filename, "utf8"), {
     module, Date, console: { log() {}, warn() {}, error() {} },
     require(name) {
+      if (!Object.hasOwn(dependencies, name) && Object.hasOwn(live.deps, name)) return live.deps[name];
+
       assert.ok(Object.hasOwn(dependencies, name), `Unexpected dependency: ${name}`);
       return dependencies[name];
     },
@@ -623,4 +626,26 @@ test("attendance save with nothing to write records no audit row", async () => {
   assert.equal(saved.statusCode, 200);
   assert.equal(w.audit.calls.length, 1);
   assert.equal(w.audit.calls[0].after.rowsSaved, 1);
+});
+
+test("a student update stamps updatedAt, announces the change, and refuses a stale baseVersion with 409", async () => {
+  const w = world();
+  live.changes.length = 0;
+  const stale = await call(w.student.putS, reqAs(ADMIN, { params: { tz: S[0].tz }, body: { firstname: "A", baseVersion: "2000-01-01T00:00:00.000Z" } }));
+  // Nothing is stored with an updatedAt yet, so there is nothing to be stale against.
+  assert.equal(stale.statusCode, 200);
+  assert.deepEqual(live.changes, [["student", S[0]._id]]);
+  const saved = w.students.all().find((s) => s._id === S[0]._id);
+  assert.ok(Number.isFinite(Date.parse(saved.updatedAt)));
+
+  live.changes.length = 0;
+  const behind = await call(w.student.putS, reqAs(ADMIN, { params: { tz: S[0].tz }, body: { firstname: "B", baseVersion: "2000-01-01T00:00:00.000Z" } }));
+  assert.equal(behind.statusCode, 409);
+  assert.equal(behind.body.code, "STALE");
+  assert.equal(behind.body.current.firstname, "A");
+  assert.deepEqual(live.changes, [], "a refused save announces nothing");
+  assert.equal(w.students.all().find((s) => s._id === S[0]._id).firstname, "A");
+
+  const fresh = await call(w.student.putS, reqAs(ADMIN, { params: { tz: S[0].tz }, body: { firstname: "C", baseVersion: new Date(saved.updatedAt).toISOString() } }));
+  assert.equal(fresh.statusCode, 200);
 });

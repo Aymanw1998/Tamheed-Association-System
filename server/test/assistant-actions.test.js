@@ -5,6 +5,7 @@
 // action -> 404, a second approval -> 409 ALREADY_USED (atomic), after 15
 // minutes -> 410 EXPIRED, cancel marks it used without running it.
 const assert = require("node:assert/strict");
+const live = require("./helpers/liveStubs");
 const fs = require("node:fs");
 const http = require("node:http");
 const path = require("node:path");
@@ -164,6 +165,8 @@ function load(file, dependencies) {
   vm.runInNewContext(fs.readFileSync(filename, "utf8"), {
     module, Date, process, console: { log() {}, warn() {}, error() {} },
     require(name) {
+      if (!Object.hasOwn(dependencies, name) && Object.hasOwn(live.deps, name)) return live.deps[name];
+
       assert.ok(Object.hasOwn(dependencies, name), `Unexpected dependency: ${name} in ${file}`);
       return dependencies[name];
     },

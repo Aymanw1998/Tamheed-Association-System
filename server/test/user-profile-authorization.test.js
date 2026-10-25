@@ -1,4 +1,5 @@
 const assert = require("node:assert/strict");
+const live = require("./helpers/liveStubs");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
@@ -52,6 +53,7 @@ function loadController() {
   vm.runInNewContext(fs.readFileSync(filename, "utf8"), {
     module,
     require(name) {
+      if (!Object.hasOwn(dependencies, name) && Object.hasOwn(live.deps, name)) return live.deps[name];
       assert.ok(Object.hasOwn(dependencies, name), `Unexpected dependency: ${name}`);
       return dependencies[name];
     },
@@ -69,7 +71,13 @@ async function updateUser({ user, body, tz = "self-user" }) {
   // The route runs loadActor first; req.actor is built from the same user.
   await putU({ params: { tz }, user, actor: user && actorFor(user), body }, res);
   // Convert objects created in the VM into this test's realm for strict equality.
-  return { res, updates: JSON.parse(JSON.stringify(updates)) };
+  const plain = JSON.parse(JSON.stringify(updates));
+  // Every save stamps updatedAt (the version a later save is compared with).
+  for (const update of plain) {
+    assert.ok(!Number.isNaN(Date.parse(update.data.updatedAt)), "update must stamp updatedAt");
+    delete update.data.updatedAt;
+  }
+  return { res, updates: plain };
 }
 
 test("self-edit saves profile fields while ignoring authority and session metadata", async () => {

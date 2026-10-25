@@ -6,6 +6,8 @@ const { LessonModelDef } = require("../Lesson/Lesson.model");
 const { UserModelDef } = require("../User/User.model");
 const { isSystemTz, can } = require("../../utils/permissions");
 const { createStudentScope } = require("../../utils/studentScope");
+const { checkVersion } = require("../../middleware/lockGuard");
+const { notifyChange } = require("../../services/liveHub");
 
 // Who the actor may see: null (students.viewAll) or a Set of student _ids.
 const scope = createStudentScope({ lessonModel: LessonModelDef, studentModel: StudentModelDef });
@@ -228,6 +230,7 @@ const postS = async (req, res) => {
       createdAt: new Date(),
     });
     await recordStudent(req, "create", null, created?.result || model);
+    notifyChange("student", created?.result?._id);
 
     await safeNotify({
       toRoles: ["ادارة"],
@@ -293,11 +296,15 @@ const putS = async (req, res) => {
       }
     }
 
+    const stale = checkVersion(existing.result[0], req);
+    if (stale) return res.status(409).json(stale);
+    newData.updatedAt = new Date();
     const updated = await StudentModelDef.update(
       { tz },
       newData
     );
     await recordStudent(req, "update", existing.result[0], { ...existing.result[0], ...newData });
+    notifyChange("student", existing.result[0]._id);
 
     await safeNotify({
       toRoles: ["ادارة"],
@@ -341,8 +348,11 @@ const deleteS = async (req, res) => {
     }
 
     // Only the record found above, never every record sharing the tz.
+    const stale = checkVersion(existing.result[0], req);
+    if (stale) return res.status(409).json(stale);
     const deleted = await StudentModelDef.delete({ _id: String(existing.result[0]._id) });
     await recordStudent(req, "delete", existing.result[0], null);
+    notifyChange("student", existing.result[0]._id);
 
     // Rejecting a waiting-list request or deleting a student also removes the
     // photo from Drive, so no orphaned files stay behind.
@@ -416,9 +426,10 @@ const uploadPhoto = async (req, res) => {
 
     await StudentModelDef.update(
       { tz },
-      { photo: uploaded.secure_url }
+      { photo: uploaded.secure_url, updatedAt: new Date() }
     );
     await recordStudent(req, "update", student, { ...student, photo: uploaded.secure_url });
+    notifyChange("student", student._id);
 
     // The previous Drive file is removed only after the new link is stored,
     // so a failed upload never leaves the record pointing at a deleted file.
@@ -482,10 +493,11 @@ const deletePhoto = async (req, res) => {
     console.warn("Updating student record to remove photo URL");
     await StudentModelDef.update(
       { tz },
-      { photo: null },
+      { photo: null, updatedAt: new Date() },
       "active"
     );
     await recordStudent(req, "update", user, { ...user, photo: null });
+    notifyChange("student", user._id);
     console.warn("Student record updated, sending notification");
     await safeNotify({
       toRoles: ["ادارة"],

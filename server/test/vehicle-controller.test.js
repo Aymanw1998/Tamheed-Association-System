@@ -1,4 +1,5 @@
 const assert = require("node:assert/strict");
+const live = require("./helpers/liveStubs");
 const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -91,6 +92,7 @@ function setup({ vehicles = [], extraUsers = [] } = {}) {
     process,
     Buffer,
     require(name) {
+      if (!Object.hasOwn(dependencies, name) && Object.hasOwn(live.deps, name)) return live.deps[name];
       assert.ok(Object.hasOwn(dependencies, name), `Unexpected dependency: ${name}`);
       return dependencies[name];
     },
@@ -796,4 +798,27 @@ test("what the system does to a vehicle is stored as \"system\" / \"النظام
     const stored = JSON.stringify([vehicleStore.all(), auditStore.all()]);
     assert.ok(!stored.includes(SYSTEM_TZ) && !stored.includes(SYS._id) && !stored.includes("Sys Tem"));
   });
+});
+
+test("vehicle writes announce the change, and a stale baseVersion is refused with 409", async () => {
+  const { controller } = setup();
+  live.changes.length = 0;
+  const created = await createVehicle(controller);
+  const id = created.body.vehicle._id;
+  assert.deepEqual(live.changes, [["vehicle", id]]);
+  const { req } = await guard(controller, "edit", ADMIN);
+
+  const staleRes = createRes();
+  await controller.update({ ...req, params: { id }, body: { make: "Mazda", baseVersion: "2000-01-01T00:00:00.000Z" } }, staleRes);
+  assert.equal(staleRes.statusCode, 409);
+  assert.equal(staleRes.body.code, "STALE");
+  assert.equal(staleRes.body.current.make, "Toyota");
+  assert.deepEqual(live.changes, [["vehicle", id]], "a refused save announces nothing");
+
+  live.changes.length = 0;
+  const okRes = createRes();
+  await controller.update({ ...req, params: { id }, body: { make: "Mazda", baseVersion: created.body.vehicle.updatedAt } }, okRes);
+  assert.equal(okRes.statusCode, 200);
+  assert.equal(okRes.body.vehicle.make, "Mazda");
+  assert.deepEqual(live.changes, [["vehicle", id]]);
 });

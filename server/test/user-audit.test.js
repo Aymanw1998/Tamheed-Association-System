@@ -1,6 +1,7 @@
 // User changes reach the central audit log: create, edit, delete, folder
 // permissions, approval (waiting -> active) and other room moves.
 const assert = require("node:assert/strict");
+const live = require("./helpers/liveStubs");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
@@ -74,6 +75,7 @@ function loadController(users) {
     console: { log() {}, warn() {}, error() {} },
     process: { env: {} },
     require(name) {
+      if (!Object.hasOwn(dependencies, name) && Object.hasOwn(live.deps, name)) return live.deps[name];
       assert.ok(Object.hasOwn(dependencies, name), `Unexpected dependency: ${name}`);
       return dependencies[name];
     },

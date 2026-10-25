@@ -1,4 +1,5 @@
 const assert = require("node:assert/strict");
+const live = require("./helpers/liveStubs");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
@@ -64,6 +65,7 @@ function runInVm(filename, dependencies) {
     process: { env: { DB_NAME: "tamheed_db" } },
     console: { log() {}, warn() {}, error() {} },
     require(name) {
+      if (!Object.hasOwn(dependencies, name) && Object.hasOwn(live.deps, name)) return live.deps[name];
       assert.ok(Object.hasOwn(dependencies, name), `Unexpected dependency: ${name}`);
       return dependencies[name];
     },
@@ -179,9 +181,10 @@ for (const entity of ENTITIES) {
 
     assert.equal(res.statusCode, 200);
     assert.equal(res.body.photo, NEW_PHOTO);
-    assert.deepEqual(JSON.parse(JSON.stringify(events)), [
+    const seen = JSON.parse(JSON.stringify(events));
+    assert.deepEqual(seen, [
       ["drive-upload", "123456782"],
-      ["db-update", { photo: NEW_PHOTO }],
+      ["db-update", { photo: NEW_PHOTO, updatedAt: seen[1][1].updatedAt }],
       ["drive-delete", OLD_PHOTO],
     ]);
     assert.equal(model.snapshot()[0].photo, NEW_PHOTO);
@@ -213,6 +216,8 @@ function loadStudentRoutes(controller) {
     multer,
     mongoose: {},
     "./Student.controller": controller,
+    "./Student.model": { StudentModelDef: {} },
+    "../../middleware/lockGuard": { requireFreeOrMine: () => (req, res, next) => next() },
     "../../middleware/authMiddleware": { requireAuth: (req, res, next) => next() },
     "../../middleware/permissionMiddleware": require("./helpers/actors").permissionMiddlewareStub(),
     "../../middleware/rateLimit": { rateLimit: () => (req, res, next) => next() },

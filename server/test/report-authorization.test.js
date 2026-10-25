@@ -1,4 +1,5 @@
 const assert = require("node:assert/strict");
+const live = require("./helpers/liveStubs");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
@@ -57,6 +58,7 @@ function loadController(reportModel, audit = auditStub()) {
   vm.runInNewContext(fs.readFileSync(filename, "utf8"), {
     module,
     require(name) {
+      if (!Object.hasOwn(dependencies, name) && Object.hasOwn(live.deps, name)) return live.deps[name];
       assert.ok(Object.hasOwn(dependencies, name), `Unexpected dependency: ${name}`);
       return dependencies[name];
     },
@@ -213,4 +215,33 @@ test("report create, edit and delete are recorded in the audit log after the wri
   const count = audit.calls.length;
   await put(withActor({ params: { id: "missing" }, body: { info: "x" }, user }), createRes());
   assert.equal(audit.calls.length, count);
+});
+
+test("report put announces the change and refuses a stale baseVersion with 409; delete announces too", async () => {
+  const model = createReportModel([
+    { createdBy: "user-a", info: "original", title: [], attendance: [], updatedAt: new Date("2026-10-25T10:00:00.000Z") },
+  ]);
+  const { put, post, remove } = loadController(model);
+  const admin = { id: "user-admin", roles: ["ادارة"] };
+  live.changes.length = 0;
+
+  const stale = createRes();
+  await put(withActor({ params: { id: "report-0" }, body: { info: "late", baseVersion: "2026-10-25T09:00:00.000Z" }, user: admin }), stale);
+  assert.equal(stale.statusCode, 409);
+  assert.equal(stale.body.code, "STALE");
+  assert.equal(stale.body.current.info, "original");
+  assert.equal(model.snapshot()[0].info, "original");
+  assert.deepEqual(live.changes, []);
+
+  const ok = createRes();
+  await put(withActor({ params: { id: "report-0" }, body: { info: "fresh", baseVersion: "2026-10-25T10:00:00.000Z" }, user: admin }), ok);
+  assert.equal(ok.statusCode, 200);
+  assert.ok(new Date(model.snapshot()[0].updatedAt).getTime() > Date.parse("2026-10-25T10:00:00.000Z"));
+  assert.deepEqual(live.changes, [["report", "report-0"]]);
+
+  live.changes.length = 0;
+  const gone = createRes();
+  await remove(withActor({ params: { id: "report-0" }, body: {}, user: admin }), gone);
+  assert.equal(gone.statusCode, 200);
+  assert.deepEqual(live.changes, [["report", "report-0"]]);
 });

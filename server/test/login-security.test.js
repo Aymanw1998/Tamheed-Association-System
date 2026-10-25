@@ -1,4 +1,5 @@
 const assert = require("node:assert/strict");
+const live = require("./helpers/liveStubs");
 const fs = require("node:fs");
 const http = require("node:http");
 const path = require("node:path");
@@ -67,6 +68,7 @@ function loadController(storedPassword = FAKE_HASH, extra = {}) {
     module,
     process: { env: process.env },
     require(name) {
+      if (!Object.hasOwn(dependencies, name) && Object.hasOwn(live.deps, name)) return live.deps[name];
       assert.ok(Object.hasOwn(dependencies, name), `Unexpected dependency: ${name}`);
       return dependencies[name];
     },
@@ -158,10 +160,22 @@ function startPhotoApp(userTz) {
       getPermissions: noop(), putPermissions: noop(), putRole: noop(), unlockUser: noop(), recoverSystem: noop(),
     },
   };
+  // The lock guard would look the user up in the database; locks have their own tests.
+  const guardPath = require.resolve("../middleware/lockGuard");
+  const realGuard = require.cache[guardPath];
+  require.cache[guardPath] = {
+    id: guardPath, filename: guardPath, loaded: true,
+    exports: { requireFreeOrMine: () => (req, res, next) => next() },
+  };
+  const modelPath = require.resolve("../Entities/User/User.model");
+  const realModel = require.cache[modelPath];
+  require.cache[modelPath] = { id: modelPath, filename: modelPath, loaded: true, exports: { UserModelDef: {} } };
   delete require.cache[routePath];
   const router = require("../Entities/User/User.route");
   delete require.cache[routePath];
   delete require.cache[controllerPath];
+  if (realGuard) require.cache[guardPath] = realGuard; else delete require.cache[guardPath];
+  if (realModel) require.cache[modelPath] = realModel; else delete require.cache[modelPath];
   auth.requireAuth = originalRequireAuth;
   pm.loadActor = originalLoadActor;
 

@@ -3,6 +3,8 @@ const jwt = require("jsonwebtoken");
 const path = require("path");
 
 const { UserModelDef } = require("./User.model");
+const { checkVersion } = require("../../middleware/lockGuard");
+const { notifyChange } = require("../../services/liveHub");
 
 const { generateOtp6 } = require("../../utils/otp");
 const sendEmail = require("../../utils/sendEmail");
@@ -630,6 +632,7 @@ const postU = async (req, res) => {
 
     const created = await UserModelDef.create(model, room);
     await recordUser(req, "create", null, { ...(created?.result || model), room });
+    notifyChange("user", created?.result?._id);
     if (room === "active") {
       await safeEnsureStorageFolder(model);
     }
@@ -694,8 +697,12 @@ const putU = async (req, res) => {
     // A password set for another user (users.passwords) ends their sessions.
     if (isAdmin && newData.password) newData.passwordChangedAt = new Date();
 
+    const stale = checkVersion(existing, req, sanitize);
+    if (stale) return res.status(409).json(stale);
+    newData.updatedAt = new Date();
     const updated = await UserModelDef.update({ tz: existing.tz }, newData, room);
     await recordUser(req, userEditAction(existing, newData), existing, { ...(existing || { tz }), ...newData });
+    notifyChange("user", existing._id);
 
     return res.status(200).json({
       ok: true,
@@ -729,12 +736,15 @@ const updateStoragePermissions = async (req, res) => {
     if (!existing || isSystemUser(existing) || isSystemTz(tz)) return notFound(res);
     if (!canManageTarget(req.actor, existing)) return forbidden(res);
 
+    const stale = checkVersion(existing, req, sanitize);
+    if (stale) return res.status(409).json(stale);
     const updated = await UserModelDef.update(
       { tz: existing.tz },
-      { storagePermissions: cleanPermissions },
+      { storagePermissions: cleanPermissions, updatedAt: new Date() },
       "active"
     );
     await recordUser(req, "permission_change", existing, { ...existing, storagePermissions: cleanPermissions });
+    notifyChange("user", existing._id);
 
     return res.status(200).json({
       ok: true,
@@ -769,8 +779,11 @@ const deleteU = async (req, res) => {
     if (!existing || isSystemUser(existing)) return notFound(res);
     if (!canManageTarget(req.actor, existing)) return forbidden(res);
 
+    const stale = checkVersion(existing, req, sanitize);
+    if (stale) return res.status(409).json(stale);
     const deleted = await UserModelDef.delete({ tz: existing.tz }, room);
     await recordUser(req, "delete", { ...existing, room }, null);
+    notifyChange("user", existing._id);
 
     return res.status(200).json({
       ok: true,
@@ -1376,8 +1389,13 @@ const changeRoom = async (req, res) => {
       Object.assign(raw, fields);
     }
 
-    await UserModelDef.create(raw, to);
+    const stale = checkVersion(user, req, sanitize);
+    if (stale) return res.status(409).json(stale);
+    raw.updatedAt = new Date();
+    const moved = await UserModelDef.create(raw, to);
     await UserModelDef.delete({ tz: user.tz }, from);
+    notifyChange("user", user._id);
+    notifyChange("user", moved?.result?._id);
     // Moving a user into the active room is the approval.
     await recordUser(req, to === "active" ? "approve" : "update", before, { ...raw, room: to });
     if (to === "active") {
@@ -1468,7 +1486,10 @@ const putPermissions = async (req, res) => {
     });
     if (!verdict.ok) return verdict.code === "FORBIDDEN" ? forbidden(res) : invalid(res, verdict.code);
 
+    const stale = checkVersion(user, req, sanitize);
+    if (stale) return res.status(409).json(stale);
     const patch = {
+      updatedAt: new Date(),
       permissionGrants: nextGrants,
       permissionRevokes: nextRevokes,
       permissionsUpdatedAt: new Date(),
@@ -1476,6 +1497,7 @@ const putPermissions = async (req, res) => {
     };
     await UserModelDef.update({ tz: user.tz }, patch, room);
     await recordUser(req, "permission_change", user, { ...user, ...patch });
+    notifyChange("user", user._id);
     raiseAlert("accessChanged", alertPerson(user), { change: "permissions", actorTz: req.actor?.tz });
 
     const after = { ...user, ...patch };
@@ -1511,13 +1533,17 @@ const putRole = async (req, res) => {
       if (error?.code === "UNKNOWN_ROLE") return invalid(res, "UNKNOWN_ROLE");
       throw error;
     }
+    const stale = checkVersion(user, req, sanitize);
+    if (stale) return res.status(409).json(stale);
     const { demoted, ...patch } = change;
+    patch.updatedAt = new Date();
     if (demoted) {
       patch.permissionsUpdatedAt = new Date();
       patch.permissionsUpdatedBy = permissionEditor(req.actor);
     }
     await UserModelDef.update({ tz: user.tz }, patch, room);
     await recordUser(req, "role_change", user, { ...user, ...patch });
+    notifyChange("user", user._id);
     raiseAlert("accessChanged", alertPerson(user), { change: "role", actorTz: req.actor?.tz });
 
     return res.status(200).json({ ok: true, role, demoted });
@@ -1534,9 +1560,10 @@ const unlockUser = async (req, res) => {
     if (!user) return notFound(res);
     if (!canManageTarget(req.actor, user)) return forbidden(res);
 
-    const patch = afterSuccess();
+    const patch = { ...afterSuccess(), updatedAt: new Date() };
     await UserModelDef.update({ tz: user.tz }, patch, room);
     await recordUser(req, "unlock", user, { ...user, ...patch });
+    notifyChange("user", user._id);
 
     return res.status(200).json({ ok: true });
   } catch (err) {
@@ -1698,10 +1725,11 @@ const   uploadPhoto = async (req, res) => {
 
     await UserModelDef.update(
       { tz: user.tz },
-      { photo: uploaded.secure_url },
+      { photo: uploaded.secure_url, updatedAt: new Date() },
       "active"
     );
     await recordUser(req, "update", user, { ...user, photo: uploaded.secure_url });
+    notifyChange("user", user._id);
 
     // The previous Drive file is removed only after the new link is stored,
     // so a failed upload never leaves the record pointing at a deleted file.
@@ -1761,10 +1789,11 @@ const deletePhoto = async (req, res) => {
     console.warn("Updating user record to remove photo URL");
     await UserModelDef.update(
       { tz: user.tz },
-      { photo: null },
+      { photo: null, updatedAt: new Date() },
       "active"
     );
     await recordUser(req, "update", user, { ...user, photo: null });
+    notifyChange("user", user._id);
     console.warn("User record updated, sending notification");
     await safeNotify({
       toRoles: ["ادارة"],

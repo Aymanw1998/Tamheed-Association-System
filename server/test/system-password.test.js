@@ -3,6 +3,7 @@
 // email every fifth failed sign-in. No database, no real email: every mail
 // goes to an in-memory stub. All IDs, addresses and passwords are synthetic.
 const assert = require("node:assert/strict");
+const live = require("./helpers/liveStubs");
 const fs = require("node:fs");
 const http = require("node:http");
 const path = require("node:path");
@@ -296,6 +297,7 @@ function loadController({ users = [], env = {}, sendThrows = false, sendHangs = 
     console: { log() {}, warn() {}, error() {} },
     process: { env: { ...process.env, SYSTEM_ADMIN_TZ: SYSTEM_TZ, SYSTEM_ADMIN_EMAIL: SYSTEM_EMAIL, ...env } },
     require(name) {
+      if (!Object.hasOwn(dependencies, name) && Object.hasOwn(live.deps, name)) return live.deps[name];
       assert.ok(Object.hasOwn(dependencies, name), `Unexpected dependency: ${name}`);
       return dependencies[name];
     },
@@ -882,6 +884,7 @@ function loadEnsureSystemAdmin({ users = [], env = {}, smtp = true } = {}) {
       SYSTEM_ADMIN_TZ: SYSTEM_TZ, SYSTEM_ADMIN_PASSWORD: "test-only-pass-1", SYSTEM_ADMIN_EMAIL: SYSTEM_EMAIL, ...env,
     } },
     require(name) {
+      if (!Object.hasOwn(dependencies, name) && Object.hasOwn(live.deps, name)) return live.deps[name];
       assert.ok(Object.hasOwn(dependencies, name), `Unexpected dependency: ${name}`);
       return dependencies[name];
     },

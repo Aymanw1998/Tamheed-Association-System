@@ -2,6 +2,7 @@
 // a role or a permission: putU, postU, register, changeRoom, deleteU, unlock,
 // and the automatic lock in login.
 const assert = require("node:assert/strict");
+const live = require("./helpers/liveStubs");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
@@ -107,6 +108,7 @@ function loadController(users, overrides = {}) {
     console: { log() {}, warn() {}, error() {} },
     process,
     require(name) {
+      if (!Object.hasOwn(dependencies, name) && Object.hasOwn(live.deps, name)) return live.deps[name];
       assert.ok(Object.hasOwn(dependencies, name), `Unexpected dependency: ${name}`);
       return dependencies[name];
     },
@@ -386,7 +388,8 @@ test("putU strips role, permission, vehicle, lockout and session fields from an 
     },
   });
   assert.equal(out.statusCode, 200);
-  const saved = stored(users, GUIDE_USER.tz);
+  const { updatedAt, ...saved } = stored(users, GUIDE_USER.tz);
+  assert.ok(updatedAt, "the save stamps updatedAt");
   assert.deepEqual(plain(saved), plain({ ...GUIDE_USER, firstname: "Renamed" }));
   assert.equal(audit.find({ action: "role_change" }).length, 0);
   assert.equal(audit.find({ action: "permission_change" }).length, 0);
@@ -1087,4 +1090,25 @@ test("a refused permission change raises nothing", async () => {
   await call("putPermissions", GUIDE_USER, { params: { tz: HELPER_USER.tz }, body: { grants: [], revokes: [] } }, createUsers(seed()), spy.deps);
   await flush();
   assert.equal(spy.calls.length, 0);
+});
+
+test("putU stamps updatedAt, announces the change, and refuses a stale baseVersion with 409 without secrets", async () => {
+  const users = createUsers(seed());
+  const target = stored(users, GUIDE_USER.tz);
+  target.updatedAt = new Date("2026-10-25T10:00:00.000Z");
+  target.password = "stored-secret";
+  live.changes.length = 0;
+
+  const stale = await call("putU", ADMIN_USER, { params: { tz: GUIDE_USER.tz }, body: { firstname: "Late", baseVersion: "2026-10-25T09:00:00.000Z" } }, users);
+  assert.equal(stale.res.statusCode, 409);
+  assert.equal(stale.body.code, "STALE");
+  assert.equal(stale.body.current.tz, GUIDE_USER.tz);
+  assert.ok(!JSON.stringify(stale.body).includes("stored-secret"), "the current item never carries the password");
+  assert.equal(stored(users, GUIDE_USER.tz).firstname, GUIDE_USER.firstname);
+  assert.deepEqual(live.changes, []);
+
+  const ok = await call("putU", ADMIN_USER, { params: { tz: GUIDE_USER.tz }, body: { firstname: "Fresh", baseVersion: "2026-10-25T10:00:00.000Z" } }, users);
+  assert.equal(ok.res.statusCode, 200);
+  assert.ok(new Date(stored(users, GUIDE_USER.tz).updatedAt).getTime() > Date.parse("2026-10-25T10:00:00.000Z"));
+  assert.deepEqual(live.changes, [["user", GUIDE_USER._id]]);
 });

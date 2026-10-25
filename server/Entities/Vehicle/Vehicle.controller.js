@@ -8,6 +8,8 @@ const { can, isSystemTz, actorRef, actorDisplayName } = require("../../utils/per
 const { inspectDocument, buildDocumentName } = require("../../utils/vehicleFiles.js");
 const { lookupByPlate } = require("../../services/vehicleLookup.service.js");
 const { audit: auditLog } = require("../../utils/audit.js");
+const { checkVersion } = require("../../middleware/lockGuard.js");
+const { notifyChange } = require("../../services/liveHub.js");
 
 const OBJECT_ID = /^[a-f0-9]{24}$/i;
 const SERVER_ERROR = "حدث خطأ غير متوقع، حاول مرة أخرى";
@@ -82,6 +84,7 @@ async function audit(vehicle, req, action, { changes = [], reason = "", details 
 async function saveVehicle(vehicle, patch, actor) {
   const data = { ...patch, updatedBy: actorId(actor), updatedAt: new Date().toISOString() };
   await VehicleModelDef.update({ _id: String(vehicle._id) }, data);
+  notifyChange("vehicle", String(vehicle._id));
   return { ...vehicle, ...data };
 }
 
@@ -286,6 +289,7 @@ const create = async (req, res) => {
     });
     const vehicle = created.result;
     await audit(vehicle, req, "create", { details: { plate: vehicle.plate, type: vehicle.type } });
+    notifyChange("vehicle", String(vehicle._id));
     const names = await loadUserNames();
     return send(res, 201, { ok: true, vehicle: toClientVehicle(vehicle, rules.todayInJerusalem(), names) });
   } catch (err) {
@@ -299,6 +303,8 @@ const update = async (req, res) => {
     const vehicle = await findVehicle(req.params.id);
     if (!vehicle) return fail(res, 404, "المركبة غير موجودة");
     if (!requireNotArchived(res, vehicle)) return;
+    const stale = checkVersion(vehicle, req, (v) => toClientVehicle(v, rules.todayInJerusalem()));
+    if (stale) return send(res, 409, stale);
 
     const data = readVehicleBody({ ...vehicle, ...req.body, trailer: { ...vehicle.trailer, ...(req.body?.trailer || {}) } });
     if (data.status === "archived") return fail(res, 400, "استخدم زر الأرشفة لأرشفة المركبة");
@@ -376,6 +382,8 @@ const remove = async (req, res) => {
     if (rules.normalizePlate(req.body?.confirmPlate) !== vehicle.plate) {
       return fail(res, 400, "اكتب رقم اللوحة بشكل صحيح لتأكيد الحذف", { errors: { confirmPlate: "رقم اللوحة غير مطابق" } });
     }
+    const stale = checkVersion(vehicle, req, (v) => toClientVehicle(v, rules.todayInJerusalem()));
+    if (stale) return send(res, 409, stale);
 
     const documents = vehicle.documents || [];
     let failed = 0;
@@ -399,6 +407,7 @@ const remove = async (req, res) => {
 
     await VehicleAuditDef.delete({ vehicleId: String(vehicle._id) });
     await VehicleModelDef.delete({ _id: String(vehicle._id) });
+    notifyChange("vehicle", String(vehicle._id));
     // Only the fact of the delete: nothing else about the vehicle is kept.
     await auditLog.record(req, {
       module: "vehicles", action: "delete", targetType: "vehicle",

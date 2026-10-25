@@ -6,8 +6,10 @@ const { loadActor, requirePermission } = require("../../middleware/permissionMid
 const { rateLimit } = require("../../middleware/rateLimit");
 const { MAX_DOCUMENT_BYTES } = require("../../utils/vehicleFiles");
 const { aiEnabled } = require("../../utils/aiFeature");
+const { requireFreeOrMine } = require("../../middleware/lockGuard");
 
 const router = express.Router();
+const lockedVehicle = requireFreeOrMine((req) => `vehicle:${req.params.id}`);
 const { requireVehiclePermission } = controller;
 
 // Each lookup makes an outbound request, so keep it modest.
@@ -48,30 +50,30 @@ router.post("/extract", requireVehiclePermission("compliance"), whenAiEnabled, e
 router.get("/", requireVehiclePermission("view"), controller.getAll);
 router.post("/", requireVehiclePermission("edit"), controller.create);
 router.get("/:id", requireVehiclePermission("view"), controller.getById);
-router.put("/:id", requireVehiclePermission("edit"), controller.update);
+router.put("/:id", requireVehiclePermission("edit"), lockedVehicle, controller.update);
 router.get("/:id/audit", requireVehiclePermission("view"), controller.getAudit);
 
 // Permanent deletion needs vehicles.delete (not a delegable vehicle permission).
-router.delete("/:id", requirePermission("vehicles.delete"), controller.remove); // = controller.DELETE_KEY
-router.post("/:id/archive", requireVehiclePermission("archive"), controller.archive);
-router.post("/:id/restore", requireVehiclePermission("archive"), controller.restore);
+router.delete("/:id", requirePermission("vehicles.delete"), lockedVehicle, controller.remove); // = controller.DELETE_KEY
+router.post("/:id/archive", requireVehiclePermission("archive"), lockedVehicle, controller.archive);
+router.post("/:id/restore", requireVehiclePermission("archive"), lockedVehicle, controller.restore);
 
-router.post("/:id/licenses", requireVehiclePermission("compliance"), controller.addLicense);
-router.put("/:id/licenses/:recordId", requireVehiclePermission("compliance"), controller.updateLicense);
-router.post("/:id/licenses/:recordId/void", requireVehiclePermission("compliance"), controller.voidLicense);
+router.post("/:id/licenses", requireVehiclePermission("compliance"), lockedVehicle, controller.addLicense);
+router.put("/:id/licenses/:recordId", requireVehiclePermission("compliance"), lockedVehicle, controller.updateLicense);
+router.post("/:id/licenses/:recordId/void", requireVehiclePermission("compliance"), lockedVehicle, controller.voidLicense);
 
-router.post("/:id/tests", requireVehiclePermission("compliance"), controller.addTest);
-router.put("/:id/tests/:recordId", requireVehiclePermission("compliance"), controller.updateTest);
-router.post("/:id/tests/:recordId/void", requireVehiclePermission("compliance"), controller.voidTest);
-router.put("/:id/next-test", requireVehiclePermission("compliance"), controller.setNextTestDate);
+router.post("/:id/tests", requireVehiclePermission("compliance"), lockedVehicle, controller.addTest);
+router.put("/:id/tests/:recordId", requireVehiclePermission("compliance"), lockedVehicle, controller.updateTest);
+router.post("/:id/tests/:recordId/void", requireVehiclePermission("compliance"), lockedVehicle, controller.voidTest);
+router.put("/:id/next-test", requireVehiclePermission("compliance"), lockedVehicle, controller.setNextTestDate);
 
-router.post("/:id/policies", requireVehiclePermission("compliance"), controller.addPolicy);
-router.put("/:id/policies/:recordId", requireVehiclePermission("compliance"), controller.updatePolicy);
-router.post("/:id/policies/:recordId/cancel", requireVehiclePermission("compliance"), controller.cancelPolicy);
+router.post("/:id/policies", requireVehiclePermission("compliance"), lockedVehicle, controller.addPolicy);
+router.put("/:id/policies/:recordId", requireVehiclePermission("compliance"), lockedVehicle, controller.updatePolicy);
+router.post("/:id/policies/:recordId/cancel", requireVehiclePermission("compliance"), lockedVehicle, controller.cancelPolicy);
 
-router.post("/:id/documents", requireVehiclePermission("documents"), uploadRateLimit, uploadOne, controller.uploadDocument);
-router.put("/:id/documents/:docId", requireVehiclePermission("documents"), controller.updateDocument);
-router.delete("/:id/documents/:docId", requireVehiclePermission("documents"), controller.removeDocument);
+router.post("/:id/documents", requireVehiclePermission("documents"), lockedVehicle, uploadRateLimit, uploadOne, controller.uploadDocument);
+router.put("/:id/documents/:docId", requireVehiclePermission("documents"), lockedVehicle, controller.updateDocument);
+router.delete("/:id/documents/:docId", requireVehiclePermission("documents"), lockedVehicle, controller.removeDocument);
 router.get("/:id/documents/:docId/download", requireVehiclePermission("documents"), controller.downloadDocument);
 
 module.exports = router;
