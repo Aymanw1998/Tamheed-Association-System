@@ -214,5 +214,6 @@ pm2 restart tamheed --update-env
 | אין התראות בטלפון | שהמפתחות ב-`server/config/.env` מוגדרים, ושהרצת `pm2 restart tamheed --update-env` |
 | `querySrv ECONNREFUSED` / אין חיבור ל-DB | ה-IP של השרת לא נמצא ב-Network Access של Atlas |
 | ההתראות החיות לא מגיעות | שהבלוק `live/stream` קיים בקובץ ה-nginx |
+| אתר הספורט לא מתעדכן מיד | ש-nginx לא מאגר (`proxy_buffering off`) את `/api/sport-portal/live`, כמו בשאר הזרמים החיים: הבלוק קיים בקובץ ה-nginx |
 | חיבור Drive נכשל | `GOOGLE_REDIRECT_URI` זהה בדיוק בקובץ `.env` וב-Google Console |
 | אף אחד לא מצליח להיכנס אחרי ההעלאה | `PASSWORD_ENC_KEY_HEX` לא זהה לערך הישן |

@@ -128,7 +128,8 @@ const running = new Map();
 
 // send(item) resolves to { ok, status, message?, overwritten? }.
 //  ok                      -> removed from the queue
-//  401, no response (0), 408, 429, 5xx -> kept, flush stops (session expired, offline, server busy)
+//  401, no response (0), 408, 423, 429, 5xx -> kept, flush stops (session expired, offline, server busy,
+//                                          item held by someone else: retried later)
 //  any other error status              -> marked failed, flush continues
 export function flush(userTz, send) {
   const k = key(userTz);
@@ -143,7 +144,7 @@ export function flush(userTz, send) {
         try { await db().remove(row.id); } catch {}
         out.sent += 1;
         for (const o of res.overwritten || []) if (!out.overwritten.includes(o)) out.overwritten.push(o);
-      } else if (!res || !res.status || res.status === 401 || res.status === 408 || res.status === 429 || res.status >= 500) {
+      } else if (!res || !res.status || res.status === 401 || res.status === 408 || res.status === 423 || res.status === 429 || res.status >= 500) {
         break;
       } else {
         const message = res.message || "تعذّر إرسال الحضور";

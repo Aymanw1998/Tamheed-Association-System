@@ -125,7 +125,7 @@ test("an online save drops the stale queued item, pending or failed", async () =
   expect(await pending("A")).toEqual([]);
 });
 
-test.each([503, 500, 408, 429])("a %i keeps the item and stops", async (status) => {
+test.each([503, 500, 408, 423, 429])("a %i keeps the item and stops", async (status) => {
   await enqueue("A", item(1));
   await enqueue("A", item(2));
   const send = jest.fn(async () => ({ ok: false, status }));

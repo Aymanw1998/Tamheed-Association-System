@@ -3,6 +3,7 @@ const auth = require("./SportPortal.auth");
 const portal = require("./SportPortal.controller");
 const { rateLimit } = require("../../middleware/rateLimit");
 const push = require("../Push/Push.route");
+const { createSportLive } = require("./SportPortal.live");
 
 const router = express.Router();
 
@@ -14,6 +15,8 @@ router.post("/verify", loginLimit, auth.verify);
 router.post("/logout", auth.logout);
 router.get("/me", auth.requireSportStudent, portal.me);
 router.get("/photo", auth.requireSportStudent, portal.photo);
+// SSE: tells the open sport site to reload /me when staff change the player.
+router.get("/live", auth.requireSportStudent, createSportLive());
 
 const pushHandlers = push.subscribeHandlers({ store: push.store, owner: push.sportOwner, source: "SportPush" });
 router.post("/push/subscribe", auth.requireSportStudent, pushHandlers.subscribe);

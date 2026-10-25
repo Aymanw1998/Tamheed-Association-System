@@ -12,6 +12,7 @@ import { clearApiCache } from "./pwa/clearApiCache";
 import { unsubscribeSport } from "./pwa/pushOptIn";
 import { hasSeenGuide, markGuideSeen } from "./guide/guideSteps.js";
 import { attachRefresh } from "./refreshOnReturn";
+import { openLiveMe } from "./liveMe";
 
 // Session ended: forget cached answers and stop pushes for this device (best effort, 3s cap).
 async function endSession() {
@@ -54,7 +55,8 @@ export default function App() {
   // changes the staff made (stats, attendance, name, photo) show without signing in again.
   const stateRef = useRef(state);
   stateRef.current = state;
-  useEffect(() => attachRefresh(async () => {
+  const reloadQuietly = useRef(null);
+  reloadQuietly.current = async () => {
     if (stateRef.current !== "in") return;
     try {
       const r = await getMe();
@@ -66,7 +68,16 @@ export default function App() {
     } catch {
       // Keep what is on screen; the next return tries again.
     }
-  }), []);
+  };
+  useEffect(() => attachRefresh(() => reloadQuietly.current()), []);
+
+  // While signed in, the server tells us at once when staff change this player.
+  // The stream closes on logout or 401 (state leaves "in") and reopens with backoff.
+  const signedIn = state === "in";
+  useEffect(() => {
+    if (!signedIn) return undefined;
+    return openLiveMe(() => reloadQuietly.current());
+  }, [signedIn]);
 
   const onLogout = async () => {
     // Unsubscribe first: it needs the sport cookie that logout removes.

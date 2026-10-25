@@ -2096,3 +2096,41 @@ The new screens were not checked in a browser.
 **Requesting Codex review.** No live Codex connection; this entry is the handoff.
 
 **Delivery state:** committed with the owner's approval; not pushed.
+
+## 2026-10-25: Stage A, item locks, stale-save protection and live updates
+
+**Owner request:**
+- Stop two people from editing the same item at once: the second person sees who holds it and can only read.
+- Refuse a save made from an out-of-date screen, instead of overwriting the other person's work.
+- Show changes made by others on every open screen within 2 seconds, and on the player's sport site.
+
+**Changes (81c85a1..HEAD, plus this commit):**
+- **Server, locks and live hub:**
+  - `services/locks.js`, `Entities/Lock/Lock.model.js`, `Lock.route.js` and `middleware/lockGuard.js` add tab-owned locks (heartbeat 20 s, expiry 120 s, admin release) and the stale-save version check.
+  - `services/liveHub.js` is the in-memory fan-out: `change` and `lock` events to staff, `me` to players. `Entities/Live/Live.route.js` streams them.
+  - `Entities/SportPortal/SportPortal.live.js` (new) and `SportPortal.route.js` add `GET /api/sport-portal/live`, an SSE stream for the signed-in student.
+  - Write paths refuse with 423 `LOCKED` or 409 `STALE` and announce their changes: `Attendance`, `Lesson`, `Report`, `Sport` (and `SportAttendance`, `SportLesson`), `Student`, `User` and `Vehicle` controllers, models and routes, plus `Entities/api.js` and `server.js`.
+  - `services/assistant/actionRunner.js`: assistant actions obey locks.
+- **Client (system):**
+  - `locks/`: `useItemLock`, `LockedScreen`, `ReadOnlyArea`, `StillHereDialog`, `SaveNotice`, `staleSave`, `clientId`, `forceRelease`, `withLock`, `useLiveRefresh`, `useReloadOnUnblock`, `LiveEventsProvider`.
+  - `WebServer/services/live/liveStream.js` and `WebServer/services/api.jsx`, plus the `functions*` services (attendance, lesson, report, sport, student, user, vehicle), send `X-Client-Id` and read the new statuses.
+  - Edit and list screens: Attendance, Lesson, Report, Student, User, Vehicle, and the Sport tabs and dialogs.
+  - `pwa/attendanceQueue.js` (this commit): 423 is a transient status, so a locked sheet stays queued and is retried later.
+- **Sport site (this commit):** `sport/src/liveMe.js` (new) opens an `EventSource` to `/api/sport-portal/live` with backoff (1 s up to 30 s) and a single reload on reopen; `App.jsx` reloads `/me` on `me` and closes the stream on logout or 401.
+- **Deploy and docs (this commit):** `deploy/nginx-tamheed.conf` now has an SSE location (no buffering, 1 h read timeout) for `/api/live/`, `/api/ai/chat` and `/api/sport-portal/live` in both server blocks. `deploy/DEPLOY.md` has a troubleshooting row for it.
+- **Tests:** `server/test/` (`locks`, `lock-guard`, `live-hub`, `sport-live`, and updated suites for each write path), `client/src/locks/*.test.js`, `EditStudent.lock.test.js`, `attendanceQueue.test.js`, `sport/src/liveMe.test.js`, `sport/src/App.live.test.js`.
+
+**Verification:**
+- server 882/882, client 630/630, sport 56/56.
+- `CI=false` client build and `CI=true` sport build both compile clean.
+- nginx was not reloaded and the SSE locations were not tried against a real nginx.
+
+**Open notes for review:**
+- The live hub is in memory, so `me`, `change` and `lock` events reach only streams on the same server process. A second process (cluster, pm2 instances) would miss them; staff streams also poll the database every 10 s, the sport stream does not.
+- Pending queued attendance that hits 423 retries only on the next flush trigger (reconnect or the queue's own timer); there is no separate message for it.
+- The sport stream is not capped in length and is not re-checked after the cookie expires; a stream stays open until the client or proxy closes it (nginx cap is 1 h, then the client reopens).
+- No browser or real-device test of the lock screen, the idle prompt, or the sport live update with a real EventSource.
+
+**Requesting Codex review.** No live Codex connection; this entry is the handoff.
+
+**Delivery state:** committed with the owner's approval; not pushed.
