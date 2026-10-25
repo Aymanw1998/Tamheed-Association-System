@@ -158,6 +158,7 @@ async function startApp() {
     const bearer = (req.headers.authorization || "").replace(/^Bearer /, "");
     const tz = req.headers["x-tz"] || bearer;
     if (!tz) return res.status(401).json({ code: "NO_TOKEN" });
+    if (!USERS[tz]) return res.status(401).json({ code: "TOKEN_INVALID" });
     req.user = { tz };
     return next();
   };
@@ -209,6 +210,23 @@ test("routes: release accepts the client id and token from the body (sendBeacon)
     });
     assert.equal(res.status, 200);
     assert.equal((await call("POST", "/acquire", { tz: ADMIN_U.tz, client: "tab-2", body: key })).status, 200);
+  } finally { server.close(); }
+});
+
+test("routes: a beacon release with a bad token is 401 and a non-owner client id leaves the lock held", async () => {
+  const { server, call, base } = await startApp();
+  try {
+    const key = { key: "student:79" };
+    assert.equal((await call("POST", "/acquire", { tz: GUIDE_U.tz, client: "tab-1", body: key })).status, 200);
+    const beacon = (payload) => fetch(`${base}/api/locks/release`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ...key, ...payload }),
+    });
+    assert.equal((await beacon({ clientId: "tab-1", token: "not-a-token" })).status, 401);
+    assert.equal((await call("POST", "/acquire", { tz: ADMIN_U.tz, client: "tab-2", body: key })).status, 423, "still held");
+    assert.equal((await beacon({ clientId: "tab-2", token: ADMIN_U.tz })).status, 200);
+    assert.equal((await call("POST", "/acquire", { tz: ADMIN_U.tz, client: "tab-2", body: key })).status, 423, "a non-owner release changes nothing");
   } finally { server.close(); }
 });
 

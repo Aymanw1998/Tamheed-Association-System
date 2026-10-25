@@ -7,7 +7,7 @@ const { StudentModelDef } = require("../Student/Student.model");
 const { SportLessonModelDef } = require("../Sport/SportLesson.model");
 const { conflictsInRoom9 } = require("../../utils/lessonConflict");
 const { createStudentScope, mergeRoster, scopeLesson } = require("../../utils/studentScope");
-const { checkVersion } = require("../../middleware/lockGuard");
+const { checkVersion, editorStamp } = require("../../middleware/lockGuard");
 const { notifyChange } = require("../../services/liveHub");
 
 // Student scope: null (students.viewAll, today's behaviour) or the Set of
@@ -327,7 +327,7 @@ const putOne = async (req, res) => {
 
     const updated = await LessonModelDef.update(
       { _id: id },
-      { ...next, updatedAt: new Date() }
+      { ...next, updatedAt: new Date(), ...editorStamp(req) }
     );
     await recordLesson(req, "update", current, { ...current, ...next });
     notifyChange("lesson", id);
@@ -388,7 +388,7 @@ const addToList = async (req, res) => {
 
     await LessonModelDef.update(
       { _id: id },
-      { list_students: updatedList, updatedAt: new Date() }
+      { list_students: updatedList, updatedAt: new Date(), ...editorStamp(req) }
     );
     await recordLesson(req, "update", lesson, { ...lesson, list_students: updatedList });
     notifyChange("lesson", id);
@@ -424,7 +424,7 @@ const removeFromList = async (req, res) => {
 
     await LessonModelDef.update(
       { _id: id },
-      { list_students: updated, updatedAt: new Date() }
+      { list_students: updated, updatedAt: new Date(), ...editorStamp(req) }
     );
     await recordLesson(req, "update", lesson, { ...lesson, list_students: updated });
     notifyChange("lesson", id);

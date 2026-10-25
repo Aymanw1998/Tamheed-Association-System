@@ -6,7 +6,7 @@ const { LessonModelDef } = require("../Lesson/Lesson.model");
 const { UserModelDef } = require("../User/User.model");
 const { isSystemTz, can } = require("../../utils/permissions");
 const { createStudentScope } = require("../../utils/studentScope");
-const { checkVersion } = require("../../middleware/lockGuard");
+const { checkVersion, editorStamp } = require("../../middleware/lockGuard");
 const { notifyChange, liveHub } = require("../../services/liveHub");
 
 // Who the actor may see: null (students.viewAll) or a Set of student _ids.
@@ -299,6 +299,7 @@ const putS = async (req, res) => {
     const stale = checkVersion(existing.result[0], req);
     if (stale) return res.status(409).json(stale);
     newData.updatedAt = new Date();
+    Object.assign(newData, editorStamp(req));
     const updated = await StudentModelDef.update(
       { tz },
       newData

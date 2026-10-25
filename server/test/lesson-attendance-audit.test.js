@@ -346,6 +346,7 @@ test("lesson writes stamp updatedAt, announce the change, and a stale form save 
   assert.equal(stale.statusCode, 409);
   assert.equal(stale.body.code, "STALE");
   assert.equal(stale.body.current.name, "A");
+  assert.equal(stale.body.current.updatedByName, "Ad Min", "the 409 names the last editor");
   assert.deepEqual(live.changes, []);
   assert.equal(lessons.all()[0].name, "A");
 
@@ -365,7 +366,7 @@ test("attendance bulk-save: refused (409) on top of an older sheet, otherwise an
   const lessons = createStore([{ _id: "lesson-1", name: "Math", date: { day: 2, startMin: 600, endMin: 645 }, list_students: ["s1"] }]);
   const attendance = createStore([
     { lesson: "lesson-1", student: "s1", dateKey: 20261025, status: "حاضر", notes: "", updatedAt: new Date("2026-10-25T10:00:00.000Z") },
-    { lesson: "lesson-1", student: "s2", dateKey: 20261025, status: "حاضر", notes: "", updatedAt: new Date("2026-10-25T10:05:00.000Z") },
+    { lesson: "lesson-1", student: "s2", dateKey: 20261025, status: "حاضر", notes: "", updatedAt: new Date("2026-10-25T10:05:00.000Z"), updatedBy: "u9", updatedByName: "Sara Lee" },
   ]);
   const audit = auditStub();
   const controller = load("Attendance/Attendance.controller.js", {
@@ -390,6 +391,7 @@ test("attendance bulk-save: refused (409) on top of an older sheet, otherwise an
   await controller.bulkSave(req({ body: body("2026-10-25T10:00:00.000Z") }), stale);
   assert.equal(stale.statusCode, 409);
   assert.equal(stale.body.code, "STALE");
+  assert.equal(stale.body.current.updatedByName, "Sara Lee", "the newest row names the editor");
   assert.equal(attendance.all().find((r) => r.student === "s1").status, "حاضر", "nothing written");
   assert.deepEqual(live.changes, []);
 
@@ -397,5 +399,6 @@ test("attendance bulk-save: refused (409) on top of an older sheet, otherwise an
   await controller.bulkSave(req({ body: body("2026-10-25T10:05:00.000Z") }), ok);
   assert.equal(ok.statusCode, 200);
   assert.deepEqual(live.changes, [["attendance", "lesson-1:2026-10-25"]]);
+  assert.equal(attendance.all().find((r) => r.student === "s1").updatedByName, "Ad Min");
   assert.ok(new Date(attendance.all().find((r) => r.student === "s1").updatedAt) > new Date("2026-10-25T10:05:00.000Z"));
 });

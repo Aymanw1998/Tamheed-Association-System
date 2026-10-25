@@ -388,7 +388,9 @@ test("putU strips role, permission, vehicle, lockout and session fields from an 
     },
   });
   assert.equal(out.statusCode, 200);
-  const { updatedAt, ...saved } = stored(users, GUIDE_USER.tz);
+  const { updatedAt, updatedBy, updatedByName, ...saved } = stored(users, GUIDE_USER.tz);
+  assert.equal(updatedByName, "Ad Min");
+  assert.ok(updatedBy);
   assert.ok(updatedAt, "the save stamps updatedAt");
   assert.deepEqual(plain(saved), plain({ ...GUIDE_USER, firstname: "Renamed" }));
   assert.equal(audit.find({ action: "role_change" }).length, 0);

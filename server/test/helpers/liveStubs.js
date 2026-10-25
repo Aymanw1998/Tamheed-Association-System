@@ -4,7 +4,7 @@
 // `students` records every liveHub.toStudents(ids, type) call as
 // [[ids as strings], type]. checkVersion is the real one; route lock checks
 // pass (the guard itself is tested in lock-guard.test.js).
-const { checkVersion } = require("../../middleware/lockGuard");
+const { checkVersion, editorStamp } = require("../../middleware/lockGuard");
 
 const changes = [];
 const students = [];
@@ -13,7 +13,7 @@ const liveHub = { toStudents: (ids, type) => { students.push([Array.from(ids || 
 const requireFreeOrMine = () => (req, res, next) => next();
 const deps = {};
 for (const suffix of ["", ".js"]) {
-  deps[`../../middleware/lockGuard${suffix}`] = { checkVersion, requireFreeOrMine };
+  deps[`../../middleware/lockGuard${suffix}`] = { checkVersion, editorStamp, requireFreeOrMine };
   deps[`../../services/liveHub${suffix}`] = { notifyChange, liveHub };
 }
 

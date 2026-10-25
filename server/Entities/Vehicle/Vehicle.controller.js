@@ -4,11 +4,11 @@ const { UserModelDef } = require("../User/User.model.js");
 const googleDrive = require("../../services/googleDrive.service.js");
 const { logWithSource } = require("../../middleware/logger.js");
 const rules = require("../../utils/vehicleRules.js");
-const { can, isSystemTz, actorRef, actorDisplayName } = require("../../utils/permissions.js");
+const { can, isSystemTz, actorRef, actorDisplayName, SYSTEM_ACTOR_NAME } = require("../../utils/permissions.js");
 const { inspectDocument, buildDocumentName } = require("../../utils/vehicleFiles.js");
 const { lookupByPlate } = require("../../services/vehicleLookup.service.js");
 const { audit: auditLog } = require("../../utils/audit.js");
-const { checkVersion } = require("../../middleware/lockGuard.js");
+const { checkVersion, editorStamp } = require("../../middleware/lockGuard.js");
 const { notifyChange } = require("../../services/liveHub.js");
 
 const OBJECT_ID = /^[a-f0-9]{24}$/i;
@@ -82,7 +82,7 @@ async function audit(vehicle, req, action, { changes = [], reason = "", details 
 }
 
 async function saveVehicle(vehicle, patch, actor) {
-  const data = { ...patch, updatedBy: actorId(actor), updatedAt: new Date().toISOString() };
+  const data = { ...patch, updatedBy: actorId(actor), updatedByName: actor?.isSystem ? SYSTEM_ACTOR_NAME : String(actor?.name ?? ""), updatedAt: new Date().toISOString() };
   await VehicleModelDef.update({ _id: String(vehicle._id) }, data);
   notifyChange("vehicle", String(vehicle._id));
   return { ...vehicle, ...data };

@@ -30,6 +30,9 @@ const LessonModelDef = {
 
         room: { type: "string", required: true },
 
+        updatedBy: { type: "string", required: false },
+        updatedByName: { type: "string", required: false },
+
         createdAt: {
         type: "date",
         required: false,

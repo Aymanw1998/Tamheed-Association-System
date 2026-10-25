@@ -7,7 +7,7 @@ const { audit } = require("../../utils/audit");
 const { isSystemTz, SYSTEM_ACTOR_NAME } = require("../../utils/permissions");
 const { createStudentScope } = require("../../utils/studentScope");
 const { ABSENT_STATUS, AUTO_ABSENCE_NOTE } = require("../../utils/attendanceMarks");
-const { checkVersion } = require("../../middleware/lockGuard");
+const { checkVersion, editorStamp } = require("../../middleware/lockGuard");
 const { notifyChange } = require("../../services/liveHub");
 
 // Student scope: null (students.viewAll) or the Set of visible student _ids.
@@ -249,7 +249,7 @@ const bulkSave = async (req, res) => {
       return at > max ? at : max;
     }, 0);
     const lastRow = (previous?.result || []).find((row) => row.updatedAt && new Date(row.updatedAt).getTime() === newest);
-    const stale = newest ? checkVersion({ updatedAt: new Date(newest), updatedBy: lastRow?.updatedBy }, req) : null;
+    const stale = newest ? checkVersion({ updatedAt: new Date(newest), updatedBy: lastRow?.updatedBy, updatedByName: lastRow?.updatedByName }, req) : null;
     if (stale) return res.status(409).json(stale);
 
     const results = await Promise.all(
@@ -269,7 +269,7 @@ const bulkSave = async (req, res) => {
             notes: item.notes ?? "",
             // Saved by a person: no longer a nightly automatic absence.
             auto: false,
-            updatedBy: actorId,
+            ...editorStamp(req),
             updatedAt: new Date(),
           }
         )

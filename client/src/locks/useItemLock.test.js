@@ -9,7 +9,10 @@ jest.mock("../WebServer/services/api", () => ({
   getAuthToken: () => "tok",
 }));
 
+jest.mock("../journey/demoMode", () => ({ __esModule: true, isDemo: jest.fn(() => false) }));
+
 import api from "../WebServer/services/api";
+import { isDemo } from "../journey/demoMode";
 import { liveEvents } from "../WebServer/services/live/liveStream";
 import useItemLock from "./useItemLock";
 import { getClientId } from "./clientId";
@@ -35,6 +38,7 @@ const calls = (path) => api.post.mock.calls.filter((c) => c[0] === path);
 beforeEach(() => {
   jest.useFakeTimers();
   api.post.mockReset();
+  isDemo.mockReturnValue(false);
 });
 afterEach(async () => {
   if (root) await act(async () => root.unmount());
@@ -119,6 +123,46 @@ test("pagehide sends a beacon with the client id in the body", async () => {
   expect(navigator.sendBeacon).toHaveBeenCalledTimes(1);
   expect(navigator.sendBeacon.mock.calls[0][0]).toBe("/api/locks/release");
   delete navigator.sendBeacon;
+});
+
+test("training mode makes no lock calls and reports held", async () => {
+  isDemo.mockReturnValue(true);
+  navigator.sendBeacon = jest.fn(() => true);
+  await mountHook();
+  expect(latest.status).toBe("held");
+  window.dispatchEvent(new Event("pagehide"));
+  await advance(60000);
+  await act(async () => root.unmount());
+  root = null;
+  expect(api.post).not.toHaveBeenCalled();
+  expect(navigator.sendBeacon).not.toHaveBeenCalled();
+  delete navigator.sendBeacon;
+});
+
+test("a changed key releases the old lock, shows loading, then holds the new one", async () => {
+  api.post.mockResolvedValue({ data: { ok: true } });
+  await mountHook("student:1");
+  expect(latest.status).toBe("held");
+  let finish;
+  api.post.mockImplementation((path) => (path === "/locks/acquire" ? new Promise((resolve) => { finish = resolve; }) : Promise.resolve({ data: {} })));
+  const seen = [];
+  const Spy = ({ lockKey }) => { const r = useItemLock(lockKey); seen.push(r.status); return null; };
+  await act(async () => root.render(<Spy lockKey="student:2" />));
+  expect(seen[0]).toBe("loading");
+  expect(seen.every((x) => x === "loading")).toBe(true);
+  expect(calls("/locks/release").map((c) => c[1].key)).toEqual(["student:1"]);
+  await act(async () => finish({ data: { ok: true } }));
+  expect(seen[seen.length - 1]).toBe("held");
+  expect(calls("/locks/acquire").map((c) => c[1].key)).toEqual(["student:1", "student:2"]);
+});
+
+test("a network or server error on acquire retries every 15 s instead of going readonly", async () => {
+  api.post.mockRejectedValueOnce(err(500, {}));
+  await mountHook();
+  expect(latest.status).toBe("loading");
+  api.post.mockResolvedValue({ data: { ok: true } });
+  await advance(15000);
+  expect(latest.status).toBe("held");
 });
 
 test("two different sessionStorage values give different client ids", () => {

@@ -80,6 +80,9 @@ const UserModelDef = {
     lockedAt: { type: 'date', required: false, default: null },
     resetOtpLockedUntil: { type: 'date', required: false, default: null },
 
+    updatedBy: { type: 'string', required: false },
+    updatedByName: { type: 'string', required: false },
+
     createdAt: {
       type: 'date',
       required: false,

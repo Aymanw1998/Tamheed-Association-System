@@ -9,7 +9,7 @@ export function withBaseVersion(body, openedDoc) {
 
 function copyText(text) {
   try {
-    if (navigator.clipboard?.writeText) return navigator.clipboard.writeText(text);
+    if (navigator.clipboard?.writeText) return Promise.resolve(navigator.clipboard.writeText(text)).catch(() => {});
   } catch {}
   return Promise.resolve();
 }

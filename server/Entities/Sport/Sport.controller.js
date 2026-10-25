@@ -10,7 +10,7 @@ const { LessonModelDef } = require("../Lesson/Lesson.model");
 const { ageOn, buildCard, israelToday, dayOfDate } = require("../../utils/sportCards");
 const { conflictsInRoom9 } = require("../../utils/lessonConflict");
 const { notifyCardChanged } = require("../../utils/cardPush");
-const { checkVersion } = require("../../middleware/lockGuard");
+const { checkVersion, editorStamp } = require("../../middleware/lockGuard");
 const { notifyChange, liveHub } = require("../../services/liveHub");
 
 const SERVER_ERROR = "حدث خطأ غير متوقع، حاول مرة أخرى";
@@ -356,8 +356,8 @@ async function saveLesson(req, res, current) {
     else { name = generatedName(date); nameGenerated = true; }
   }
   const saved = current
-    ? await SportLessonModelDef.updateExisting({ _id: current._id }, { name, nameGenerated, date, room: SPORT_ROOM, players, updatedAt: now })
-    : await SportLessonModelDef.create({ sportId, name, nameGenerated, date, room: SPORT_ROOM, players, createdAt: now, updatedAt: now });
+    ? await SportLessonModelDef.updateExisting({ _id: current._id }, { name, nameGenerated, date, room: SPORT_ROOM, players, updatedAt: now, ...editorStamp(req) })
+    : await SportLessonModelDef.create({ sportId, name, nameGenerated, date, room: SPORT_ROOM, players, createdAt: now, updatedAt: now, ...editorStamp(req) });
   const lesson = saved?.result;
   await record(req, current ? "update" : "create", "lesson", lesson, parsed.name, current || null);
   notifyChange("sportLesson", String(lesson._id));
@@ -405,7 +405,7 @@ const addLessonPlayer = handle("addLessonPlayer", async (req, res) => {
   let current = lesson;
   if (!inLesson(lesson, studentId)) {
     const players = [...(lesson.players || []), { studentId, joinedAt: now }];
-    current = (await SportLessonModelDef.updateExisting({ _id: lesson._id }, { players, updatedAt: now }))?.result;
+    current = (await SportLessonModelDef.updateExisting({ _id: lesson._id }, { players, updatedAt: now, ...editorStamp(req) }))?.result;
     await record(req, "update", "lesson", current, lesson.name, lesson);
     notifyChange("sportLesson", String(lesson._id));
   }
@@ -421,7 +421,7 @@ const removeLessonPlayer = handle("removeLessonPlayer", async (req, res) => {
   let current = lesson;
   if (inLesson(lesson, studentId)) {
     const players = (lesson.players || []).filter((p) => String(p.studentId) !== studentId);
-    current = (await SportLessonModelDef.updateExisting({ _id: lesson._id }, { players, updatedAt: new Date() }))?.result;
+    current = (await SportLessonModelDef.updateExisting({ _id: lesson._id }, { players, updatedAt: new Date(), ...editorStamp(req) }))?.result;
     await record(req, "update", "lesson", current, lesson.name, lesson);
     notifyChange("sportLesson", String(lesson._id));
   }
@@ -473,8 +473,8 @@ const saveAttendance = handle("saveAttendance", async (req, res) => {
   for (const [studentId, status] of latest) {
     const existing = rows(await SportAttendanceModelDef.get({ sportLessonId, studentId, date }))[0];
     if (existing && existing.status !== status && existing.updatedBy && String(existing.updatedBy) !== actorId) overwritten.push(studentId);
-    if (existing) await SportAttendanceModelDef.updateExisting({ _id: existing._id }, { status, updatedBy: actorId, updatedAt: now });
-    else await SportAttendanceModelDef.create({ sportLessonId, studentId, date, status, updatedBy: actorId, createdAt: now, updatedAt: now });
+    if (existing) await SportAttendanceModelDef.updateExisting({ _id: existing._id }, { status, ...editorStamp(req), updatedAt: now });
+    else await SportAttendanceModelDef.create({ sportLessonId, studentId, date, status, ...editorStamp(req), createdAt: now, updatedAt: now });
   }
   cardChanged([...latest.keys()]);
   await record(req, "update", "attendance", { _id: lesson._id, date, count: latest.size }, lesson.name);

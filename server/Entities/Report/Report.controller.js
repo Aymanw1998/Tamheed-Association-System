@@ -2,7 +2,7 @@ const { ReportModelDef } = require("./Report.model.js");
 const { logWithSource } = require("../../middleware/logger.js");
 const { can, actorRef } = require("../../utils/permissions.js");
 const { audit } = require("../../utils/audit.js");
-const { checkVersion } = require("../../middleware/lockGuard.js");
+const { checkVersion, editorStamp } = require("../../middleware/lockGuard.js");
 const { notifyChange } = require("../../services/liveHub.js");
 
 // req.actor comes from permissionMiddleware.loadActor.
@@ -269,7 +269,7 @@ const put = async (req, res) => {
     const stale = checkVersion(existing, req);
     if (stale) return res.status(409).json(stale);
 
-    const updateObj = { updatedAt: new Date() };
+    const updateObj = { updatedAt: new Date(), ...editorStamp(req) };
     if (date !== undefined) updateObj.date = toDate(date);
     if (attendance !== undefined) updateObj.attendance = Array.isArray(attendance) ? attendance : [];
     if (title !== undefined) updateObj.title = Array.isArray(title) ? title : [];

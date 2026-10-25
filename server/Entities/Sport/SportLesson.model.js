@@ -16,6 +16,8 @@ const SportLessonModelDef = {
         date: { type: "object", required: true },
         room: { type: "string", required: false, default: "9" },
         players: { type: "array", required: false, default: [] }, // [{ studentId, joinedAt }]
+        updatedBy: { type: "string", required: false },
+        updatedByName: { type: "string", required: false },
         createdAt: { type: "date", required: false },
         updatedAt: { type: "date", required: false },
     },

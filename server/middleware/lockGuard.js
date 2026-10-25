@@ -5,6 +5,7 @@
 //     based on an older `updatedAt` than the stored one.
 //   assertFree(key): for callers without a tab (the assistant): throws an
 //     Error with status 423 and `holder` when anyone holds the key.
+const { actorRef, SYSTEM_ACTOR_NAME } = require("../utils/permissions");
 const LOCKED_MESSAGE = "هذا العنصر مفتوح الآن لدى مستخدم آخر";
 
 function createLockGuard({ locks, logError = () => {} }) {
@@ -35,6 +36,19 @@ function createLockGuard({ locks, logError = () => {} }) {
   return { requireFreeOrMine, assertFree };
 }
 
+// Who made a form save: stored next to updatedAt so a STALE answer can say
+// who changed the item while the other person was away.
+function editorStamp(req) {
+  const actor = req?.actor;
+  if (!actor) return {};
+  const stamp = {};
+  const id = actorRef(actor, String(actor.id ?? ""));
+  const name = actor.isSystem ? SYSTEM_ACTOR_NAME : String(actor.name ?? "");
+  if (id) stamp.updatedBy = id;
+  if (name) stamp.updatedByName = name;
+  return stamp;
+}
+
 // `view` shapes the stored document for the client (e.g. drops secrets).
 function checkVersion(current, req, view = (doc) => doc) {
   const base = req?.body?.baseVersion;
@@ -63,4 +77,4 @@ const guard = createLockGuard({
   logError: (source, error) => require("./logger").logWithSource(source, error),
 });
 
-module.exports = { ...guard, checkVersion, createLockGuard, LOCKED_MESSAGE };
+module.exports = { ...guard, checkVersion, editorStamp, createLockGuard, LOCKED_MESSAGE };

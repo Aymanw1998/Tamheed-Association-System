@@ -43,6 +43,9 @@ const ReportModelDef = {
         default: null,
         },
 
+        updatedBy: { type: "string", required: false },
+        updatedByName: { type: "string", required: false },
+
         createdAt: {
         type: "date",
         required: false,

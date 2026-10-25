@@ -35,6 +35,9 @@ const StudentModelDef = {
         source: { type: "string", required: false, default: "جمعية" },
         status: { type: "string", required: false, default: "عادي" },
 
+        updatedBy: { type: "string", required: false },
+        updatedByName: { type: "string", required: false },
+
         createdAt: {
         type: "date",
         required: false,

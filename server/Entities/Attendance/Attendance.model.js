@@ -24,6 +24,7 @@ const AttendanceModelDef = {
     auto: { type: "boolean", required: false },
     // The user who last saved this row (absent on nightly automatic rows).
     updatedBy: { type: "string", required: false },
+    updatedByName: { type: "string", required: false },
 
     createdAt: {
       type: "date",

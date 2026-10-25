@@ -643,6 +643,7 @@ test("a student update stamps updatedAt, announces the change, and refuses a sta
   assert.equal(behind.statusCode, 409);
   assert.equal(behind.body.code, "STALE");
   assert.equal(behind.body.current.firstname, "A");
+  assert.ok(behind.body.current.updatedByName, "the 409 names the last editor");
   assert.deepEqual(live.changes, [], "a refused save announces nothing");
   assert.equal(w.students.all().find((s) => s._id === S[0]._id).firstname, "A");
 

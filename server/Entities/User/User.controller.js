@@ -3,7 +3,7 @@ const jwt = require("jsonwebtoken");
 const path = require("path");
 
 const { UserModelDef } = require("./User.model");
-const { checkVersion } = require("../../middleware/lockGuard");
+const { checkVersion, editorStamp } = require("../../middleware/lockGuard");
 const { notifyChange } = require("../../services/liveHub");
 
 const { generateOtp6 } = require("../../utils/otp");
@@ -700,6 +700,7 @@ const putU = async (req, res) => {
     const stale = checkVersion(existing, req, sanitize);
     if (stale) return res.status(409).json(stale);
     newData.updatedAt = new Date();
+    Object.assign(newData, editorStamp(req));
     const updated = await UserModelDef.update({ tz: existing.tz }, newData, room);
     await recordUser(req, userEditAction(existing, newData), existing, { ...(existing || { tz }), ...newData });
     notifyChange("user", existing._id);
@@ -740,7 +741,7 @@ const updateStoragePermissions = async (req, res) => {
     if (stale) return res.status(409).json(stale);
     const updated = await UserModelDef.update(
       { tz: existing.tz },
-      { storagePermissions: cleanPermissions, updatedAt: new Date() },
+      { storagePermissions: cleanPermissions, updatedAt: new Date(), ...editorStamp(req) },
       "active"
     );
     await recordUser(req, "permission_change", existing, { ...existing, storagePermissions: cleanPermissions });
@@ -1392,6 +1393,7 @@ const changeRoom = async (req, res) => {
     const stale = checkVersion(user, req, sanitize);
     if (stale) return res.status(409).json(stale);
     raw.updatedAt = new Date();
+    Object.assign(raw, editorStamp(req));
     const moved = await UserModelDef.create(raw, to);
     await UserModelDef.delete({ tz: user.tz }, from);
     notifyChange("user", user._id);
@@ -1490,6 +1492,7 @@ const putPermissions = async (req, res) => {
     if (stale) return res.status(409).json(stale);
     const patch = {
       updatedAt: new Date(),
+      ...editorStamp(req),
       permissionGrants: nextGrants,
       permissionRevokes: nextRevokes,
       permissionsUpdatedAt: new Date(),
@@ -1537,6 +1540,7 @@ const putRole = async (req, res) => {
     if (stale) return res.status(409).json(stale);
     const { demoted, ...patch } = change;
     patch.updatedAt = new Date();
+    Object.assign(patch, editorStamp(req));
     if (demoted) {
       patch.permissionsUpdatedAt = new Date();
       patch.permissionsUpdatedBy = permissionEditor(req.actor);
