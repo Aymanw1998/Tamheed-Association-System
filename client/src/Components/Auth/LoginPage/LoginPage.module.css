@@ -16,9 +16,17 @@
   padding: var(--space-6);
 }
 
+/* The association logo in a white circle with the orange ring, as on the sport site. */
 .leftPanel img {
-  max-width: 260px;
-  filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.25));
+  --logo-size: min(240px, 60vw);
+  width: var(--logo-size);
+  aspect-ratio: 1;
+  box-sizing: border-box;
+  padding: calc(var(--logo-size) * 0.12); /* a % padding would follow the panel width */
+  object-fit: contain;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 6px var(--color-accent-500), 0 10px 26px rgba(0, 0, 0, 0.3);
 }
 
 .logo {
@@ -185,10 +193,21 @@
 @media (max-width: 768px) {
   .rightPanel {
     padding: var(--space-3);
-    background-image: url('../../../images/logo.png');
-    background-repeat: no-repeat;
-    background-position: center 24px;
-    background-size: 180px 180px;
+    position: relative;
+  }
+
+  /* The logo above the form, in the same circle as on wide screens. */
+  .rightPanel::before {
+    content: "";
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    background: #fff url('../../../images/logo.png') center / 76% no-repeat;
+    box-shadow: 0 0 0 4px var(--color-accent-500), 0 8px 20px rgba(0, 0, 0, 0.2);
   }
 
   .container {
