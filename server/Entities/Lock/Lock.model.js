@@ -38,7 +38,12 @@ LockModelDef.delete = async function (filter) {
     return await api.delete({ dbName: this.dbName, collection: this.collections.active, filter });
 };
 
-const LOCK_INDEXES = [{ key: { key: 1 }, options: { unique: true } }];
+// The TTL index lets MongoDB drop expired rows by itself (expiresAt is the
+// moment the lock lapses).
+const LOCK_INDEXES = [
+    { key: { key: 1 }, options: { unique: true } },
+    { key: { expiresAt: 1 }, options: { expireAfterSeconds: 0 } },
+];
 const ensureLockIndexes = (collection) => ensureIndexes(
     collection || collectionOf({ dbName: LockModelDef.dbName, collection: LockModelDef.collections.active }),
     LOCK_INDEXES,

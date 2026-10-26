@@ -109,7 +109,7 @@ const TARGET_KEYS = {
   report: async () => null,
   notice: async () => null,
 };
-const heldMessage = (holder) => `مفتوح الآن لدى ${holder?.name || ""} (${holder?.tz || ""})`;
+const heldMessage = (holder) => `مفتوح الآن لدى ${holder?.name || ""}${holder?.tz ? ` (${holder.tz})` : ""}`;
 
 // Each type: the route's permission gate, prepare() (rules + summary, run at
 // proposal AND at approval) and run() (the controller call).

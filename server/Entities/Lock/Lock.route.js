@@ -4,6 +4,9 @@ const { loadActor, requirePermission } = require("../../middleware/permissionMid
 const { logWithSource } = require("../../middleware/logger");
 const { liveHub } = require("../../services/liveHub");
 const { createLocks } = require("../../services/locks");
+const { can } = require("../../utils/permissions");
+const { hasVehiclePermission } = require("../../utils/vehicleRules");
+const { lockedMessage } = require("../../middleware/lockGuard");
 
 // Item locks, owned by a browser tab (header X-Client-Id).
 //   POST /acquire        { key } -> 200 { ok, lock } | 423 { ok:false, code:"LOCKED", holder }
@@ -12,9 +15,42 @@ const { createLocks } = require("../../services/locks");
 //                          a beacon may send { clientId, token } in the body)
 //   POST /force-release  { key } -> 200 { ok:true }   (permissions.manage)
 //   GET  /:key                   -> 200 { ok, holder|null }
-// Any signed-in user may take a lock; the holder is always the tab, so the
+// Taking or keeping a lock needs the module's edit permission (the same keys
+// its write routes require); reading the holder needs its view permission.
+// The holder is always the tab, so the
 // same user in another tab is blocked like anyone else.
 const KEY_PATTERN = /^(?:(?:student|player|lesson|sportLesson|report|user|vehicle):[^\s:]{1,64}|(?:attendance|sportAttendance):[^\s:]{1,64}:\d{4}-\d{2}-\d{2})$/;
+const FORBIDDEN = { ok: false, code: "FORBIDDEN", message: "لا توجد صلاحية" };
+const SPORT_EDIT = ["sports.coach", "sports.manage"];
+const SPORT_VIEW = ["sports.view", "sports.coach", "sports.manage"];
+const anyOf = (keys) => (actor) => keys.some((key) => can(actor?.permissions, key));
+const vehicle = (perms) => (actor) => perms.some((perm) => hasVehiclePermission(actor, perm));
+// A user's own record (requireSelfOr on the user routes).
+const selfOr = (keys) => (actor, id) => String(actor?.id ?? "") === String(id) || anyOf(keys)(actor);
+// prefix -> { edit(actor, id), view(actor, id) }
+const LOCK_RULES = {
+  student: { edit: anyOf(["students.edit", "students.photo", "students.delete"]), view: anyOf(["students.view"]) },
+  lesson: { edit: anyOf(["lessons.edit", "lessons.roster", "lessons.delete"]), view: anyOf(["lessons.view"]) },
+  attendance: { edit: anyOf(["attendance.record"]), view: anyOf(["attendance.view"]) },
+  player: { edit: anyOf(SPORT_EDIT), view: anyOf(SPORT_VIEW) },
+  sportLesson: { edit: anyOf(SPORT_EDIT), view: anyOf(SPORT_VIEW) },
+  sportAttendance: { edit: anyOf(SPORT_EDIT), view: anyOf(SPORT_VIEW) },
+  // GET /report needs no key: everyone sees at least his own reports.
+  report: { edit: anyOf(["reports.editOwn", "reports.editAll", "reports.delete"]), view: () => true },
+  user: {
+    edit: selfOr(["users.edit", "users.approve", "users.unlock", "users.changeRole", "users.delete", "permissions.manage", "files.manageAll"]),
+    view: selfOr(["users.view"]),
+  },
+  vehicle: {
+    edit: (actor) => vehicle(["edit", "compliance", "documents", "archive"])(actor) || can(actor?.permissions, "vehicles.delete"),
+    view: vehicle(["view"]),
+  },
+};
+const allowed = (kind, actor, key) => {
+  const [prefix, id] = String(key).split(":");
+  const rule = LOCK_RULES[prefix];
+  return Boolean(rule && rule[kind](actor, id));
+};
 const SERVER_ERROR = "حدث خطأ غير متوقع، حاول مرة أخرى";
 const BAD_KEY = { ok: false, code: "BAD_KEY", message: "مفتاح القفل غير صالح" };
 const NO_CLIENT = { ok: false, code: "NO_CLIENT", message: "معرّف المتصفح مفقود" };
@@ -51,6 +87,8 @@ function createLockRouter({ requireAuth, loadActor, requirePermission, locks }) 
     }
   };
 
+  const canEdit = (req, res, next) => (allowed("edit", req.actor, req.lockKey) ? next() : res.status(403).json(FORBIDDEN));
+
   const acquire = guard("acquire", async (req, res) => {
     const result = await locks.acquire(req.lockKey, {
       clientId: req.clientId,
@@ -58,8 +96,8 @@ function createLockRouter({ requireAuth, loadActor, requirePermission, locks }) 
       tz: req.actor.tz,
       name: req.actor.name,
     });
-    if (result.ok) return res.status(200).json({ ok: true, lock: result.lock });
-    return res.status(423).json({ ok: false, code: "LOCKED", holder: result.holder });
+    if (result.ok) return res.status(200).json({ ok: true, lock: result.lock, created: result.created !== false });
+    return res.status(423).json({ ok: false, code: "LOCKED", holder: result.holder, message: lockedMessage(result.holder) });
   });
 
   const heartbeat = guard("heartbeat", async (req, res) => {
@@ -78,11 +116,13 @@ function createLockRouter({ requireAuth, loadActor, requirePermission, locks }) 
   });
 
   const holder = guard("holder", async (req, res) => {
+    // Without the module's view permission the holder is not revealed.
+    if (!allowed("view", req.actor, req.lockKey)) return res.status(200).json({ ok: true, holder: null });
     return res.status(200).json({ ok: true, holder: await locks.holderOf(req.lockKey, req.clientId) });
   });
 
-  router.post("/acquire", requireAuth, loadActor, fromBody, acquire);
-  router.post("/heartbeat", requireAuth, loadActor, fromBody, heartbeat);
+  router.post("/acquire", requireAuth, loadActor, fromBody, canEdit, acquire);
+  router.post("/heartbeat", requireAuth, loadActor, fromBody, canEdit, heartbeat);
   router.post("/release", beaconHeaders, requireAuth, loadActor, fromBody, release);
   router.post("/force-release", requireAuth, loadActor, requirePermission("permissions.manage"), fromBody, forceRelease);
   router.get("/:key", requireAuth, loadActor, fromParam, holder);
@@ -100,3 +140,4 @@ const router = createLockRouter({
 module.exports = router;
 module.exports.createLockRouter = createLockRouter;
 module.exports.KEY_PATTERN = KEY_PATTERN;
+module.exports.LOCK_RULES = LOCK_RULES;

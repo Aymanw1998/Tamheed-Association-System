@@ -28,7 +28,8 @@ const safeAsk = async (options) => {
 
 // Permissions of one user (permissions.manage). Rows the signed-in manager
 // may not grant are disabled; the server checks every change again.
-export default function PermissionsTab({ tz }) {
+// onSaved() runs after a save (the user's version changed).
+export default function PermissionsTab({ tz, onSaved }) {
   const { t } = useI18n();
   const [data, setData] = useState(null);
   const [draft, setDraft] = useState({ grants: [], revokes: [] });
@@ -72,6 +73,7 @@ export default function PermissionsTab({ tz }) {
     toast.success(successText);
     setData((prev) => ({ ...prev, grants: res.grants, revokes: res.revokes, effective: res.effective, updatedAt: res.updatedAt, updatedBy: res.updatedBy }));
     setDraft({ grants: res.grants || [], revokes: res.revokes || [] });
+    onSaved?.();
   };
 
   const onSave = async () => {

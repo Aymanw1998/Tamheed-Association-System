@@ -12,6 +12,7 @@ import ReadOnlyArea from "../../locks/ReadOnlyArea";
 import SaveNotice from "../../locks/SaveNotice";
 import forceRelease from "../../locks/forceRelease";
 import { handleSaveError } from "../../locks/staleSave";
+import { useLockRecovery } from "../../locks/LockLostBanner";
 
 const fullName = (p) => `${p.firstname || ""} ${p.lastname || ""}`.trim();
 
@@ -32,6 +33,14 @@ export default function AddPlayerDialog({ lessons, player, onClose, onSaved }) {
   const lockKey = editing ? `player:${player.studentId}` : null;
   const lock = useItemLock(lockKey);
   const readonly = lock.status === "readonly";
+  // The latest version is the player the (live-refreshed) list passed in.
+  const reloadPlayer = () => {
+    if (!player) return;
+    setJersey(player.jerseyNumber ?? "");
+    setPosition(player.position || "");
+    setLessonIds((player.lessons || []).map((l) => l._id));
+  };
+  const recovery = useLockRecovery(lock, { reload: reloadPlayer, draft: position });
   const title = t(editing ? "sport.players.editTitle" : "sport.dialog.title");
 
   useEffect(() => {
@@ -56,7 +65,7 @@ export default function AddPlayerDialog({ lessons, player, onClose, onSaved }) {
     });
     setBusy(false);
     if (!res.ok) {
-      if (handleSaveError(res, { draft: position, setNotice })) return;
+      if (handleSaveError(res, { draft: position, setNotice, onReload: reloadPlayer })) return;
       return setError(res.message);
     }
     toast.success(t("sport.saved"));
@@ -71,8 +80,11 @@ export default function AddPlayerDialog({ lessons, player, onClose, onSaved }) {
           <Button size="sm" variant="ghost" onClick={onClose} aria-label={t("sport.close")}>✕</Button>
         </div>
 
+        {recovery.element}
         {lock.status === "blocked" ? (
           <LockedScreen holder={lock.holder} onForceRelease={forceRelease(lockKey)} />
+        ) : lock.status === "loading" ? (
+          <div role="status">جارٍ تحميل البيانات…</div>
         ) : (
         <ReadOnlyArea readonly={readonly}>
         {!picked && (
@@ -123,7 +135,7 @@ export default function AddPlayerDialog({ lessons, player, onClose, onSaved }) {
         {error && <div className={styles.formError} role="alert">{error}</div>}
         <div className={styles.dialogActions}>
           <Button variant="secondary" onClick={onClose}>{t("sport.cancel")}</Button>
-          {picked && lock.status !== "blocked" && <Button type="submit" loading={busy} disabled={readonly}>{t("sport.save")}</Button>}
+          {picked && lock.status !== "blocked" && lock.status !== "loading" && <Button type="submit" loading={busy} disabled={readonly}>{t("sport.save")}</Button>}
         </div>
       </form>
     </div>

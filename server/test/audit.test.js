@@ -18,6 +18,11 @@ test("diffChanges keeps only changed fields and ignores updatedAt", () => {
   });
 });
 
+test("diffChanges ignores the editor stamp (updatedBy, updatedByName)", () => {
+  const changes = diffChanges({ firstname: "A", updatedBy: "1", updatedByName: "X" }, { firstname: "A", updatedBy: "2", updatedByName: "Y" });
+  assert.deepEqual(changes, {});
+});
+
 test("diffChanges redacts secrets, tokens and OTPs", () => {
   const changes = diffChanges(
     { password: "old", refreshHash: "h1", resetOtpHash: "o1", inviteToken: "t1", resetOtpExpires: 1, name: "x" },

@@ -16,6 +16,10 @@ function createLocks({ model, hub, now = () => Date.now() }) {
   }
 
   async function acquire(key, owner) {
+    // Whether this tab already held the key (a refresh), so a one-shot caller
+    // knows not to release a lock it did not create.
+    const prior = first(await model.get({ key }));
+    const created = !(prior && prior.clientId === owner.clientId && new Date(prior.expiresAt).getTime() >= now());
     for (let attempt = 0; attempt < 2; attempt += 1) {
       const t = now();
       try {
@@ -33,7 +37,7 @@ function createLocks({ model, hub, now = () => Date.now() }) {
           },
         );
         hub.broadcastStaff("lock", { key });
-        return { ok: true, lock: res.result };
+        return { ok: true, lock: res.result, created };
       } catch (error) {
         if (!isDuplicateKey(error)) throw error;
         const holder = await currentHolder(key);

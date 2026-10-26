@@ -116,7 +116,8 @@ export async function addToList(lessonId, { list_students = [], list_tz = [] } =
             list_tz,
         });
         if (![200,201].includes(status) || !data?.ok) throw new Error(data?.message || 'تعذّرت إضافة الطلاب إلى الدرس');
-        return {ok: true};
+        // updatedAt: the lesson's new version, the base of the next form save.
+        return {ok: true, updatedAt: data.updatedAt};
     } catch(err) {
         return {ok: false, status: err.response?.status, data: err.response?.data, message: err.response?.data?.message || err.message || 'تعذّر إتمام العملية.'};
     }

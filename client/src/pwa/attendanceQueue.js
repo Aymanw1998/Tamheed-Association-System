@@ -131,20 +131,22 @@ const running = new Map();
 //  401, no response (0), 408, 423, 429, 5xx -> kept, flush stops (session expired, offline, server busy,
 //                                          item held by someone else: retried later)
 //  any other error status              -> marked failed, flush continues
+// The result's stoppedStatus is the status that stopped the flush (or null).
 export function flush(userTz, send) {
   const k = key(userTz);
   if (!k) return Promise.resolve({ sent: 0, failed: [], overwritten: [] });
   if (running.has(k)) return running.get(k);
   const p = (async () => {
-    const out = { sent: 0, failed: [], overwritten: [] };
+    const out = { sent: 0, failed: [], overwritten: [], stoppedStatus: null };
     for (const row of (await mine(k)).filter((r) => !r.failed)) {
       let res;
-      try { res = await send(row); } catch { break; }
+      try { res = await send(row); } catch { out.stoppedStatus = 0; break; }
       if (res?.ok) {
         try { await db().remove(row.id); } catch {}
         out.sent += 1;
         for (const o of res.overwritten || []) if (!out.overwritten.includes(o)) out.overwritten.push(o);
       } else if (!res || !res.status || res.status === 401 || res.status === 408 || res.status === 423 || res.status === 429 || res.status >= 500) {
+        out.stoppedStatus = res?.status || 0;
         break;
       } else {
         const message = res.message || "تعذّر إرسال الحضور";

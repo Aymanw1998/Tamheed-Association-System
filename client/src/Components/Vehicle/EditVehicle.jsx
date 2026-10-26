@@ -30,6 +30,7 @@ import SaveNotice from "../../locks/SaveNotice";
 import forceRelease from "../../locks/forceRelease";
 import useReloadOnUnblock from "../../locks/useReloadOnUnblock";
 import { handleSaveError, withBaseVersion } from "../../locks/staleSave";
+import { useLockRecovery } from "../../locks/LockLostBanner";
 
 const emptyForm = {
   plate: "",
@@ -112,6 +113,7 @@ export default function EditVehicle() {
   }, [access.loading, isNew, canView, load]);
 
   useReloadOnUnblock(lock.status, load);
+  const recovery = useLockRecovery(lock, { reload: load, draft: form.notes });
 
   useEffect(() => {
     if (!canEdit) return;
@@ -180,7 +182,7 @@ export default function EditVehicle() {
     const res = isNew ? await createVehicle(payload) : await updateVehicle(id, withBaseVersion(payload, vehicle));
     setSaving(false);
     if (!res.ok) {
-      if (!isNew && handleSaveError(res, { draft: form.notes, setNotice })) return;
+      if (!isNew && handleSaveError(res, { draft: form.notes, setNotice, onReload: load })) return;
       setErrors(res.errors || {});
       if (res.errors?.plate || res.errors?.type || res.errors?.year || res.errors?.responsibleId) setTab("basic");
       return toast.warn(res.message);
@@ -251,8 +253,8 @@ export default function EditVehicle() {
     [responsibles, t]
   );
 
-  // An existing vehicle's page needs its data before anything below reads it.
-  if (access.loading || loading || (!isNew && !vehicle && !loadError && canView)) {
+  // An existing vehicle's page needs its data (and a resolved lock) before anything below reads it.
+  if (access.loading || loading || (!isNew && !vehicle && !loadError && canView) || lock.status === "loading") {
     return <div className={styles.page}><div className={styles.state} role="status">{t("vehicles.loading")}</div></div>;
   }
   if (!canView || (isNew && !canEdit)) {
@@ -378,6 +380,7 @@ export default function EditVehicle() {
       </div>
       {isNew && <p className={styles.note}>{t("vehicles.savedFirst")}</p>}
       <SaveNotice notice={notice} />
+      {recovery.element}
 
       <div role="tabpanel" id={`vehicle-panel-${activeTab}`} aria-labelledby={`vehicle-tab-${activeTab}`}>
         {(activeTab === "basic" || activeTab === "trailer") && (

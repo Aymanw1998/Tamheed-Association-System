@@ -17,6 +17,7 @@ import forceRelease from "../../locks/forceRelease";
 import useReloadOnUnblock from "../../locks/useReloadOnUnblock";
 import useLiveRefresh from "../../locks/useLiveRefresh";
 import { handleSaveError } from "../../locks/staleSave";
+import { useLockRecovery } from "../../locks/LockLostBanner";
 
 
 const pad2 = (n) => String(n).padStart(2, "0");
@@ -158,6 +159,10 @@ export default function AttendancePage() {
         if (!dirty && !loadingSheet && sheet) reloadSheet();
     });
     useReloadOnUnblock(lock.status, reloadSheet);
+    const notesDraft = (sheet?.items || []).filter((it) => it.notes).map((it) => `${it.studentName}: ${it.notes}`).join("\n");
+    const recovery = useLockRecovery(lock, { reload: reloadSheet, draft: notesDraft });
+    // Nothing is editable until the sheet's lock is resolved.
+    const lockLoading = Boolean(lockKey) && lock.status === "loading";
 
     useEffect(() => {
         loadLeft();
@@ -286,7 +291,7 @@ export default function AttendancePage() {
         }
         if (!r.ok) {
             const draft = sheet.items.filter((it) => it.notes).map((it) => `${it.studentName}: ${it.notes}`).join("\n");
-            if (handleSaveError(r, { draft, setNotice })) return;
+            if (handleSaveError(r, { draft, setNotice, onReload: reloadSheet })) return;
             throw new Error(r.message || "تعذّر إتمام العملية.");
         }
         await dropQueuedSheet(queued);
@@ -462,7 +467,7 @@ export default function AttendancePage() {
                 </div>
             )}
 
-            {loadingSheet && (
+            {(loadingSheet || lockLoading) && (
                 <div className={styles.placeholder}>جارٍ تحميل البيانات…</div>
             )}
 
@@ -471,8 +476,9 @@ export default function AttendancePage() {
             )}
 
             {!blocked && <SaveNotice notice={notice} />}
+            {!blocked && recovery.element}
 
-            {sheet && !blocked && (
+            {sheet && !blocked && !lockLoading && (
                 <div className={styles.sheet}>
                 <div className={styles.sheetHeader}>
                     <div>

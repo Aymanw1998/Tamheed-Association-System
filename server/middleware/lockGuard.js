@@ -8,8 +8,22 @@
 const { actorRef, SYSTEM_ACTOR_NAME } = require("../utils/permissions");
 const LOCKED_MESSAGE = "هذا العنصر مفتوح الآن لدى مستخدم آخر";
 
+// «هذا العنصر مفتوح الآن لدى <الاسم الكامل> (<رقم الهوية>)», without «()» when tz is empty.
+function lockedMessage(holder) {
+  const name = String(holder?.name || "").trim();
+  if (!name) return LOCKED_MESSAGE;
+  const tz = String(holder?.tz || "").trim();
+  return `هذا العنصر مفتوح الآن لدى ${name}${tz ? ` (${tz})` : ""}`;
+}
+
+// «تم تعديل هذا العنصر من قِبل <الاسم> أثناء غيابك.»
+function staleMessage(current) {
+  const name = String(current?.updatedByName || "").trim() || "مستخدم آخر";
+  return `تم تعديل هذا العنصر من قِبل ${name} أثناء غيابك.`;
+}
+
 function createLockGuard({ locks, logError = () => {} }) {
-  const lockedBody = (holder) => ({ ok: false, code: "LOCKED", holder });
+  const lockedBody = (holder) => ({ ok: false, code: "LOCKED", holder, message: lockedMessage(holder) });
 
   const requireFreeOrMine = (keyOf) => async (req, res, next) => {
     try {
@@ -27,7 +41,7 @@ function createLockGuard({ locks, logError = () => {} }) {
   async function assertFree(key) {
     const holder = await locks().holderOf(key, null);
     if (!holder) return;
-    const error = new Error(LOCKED_MESSAGE);
+    const error = new Error(lockedMessage(holder));
     error.status = 423;
     error.holder = holder;
     throw error;
@@ -57,7 +71,8 @@ function checkVersion(current, req, view = (doc) => doc) {
   const seen = new Date(base).getTime();
   const stored = new Date(current.updatedAt).getTime();
   if (seen === stored) return null;
-  return { ok: false, code: "STALE", current: view(current) };
+  const shown = view(current);
+  return { ok: false, code: "STALE", current: shown, message: staleMessage(shown || current) };
 }
 
 let defaultLocks = null;
@@ -77,4 +92,4 @@ const guard = createLockGuard({
   logError: (source, error) => require("./logger").logWithSource(source, error),
 });
 
-module.exports = { ...guard, checkVersion, editorStamp, createLockGuard, LOCKED_MESSAGE };
+module.exports = { ...guard, checkVersion, editorStamp, createLockGuard, LOCKED_MESSAGE, lockedMessage, staleMessage };

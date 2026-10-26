@@ -16,6 +16,7 @@ import SaveNotice from "../../locks/SaveNotice";
 import forceRelease from "../../locks/forceRelease";
 import useReloadOnUnblock from "../../locks/useReloadOnUnblock";
 import { handleSaveError, withBaseVersion } from "../../locks/staleSave";
+import { useLockRecovery } from "../../locks/LockLostBanner";
 
 const MultiTagSelect = ({
   options = [],
@@ -202,6 +203,7 @@ const EditReport = ({parent = false}) => {
   }, [id, isEdit]);
 
   useReloadOnUnblock(lock.status, load);
+  const recovery = useLockRecovery(lock, { reload: load, draft: form.info });
 
   const getUsers = async () => {
       try {
@@ -358,7 +360,7 @@ const EditReport = ({parent = false}) => {
       const res = isEdit ? await update(form._id, withBaseVersion(payload, opened)): await create({...payload});
       if(!res) return;
       if(!res.ok) {
-        if (handleSaveError(res, { draft: form.info, setNotice })) return;
+        if (handleSaveError(res, { draft: form.info, setNotice, onReload: load })) return;
         throw new Error(res.message);
       }
       toast.success(isEdit ? "تم حفظ التقرير بنجاح" : "تمت إضافة التقرير بنجاح");
@@ -390,12 +392,15 @@ const EditReport = ({parent = false}) => {
   if (lock.status === "blocked") {
     return <LockedScreen holder={lock.holder} onForceRelease={forceRelease(lockKey)} />;
   }
+  // Nothing is editable until the lock is resolved.
+  if (lock.status === "loading") return <div className={styles.formContainer} role="status">جارٍ تحميل البيانات…{recovery.element}</div>;
 
   return (
     <div className={styles.formContainer}>
       <center><h1>{isEdit ? "تعديل التقرير" : "إضافة تقرير جديد"}</h1></center>
 
       <SaveNotice notice={notice} />
+      {recovery.element}
       <ReadOnlyArea readonly={readonly} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <fieldset className={sectionStyles.formSection} data-tour="report-title">
         <legend>بيانات التقرير</legend>

@@ -5,6 +5,7 @@ const { StudentModelDef } = require("../Student/Student.model");
 const { handleUpload } = require("../UploadFile/file");
 const { logWithSource } = require("../../middleware/logger");
 const { isValidIsraeliId } = require("../../utils/israeliId");
+const { notifyChange } = require("../../services/liveHub");
 
 // One fixed parent-registration link. Its secret changes only when an admin
 // rotates it. Parents' requests join the waiting list (status "ينتظر") and
@@ -182,7 +183,7 @@ async function recordAttempt(fields, reason) {
   }
 }
 
-async function savePhoto(tz, file) {
+async function savePhoto(tz, file, id) {
   try {
     const uploaded = await handleUpload(
       file,
@@ -192,6 +193,7 @@ async function savePhoto(tz, file) {
     );
     if (uploaded?.secure_url) {
       await StudentModelDef.update({ tz }, { photo: uploaded.secure_url });
+      if (id) notifyChange("student", id);
     }
   } catch (err) {
     logWithSource("InviteToken.savePhoto", err);
@@ -241,6 +243,9 @@ const submitRegistration = async (req, res) => {
       updatedAt: now,
     });
     res.status(200).json({ ok: true, message: RECEIVED_MESSAGE });
+    // Announced after replying, like the alert below: open staff lists reload.
+    const createdId = created?.result?._id ? String(created.result._id) : null;
+    if (createdId) notifyChange("student", createdId);
     // Fire-and-forget, after replying: the alert never delays or changes the
     // answer (and so cannot tell a new ID from a known one by its timing).
     Promise.resolve()
@@ -254,7 +259,7 @@ const submitRegistration = async (req, res) => {
     // Uploaded after replying: the reply must not wait on (or mention) Drive,
     // or its timing would tell a new ID from a known one.
     if (req.file) {
-      await savePhoto(fields.tz, req.file);
+      await savePhoto(fields.tz, req.file, createdId);
     }
   } catch (err) {
     logWithSource("InviteToken.submitRegistration", err);

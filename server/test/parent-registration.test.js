@@ -9,6 +9,7 @@ const VALID_TZ = "123456782"; // check digit: 1+4+3+8+5+3+7+7+2 = 40
 const DAY = 24 * 60 * 60 * 1000;
 const daysAgo = (n) => new Date(Date.now() - n * DAY);
 const plain = (value) => JSON.parse(JSON.stringify(value));
+const live = require("./helpers/liveStubs");
 
 // In-memory stand-in for the generic Mongo-backed model CRUD. `update`
 // upserts like server/Entities/api.js does.
@@ -82,6 +83,7 @@ function loadController({ students = [], attempts = [], uploadResult = null, ext
     "../../middleware/logger": { logWithSource() {} },
     "../../utils/israeliId": require("../utils/israeliId"),
     ...require("./helpers/alertEventsStub").noopAlertDeps,
+    ...live.deps,
     ...extraDeps,
   });
   return { ...controller, models, drive };
@@ -266,6 +268,15 @@ test("the photo is saved to the students' Drive folder and linked to the request
   assert.deepEqual(plain(res.body), { ok: true, message: RECEIVED });
   assert.deepEqual(ctrl.drive.uploads, [{ dbName: "tamheed_db", collection: "Students", tz: VALID_TZ, name: "child.jpg" }]);
   assert.equal(ctrl.models.students.snapshot()[0].photo, photo);
+});
+
+test("a parent request and its photo are announced to open staff screens", async () => {
+  const ctrl = loadController({ uploadResult: { secure_url: "https://x.test/p", public_id: "p" } });
+  const token = await currentToken(ctrl);
+  live.changes.length = 0;
+  await call(ctrl.submitRegistration, { params: { token }, body: registration(), file: photoFile() });
+  const id = ctrl.models.students.snapshot()[0]._id;
+  assert.deepEqual(live.changes, [["student", id], ["student", id]]);
 });
 
 test("a failed photo upload keeps the request, without a photo and with the same reply", async () => {

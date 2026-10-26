@@ -16,6 +16,8 @@ describe("shouldCache", () => {
     ["/api/sport-portal/verify", "GET"],
     ["/api/live/stream?ticket=abc", "GET"],
     ["/api/LIVE/stream", "GET"],
+    ["/api/locks/student%3A1", "GET"],
+    ["/api/LOCKS/student:1", "GET"],
     ["/api/invitetoken/validate", "GET"],
     ["/api/vehicle/12/documents/5/download", "GET"],
     ["/api/storage-backend/file/1", "GET"],

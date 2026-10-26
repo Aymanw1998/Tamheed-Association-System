@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { getStoredUserTz } from "../utils/session";
 import { ask } from "../Components/Provides/confirmBus";
 import {
@@ -6,6 +6,12 @@ import {
 } from "./attendanceQueue";
 import { flushCurrentUser } from "./queuedSave";
 import { subscribeDemo } from "../journey/demoMode";
+import { liveEvents } from "../WebServer/services/live/liveStream";
+
+// A sheet held by someone else (423) is tried again after 30 s, then 1, 2, 4
+// minutes, up to 5 minutes, while anything is waiting.
+export const LOCKED_RETRY_MS = 30 * 1000;
+export const LOCKED_RETRY_MAX_MS = 5 * 60 * 1000;
 
 export const SIGNED_IN_EVENT = "tamheed:signed-in";
 
@@ -32,24 +38,44 @@ export default function QueueStatus() {
   const [others, setOthers] = useState(0);
   const [overwritten, setOverwritten] = useState(false);
 
+  const waiting = useRef(0);
+  const retryTimer = useRef(null);
+  const retryDelay = useRef(LOCKED_RETRY_MS);
+
+  // Resolves to the number of items still waiting to be sent.
   const refresh = useCallback(async () => {
     const tz = getStoredUserTz();
     try {
       if (!tz || localStorage.getItem("isLoggedIn") !== "1") {
         setCount(0); setFailed([]); setOthers(0);
-        return;
+        waiting.current = 0;
+        return 0;
       }
       const [all, bad, other] = await Promise.all([pending(tz), failedItems(tz), othersPending(tz)]);
-      setCount(all.filter((r) => !r.failed).length);
+      const left = all.filter((r) => !r.failed).length;
+      waiting.current = left;
+      setCount(left);
       setFailed(bad);
       setOthers(other);
-    } catch {}
+      return left;
+    } catch {
+      return waiting.current;
+    }
   }, []);
 
   const sync = useCallback(async () => {
+    clearTimeout(retryTimer.current);
+    retryTimer.current = null;
     const res = await flushCurrentUser();
     if (res?.overwritten?.length) setOverwritten(true);
-    refresh();
+    const left = await refresh();
+    if (left > 0 && res?.stoppedStatus === 423) {
+      const delay = retryDelay.current;
+      retryDelay.current = Math.min(delay * 2, LOCKED_RETRY_MAX_MS);
+      retryTimer.current = setTimeout(() => { sync(); }, delay);
+    } else {
+      retryDelay.current = LOCKED_RETRY_MS;
+    }
   }, [refresh]);
 
   useEffect(() => {
@@ -58,7 +84,11 @@ export default function QueueStatus() {
     window.addEventListener(SIGNED_IN_EVENT, sync);
     const offDemo = subscribeDemo((on) => { if (!on) sync(); }); // training mode ended
     window.addEventListener(QUEUE_CHANGED_EVENT, refresh);
+    // A released lock may free a held sheet: send at once.
+    const offLock = liveEvents.on("lock", () => { if (waiting.current > 0) sync(); });
     return () => {
+      offLock();
+      clearTimeout(retryTimer.current);
       window.removeEventListener("online", sync);
       window.removeEventListener(SIGNED_IN_EVENT, sync);
       offDemo();

@@ -7,6 +7,7 @@ import AppErrorBoundary from "./Components/Global/AppErrorBoundary";
 import { ConfirmProvider } from "./Components/Provides/ConfirmContext";
 import AppChrome from "./pwa/AppChrome";
 import QueueStatus from "./pwa/QueueStatus";
+import { startClientIdGuard } from "./locks/clientId";
 import * as serviceWorkerRegistration from "./serviceWorkerRegistration";
 import { ToastProvider, SystemStatusWatcher, StatusBadge, useToast, toast } from "./ALERT/SystemToasts";
 
@@ -36,6 +37,8 @@ const installSafeStorageDefaults = () => {
 };
 
 installSafeStorageDefaults();
+// A duplicated tab must not share this tab's lock owner id.
+startClientIdGuard();
 
 window.onerror = (m, s, l, c, e) => console.error("[window.onerror]", m, e);
 window.onunhandledrejection = (e) => console.error("[unhandledrejection]", e.reason || e);

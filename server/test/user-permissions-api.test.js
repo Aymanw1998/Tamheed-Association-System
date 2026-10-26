@@ -505,6 +505,15 @@ test("register ignores any submitted role and permission fields", async () => {
   }
 });
 
+test("register announces the new waiting user to open staff screens", async () => {
+  const users = createUsers();
+  const { controller } = loadController(users);
+  live.changes.length = 0;
+  await controller.register({ body: { tz: NEW_TZ, password: "placeholder", firstname: "New" } }, res());
+  const saved = stored(users, NEW_TZ, "waiting");
+  assert.deepEqual(live.changes.filter(([entity]) => entity === "user"), [["user", saved._id]]);
+});
+
 test("register ignores storageFolder and googleDrive from the body", async () => {
   const users = createUsers();
   const { controller } = loadController(users);

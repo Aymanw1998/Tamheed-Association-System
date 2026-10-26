@@ -386,14 +386,16 @@ const addToList = async (req, res) => {
 
     const updatedList = [...lesson.list_students, ...toAdd];
 
+    const updatedAt = new Date();
     await LessonModelDef.update(
       { _id: id },
-      { list_students: updatedList, updatedAt: new Date(), ...editorStamp(req) }
+      { list_students: updatedList, updatedAt, ...editorStamp(req) }
     );
     await recordLesson(req, "update", lesson, { ...lesson, list_students: updatedList });
     notifyChange("lesson", id);
 
-    return res.status(200).json({ ok: true });
+    // The new version: the open edit screen saves on top of it, not a 409.
+    return res.status(200).json({ ok: true, updatedAt });
   } catch (err) {
     logWithSource("Lesson.addToList", err);
     return res.status(500).json({ ok: false });
@@ -422,14 +424,15 @@ const removeFromList = async (req, res) => {
       })
       : (lesson.list_students || []).filter((s) => !removeList.includes(s));
 
+    const updatedAt = new Date();
     await LessonModelDef.update(
       { _id: id },
-      { list_students: updated, updatedAt: new Date(), ...editorStamp(req) }
+      { list_students: updated, updatedAt, ...editorStamp(req) }
     );
     await recordLesson(req, "update", lesson, { ...lesson, list_students: updated });
     notifyChange("lesson", id);
 
-    return res.status(200).json({ ok: true });
+    return res.status(200).json({ ok: true, updatedAt });
   } catch (err) {
     logWithSource("Lesson.removeFromList", err);
     return res.status(500).json({ ok: false });

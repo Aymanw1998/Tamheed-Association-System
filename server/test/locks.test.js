@@ -10,7 +10,7 @@ const { actorFor } = require("./helpers/actors");
 
 const ADMIN = "ادارة";
 const GUIDE = "مرشد";
-const ADMIN_U = { _id: "a".repeat(24), tz: "t-admin", firstname: "Ad", lastname: "Min", role: ADMIN, roles: [ADMIN], permissionGrants: ["permissions.manage"] };
+const ADMIN_U = { _id: "a".repeat(24), tz: "t-admin", firstname: "Ad", lastname: "Min", role: ADMIN, roles: [ADMIN], permissionGrants: ["permissions.manage", "sports.manage"] };
 const GUIDE_U = { _id: "b".repeat(24), tz: "t-guide", firstname: "Gu", lastname: "Ide", role: GUIDE, roles: [GUIDE] };
 const USERS = { [ADMIN_U.tz]: ADMIN_U, [GUIDE_U.tz]: GUIDE_U };
 
@@ -188,7 +188,7 @@ test("routes: acquire, locked by another tab (even the same user), release", asy
     assert.equal(first.body.ok, true);
     const same = await call("POST", "/acquire", { tz: GUIDE_U.tz, client: "tab-2", body: key });
     assert.equal(same.status, 423);
-    assert.deepEqual(same.body, { ok: false, code: "LOCKED", holder: { name: "Gu Ide", tz: GUIDE_U.tz } });
+    assert.deepEqual(same.body, { ok: false, code: "LOCKED", holder: { name: "Gu Ide", tz: GUIDE_U.tz }, message: `هذا العنصر مفتوح الآن لدى Gu Ide (${GUIDE_U.tz})` });
     const view = await call("GET", `/${encodeURIComponent("student:77")}`, { tz: ADMIN_U.tz, client: "tab-3" });
     assert.deepEqual(view.body, { ok: true, holder: { name: "Gu Ide", tz: GUIDE_U.tz } });
     const own = await call("GET", "/student:77", { tz: GUIDE_U.tz, client: "tab-1" });
@@ -265,7 +265,82 @@ test("routes: bad keys and a missing client id are 400; no auth is 401", async (
     assert.equal((await call("POST", "/acquire", { tz: GUIDE_U.tz, body: { key: "student:1" } })).status, 400);
     assert.equal((await call("POST", "/acquire", { client: "tab-1", body: { key: "student:1" } })).status, 401);
     for (const key of ["student:1", "player:2", "lesson:3", "sportLesson:4", "attendance:5:2026-10-25", "sportAttendance:6:2026-10-25", "report:7", "user:8", "vehicle:9"]) {
-      assert.equal((await call("POST", "/acquire", { tz: GUIDE_U.tz, client: "tab-1", body: { key } })).status, 200, key);
+      assert.equal((await call("POST", "/acquire", { tz: ADMIN_U.tz, client: "tab-1", body: { key } })).status, 200, key);
     }
   } finally { server.close(); }
+});
+
+/* ---------------- per-item permissions and messages ---------------- */
+
+test("routes: acquire without the module's edit permission is 403 and takes no lock", async () => {
+  const { server, call, model } = await startApp();
+  try {
+    for (const key of ["vehicle:9", "player:2", "sportLesson:4", "sportAttendance:6:2026-10-25", "user:8"]) {
+      const res = await call("POST", "/acquire", { tz: GUIDE_U.tz, client: "tab-1", body: { key } });
+      assert.equal(res.status, 403, key);
+      assert.equal(model.rows.has(key), false, key);
+    }
+  } finally { server.close(); }
+});
+
+test("routes: heartbeat needs the same edit permission", async () => {
+  const { server, call, locks } = await startApp();
+  try {
+    await locks.acquire("vehicle:9", { clientId: "tab-1", userId: "x", tz: "t", name: "n" });
+    assert.equal((await call("POST", "/heartbeat", { tz: GUIDE_U.tz, client: "tab-1", body: { key: "vehicle:9" } })).status, 403);
+  } finally { server.close(); }
+});
+
+test("routes: a user may lock his own record without users.edit", async () => {
+  const { server, call } = await startApp();
+  try {
+    assert.equal((await call("POST", "/acquire", { tz: GUIDE_U.tz, client: "tab-1", body: { key: `user:${GUIDE_U._id}` } })).status, 200);
+  } finally { server.close(); }
+});
+
+test("routes: GET /:key without the module's view permission answers holder null", async () => {
+  const { server, call, locks } = await startApp();
+  try {
+    await locks.acquire("vehicle:9", A);
+    await locks.acquire("player:2", A);
+    for (const key of ["vehicle:9", "player:2"]) {
+      const res = await call("GET", `/${encodeURIComponent(key)}`, { tz: GUIDE_U.tz, client: "tab-1" });
+      assert.equal(res.status, 200, key);
+      assert.deepEqual(res.body, { ok: true, holder: null }, key);
+    }
+    await locks.acquire("student:5", A);
+    const seen = await call("GET", "/student:5", { tz: GUIDE_U.tz, client: "tab-1" });
+    assert.deepEqual(seen.body.holder, { name: "Aa Aa", tz: "t-a" });
+  } finally { server.close(); }
+});
+
+test("routes: the 423 answer carries the Arabic holder message, without () for an empty tz", async () => {
+  const { server, call, locks } = await startApp();
+  try {
+    await locks.acquire("student:5", A);
+    const res = await call("POST", "/acquire", { tz: GUIDE_U.tz, client: "tab-1", body: { key: "student:5" } });
+    assert.equal(res.status, 423);
+    assert.equal(res.body.message, "هذا العنصر مفتوح الآن لدى Aa Aa (t-a)");
+    await locks.acquire("student:6", { ...A, tz: "" });
+    const bare = await call("POST", "/acquire", { tz: GUIDE_U.tz, client: "tab-1", body: { key: "student:6" } });
+    assert.equal(bare.body.message, "هذا العنصر مفتوح الآن لدى Aa Aa");
+  } finally { server.close(); }
+});
+
+test("routes: acquire says whether it created the lock or refreshed this tab's own", async () => {
+  const { server, call } = await startApp();
+  try {
+    const key = { key: "student:40" };
+    const first = await call("POST", "/acquire", { tz: GUIDE_U.tz, client: "tab-1", body: key });
+    assert.equal(first.body.created, true);
+    const again = await call("POST", "/acquire", { tz: GUIDE_U.tz, client: "tab-1", body: key });
+    assert.equal(again.body.created, false);
+  } finally { server.close(); }
+});
+
+test("the Locks collection has a TTL index on expiresAt", () => {
+  const { LOCK_INDEXES } = require("../Entities/Lock/Lock.model");
+  const ttl = LOCK_INDEXES.find((index) => index.key.expiresAt === 1);
+  assert.ok(ttl, "TTL index declared");
+  assert.equal(ttl.options.expireAfterSeconds, 0);
 });

@@ -11,6 +11,7 @@ import LockedScreen from "../../locks/LockedScreen";
 import SaveNotice from "../../locks/SaveNotice";
 import forceRelease from "../../locks/forceRelease";
 import { handleSaveError } from "../../locks/staleSave";
+import { useLockRecovery } from "../../locks/LockLostBanner";
 
 const fullName = (p) => `${p.firstname || ""} ${p.lastname || ""}`.trim();
 
@@ -26,7 +27,9 @@ export default function LessonRosterDialog({ lesson, canEdit, onClose, reload })
   const lockKey = lesson ? `sportLesson:${lesson._id}` : null;
   const lock = useItemLock(lockKey, { enabled: Boolean(canEdit) });
   const readonly = lock.status === "readonly";
-  const mayEdit = canEdit && !readonly;
+  // Nothing is editable until the lock is resolved (or after it was lost).
+  const mayEdit = canEdit && !readonly && lock.status !== "loading";
+  const recovery = useLockRecovery(lock, { reload });
 
   useEffect(() => {
     const onKey = (e) => { if (e.key === "Escape") onClose(); };
@@ -79,6 +82,7 @@ export default function LessonRosterDialog({ lesson, canEdit, onClose, reload })
         </div>
 
         <SaveNotice notice={notice} />
+        {recovery.element}
         {lock.status === "blocked" ? (
           <>
             <LockedScreen holder={lock.holder} onForceRelease={forceRelease(lockKey)} />

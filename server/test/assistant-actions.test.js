@@ -1028,6 +1028,14 @@ test("an attendance action on a sheet someone holds FAILS with the holder messag
   assert.equal(conv(w).messages.at(-1).content.includes("Holder"), false, "the holder never reaches the model");
 });
 
+test("the held message leaves out () when the holder has no ID number", async () => {
+  const w = world();
+  const { pendingActionId } = await propose(w, "propose_attendance", attendanceInput());
+  w.held[`attendance:${L1._id}:2026-10-20`] = { name: "Holder Name", tz: "" };
+  const out = await w.runner.approve({ actor: guide(), id: pendingActionId, ip: "127.0.0.1" });
+  assert.equal(out.body.message, "مفتوح الآن لدى Holder Name");
+});
+
 test("the same lesson on another date, or a free sheet, is not blocked", async () => {
   const w = world();
   w.held[`attendance:${L1._id}:2026-10-19`] = HOLDER;

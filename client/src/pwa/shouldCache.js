@@ -8,6 +8,7 @@ const NEVER = [
   /^\/api\/sport-portal\/photo(\/|$)/i,
   /^\/api\/storage/i,
   /^\/api\/live(\/|$)/i,
+  /^\/api\/locks(\/|$)/i, // a lock's holder must always be read live
   /^\/api\/invitetoken(\/|$)/i,
   /\/documents\/[^/]+\/download$/i,
 ];

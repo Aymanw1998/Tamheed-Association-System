@@ -14,7 +14,9 @@ function copyText(text) {
   return Promise.resolve();
 }
 
-export function StaleNotice({ message, draft }) {
+// The user's draft, read-only, with «نسخ»; onReload adds «تحميل أحدث نسخة»
+// (the screen reads the item again; the draft stays here to copy).
+export function StaleNotice({ message, draft, onReload }) {
   return React.createElement(
     "div",
     { role: "alert" },
@@ -26,13 +28,16 @@ export function StaleNotice({ message, draft }) {
       style: { width: "100%", direction: "rtl" },
       "aria-label": "نصّك",
     }),
-    React.createElement("button", { type: "button", onClick: () => copyText(draft || "") }, "نسخ")
+    React.createElement("button", { type: "button", onClick: () => copyText(draft || "") }, "نسخ"),
+    typeof onReload === "function"
+      ? React.createElement("button", { type: "button", onClick: () => onReload(), style: { marginInlineStart: 8 } }, "تحميل أحدث نسخة")
+      : null
   );
 }
 
 // Returns true when it handled the error (409 STALE or 423 LOCKED): the draft
 // is left untouched and a notice is passed to setNotice (a string or an element).
-export function handleSaveError(err, { draft = "", setNotice } = {}) {
+export function handleSaveError(err, { draft = "", setNotice, onReload } = {}) {
   const status = err?.response?.status ?? err?.status;
   const data = err?.response?.data ?? err?.data ?? {};
   if (status === 409 && data.code === "STALE") {
@@ -40,7 +45,7 @@ export function handleSaveError(err, { draft = "", setNotice } = {}) {
     const who = current.updatedByName || current.updatedBy?.name || "مستخدم آخر";
     const message = `تم تعديل هذا العنصر من قِبل ${who} أثناء غيابك. نُسخ نصّك أدناه لتحفظه من جديد.`;
     copyText(draft);
-    setNotice?.(React.createElement(StaleNotice, { message, draft }));
+    setNotice?.(React.createElement(StaleNotice, { message, draft, onReload }));
     return true;
   }
   if (status === 423) {

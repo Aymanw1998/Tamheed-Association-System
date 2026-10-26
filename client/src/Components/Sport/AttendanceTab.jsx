@@ -16,6 +16,7 @@ import forceRelease from "../../locks/forceRelease";
 import useReloadOnUnblock from "../../locks/useReloadOnUnblock";
 import useLiveRefresh from "../../locks/useLiveRefresh";
 import { handleSaveError } from "../../locks/staleSave";
+import { useLockRecovery } from "../../locks/LockLostBanner";
 
 const STATUSES = [
   { value: "حاضر", key: "present", cls: "pillPresent" },
@@ -83,6 +84,10 @@ export default function AttendanceTab({ lessons, canCoach, reload }) {
     if (!dirty && lessonId && date) loadSheet(lessonId, date, true);
   });
   useReloadOnUnblock(lock.status, () => lessonId && date && loadSheet(lessonId, date, true));
+  const reloadSheet = () => lessonId && date && loadSheet(lessonId, date, true);
+  const recovery = useLockRecovery(lock, { reload: reloadSheet });
+  // Nothing is editable until the sheet's lock is resolved.
+  const lockLoading = Boolean(lockKey) && lock.status === "loading";
 
   useEffect(() => {
     if (lessonId && date) loadSheet(lessonId, date);
@@ -131,7 +136,7 @@ export default function AttendanceTab({ lessons, canCoach, reload }) {
     }
     setSaving(false);
     if (!res.ok) {
-      if (handleSaveError(res, { setNotice })) return;
+      if (handleSaveError(res, { setNotice, onReload: reloadSheet })) return;
       return toast.warn(res.message);
     }
     setNotice(null);
@@ -175,11 +180,12 @@ export default function AttendanceTab({ lessons, canCoach, reload }) {
       )}
 
       {error && <div className={styles.formError} role="alert">{error}</div>}
-      {loadingSheet && <div className={styles.emptyState}>{t("sport.attendance.loading")}</div>}
+      {(loadingSheet || lockLoading) && <div className={styles.emptyState}>{t("sport.attendance.loading")}</div>}
       {blocked && lockKey && <LockedScreen holder={lock.holder} onForceRelease={forceRelease(lockKey)} />}
       {!blocked && <SaveNotice notice={notice} />}
+      {!blocked && recovery.element}
 
-      {sheet && !loadingSheet && !blocked && (
+      {sheet && !loadingSheet && !blocked && !lockLoading && (
         <>
           {!canCoach && <div className={styles.notice}>{t("sport.attendance.readOnly")}</div>}
           {sheet.length === 0 ? (

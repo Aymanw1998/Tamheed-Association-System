@@ -27,6 +27,7 @@ import SaveNotice from "../../locks/SaveNotice";
 import forceRelease from "../../locks/forceRelease";
 import useReloadOnUnblock from "../../locks/useReloadOnUnblock";
 import { handleSaveError, withBaseVersion } from "../../locks/staleSave";
+import { useLockRecovery } from "../../locks/LockLostBanner";
 
 const safeAsk = async (options) => {
   try { return await ask("change", options); } catch { return false; }
@@ -151,6 +152,15 @@ const EditUser = () => {
   }, [id, isEdit]);
 
   useReloadOnUnblock(lock.status, load);
+  const recovery = useLockRecovery(lock, { reload: load, draft: [form.firstname, form.lastname].filter(Boolean).join(" ") });
+
+  // Role, unlock and permission changes bump the user's version. The form's
+  // next save builds on the new one (else it would be refused as stale and
+  // name the user himself); the typed fields are left as they are.
+  const refreshBase = async () => {
+    const res = await getOne(id);
+    if (res?.ok && res.user) setOpened((prev) => (prev ? { ...prev, updatedAt: res.user.updatedAt } : res.user));
+  };
 
   const handlePhoto = (e) => {
     const file = e.target.files[0];
@@ -367,7 +377,7 @@ const EditUser = () => {
       const res = isEdit ? await update(form.tz, withBaseVersion(payload, opened)): await create({...payload});
       if(!res) return;
       if(!res.ok) {
-        if (handleSaveError(res, { draft: [form.firstname, form.lastname].filter(Boolean).join(" "), setNotice })) return;
+        if (handleSaveError(res, { draft: [form.firstname, form.lastname].filter(Boolean).join(" "), setNotice, onReload: load })) return;
         throw new Error(res.message);
       }
       toast.success(isEdit ? "تم حفظ بيانات المستخدم بنجاح" : "تمت إضافة المستخدم بنجاح");
@@ -442,6 +452,7 @@ const EditUser = () => {
     const res = await changeUserRole(form.tz, roleChoice);
     setSavingRole(false);
     if (!res.ok) return toast.warn(permissionError(t, res));
+    await refreshBase();
     setCurrentRole(roleChoice);
     setForm((prev) => ({ ...prev, role: roleChoice, roles: [roleChoice] }));
     toast.success(t("perms.roleSaved"));
@@ -463,6 +474,7 @@ const EditUser = () => {
     const res = await unlockUser(form.tz);
     setUnlocking(false);
     if (!res.ok) return toast.warn(permissionError(t, res));
+    await refreshBase();
     setForm((prev) => ({ ...prev, lockedAt: null, failedLoginCount: 0 }));
     toast.success(t("perms.unlocked"));
     setTabKey((k) => k + 1);
@@ -483,11 +495,14 @@ const EditUser = () => {
   if (lock.status === "blocked") {
     return <LockedScreen holder={lock.holder} onForceRelease={forceRelease(lockKey)} />;
   }
+  // Nothing is editable until the lock is resolved.
+  if (lock.status === "loading") return <div className={styles.formContainer} role="status">جارٍ تحميل البيانات…{recovery.element}</div>;
 
   return (
     <div className={styles.formContainer}>
       <center><h1>{isEdit ? "تعديل بيانات المستخدم" : "إضافة مستخدم جديد"}</h1></center>
       <SaveNotice notice={notice} />
+      {recovery.element}
 
       {showTabs && (
         <div className={tabStyles.tabs} data-tour="user-tabs" role="tablist">
@@ -508,7 +523,7 @@ const EditUser = () => {
       )}
 
       {showTabs && tab === "permissions" ? (
-        <ReadOnlyArea readonly={readonly} data-tour="user-permissions"><PermissionsTab key={tabKey} tz={form.tz} /></ReadOnlyArea>
+        <ReadOnlyArea readonly={readonly} data-tour="user-permissions"><PermissionsTab key={tabKey} tz={form.tz} onSaved={refreshBase} /></ReadOnlyArea>
       ) : (
       <>
       <ReadOnlyArea readonly={readonly} style={{ display: "flex", flexDirection: "column", gap: 16 }}>

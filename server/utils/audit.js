@@ -3,7 +3,7 @@ const { logWithSource } = require("../middleware/logger");
 const { isSystemTz } = require("./permissions");
 
 const REDACTED = "***";
-const IGNORED = new Set(["updatedAt"]);
+const IGNORED = new Set(["updatedAt", "updatedBy", "updatedByName"]);
 
 // "otp" must start a word (resetOtpHash, otp) so names like rootPath stay visible.
 const OTP_NAME = /^otp|Otp|OTP/;

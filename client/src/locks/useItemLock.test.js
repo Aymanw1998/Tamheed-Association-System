@@ -258,3 +258,94 @@ describe("viewer without edit permission", () => {
     expect(api.get).not.toHaveBeenCalled();
   });
 });
+
+describe("lost-lock reasons", () => {
+  test("a heartbeat 410 while beats were going through is a forced release", async () => {
+    api.post.mockResolvedValueOnce({ data: { ok: true } });
+    await mountHook();
+    api.post.mockRejectedValue(err(410, { code: "LOST" }));
+    await advance(20000);
+    expect(latest.status).toBe("readonly");
+    expect(latest.reason).toBe("forced");
+  });
+
+  test("heartbeats failing for 120 s (no connection) give expired", async () => {
+    api.post.mockResolvedValueOnce({ data: { ok: true } });
+    await mountHook();
+    api.post.mockRejectedValue(Object.assign(new Error("Network Error"), { response: undefined }));
+    await advance(100000);
+    expect(latest.status).toBe("held");
+    await advance(20000);
+    expect(latest.status).toBe("readonly");
+    expect(latest.reason).toBe("expired");
+  });
+
+  test("a 410 after a long gap without a beat is expired, not forced", async () => {
+    api.post.mockResolvedValueOnce({ data: { ok: true } });
+    await mountHook();
+    api.post.mockRejectedValueOnce(Object.assign(new Error("Network Error"), { response: undefined }));
+    api.post.mockRejectedValueOnce(Object.assign(new Error("Network Error"), { response: undefined }));
+    api.post.mockRejectedValueOnce(Object.assign(new Error("Network Error"), { response: undefined }));
+    api.post.mockRejectedValueOnce(Object.assign(new Error("Network Error"), { response: undefined }));
+    api.post.mockRejectedValueOnce(Object.assign(new Error("Network Error"), { response: undefined }));
+    api.post.mockRejectedValue(err(410, { code: "LOST" }));
+    await advance(120000);
+    expect(latest.status).toBe("readonly");
+    expect(latest.reason).toBe("expired");
+  });
+
+  test("no answer to «هل ما زلت هنا؟» gives idle", async () => {
+    api.post.mockResolvedValue({ data: { ok: true } });
+    await mountHook();
+    await advance(11 * 60 * 1000);
+    expect(latest.status).toBe("readonly");
+    expect(latest.reason).toBe("idle");
+  });
+
+  test("retry after a lost lock takes it again and clears the reason", async () => {
+    api.post.mockResolvedValueOnce({ data: { ok: true } });
+    await mountHook();
+    api.post.mockRejectedValue(err(410, { code: "LOST" }));
+    await advance(20000);
+    api.post.mockResolvedValue({ data: { ok: true } });
+    await act(async () => latest.retry());
+    expect(latest.status).toBe("held");
+    expect(latest.reason).toBeNull();
+  });
+
+  test("an acquire refused with 403 goes readonly (denied) and does not retry", async () => {
+    api.post.mockRejectedValue(err(403, { code: "FORBIDDEN" }));
+    await mountHook();
+    expect(latest.status).toBe("readonly");
+    expect(latest.reason).toBe("denied");
+    await advance(60000);
+    expect(calls("/locks/acquire")).toHaveLength(1);
+  });
+});
+
+test("a viewer whose first lock check fails falls back to held instead of loading forever", async () => {
+  api.get.mockReset();
+  api.get.mockRejectedValue(new Error("down"));
+  function ViewerProbe() { latest = useItemLock("student:1", { enabled: false }); return null; }
+  container = document.createElement("div");
+  document.body.appendChild(container);
+  root = createRoot(container);
+  await act(async () => root.render(<ViewerProbe />));
+  expect(latest.status).toBe("held");
+});
+
+test("after a 409 the notice offers «تحميل أحدث نسخة», which reloads and keeps the draft", async () => {
+  let notice;
+  const reload = jest.fn();
+  handleSaveError(err(409, { code: "STALE", current: { updatedByName: "Sara" } }), { draft: "my text", setNotice: (n) => { notice = n; }, onReload: reload });
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  const r = createRoot(host);
+  await act(async () => r.render(notice));
+  const button = [...host.querySelectorAll("button")].find((b) => b.textContent === "تحميل أحدث نسخة");
+  expect(button).toBeTruthy();
+  await act(async () => button.click());
+  expect(reload).toHaveBeenCalledTimes(1);
+  expect(host.querySelector("textarea").value).toBe("my text");
+  await act(async () => r.unmount());
+});

@@ -56,7 +56,13 @@ test("another tab gets 423 with the holder's name and ID number", async () => {
   const { passed, res } = await run(requireFreeOrMine(() => "student:1"), makeReq("tab-b"));
   assert.equal(passed, false);
   assert.equal(res.statusCode, 423);
-  assert.deepEqual(res.body, { ok: false, code: "LOCKED", holder: HOLDER });
+  assert.deepEqual(res.body, { ok: false, code: "LOCKED", holder: HOLDER, message: "هذا العنصر مفتوح الآن لدى Holder Name (900000001)" });
+});
+
+test("the 423 message leaves out () when the holder has no ID number", async () => {
+  const { requireFreeOrMine } = guardFor({ "student:1": { clientId: "tab-a", name: "Holder Name", tz: "" } });
+  const { res } = await run(requireFreeOrMine(() => "student:1"), makeReq("tab-b"));
+  assert.equal(res.body.message, "هذا العنصر مفتوح الآن لدى Holder Name");
 });
 
 test("a request without a client id is blocked by someone else's lock", async () => {
@@ -99,7 +105,9 @@ test("assertFree throws a 423 error carrying the holder, and is silent when free
 test("a stale baseVersion gives the STALE body with the current item", () => {
   const current = { _id: "1", updatedAt: new Date("2026-10-25T10:00:05.000Z") };
   const stale = checkVersion(current, { body: { baseVersion: "2026-10-25T10:00:00.000Z" } });
-  assert.deepEqual(stale, { ok: false, code: "STALE", current });
+  assert.deepEqual(stale, { ok: false, code: "STALE", current, message: "تم تعديل هذا العنصر من قِبل مستخدم آخر أثناء غيابك." });
+  const named = checkVersion({ ...current, updatedByName: "Sara" }, { body: { baseVersion: "2026-10-25T10:00:00.000Z" } });
+  assert.equal(named.message, "تم تعديل هذا العنصر من قِبل Sara أثناء غيابك.");
 });
 
 test("the same version passes, as an ISO string or a Date", () => {

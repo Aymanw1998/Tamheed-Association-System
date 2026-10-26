@@ -835,6 +835,7 @@ const register = async (req, res) => {
     }
 
     const created = await UserModelDef.create(model, room);
+    notifyChange("user", created?.result?._id);
     if (room === "active") {
       await safeEnsureStorageFolder(model);
     } else {

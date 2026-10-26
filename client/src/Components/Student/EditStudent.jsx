@@ -20,6 +20,7 @@ import SaveNotice from "../../locks/SaveNotice";
 import forceRelease from "../../locks/forceRelease";
 import useReloadOnUnblock from "../../locks/useReloadOnUnblock";
 import { handleSaveError, withBaseVersion } from "../../locks/staleSave";
+import { useLockRecovery } from "../../locks/LockLostBanner";
 
 const EditStudent = ({parent = false}) => {
   const params = useParams();              // "new" الأحدالجمعة _id
@@ -148,6 +149,7 @@ const EditStudent = ({parent = false}) => {
   }, [id, isEdit]);
 
   useReloadOnUnblock(lock.status, load);
+  const recovery = useLockRecovery(lock, { reload: load, draft: [form.health_status, form.notes].filter(Boolean).join("\n") });
 
     // ملاحظة عربية
   useEffect(() => {
@@ -336,7 +338,7 @@ const EditStudent = ({parent = false}) => {
       const res = isEdit ? await update(form.tz, withBaseVersion(payload, opened)): await create({...payload});
       if(!res) return;
       if(!res.ok) {
-        if (handleSaveError(res, { draft: [form.health_status, form.notes].filter(Boolean).join("\n"), setNotice })) return;
+        if (handleSaveError(res, { draft: [form.health_status, form.notes].filter(Boolean).join("\n"), setNotice, onReload: load })) return;
         throw new Error(res.message);
       }
       setNotice(null);
@@ -431,12 +433,15 @@ const EditStudent = ({parent = false}) => {
   if (lock.status === "blocked") {
     return <LockedScreen holder={lock.holder} onForceRelease={forceRelease(lockKey)} />;
   }
+  // Nothing is editable until the lock is resolved.
+  if (lock.status === "loading") return <div className={styles.formContainer} role="status">جارٍ تحميل البيانات…{recovery.element}</div>;
 
   return (
     <div className={styles.formContainer}>
       <h2 style={{textAlign: "center"}}>{parent ? "طلب تسجيل طالب" : isEdit ? "تعديل بيانات الطالب" : "إضافة طالب جديد"}</h2>
 
       <SaveNotice notice={notice} />
+      {recovery.element}
       <ReadOnlyArea readonly={readonly} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <fieldset className={sectionStyles.formSection} data-tour="student-details">
         <legend>بيانات الطالب</legend>

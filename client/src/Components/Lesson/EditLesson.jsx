@@ -27,6 +27,7 @@ import SaveNotice from '../../locks/SaveNotice';
 import forceRelease from '../../locks/forceRelease';
 import useReloadOnUnblock from '../../locks/useReloadOnUnblock';
 import { handleSaveError, withBaseVersion } from '../../locks/staleSave';
+import { useLockRecovery } from '../../locks/LockLostBanner';
 const EditLesson = () => {
   const { id } = useParams(); // ملاحظة عربية
   const { t } = useI18n();
@@ -174,6 +175,7 @@ const EditLesson = () => {
   }, [id]);
 
   useReloadOnUnblock(lock.status, loadData);
+  const recovery = useLockRecovery(lock, { reload: loadData, draft: lesson.name });
 
   // ملاحظة عربية
   const handleChange = (e) => {
@@ -214,7 +216,11 @@ const EditLesson = () => {
     const before = await getOneLesson(id);
     const res = await addToList(id, buildAddPayload({ looked: [student] }));
     if (!res.ok) return false;
+    // The roster change bumped the lesson's version: the form's next save
+    // builds on it (else the save would be refused as stale, naming the user).
+    if (res.updatedAt) setOpened((prev) => (prev ? { ...prev, updatedAt: res.updatedAt } : prev));
     const after = await getOneLesson(id);
+    if (after.ok && after.lesson?.updatedAt) setOpened((prev) => (prev ? { ...prev, updatedAt: after.lesson.updatedAt } : prev));
     if (!before.ok || !after.ok) return false;
     const had = new Set(before.lesson.list_students.map(String));
     const fresh = after.lesson.list_students.map(String).filter((x) => !had.has(x));
@@ -252,7 +258,7 @@ const EditLesson = () => {
         toast.success(id === 'new' ? 'تمت إضافة الدرس بنجاح' : 'تم حفظ الدرس بنجاح');
         navigate(-1);
       } else {
-        if (handleSaveError(resL, { draft: lesson.name, setNotice })) return;
+        if (handleSaveError(resL, { draft: lesson.name, setNotice, onReload: loadData })) return;
         toast.warn(resL.message || 'تعذّر حفظ الدرس');
       }
     } catch (e) {
@@ -282,10 +288,15 @@ const EditLesson = () => {
   if (lock.status === 'blocked') {
     return <LockedScreen holder={lock.holder} onForceRelease={forceRelease(lockKey)} />;
   }
+  // Nothing is editable until the lock is resolved.
+  if (lock.status === 'loading') {
+    return <div className={styles.editLessonContainer} role="status">جارٍ تحميل البيانات…{recovery.element}</div>;
+  }
 
   return (
     <div className={styles.editLessonContainer}>
       <SaveNotice notice={notice} />
+      {recovery.element}
       {
       isAdmin ? (
       <center><h1>{id != "new" ? "تعديل بيانات الدرس" : "إضافة درس جديد"}</h1></center>

@@ -402,3 +402,18 @@ test("attendance bulk-save: refused (409) on top of an older sheet, otherwise an
   assert.equal(attendance.all().find((r) => r.student === "s1").updatedByName, "Ad Min");
   assert.ok(new Date(attendance.all().find((r) => r.student === "s1").updatedAt) > new Date("2026-10-25T10:05:00.000Z"));
 });
+
+test("roster add and remove answer the lesson's new updatedAt, so the screen's next save is not stale", async () => {
+  const { controller, lessons } = lessonSetup([{ _id: "L9", name: "Math", teacher: "t1", room: "1", date: { day: 2, startMin: 600, endMin: 645 }, list_students: [], updatedAt: new Date("2026-10-01T10:00:00Z") }]);
+  const added = createRes();
+  await controller.addToList(req({ params: { id: "L9" }, body: { list_students: ["s1"] } }), added);
+  const afterAdd = lessons.all().find((l) => l._id === "L9").updatedAt;
+  assert.equal(new Date(added.body.updatedAt).getTime(), new Date(afterAdd).getTime());
+  const removed = createRes();
+  await controller.removeFromList(req({ params: { id: "L9" }, body: { list_students: ["s1"] } }), removed);
+  const afterRemove = lessons.all().find((l) => l._id === "L9").updatedAt;
+  assert.equal(new Date(removed.body.updatedAt).getTime(), new Date(afterRemove).getTime());
+  const saved = createRes();
+  await controller.putOne(req({ params: { id: "L9" }, body: { name: "Algebra", baseVersion: removed.body.updatedAt } }), saved);
+  assert.equal(saved.statusCode, 200, JSON.stringify(saved.body));
+});
