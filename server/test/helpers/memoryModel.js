@@ -3,7 +3,9 @@
 // equality (values compared as strings), dotted paths, $in, $ne, $gte, $lte,
 // $gt, $lt.
 const pathValue = (doc, path) => path.split(".").reduce((v, k) => (v == null ? undefined : v[k]), doc);
-const same = (a, b) => (a == null || b == null ? a == b : String(a) === String(b)); // eslint-disable-line eqeqeq
+// Dates compare to the millisecond, like MongoDB (String() would drop the milliseconds).
+const stamp = (v) => (v instanceof Date ? v.toISOString() : String(v));
+const same = (a, b) => (a == null || b == null ? a == b : stamp(a) === stamp(b)); // eslint-disable-line eqeqeq
 
 function matchesCondition(value, cond) {
   if (cond && typeof cond === "object" && !Array.isArray(cond) && !(cond instanceof Date)) {

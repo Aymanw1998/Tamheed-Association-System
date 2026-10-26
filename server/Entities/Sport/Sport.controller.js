@@ -10,7 +10,7 @@ const { LessonModelDef } = require("../Lesson/Lesson.model");
 const { ageOn, buildCard, israelToday, dayOfDate } = require("../../utils/sportCards");
 const { conflictsInRoom9 } = require("../../utils/lessonConflict");
 const { notifyCardChanged } = require("../../utils/cardPush");
-const { checkVersion, editorStamp } = require("../../middleware/lockGuard");
+const { checkVersion, editorStamp, sameVersion, nextStamp, raceLost, holderOf, lockedAnswer } = require("../../middleware/lockGuard");
 const { notifyChange, liveHub } = require("../../services/liveHub");
 
 const SERVER_ERROR = "حدث خطأ غير متوقع، حاول مرة أخرى";
@@ -122,6 +122,36 @@ const setStats = handle("setStats", async (req, res) => {
 const studentMap = async () => new Map(rows(await StudentModelDef.get({})).map((s) => [String(s._id), s]));
 const inLesson = (lesson, studentId) => (lesson.players || []).some((p) => String(p.studentId) === String(studentId));
 
+// Puts one student on (want) or off a lesson's roster without losing a roster
+// change made at the same time: the write is compare-and-set on updatedAt and,
+// when someone else wrote first, is redone on the fresh roster. Answers
+// { lesson, changed } (lesson: as stored after the write; null if it is gone).
+async function setMembership(lesson, studentId, want, stamp = {}) {
+  let current = lesson;
+  for (let attempt = 0; attempt < 5 && current; attempt += 1) {
+    if (inLesson(current, studentId) === want) return { lesson: current, changed: false };
+    // Always later than the version read, so a stale contender never matches it.
+    const now = nextStamp(current, Date.now());
+    const players = want
+      ? [...(current.players || []), { studentId, joinedAt: new Date() }]
+      : (current.players || []).filter((p) => String(p.studentId) !== String(studentId));
+    const written = (await SportLessonModelDef.updateExisting(sameVersion({ _id: current._id }, current), { players, updatedAt: now, ...stamp }))?.result;
+    if (written) return { lesson: written, changed: true };
+    current = rows(await SportLessonModelDef.get({ _id: current._id }))[0] || null;
+  }
+  if (!current) return { lesson: null, changed: false };
+  throw new Error("sport roster kept changing; not written");
+}
+
+// The first lesson (of `ids`) another tab holds open, as the 423 body; or null.
+async function heldLesson(req, ids) {
+  for (const id of ids) {
+    const holder = await holderOf(`sportLesson:${id}`, req.get?.("X-Client-Id"));
+    if (holder) return lockedAnswer(holder);
+  }
+  return null;
+}
+
 // "YYYY-MM-DD" from a stored birth date, or null.
 function birthDateOf(value) {
   if (!value) return null;
@@ -199,6 +229,11 @@ const savePlayer = handle("savePlayer", async (req, res) => {
   const known = new Set(lessons.map((l) => String(l._id)));
   if ([...wanted].some((id) => !known.has(id))) return fail(res, 400, "درس غير موجود");
 
+  // The rosters this save changes must not be open in another tab.
+  const toChange = lessons.filter((lesson) => inLesson(lesson, studentId) !== wanted.has(String(lesson._id)));
+  const held = await heldLesson(req, toChange.map((lesson) => String(lesson._id)));
+  if (held) return res.status(423).json(held);
+
   const existing = rows(await SportPlayerModelDef.get({ studentId, sportId }))[0];
   const now = new Date();
   const saved = existing
@@ -206,15 +241,9 @@ const savePlayer = handle("savePlayer", async (req, res) => {
     : await SportPlayerModelDef.create({ studentId, sportId, jerseyNumber, position, stats: {}, createdAt: now, updatedAt: now });
 
   const changedLessons = [];
-  for (const lesson of lessons) {
-    const member = inLesson(lesson, studentId);
-    const want = wanted.has(String(lesson._id));
-    if (want === member) continue;
-    changedLessons.push(String(lesson._id));
-    const players = want
-      ? [...(lesson.players || []), { studentId, joinedAt: now }]
-      : (lesson.players || []).filter((p) => String(p.studentId) !== studentId);
-    await SportLessonModelDef.updateExisting({ _id: lesson._id }, { players, updatedAt: now });
+  for (const lesson of toChange) {
+    const { changed } = await setMembership(lesson, studentId, wanted.has(String(lesson._id)));
+    if (changed) changedLessons.push(String(lesson._id));
   }
   await record(req, existing ? "update" : "create", "player", saved?.result, fullName(student), existing || null);
   notifyChange("player", studentId);
@@ -229,16 +258,15 @@ const deletePlayer = handle("deletePlayer", async (req, res) => {
   const sportId = String(sport._id);
   const existing = rows(await SportPlayerModelDef.get({ studentId, sportId }))[0];
   if (!existing) return fail(res, 404, NOT_FOUND.player);
+  const memberOf = rows(await SportLessonModelDef.get({ sportId })).filter((lesson) => inLesson(lesson, studentId));
+  const held = await heldLesson(req, memberOf.map((lesson) => String(lesson._id)));
+  if (held) return res.status(423).json(held);
   await SportPlayerModelDef.delete({ _id: existing._id });
   // Attendance rows stay: they are history.
   const changedLessons = [];
-  for (const lesson of rows(await SportLessonModelDef.get({ sportId }))) {
-    if (!inLesson(lesson, studentId)) continue;
-    changedLessons.push(String(lesson._id));
-    await SportLessonModelDef.updateExisting(
-      { _id: lesson._id },
-      { players: (lesson.players || []).filter((p) => String(p.studentId) !== studentId), updatedAt: new Date() },
-    );
+  for (const lesson of memberOf) {
+    const { changed } = await setMembership(lesson, studentId, false);
+    if (changed) changedLessons.push(String(lesson._id));
   }
   await record(req, "delete", "player", null, studentId, existing);
   notifyChange("player", studentId);
@@ -356,8 +384,11 @@ async function saveLesson(req, res, current) {
     else { name = generatedName(date); nameGenerated = true; }
   }
   const saved = current
-    ? await SportLessonModelDef.updateExisting({ _id: current._id }, { name, nameGenerated, date, room: SPORT_ROOM, players, updatedAt: now, ...editorStamp(req) })
+    // Written only if nobody saved the lesson (or its roster) since it was read.
+    // (A strictly later stamp: a roster change may have stamped this lesson ahead of the clock.)
+    ? await SportLessonModelDef.updateExisting(sameVersion({ _id: current._id }, current), { name, nameGenerated, date, room: SPORT_ROOM, players, updatedAt: nextStamp(current, now.getTime()), ...editorStamp(req) })
     : await SportLessonModelDef.create({ sportId, name, nameGenerated, date, room: SPORT_ROOM, players, createdAt: now, updatedAt: now, ...editorStamp(req) });
+  if (current && !saved?.result) return res.status(409).json(await raceLost(() => SportLessonModelDef.get({ _id: current._id })));
   const lesson = saved?.result;
   await record(req, current ? "update" : "create", "lesson", lesson, parsed.name, current || null);
   notifyChange("sportLesson", String(lesson._id));
@@ -402,10 +433,10 @@ const addLessonPlayer = handle("addLessonPlayer", async (req, res) => {
     await record(req, "create", "player", player, fullName(student));
     notifyChange("player", studentId);
   }
-  let current = lesson;
-  if (!inLesson(lesson, studentId)) {
-    const players = [...(lesson.players || []), { studentId, joinedAt: now }];
-    current = (await SportLessonModelDef.updateExisting({ _id: lesson._id }, { players, updatedAt: now, ...editorStamp(req) }))?.result;
+  const { lesson: after, changed } = await setMembership(lesson, studentId, true, editorStamp(req));
+  if (!after) return fail(res, 404, NOT_FOUND.lesson);
+  const current = after;
+  if (changed) {
     await record(req, "update", "lesson", current, lesson.name, lesson);
     notifyChange("sportLesson", String(lesson._id));
   }
@@ -418,10 +449,9 @@ const removeLessonPlayer = handle("removeLessonPlayer", async (req, res) => {
   const lesson = await findOne(SportLessonModelDef, req.params.id);
   if (!lesson) return fail(res, 404, NOT_FOUND.lesson);
   const studentId = String(req.params.studentId);
-  let current = lesson;
-  if (inLesson(lesson, studentId)) {
-    const players = (lesson.players || []).filter((p) => String(p.studentId) !== studentId);
-    current = (await SportLessonModelDef.updateExisting({ _id: lesson._id }, { players, updatedAt: new Date(), ...editorStamp(req) }))?.result;
+  const { lesson: current, changed } = await setMembership(lesson, studentId, false, editorStamp(req));
+  if (!current) return fail(res, 404, NOT_FOUND.lesson);
+  if (changed) {
     await record(req, "update", "lesson", current, lesson.name, lesson);
     notifyChange("sportLesson", String(lesson._id));
   }

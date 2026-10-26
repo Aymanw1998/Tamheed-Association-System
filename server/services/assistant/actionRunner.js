@@ -46,6 +46,7 @@
 const { can, isSystemTz, normalizeRole } = require("../../utils/permissions");
 const { createStudentScope } = require("../../utils/studentScope");
 const { OBJECT_ID_RE, jerusalemDate, fullName, rows, clip } = require("./tools/_shared");
+const { sheetVersion } = require("../../utils/attendanceMarks");
 
 const PENDING_TTL_MS = 15 * 60 * 1000;
 const VIA = "assistant";
@@ -139,6 +140,9 @@ const TYPES = {
         lessonId: String(lesson._id),
         date: p.date,
         rows: p.rows.map((r) => ({ studentId: String(r.studentId), status: r.status, notes: text(r.notes) })),
+        // The sheet as the user saw it in the proposal: kept in the stored
+        // params, so a sheet a person saved before the approval is refused (409).
+        baseVersion: p.baseVersion || sheetVersion(existing).version,
       };
       const line = (lang) => params.rows.map((r) => {
         const status = lang === "ar" ? r.status : STATUS[r.status][lang];
@@ -164,7 +168,7 @@ const TYPES = {
     async run(p, req, controllers) {
       const [year, month, day] = p.date.split("-").map(Number);
       const items = p.rows.map((r) => ({ studentId: r.studentId, status: r.status, notes: r.notes }));
-      const out = await call(controllers.attendance.bulkSave, { ...req, body: { lessonId: p.lessonId, year, month, day, items } });
+      const out = await call(controllers.attendance.bulkSave, { ...req, body: { lessonId: p.lessonId, year, month, day, items, baseVersion: p.baseVersion } });
       return { ...out, result: { rowsSaved: items.length } };
     },
   },
@@ -404,7 +408,9 @@ function createActionRunner({ deps } = {}) {
 
   async function propose({ actor, conversationId, type, params } = {}) {
     if (!conversationId) return err("INVALID_INPUT", "no conversation");
-    const prepared = await check(type, params, actor);
+    // The version is read here, never taken from the model's input.
+    const { baseVersion: _ignored, ...input } = params || {};
+    const prepared = await check(type, input, actor);
     if (prepared.error) return prepared;
     const d = getDeps();
     const at = env().now();

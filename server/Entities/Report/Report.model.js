@@ -93,6 +93,19 @@ ReportModelDef.update = async function (filter, newData) {
   });
 };
 
+// Like update() but never creates a report: result is null when nothing matches.
+ReportModelDef.updateExisting = async function (filter, newData) {
+  return await api.updateExisting({
+    dbName: this.dbName,
+    collection: this.collections.active,
+    filter,
+    newData: {
+      ...newData,
+      updatedAt: new Date(),
+    },
+  });
+};
+
 // DELETE
 ReportModelDef.delete = async function (filter) {
   return await api.delete({

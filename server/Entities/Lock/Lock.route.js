@@ -27,6 +27,15 @@ const anyOf = (keys) => (actor) => keys.some((key) => can(actor?.permissions, ke
 const vehicle = (perms) => (actor) => perms.some((perm) => hasVehiclePermission(actor, perm));
 // A user's own record (requireSelfOr on the user routes).
 const selfOr = (keys) => (actor, id) => String(actor?.id ?? "") === String(id) || anyOf(keys)(actor);
+// A report the actor wrote (createdBy is his _id or ID number), as in
+// Report.controller; an unreadable id is nobody's report.
+const ownsReport = async (actor, id, reports) => {
+  const found = await reports.get({ _id: id }).catch(() => null);
+  const createdBy = String(found?.result?.[0]?.createdBy ?? "").trim();
+  return Boolean(createdBy) && (createdBy === String(actor?.id ?? "").trim() || createdBy === String(actor?.tz ?? "").trim());
+};
+// reports.editOwn / viewing without viewAll reach only the actor's own reports.
+const ownOr = (keys, ownKey) => async (actor, id, ctx) => anyOf(keys)(actor) || (can(actor?.permissions, ownKey) && ownsReport(actor, id, ctx.reports));
 // prefix -> { edit(actor, id), view(actor, id) }
 const LOCK_RULES = {
   student: { edit: anyOf(["students.edit", "students.photo", "students.delete"]), view: anyOf(["students.view"]) },
@@ -35,8 +44,12 @@ const LOCK_RULES = {
   player: { edit: anyOf(SPORT_EDIT), view: anyOf(SPORT_VIEW) },
   sportLesson: { edit: anyOf(SPORT_EDIT), view: anyOf(SPORT_VIEW) },
   sportAttendance: { edit: anyOf(SPORT_EDIT), view: anyOf(SPORT_VIEW) },
-  // GET /report needs no key: everyone sees at least his own reports.
-  report: { edit: anyOf(["reports.editOwn", "reports.editAll", "reports.delete"]), view: () => true },
+  // Like the report routes: someone else's report needs editAll (or delete) to
+  // lock and viewAll to see who holds it; editOwn covers only his own.
+  report: {
+    edit: ownOr(["reports.editAll", "reports.delete"], "reports.editOwn"),
+    view: async (actor, id, ctx) => anyOf(["reports.viewAll"])(actor) || ownsReport(actor, id, ctx.reports),
+  },
   user: {
     edit: selfOr(["users.edit", "users.approve", "users.unlock", "users.changeRole", "users.delete", "permissions.manage", "files.manageAll"]),
     view: selfOr(["users.view"]),
@@ -46,17 +59,21 @@ const LOCK_RULES = {
     view: vehicle(["view"]),
   },
 };
-const allowed = (kind, actor, key) => {
+// ctx: { reports } for the rules that read the record (report ownership).
+const allowed = async (kind, actor, key, ctx) => {
   const [prefix, id] = String(key).split(":");
   const rule = LOCK_RULES[prefix];
-  return Boolean(rule && rule[kind](actor, id));
+  return Boolean(rule && (await rule[kind](actor, id, ctx)));
 };
 const SERVER_ERROR = "حدث خطأ غير متوقع، حاول مرة أخرى";
+// Read lazily, so a test can load this router without the database.
+const lazyReports = () => ({ get: (filter) => require("../Report/Report.model").ReportModelDef.get(filter) });
 const BAD_KEY = { ok: false, code: "BAD_KEY", message: "مفتاح القفل غير صالح" };
 const NO_CLIENT = { ok: false, code: "NO_CLIENT", message: "معرّف المتصفح مفقود" };
 
-function createLockRouter({ requireAuth, loadActor, requirePermission, locks }) {
+function createLockRouter({ requireAuth, loadActor, requirePermission, locks, reports = lazyReports() }) {
   const router = express.Router();
+  const ctx = { reports };
 
   // Validates the key and the client id; sets req.lockKey / req.clientId.
   const readInput = (keyOf) => (req, res, next) => {
@@ -78,16 +95,16 @@ function createLockRouter({ requireAuth, loadActor, requirePermission, locks }) 
     }
     return next();
   };
-  const guard = (name, fn) => async (req, res) => {
+  const guard = (name, fn) => async (req, res, next) => {
     try {
-      return await fn(req, res);
+      return await fn(req, res, next);
     } catch (error) {
       logWithSource(`Lock.${name}`, error);
       return res.status(500).json({ ok: false, message: SERVER_ERROR });
     }
   };
 
-  const canEdit = (req, res, next) => (allowed("edit", req.actor, req.lockKey) ? next() : res.status(403).json(FORBIDDEN));
+  const canEdit = guard("canEdit", async (req, res, next) => ((await allowed("edit", req.actor, req.lockKey, ctx)) ? next() : res.status(403).json(FORBIDDEN)));
 
   const acquire = guard("acquire", async (req, res) => {
     const result = await locks.acquire(req.lockKey, {
@@ -117,7 +134,7 @@ function createLockRouter({ requireAuth, loadActor, requirePermission, locks }) 
 
   const holder = guard("holder", async (req, res) => {
     // Without the module's view permission the holder is not revealed.
-    if (!allowed("view", req.actor, req.lockKey)) return res.status(200).json({ ok: true, holder: null });
+    if (!(await allowed("view", req.actor, req.lockKey, ctx))) return res.status(200).json({ ok: true, holder: null });
     return res.status(200).json({ ok: true, holder: await locks.holderOf(req.lockKey, req.clientId) });
   });
 

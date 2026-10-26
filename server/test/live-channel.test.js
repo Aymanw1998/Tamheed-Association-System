@@ -69,7 +69,7 @@ async function startApp({ users, clock = { now: Date.now() }, options = {} }) {
   const app = express();
   const router = createLiveRouter({
     requireAuth, loadActor, tickets, events,
-    now: () => clock.now, pollMs: 15, pingMs: 30, startAt: () => 0, ...options,
+    now: () => clock.now, pollMs: 15, pingMs: 30, startAt: () => 0, visibleStudentIds: async () => null, ...options,
   });
   app.use("/api/live", router);
   const server = http.createServer(app);

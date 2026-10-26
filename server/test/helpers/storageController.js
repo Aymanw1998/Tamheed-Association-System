@@ -11,7 +11,7 @@ const { auditStub } = require("./auditStub");
 function createStore(seed = []) {
   let docs = seed.map((d, i) => ({ _id: `meta-${i}`, ...d }));
   let next = docs.length;
-  const matches = (doc, filter = {}) => Object.keys(filter).every((k) => String(doc[k]) === String(filter[k]));
+  const matches = (doc, filter = {}) => Object.keys(filter).every((k) => (filter[k] == null ? doc[k] == null : String(doc[k]) === String(filter[k])));
   return {
     async get(filter = {}) { return { success: true, result: docs.filter((d) => matches(d, filter)).map((d) => structuredClone(d)) }; },
     async create(data) { const doc = { _id: `meta-${next++}`, ...structuredClone(data) }; docs.push(doc); return { success: true, result: doc }; },

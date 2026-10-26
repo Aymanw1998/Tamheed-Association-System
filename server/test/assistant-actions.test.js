@@ -86,6 +86,12 @@ function store(seed, { rooms = false } = {}) {
       else roomOf(room).push({ _id: `row-${next++}`, ...structuredClone(filter), ...structuredClone(patch) });
       return { success: true, result: null };
     },
+    async updateExisting(filter, patch, room = "active") {
+      const hit = roomOf(room).find((d) => matches(d, filter));
+      if (!hit) return { success: true, result: null };
+      Object.assign(hit, structuredClone(patch));
+      return { success: true, result: structuredClone(hit) };
+    },
     async delete(filter, room = "active") {
       const before = roomOf(room).length;
       data[room] = roomOf(room).filter((d) => !matches(d, filter));
@@ -1074,4 +1080,25 @@ test("report and notice have no existing target, so they run with no lock check"
   w.held["report:anything"] = HOLDER;
   const out = await w.runner.approve({ actor: guide(), id: pendingActionId, ip: "127.0.0.1" });
   assert.equal(out.status, 200, JSON.stringify(out.body));
+});
+
+test("approving attendance after a person saved the sheet is refused (stale) and writes nothing; system rows do not count", async () => {
+  // A nightly automatic absence added after the proposal does not block the approval.
+  const ok = world();
+  const first = await propose(ok, "propose_attendance", attendanceInput());
+  ok.attendance.all().push({ _id: "auto-row", lesson: L1._id, student: "someone-else", dateKey: 20261020, status: ABSENT, auto: true, updatedAt: new Date("2026-10-20T21:59:00Z") });
+  assert.equal((await ok.runner.approve({ actor: guide(), id: first.pendingActionId })).status, 200);
+
+  // A teacher's save after the proposal makes it stale.
+  const w = world();
+  const { pendingActionId } = await propose(w, "propose_attendance", attendanceInput());
+  assert.ok(w.pending.docs[0].params.baseVersion, "the proposal keeps the sheet version it was based on");
+  const row = w.attendance.all()[0];
+  Object.assign(row, { status: PRESENT, auto: false, updatedBy: "teacher-1", updatedByName: "Te Acher", updatedAt: new Date("2026-10-20T12:00:00Z") });
+  const before = structuredClone(w.attendance.all());
+  const out = await w.runner.approve({ actor: guide(), id: pendingActionId });
+  assert.notEqual(out.status, 200);
+  assert.equal(out.body.ok, false);
+  assert.deepEqual(w.attendance.all(), before, "nothing written");
+  assert.equal(w.pending.docs[0].status, "failed");
 });

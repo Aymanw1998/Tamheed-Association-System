@@ -26,7 +26,7 @@ function loadController() {
         },
         async delete(filter, room) {
           deletes.push({ filter, room });
-          return { success: true };
+          return { success: true, result: { deletedCount: 1 } };
         },
       },
     },
@@ -77,7 +77,7 @@ for (const room of ["waiting", "noActive", "active"]) {
   test(`deleting from the "${room}" room removes the user from that room`, async () => {
     const { res, deletes } = await deleteUser({ tz: "990000069", from: room });
     assert.equal(res.statusCode, 200);
-    assert.deepEqual(deletes, [{ filter: { tz: "990000069" }, room }]);
+    assert.deepEqual(deletes, [{ filter: { tz: "990000069", updatedAt: null }, room }]);
   });
 }
 

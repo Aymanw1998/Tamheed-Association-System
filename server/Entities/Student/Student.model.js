@@ -95,6 +95,16 @@ StudentModelDef.update = async function (filter, newData) {
     });
 };
 
+// Like update() but never creates a student: result is null when nothing matches.
+StudentModelDef.updateExisting = async function (filter, newData) {
+    return await api.updateExisting({
+        dbName: this.dbName,
+        collection: this.collections.active,
+        filter,
+        newData,
+    });
+};
+
 // Build for deleting a student
 /**
  *

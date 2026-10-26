@@ -18,7 +18,7 @@ function createReportModel(seedReports = []) {
   let nextId = reports.length;
 
   const matches = (report, filter = {}) =>
-    Object.keys(filter).every((key) => String(report[key]) === String(filter[key]));
+    Object.keys(filter).every((key) => (filter[key] == null ? report[key] == null : String(report[key]) === String(filter[key])));
 
   return {
     async get(filter = {}) {
@@ -35,9 +35,17 @@ function createReportModel(seedReports = []) {
       );
       return { success: true };
     },
+    // Like ReportModelDef.updateExisting: stamps updatedAt, null when nothing matches.
+    async updateExisting(filter, newData) {
+      const index = reports.findIndex((report) => matches(report, filter));
+      if (index < 0) return { success: true, result: null };
+      reports[index] = { ...reports[index], ...newData, updatedAt: new Date() };
+      return { success: true, result: { ...reports[index] } };
+    },
     async delete(filter) {
+      const before = reports.length;
       reports = reports.filter((report) => !matches(report, filter));
-      return { success: true };
+      return { success: true, result: { deletedCount: before - reports.length } };
     },
     snapshot: () => reports.map((report) => ({ ...report })),
   };
@@ -244,4 +252,26 @@ test("report put announces the change and refuses a stale baseVersion with 409; 
   await remove(withActor({ params: { id: "report-0" }, body: {}, user: admin }), gone);
   assert.equal(gone.statusCode, 200);
   assert.deepEqual(live.changes, [["report", "report-0"]]);
+});
+
+test("report put and delete on the same version at once: only one is applied, the other is 409 STALE", async () => {
+  const stamp = "2026-10-25T10:00:00.000Z";
+  const model = createReportModel([{ createdBy: "user-a", info: "original", title: [], attendance: [], updatedAt: new Date(stamp) }]);
+  const { put, remove } = loadController(model);
+  const admin = { id: "user-admin", roles: ["ادارة"] };
+  const a = createRes();
+  const b = createRes();
+  await Promise.all([
+    put(withActor({ params: { id: "report-0" }, body: { info: "A", baseVersion: stamp }, user: admin }), a),
+    put(withActor({ params: { id: "report-0" }, body: { info: "B", baseVersion: stamp }, user: admin }), b),
+  ]);
+  assert.deepEqual([a.statusCode, b.statusCode].sort(), [200, 409]);
+  const winner = a.statusCode === 200 ? "A" : "B";
+  assert.equal(model.snapshot()[0].info, winner);
+
+  // A delete based on the version before that save is refused, the report stays.
+  const late = createRes();
+  await remove(withActor({ params: { id: "report-0" }, body: { baseVersion: stamp }, user: admin }), late);
+  assert.equal(late.statusCode, 409);
+  assert.equal(model.snapshot().length, 1);
 });

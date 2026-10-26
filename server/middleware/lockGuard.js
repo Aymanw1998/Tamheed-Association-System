@@ -64,6 +64,11 @@ function editorStamp(req) {
 }
 
 // `view` shapes the stored document for the client (e.g. drops secrets).
+function staleAnswer(current, view = (doc) => doc) {
+  const shown = current ? view(current) : null;
+  return { ok: false, code: "STALE", current: shown, message: staleMessage(shown || current) };
+}
+
 function checkVersion(current, req, view = (doc) => doc) {
   const base = req?.body?.baseVersion;
   if (base === undefined || base === null || base === "") return null; // old clients
@@ -71,8 +76,32 @@ function checkVersion(current, req, view = (doc) => doc) {
   const seen = new Date(base).getTime();
   const stored = new Date(current.updatedAt).getTime();
   if (seen === stored) return null;
-  const shown = view(current);
-  return { ok: false, code: "STALE", current: shown, message: staleMessage(shown || current) };
+  return staleAnswer(current, view);
+}
+
+// Compare-and-set for the write that follows a read: the filter also requires
+// the updatedAt that was read, so a save that waited (or lost its lock) never
+// overwrites what was written after the read. A record read without updatedAt
+// is written only while it still has none ({ updatedAt: null } in MongoDB
+// matches a missing or null field), since every guarded write stamps it.
+function sameVersion(filter, current) {
+  const stamp = current?.updatedAt;
+  return { ...filter, updatedAt: stamp === undefined ? null : stamp };
+}
+
+// A new updatedAt that is always later than `current`'s, even within the same
+// millisecond, so a compare-and-set on the old value can never match again.
+// `nowMs` is the caller's clock.
+function nextStamp(current, nowMs = Date.now()) {
+  const before = current?.updatedAt ? new Date(current.updatedAt).getTime() : 0;
+  return new Date(Math.max(nowMs, (Number.isFinite(before) ? before : 0) + 1));
+}
+
+// The 409 body when a guarded write matched nothing: the record changed (or
+// was removed) after it was read. `reread` returns the model's { result: [...] }.
+async function raceLost(reread, view = (doc) => doc) {
+  const fresh = (await reread().catch(() => null))?.result?.[0] || null;
+  return staleAnswer(fresh, view);
 }
 
 let defaultLocks = null;
@@ -92,4 +121,10 @@ const guard = createLockGuard({
   logError: (source, error) => require("./logger").logWithSource(source, error),
 });
 
-module.exports = { ...guard, checkVersion, editorStamp, createLockGuard, LOCKED_MESSAGE, lockedMessage, staleMessage };
+// Who holds `key`, unless it is free or held by this tab (clientId): for a
+// controller that also writes items other than its route's own (a player
+// save changes the rosters of sport lessons). lockedAnswer is the 423 body.
+const holderOf = (key, clientId) => lazyLocks().holderOf(key, clientId ?? null);
+const lockedAnswer = (holder) => ({ ok: false, code: "LOCKED", holder, message: lockedMessage(holder) });
+
+module.exports = { ...guard, holderOf, lockedAnswer, checkVersion, sameVersion, nextStamp, raceLost, staleAnswer, editorStamp, createLockGuard, LOCKED_MESSAGE, lockedMessage, staleMessage };

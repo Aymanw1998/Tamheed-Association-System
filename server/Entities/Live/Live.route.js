@@ -7,6 +7,7 @@ const { LIVE_TICKET_TTL_SECONDS } = require("./LiveTicket.model");
 const { createOverlapCursor } = require("../../services/overlapCursor");
 const { canSeeAlertType } = require("../../services/alertAccess");
 const { liveHub } = require("../../services/liveHub");
+const { mayReceive } = require("../../services/liveAudience");
 
 // The signed-in live channel (replaces the old open /api/events).
 //   POST /ticket          requireAuth + loadActor -> { ok, ticket } (single use, 60 s)
@@ -26,11 +27,26 @@ const OVERLAP_MS = 30 * 1000;
 // The user is re-checked every 6 polls (~1 min); a stream lasts at most 1 h.
 const RECHECK_EVERY_POLLS = 6;
 const MAX_STREAM_MS = 60 * 60 * 1000;
+// A student event re-reads the guide's visible students when they are older.
+const SCOPE_FRESH_MS = 2 * 1000;
 // Only these LiveEvent types reach the browser. Alerts come from AiAlerts
 // (see `alerts` below), not from LiveEvents.
 const STREAM_TYPES = new Set(["storage", "change", "lock"]);
 const TICKET_INVALID = { code: "TICKET_INVALID", message: "رابط البث غير صالح أو منتهي" };
 const SERVER_ERROR = "حدث خطأ غير متوقع، حاول مرة أخرى";
+
+// The staff stream's default student scope (utils/studentScope), read lazily.
+let studentScope = null;
+const defaultVisibleStudentIds = (actor) => {
+  if (!studentScope) {
+    const { createStudentScope } = require("../../utils/studentScope");
+    studentScope = createStudentScope({
+      lessonModel: require("../Lesson/Lesson.model").LessonModelDef,
+      studentModel: require("../Student/Student.model").StudentModelDef,
+    });
+  }
+  return studentScope.visibleStudentIds(actor);
+};
 
 // What the browser gets for an alert (never the recipient or the dedup key).
 const alertView = (row) => ({
@@ -53,6 +69,8 @@ function createLiveRouter({
   alerts = null,
   // Instant `change` / `lock` events from this process (services/liveHub).
   hub = liveHub,
+  // actor -> visible student ids (null = all), for filtering those events.
+  visibleStudentIds = defaultVisibleStudentIds,
   now = () => Date.now(),
   pollMs = POLL_MS,
   pingMs = PING_MS,
@@ -148,6 +166,44 @@ function createLiveRouter({
     let pingTimer = null;
     let capTimer = null;
     let unsubscribe = () => {};
+    // The actor's visible students: read at the start, with the actor at each
+    // re-check, and again before a student event when older than
+    // SCOPE_FRESH_MS (a guide given or losing a student hears of it at once).
+    let visible = new Set();
+    // The last scope actually read (kept through a failed read), to tell who left.
+    let lastRead = new Set();
+    let visibleAt = -Infinity;
+    let refreshing = null;
+    // Resolves true when read. A failed read fails closed: no student is
+    // visible until a later read succeeds.
+    const refreshVisible = () => {
+      if (!refreshing) {
+        refreshing = visibleStudentIds(actor)
+          .then((ids) => {
+            // Each student who just left his scope is announced once (an id he
+            // already had, and only with students.view), so his open list drops
+            // it; nothing more follows.
+            const left = lastRead instanceof Set && ids instanceof Set ? [...lastRead].filter((id) => !ids.has(id)) : [];
+            const before = lastRead;
+            visible = ids;
+            lastRead = ids;
+            visibleAt = now();
+            for (const id of left) {
+              const payload = { entity: "student", id };
+              if (mayReceive(actor, "change", payload, { visible: before })) write("change", payload);
+            }
+            return true;
+          })
+          .catch((error) => {
+            logWithSource("Live.visible", error?.message);
+            visible = new Set();
+            visibleAt = -Infinity;
+            return false;
+          })
+          .finally(() => { refreshing = null; });
+      }
+      return refreshing;
+    };
 
     const finish = () => {
       if (closed) return;
@@ -168,7 +224,10 @@ function createLiveRouter({
         if (polls % recheckEveryPolls === 0) {
           const checked = await recheck(user);
           if (!checked.ok) return finish();
-          if (checked.actor) actor = checked.actor;
+          if (checked.actor) {
+            actor = checked.actor;
+            await refreshVisible();
+          }
         }
         if (closed) return;
         for (const event of await cursor.next()) {
@@ -190,13 +249,28 @@ function createLiveRouter({
 
     // Instant events: written at once, not on the next poll. A write after the
     // stream closed throws, which makes the hub drop this subscriber.
-    unsubscribe = hub.subscribe("staff", tz, (type, payload) => {
-      if (closed) throw new Error("stream closed");
+    // Each goes only to who may see that record (services/liveAudience).
+    const send = (type, payload, audience) => {
+      if (closed || !mayReceive(actor, type, payload, { visible, audience })) return;
+      write(type, payload);
+    };
+    function write(type, payload) {
+      if (closed) return;
       res.write(`event: ${type}
 data: ${JSON.stringify(payload ?? {})}
 
 `);
+    }
+    unsubscribe = hub.subscribe("staff", tz, (type, payload, audience) => {
+      if (closed) throw new Error("stream closed");
+      const aboutStudent = payload?.entity === "student" || String(payload?.key ?? "").startsWith("student:");
+      if (aboutStudent && now() - visibleAt > SCOPE_FRESH_MS) {
+        refreshVisible().then((read) => { if (read) send(type, payload, audience); }).catch(() => {});
+        return;
+      }
+      send(type, payload, audience);
     });
+    refreshVisible();
     openStreams.add(finish);
     pollTimer = setInterval(poll, pollMs);
     pingTimer = setInterval(() => { if (!closed) res.write(": ping\n\n"); }, pingMs);

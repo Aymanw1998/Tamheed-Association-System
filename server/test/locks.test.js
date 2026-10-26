@@ -152,7 +152,8 @@ test("a failed acquire does not broadcast", async () => {
 
 /* ---------------- routes ---------------- */
 
-async function startApp() {
+// reports: the stand-in for ReportModelDef the report lock rules read.
+async function startApp({ reports = { get: async () => ({ result: [] }) } } = {}) {
   const ctx = setup();
   const requireAuth = (req, res, next) => {
     const bearer = (req.headers.authorization || "").replace(/^Bearer /, "");
@@ -165,7 +166,7 @@ async function startApp() {
   const loadActor = (req, res, next) => { req.actor = actorFor(USERS[req.user.tz]); next(); };
   const app = express();
   app.use(express.json());
-  app.use("/api/locks", createLockRouter({ requireAuth, loadActor, requirePermission, locks: ctx.locks }));
+  app.use("/api/locks", createLockRouter({ requireAuth, loadActor, requirePermission, locks: ctx.locks, reports }));
   const server = http.createServer(app);
   await new Promise((resolve) => server.listen(0, resolve));
   const base = `http://127.0.0.1:${server.address().port}`;
@@ -343,4 +344,48 @@ test("the Locks collection has a TTL index on expiresAt", () => {
   const ttl = LOCK_INDEXES.find((index) => index.key.expiresAt === 1);
   assert.ok(ttl, "TTL index declared");
   assert.equal(ttl.options.expireAfterSeconds, 0);
+});
+
+test("an ObjectId in the key is matched in any letter case (MongoDB reads both as one record)", async () => {
+  const { locks, events } = setup();
+  const id = "abcdef123456abcdef123456";
+  assert.equal((await locks.acquire(`report:${id}`, A)).ok, true);
+  assert.deepEqual(await locks.holderOf(`report:${id.toUpperCase()}`, "tab-b"), { name: "Aa Aa", tz: "t-a" });
+  assert.equal((await locks.acquire(`report:${id.toUpperCase()}`, B)).ok, false);
+  assert.equal((await locks.acquire(`attendance:${id.toUpperCase()}:2026-10-25`, A)).ok, true);
+  assert.deepEqual(await locks.holderOf(`attendance:${id}:2026-10-25`, "tab-b"), { name: "Aa Aa", tz: "t-a" });
+  assert.equal(await locks.heartbeat(`report:${id.toUpperCase()}`, "tab-a"), true);
+  await locks.release(`report:${id.toUpperCase()}`, "tab-a");
+  assert.equal(await locks.holderOf(`report:${id}`, "tab-b"), null);
+  assert.ok(events.every((e) => e.payload.key === e.payload.key.replace(/[A-F]/g, (c) => c.toLowerCase())));
+});
+
+test("normalizeKey lowercases ObjectId segments only", () => {
+  const { normalizeKey } = require("../services/locks");
+  assert.equal(normalizeKey("report:ABCDEF123456ABCDEF123456"), "report:abcdef123456abcdef123456");
+  assert.equal(normalizeKey("sportAttendance:ABCDEF123456ABCDEF123456:2026-10-25"), "sportAttendance:abcdef123456abcdef123456:2026-10-25");
+  assert.equal(normalizeKey("player:123456789"), "player:123456789");
+  assert.equal(normalizeKey("vehicle:AB-123"), "vehicle:AB-123");
+});
+
+test("routes: report locks follow report ownership (editOwn locks only his own; the holder shows only to who may see the report)", async () => {
+  const REPORTS = [
+    { _id: "r-guide", createdBy: GUIDE_U._id },
+    { _id: "r-admin", createdBy: ADMIN_U._id },
+  ];
+  const reports = { get: async ({ _id }) => ({ result: REPORTS.filter((r) => r._id === _id) }) };
+  const { server, call, locks } = await startApp({ reports });
+  try {
+    const own = await call("POST", "/acquire", { tz: GUIDE_U.tz, client: "tab-g", body: { key: "report:r-guide" } });
+    assert.equal(own.status, 200);
+    const other = await call("POST", "/acquire", { tz: GUIDE_U.tz, client: "tab-g", body: { key: "report:r-admin" } });
+    assert.equal(other.status, 403, "editOwn cannot lock someone else's report");
+    assert.equal((await call("POST", "/acquire", { tz: GUIDE_U.tz, client: "tab-g", body: { key: "report:missing" } })).status, 403);
+
+    await locks.acquire("report:r-admin", { clientId: "tab-a", userId: ADMIN_U._id, tz: ADMIN_U.tz, name: "Ad Min" });
+    const hidden = await call("GET", "/report:r-admin", { tz: GUIDE_U.tz, client: "tab-g" });
+    assert.deepEqual(hidden.body, { ok: true, holder: null }, "no name or ID number for a report he cannot see");
+    const seen = await call("GET", "/report:r-guide", { tz: ADMIN_U.tz, client: "tab-a" });
+    assert.deepEqual(seen.body.holder, { name: "Gu Ide", tz: GUIDE_U.tz });
+  } finally { server.close(); }
 });

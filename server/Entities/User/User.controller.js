@@ -3,7 +3,7 @@ const jwt = require("jsonwebtoken");
 const path = require("path");
 
 const { UserModelDef } = require("./User.model");
-const { checkVersion, editorStamp } = require("../../middleware/lockGuard");
+const { checkVersion, editorStamp, sameVersion, raceLost } = require("../../middleware/lockGuard");
 const { notifyChange } = require("../../services/liveHub");
 
 const { generateOtp6 } = require("../../utils/otp");
@@ -701,7 +701,9 @@ const putU = async (req, res) => {
     if (stale) return res.status(409).json(stale);
     newData.updatedAt = new Date();
     Object.assign(newData, editorStamp(req));
-    const updated = await UserModelDef.update({ tz: existing.tz }, newData, room);
+    // Written only if nobody saved since `existing` was read.
+    const updated = await UserModelDef.updateExisting(sameVersion({ tz: existing.tz }, existing), newData, room);
+    if (!updated?.result) return res.status(409).json(await raceLost(() => UserModelDef.get({ tz: existing.tz }, room), sanitize));
     await recordUser(req, userEditAction(existing, newData), existing, { ...(existing || { tz }), ...newData });
     notifyChange("user", existing._id);
 
@@ -739,11 +741,12 @@ const updateStoragePermissions = async (req, res) => {
 
     const stale = checkVersion(existing, req, sanitize);
     if (stale) return res.status(409).json(stale);
-    const updated = await UserModelDef.update(
-      { tz: existing.tz },
+    const updated = await UserModelDef.updateExisting(
+      sameVersion({ tz: existing.tz }, existing),
       { storagePermissions: cleanPermissions, updatedAt: new Date(), ...editorStamp(req) },
       "active"
     );
+    if (!updated?.result) return res.status(409).json(await raceLost(() => UserModelDef.get({ tz: existing.tz }, "active"), sanitize));
     await recordUser(req, "permission_change", existing, { ...existing, storagePermissions: cleanPermissions });
     notifyChange("user", existing._id);
 
@@ -782,7 +785,8 @@ const deleteU = async (req, res) => {
 
     const stale = checkVersion(existing, req, sanitize);
     if (stale) return res.status(409).json(stale);
-    const deleted = await UserModelDef.delete({ tz: existing.tz }, room);
+    const deleted = await UserModelDef.delete(sameVersion({ tz: existing.tz }, existing), room);
+    if (!deleted?.result?.deletedCount) return res.status(409).json(await raceLost(() => UserModelDef.get({ tz: existing.tz }, room), sanitize));
     await recordUser(req, "delete", { ...existing, room }, null);
     notifyChange("user", existing._id);
 
@@ -1499,7 +1503,8 @@ const putPermissions = async (req, res) => {
       permissionsUpdatedAt: new Date(),
       permissionsUpdatedBy: permissionEditor(req.actor),
     };
-    await UserModelDef.update({ tz: user.tz }, patch, room);
+    const written = await UserModelDef.updateExisting(sameVersion({ tz: user.tz }, user), patch, room);
+    if (!written?.result) return res.status(409).json(await raceLost(() => UserModelDef.get({ tz: user.tz }, room), sanitize));
     await recordUser(req, "permission_change", user, { ...user, ...patch });
     notifyChange("user", user._id);
     raiseAlert("accessChanged", alertPerson(user), { change: "permissions", actorTz: req.actor?.tz });
@@ -1546,7 +1551,8 @@ const putRole = async (req, res) => {
       patch.permissionsUpdatedAt = new Date();
       patch.permissionsUpdatedBy = permissionEditor(req.actor);
     }
-    await UserModelDef.update({ tz: user.tz }, patch, room);
+    const written = await UserModelDef.updateExisting(sameVersion({ tz: user.tz }, user), patch, room);
+    if (!written?.result) return res.status(409).json(await raceLost(() => UserModelDef.get({ tz: user.tz }, room), sanitize));
     await recordUser(req, "role_change", user, { ...user, ...patch });
     notifyChange("user", user._id);
     raiseAlert("accessChanged", alertPerson(user), { change: "role", actorTz: req.actor?.tz });

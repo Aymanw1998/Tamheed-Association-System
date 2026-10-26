@@ -508,3 +508,67 @@ test("a sport lesson form saved on top of a newer version is 409 STALE and chang
   const fresh = await call(ctx, MANAGER, "put", "/lessons/:id", { params: { id }, body: { ...body({ name: "جديد" }), baseVersion: new Date(stored.updatedAt).toISOString() } });
   assert.equal(fresh.statusCode, 200);
 });
+
+test("saving two players onto the same lesson at once keeps both on its roster", async () => {
+  const L = hex("e");
+  const ctx = world({ sportLessons: [{ _id: L, sportId: SPORT, name: "Sun", date: SUNDAY, room: "9", players: [], updatedAt: new Date("2026-10-20T10:00:00.000Z") }] });
+  const put = (n) => call(ctx, COACH, "put", "/players/:studentId", { params: { studentId: sid(n) }, body: { lessonIds: [L] } });
+  const [a, b] = await Promise.all([put(1), put(2)]);
+  assert.equal(a.statusCode, 200);
+  assert.equal(b.statusCode, 200);
+  const roster = ctx.lessons.all().find((l) => l._id === L).players.map((p) => p.studentId).sort();
+  assert.deepEqual(roster, [sid(1), sid(2)]);
+});
+
+test("a player save that would change a lesson another tab holds is 423 and writes nothing", async () => {
+  const L = hex("e");
+  const ctx = world({ sportLessons: [{ _id: L, sportId: SPORT, name: "Sun", date: SUNDAY, room: "9", players: [], updatedAt: new Date("2026-10-20T10:00:00.000Z") }] });
+  live.holders.set(`sportLesson:${L}`, { clientId: "other-tab", name: "Ma Nager", tz: "900000002" });
+  try {
+    const before = structuredClone([ctx.lessons.all(), ctx.players.all()]);
+    const out = await call(ctx, COACH, "put", "/players/:studentId", { params: { studentId: sid(1) }, body: { jerseyNumber: 7, lessonIds: [L] } });
+    assert.equal(out.statusCode, 423);
+    assert.equal(out.body.code, "LOCKED");
+    assert.equal(out.body.holder.name, "Ma Nager");
+    assert.deepEqual([ctx.lessons.all(), ctx.players.all()], before);
+    // A save that leaves that lesson's roster as it is still goes through.
+    const other = await call(ctx, COACH, "put", "/players/:studentId", { params: { studentId: sid(1) }, body: { jerseyNumber: 7, lessonIds: [] } });
+    assert.equal(other.statusCode, 200);
+    // Deleting a player who is on a held lesson is refused too.
+    ctx.lessons.all()[0].players = [{ studentId: sid(2), joinedAt: new Date() }];
+    const del = await call(ctx, COACH, "delete", "/players/:studentId", { params: { studentId: sid(2) } });
+    assert.equal(del.statusCode, 423);
+    assert.equal(ctx.players.all().some((p) => p.studentId === sid(2)), true);
+  } finally {
+    live.holders.clear();
+  }
+});
+
+test("three players saved onto one lesson at once, with a frozen clock, all stay on the roster", async () => {
+  const L = hex("e");
+  // The world's clock is frozen at NOW: every write in the controller gets the same time.
+  const ctx = world({ sportLessons: [{ _id: L, sportId: SPORT, name: "Sun", date: SUNDAY, room: "9", players: [], updatedAt: new Date(NOW) }] });
+  const put = (n) => call(ctx, COACH, "put", "/players/:studentId", { params: { studentId: sid(n) }, body: { lessonIds: [L] } });
+  const out = await Promise.all([put(1), put(2), put(3)]);
+  assert.deepEqual(out.map((r) => r.statusCode), [200, 200, 200]);
+  const roster = ctx.lessons.all().find((l) => l._id === L).players.map((p) => p.studentId).sort();
+  assert.deepEqual(roster, [sid(1), sid(2), sid(3)]);
+});
+
+test("a lesson form save after a roster change keeps the version moving forward (a delayed save on an old version is 409)", async () => {
+  const ctx = world();
+  const created = (await create(ctx)).body.lesson;
+  const id = created._id;
+  const stored = () => new Date(ctx.lessons.all().find((l) => l._id === id).updatedAt).getTime();
+  const v0 = stored();
+  // The clock is frozen: the roster change stamps ahead of it, the form save must not step back.
+  await addPlayer(ctx, id, sid(3));
+  const v1 = stored();
+  assert.ok(v1 > v0);
+  const fresh = await call(ctx, MANAGER, "put", "/lessons/:id", { params: { id }, body: body({ studentIds: [sid(1), sid(2), sid(3)], baseVersion: new Date(v1).toISOString() }) });
+  assert.equal(fresh.statusCode, 200);
+  assert.ok(stored() > v1, "never back to an earlier version");
+  const late = await call(ctx, MANAGER, "put", "/lessons/:id", { params: { id }, body: body({ studentIds: [sid(1)], baseVersion: new Date(v0).toISOString() }) });
+  assert.equal(late.statusCode, 409);
+  assert.ok(ctx.lessons.all().find((l) => l._id === id).players.some((p) => p.studentId === sid(3)), "the added player stays");
+});

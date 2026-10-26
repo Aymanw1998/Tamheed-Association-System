@@ -19,7 +19,7 @@ function createStore(seed = []) {
   // Supports plain equality and { $in: [...] } (compared as strings, like an ObjectId/string pair).
   const matchOne = (value, cond) => (cond && typeof cond === "object" && Array.isArray(cond.$in)
     ? cond.$in.some((c) => String(value) === String(c))
-    : String(value) === String(cond));
+    : cond == null ? value == null : String(value) === String(cond));
   const matches = (doc, filter = {}) => Object.keys(filter).every((k) => matchOne(get(doc, k), filter[k]));
   return {
     dbName: "tamheed_db",
@@ -37,7 +37,13 @@ function createStore(seed = []) {
       // Like api.update: answers with the document as stored after the write.
       return { success: true, result: structuredClone(docs.find((d) => matches(d, filter)) || null) };
     },
-    async delete(filter) { docs = docs.filter((d) => !matches(d, filter)); return { success: true }; },
+    async updateExisting(filter, patch) {
+      const i = docs.findIndex((d) => matches(d, filter));
+      if (i < 0) return { success: true, result: null };
+      docs[i] = { ...docs[i], ...structuredClone(patch) };
+      return { success: true, result: structuredClone(docs[i]) };
+    },
+    async delete(filter) { const before = docs.length; docs = docs.filter((d) => !matches(d, filter)); return { success: true, result: { deletedCount: before - docs.length } }; },
     all: () => docs,
   };
 }

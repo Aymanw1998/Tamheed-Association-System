@@ -2,7 +2,7 @@ const { ReportModelDef } = require("./Report.model.js");
 const { logWithSource } = require("../../middleware/logger.js");
 const { can, actorRef } = require("../../utils/permissions.js");
 const { audit } = require("../../utils/audit.js");
-const { checkVersion, editorStamp } = require("../../middleware/lockGuard.js");
+const { checkVersion, editorStamp, sameVersion, raceLost } = require("../../middleware/lockGuard.js");
 const { notifyChange } = require("../../services/liveHub.js");
 
 // req.actor comes from permissionMiddleware.loadActor.
@@ -199,7 +199,7 @@ const post = async (req, res) => {
       module: "reports", action: "create", targetType: "report",
       targetId: createdId, targetLabel: reportLabel(payload), after: created?.result || payload,
     });
-    notifyChange("report", createdId);
+    notifyChange("report", createdId, { owner: payload.createdBy });
 
     await safeNotify({
       toRoles: ["ادارة"],
@@ -277,10 +277,12 @@ const put = async (req, res) => {
     if (info !== undefined) updateObj.info = String(info);
     if (type !== undefined) updateObj.type = type;
 
-    const updated = await ReportModelDef.update(
-      { _id: String(id).trim() },
+    // Written only if nobody saved since `existing` was read.
+    const updated = await ReportModelDef.updateExisting(
+      sameVersion({ _id: String(id).trim() }, existing),
       updateObj
     );
+    if (!updated?.result) return res.status(409).json(await raceLost(() => ReportModelDef.get({ _id: String(id).trim() })));
 
     const reportAfter = await getReportById(String(id).trim());
     await audit.record(req, {
@@ -288,7 +290,7 @@ const put = async (req, res) => {
       targetId: pickId(existing) || String(id).trim(), targetLabel: reportLabel(reportAfter || existing),
       before: existing, after: reportAfter || { ...existing, ...updateObj },
     });
-    notifyChange("report", pickId(existing) || String(id).trim());
+    notifyChange("report", pickId(existing) || String(id).trim(), { owner: existing.createdBy });
 
     await safeNotify({
       toRoles: ["ادارة"],
@@ -342,13 +344,14 @@ const remove = async (req, res) => {
     const stale = checkVersion(existing, req);
     if (stale) return res.status(409).json(stale);
 
-    await ReportModelDef.delete({ _id: String(id).trim() });
+    const deleted = await ReportModelDef.delete(sameVersion({ _id: String(id).trim() }, existing));
+    if (!deleted?.result?.deletedCount) return res.status(409).json(await raceLost(() => ReportModelDef.get({ _id: String(id).trim() })));
     await audit.record(req, {
       module: "reports", action: "delete", targetType: "report",
       targetId: pickId(existing) || String(id).trim(), targetLabel: reportLabel(existing),
       before: existing, after: null,
     });
-    notifyChange("report", pickId(existing) || String(id).trim());
+    notifyChange("report", pickId(existing) || String(id).trim(), { owner: existing.createdBy });
 
     await safeNotify({
       toRoles: ["ادارة"],

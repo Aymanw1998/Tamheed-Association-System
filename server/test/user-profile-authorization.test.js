@@ -28,6 +28,10 @@ function loadController() {
           updates.push({ filter, data, room });
           return { success: true };
         },
+        async updateExisting(filter, data, room) {
+          updates.push({ filter, data, room });
+          return { success: true, result: { ...STORED_TARGET, ...data } };
+        },
       },
     },
     "../../utils/otp": require("../utils/otp"),
@@ -117,7 +121,7 @@ test("self-edit saves profile fields while ignoring authority and session metada
   // One's own password changes only through POST /api/auth/change-password.
   const { password, ...profileWithoutPassword } = profile;
   assert.deepEqual(updates, [{
-    filter: { tz: "self-user" },
+    filter: { tz: "self-user", updatedAt: null },
     data: { ...profileWithoutPassword, birth_date: "2000-01-02T00:00:00.000Z" },
     room: "active",
   }]);
@@ -130,7 +134,7 @@ test("missing roles cannot turn a request-body admin role into authorization", a
   });
   assert.equal(res.statusCode, 200);
   assert.deepEqual(updates, [{
-    filter: { tz: "self-user" }, data: { firstname: "Updated" }, room: "active",
+    filter: { tz: "self-user", updatedAt: null }, data: { firstname: "Updated" }, room: "active",
   }]);
 });
 
@@ -151,7 +155,7 @@ for (const role of ["ادارة", " إدارة ", "الادارة", "الإدا�
     assert.equal(res.statusCode, 200);
     const { room, roles, tz, storageFolder, ...data } = body;
     // Roles change only through PUT /:tz/role; tz and storageFolder never change through putU.
-    assert.deepEqual(updates, [{ filter: { tz: "self-user" }, data, room }]);
+    assert.deepEqual(updates, [{ filter: { tz: "self-user", updatedAt: null }, data, room }]);
   });
 }
 
@@ -161,7 +165,7 @@ test("an administrator editing their own account is limited to profile fields", 
     body: { firstname: "Updated", roles: ["ادارة", "مرشد"], main_lesson: "lesson", room: "waiting" },
   });
   assert.equal(res.statusCode, 200);
-  assert.deepEqual(updates, [{ filter: { tz: "self-user" }, data: { firstname: "Updated" }, room: "active" }]);
+  assert.deepEqual(updates, [{ filter: { tz: "self-user", updatedAt: null }, data: { firstname: "Updated" }, room: "active" }]);
 });
 
 test("non-administrators cannot update another identity even if the handler is called directly", async () => {

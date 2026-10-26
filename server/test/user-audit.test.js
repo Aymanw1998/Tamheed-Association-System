@@ -13,7 +13,7 @@ const { auditStub } = require("./helpers/auditStub");
 function createUsers(seed = {}) {
   const rooms = { active: [], waiting: [], noActive: [], ...structuredClone(seed) };
   let next = 1;
-  const matches = (doc, filter) => Object.keys(filter).every((k) => String(doc[k]) === String(filter[k]));
+  const matches = (doc, filter) => Object.keys(filter).every((k) => (filter[k] == null ? doc[k] == null : String(doc[k]) === String(filter[k])));
   return {
     collections: { active: "Users" },
     async get(filter = {}, room = "active") {
@@ -30,6 +30,8 @@ function createUsers(seed = {}) {
       if (hit) Object.assign(hit, structuredClone(data));
       return { success: true, result: hit ? structuredClone(hit) : null };
     },
+    // Never creates: result is null when nothing matches (like UserModelDef.updateExisting).
+    async updateExisting(filter, data, room = "active") { return this.update(filter, data, room); },
     async delete(filter, room = "active") {
       const before = rooms[room].length;
       rooms[room] = rooms[room].filter((d) => !matches(d, filter));
@@ -172,4 +174,22 @@ test("putU no longer changes roles or grants; the role endpoint records role_cha
   const [role] = audit.find({ module: "users", action: "role_change", targetId: "500000004" });
   assert.equal(role.before.role, "مرشد");
   assert.equal(role.after.role, "مساعد");
+});
+
+test("two edits of a user on the same version at once: one is written, the other is 409 STALE", async () => {
+  const users = createUsers();
+  const { controller } = loadController(users);
+  const stamp = new Date("2026-10-20T10:00:00.000Z");
+  users.rooms.active.push({ _id: "u-race", tz: "600000002", firstname: "Ra", lastname: "Ce", roles: ["مرشد"], updatedAt: stamp });
+  const a = res();
+  const b = res();
+  await Promise.all([
+    controller.putU(req({ params: { tz: "600000002" }, body: { firstname: "Aa", baseVersion: stamp.toISOString() } }), a),
+    controller.putU(req({ params: { tz: "600000002" }, body: { firstname: "Bb", baseVersion: stamp.toISOString() } }), b),
+  ]);
+  assert.deepEqual([a.statusCode, b.statusCode].sort(), [200, 409]);
+  const lost = a.statusCode === 409 ? a : b;
+  assert.equal(lost.body.code, "STALE");
+  assert.equal(lost.body.current.password, undefined, "the 409 never carries the password");
+  assert.equal(users.rooms.active.find((u) => u.tz === "600000002").firstname, a.statusCode === 200 ? "Aa" : "Bb");
 });

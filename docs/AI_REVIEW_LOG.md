@@ -2134,3 +2134,71 @@ The new screens were not checked in a browser.
 **Requesting Codex review.** No live Codex connection; this entry is the handoff.
 
 **Delivery state:** committed with the owner's approval; not pushed.
+
+**Codex review attempt (2026-10-26, owner request):** Claude Code ran the Codex CLI that comes with the Codex app (`%LOCALAPPDATA%\OpenAI\Codex\bin\codex.exe`, v0.130.0-alpha.5) in read-only mode on the range 81c85a1..54dd250. **No review was received.** The first run failed to load `~/.codex/config.toml`, because this CLI doesn't know `model_reasoning_effort = "ultra"`. The second run, with a one-run override to `xhigh`, was refused by the server: `gpt-6-astra` needs a newer Codex. The config was not changed. The newer `codex.exe` inside the app package can't be run from outside the app. The owner then asked to update the CLI (see the next paragraph).
+
+**Codex review (2026-10-26, Codex CLI 0.164.0, gpt-6-astra, read-only, range 81c85a1..54dd250):** received. Codex reports six confirmed defects; Claude has not yet checked them.
+1. **High**: `server/Entities/Report/Report.route.js:7` (same pattern in the lesson, sport and vehicle routes). The lock key uses the raw ID from the URL. An uppercase ObjectId reaches the same record without getting 423.
+2. **High**: `server/middleware/lockGuard.js:32`, `server/Entities/Lesson/Lesson.controller.js:328`. The lock check and version check are separate reads, and the update filters only by ID. A delayed save can overwrite a newer save after its lock expires or is released. Two concurrent calls with the same baseVersion both returned 200.
+3. **High**: `server/middleware/lockGuard.js:69`, `client/src/Components/Attendance/AttendancePage.jsx:279`. Queued attendance and the assistant's attendance action (`actionRunner.js:167`) send no baseVersion, and the guard accepts that. Sport attendance (`Sport.controller.js:474`) doesn't check a version at all.
+4. **High**: `server/Entities/Sport/Sport.controller.js:217`. Saving a player replaces lesson rosters but checks only the `player:<id>` lock, not the `sportLesson` locks.
+5. **Medium**: `server/Entities/Lock/Lock.route.js:39`. A report lock ignores ownership: `reports.editOwn` lets a user lock someone else's report, and the holder lookup exposes the holder's name and ID number.
+6. **Medium**: `server/Entities/Live/Live.route.js:193`. Staff `change` and `lock` events go out without checking module permissions or record visibility, which leaks identifiers and activity.
+
+Codex verification: 56 targeted isolated tests passed, plus in-memory reproductions; no files changed. Codex recommends behavioral tests for normalized IDs, concurrent saves across lock expiry, stale queued and assistant attendance, cross-player roster writes, and lock/SSE authorization, then `npm run verify` and browser checks.
+
+**Status:** review received; the findings are waiting for Claude (the implementer) to answer and fix them.
+
+## 2026-10-26: Fixes for Codex's Stage A findings (Claude implementer, Codex reviewer)
+
+**Owner request:** check Codex's six Stage A findings, fix the confirmed ones with tests, and send the fixes back to Codex.
+
+**Check (Claude):** all six were confirmed against the code. In finding 3, the queued and assistant attendance parts were confirmed; for sport attendance, the owner chose to keep the current behavior.
+
+**Owner decisions (2026-10-26):**
+- Queued (offline) attendance is checked against the sheet version, but rows the system writes (the nightly automatic absences, the empty rows a sheet view adds for new roster students) do not count as changes.
+- Sport attendance keeps its per-mark merge with the "overwritten" warning, with no version check.
+
+**Changes (uncommitted):**
+1. **Lock keys:** `server/services/locks.js` `normalizeKey` lowercases 24-hex ObjectId segments in every lock operation.
+2. **Guarded writes:** `server/middleware/lockGuard.js` adds `sameVersion` (the write filter also requires the `updatedAt` that was read; `{ updatedAt: null }` when there was none), `raceLost` (409 STALE with the current record) and `nextStamp`. These are used with `updateExisting` (never an upsert) in Lesson, Report (update and delete), Student (update and delete), Vehicle (form update), the sport lesson save, and User (putU, storage permissions, delete, permissions, role). `updateExisting` was added to the Lesson, Report, Student and Vehicle models. A new lesson is now stored with `updatedAt`.
+3. **Attendance:** `server/utils/attendanceMarks.js` `sheetVersion` counts only rows a person saved; a sheet nobody saved is `EMPTY_SHEET_VERSION` (epoch). It is used by `getSheet` and `bulkSave`. `client/src/Components/Attendance/AttendancePage.jsx` puts `baseVersion` into the queued body. `server/services/assistant/actionRunner.js` stores the sheet version in the proposal's params, sends it at approval, and ignores any `baseVersion` in the model's input.
+4. **Sport rosters:** `server/Entities/Sport/Sport.controller.js` answers 423 from `savePlayer`/`deletePlayer` when a lesson whose roster they would change is held by another tab (`lockGuard.holderOf`). `setMembership` makes each roster change a compare-and-set on `updatedAt` with a strictly later stamp, redone on the fresh roster; add/remove-player use it too.
+5. **Report locks:** `server/Entities/Lock/Lock.route.js` report rules read the report. editOwn locks only the caller's own report, and the holder is shown only with viewAll or to the owner. `server/Entities/Report/Report.route.js`: a PUT checks the lock only when the caller may edit that report, so editOwn on someone else's report gets the controller's 403, never the holder.
+6. **Live events:** the new `server/services/liveAudience.js` (`mayReceive`) filters staff `change`/`lock` events by module permission, the guide's visible students (re-read before a student event when more than 2 s old) and the report owner. The owner travels as an `audience` in `services/liveHub.js` and is never sent. `Entities/Live/Live.route.js` applies the filter.
+- **Tests:** concurrent-save tests (lesson, report, user, vehicle, sport roster with a frozen clock), ObjectId case, sheet version with system rows, stale assistant attendance, stale queued sheet (client), report-lock ownership on `/locks` and on the report route, the live audience (unit and stream, including a mid-stream scope change). The in-memory test stores gained `updateExisting` and delete counts, and match `null` and dates to the millisecond like MongoDB.
+
+**Codex re-review (2026-10-26, Codex CLI 0.164.0, read-only, on the first version of these fixes):** finding 1 resolved, finding 3 resolved for the agreed scope, findings 2, 4, 5 and 6 partly resolved. Five new findings:
+1. Records without `updatedAt` were written without a guard.
+2. A roster retry in the same millisecond could match again.
+3. The report PUT revealed the holder before the ownership check.
+4. The cached student scope lagged about a minute.
+5. Lesson viewers lost sport-lesson events.
+
+All five are fixed in the changes above (`{ updatedAt: null }` plus lessons created with `updatedAt`, `nextStamp`, the report route key, a scope re-read before student events, `sportLesson` also for `lessons.view`), with tests.
+
+**Known limits (not changed):**
+- No compare-and-set on: the user move between rooms (create then delete), the vehicle delete (Drive files are deleted first), the multi-row attendance sheet itself (the lock and the sheet version protect it), and the vehicle document and licence writes.
+- A report *lock* event has no owner, so only reports.viewAll receives it.
+- Lesson and report viewers without users.view no longer get live `user` events (renames show on the next load).
+- The live hub is still per process.
+
+**Further Codex re-review rounds (2026-10-26, Codex CLI 0.164.0, read-only):**
+- **Round 2:** confirmed `updatedAt: null`, the report route and `sportLesson` for `lessons.view`. New findings:
+  - The full sport lesson save still used the raw clock. Fixed: `nextStamp`.
+  - A failed scope read kept the old scope. Fixed: fail closed.
+  - A student leaving the scope gave the former guide no refresh.
+- **Round 3:** a student-specific exception for the previous scope could drop the removal notice or let other events through. It was replaced: after a successful read, the stream writes exactly one `change` per student who left the scope, and every event is checked only against the new scope.
+- **Round 4:** found two gaps, both fixed:
+  - The removal notice must also require students.view.
+  - A failed read must not erase the last read scope (`lastRead` is kept).
+- **Round 5:** "Resolved ... No new concrete findings within the requested scope."
+
+**Verification:**
+- **Server:** 918/918 (`npm test` in server/, after the last change).
+- **Client:** 656/656 and the production build compiled (`npm run verify`; the client was unchanged after that run).
+- One earlier full run had a 5 s timeout in `client/src/journey/JourneyProvider.test.js`, a file not touched here. It passed alone (20/20) and in the following full run.
+- Codex ran its own focused suites read-only. Its 2 failures in `sport-host.test.js` came from its sandbox refusing a temp directory.
+- Not tested: a real MongoDB, browsers, nginx and the sport site. The ObjectId letter case was checked locally through Mongoose casting. That `{ updatedAt: null }` matches a missing field is documented MongoDB behavior and was not run against a database.
+
+**Status:** Codex review complete for this change; nothing committed.

@@ -7,7 +7,7 @@ const { StudentModelDef } = require("../Student/Student.model");
 const { SportLessonModelDef } = require("../Sport/SportLesson.model");
 const { conflictsInRoom9 } = require("../../utils/lessonConflict");
 const { createStudentScope, mergeRoster, scopeLesson } = require("../../utils/studentScope");
-const { checkVersion, editorStamp } = require("../../middleware/lockGuard");
+const { checkVersion, editorStamp, sameVersion, raceLost } = require("../../middleware/lockGuard");
 const { notifyChange } = require("../../services/liveHub");
 
 // Student scope: null (students.viewAll, today's behaviour) or the Set of
@@ -266,9 +266,13 @@ const postOne = async (req, res) => {
       });
     }
 
+    // Stored with its version, so even its first edit is a guarded write.
+    const createdAt = new Date();
     const created = await LessonModelDef.create({
       ...model,
-      createdAt: new Date(),
+      createdAt,
+      updatedAt: createdAt,
+      ...editorStamp(req),
     });
     await recordLesson(req, "create", null, created?.result || model);
     notifyChange("lesson", created?.result?._id);
@@ -325,10 +329,14 @@ const putOne = async (req, res) => {
       return res.status(409).json({ ok: false, message: "يوجد تعارض" });
     }
 
-    const updated = await LessonModelDef.update(
-      { _id: id },
+    // Written only if nobody saved since `current` was read.
+    const updated = await LessonModelDef.updateExisting(
+      sameVersion({ _id: id }, current),
       { ...next, updatedAt: new Date(), ...editorStamp(req) }
     );
+    if (!updated?.result) {
+      return res.status(409).json(await raceLost(() => LessonModelDef.get({ _id: id }), (doc) => scopeLesson(doc, visible)));
+    }
     await recordLesson(req, "update", current, { ...current, ...next });
     notifyChange("lesson", id);
 

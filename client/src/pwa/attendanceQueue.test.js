@@ -141,3 +141,16 @@ test("a failing remove after a successful send does not reject the flush", async
   await enqueue("A", item(1));
   await expect(flush("A", async () => ({ ok: true, status: 200 }))).resolves.toMatchObject({ sent: 1 });
 });
+
+test("a queued sheet someone else saved meanwhile (409 STALE) moves to failed with the server's message", async () => {
+  await enqueue("A", item(1, { body: { lessonId: "L1", baseVersion: "1970-01-01T00:00:00.000Z" } }));
+  const sent = [];
+  const res = await flush("A", async (it) => {
+    sent.push(it.body);
+    return { ok: false, status: 409, message: "تم تعديل هذا العنصر من قِبل Sara أثناء غيابك." };
+  });
+  expect(sent[0].baseVersion).toBe("1970-01-01T00:00:00.000Z");
+  expect(res.stoppedStatus).toBeNull();
+  expect(res.failed[0].message).toMatch(/Sara/);
+  expect(await failedItems("A")).toHaveLength(1);
+});

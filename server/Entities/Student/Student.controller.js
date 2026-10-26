@@ -6,7 +6,7 @@ const { LessonModelDef } = require("../Lesson/Lesson.model");
 const { UserModelDef } = require("../User/User.model");
 const { isSystemTz, can } = require("../../utils/permissions");
 const { createStudentScope } = require("../../utils/studentScope");
-const { checkVersion, editorStamp } = require("../../middleware/lockGuard");
+const { checkVersion, editorStamp, sameVersion, raceLost } = require("../../middleware/lockGuard");
 const { notifyChange, liveHub } = require("../../services/liveHub");
 
 // Who the actor may see: null (students.viewAll) or a Set of student _ids.
@@ -300,10 +300,13 @@ const putS = async (req, res) => {
     if (stale) return res.status(409).json(stale);
     newData.updatedAt = new Date();
     Object.assign(newData, editorStamp(req));
-    const updated = await StudentModelDef.update(
-      { tz },
+    // Written only if nobody saved since the student was read.
+    const studentId = String(existing.result[0]._id);
+    const updated = await StudentModelDef.updateExisting(
+      sameVersion({ _id: studentId }, existing.result[0]),
       newData
     );
+    if (!updated?.result) return res.status(409).json(await raceLost(() => StudentModelDef.get({ _id: studentId })));
     await recordStudent(req, "update", existing.result[0], { ...existing.result[0], ...newData });
     notifyChange("student", existing.result[0]._id);
     // A football player's name or photo shows on his own sport screen (a no-op when nobody listens).
@@ -353,7 +356,8 @@ const deleteS = async (req, res) => {
     // Only the record found above, never every record sharing the tz.
     const stale = checkVersion(existing.result[0], req);
     if (stale) return res.status(409).json(stale);
-    const deleted = await StudentModelDef.delete({ _id: String(existing.result[0]._id) });
+    const deleted = await StudentModelDef.delete(sameVersion({ _id: String(existing.result[0]._id) }, existing.result[0]));
+    if (!deleted?.result?.deletedCount) return res.status(409).json(await raceLost(() => StudentModelDef.get({ _id: String(existing.result[0]._id) })));
     await recordStudent(req, "delete", existing.result[0], null);
     notifyChange("student", existing.result[0]._id);
 

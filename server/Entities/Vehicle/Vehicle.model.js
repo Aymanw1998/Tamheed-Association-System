@@ -29,6 +29,11 @@ VehicleModelDef.update = async function (filter, newData) {
   return await api.update({ dbName: this.dbName, collection: this.collections.active, filter, newData });
 };
 
+// Like update() but never creates a vehicle: result is null when nothing matches.
+VehicleModelDef.updateExisting = async function (filter, newData) {
+  return await api.updateExisting({ dbName: this.dbName, collection: this.collections.active, filter, newData });
+};
+
 VehicleModelDef.delete = async function (filter) {
   return await api.delete({ dbName: this.dbName, collection: this.collections.active, filter });
 };

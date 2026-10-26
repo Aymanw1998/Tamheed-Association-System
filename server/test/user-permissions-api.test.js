@@ -28,7 +28,7 @@ function createUsers(seed = {}) {
   const matches = (doc, filter) => Object.keys(filter).every((k) => {
     const want = filter[k];
     if (want && typeof want === "object" && "$regex" in want) return new RegExp(want.$regex).test(String(doc[k] ?? ""));
-    return String(doc[k]) === String(want);
+    return want == null ? doc[k] == null : String(doc[k]) === String(want);
   });
   return {
     collections: { active: "Users" },
@@ -46,6 +46,8 @@ function createUsers(seed = {}) {
       if (hit) Object.assign(hit, structuredClone(data));
       return { success: true, result: hit ? structuredClone(hit) : null };
     },
+    // Never creates: result is null when nothing matches (like UserModelDef.updateExisting).
+    async updateExisting(filter, data, room = "active") { return this.update(filter, data, room); },
     async delete(filter, room = "active") {
       const before = rooms[room].length;
       rooms[room] = rooms[room].filter((d) => !matches(d, filter));

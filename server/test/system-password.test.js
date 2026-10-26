@@ -233,6 +233,12 @@ function loadController({ users = [], env = {}, sendThrows = false, sendHangs = 
           if (hit) Object.assign(hit, data);
           return { success: true };
         },
+        async updateExisting(filter, data, room) {
+          calls.updates.push([filter, data, room]);
+          const hit = find(filter.tz);
+          if (hit) Object.assign(hit, data);
+          return { success: true, result: hit ? { ...hit } : null };
+        },
         async incrementFailedLogin(tz, room) {
           calls.increments.push([tz, room]);
           const hit = find(tz);

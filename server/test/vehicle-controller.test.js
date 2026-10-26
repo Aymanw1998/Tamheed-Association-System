@@ -15,7 +15,7 @@ function createStore(seed = []) {
   let docs = seed.map((doc, index) => ({ _id: doc._id || `${index}`.padStart(24, "a"), ...doc }));
   let next = docs.length;
   const matches = (doc, filter = {}) =>
-    Object.keys(filter).every((key) => String(doc[key]) === String(filter[key]));
+    Object.keys(filter).every((key) => (filter[key] == null ? doc[key] == null : String(doc[key]) === String(filter[key])));
   return {
     async get(filter = {}) {
       return { success: true, result: docs.filter((doc) => matches(doc, filter)).map((doc) => structuredClone(doc)) };
@@ -28,6 +28,12 @@ function createStore(seed = []) {
     async update(filter, patch) {
       docs = docs.map((doc) => (matches(doc, filter) ? { ...doc, ...structuredClone(patch) } : doc));
       return { success: true };
+    },
+    async updateExisting(filter, patch) {
+      const index = docs.findIndex((doc) => matches(doc, filter));
+      if (index < 0) return { success: true, result: null };
+      docs[index] = { ...docs[index], ...structuredClone(patch) };
+      return { success: true, result: structuredClone(docs[index]) };
     },
     async delete(filter) { docs = docs.filter((doc) => !matches(doc, filter)); return { success: true }; },
     all: () => docs,
@@ -821,4 +827,22 @@ test("vehicle writes announce the change, and a stale baseVersion is refused wit
   assert.equal(okRes.statusCode, 200);
   assert.equal(okRes.body.vehicle.make, "Mazda");
   assert.deepEqual(live.changes, [["vehicle", id]]);
+});
+
+test("two vehicle saves on the same version at once: one is written, the other is 409 STALE", async () => {
+  const { controller, vehicleStore } = setup();
+  const created = await createVehicle(controller);
+  const id = created.body.vehicle._id;
+  const base = created.body.vehicle.updatedAt;
+  const { req } = await guard(controller, "edit", ADMIN);
+  const a = createRes();
+  const b = createRes();
+  await Promise.all([
+    controller.update({ ...req, params: { id }, body: { make: "Mazda", baseVersion: base } }, a),
+    controller.update({ ...req, params: { id }, body: { make: "Honda", baseVersion: base } }, b),
+  ]);
+  assert.deepEqual([a.statusCode, b.statusCode].sort(), [200, 409]);
+  const winner = a.statusCode === 200 ? "Mazda" : "Honda";
+  assert.equal((a.statusCode === 409 ? a : b).body.code, "STALE");
+  assert.equal(vehicleStore.all().find((v) => String(v._id) === String(id)).make, winner);
 });

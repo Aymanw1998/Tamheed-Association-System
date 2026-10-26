@@ -6,7 +6,7 @@ const { logWithSource } = require("../../middleware/logger");
 const { audit } = require("../../utils/audit");
 const { isSystemTz, SYSTEM_ACTOR_NAME } = require("../../utils/permissions");
 const { createStudentScope } = require("../../utils/studentScope");
-const { ABSENT_STATUS, AUTO_ABSENCE_NOTE } = require("../../utils/attendanceMarks");
+const { ABSENT_STATUS, AUTO_ABSENCE_NOTE, sheetVersion } = require("../../utils/attendanceMarks");
 const { checkVersion, editorStamp } = require("../../middleware/lockGuard");
 const { notifyChange } = require("../../services/liveHub");
 
@@ -162,11 +162,9 @@ const getSheet = async (req, res) => {
       dateKey,
       stamp,
     });
-    // The sheet's version (what bulk-save compares baseVersion with): the
-    // newest updatedAt of its rows, including the rows created just now.
-    const stamps = existingRows.map((row) => row.updatedAt).filter(Boolean).map((v) => new Date(v).getTime());
-    if (students.some((student) => !existingMap.has(String(student._id)))) stamps.push(stamp.getTime());
-    const version = stamps.length ? new Date(Math.max(...stamps)).toISOString() : null;
+    // The sheet's version (what bulk-save compares baseVersion with): only the
+    // rows a person saved count, not the rows created just now.
+    const { version } = sheetVersion(existingRows);
 
     const items = students.map((student) => {
       const row = existingMap.get(String(student._id));
@@ -242,14 +240,10 @@ const bulkSave = async (req, res) => {
     const previous = await AttendanceModelDef.get({ lesson: String(lessonId), dateKey }).catch(() => null);
     const previousByStudent = new Map((previous?.result || []).map((row) => [String(row.student), row]));
 
-    // The sheet's version is the newest updatedAt among its rows: a save made
-    // on top of an older sheet is refused (the screen keeps the draft).
-    const newest = (previous?.result || []).reduce((max, row) => {
-      const at = row.updatedAt ? new Date(row.updatedAt).getTime() : 0;
-      return at > max ? at : max;
-    }, 0);
-    const lastRow = (previous?.result || []).find((row) => row.updatedAt && new Date(row.updatedAt).getTime() === newest);
-    const stale = newest ? checkVersion({ updatedAt: new Date(newest), updatedBy: lastRow?.updatedBy, updatedByName: lastRow?.updatedByName }, req) : null;
+    // A save made on top of an older sheet is refused (the screen keeps the
+    // draft). Only rows a person saved count (utils/attendanceMarks).
+    const { last: lastRow } = sheetVersion(previous?.result || []);
+    const stale = lastRow ? checkVersion({ updatedAt: lastRow.updatedAt, updatedBy: lastRow.updatedBy, updatedByName: lastRow.updatedByName }, req) : null;
     if (stale) return res.status(409).json(stale);
 
     const results = await Promise.all(

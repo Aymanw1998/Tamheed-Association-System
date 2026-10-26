@@ -276,7 +276,9 @@ export default function AttendancePage() {
         const queued = {
             kind: "general",
             url: "/attendance/bulk-save",
-            body: { lessonId, ...usedDate, items },
+            // The version the screen showed: a queued save sent after someone else
+            // saved this sheet is refused (409) and stays in the queue as failed.
+            body: { lessonId, ...usedDate, items, baseVersion: sheet.version },
             label: selectedLesson.name || "حضور",
         };
         const r = isOffline() ? { ok: false, status: 0 } : await saveAttendanceSheet(lessonId, usedDate, items, sheet.version);

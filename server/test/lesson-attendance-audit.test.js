@@ -12,7 +12,7 @@ function createStore(seed = []) {
   let docs = seed.map((doc, i) => ({ _id: doc._id || `doc-${i}`, ...doc }));
   let next = docs.length;
   const get = (obj, key) => key.split(".").reduce((v, k) => v?.[k], obj);
-  const matches = (doc, filter = {}) => Object.keys(filter).every((k) => String(get(doc, k)) === String(filter[k]));
+  const matches = (doc, filter = {}) => Object.keys(filter).every((k) => (filter[k] == null ? get(doc, k) == null : String(get(doc, k)) === String(filter[k])));
   return {
     async get(filter = {}) { return { success: true, result: docs.filter((d) => matches(d, filter)).map((d) => structuredClone(d)) }; },
     async create(data) {
@@ -26,7 +26,13 @@ function createStore(seed = []) {
       if (!hit) docs.push({ _id: `doc-${next++}`, ...structuredClone(filter), ...structuredClone(patch) });
       return { success: true, result: null };
     },
-    async delete(filter) { docs = docs.filter((d) => !matches(d, filter)); return { success: true }; },
+    async updateExisting(filter, patch) {
+      const i = docs.findIndex((d) => matches(d, filter));
+      if (i < 0) return { success: true, result: null };
+      docs[i] = { ...docs[i], ...structuredClone(patch) };
+      return { success: true, result: structuredClone(docs[i]) };
+    },
+    async delete(filter) { const before = docs.length; docs = docs.filter((d) => !matches(d, filter)); return { success: true, result: { deletedCount: before - docs.length } }; },
     all: () => docs,
   };
 }
@@ -334,8 +340,8 @@ test("lesson writes stamp updatedAt, announce the change, and a stale form save 
 
   live.changes.length = 0;
   const first = createRes();
-  await controller.putOne(req({ params: { id }, body: { name: "A", baseVersion: "2000-01-01T00:00:00.000Z" } }), first);
-  assert.equal(first.statusCode, 200, "no stored version yet, nothing to be stale against");
+  await controller.putOne(req({ params: { id }, body: { name: "A", baseVersion: new Date(lessons.all()[0].updatedAt).toISOString() } }), first);
+  assert.equal(first.statusCode, 200, "a new lesson is stored with its version");
   const stored = lessons.all()[0];
   assert.ok(Number.isFinite(Date.parse(stored.updatedAt)));
   assert.deepEqual(live.changes, [["lesson", id]]);
@@ -416,4 +422,77 @@ test("roster add and remove answer the lesson's new updatedAt, so the screen's n
   const saved = createRes();
   await controller.putOne(req({ params: { id: "L9" }, body: { name: "Algebra", baseVersion: removed.body.updatedAt } }), saved);
   assert.equal(saved.statusCode, 200, JSON.stringify(saved.body));
+});
+
+test("two lesson saves on the same version at once: one is written, the other is 409 STALE", async () => {
+  const stamp = new Date("2026-10-20T10:00:00.000Z");
+  const { controller, lessons } = lessonSetup([{ _id: "L1", name: "Math", teacher: "t1", room: "1", date: { day: 2, startMin: 600, endMin: 645 }, updatedAt: stamp }]);
+  live.changes.length = 0;
+  const a = createRes();
+  const b = createRes();
+  const base = stamp.toISOString();
+  await Promise.all([
+    controller.putOne(req({ params: { id: "L1" }, body: { name: "A", baseVersion: base } }), a),
+    controller.putOne(req({ params: { id: "L1" }, body: { name: "B", baseVersion: base } }), b),
+  ]);
+  assert.deepEqual([a.statusCode, b.statusCode].sort(), [200, 409]);
+  const lost = a.statusCode === 409 ? a : b;
+  const won = a.statusCode === 200 ? "A" : "B";
+  assert.equal(lost.body.code, "STALE");
+  assert.equal(lost.body.current.name, won, "the 409 carries the save that won");
+  assert.equal(lessons.all()[0].name, won);
+  assert.deepEqual(live.changes, [["lesson", "L1"]], "only the written save is announced");
+});
+
+test("a sheet's version counts only rows a person saved; a save based on a never-saved sheet is stale once someone saves it", async () => {
+  const lessons = createStore([{ _id: "lesson-1", name: "Math", date: { day: 2, startMin: 600, endMin: 645 }, list_students: ["s1", "s2"] }]);
+  // Only system rows: a nightly automatic absence and an empty row a sheet view created.
+  const attendance = createStore([
+    { lesson: "lesson-1", student: "s1", dateKey: 20261025, status: "غائب", notes: "", auto: true, updatedAt: new Date("2026-10-25T20:59:00.000Z") },
+    { lesson: "lesson-1", student: "s2", dateKey: 20261025, status: "حاضر", notes: "", updatedAt: new Date("2026-10-25T09:00:00.000Z") },
+  ]);
+  const controller = load("Attendance/Attendance.controller.js", {
+    "./Attendance.model": { AttendanceModelDef: attendance },
+    "../Lesson/Lesson.model": { LessonModelDef: lessons },
+    "../User/User.model": { UserModelDef: createStore() },
+    "../Student/Student.model": { StudentModelDef: createStore([{ _id: "s1", tz: "1", firstname: "A", lastname: "B" }, { _id: "s2", tz: "2", firstname: "C", lastname: "D" }]) },
+    "../../utils/permissions": require("../utils/permissions"),
+    "../../utils/studentScope": require("../utils/studentScope"),
+    "../../utils/attendanceMarks": require("../utils/attendanceMarks"),
+    "../../middleware/logger": { logWithSource() {} },
+    ...auditStub().deps,
+  });
+  const { EMPTY_SHEET_VERSION } = require("../utils/attendanceMarks");
+  const body = (status, baseVersion) => ({ lessonId: "lesson-1", year: 2026, month: 10, day: 25, items: [{ studentId: "s1", status }], baseVersion });
+
+  const sheet = createRes();
+  await controller.getSheet(req({ query: { lessonId: "lesson-1", year: "2026", month: "10", day: "25" } }), sheet);
+  assert.equal(sheet.body.schema.version, EMPTY_SHEET_VERSION, "system rows leave the sheet unsaved");
+
+  // Two saves based on the never-saved sheet (one of them sent later from the offline queue).
+  const first = createRes();
+  await controller.bulkSave(req({ body: body("حاضر", EMPTY_SHEET_VERSION) }), first);
+  assert.equal(first.statusCode, 200, "system rows do not make a save stale");
+  const queued = createRes();
+  await controller.bulkSave(req({ body: body("متأخر", EMPTY_SHEET_VERSION) }), queued);
+  assert.equal(queued.statusCode, 409);
+  assert.equal(queued.body.code, "STALE");
+  assert.equal(attendance.all().find((r) => r.student === "s1").status, "حاضر");
+});
+
+test("the first two edits of a lesson stored without updatedAt cannot both be written", async () => {
+  const { controller, lessons } = lessonSetup([{ _id: "L2", name: "Old", teacher: "t1", room: "1", date: { day: 2, startMin: 600, endMin: 645 } }]);
+  const a = createRes();
+  const b = createRes();
+  await Promise.all([
+    controller.putOne(req({ params: { id: "L2" }, body: { name: "A" } }), a),
+    controller.putOne(req({ params: { id: "L2" }, body: { name: "B" } }), b),
+  ]);
+  assert.deepEqual([a.statusCode, b.statusCode].sort(), [200, 409]);
+  assert.equal(lessons.all()[0].name, a.statusCode === 200 ? "A" : "B");
+
+  // A new lesson is stored with its version, so its first edit is guarded too.
+  const created = createRes();
+  await controller.postOne(req({ body: { name: "New", teacher: "t1", room: "2", date: { day: 3, startMin: 600, endMin: 645 } } }), created);
+  assert.ok(lessons.all().at(-1).updatedAt, "created with updatedAt");
 });

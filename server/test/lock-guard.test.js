@@ -152,6 +152,7 @@ function loadRoutes(file, { models = {}, locks }) {
     }
     if (/authMiddleware/.test(name)) return { requireAuth: middlewareStub };
     if (/rateLimit/.test(name)) return { rateLimit: () => middlewareStub };
+    if (/utils\/permissions/.test(name)) return require("../utils/permissions");
     if (/vehicleFiles/.test(name)) return { MAX_DOCUMENT_BYTES: 1 };
     if (/aiFeature/.test(name)) return { aiEnabled: () => false };
     if (/VehicleExtract/.test(name)) return { defaultController: () => ({ extractDocument: spy("extractDocument") }) };
@@ -240,14 +241,26 @@ test("vehicle writes while another tab holds vehicle:<id> are 423; creating take
 
 test("report update and delete while another tab holds report:<id> are 423", async () => {
   const locks = fakeLocks({ "report:r1": { clientId: "tab-a", ...HOLDER } });
-  const { call } = loadRoutes("Report/Report.route.js", { locks });
+  const { call } = loadRoutes("Report/Report.route.js", { locks, models: modelReturning("ReportModelDef", [{ _id: "r1", createdBy: "u-owner" }]) });
   for (const method of ["PUT", "DELETE"]) {
-    const { res, calls } = await call(method, "/:id", makeReq("tab-b", { params: { id: "r1" } }));
+    const { res, calls } = await call(method, "/:id", makeReq("tab-b", { params: { id: "r1" }, user: { id: "u-owner" } }));
     assert.equal(res.statusCode, 423, method);
     assert.deepEqual(calls, []);
   }
-  const mine = await call("PUT", "/:id", makeReq("tab-a", { params: { id: "r1" } }));
+  const mine = await call("PUT", "/:id", makeReq("tab-a", { params: { id: "r1" }, user: { id: "u-owner" } }));
   assert.deepEqual(mine.calls, ["put"]);
+});
+
+test("an editOwn caller editing someone else's held report never learns the holder: the controller answers (403)", async () => {
+  const locks = fakeLocks({ "report:r1": { clientId: "tab-a", ...HOLDER } });
+  const { call } = loadRoutes("Report/Report.route.js", { locks, models: modelReturning("ReportModelDef", [{ _id: "r1", createdBy: "u-owner" }]) });
+  const other = await call("PUT", "/:id", makeReq("tab-b", { params: { id: "r1" }, user: { id: "u-other", tz: "900000002" } }));
+  assert.notEqual(other.res.statusCode, 423);
+  assert.equal(other.res.body.holder, undefined);
+  assert.deepEqual(other.calls, ["put"], "the controller's ownership check answers");
+  // reports.editAll may edit any report, so it is told who holds it.
+  const admin = await call("PUT", "/:id", makeReq("tab-b", { params: { id: "r1" }, user: { id: "u-admin" }, actor: { permissions: new Set(["reports.editAll"]) } }));
+  assert.equal(admin.res.statusCode, 423);
 });
 
 test("lesson writes and roster changes while another tab holds lesson:<id> are 423; creating takes no lock check", async () => {

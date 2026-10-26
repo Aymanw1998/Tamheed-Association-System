@@ -8,7 +8,7 @@ const { can, isSystemTz, actorRef, actorDisplayName, SYSTEM_ACTOR_NAME } = requi
 const { inspectDocument, buildDocumentName } = require("../../utils/vehicleFiles.js");
 const { lookupByPlate } = require("../../services/vehicleLookup.service.js");
 const { audit: auditLog } = require("../../utils/audit.js");
-const { checkVersion, editorStamp } = require("../../middleware/lockGuard.js");
+const { checkVersion, editorStamp, sameVersion, raceLost } = require("../../middleware/lockGuard.js");
 const { notifyChange } = require("../../services/liveHub.js");
 
 const OBJECT_ID = /^[a-f0-9]{24}$/i;
@@ -81,9 +81,16 @@ async function audit(vehicle, req, action, { changes = [], reason = "", details 
   }
 }
 
-async function saveVehicle(vehicle, patch, actor) {
+// `guarded`: written only if nobody saved since `vehicle` was read; answers
+// null (nothing written) when someone did.
+async function saveVehicle(vehicle, patch, actor, { guarded = false } = {}) {
   const data = { ...patch, updatedBy: actorId(actor), updatedByName: actor?.isSystem ? SYSTEM_ACTOR_NAME : String(actor?.name ?? ""), updatedAt: new Date().toISOString() };
-  await VehicleModelDef.update({ _id: String(vehicle._id) }, data);
+  if (guarded) {
+    const written = await VehicleModelDef.updateExisting(sameVersion({ _id: String(vehicle._id) }, vehicle), data);
+    if (!written?.result) return null;
+  } else {
+    await VehicleModelDef.update({ _id: String(vehicle._id) }, data);
+  }
   notifyChange("vehicle", String(vehicle._id));
   return { ...vehicle, ...data };
 }
@@ -323,7 +330,10 @@ const update = async (req, res) => {
       const names = await loadUserNames();
       return send(res, 200, { ok: true, vehicle: toClientVehicle(vehicle, rules.todayInJerusalem(), names), changed: false });
     }
-    const saved = await saveVehicle(vehicle, data, req.actor);
+    const saved = await saveVehicle(vehicle, data, req.actor, { guarded: true });
+    if (!saved) {
+      return send(res, 409, await raceLost(() => VehicleModelDef.get({ _id: String(vehicle._id) }), (v) => toClientVehicle(v, rules.todayInJerusalem())));
+    }
     // When fields came from an official import the user approved, keep where
     // they came from and when.
     const importSource = readImportSource(req.body?.importSource);

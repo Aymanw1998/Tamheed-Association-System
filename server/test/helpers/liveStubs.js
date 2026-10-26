@@ -3,8 +3,11 @@
 // notifyChange(entity, id) call (clear it with `changes.length = 0`);
 // `students` records every liveHub.toStudents(ids, type) call as
 // [[ids as strings], type]. checkVersion is the real one; route lock checks
-// pass (the guard itself is tested in lock-guard.test.js).
-const { checkVersion, editorStamp } = require("../../middleware/lockGuard");
+// pass (the guard itself is tested in lock-guard.test.js). `holders` sets
+// who holds a key for holderOf: holders.set(key, { clientId, name, tz }).
+const { checkVersion, editorStamp, sameVersion, nextStamp, raceLost, lockedAnswer } = require("../../middleware/lockGuard");
+// Lock holders by key for the controllers that look them up (holderOf); empty = all free.
+const holders = new Map();
 
 const changes = [];
 const students = [];
@@ -13,8 +16,8 @@ const liveHub = { toStudents: (ids, type) => { students.push([Array.from(ids || 
 const requireFreeOrMine = () => (req, res, next) => next();
 const deps = {};
 for (const suffix of ["", ".js"]) {
-  deps[`../../middleware/lockGuard${suffix}`] = { checkVersion, editorStamp, requireFreeOrMine };
+  deps[`../../middleware/lockGuard${suffix}`] = { checkVersion, editorStamp, sameVersion, nextStamp, raceLost, requireFreeOrMine, lockedAnswer, holderOf: async (key, clientId) => { const h = holders.get(key); return h && h.clientId !== clientId ? { name: h.name, tz: h.tz } : null; } };
   deps[`../../services/liveHub${suffix}`] = { notifyChange, liveHub };
 }
 
-module.exports = { deps, changes, students };
+module.exports = { deps, changes, students, holders };

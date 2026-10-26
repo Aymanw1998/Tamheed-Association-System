@@ -35,7 +35,7 @@ function createUsers(seed = {}, { failGet = false } = {}) {
   const matches = (doc, filter) => Object.keys(filter).every((k) => {
     const want = filter[k];
     if (want && typeof want === "object" && "$regex" in want) return new RegExp(want.$regex).test(String(doc[k] ?? ""));
-    return String(doc[k]) === String(want);
+    return want == null ? doc[k] == null : String(doc[k]) === String(want);
   });
   return {
     collections: { active: "Users" },
@@ -54,6 +54,8 @@ function createUsers(seed = {}, { failGet = false } = {}) {
       if (hit) Object.assign(hit, structuredClone(data));
       return { success: true, result: hit ? structuredClone(hit) : null };
     },
+    // Never creates: result is null when nothing matches (like UserModelDef.updateExisting).
+    async updateExisting(filter, data, room = "active") { return this.update(filter, data, room); },
     async delete() { return { success: true }; },
     rooms,
   };
@@ -237,7 +239,7 @@ test("a database error in the tz existence check is a 500, never a new account",
 function loadReportController() {
   const reports = [];
   const model = {
-    async get(filter = {}) { return { success: true, result: reports.filter((r) => Object.keys(filter).every((k) => String(r[k]) === String(filter[k]))) }; },
+    async get(filter = {}) { return { success: true, result: reports.filter((r) => Object.keys(filter).every((k) => (filter[k] == null ? r[k] == null : String(r[k]) === String(filter[k])))) }; },
     async create(data) { const doc = { _id: `report-${reports.length}`, ...data }; reports.push(doc); return { success: true, result: doc }; },
   };
   const dependencies = {

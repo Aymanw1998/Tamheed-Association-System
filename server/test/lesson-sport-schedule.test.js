@@ -25,6 +25,7 @@ function createStore(seed = []) {
       docs = docs.map((d) => (!hit && matches(d, filter) ? (hit = { ...d, ...structuredClone(patch) }) : d));
       return { success: true, result: structuredClone(hit) };
     },
+    async updateExisting(filter, patch) { return this.update(filter, patch); },
     all: () => docs,
   };
 }

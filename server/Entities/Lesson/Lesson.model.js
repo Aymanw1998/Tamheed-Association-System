@@ -91,6 +91,16 @@ LessonModelDef.update = async function (filter, newData) {
   });
 };
 
+// Like update() but never creates a lesson: result is null when nothing matches.
+LessonModelDef.updateExisting = async function (filter, newData) {
+  return await api.updateExisting({
+    dbName: this.dbName,
+    collection: this.collections.active,
+    filter,
+    newData,
+  });
+};
+
 // Build for deleting a lesson
 /**
  *

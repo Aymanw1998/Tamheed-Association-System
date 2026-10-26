@@ -16,7 +16,7 @@ const NEW_PHOTO = "https://lh3.googleusercontent.com/d/new-file";
 function createModel(records, events, extra = {}) {
   let docs = records.map((record) => ({ ...record }));
   const matches = (doc, filter = {}) =>
-    Object.keys(filter).every((key) => String(doc[key]) === String(filter[key]));
+    Object.keys(filter).every((key) => (filter[key] == null ? doc[key] == null : String(doc[key]) === String(filter[key])));
 
   return {
     ...extra,
@@ -34,10 +34,18 @@ function createModel(records, events, extra = {}) {
       docs = docs.map((doc) => (matches(doc, filter) ? { ...doc, ...newData } : doc));
       return { success: true };
     },
+    async updateExisting(filter, newData) {
+      events.push(["db-update", newData]);
+      const index = docs.findIndex((doc) => matches(doc, filter));
+      if (index < 0) return { success: true, result: null };
+      docs[index] = { ...docs[index], ...newData };
+      return { success: true, result: { ...docs[index] } };
+    },
     async delete(filter) {
       events.push(["db-delete", filter]);
+      const before = docs.length;
       docs = docs.filter((doc) => !matches(doc, filter));
-      return { success: true };
+      return { success: true, result: { deletedCount: before - docs.length } };
     },
     snapshot: () => docs.map((doc) => ({ ...doc })),
   };
@@ -279,7 +287,7 @@ test("deleting a student also deletes their photo from Drive", async () => {
 
   assert.equal(res.statusCode, 200);
   assert.deepEqual(JSON.parse(JSON.stringify(events)), [
-    ["db-delete", { _id: "student-1" }],
+    ["db-delete", { _id: "student-1", updatedAt: null }],
     ["drive-delete", OLD_PHOTO],
   ]);
   assert.equal(model.snapshot().length, 0);

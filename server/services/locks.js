@@ -6,16 +6,23 @@ const LOCK_TTL_MS = 120 * 1000;
 
 const isDuplicateKey = (error) => error?.code === 11000;
 
+// MongoDB reads an ObjectId in any letter case as the same record, so the
+// 24-hex segments of a key are lowercased: report:ABC… and report:abc… are one lock.
+const OBJECT_ID = /^[0-9a-fA-F]{24}$/;
+const normalizeKey = (key) => String(key).split(":").map((part) => (OBJECT_ID.test(part) ? part.toLowerCase() : part)).join(":");
+
 function createLocks({ model, hub, now = () => Date.now() }) {
   const at = (ms) => new Date(ms);
   const first = (res) => (res?.result || [])[0] || null;
 
   async function currentHolder(key) {
+    key = normalizeKey(key);
     const row = first(await model.get({ key }));
     return row ? { name: row.name, tz: row.tz } : null;
   }
 
   async function acquire(key, owner) {
+    key = normalizeKey(key);
     // Whether this tab already held the key (a refresh), so a one-shot caller
     // knows not to release a lock it did not create.
     const prior = first(await model.get({ key }));
@@ -49,6 +56,7 @@ function createLocks({ model, hub, now = () => Date.now() }) {
   }
 
   async function heartbeat(key, clientId) {
+    key = normalizeKey(key);
     const t = now();
     const res = await model.updateExisting(
       { key, clientId },
@@ -58,11 +66,13 @@ function createLocks({ model, hub, now = () => Date.now() }) {
   }
 
   async function release(key, clientId) {
+    key = normalizeKey(key);
     const res = await model.delete({ key, clientId });
     if (res?.result?.deletedCount > 0) hub.broadcastStaff("lock", { key });
   }
 
   async function forceRelease(key) {
+    key = normalizeKey(key);
     const res = await model.delete({ key });
     const removed = res?.result?.deletedCount > 0;
     if (removed) hub.broadcastStaff("lock", { key });
@@ -70,6 +80,7 @@ function createLocks({ model, hub, now = () => Date.now() }) {
   }
 
   async function holderOf(key, clientId) {
+    key = normalizeKey(key);
     const row = first(await model.get({ key }));
     if (!row || new Date(row.expiresAt).getTime() < now() || row.clientId === clientId) return null;
     return { name: row.name, tz: row.tz };
@@ -78,4 +89,4 @@ function createLocks({ model, hub, now = () => Date.now() }) {
   return { acquire, heartbeat, release, forceRelease, holderOf };
 }
 
-module.exports = { createLocks, LOCK_TTL_MS };
+module.exports = { createLocks, normalizeKey, LOCK_TTL_MS };
