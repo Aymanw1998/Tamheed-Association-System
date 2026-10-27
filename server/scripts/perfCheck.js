@@ -1,5 +1,5 @@
 // Response-time check. Run it ON THE SERVER, from the server folder:
-//   node scripts/perfCheck.js [--rounds=3] [--tz=<staff ID number>]
+//   node scripts/perfCheck.js [--rounds=3] [--live] [--tz=<staff ID number>]
 //        [--local=http://127.0.0.1:5000] [--public=https://system.example.org]
 //        [--sport=https://sport.example.org] [--student=<sport player studentId>]
 //
@@ -14,6 +14,8 @@
 // with the secrets in config/.env. No token is printed and nothing is written.
 // Not covered: the user's own network, and the time the browser takes to draw
 // the screen after the answer arrives.
+// --live prints every single request and database read as it comes back
+// (before the line with min/avg/max for that call).
 const path = require("path");
 const http = require("http");
 const https = require("https");
@@ -30,6 +32,7 @@ const args = Object.fromEntries(process.argv.slice(2).map((arg) => {
   return [key, rest.join("=")];
 }));
 const ROUNDS = Math.max(1, Number(args.rounds) || 3);
+const LIVE = "live" in args;
 const LOCAL = args.local || `http://127.0.0.1:${process.env.PORT || 5000}`;
 const PUBLIC = args.public || process.env.CLIENT_URL || "";
 const SPORT = args.sport || (process.env.SPORT_HOST ? `https://${process.env.SPORT_HOST}` : "");
@@ -115,11 +118,23 @@ function timedGet(url, headers = {}) {
   });
 }
 
+// --live: one line per request or read, printed as soon as it comes back.
+function liveLine(label, round, r, of = ROUNDS) {
+  if (!LIVE) return;
+  const what = round === 0 ? "warm-up" : `round ${round}/${of}`;
+  const detail = r.status === undefined ? "" : r.status ? `  status ${r.status}  (wait ${round1(r.wait)})` : `  failed: ${r.error}`;
+  console.log(`  ${pad(label, 28)}${pad(what, 12)}${ms(r.total)} ms${detail}`);
+}
+
 // ROUNDS answered calls after one warm-up call that is not counted.
-async function measure(url, headers) {
-  await timedGet(url, headers);
+async function measure(url, headers, label = url) {
+  liveLine(label, 0, await timedGet(url, headers));
   const runs = [];
-  for (let i = 0; i < ROUNDS; i += 1) runs.push(await timedGet(url, headers));
+  for (let i = 0; i < ROUNDS; i += 1) {
+    const r = await timedGet(url, headers);
+    liveLine(label, i + 1, r);
+    runs.push(r);
+  }
   return runs;
 }
 
@@ -158,6 +173,7 @@ async function databaseSection() {
     const t = performance.now();
     await mongoose.connection.db.admin().ping();
     pings.push(performance.now() - t);
+    liveLine("ping", i + 1, { total: pings[pings.length - 1] }, ROUNDS + 2);
   }
   const ping = stats(pings);
   line("ping (one round trip)", ping);
@@ -180,6 +196,7 @@ async function databaseSection() {
       const t = performance.now();
       rows = (await read())?.result?.length ?? 0;
       times.push(performance.now() - t);
+      liveLine(label, i + 1, { total: times[times.length - 1] });
     }
     line(label, stats(times), `${rows} rows`);
   }
@@ -195,7 +212,7 @@ async function httpSection(title, base, calls, headers) {
       console.log(`${pad(label, 30)}   skipped: no session (check --tz / --student and the secrets in .env)`);
       continue;
     }
-    const runs = await measure(`${base}${route}`, needsLogin ? headers : {});
+    const runs = await measure(`${base}${route}`, needsLogin ? headers : {}, label);
     const ok = runs.filter((r) => r.status > 0);
     // Only answered calls count in the summary (a 403 or 500 is not a real answer).
     const answered = ok.length > 0 && ok.every((r) => r.status >= 200 && r.status < 400);
