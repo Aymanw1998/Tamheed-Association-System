@@ -5,7 +5,7 @@ import api, { publicApi } from "../api";
 import { normalizeRoles } from "../../../utils/session";
 
 // ملاحظة عربية
-const normalizeUser = (user) => {
+export const normalizeUser = (user) => {
   if (!user) return null;
   return {
     ...user,

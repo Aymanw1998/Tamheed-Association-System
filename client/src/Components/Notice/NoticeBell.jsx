@@ -15,7 +15,9 @@ export default function NoticeBell({ onOpen }) {
 
   useEffect(() => {
     refresh();
-    const id = window.setInterval(refresh, POLL_MS);
+    // A hidden tab does not poll; focus brings it up to date (focus within
+    // 30 s is answered from memory, see WebServer/services/traffic.js).
+    const id = window.setInterval(() => { if (!document.hidden) refresh(); }, POLL_MS);
     window.addEventListener("focus", refresh);
     window.addEventListener("NOTICES_CHANGED", refresh);
     return () => {

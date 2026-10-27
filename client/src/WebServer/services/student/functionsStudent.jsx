@@ -1,7 +1,7 @@
 import { ask } from "../../../Components/Provides/confirmBus";
 import api from "../api";
 
-const normalizeStudent = (student) => {
+export const normalizeStudent = (student) => {
     if (!student) return null;
     return {
         ...student,

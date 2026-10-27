@@ -62,6 +62,8 @@ const PUBLIC_ROUTES = {
 // controller scopes the answer to the caller.
 const ANY_ACTOR_ROUTES = {
   "Report/Report.route.js": ["GET /", "GET /:id"], // reports.viewAll checked in the controller
+  // The dashboard summary checks, per part, the permission of that part's own route.
+  "Dashboard/Dashboard.route.js": ["GET /summary"],
   "Vehicle/Vehicle.route.js": ["GET /me/permissions", "GET /alerts"], // own permissions / assigned vehicles
   "User/Auth.route.js": ["POST /change-password"], // one's own password; checks the current one
   "Live/Live.route.js": ["POST /ticket"], // a ticket for one's own live channel

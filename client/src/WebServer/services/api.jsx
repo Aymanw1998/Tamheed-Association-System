@@ -6,6 +6,7 @@ import { installDemoAdapter } from '../../journey/demoAdapter';
 import { clearApiCache } from '../../pwa/clearApiCache';
 import { dropDevicePush } from '../../pwa/pushOptIn';
 import { getClientId } from '../../locks/clientId';
+import { clearTraffic, wrapTraffic } from './traffic';
 
 // The API is always reached on the same origin as the page: in development the
 // CRA dev server proxies /api to the local server (see "proxy" in package.json),
@@ -26,6 +27,8 @@ let accessToken = localStorage.getItem('accessToken') || null;
 
 // ملاحظة عربية
 export function setAuthTokens(at, expirationTime /* انتهاء الصلاحية */) {
+  // Another user (or none): nothing kept for the previous token is reused.
+  if ((at || null) !== accessToken) clearTraffic();
   accessToken = at || null;
   if (at) {
     localStorage.setItem('accessToken', at);
@@ -71,6 +74,7 @@ function hardResetToLogin(reason = 'انتهت الجلسة. يُرجى تسجي
     }
 
     clearApiCache();
+    clearTraffic();
     dropDevicePush();
     localStorage.setItem('LOGOUT_BROADCAST', JSON.stringify({ ts: Date.now(), reason }));
     localStorage.removeItem('accessToken');
@@ -178,6 +182,10 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// Shared reads, a short memory and at most 4 requests at once (./traffic),
+// under training mode: what training answers itself never reaches it.
+wrapTraffic(api);
 
 // Training mode answers from its in-memory store; nothing it blocks is sent.
 installDemoAdapter(publicApi);

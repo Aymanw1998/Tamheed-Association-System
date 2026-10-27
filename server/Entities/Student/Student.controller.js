@@ -138,8 +138,7 @@ function removeEmpty(obj = {}) {
 // GET /api/students
 const getAllS = async (req, res) => {
   try {
-    const result = await StudentModelDef.get({});
-    const visible = await scope.visibleStudentIds(req.actor);
+    const [result, visible] = await Promise.all([StudentModelDef.get({}), scope.visibleStudentIds(req.actor)]);
     const students = (result?.result || []).filter((s) => inScope(visible, s));
 
     return res.status(200).json({

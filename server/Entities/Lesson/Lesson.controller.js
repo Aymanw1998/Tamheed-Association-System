@@ -152,8 +152,7 @@ const getDow1to7 = (date = new Date()) => {
 // GET ALL
 const getAll = async (req, res) => {
   try {
-    const result = await LessonModelDef.get({});
-    const visible = await scope.visibleStudentIds(req.actor);
+    const [result, visible] = await Promise.all([LessonModelDef.get({}), scope.visibleStudentIds(req.actor)]);
     return res.status(200).json({
       ok: true,
       lessons: (result?.result || []).map((l) => scopeLesson(l, visible)),

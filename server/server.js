@@ -116,6 +116,8 @@ app.use('/api/live', require('./Entities/Live/Live.route'));
 app.use('/api/locks', require('./Entities/Lock/Lock.route'));
 // Each signed-in user's own alert inbox (AiAlerts).
 app.use('/api/alerts', require('./Entities/Alert/Alert.route'));
+// The dashboard's four lists in one request (Entities/Dashboard).
+app.use('/api/dashboard', require('./Entities/Dashboard/Dashboard.route'));
 app.use('/api/tours', require('./routes/tours.routes'));
 app.use('/api/storage', require('./Entities/Storage/Storage.route'))
 app.use('/api/storage/google', require('./Entities/Storage/GoogleDrive.route'))

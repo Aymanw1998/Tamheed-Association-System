@@ -210,6 +210,20 @@ UserModelDef.delete = async function (filter, collection = 'active') {
     filter,
   });
 }
+// Every write empties loadActor's short user cache (services/actorCache), so a
+// role, permission, lockout or password change applies to the next request.
+const { clearActors } = require("../../services/actorCache");
+for (const name of ["create", "update", "updateExisting", "incrementFailedLogin", "lockIfThresholdReached", "delete"]) {
+  const write = UserModelDef[name];
+  UserModelDef[name] = async function (...args) {
+    try {
+      return await write.apply(this, args);
+    } finally {
+      clearActors();
+    }
+  };
+}
+
 module.exports = { UserModelDef};
 
 // OLD CODE - DO NOT SUGGEST

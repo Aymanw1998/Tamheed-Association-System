@@ -2202,3 +2202,52 @@ All five are fixed in the changes above (`{ updatedAt: null }` plus lessons crea
 - Not tested: a real MongoDB, browsers, nginx and the sport site. The ObjectId letter case was checked locally through Mongoose casting. That `{ updatedAt: null }` matches a missing field is documented MongoDB behavior and was not run against a database.
 
 **Status:** Codex review complete for this change; nothing committed.
+
+## 2026-10-27: Faster sign-in and screens (fewer, shared requests)
+
+**Owner request:**
+- Fix slow responses: a production login recording took about 8.5 s from sign-in to a ready dashboard.
+- No longer send many requests at the same time, in every part of the system.
+- The owner approved the whole plan, including a 5 s cache of the signed-in user on the server.
+
+**Diagnosis (from the owner's recording and the server):**
+- The server alone answers in about 2 ms. Each database round trip takes about 205 ms, because the server is in Israel and Atlas M0 is in Oregon (`us-west-2`).
+- After sign-in about 13 requests were sent together, several of them twice (`/auth/me` x2, `/vehicle/me/permissions` x3, `/tours` x2), and the whole set again about 2 s later. Each request waited 1–3 s.
+- The cause of the repeated set was not found: the recording shows XHR only.
+- Also outside the code: one DNS lookup on the user's machine took 2.35 s.
+
+**Changes (uncommitted):**
+- **Server:**
+  - `services/actorCache.js` and `middleware/permissionMiddleware.js`: `loadActor` reads the user through a 5 s cache. Requests that arrive together share one read. A missing user is not cached. Every write through `UserModelDef` (wrapped in `User.model.js`) empties the cache.
+  - `Entities/Dashboard/Dashboard.route.js` (`/api/dashboard/summary`): runs the four list handlers in parallel. Each part first needs its own route's permission, and reports are sent as a count.
+  - `getAllU`, `getAllS` and the lesson `getAll` read in parallel.
+  - `scripts/perfCheck.js`: a read-only response-time check to run on the server. Its sport calls run only when football already exists.
+- **Client:**
+  - `WebServer/services/traffic.js`, under the `api` adapter, below training mode and the token refresh:
+    - identical reads share one request;
+    - reads are kept for 3 s (30 s for `/auth/me`, my vehicle permissions, `/tours` and the unread count);
+    - writes empty the memory when they start and when they end, and so do live `change`/`open` events, a token change and sign-out;
+    - never kept: `/locks`, `/live`, `/auth/refresh`, `/storage`, `/ai` and non-JSON responses;
+    - at most 4 requests on the network, with background reads queued behind screen reads.
+  - `Dashboard.jsx` uses the summary (training mode keeps its four reads).
+  - `NoticeBell` does not poll while the tab is hidden.
+
+**Tests:** `server/test/actor-cache.test.js`, `server/test/dashboard-summary.test.js`, `route-guards.test.js` (the summary entry), `client/src/WebServer/services/traffic.test.js` (11 tests).
+
+**Verification:**
+- **Server:** 927/927.
+- **Client:** 663/664. The one failure is the known `JourneyProvider.test.js` 5 s timeout under full-suite load, which also happened before this change; that file passes alone (20/20).
+- **Build:** compiled. The build folder was removed afterwards at the owner's request.
+- **Local measurement** (local MongoDB, about 1 ms per round trip): the dashboard's four requests (avg 14.9 ms) became one summary request (avg 10.4 ms).
+- **Not tested:** the real browser login on the server, and Atlas latency.
+
+**Codex review (2026-10-27, Codex CLI 0.164.0, read-only):** three medium findings, all confirmed and fixed with tests:
+1. A read running during a write could keep old data. Fixed: memory is also emptied when the write ends.
+2. Assistant reads were kept while its chat writes bypass the layer. Fixed: `/ai` is never kept.
+3. `perfCheck.js` could create the football sport. Fixed: sport calls run only when it exists.
+
+**Known limits:**
+- The biggest remaining cost is the Oregon database.
+- The owner cannot create a second free cluster. The options given were a new Atlas project, a dump/recreate in Frankfurt, or MongoDB on the server.
+
+**Codex re-review (2026-10-27):** all three fixes "Resolved"; "No new concrete findings in the scoped lines or tests." **Status:** Codex review complete; nothing committed or deployed.

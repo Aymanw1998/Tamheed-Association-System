@@ -14,6 +14,8 @@ import { useRolePicker, permissionError } from "../User/RolePickerDialog.jsx";
 import { roomLabel } from "../../utils/rooms";
 import { dashboardLessons } from "../../utils/dashboardLessons";
 import { DAY_NAMES } from "../../utils/lessonSchedule";
+import { getDashboardSummary } from "../../WebServer/services/dashboard/functionsDashboard.jsx";
+import { isDemo } from "../../journey/demoMode";
 
 const formatLessonTime = (lesson) => {
   const start = Number(lesson?.date?.startMin);
@@ -47,7 +49,7 @@ export default function Dashboard() {
     users: [],
     students: [],
     lessons: [],
-    reports: [],
+    reportsCount: 0,
   });
   // Which stat cards reflect a fetch that actually failed, vs. a genuine
   // zero - a silent failure here used to render as an indistinguishable "0".
@@ -68,18 +70,30 @@ export default function Dashboard() {
         setLoading(true);
         setError("");
 
-        const [usersResult, studentsResult, lessonsResult, reportsResult] = await Promise.allSettled([
-          canViewUsers ? getAllUsers() : Promise.resolve({ ok: true, users: [] }),
-          getAllStudents(),
-          getAllLesson(),
-          getAllReports(),
-        ]);
+        // One request for the four parts (GET /dashboard/summary). Training mode
+        // answers each list from its own store, so it keeps the four reads.
+        let usersRes;
+        let studentsRes;
+        let lessonsRes;
+        let reportsRes;
+        if (isDemo()) {
+          const settled = await Promise.allSettled([
+            canViewUsers ? getAllUsers() : Promise.resolve({ ok: true, users: [] }),
+            getAllStudents(),
+            getAllLesson(),
+            getAllReports(),
+          ]);
+          [usersRes, studentsRes, lessonsRes, reportsRes] = settled.map((r) => (r.status === "fulfilled" ? r.value : {}));
+          reportsRes = reportsRes?.ok ? { ok: true, count: (reportsRes.reports || []).length } : {};
+        } else {
+          const summary = await getDashboardSummary();
+          usersRes = canViewUsers ? summary.users || {} : { ok: true, users: [] };
+          studentsRes = summary.students;
+          lessonsRes = summary.lessons;
+          reportsRes = summary.reports;
+        }
 
         if (cancelled) return;
-        const usersRes = usersResult.status === "fulfilled" ? usersResult.value : {};
-        const studentsRes = studentsResult.status === "fulfilled" ? studentsResult.value : {};
-        const lessonsRes = lessonsResult.status === "fulfilled" ? lessonsResult.value : {};
-        const reportsRes = reportsResult.status === "fulfilled" ? reportsResult.value : {};
 
         // The system account never reaches the client (GET /user leaves it
         // out); the viewer doesn't count toward "المستخدمون".
@@ -92,7 +106,7 @@ export default function Dashboard() {
           users,
           students: studentsRes?.ok ? studentsRes.students || [] : [],
           lessons: lessonsRes?.ok ? lessonsRes.lessons || [] : [],
-          reports: reportsRes?.ok ? reportsRes.reports || [] : [],
+          reportsCount: reportsRes?.ok ? reportsRes.count || 0 : 0,
         });
         setLoadFailed({
           // Non-admins deliberately skip the users fetch (see the Promise.resolve
@@ -142,7 +156,7 @@ export default function Dashboard() {
     cards.push(
       { label: "الطلاب", value: data.students.length, failed: loadFailed.students },
       { label: "دروس اليوم", value: lessonPanel.today.length, failed: loadFailed.lessons },
-      { label: "التقارير", value: data.reports.length, failed: loadFailed.reports }
+      { label: "التقارير", value: data.reportsCount, failed: loadFailed.reports }
     );
 
     return cards;

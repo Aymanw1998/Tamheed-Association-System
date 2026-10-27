@@ -62,10 +62,14 @@ function createLoadActor({ findActiveUserByTz, systemTz, allowPasswordChange = f
   };
 }
 
-const loadActor = createLoadActor({ findActiveUserByTz: defaultFindActiveUserByTz });
+// Through the short user cache (services/actorCache): requests that arrive
+// together share one read, and a user is read again after 5 s or any user write.
+const cachedFindActiveUserByTz = (tz) => require("../services/actorCache").sharedCache(defaultFindActiveUserByTz).get(tz);
+
+const loadActor = createLoadActor({ findActiveUserByTz: cachedFindActiveUserByTz });
 // Only for POST /api/auth/change-password.
 const loadActorAllowingPasswordChange = createLoadActor({
-  findActiveUserByTz: defaultFindActiveUserByTz, allowPasswordChange: true,
+  findActiveUserByTz: cachedFindActiveUserByTz, allowPasswordChange: true,
 });
 
 function requirePermission(...keys) {

@@ -502,11 +502,12 @@ const getAllU = async (req, res) => {
 
     let users = [];
 
-    for (const room of rooms) {
-      if (!ROOMS.includes(room)) continue;
+    // The rooms are read together (one round trip, not one per room).
+    const wanted = rooms.filter((room) => ROOMS.includes(room));
+    const results = await Promise.all(wanted.map((room) => UserModelDef.get({}, room)));
 
-      const result = await UserModelDef.get({}, room);
-
+    wanted.forEach((room, i) => {
+      const result = results[i];
       if (result?.success && Array.isArray(result.result)) {
         users = users.concat(
           // The system account is never listed.
@@ -516,7 +517,7 @@ const getAllU = async (req, res) => {
           }))
         );
       }
-    }
+    });
 
     return res.status(200).json({
       ok: true,
