@@ -40,13 +40,19 @@ function createSportPortalController(deps = {}) {
       const at = now();
 
       const sport = await ensureSport();
-      const player = rows(await players.get({ studentId, sportId: sid(sport._id) }))[0];
+      // Only this student's own rows are read; nothing of anyone else is loaded
+      // into the answer. The three reads go together (one round trip).
+      const [playerRows, lessonRows, recordRows] = await Promise.all([
+        players.get({ studentId, sportId: sid(sport._id) }),
+        lessons.get({ "players.studentId": studentId }),
+        attendance.get({ studentId }),
+      ]);
+      const player = rows(playerRows)[0];
       if (!player) return res.status(401).json({ ok: false, code: "SPORT_AUTH" });
 
-      // Only this student's own rows are read; nothing of anyone else is loaded into the answer.
-      const myLessons = rows(await lessons.get({ "players.studentId": studentId }))
+      const myLessons = rows(lessonRows)
         .filter((l) => (l.players || []).some((p) => sid(p.studentId) === studentId));
-      const records = rows(await attendance.get({ studentId }));
+      const records = rows(recordRows);
       const byId = new Map(myLessons.map((l) => [sid(l._id), l]));
 
       const history = records

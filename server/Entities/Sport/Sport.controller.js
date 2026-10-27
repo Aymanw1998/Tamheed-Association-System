@@ -59,21 +59,49 @@ async function record(req, action, targetType, doc, label, before = null) {
 /* ---------- football ---------- */
 
 // The one sport. Created on first use; concurrent first calls share one create.
+// It changes only through setStats, so reads keep it in memory for
+// FOOTBALL_TTL_MS (most requests then need no read for it). setStats itself
+// always reads it fresh ({ fresh: true }) and drops the kept copy; a read that
+// was on its way during a save is never kept (footballGeneration). Each caller
+// gets its own copy.
+const FOOTBALL_TTL_MS = 60 * 1000;
 let pendingFootball = null;
-async function ensureFootball() {
-  if (pendingFootball) return pendingFootball;
-  pendingFootball = (async () => {
-    try {
-      const found = rows(await SportModelDef.get({ name: FOOTBALL.name }))[0];
-      if (found) return found;
-      const now = new Date();
-      const created = await SportModelDef.create({ ...FOOTBALL, stats: [], createdAt: now, updatedAt: now });
-      return created?.result;
-    } finally {
-      pendingFootball = null;
-    }
-  })();
-  return pendingFootball;
+let keptFootball = null; // { at, doc }
+let footballGeneration = 0;
+const copyFootball = (doc) => (doc ? { ...doc, stats: Array.isArray(doc.stats) ? doc.stats.map((s) => ({ ...s })) : doc.stats } : doc);
+const keepFootball = (doc) => { keptFootball = doc ? { at: Date.now(), doc } : null; };
+const findFootball = async () => rows(await SportModelDef.get({ name: FOOTBALL.name }))[0];
+const readFootball = async () => {
+  const doc = await findFootball();
+  if (doc) return doc;
+  const now = new Date();
+  return (await SportModelDef.create({ ...FOOTBALL, stats: [], createdAt: now, updatedAt: now }))?.result;
+};
+async function ensureFootball({ fresh = false } = {}) {
+  if (fresh) {
+    // Waits for a read already on its way (it may be the one-time create),
+    // then reads the stored row; creating stays in the shared path below.
+    if (pendingFootball) await pendingFootball.catch(() => {});
+    const doc = await findFootball();
+    if (doc) return copyFootball(doc);
+  } else if (keptFootball && Date.now() - keptFootball.at < FOOTBALL_TTL_MS) {
+    return copyFootball(keptFootball.doc);
+  }
+  if (!pendingFootball) {
+    const startedIn = footballGeneration;
+    const read = (async () => {
+      try {
+        const doc = await readFootball();
+        if (startedIn === footballGeneration) keepFootball(doc);
+        return doc;
+      } finally {
+        // A save may have let go of this read already (see setStats).
+        if (pendingFootball === read) pendingFootball = null;
+      }
+    })();
+    pendingFootball = read;
+  }
+  return copyFootball(await pendingFootball);
 }
 
 const presentSport = (s) => ({ _id: String(s._id), name: s.name, icon: s.icon, stats: s.stats || [] });
@@ -103,13 +131,24 @@ function parseStats(input, current) {
 }
 
 const setStats = handle("setStats", async (req, res) => {
-  const current = await ensureFootball();
+  // Fresh: the stat keys must be the stored ones, not a kept copy. Nothing is
+  // kept while the save runs, and a read started now is never kept.
+  footballGeneration += 1;
+  keepFootball(null);
+  const current = await ensureFootball({ fresh: true });
   const parsed = parseStats(req.body?.stats, current);
   if (parsed.error) return fail(res, 400, parsed.error);
   const kept = new Set(parsed.stats.map((s) => s.key));
   const removed = (current.stats || []).map((s) => s.key).filter((k) => !kept.has(k));
   const updated = await SportModelDef.updateExisting({ _id: current._id }, { stats: parsed.stats, updatedAt: new Date() });
   const sport = updated?.result;
+  // The kept copy (ensureFootball) is dropped, never replaced: two saves may
+  // answer out of order, so the next read takes the stored row. A read that
+  // started before this point is not kept.
+  footballGeneration += 1;
+  keepFootball(null);
+  // A read still on its way may hold the old stats: later calls do not join it.
+  pendingFootball = null;
   await SportPlayerModelDef.unsetStats(removed);
   await record(req, "update", "sport", sport, current.name, current);
   notifyChange("sport", String(current._id));
@@ -162,12 +201,14 @@ function birthDateOf(value) {
 const listPlayers = handle("listPlayers", async (req, res) => {
   const sport = await ensureFootball();
   const sportId = String(sport._id);
-  const [players, students, lessons] = await Promise.all([
-    SportPlayerModelDef.get({ sportId }), studentMap(), SportLessonModelDef.get({ sportId }),
+  // All in one round: the attendance rows are read together and kept only for
+  // this sport's lessons.
+  const [players, students, lessons, allRecords] = await Promise.all([
+    SportPlayerModelDef.get({ sportId }), studentMap(), SportLessonModelDef.get({ sportId }), SportAttendanceModelDef.get({}),
   ]);
   const lessonRows = rows(lessons);
-  const lessonIds = lessonRows.map((l) => String(l._id));
-  const records = lessonIds.length ? rows(await SportAttendanceModelDef.get({ sportLessonId: { $in: lessonIds } })) : [];
+  const lessonIds = new Set(lessonRows.map((l) => String(l._id)));
+  const records = rows(allRecords).filter((r) => lessonIds.has(String(r.sportLessonId)));
   const now = new Date();
   const out = [];
   for (const p of rows(players)) {

@@ -2251,3 +2251,35 @@ All five are fixed in the changes above (`{ updatedAt: null }` plus lessons crea
 - The owner cannot create a second free cluster. The options given were a new Atlas project, a dump/recreate in Frankfurt, or MongoDB on the server.
 
 **Codex re-review (2026-10-27):** all three fixes "Resolved"; "No new concrete findings in the scoped lines or tests." **Status:** Codex review complete; nothing committed or deployed.
+
+## 2026-10-27: Faster sport player card and sport lists
+
+**Owner request:** speed up the sport player card and the staff sport lists. On the production server (database about 221 ms away) they measured:
+
+| Screen | Time | Database rounds |
+| --- | --- | --- |
+| `/api/sport-portal/me` | 1.66 s | about 8 |
+| `GET /api/sports/players` | 0.71 s | about 3 |
+| `GET /api/sports/lessons` | 0.48 s | about 2 |
+
+**Changes (uncommitted):**
+- `server/Entities/Sport/Sport.controller.js`:
+  - `ensureFootball` keeps the football row in memory for 60 s, and each caller gets a copy.
+  - `setStats` reads the row fresh, keeps nothing while it runs, and afterwards drops the kept copy and lets go of any read still on its way. A read started before or during a save is never kept (`footballGeneration`).
+  - `listPlayers` reads players, students, lessons and all sport attendance in one round.
+- `SportPortal.auth.js`: `requireSportStudent` reads the student and the player row together.
+- `SportPortal.controller.js`: `me` reads the player, lessons and attendance together. These are still only the student's own rows, and a missing player is still 401.
+
+**Tests:**
+- `sport-portal-data.test.js`: two rounds of reads instead of five, timed. It fails on the old code (245 ms).
+- `sport-staff.test.js`: the football row is read once; a stat added elsewhere keeps its key on rename; two saves answering out of order; a read during a save is not kept; a request after a save never joins an older read (that last test fails without the fix).
+
+**Verification:** server 933/933. Not measured on the production server yet.
+
+**Codex review (2026-10-27, Codex CLI 0.164.0, read-only), four rounds:**
+1. Round 1, two findings: `setStats` used the kept copy, and an in-flight refresh could overwrite the saved copy. Fixed with the fresh read and the generation counter.
+2. Round 2, one finding: concurrent saves could keep an older result. Fixed: the copy is dropped instead of replaced.
+3. Round 3, one finding: a later GET could join a stale pending read. Fixed: the save lets go of the pending read, and the copy is dropped at the start of the save too.
+4. Round 4: "Resolved... No new concrete findings within the requested scope."
+
+**Status:** Codex review complete; nothing committed.

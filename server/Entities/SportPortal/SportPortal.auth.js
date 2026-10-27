@@ -172,8 +172,10 @@ function createSportAuth(deps = {}) {
       }
       if (payload?.typ !== SESSION_TYP || !payload.sub) return refuse();
 
-      const student = rows(await students.get({ _id: String(payload.sub) }))[0];
-      if (!student || !(await hasSportRow(student._id))) return refuse();
+      // The student and the player row are read together (one round trip).
+      const [found, isPlayer] = await Promise.all([students.get({ _id: String(payload.sub) }), hasSportRow(payload.sub)]);
+      const student = rows(found)[0];
+      if (!student || !isPlayer) return refuse();
       req.sportStudent = student;
       return next();
     } catch (err) {

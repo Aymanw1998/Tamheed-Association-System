@@ -424,3 +424,105 @@ test("changing the sport's stats announces `sport` and tells every player", asyn
   assert.deepEqual(live.changes, [["sport", SPORT]]);
   assert.deepEqual(live.students.map(([ids, type]) => [[...ids].sort(), type]), [[[sid(1), sid(2)], "me"]]);
 });
+
+test("the football row is read once and kept; saving the stats drops the kept copy at once", async () => {
+  const ctx = world();
+  let reads = 0;
+  const get = ctx.sports.get.bind(ctx.sports);
+  ctx.sports.get = async (...args) => { reads += 1; return get(...args); };
+  await call(ctx, VIEWER, "get", "/");
+  await call(ctx, VIEWER, "get", "/players");
+  await call(ctx, VIEWER, "get", "/lessons");
+  assert.equal(reads, 1, "three requests, one read of the sport");
+  const saved = await call(ctx, MANAGER, "put", "/stats", { body: { stats: [{ label: "أهداف" }] } });
+  assert.equal(saved.statusCode, 200);
+  assert.equal(reads, 2, "the save reads the stored row fresh");
+  const after = await call(ctx, VIEWER, "get", "/");
+  assert.deepEqual(after.body.sport.stats.map((s) => s.label), ["أهداف"], "the new stats show at once");
+  assert.equal(reads, 3, "the read after a save takes the stored row");
+  await call(ctx, VIEWER, "get", "/");
+  assert.equal(reads, 3, "and keeps it again");
+  // A caller changing what it got never changes the kept copy.
+  after.body.sport.stats.push({ key: "x", label: "x" });
+  assert.equal((await call(ctx, VIEWER, "get", "/")).body.sport.stats.length, 1);
+});
+
+test("a stat added elsewhere (another process) is known to the next save: its key and values stay", async () => {
+  const ctx = world();
+  await call(ctx, VIEWER, "get", "/"); // the row is now kept in memory, without the new stat
+  const sport = ctx.sports.all()[0];
+  sport.stats = [...(sport.stats || []), { key: "s_ext", label: "Ext" }]; // written by another process
+  const saved = await call(ctx, MANAGER, "put", "/stats", { body: { stats: [{ key: "s_ext", label: "Renamed" }] } });
+  assert.equal(saved.statusCode, 200);
+  assert.deepEqual(saved.body.sport.stats, [{ key: "s_ext", label: "Renamed" }], "same key, so player values keep showing");
+});
+
+test("a read that was on its way during a save never replaces the saved copy", async () => {
+  const ctx = world();
+  const get = ctx.sports.get.bind(ctx.sports);
+  let hold = null;
+  // The first read is held until the save has finished.
+  ctx.sports.get = async (...args) => {
+    const answer = await get(...args);
+    if (!hold) { hold = true; await new Promise((r) => setTimeout(r, 30)); }
+    return answer;
+  };
+  const slowRead = call(ctx, VIEWER, "get", "/"); // reads the old row, then waits
+  await new Promise((r) => setTimeout(r, 5));
+  const saved = await call(ctx, MANAGER, "put", "/stats", { body: { stats: [{ label: "جديد" }] } });
+  assert.equal(saved.statusCode, 200);
+  await slowRead;
+  const after = await call(ctx, VIEWER, "get", "/");
+  assert.deepEqual(after.body.sport.stats.map((s) => s.label), ["جديد"]);
+});
+
+test("two saves at once: whichever answers last, the next read shows what is stored", async () => {
+  const ctx = world();
+  const update = ctx.sports.updateExisting.bind(ctx.sports);
+  let first = true;
+  // The first save is written first but answers last.
+  ctx.sports.updateExisting = async (...args) => {
+    const answer = await update(...args);
+    if (first) { first = false; await new Promise((r) => setTimeout(r, 30)); }
+    return answer;
+  };
+  const a = call(ctx, MANAGER, "put", "/stats", { body: { stats: [{ label: "A" }] } });
+  await new Promise((r) => setTimeout(r, 5));
+  const b = await call(ctx, MANAGER, "put", "/stats", { body: { stats: [{ label: "B" }] } });
+  await a;
+  assert.equal(b.statusCode, 200);
+  const stored = ctx.sports.all()[0].stats.map((s) => s.label);
+  const shown = (await call(ctx, VIEWER, "get", "/")).body.sport.stats.map((s) => s.label);
+  assert.deepEqual(shown, stored);
+});
+
+test("a request after a save never joins a read that started during it", async () => {
+  const ctx = world();
+  await call(ctx, VIEWER, "get", "/");
+  const get = ctx.sports.get.bind(ctx.sports);
+  const update = ctx.sports.updateExisting.bind(ctx.sports);
+  let updating = false;
+  let slowReads = 0;
+  // While the save is writing, a read takes the old row and stays on its way past the save's end.
+  ctx.sports.updateExisting = async (...args) => {
+    updating = true;
+    await new Promise((r) => setTimeout(r, 20));
+    const answer = await update(...args);
+    updating = false;
+    return answer;
+  };
+  ctx.sports.get = async (...args) => {
+    const answer = await get(...args);
+    if (updating) { slowReads += 1; await new Promise((r) => setTimeout(r, 60)); }
+    return answer;
+  };
+  // Make the kept copy expire, so the next read goes to the store.
+  const save = call(ctx, MANAGER, "put", "/stats", { body: { stats: [{ label: "بعد" }] } });
+  await new Promise((r) => setTimeout(r, 10));
+  const during = call(ctx, VIEWER, "get", "/"); // starts during the write
+  assert.equal((await save).statusCode, 200);
+  const late = await call(ctx, VIEWER, "get", "/"); // starts after the save
+  assert.deepEqual(late.body.sport.stats.map((s) => s.label), ["بعد"]);
+  await during;
+  assert.equal(slowReads, 1, "the overlapping read really happened");
+});

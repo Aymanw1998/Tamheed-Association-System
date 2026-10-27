@@ -227,3 +227,31 @@ test("me does not read another sport's row when the student has both", async () 
   assert.equal(r.statusCode, 200);
   assert.equal(r.body.card.jerseyNumber, 7);
 });
+
+test("the sign-in check and the player card read together: two rounds of database reads, not five", async () => {
+  const DELAY = 40;
+  let reads = 0;
+  // Each read takes DELAY ms; reads that run together overlap.
+  const slow = (s) => ({ async get(f) { reads += 1; await new Promise((r) => setTimeout(r, DELAY)); return s.get(f); } });
+  const stores = {
+    students: slow(store([{ _id: "s1", tz: ME.tz, email: ME.email, firstname: "علي", lastname: "حداد", birth_date: ME.birth }])),
+    players: slow(store([{ studentId: "s1", sportId: "sp1", jerseyNumber: 7, position: "حارس", stats: {} }])),
+  };
+  const sport = async () => ({ _id: "sp1", name: "كرة القدم", icon: "⚽", stats: [] });
+  const auth = createSportAuth({ ...stores, ensureSport: sport, log: () => {} });
+  const portal = createSportPortalController({
+    ...stores, ensureSport: sport, lessons: slow(store(LESSONS)), attendance: slow(store(RECORDS)), log: () => {},
+    now: () => new Date("2026-06-01T00:00:00Z"),
+  });
+  const r = res();
+  const req = { cookies: { tamheed_sport: jwt.sign({ sub: "s1", typ: "sport-student" }, process.env.SPORT_SESSION_SECRET, { algorithm: "HS256" }) } };
+  const started = Date.now();
+  let passed = false;
+  await auth.requireSportStudent(req, r, () => { passed = true; });
+  assert.ok(passed);
+  await portal.me(req, r);
+  const took = Date.now() - started;
+  assert.equal(r.statusCode, 200);
+  assert.equal(reads, 5, "the same five reads");
+  assert.ok(took < 3.5 * DELAY, `two rounds (~${2 * DELAY} ms), took ${took} ms`);
+});
