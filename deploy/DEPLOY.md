@@ -206,6 +206,213 @@ pm2 restart tamheed --update-env
 - **צוות:** בעמוד הפרופיל, בקטע «إشعارات الهاتف», מדליקים את ההתראות.
 - **תלמידים (אתר הספורט):** לוחצים על הכפתור «فعّل التذكير بالتدريبات».
 
+## MongoDB על השרת
+
+בסיס הנתונים יושב על השרת עצמו במקום ב-Atlas, וכל פנייה אליו לוקחת פחות מאלפית שנייה במקום כ-220ms (Atlas החינמי באורגון). מסד הנתונים מקשיב רק לשרת עצמו (`127.0.0.1`), נדרשת סיסמה, ופורט 27017 נשאר סגור מבחוץ.
+
+> הסיסמאות שיוצרים כאן נכנסות רק ל-`server/config/.env` בשרת. לא שומרים אותן בתיקייה הזו ולא שולחים אותן לאף אחד.
+
+### 0. בדיקה מוקדמת: המעבד ומערכת ההפעלה
+
+MongoDB 5 ומעלה דורש מעבד עם AVX:
+
+```bash
+grep -c avx /proc/cpuinfo
+```
+
+אם מודפס `0`, אי אפשר להתקין גרסה נתמכת, ועוצרים כאן (נשארים עם Atlas). אם מודפס מספר גדול מ-0, ממשיכים.
+
+```bash
+lsb_release -cs
+```
+
+צריך להופיע `jammy` (22.04) או `noble` (24.04).
+
+### 1. זיכרון Swap (פעם אחת)
+
+בשרת עם 2GB, ה-Swap מגן על MongoDB ועל בניית האתר מפני חוסר זיכרון.
+
+```bash
+sudo fallocate -l 2G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+free -h
+```
+
+### 2. התקנת MongoDB 8.0
+
+```bash
+sudo apt-get install -y gnupg curl
+curl -fsSL https://www.mongodb.org/static/pgp/server-8.0.asc | sudo gpg -o /usr/share/keyrings/mongodb-server-8.0.gpg --dearmor
+echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg ] https://repo.mongodb.org/apt/ubuntu $(lsb_release -cs)/mongodb-org/8.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-8.0.list
+sudo apt-get update
+sudo apt-get install -y mongodb-org
+```
+
+החבילה כוללת גם את `mongosh`, `mongodump` ו-`mongorestore`.
+
+### 3. הגדרות: זיכרון מוגבל והאזנה מקומית בלבד
+
+```bash
+sudo nano /etc/mongod.conf
+```
+
+בודקים שהחלקים האלה נראים כך (ההזחה ברווחים, לא בטאב):
+
+```yaml
+storage:
+  dbPath: /var/lib/mongodb
+  wiredTiger:
+    engineConfig:
+      cacheSizeGB: 0.25
+
+net:
+  port: 27017
+  bindIp: 127.0.0.1
+```
+
+מפעילים:
+
+```bash
+sudo systemctl enable --now mongod
+sudo systemctl status mongod --no-pager
+```
+
+### 4. משתמשים וסיסמאות
+
+מייצרים שתי סיסמאות אקראיות, אחת למנהל ואחת לאפליקציה, ומעתיקים כל אחת למקום בטוח רק לרגע:
+
+```bash
+openssl rand -hex 24
+openssl rand -hex 24
+```
+
+נכנסים ל-`mongosh` (עדיין בלי סיסמה, כי ההרשאות עוד לא הופעלו):
+
+```bash
+mongosh
+```
+
+ויוצרים את שני המשתמשים. מחליפים את `<...>` בסיסמאות שיצרת:
+
+```js
+use admin
+db.createUser({ user: "admin", pwd: "<סיסמת המנהל>", roles: ["root"] })
+use tamheed_db
+db.createUser({ user: "tamheed", pwd: "<סיסמת האפליקציה>", roles: [{ role: "readWrite", db: "tamheed_db" }] })
+exit
+```
+
+מפעילים את דרישת הסיסמה. ב-`/etc/mongod.conf` מוסיפים:
+
+```yaml
+security:
+  authorization: enabled
+```
+
+ומפעילים מחדש:
+
+```bash
+sudo systemctl restart mongod
+```
+
+### 5. העברת הנתונים מ-Atlas (בלילה, כ-10 דקות של השבתה)
+
+**לפני הכול: שם המסד.** המדריך מניח `tamheed_db`. בודקים מה המערכת באמת משתמשת בו (הסקריפט קורא את `.env` כמו המערכת עצמה):
+
+```bash
+cd /var/www/tamheed && bash deploy/env-get.sh DB_NAME
+```
+
+אם מודפסת שורה ריקה, או `tamheed_db`, ממשיכים כמו שכתוב. אם מודפס שם אחר, משתמשים בשם הזה בכל מקום שכתוב בו `tamheed_db` (גם במשתמש מסעיף 4 ובשורת `MONGO_URI`).
+
+**א. עוצרים את המערכת**, כדי שאף שמירה לא תלך לאיבוד באמצע:
+
+```bash
+pm2 stop tamheed
+```
+
+**ב. מעתיקים מ-Atlas** (קריאה בלבד: ב-Atlas שום דבר לא משתנה). הכתובת נלקחת מה-`.env` לקובץ הגדרות פרטי, כך שהסיסמה לא מופיעה במסך ולא ברשימת התהליכים:
+
+```bash
+cd /var/www/tamheed
+umask 077
+bash deploy/env-get.sh --mongo-config > /root/atlas-dump.yaml
+mongodump --config=/root/atlas-dump.yaml --db=tamheed_db --gzip --archive=/root/atlas-tamheed.archive.gz
+rm /root/atlas-dump.yaml
+ls -lh /root/atlas-tamheed.archive.gz
+```
+
+**ג. משחזרים ל-MongoDB המקומי** (עם משתמש המנהל):
+
+```bash
+mongorestore --uri="mongodb://admin@127.0.0.1:27017/?authSource=admin" --gzip --archive=/root/atlas-tamheed.archive.gz
+```
+
+הפקודה מבקשת את סיסמת המנהל.
+
+**ד. בודקים שהכול עבר.** סופרים מסמכים בכל אוסף, פה ושם:
+
+```bash
+mongosh "mongodb://admin@127.0.0.1:27017/tamheed_db?authSource=admin" --quiet --eval 'db.getCollectionNames().sort().forEach(c => print(c, db.getCollection(c).countDocuments()))'
+```
+
+**ה. מעבירים את המערכת למסד המקומי.** ב-`server/config/.env` משנים את השורה `MONGO_URI` (שומרים את הישנה בהערה, למקרה שצריך לחזור):
+
+```
+# MONGO_URI=mongodb+srv://...   (Atlas, ישן)
+MONGO_URI=mongodb://tamheed:<סיסמת האפליקציה>@127.0.0.1:27017/tamheed_db?authSource=tamheed_db
+```
+
+**ו. מפעילים ובודקים:**
+
+```bash
+pm2 restart tamheed --update-env
+pm2 logs tamheed --lines 30
+cd /var/www/tamheed/server && node scripts/perfCheck.js
+```
+
+מצפים ל-`one database round trip` של פחות מ-5ms. אחר כך נכנסים למערכת ולאתר הספורט ובודקים שהכול נראה כרגיל.
+
+**חזרה ל-Atlas, אם משהו לא עובד:** מחזירים את שורת `MONGO_URI` הישנה ומריצים `pm2 restart tamheed --update-env`. מה שנשמר במסד המקומי בינתיים לא יעבור אוטומטית ל-Atlas.
+
+את ה-Cluster ב-Atlas משאירים לפחות שבוע כגיבוי נוסף, ולא שומרים בו כלום חדש.
+
+### 6. גיבוי לילי
+
+```bash
+sudo crontab -e
+```
+
+מוסיפים שורה (כל לילה ב-02:30, נשמרים 14 ימים ב-`/var/backups/tamheed`). כדי שהגיבוי יהיה עקבי, הסקריפט עוצר את המערכת לכמה שניות בזמן ההעתקה ומפעיל אותה מחדש בכל מקרה, גם אם הגיבוי נכשל. מערכת שכבר הייתה עצורה (תחזוקה) נשארת עצורה. אם הוא לא מוצא את `tamheed` ב-pm2, הוא לא מגבה ומדווח על שגיאה ביומן. לכן מריצים את ה-cron של אותו משתמש שמריץ את pm2 (כאן `root`):
+
+```
+30 2 * * * bash /var/www/tamheed/deploy/mongo-backup.sh >> /var/log/tamheed-backup.log 2>&1
+```
+
+בדיקה מיידית:
+
+```bash
+bash /var/www/tamheed/deploy/mongo-backup.sh
+ls -lh /var/backups/tamheed
+```
+
+> הגיבויים יושבים על אותו שרת. אם השרת עצמו נהרס, הם הולכים יחד איתו. עד שהגיבוי ל-Drive של שלב ב' ייבנה, מורידים מדי פעם עותק למחשב שלך (מהמחשב, לא מהשרת):
+> ```bash
+> scp root@system.tamheed-ramla.org:/var/backups/tamheed/tamheed-*.archive.gz .
+> ```
+
+שחזור של גיבוי (מוחק את מה שיש במסד ומחליף בגיבוי). קודם עוצרים את המערכת, כדי שאף שמירה לא תיכנס באמצע, ומפעילים אותה רק אחרי שבודקים:
+
+```bash
+pm2 stop tamheed
+mongorestore --uri="mongodb://admin@127.0.0.1:27017/?authSource=admin" --gzip --archive=/var/backups/tamheed/<שם הקובץ> --nsInclude='tamheed_db.*' --drop
+mongosh "mongodb://admin@127.0.0.1:27017/tamheed_db?authSource=admin" --quiet --eval 'db.getCollectionNames().sort().forEach(c => print(c, db.getCollection(c).countDocuments()))'
+pm2 start tamheed
+```
+
 ## אם משהו לא עובד
 
 | תסמין | מה לבדוק |
@@ -217,3 +424,6 @@ pm2 restart tamheed --update-env
 | אתר הספורט לא מתעדכן מיד | ש-nginx לא מאגר (`proxy_buffering off`) את `/api/sport-portal/live`, כמו בשאר הזרמים החיים: הבלוק קיים בקובץ ה-nginx |
 | חיבור Drive נכשל | `GOOGLE_REDIRECT_URI` זהה בדיוק בקובץ `.env` וב-Google Console |
 | אף אחד לא מצליח להיכנס אחרי ההעלאה | `PASSWORD_ENC_KEY_HEX` לא זהה לערך הישן |
+| `MongoServerError: Authentication failed` | הסיסמה או `authSource` בשורת `MONGO_URI` לא תואמים למשתמש שנוצר במסד |
+| `connect ECONNREFUSED 127.0.0.1:27017` | MongoDB לא רץ: `sudo systemctl status mongod` ו-`sudo journalctl -u mongod -n 50` |
+| `mongod` לא עולה אחרי ההתקנה | המעבד בלי AVX (סעיף 0), או טעות הזחה ב-`/etc/mongod.conf` |

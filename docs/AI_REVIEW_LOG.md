@@ -2283,3 +2283,43 @@ All five are fixed in the changes above (`{ updatedAt: null }` plus lessons crea
 4. Round 4: "Resolved... No new concrete findings within the requested scope."
 
 **Status:** Codex review complete; nothing committed.
+
+## 2026-10-27: The database moves from Atlas to the server (owner decision)
+
+**Owner decision (2026-10-27):** run MongoDB on the VPS itself instead of Atlas. This changes the platform design's constraint ("one server, Atlas, Drive as they are").
+- **Why:** every database round trip to Atlas M0 in Oregon (`us-west-2`) takes about 221 ms from the server in Israel. The owner does not want a paid tier, and could not create a second free cluster in a nearer region.
+- **Measured before the move,** after the code speed-ups: about 263 ms average per screen; the player card 0.47 s.
+
+**Changes (uncommitted):**
+- `deploy/DEPLOY.md`, new section "MongoDB על השרת":
+  - an AVX check first (MongoDB 5+ needs it), 2 GB swap, and MongoDB 8.0 from the official repo;
+  - `bindIp: 127.0.0.1` and a WiredTiger cache of 0.25 GB;
+  - an admin user and an app user with `readWrite` on `tamheed_db`, then `authorization: enabled`;
+  - the night move: stop pm2, `mongodump` from Atlas (read-only), `mongorestore` locally, compare counts, switch `MONGO_URI` (the old line kept as a comment for rollback), restart, run `perfCheck`;
+  - Atlas is kept for a week;
+  - a nightly cron backup and three troubleshooting rows.
+- `deploy/mongo-backup.sh`: a gzip `mongodump` of the database. It reads `MONGO_URI` from the server `.env` and passes it in a private temporary config file, so the password never appears in the process list. Archives are kept 14 days in `/var/backups/tamheed`.
+- No application code changes: `MONGO_URI` and `DB_NAME` already support a local server.
+
+**Known risks:**
+- The backups sit on the same server until the Stage B offsite (Drive) backup exists. The guide tells the owner to copy archives to his computer from time to time.
+- Writes made after a rollback to Atlas would not carry over.
+- Not run on the server yet. The backup script was only syntax-checked here.
+
+**Codex review (2026-10-27, Codex CLI 0.164.0, read-only), three rounds so far:**
+1. **Round 1, six findings, all fixed:**
+   - A restore ran while the app was running. Now pm2 is stopped, then `--nsInclude`, counts, and start.
+   - Nightly dumps could be inconsistent. The app is stopped for the dump. This was Claude's choice over a single-node replica set with `--oplog`, which needs a keyFile with auth.
+   - Fragile .env parsing and YAML quoting.
+   - A partial archive under the final name. It is now a hidden `.partial`, renamed on success.
+   - The Atlas URI showed in the process list. It now goes through a private config file.
+   - `DB_NAME` was assumed.
+2. **Round 2:** three partly resolved and two new: the parsers in the guide and the script differed, and an already-stopped app was restarted. Fixed with a shared `deploy/env-get.sh` (export, spaces, quotes, comments; last wins) and the pm2 status check.
+3. **Round 3:** the stopped-app item resolved; three partly resolved and two new: pm2 transitional states, concurrent runs. Fixed:
+   - unquoted values are cut at the first `#` as dotenv does;
+   - `online`/`launching`/`waiting restart` mean stop and start again; `stopped`/`errored` are left alone; anything else refuses;
+   - a non-blocking `flock` covers the whole run.
+
+4. **Round 4: not finished.** Codex hit its usage limit (available again 2026-10-28 01:59) before answering. Its own run had written 10 dotenv samples for `env-get.sh`; one failed only in its harness, which fed the sample through `/dev/stdin`. All 10 pass with a sample file, which is how the script reads `.env` (Claude, Git Bash). **Pending:** a Codex verdict on the round-3 fixes (pm2 states, `flock`, dotenv comments).
+
+**Owner's server progress (2026-10-27):** AVX present, Ubuntu 24.04 (`noble`), 2 GB swap on, MongoDB 8.0.34 and tools 100.20.0 installed, `mongod` running with the guide's config. Users, auth and the data move are not done yet.
