@@ -2417,3 +2417,33 @@ All five are fixed in the changes above (`{ updatedAt: null }` plus lessons crea
 - **Not tested:** the real app while signed in, a real phone, and the Hebrew translation, which needs a fluent reader.
 
 **Status:** Codex review complete; nothing committed or deployed. Next: the remaining eight screens (`GUIDE_PENDING`), then saving the guide as a PDF.
+
+## 2026-10-29: User guide, stage 2 (all screens, save as PDF)
+
+**Owner request:** "complete the rest" of the in-app user guide.
+
+**Changes (uncommitted):**
+- **`client/src/guide/guideContent.js`:** entries for students, reports, vehicles, files, notices, users, audit and sports, in Arabic and Hebrew. `GUIDE_PENDING` is now empty.
+  - The texts follow the journey chapters. Sports follows `Components/Sport`.
+  - A step may have `requiresAny` (one key is enough). Sports uses it for coach or manage, as in `SportPage.jsx:13-14`.
+- **Save as PDF:** a button on the guide exports the whole guide the user can see, in the chosen language. The search doesn't narrow it.
+  - It uses `exportCardPdf` with two new options: `profile: false` (no photo and name row) and `labels` (Hebrew texts for the document and the preview).
+  - Arabic stays the default, so existing callers are unchanged.
+  - Long entries are split into sections of at most 4 rows (`PDF_ROWS_PER_SECTION`).
+- **`ExportPDF.jsx`, a fix that also affects user and student PDFs:** pages are now measured at the real content width and with the page's font (Arial, RTL). Before, the width included the 10 mm side padding, so long text could reach the footer.
+
+**Codex review (2026-10-29, Codex CLI 0.164.0, gpt-6-astra, read-only):**
+- **Round 1, four findings; no permission mismatch found:**
+  - **P2:** a long section overlapped the footer;
+  - **P3:** the Hebrew PDF kept Arabic labels and preview buttons;
+  - **P3:** reports quoted «تصدير PDF» instead of the real «ملف التقرير»;
+  - **P3:** the iPhone note promised the share sheet unconditionally.
+- **Round 2:** findings 2-4 "Resolved". Finding 1 was "Partly": the width was measured with the padding and without the page font.
+- **Round 3:** "Resolved"; "No new concrete findings within the reviewed scope."
+
+**Verification:**
+- Server 933/933. Client 700/700, including the usually flaky `JourneyProvider` test.
+- The build compiled.
+- **Not tested:** a real PDF generated in a browser (footer overlap and Hebrew rendering), the signed-in app, a phone, and the Hebrew wording, which needs a fluent reader.
+
+**Status:** Codex review complete; nothing committed or deployed.

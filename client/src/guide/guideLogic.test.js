@@ -1,4 +1,4 @@
-import { newEntryIds, pickLang, readLang, readSeen, searchGuide, seenAfter, visibleGuide, writeLang, writeSeen } from "./guideLogic";
+import { PDF_ROWS_PER_SECTION, guidePdfSections, newEntryIds, pickLang, readLang, readSeen, searchGuide, seenAfter, visibleGuide, writeLang, writeSeen } from "./guideLogic";
 
 const entry = (id, path, steps, updated = "2026-10-29") => ({
   id,
@@ -68,4 +68,34 @@ test("language and last visit are remembered per device, per user", () => {
   expect(readSeen("u2")).toBeNull();
   localStorage.setItem("guide.seen.u3", "2026-10-29");
   expect(readSeen("u3")).toBeNull();
+});
+
+test("requiresAny needs one of its keys", () => {
+  const sports = [entry("sports", "/sports", [[null, "تبويبات", "לשוניות"]])];
+  sports[0].steps.push({ requiresAny: ["sports.coach", "sports.manage"], text: { ar: "لاعب", he: "שחקן" } });
+  expect(visibleGuide(["sports.view"], sports)[0].steps).toHaveLength(1);
+  expect(visibleGuide(["sports.coach"], sports)[0].steps).toHaveLength(2);
+  expect(visibleGuide(["sports.manage"], sports)[0].steps).toHaveLength(2);
+  expect(visibleGuide([], sports)).toEqual([]);
+});
+
+test("PDF sections: the summary, then numbered steps", () => {
+  const ui = { whatFor: "الشاشة" };
+  const [first] = guidePdfSections(visibleGuide(["users.approve"], guide), "ar", ui);
+  expect(first.title).toBe("عنوان dashboard");
+  expect(first.rows).toEqual([
+    { key: "الشاشة", value: "ملخص", full: true },
+    { key: "1", value: "أرقام", full: true },
+    { key: "2", value: "قبول", full: true },
+  ]);
+});
+
+test("a long entry is cut into PDF sections of at most four rows", () => {
+  const { GUIDE } = require("./guideContent");
+  const { ALL_KEYS } = require("../utils/permissionKeys");
+  const sections = guidePdfSections(visibleGuide(ALL_KEYS, GUIDE), "he", { whatFor: "המסך" });
+  sections.forEach((s) => expect(s.rows.length).toBeLessThanOrEqual(PDF_ROWS_PER_SECTION));
+  const dashboard = sections.filter((s) => s.title.startsWith("לוח הבקרה"));
+  expect(dashboard.map((s) => s.title)).toEqual(["לוח הבקרה", "לוח הבקרה …"]);
+  expect(dashboard[1].rows[0].key).toBe("4");
 });

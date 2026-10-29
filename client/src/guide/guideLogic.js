@@ -4,13 +4,18 @@ import { GUIDE, GUIDE_LANGS } from "./guideContent";
 
 // Pure rules of the user guide (no DOM, no React).
 
+// A step needs all of `requires` and, when given, one of `requiresAny`.
+const canDo = (permissions, step) =>
+  held(permissions, step.requires ?? null) &&
+  (!step.requiresAny || step.requiresAny.some((key) => held(permissions, key)));
+
 // The entries whose screen this user can open, each with only the steps the
 // user can do. An entry left with no step is dropped.
 export function visibleGuide(permissions, guide = GUIDE) {
   const list = Array.isArray(permissions) ? permissions : [];
   return guide
     .filter((entry) => canAccessPath(entry.path, list))
-    .map((entry) => ({ ...entry, steps: entry.steps.filter((step) => held(list, step.requires ?? null)) }))
+    .map((entry) => ({ ...entry, steps: entry.steps.filter((step) => canDo(list, step)) }))
     .filter((entry) => entry.steps.length > 0);
 }
 
@@ -74,3 +79,26 @@ export const readSeen = (userId) => {
   }
 };
 export const writeSeen = (userId, seen) => write(seenKey(userId), JSON.stringify(seen));
+
+// The PDF lays sections out whole and never splits one, so a long entry is cut
+// into sections of at most this many rows (an 8-row section overflows page 1).
+export const PDF_ROWS_PER_SECTION = 4;
+
+// The guide as PDF sections (Components/ExportPDF exportCardPdf): its summary
+// and then its numbered steps, in this language; a continued part repeats the
+// title with "…".
+export const guidePdfSections = (entries, lang, ui) =>
+  entries.flatMap((entry) => {
+    const rows = [
+      { key: ui.whatFor, value: entry.summary[lang], full: true },
+      ...entry.steps.map((step, i) => ({ key: String(i + 1), value: step.text[lang], full: true })),
+    ];
+    const parts = [];
+    for (let i = 0; i < rows.length; i += PDF_ROWS_PER_SECTION) {
+      parts.push({
+        title: i === 0 ? entry.title[lang] : `${entry.title[lang]} …`,
+        rows: rows.slice(i, i + PDF_ROWS_PER_SECTION),
+      });
+    }
+    return parts;
+  });

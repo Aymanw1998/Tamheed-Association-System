@@ -45,6 +45,6 @@ test("steps need only real permission keys, and dates are YYYY-MM-DD with an opt
   GUIDE.forEach((entry) => {
     expect(entry.updated).toMatch(/^\d{4}-\d{2}-\d{2}[a-z]?$/);
     expect(entry.steps.length).toBeGreaterThan(0);
-    entry.steps.forEach((step) => keysOf(step.requires).forEach((key) => expect(isKey(key)).toBe(true)));
+    entry.steps.forEach((step) => [...keysOf(step.requires), ...keysOf(step.requiresAny)].forEach((key) => expect(isKey(key)).toBe(true)));
   });
 });

@@ -74,14 +74,25 @@ const isIOS = () =>
   /iPad|iPhone|iPod/.test(navigator.userAgent) ||
   (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 
-const sharePdf = (pdf, fileName) => {
+// The preview's own texts; a caller may pass another language's.
+const PREVIEW_LABELS = {
+  dialog: "معاينة الملف",
+  download: "تنزيل PDF",
+  print: "طباعة",
+  close: "إغلاق",
+  trainingOnly: "معاينة فقط في وضع التدريب",
+  printFailed: "تعذّرت الطباعة. نزّل ملف PDF واطبعه منه.",
+  page: (n, total) => `صفحة ${n} من ${total}`,
+};
+
+const sharePdf = (pdf, fileName, printFailed) => {
   if (!isIOS() || typeof navigator.share !== "function" || typeof navigator.canShare !== "function") return false;
   const file = new File([pdf.output("blob")], fileName, { type: "application/pdf" });
   if (!navigator.canShare({ files: [file] })) return false;
   // AbortError: the user closed the sheet. Anything else would leave the
   // button looking dead, so point them to the download instead.
   navigator.share({ files: [file], title: fileName }).catch((err) => {
-    if (err?.name !== "AbortError") window.alert("تعذّرت الطباعة. نزّل ملف PDF واطبعه منه.");
+    if (err?.name !== "AbortError") window.alert(printFailed);
   });
   return true;
 };
@@ -92,13 +103,15 @@ const sharePdf = (pdf, fileName) => {
  * @param {string[]} opts.images             data URLs of each rendered page
  * @param {string} opts.fileName             file name used for download
  * @param {string} [opts.title]              label shown in the toolbar
+ * @param {object} [opts.labels]             texts replacing PREVIEW_LABELS
  */
-export const showPdfPreview = ({ pdf, images, fileName, title }) => {
+export const showPdfPreview = ({ pdf, images, fileName, title, labels }) => {
+  const L = { ...PREVIEW_LABELS, ...labels };
   const overlay = document.createElement("div");
   overlay.className = "pdfpv-overlay";
   overlay.setAttribute("role", "dialog");
   overlay.setAttribute("aria-modal", "true");
-  overlay.setAttribute("aria-label", "معاينة الملف");
+  overlay.setAttribute("aria-label", L.dialog);
 
   const style = document.createElement("style");
   style.textContent = PREVIEW_CSS;
@@ -134,16 +147,16 @@ export const showPdfPreview = ({ pdf, images, fileName, title }) => {
     if (e.key === "Escape") close();
   };
 
-  const closeBtn = makeBtn("إغلاق", "pdfpv-close", close);
+  const closeBtn = makeBtn(L.close, "pdfpv-close", close);
   closeBtn.setAttribute("data-tour", "pdf-preview-close");
   // Training mode: preview only. Neither download nor print (which can save a
   // PDF) is offered, so no demo file leaves the page.
   const demo = isDemo();
-  const downloadBtn = demo ? null : makeBtn("تنزيل PDF", "pdfpv-download", () => pdf.save(fileName));
-  const printBtn = demo ? null : makeBtn("طباعة", "pdfpv-print", () => sharePdf(pdf, fileName) || printImages(images));
+  const downloadBtn = demo ? null : makeBtn(L.download, "pdfpv-download", () => pdf.save(fileName));
+  const printBtn = demo ? null : makeBtn(L.print, "pdfpv-print", () => sharePdf(pdf, fileName, L.printFailed) || printImages(images));
   if (demo) {
     const note = document.createElement("span");
-    note.textContent = "معاينة فقط في وضع التدريب";
+    note.textContent = L.trainingOnly;
     bar.append(label, note, closeBtn);
   } else {
     bar.append(label, downloadBtn, printBtn, closeBtn);
@@ -158,7 +171,7 @@ export const showPdfPreview = ({ pdf, images, fileName, title }) => {
     const img = document.createElement("img");
     img.className = "pdfpv-page";
     img.src = src;
-    img.alt = `صفحة ${i + 1} من ${images.length}`;
+    img.alt = L.page(i + 1, images.length);
     scroll.appendChild(img);
   });
 

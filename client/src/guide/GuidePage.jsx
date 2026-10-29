@@ -5,8 +5,19 @@ import { useJourney } from "../journey/JourneyProvider";
 import { CHAPTERS } from "../journey/chapters";
 import { availableChapters } from "../journey/journeyLogic";
 import { getStoredPermissions, getStoredUserId } from "../utils/session";
-import { GUIDE_LANGS, GUIDE_UI } from "./guideContent";
-import { newEntryIds, readLang, readSeen, searchGuide, seenAfter, visibleGuide, writeLang, writeSeen } from "./guideLogic";
+import { GUIDE_LANGS, GUIDE_PDF_LABELS, GUIDE_UI } from "./guideContent";
+import { exportCardPdf } from "../Components/ExportPDF/ExportPDF";
+import {
+  guidePdfSections,
+  newEntryIds,
+  readLang,
+  readSeen,
+  searchGuide,
+  seenAfter,
+  visibleGuide,
+  writeLang,
+  writeSeen,
+} from "./guideLogic";
 import styles from "./GuidePage.module.css";
 
 const LANG_NAMES = { ar: "العربية", he: "עברית" };
@@ -42,6 +53,25 @@ export default function GuidePage() {
     writeLang(next);
   };
 
+  // The whole guide this user may see, in the chosen language; the search
+  // does not narrow it.
+  const [making, setMaking] = useState(false);
+  const savePdf = async () => {
+    setMaking(true);
+    try {
+      await exportCardPdf({
+        title: ui.title,
+        docBadge: ui.title,
+        profile: false,
+        labels: GUIDE_PDF_LABELS[lang],
+        sections: guidePdfSections(entries, lang, ui),
+        fileNameBase: ui.title,
+      });
+    } finally {
+      setMaking(false);
+    }
+  };
+
   const shown = searchGuide(entries, query, lang);
 
   return (
@@ -64,6 +94,9 @@ export default function GuidePage() {
         </div>
       </header>
       <p className={styles.intro}>{ui.intro}</p>
+      <button type="button" className={styles.ghost} onClick={savePdf} disabled={making || !entries.length}>
+        {making ? ui.making : ui.savePdf}
+      </button>
 
       <input
         type="search"

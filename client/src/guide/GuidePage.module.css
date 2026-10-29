@@ -38,7 +38,10 @@
 
 .intro { margin: 8px 0 12px; font-size: 14px; line-height: 1.6; color: #475569; }
 
+.ghost:disabled { opacity: 0.6; cursor: default; }
+
 .search {
+  margin-top: 12px;
   width: 100%;
   box-sizing: border-box;
   min-height: 44px;

@@ -98,3 +98,20 @@ describe("print", () => {
     expect(document.querySelector("iframe")).not.toBeNull();
   });
 });
+
+test("the preview's texts can be given in another language; Arabic by default", () => {
+  showPdfPreview({
+    pdf: { save: jest.fn() },
+    images: ["data:image/png;base64,"],
+    fileName: "f.pdf",
+    title: "t",
+    labels: { download: "הורדת PDF", print: "הדפסה", close: "סגירה", dialog: "תצוגה", page: (n, t) => `עמוד ${n} מתוך ${t}` },
+  });
+  expect(buttons()).toEqual(["הורדת PDF", "הדפסה", "סגירה"]);
+  expect(overlay().getAttribute("aria-label")).toBe("תצוגה");
+  expect(overlay().querySelector("img").alt).toBe("עמוד 1 מתוך 1");
+  document.body.innerHTML = "";
+  open();
+  expect(buttons()).toEqual(["تنزيل PDF", "طباعة", "إغلاق"]);
+  expect(overlay().querySelector("img").alt).toBe("صفحة 1 من 1");
+});

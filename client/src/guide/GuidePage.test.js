@@ -50,7 +50,8 @@ afterEach(() => {
 
 test("shows a card per screen the user can open, folded", async () => {
   await mount([]);
-  expect(cards()).toEqual(["dashboard", "lessons", "calendar"]);
+  // Students, vehicles, files and the other restricted screens need permissions.
+  expect(cards()).toEqual(["dashboard", "lessons", "calendar", "reports"]);
   expect(card("lessons").querySelector("details").open).toBe(false);
   // No lessons.create: the steps for a new lesson are left out.
   expect(card("lessons").textContent).not.toContain("درس جديد");
@@ -93,7 +94,7 @@ test("marks entries changed since the last visit as new, then remembers them", a
   await mount([]);
   expect(card("dashboard").textContent).toContain("جديد");
   const seen = JSON.parse(localStorage.getItem("guide.seen.u1"));
-  expect(Object.keys(seen).sort()).toEqual(["calendar", "dashboard", "lessons"]);
+  expect(Object.keys(seen).sort()).toEqual(["calendar", "dashboard", "lessons", "reports"]);
 });
 
 test("approve and reject are explained only to who can do each", async () => {
@@ -108,4 +109,30 @@ test("approve and reject are explained only to who can do each", async () => {
 test("the first visit marks nothing new", async () => {
   await mount([]);
   expect(container.textContent).not.toContain("جديد");
+});
+
+test("an administrator sees every screen; sports has no «أرني»", async () => {
+  const { ALL_KEYS } = require("../utils/permissionKeys");
+  await mount(ALL_KEYS);
+  expect(cards()).toEqual(["dashboard", "lessons", "calendar", "students", "reports", "vehicles", "files", "notices", "users", "audit", "sports"]);
+  expect(button(card("sports"), "أرني")).toBeUndefined();
+  expect(button(card("users"), "أرني")).toBeDefined();
+});
+
+const mockExport = jest.fn(() => Promise.resolve());
+jest.mock("../Components/ExportPDF/ExportPDF", () => ({ exportCardPdf: (...args) => mockExport(...args) }));
+
+test("saves the whole guide this user sees as a PDF, in the chosen language", async () => {
+  mockExport.mockClear();
+  localStorage.setItem("guide.lang", "he");
+  await mount([]);
+  await act(async () => button(container, "שמירה כ-PDF").click());
+  expect(mockExport).toHaveBeenCalledTimes(1);
+  const opts = mockExport.mock.calls[0][0];
+  expect(opts.profile).toBe(false);
+  expect(opts.labels.preview.print).toBe("הדפסה");
+  expect(opts.labels.issued).toBe("תאריך הפקה");
+  expect(opts.title).toBe("מדריך למשתמש");
+  expect(opts.sections.map((s) => s.title)).toEqual(["לוח הבקרה", "שיעורים", "נוכחות", "דוחות"]);
+  expect(opts.sections[1].rows[0]).toEqual({ key: "המסך", value: expect.stringContaining("תוכנית השיעורים"), full: true });
 });

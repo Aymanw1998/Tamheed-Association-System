@@ -143,7 +143,13 @@ const letterheadHtml = (docBadge) => `
   <div class="accent-bar"></div>
 `;
 
-const footerHtml = (pageNum, totalPages, generatedAt) => `
+// Fixed texts of the document; a caller may pass another language's.
+const CARD_LABELS = {
+  issued: "تاريخ الإصدار",
+  footerNote: "هذه الوثيقة صادرة عن نظام إدارة جمعية تمهيد، وهي وثيقة داخلية سرية",
+};
+
+const footerHtml = (pageNum, totalPages, generatedAt, footerNote = CARD_LABELS.footerNote) => `
   <div class="doc-footer">
     <div class="footer-line"></div>
     <div class="footer-row">
@@ -151,7 +157,7 @@ const footerHtml = (pageNum, totalPages, generatedAt) => `
       <span>${pageNum}/${totalPages}</span>
       <span>${esc(generatedAt)}</span>
     </div>
-    <div class="footer-note">هذه الوثيقة صادرة عن نظام إدارة جمعية تمهيد، وهي وثيقة داخلية سرية</div>
+    <div class="footer-note">${esc(footerNote)}</div>
   </div>
 `;
 
@@ -173,13 +179,19 @@ const sectionHtml = (sec) => `
   </div>
 `;
 
-// First page: title, meta chips, photo/quick-facts, then as many sections as fit.
-const firstPageBodyHtml = ({ title, dateLabel, docRef, photo, fullName, quickBadges, sectionsHtml }) => `
+// First page: title, meta chips, photo/quick-facts (unless profile is false),
+// then as many sections as fit.
+const firstPageBodyHtml = ({ title, dateLabel, docRef, photo, fullName, quickBadges, profile = true, issued = CARD_LABELS.issued, sectionsHtml }) => `
   <div class="title-block"><h1>${esc(title || "")}</h1></div>
   <div class="meta-strip">
-    <span class="meta-chip">تاريخ الإصدار: ${esc(dateLabel)}</span>
+    <span class="meta-chip">${esc(issued)}: ${esc(dateLabel)}</span>
     ${docRef ? `<span class="meta-chip">رقم المرجع: ${esc(docRef)}</span>` : ""}
   </div>
+  ${profile ? profileRowHtml({ photo, fullName, quickBadges }) : ""}
+  ${sectionsHtml}
+`;
+
+const profileRowHtml = ({ photo, fullName, quickBadges }) => `
   <div class="profile-row">
     <div class="photo-frame">
       ${
@@ -193,7 +205,6 @@ const firstPageBodyHtml = ({ title, dateLabel, docRef, photo, fullName, quickBad
       ${quickBadges.filter(Boolean).map((b) => `<span class="qf-badge">${esc(b)}</span>`).join("")}
     </div>
   </div>
-  ${sectionsHtml}
 `;
 
 // Continuation pages: slim recap header + the next batch of sections.
@@ -221,11 +232,12 @@ const measurePageBudget = (bodyHtmlBuilder, params) => {
   `;
   document.body.appendChild(probe);
 
-  const wrap = probe.querySelector(".wrap");
   const chromeEnd = probe.querySelector("#chrome-end");
   const footer = probe.querySelector(".doc-footer");
 
-  const width = wrap.getBoundingClientRect().width;
+  // The content width: #chrome-end is a block inside .wrap's padding, the
+  // width the sections are rendered at (.wrap's own width includes padding).
+  const width = chromeEnd.getBoundingClientRect().width;
   const chromeBottom = chromeEnd.getBoundingClientRect().top;
   const footerTop = footer.getBoundingClientRect().top;
   const availableHeight = footerTop - chromeBottom - 8; // small safety buffer
@@ -258,6 +270,8 @@ export const exportCardPdf = async ({
   photo = null,
   fullName = "",
   quickBadges = [], // [string]
+  profile = true, // false: no photo / name row (a document, not a person's card)
+  labels = {}, // { issued, footerNote, preview: { download, print, close, ... } }; Arabic by default
   sections = [], // [{ title, rows: [{ key, value, full? }] }]
   fileNameBase,
 }) => {
@@ -282,10 +296,14 @@ export const exportCardPdf = async ({
       photo,
       fullName,
       quickBadges,
+      profile,
+      issued: labels.issued,
     });
     const continuedBudget = measurePageBudget(continuedPageBodyHtml, { docBadge, title });
 
+    // Same typography as .pdf-page, so text wraps here as it will on the page.
     const measureEl = document.createElement("div");
+    Object.assign(measureEl.style, { fontFamily: "Arial, sans-serif", direction: "rtl" });
     measureEl.style.width = `${firstBudget.width}px`;
     container.appendChild(measureEl);
     const styleTag = document.createElement("style");
@@ -313,13 +331,13 @@ export const exportCardPdf = async ({
       .map((chunk, i) => {
         const sectionsHtml = chunk.sections.map(sectionHtml).join("");
         const body = chunk.isFirst
-          ? firstPageBodyHtml({ title, dateLabel, docRef, photo, fullName, quickBadges, sectionsHtml })
+          ? firstPageBodyHtml({ title, dateLabel, docRef, photo, fullName, quickBadges, profile, issued: labels.issued, sectionsHtml })
           : continuedPageBodyHtml({ title, sectionsHtml });
         return `
           <div class="pdf-page">
             ${letterheadHtml(docBadge)}
             <div class="wrap">${body}</div>
-            ${footerHtml(i + 1, totalPages, generatedAt)}
+            ${footerHtml(i + 1, totalPages, generatedAt, labels.footerNote)}
           </div>
         `;
       })
@@ -345,7 +363,7 @@ export const exportCardPdf = async ({
       if (i > 0) pdf.addPage();
       pdf.addImage(imgData, "JPEG", 0, 0, 210, 297);
     }
-    showPdfPreview({ pdf, images, fileName, title });
+    showPdfPreview({ pdf, images, fileName, title, labels: labels.preview });
   } finally {
     document.body.removeChild(container);
   }
