@@ -8,6 +8,12 @@ cd "$(dirname "$0")/.."
 echo "==> Pulling the latest code"
 git pull --ff-only
 
+# bash keeps running the copy of this script it started with: run the
+# version just pulled, so new steps take effect on this same update.
+if [ -z "${TAMHEED_UPDATE_RESTARTED:-}" ]; then
+  TAMHEED_UPDATE_RESTARTED=1 exec bash deploy/update.sh "$@"
+fi
+
 echo "==> Installing server packages"
 # The portrait model runs on the CPU: skip the GPU (CUDA) libraries that
 # onnxruntime-node would otherwise download on Linux x64.
