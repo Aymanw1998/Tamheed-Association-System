@@ -2542,11 +2542,16 @@ The owner approved these defaults:
   - **P2:** one device-wide "seen" time hid one student's new notices after another student read theirs.
   - **P3:** impossible end dates such as 2027-02-31 were accepted.
 - **Round 2:** findings 1, 2 and 4 resolved; finding 3 "partly". During an account switch, A's list could be marked seen under B's key. Fixed by tagging each list with the key it was read for.
-- **Round 3:** pending. Codex hit its usage limit before answering (available again at 22:16). **Not reviewed yet:** the `noticeBox` fix in `sport/src/App.jsx`.
+- **Round 3** (on commit 135c744, after Codex's usage limit reset):
+  - The round-2 race: "resolved".
+  - **P2:** `/me` and `/notices` could be answered for different accounts. If another tab signed in as B while A's card was loading, B's notices were shown and marked seen under A's key. Codex reproduced it in an isolated React check.
+  - **Fix:** `/api/sport-portal/notices` now returns the cookie's student `key`. `sport/src/App.jsx` accepts a list only when that key matches the card. On a mismatch it reads `/me` again, once per card key, so it cannot loop. Tests were added in `sport-portal-data.test.js` and `App.live.test.js`.
+- **Round 4:** not run yet. **Not reviewed:** the round-3 fix.
 
 **Verification:**
-- Server 971/971, sport site 62/62, client 700/700 (the flaky `JourneyProvider` test failed once and passed on rerun). Both builds compiled.
+- After the round-3 fix: server 971/971, sport site 63/63 (client unchanged).
+- Before it: server 971/971, sport site 62/62, client 700/700 (the flaky `JourneyProvider` test failed once and passed on rerun). Both builds compiled.
 - The notices page was checked at phone width as a static render.
 - **Not tested:** the signed-in staff tab, a real push on a phone, the live Ubuntu server.
 
-**Status:** waiting for Codex round 3; nothing committed or deployed. The previous commit 484a4c8 was not yet pushed when this entry was written (`git push` was waiting for the owner's GitHub sign-in).
+**Status:** committed locally in 135c744. The owner pushed 135c744 (and 0c6d07c). The round-3 fix is committed locally on top and is not pushed yet: the push needs the owner's GitHub sign-in.

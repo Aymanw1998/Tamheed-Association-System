@@ -104,6 +104,7 @@ export default function App() {
   // Another student signed in (on a shared phone, or in another tab): nothing
   // of the previous one stays, and the "seen" marks are this student's.
   const studentKey = me?.student?.key || "";
+  const recheckedFor = useRef(null);
   const notices = noticeBox.key === studentKey ? noticeBox.list : [];
   useEffect(() => {
     setNoticesFailed(false);
@@ -121,7 +122,14 @@ export default function App() {
       .then(() => getNotices())
       .then((r) => {
         if (gone) return;
-        if (r.ok) {
+        if (r.ok && (r.data?.key || "") !== owner) {
+          // The cookie now belongs to another student (signed in from another
+          // tab): read the card again rather than show their notices on this one.
+          if (recheckedFor.current !== owner) {
+            recheckedFor.current = owner;
+            reloadQuietly.current();
+          }
+        } else if (r.ok) {
           setNoticeBox({ key: owner, list: r.data?.notices || [] });
           setNoticesFailed(false);
         } else if (r.status === 401) {

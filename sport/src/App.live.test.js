@@ -60,3 +60,13 @@ test("signed out: no stream is opened", async () => {
   await act(async () => { root.render(<App />); });
   expect(FakeES.all).toHaveLength(0);
 });
+
+test("notices read under another student's cookie are not shown: the card is read again, once", async () => {
+  const { getNotices } = require("./api.js");
+  getNotices.mockResolvedValue({ ok: true, status: 200, data: { key: "b", notices: [{ id: "x", createdAt: "2026-05-01T10:00:00Z" }] } });
+  getMe.mockResolvedValue({ ok: true, status: 200, data: { ...me, student: { ...me.student, key: "a" } } });
+  await act(async () => { root.render(<App />); });
+  await act(async () => {});
+  expect(getMe).toHaveBeenCalledTimes(2);
+  getNotices.mockResolvedValue({ ok: true, status: 200, data: { notices: [] } });
+});

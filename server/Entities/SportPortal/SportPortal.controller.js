@@ -185,7 +185,9 @@ function createSportPortalController(deps = {}) {
           lessonName: n.lessonId ? mine.get(sid(n.lessonId)) : null,
         }));
       res.set("Cache-Control", "no-store");
-      return res.json({ ok: true, notices: list });
+      // The key names who the cookie belongs to now, so the site can tell
+      // these are not the notices of a card read before another sign-in.
+      return res.json({ ok: true, key: deviceKey(studentId), notices: list });
     } catch (err) {
       log("SportPortal.notices", err);
       return res.status(500).json({ ok: false, message: SERVER_ERROR });

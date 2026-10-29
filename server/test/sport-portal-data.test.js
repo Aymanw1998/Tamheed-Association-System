@@ -323,6 +323,7 @@ test("notices: to everyone and to the student's own lessons, not expired, newest
   assert.equal(r.statusCode, 200);
   assert.equal(r.headers["Cache-Control"], "no-store");
   assert.deepEqual(r.body.notices.map((x) => x.id), ["n5", "n2", "n1"]);
+  assert.equal(r.body.key, crypto.createHash("sha1").update("sport-student:s1").digest("hex").slice(0, 12));
   assert.equal(r.body.notices[1].lessonName, "تدريب الأربعاء");
   assert.equal(r.body.notices[2].lessonName, null);
   const mate = await call(portal.notices, "s2");
