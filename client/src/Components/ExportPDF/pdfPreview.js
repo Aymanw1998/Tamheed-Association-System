@@ -68,6 +68,24 @@ const printImages = (images) => {
   });
 };
 
+// iOS ignores print() in a home-screen app, so there the PDF goes to the share
+// sheet, which offers Print. iPadOS reports itself as a Mac with touch.
+const isIOS = () =>
+  /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+  (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
+const sharePdf = (pdf, fileName) => {
+  if (!isIOS() || typeof navigator.share !== "function" || typeof navigator.canShare !== "function") return false;
+  const file = new File([pdf.output("blob")], fileName, { type: "application/pdf" });
+  if (!navigator.canShare({ files: [file] })) return false;
+  // AbortError: the user closed the sheet. Anything else would leave the
+  // button looking dead, so point them to the download instead.
+  navigator.share({ files: [file], title: fileName }).catch((err) => {
+    if (err?.name !== "AbortError") window.alert("تعذّرت الطباعة. نزّل ملف PDF واطبعه منه.");
+  });
+  return true;
+};
+
 /**
  * @param {object} opts
  * @param {import("jspdf").jsPDF} opts.pdf   finished PDF document
@@ -122,7 +140,7 @@ export const showPdfPreview = ({ pdf, images, fileName, title }) => {
   // PDF) is offered, so no demo file leaves the page.
   const demo = isDemo();
   const downloadBtn = demo ? null : makeBtn("تنزيل PDF", "pdfpv-download", () => pdf.save(fileName));
-  const printBtn = demo ? null : makeBtn("طباعة", "pdfpv-print", () => printImages(images));
+  const printBtn = demo ? null : makeBtn("طباعة", "pdfpv-print", () => sharePdf(pdf, fileName) || printImages(images));
   if (demo) {
     const note = document.createElement("span");
     note.textContent = "معاينة فقط في وضع التدريب";
