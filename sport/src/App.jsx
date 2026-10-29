@@ -124,7 +124,9 @@ export default function App() {
         if (gone) return;
         if (r.ok && (r.data?.key || "") !== owner) {
           // The cookie now belongs to another student (signed in from another
-          // tab): read the card again rather than show their notices on this one.
+          // tab): read the card again rather than show their notices on this
+          // one, and drop the list shown so far, even if that read fails.
+          setNoticeBox({ key: "", list: [] });
           if (recheckedFor.current !== owner) {
             recheckedFor.current = owner;
             reloadQuietly.current();

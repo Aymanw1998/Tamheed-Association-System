@@ -2546,10 +2546,13 @@ The owner approved these defaults:
   - The round-2 race: "resolved".
   - **P2:** `/me` and `/notices` could be answered for different accounts. If another tab signed in as B while A's card was loading, B's notices were shown and marked seen under A's key. Codex reproduced it in an isolated React check.
   - **Fix:** `/api/sport-portal/notices` now returns the cookie's student `key`. `sport/src/App.jsx` accepts a list only when that key matches the card. On a mismatch it reads `/me` again, once per card key, so it cannot loop. Tests were added in `sport-portal-data.test.js` and `App.live.test.js`.
-- **Round 4:** not run yet. **Not reviewed:** the round-3 fix.
+- **Round 4** (on ea911bd):
+  - The round-3 P2: "resolved".
+  - **P2:** on a mismatch, the list loaded earlier stayed on screen. So if the /me reread failed, A's notices stayed visible under B's session. **Fix:** the mismatch branch now clears `noticeBox` at once.
+- **Round 5:** not run. **Not reviewed:** that one-line fix.
 
 **Verification:**
-- After the round-3 fix: server 971/971, sport site 63/63 (client unchanged).
+- After the round-3 and round-4 fixes: server 971/971, sport site 63/63 (client unchanged).
 - Before it: server 971/971, sport site 62/62, client 700/700 (the flaky `JourneyProvider` test failed once and passed on rerun). Both builds compiled.
 - The notices page was checked at phone width as a static render.
 - **Not tested:** the signed-in staff tab, a real push on a phone, the live Ubuntu server.
