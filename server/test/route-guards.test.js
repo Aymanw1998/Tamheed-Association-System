@@ -53,7 +53,7 @@ const PUBLIC_ROUTES = {
   // the user (active, not locked) exactly as loadActor does before streaming.
   "Live/Live.route.js": ["GET /stream"],
   // Student sport site (sign-in, me, photo): its own cookie and requireSportStudent, never staff auth.
-  "SportPortal/SportPortal.route.js": ["POST /request-code", "POST /verify", "POST /logout", "GET /me", "GET /photo", "GET /live", "POST /push/subscribe", "DELETE /push/subscribe"],
+  "SportPortal/SportPortal.route.js": ["POST /request-code", "POST /verify", "POST /logout", "GET /me", "GET /photo", "GET /id", "GET /live", "POST /push/subscribe", "DELETE /push/subscribe"],
   // The VAPID public key the browser needs before it can subscribe; nothing private.
   "Push/Push.route.js": ["GET /key"],
 };

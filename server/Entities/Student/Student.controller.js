@@ -8,6 +8,7 @@ const { isSystemTz, can } = require("../../utils/permissions");
 const { createStudentScope } = require("../../utils/studentScope");
 const { checkVersion, editorStamp, sameVersion, raceLost } = require("../../middleware/lockGuard");
 const { notifyChange, liveHub } = require("../../services/liveHub");
+const { playerPhotoJob } = require("../../services/playerPhotoJob");
 
 // Who the actor may see: null (students.viewAll) or a Set of student _ids.
 const scope = createStudentScope({ lessonModel: LessonModelDef, studentModel: StudentModelDef });
@@ -310,6 +311,7 @@ const putS = async (req, res) => {
     notifyChange("student", existing.result[0]._id);
     // A football player's name or photo shows on his own sport screen (a no-op when nobody listens).
     liveHub.toStudents([existing.result[0]._id], "me");
+    if ("photo" in newData) playerPhotoJob.schedule(studentId);
 
     await safeNotify({
       toRoles: ["ادارة"],
@@ -359,6 +361,8 @@ const deleteS = async (req, res) => {
     if (!deleted?.result?.deletedCount) return res.status(409).json(await raceLost(() => StudentModelDef.get({ _id: String(existing.result[0]._id) })));
     await recordStudent(req, "delete", existing.result[0], null);
     notifyChange("student", existing.result[0]._id);
+    // Its player photo goes with it, at once.
+    await playerPhotoJob.remove(existing.result[0]._id).catch((e) => logWithSource("Student.delete.playerPhoto", e));
 
     // Rejecting a waiting-list request or deleting a student also removes the
     // photo from Drive, so no orphaned files stay behind.
@@ -437,6 +441,7 @@ const uploadPhoto = async (req, res) => {
     await recordStudent(req, "update", student, { ...student, photo: uploaded.secure_url });
     notifyChange("student", student._id);
     liveHub.toStudents([student._id], "me");
+    playerPhotoJob.schedule(student._id);
 
     // The previous Drive file is removed only after the new link is stored,
     // so a failed upload never leaves the record pointing at a deleted file.
@@ -506,6 +511,9 @@ const deletePhoto = async (req, res) => {
     await recordStudent(req, "update", user, { ...user, photo: null });
     notifyChange("student", user._id);
     liveHub.toStudents([user._id], "me");
+    // No photo, no player photo: removed at once; the job then clears the mark.
+    await playerPhotoJob.remove(user._id).catch((e) => logWithSource("Student.deletePhoto.playerPhoto", e));
+    playerPhotoJob.schedule(user._id);
     console.warn("Student record updated, sending notification");
     await safeNotify({
       toRoles: ["ادارة"],

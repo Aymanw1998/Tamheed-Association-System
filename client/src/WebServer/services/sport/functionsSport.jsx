@@ -33,6 +33,15 @@ export const searchStudents = (params) => call(() => api.get(`${namespace}/stude
 export const savePlayer = (studentId, payload) =>
   call(() => api.put(`${namespace}/players/${enc(studentId)}`, payload));
 export const deletePlayer = (studentId) => call(() => api.delete(`${namespace}/players/${enc(studentId)}`));
+// The player's cut-out photo as a Blob, or null when there is none yet.
+export const getPlayerPhoto = async (studentId) => {
+  try {
+    const { data } = await api.get(`${namespace}/players/${enc(studentId)}/photo`, { responseType: "blob" });
+    return data;
+  } catch {
+    return null;
+  }
+};
 export const bumpStat = (studentId, key, delta) =>
   call(() => api.post(`${namespace}/players/${enc(studentId)}/stats`, { key, delta }));
 

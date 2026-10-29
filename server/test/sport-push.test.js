@@ -136,6 +136,7 @@ function controllerWorld(notify) {
     "./SportLesson.model": { SportLessonModelDef: store([{ _id: LESSON, sportId: SPORT, name: "x", date: { day: 1, startMin: 1000, endMin: 1060 }, players: [{ studentId: "p1" }, { studentId: "p2" }] }]) },
     "./SportAttendance.model": { SportAttendanceModelDef: store([]) },
     "../Student/Student.model": { StudentModelDef: store([]) },
+    "../User/User.model": { UserModelDef: store([]) },
     "../Lesson/Lesson.model": { LessonModelDef: store([]) },
     "../../middleware/logger": { logWithSource() {} },
     "../../utils/sportCards": require("../utils/sportCards"),

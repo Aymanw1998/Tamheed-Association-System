@@ -4,6 +4,7 @@ const { SportPlayerModelDef } = require("./SportPlayer.model");
 const { SportLessonModelDef } = require("./SportLesson.model");
 const { SportAttendanceModelDef } = require("./SportAttendance.model");
 const { StudentModelDef } = require("../Student/Student.model");
+const { UserModelDef } = require("../User/User.model");
 const { logWithSource } = require("../../middleware/logger");
 const { audit } = require("../../utils/audit");
 const { LessonModelDef } = require("../Lesson/Lesson.model");
@@ -12,6 +13,9 @@ const { conflictsInRoom9 } = require("../../utils/lessonConflict");
 const { notifyCardChanged } = require("../../utils/cardPush");
 const { checkVersion, editorStamp, sameVersion, nextStamp, raceLost, holderOf, lockedAnswer } = require("../../middleware/lockGuard");
 const { notifyChange, liveHub } = require("../../services/liveHub");
+const { SportPlayerPhotoModelDef } = require("./SportPlayerPhoto.model");
+const { playerPhotoJob, cutoutReady } = require("../../services/playerPhotoJob");
+const { photoVersion } = require("../../utils/photoVersion");
 
 const SERVER_ERROR = "حدث خطأ غير متوقع، حاول مرة أخرى";
 const NOT_FOUND = { student: "الطالب غير موجود", player: "اللاعب غير موجود", lesson: "الدرس غير موجود" };
@@ -159,6 +163,8 @@ const setStats = handle("setStats", async (req, res) => {
 /* ---------- players ---------- */
 
 const studentMap = async () => new Map(rows(await StudentModelDef.get({})).map((s) => [String(s._id), s]));
+// Staff names by user id, for the student's mentor (main_teacher) on the card.
+const staffNames = async () => new Map(rows(await UserModelDef.get({})).map((u) => [String(u._id), fullName(u)]));
 const inLesson = (lesson, studentId) => (lesson.players || []).some((p) => String(p.studentId) === String(studentId));
 
 // Puts one student on (want) or off a lesson's roster without losing a roster
@@ -203,8 +209,8 @@ const listPlayers = handle("listPlayers", async (req, res) => {
   const sportId = String(sport._id);
   // All in one round: the attendance rows are read together and kept only for
   // this sport's lessons.
-  const [players, students, lessons, allRecords] = await Promise.all([
-    SportPlayerModelDef.get({ sportId }), studentMap(), SportLessonModelDef.get({ sportId }), SportAttendanceModelDef.get({}),
+  const [players, students, lessons, allRecords, staff] = await Promise.all([
+    SportPlayerModelDef.get({ sportId }), studentMap(), SportLessonModelDef.get({ sportId }), SportAttendanceModelDef.get({}), staffNames(),
   ]);
   const lessonRows = rows(lessons);
   const lessonIds = new Set(lessonRows.map((l) => String(l._id)));
@@ -215,11 +221,16 @@ const listPlayers = handle("listPlayers", async (req, res) => {
     const s = students.get(String(p.studentId));
     if (!s) continue;
     const card = buildCard({ player: p, sport, lessons: lessonRows, records });
+    const cutout = cutoutReady(p, s.photo);
+    // Players added before player photos existed, or whose photo changed, get
+    // theirs made in the background.
+    const version = photoVersion(s.photo);
+    if (version && !cutout && p.photoCutoutFailed !== version) playerPhotoJob.schedule(p.studentId);
     out.push({
       studentId: String(p.studentId), firstname: s.firstname, lastname: s.lastname, age: ageOn(s.birth_date, now),
       gender: s.gender, layer: s.layer || "", school: s.school || "",
-      tz: String(s.tz || ""), photo: s.photo || "", birthDate: birthDateOf(s.birth_date),
-      jerseyNumber: card.jerseyNumber, position: card.position,
+      tz: String(s.tz || ""), photo: s.photo || "", photoCutout: cutout, birthDate: birthDateOf(s.birth_date),
+      jerseyNumber: card.jerseyNumber, position: card.position, mentor: staff.get(String(s.main_teacher || "")) || "",
       lessons: lessonRows.filter((l) => inLesson(l, p.studentId))
         .map((l) => ({ _id: String(l._id), name: l.name, day: l.date?.day, startMin: l.date?.startMin })),
       values: card.values, attendance: card.attendance,
@@ -290,6 +301,8 @@ const savePlayer = handle("savePlayer", async (req, res) => {
   notifyChange("player", studentId);
   for (const lessonId of changedLessons) notifyChange("sportLesson", lessonId);
   tellStudents([studentId]);
+  // A student with a photo gets a player photo, made in the background.
+  playerPhotoJob.schedule(studentId);
   return res.status(200).json({ ok: true, player: saved?.result });
 });
 
@@ -303,6 +316,7 @@ const deletePlayer = handle("deletePlayer", async (req, res) => {
   const held = await heldLesson(req, memberOf.map((lesson) => String(lesson._id)));
   if (held) return res.status(423).json(held);
   await SportPlayerModelDef.delete({ _id: existing._id });
+  await SportPlayerPhotoModelDef.delete({ studentId, sportId });
   // Attendance rows stay: they are history.
   const changedLessons = [];
   for (const lesson of memberOf) {
@@ -314,6 +328,18 @@ const deletePlayer = handle("deletePlayer", async (req, res) => {
   for (const lessonId of changedLessons) notifyChange("sportLesson", lessonId);
   tellStudents([studentId]);
   return res.status(200).json({ ok: true });
+});
+
+// The player's cut-out photo, when it matches the student's current photo.
+const playerPhoto = handle("playerPhoto", async (req, res) => {
+  const student = await findOne(StudentModelDef, req.params.studentId);
+  const found = student ? await playerPhotoJob.read(student._id, student.photo) : null;
+  if (!found) return fail(res, 404, NOT_FOUND.player);
+  res.set("Content-Type", found.contentType);
+  // The address stays the same when the photo changes: always ask again.
+  res.set("Cache-Control", "private, no-cache");
+  res.set("X-Content-Type-Options", "nosniff");
+  return res.status(200).send(found.image);
 });
 
 const bumpStat = handle("bumpStat", async (req, res) => {
@@ -566,6 +592,6 @@ const todayLessons = handle("todayLessons", async (req, res) => {
 });
 
 module.exports = {
-  ensureFootball, getSport, setStats, listPlayers, searchStudents, savePlayer, deletePlayer, bumpStat,
+  ensureFootball, getSport, setStats, listPlayers, searchStudents, savePlayer, deletePlayer, playerPhoto, bumpStat,
   listLessons, createLesson, updateLesson, deleteLesson, addLessonPlayer, removeLessonPlayer, getAttendance, saveAttendance, todayLessons,
 };

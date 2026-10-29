@@ -9,7 +9,14 @@ echo "==> Pulling the latest code"
 git pull --ff-only
 
 echo "==> Installing server packages"
-npm ci --omit=dev --prefix server
+# The portrait model runs on the CPU: skip the GPU (CUDA) libraries that
+# onnxruntime-node would otherwise download on Linux x64.
+ONNXRUNTIME_NODE_INSTALL=skip npm ci --omit=dev --prefix server
+
+echo "==> Fetching the portrait model for player photos (once, ~26MB)"
+# Without the model the site still works and shows the plain photos, so a
+# failed download (or checksum) does not stop the update.
+node server/scripts/fetchPortraitModel.js || echo "!! Portrait model not fetched: player photos stay plain. Run it again later."
 
 echo "==> Installing and building the web app"
 npm ci --prefix client

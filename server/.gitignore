@@ -4,3 +4,4 @@ AccessKeyAWS
 config/google_tokens.json
 google_tokens.json
 
+models/

@@ -2,13 +2,10 @@ import React, { useEffect, useId, useState } from "react";
 import { useI18n } from "../../i18n/I18nContext";
 import Button from "../UI/Button.jsx";
 import logo from "../../images/logo.png";
-import { DAY_NAMES } from "../../utils/lessonSchedule";
-import { birthDateLabel, cardCells, lessonDaysLabel } from "./sportForm";
+import { birthDateLabel, cardCells } from "./sportForm";
+import { getPlayerPhoto } from "../../WebServer/services/sport/functionsSport";
+import { CardBack, CardPanel, FACE_CLIP, IdArt } from "./CardArt";
 import styles from "./PlayerCardModal.module.css";
-
-// The shield outline of the front face, in the face's own 264x384 pixels.
-const SHIELD =
-  "M0 34 Q0 16 18 14 L100 6 Q132 0 164 6 L246 14 Q264 16 264 34 L264 318 Q264 332 250 338 L142 381 Q132 385 122 381 L14 338 Q0 332 0 318 Z";
 
 const fullName = (p) => `${p.firstname || ""} ${p.lastname || ""}`.trim();
 const hasNumber = (p) => p.jerseyNumber !== null && p.jerseyNumber !== undefined;
@@ -40,22 +37,39 @@ function Photo({ src, className }) {
   return <img className={className} src={src} alt="" onError={() => setFailed(true)} />;
 }
 
+// The player's cut-out photo once the server has made it (fetched with the
+// session, so through an object URL); until then the student's photo.
+function usePlayerPhoto(player) {
+  const [cut, setCut] = useState(null);
+  useEffect(() => {
+    setCut(null);
+    if (!player.photoCutout) return undefined;
+    let gone = false;
+    let url = null;
+    getPlayerPhoto(player.studentId).then((blob) => {
+      if (gone || !blob) return;
+      url = URL.createObjectURL(blob);
+      setCut(url);
+    });
+    return () => {
+      gone = true;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [player.studentId, player.photo, player.photoCutout]);
+  return cut ? { src: cut, isCut: true } : { src: player.photo, isCut: false };
+}
+
 function LogoBadge({ className = "" }) {
   return <span className={`${styles.logoBadge} ${className}`}><img src={logo} alt="" /></span>;
 }
 
-function FifaFace({ player, stats, t }) {
+function FifaFace({ player, photo, stats, t }) {
   const cells = cardCells(player, stats, { attendance: t("sport.card.attendance"), lates: t("sport.card.lates") });
+  const imgClass = photo.isCut ? styles.fifaImgCut : photo.src ? styles.fifaImgReal : "";
   return (
     <div className={styles.fifa}>
-      <div className={styles.fifaBody} style={{ clipPath: `path("${SHIELD}")` }}>
-        <div className={styles.fifaBg} />
-        <svg className={styles.fifaPitch} viewBox="0 0 264 384" aria-hidden="true">
-          <circle cx="132" cy="150" r="96" />
-          <path d="M0 232 H264" />
-          <circle cx="132" cy="232" r="2.5" />
-        </svg>
-        <div className={styles.fifaShine} />
+      <CardBack className={styles.fifaArt} />
+      <div className={styles.fifaBody} style={{ clipPath: `path("${FACE_CLIP}")` }}>
         <div className={styles.fifaSide}>
           <div className={`${styles.fifaNum} ${hasNumber(player) ? "" : styles.fifaNumNone}`}>{hasNumber(player) ? player.jerseyNumber : "—"}</div>
           {player.position && <div className={styles.fifaPos}>{player.position}</div>}
@@ -64,8 +78,9 @@ function FifaFace({ player, stats, t }) {
           <div className={styles.fifaSport} aria-hidden="true">⚽</div>
         </div>
         <div className={styles.fifaPhoto}>
-          <Photo src={player.photo} className={`${styles.fifaImg} ${player.photo ? styles.fifaImgReal : ""}`} />
+          <Photo key={photo.src} src={photo.src} className={`${styles.fifaImg} ${imgClass}`} />
         </div>
+        <CardPanel className={styles.fifaPanel} />
         <div className={styles.fifaName}>{fullName(player)}</div>
         <div className={styles.fifaStats}>
           {cells.map((c, i) => (
@@ -74,32 +89,14 @@ function FifaFace({ player, stats, t }) {
         </div>
         <div className={styles.fifaFoot} dir="ltr">TAMHEED SPORT</div>
       </div>
-      <svg className={styles.fifaFrame} viewBox="0 0 264 384" aria-hidden="true">
-        <defs>
-          <linearGradient id="staffFifaRing" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor="#ffd08a" />
-            <stop offset=".45" stopColor="#f7941d" />
-            <stop offset="1" stopColor="#c86d05" />
-          </linearGradient>
-        </defs>
-        <path d={SHIELD} fill="none" stroke="url(#staffFifaRing)" strokeWidth="9" />
-        <path
-          d={SHIELD} fill="none" stroke="#ffd08a" strokeOpacity=".55" strokeWidth="1"
-          transform="translate(132 192) scale(.94) translate(-132 -192)"
-        />
-      </svg>
     </div>
   );
 }
 
-function IdFace({ player, t }) {
-  const rate = player.attendance?.rate;
+function IdFace({ player, photo, t }) {
   return (
     <div className={styles.idcard}>
-      <svg className={styles.idPitch} viewBox="0 0 340 214" preserveAspectRatio="none" aria-hidden="true">
-        <path d="M230 38 V214" />
-        <circle cx="230" cy="126" r="54" />
-      </svg>
+      <IdArt className={styles.idArt} />
       <div className={styles.idBar}>
         <span>{t("sport.card.brandFull")}</span>
         <LogoBadge className={styles.idLogo} />
@@ -107,16 +104,23 @@ function IdFace({ player, t }) {
       <div className={styles.idMain}>
         <div className={styles.idInfo}>
           <div className={styles.idName}>{fullName(player)}</div>
-          <p><span>{t("sport.card.position")}:</span> {player.position || "—"} · <span>{t("sport.card.jersey")}:</span> {hasNumber(player) ? player.jerseyNumber : "—"}</p>
-          <p><span>{t("sport.card.lessons")}:</span> {lessonDaysLabel(player.lessons, DAY_NAMES)}</p>
-          <p><span>{t("sport.card.birthDate")}:</span> {birthDateLabel(player.birthDate)}</p>
-          <p><span>{t("sport.card.attendance")}:</span> <bdi dir="ltr">{rate === null || rate === undefined ? "—" : `${rate}%`}</bdi></p>
+          <dl className={styles.idRows}>
+            <dt>{t("sport.card.idNumber")}</dt>
+            <dd><bdi dir="ltr">{player.tz || "—"}</bdi></dd>
+            <dt>{t("sport.card.jerseyNumber")}</dt>
+            <dd>{hasNumber(player) ? player.jerseyNumber : "—"}</dd>
+            <dt>{t("sport.card.birthDate")}</dt>
+            <dd>{birthDateLabel(player.birthDate)}</dd>
+            <dt>{t("sport.card.mentor")}</dt>
+            <dd>{player.mentor || "—"}</dd>
+          </dl>
         </div>
-        <div className={styles.idPhoto}>
-          <Photo src={player.photo} className={styles.idImg} />
+        <div className={`${styles.idPhoto} ${photo.isCut ? styles.idPhotoCut : ""}`}>
+          <Photo key={photo.src} src={photo.src} className={`${styles.idImg} ${photo.isCut ? styles.idImgCut : ""}`} />
         </div>
       </div>
       {hasNumber(player) && <div className={styles.idNum} aria-hidden="true">{player.jerseyNumber}</div>}
+      <div className={styles.idFoot} dir="ltr">TAMHEED SPORT</div>
     </div>
   );
 }
@@ -124,6 +128,7 @@ function IdFace({ player, t }) {
 // A player's flip card in a modal. Closes with Escape, the backdrop or the close button.
 export default function PlayerCardModal({ player, stats, onClose }) {
   const { t } = useI18n();
+  const photo = usePlayerPhoto(player);
   const [flipped, setFlipped] = useState(false);
   const toggle = () => setFlipped((f) => !f);
 
@@ -146,10 +151,10 @@ export default function PlayerCardModal({ player, stats, onClose }) {
         >
           <div className={styles.flipIn}>
             <div className={`${styles.face} ${styles.faceFront}`} aria-hidden={flipped}>
-              <FifaFace player={player} stats={stats} t={t} />
+              <FifaFace player={player} photo={photo} stats={stats} t={t} />
             </div>
             <div className={`${styles.face} ${styles.faceBack}`} aria-hidden={!flipped}>
-              <IdFace player={player} t={t} />
+              <IdFace player={player} photo={photo} t={t} />
             </div>
           </div>
         </div>

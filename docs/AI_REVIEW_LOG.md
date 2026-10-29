@@ -2446,4 +2446,59 @@ All five are fixed in the changes above (`{ updatedAt: null }` plus lessons crea
 - The build compiled.
 - **Not tested:** a real PDF generated in a browser (footer overlap and Hebrew rendering), the signed-in app, a phone, and the Hebrew wording, which needs a fluent reader.
 
+**Status:** Codex review complete; committed in 498b9d3 and pushed. Not deployed by Claude.
+
+## 2026-10-29: Player photos (local cut-out) and the new player card
+
+**Owner request:** a professional player card. Local and free: when a student with a photo becomes a player, make a player photo and keep it on the server, delete it with the player, and show the card as before when there is no photo. Then a new card design in the logo's colours (approved from sample images), centred photo, ID number on the staff card, no "كرة القدم" wording, and a cleaner back side.
+
+**Changes (uncommitted):**
+- **Cut-out:** `server/services/playerPhoto.service.js` uses `sharp` and `onnxruntime-node` with the MODNet portrait model (Apache-2.0, about 26MB).
+  - `server/scripts/fetchPortraitModel.js` fetches the model from a pinned Hugging Face revision and checks its SHA-256. `server/models/` is git-ignored.
+  - Each photo runs in a worker thread (`playerPhotoWorker.js`), with input limits.
+  - The person is kept and other figures are dropped (`keepMainPerson`, `keepRowsUnder`). The result is framed 4:5 and saved as WebP with transparency.
+- **Job:** `server/services/playerPhotoJob.js` runs one photo at a time in the background.
+  - It runs when a player is saved, and lazily from `listPlayers` and the portal's `me`.
+  - Photos are stored in the `SportPlayerPhotos` collection. The player row keeps `photoCutout` or `photoCutoutFailed` (the source photo's version).
+  - Deleting a player, a student or a photo removes the player photo at once. A stored photo is served only while it matches the current photo.
+  - Downloads time out after 30 s. A photo that is too large or has no person is not retried. Drive failures back off for 10 minutes.
+- **Routes:**
+  - `GET /api/sports/players/:studentId/photo` (sports.view/coach/manage, `no-cache`).
+  - The portal's `/photo` serves the cut-out first, and `me` returns `photoCutout`.
+- **Cards:**
+  - The new artwork is in `sport/src/CardArt.jsx` and `client/src/Components/Sport/CardArt.jsx` (two copies, kept equal).
+  - Front and back are redesigned. The staff back shows the ID number; the portal still never sends it.
+  - The words "كرة القدم" were removed from the card bar, the sport header and the login subtitle.
+- **Deploy:**
+  - `deploy/update.sh` installs with `ONNXRUNTIME_NODE_INSTALL=skip`, so no CUDA download.
+  - It then fetches the model. A failed fetch does not stop the update.
+  - `deploy/DEPLOY.md` has a "תמונות שחקן" section and a troubleshooting row. Node 20.9 or later is needed.
+
+**Codex review (2026-10-29, Codex CLI, gpt-6-astra, read-only):**
+- **Round 1, seven findings:**
+  - **P1:** an extreme aspect ratio could make a 3 GiB input tensor.
+  - **P2:** deletion cleanup was lost on restart.
+  - **P2:** a stalled download blocked the queue.
+  - **P2:** oversized photos were retried forever.
+  - **P2:** inference blocked the event loop (about 630 ms).
+  - **P2:** the staff cut-out was cached after the photo changed.
+  - **P2:** a failed model fetch aborted `update.sh`.
+- **Round 2:** six resolved. Deletion was "Partly": a job finishing after a delete could store the photo again. Fixed with a check before and after storing. No defects found in the card redesign, the staff ID display or the wording changes.
+- **Round 3:** "Resolved"; no new defects in the fix or either card's UI.
+- **Round 4** (the mentor on the card back): "No concrete defects". Only the mentor's first and last name are sent; the student's ID number stays staff-only.
+
+**Later owner changes, in the same work:** the card back reads the name, a rule, then one label and value per line. The rows are ID number, jersey number, birth date and educational mentor (`main_teacher`'s name). Position, lessons and attendance are off the back. The photo frame shows with a cut-out too, and "TAMHEED SPORT" is at the foot.
+
+**The ID number on the student's own card:** the owner asked for it twice ("ماذا عن رقم الهوية؟"). It comes from a separate `GET /api/sport-portal/id` (the caller's own number, `no-store`). It is never in `/me`, which the sport site keeps offline for 7 days.
+- **Round 5:** putting it in `/me` was rejected. A pending `/me` could refill the shared cache after logout and show A's number to B on a shared phone.
+- **Round 6:** the card kept A's number after another tab switched the session to B. Fixed by asking again whenever the card changes.
+- **Round 7:** "Resolved"; no new defects.
+- **Residual risk, as Codex noted:** the number is visible on the screen and in screenshots.
+
+**Verification:**
+- Server 964/964, sport site 58/58, client 700/700, and both builds compiled.
+- A real cut-out of the owner's sample photo took about 1.5 s in the worker, without blocking timers.
+- Rendered cards were checked in the browser as a static page.
+- **Not tested:** the Ubuntu server (installing `sharp` and `onnxruntime-node`, downloading the model, memory), a real iPhone (mask and clip-path), and the signed-in app with real students.
+
 **Status:** Codex review complete; nothing committed or deployed.

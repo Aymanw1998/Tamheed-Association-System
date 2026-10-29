@@ -31,6 +31,7 @@ const res = () => {
     statusCode: 200, body: undefined, headers: {},
     status(c) { this.statusCode = c; return this; },
     json(v) { this.body = v; this.headersSent = true; this.end(); return this; },
+    send(v) { this.sent = v; this.headersSent = true; this.end(); return this; },
     set(k, v) { this.headers[k] = v; return this; },
     removeHeader(k) { delete this.headers[k]; },
     text() { return Buffer.concat(this.chunks).toString(); },
@@ -56,8 +57,9 @@ const RECORDS = [
   rec("l1", "2026-05-03", "غائب", "s2"), rec("l3", "2026-05-07", "حاضر", "s2"),
 ];
 
-function setup({ students, players, lessons, records, files } = {}) {
+function setup({ students, players, lessons, records, files, playerPhotos } = {}) {
   const logs = [];
+  const scheduled = [];
   const stores = {
     students: store(students || [
       { _id: "s1", tz: ME.tz, email: ME.email, firstname: "علي", gender: "ذكر", lastname: "حداد", photo: ME.photo, birth_date: ME.birth },
@@ -75,6 +77,8 @@ function setup({ students, players, lessons, records, files } = {}) {
     lessons: store(lessons || LESSONS),
     attendance: store(records || RECORDS),
     files: files || { extractFileId: () => "PHOTOFILEID123", downloadStream: async () => { const s = new PassThrough(); s.end("IMG"); return s; } },
+    users: store([{ _id: "c".repeat(24), firstname: "إبراهيم", lastname: "الوهباني", tz: COACH.tz, email: COACH.email }]),
+    playerPhotos: playerPhotos || { schedule: (id) => scheduled.push(String(id)), read: async () => null },
     log: (...a) => logs.push(a),
     now: () => new Date("2026-06-01T00:00:00Z"),
   });
@@ -88,7 +92,7 @@ function setup({ students, players, lessons, records, files } = {}) {
     if (passed) await handler(req, r);
     return r;
   };
-  return { portal, call, logs };
+  return { portal, call, logs, scheduled };
 }
 
 test("me returns the card, lessons, next lesson and history of the signed-in student", async () => {
@@ -97,7 +101,7 @@ test("me returns the card, lessons, next lesson and history of the signed-in stu
   assert.equal(r.statusCode, 200);
   assert.deepEqual(r.body, {
     ok: true,
-    student: { firstname: "علي", lastname: "حداد", gender: "ذكر", age: 14, birthDate: "2012-03-15", hasPhoto: true, photoVersion: crypto.createHash("sha1").update(ME.photo).digest("hex").slice(0, 10) },
+    student: { firstname: "علي", lastname: "حداد", gender: "ذكر", age: 14, birthDate: "2012-03-15", hasPhoto: true, photoVersion: crypto.createHash("sha1").update(ME.photo).digest("hex").slice(0, 10), photoCutout: false, mentor: "" },
     card: {
       sport: { name: "كرة القدم", icon: "⚽" },
       jerseyNumber: 7,
@@ -254,4 +258,52 @@ test("the sign-in check and the player card read together: two rounds of databas
   assert.equal(r.statusCode, 200);
   assert.equal(reads, 5, "the same five reads");
   assert.ok(took < 3.5 * DELAY, `two rounds (~${2 * DELAY} ms), took ${took} ms`);
+});
+
+test("with its player photo made, me points the app at the cut-out; without it, the photo is queued", async () => {
+  const version = crypto.createHash("sha1").update(ME.photo).digest("hex").slice(0, 10);
+  const withCut = setup({ players: [{ studentId: "s1", sportId: "sp1", stats: {}, photoCutout: version }] });
+  const a = (await withCut.call(withCut.portal.me, "s1")).body.student;
+  assert.equal(a.photoCutout, true);
+  assert.equal(a.photoVersion, `${version}c`);
+  assert.deepEqual(withCut.scheduled, []);
+
+  const failed = setup({ players: [{ studentId: "s1", sportId: "sp1", stats: {}, photoCutoutFailed: version }] });
+  assert.equal((await failed.call(failed.portal.me, "s1")).body.student.photoCutout, false);
+  assert.deepEqual(failed.scheduled, []);
+
+  const none = setup();
+  await none.call(none.portal.me, "s1");
+  assert.deepEqual(none.scheduled, ["s1"]);
+});
+
+test("the photo route sends the cut-out when there is one, and the Drive photo otherwise", async () => {
+  const cut = setup({ playerPhotos: { schedule() {}, read: async (id, link) => (id === "s1" && link === ME.photo ? { image: Buffer.from("CUT"), contentType: "image/webp" } : null) } });
+  const a = await cut.call(cut.portal.photo, "s1");
+  assert.equal(a.headers["Content-Type"], "image/webp");
+  assert.equal(String(a.sent), "CUT");
+
+  const plain = setup();
+  const b = await plain.call(plain.portal.photo, "s1");
+  await new Promise((r) => setImmediate(r));
+  assert.equal(b.headers["Content-Type"], "image/jpeg");
+  assert.equal(b.text(), "IMG");
+});
+
+test("me names the student's mentor and nothing else about them", async () => {
+  const base = { _id: "s1", tz: ME.tz, email: ME.email, firstname: "علي", lastname: "حداد", birth_date: ME.birth, photo: "" };
+  const s = setup({ students: [{ ...base, main_teacher: "c".repeat(24) }] });
+  const r = await s.call(s.portal.me, "s1");
+  assert.equal(r.body.student.mentor, "إبراهيم الوهباني");
+  const text = JSON.stringify(r.body);
+  for (const v of [COACH.tz, COACH.email, "c".repeat(24)]) assert.ok(!text.includes(v), v);
+});
+
+test("/id answers only the signed-in student's own ID number, never to be stored", async () => {
+  const { portal, call } = setup();
+  const r = await call(portal.idNumber, "s1");
+  assert.deepEqual(r.body, { ok: true, tz: ME.tz });
+  assert.equal(r.headers["Cache-Control"], "no-store");
+  const other = await call(portal.idNumber, "s2");
+  assert.equal(other.body.tz, MATE.tz);
 });

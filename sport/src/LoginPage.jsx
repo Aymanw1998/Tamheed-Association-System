@@ -67,7 +67,7 @@ export default function LoginPage({ onSignedIn }) {
           <img src={logo} alt="شعار جمعية تمهيد" />
         </span>
         <h1>تمهيد - رياضة</h1>
-        <p className="login-sub">بوابة لاعبي كرة القدم</p>
+        <p className="login-sub">بوابة اللاعبين</p>
         <div className="login-panel">
           {step === "tz" ? (
             <form onSubmit={send} className="login-form">

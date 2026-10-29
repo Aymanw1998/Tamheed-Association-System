@@ -116,7 +116,7 @@ export default function App() {
 
   return (
     <div className="app">
-      <StadiumHeader firstname={me.student.firstname} sportName={me.card.sport.name} onLogout={onLogout} onHelp={() => setGuideOpen(true)} />
+      <StadiumHeader firstname={me.student.firstname} onLogout={onLogout} onHelp={() => setGuideOpen(true)} />
       <main className="content">
         {tab === "home" ? <HomePage me={me} /> : <LessonsPage me={me} />}
       </main>

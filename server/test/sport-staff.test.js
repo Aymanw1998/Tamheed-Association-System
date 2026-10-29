@@ -60,6 +60,7 @@ const STUDENTS = [1, 2, 3, 4].map((n) => ({
   _id: sid(n), tz: `80000000${n}`, firstname: `Fa${n}`, lastname: `Ki${n}`, birth_date: "2012-01-01",
   gender: n === 3 ? "أنثى" : "ذكر", layer: n === 2 ? "ب" : "أ", school: n === 4 ? "مدرسة ب" : "مدرسة أ",
   email: `s${n}@example.com`, photo: n === 1 ? "https://example.com/p1.jpg" : "", health_status: "secret", father_phone: "0500000000", notes: "secret",
+  main_teacher: n === 1 ? hex("9") : null,
 }));
 const SPORT = hex("a");
 const LESSON_A = hex("c");
@@ -110,6 +111,7 @@ function world({ players, withSport = true } = {}) {
     "./SportLesson.model": { SportLessonModelDef: lessons },
     "./SportAttendance.model": { SportAttendanceModelDef: attendance },
     "../Student/Student.model": { StudentModelDef: students },
+    "../User/User.model": { UserModelDef: createStore([{ _id: hex("9"), firstname: "إبراهيم", lastname: "الوهباني" }]) },
     "../../middleware/logger": { logWithSource() {} },
     "../../utils/cardPush": { notifyCardChanged: async () => 0 },
     "../Lesson/Lesson.model": { LessonModelDef: createStore([]) },
@@ -158,7 +160,7 @@ test("the route table is exactly the football staff API", () => {
   const ctx = world();
   assert.deepEqual(ctx.routes.map((r) => `${r.method.toUpperCase()} ${r.path}`), [
     "GET /", "PUT /stats", "GET /players", "GET /students/search",
-    "PUT /players/:studentId", "DELETE /players/:studentId", "POST /players/:studentId/stats",
+    "GET /players/:studentId/photo", "PUT /players/:studentId", "DELETE /players/:studentId", "POST /players/:studentId/stats",
     "GET /lessons", "POST /lessons", "PUT /lessons/:id", "DELETE /lessons/:id",
     "POST /lessons/:id/players", "DELETE /lessons/:id/players/:studentId",
     "GET /lessons/:id/attendance", "PUT /lessons/:id/attendance", "GET /attendance/today",
@@ -232,7 +234,7 @@ test("GET /players lists football players with lessons, values and attendance, a
   const r = await call(ctx, VIEWER, "get", "/players");
   assert.equal(r.statusCode, 200);
   assert.equal(r.body.players.length, 2);
-  const expected = ["age", "attendance", "birthDate", "firstname", "gender", "jerseyNumber", "lastname", "layer", "lessons", "photo", "position", "school", "studentId", "tz", "values"];
+  const expected = ["age", "attendance", "birthDate", "firstname", "gender", "jerseyNumber", "lastname", "layer", "lessons", "mentor", "photo", "photoCutout", "position", "school", "studentId", "tz", "values"];
   for (const p of r.body.players) assert.deepEqual(Object.keys(p).sort(), expected);
   const one = r.body.players.find((p) => p.studentId === sid(1));
   assert.deepEqual(plain(one.lessons), [{ _id: LESSON_A, name: "أشبال الأحد", day: 1, startMin: 1000 }]);
@@ -525,4 +527,22 @@ test("a request after a save never joins a read that started during it", async (
   assert.deepEqual(late.body.sport.stats.map((s) => s.label), ["بعد"]);
   await during;
   assert.equal(slowReads, 1, "the overlapping read really happened");
+});
+
+test("saving a player queues its player photo; the photo route answers 404 until one is made", async () => {
+  const ctx = world();
+  live.photoJobs.length = 0;
+  const saved = await call(ctx, COACH, "put", "/players/:studentId", { params: { studentId: sid(3) }, body: { jerseyNumber: 9, position: "x", lessonIds: [] } });
+  assert.equal(saved.statusCode, 200);
+  assert.deepEqual(live.photoJobs, [sid(3)]);
+  const photo = await call(ctx, VIEWER, "get", "/players/:studentId/photo", { params: { studentId: sid(1) } });
+  assert.equal(photo.statusCode, 404);
+});
+
+test("GET /players names the student's mentor (main_teacher), or nothing", async () => {
+  const ctx = world();
+  const r = await call(ctx, VIEWER, "get", "/players");
+  const byId = new Map(r.body.players.map((p) => [p.studentId, p]));
+  assert.equal(byId.get(sid(1)).mentor, "إبراهيم الوهباني");
+  assert.equal(byId.get(sid(2)).mentor, "");
 });

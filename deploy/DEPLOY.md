@@ -160,6 +160,19 @@ sudo certbot --nginx -d הדומיין-שלך
 cd /var/www/tamheed && bash deploy/update.sh
 ```
 
+## תמונות שחקן (חיתוך מהרקע)
+
+כשתלמיד עם תמונה מתווסף כשחקן כדורגל, השרת חותך אותו מהרקע ושומר "תמונת שחקן" שקופה ב-MongoDB (האוסף `SportPlayerPhotos`). כשמוחקים את השחקן או את התמונה, תמונת השחקן נמחקת. תלמיד בלי תמונה מקבל קלף בלי תמונה, כמו קודם.
+
+- **הכלי:** המודל MODNet (רישיון Apache-2.0, כ-26MB) רץ על המעבד של השרת, בערך שנייה לתמונה, תמונה אחת בכל פעם. התמונות לא נשלחות לשום שירות חיצוני.
+- **ההורדה:** `deploy/update.sh` מוריד את המודל פעם אחת ל-`server/models/modnet.onnx` ובודק את טביעת ה-SHA-256 שלו. בעדכונים הבאים הוא רואה שהקובץ קיים ולא מוריד שוב.
+- **שחקנים קיימים:** שחקנים שנוספו לפני העדכון מקבלים תמונת שחקן ברקע, בפעם הראשונה שפותחים את רשימת השחקנים או שהתלמיד נכנס לאתר הספורט.
+- **בלי המודל:** אם ההורדה נכשלה, האתר ממשיך לעבוד ומציג את התמונה הרגילה, וב-`pm2 logs tamheed` מופיעה פעם אחת השורה `portrait model missing`. אפשר להוריד שוב:
+
+```bash
+cd /var/www/tamheed && node server/scripts/fetchPortraitModel.js && pm2 reload tamheed
+```
+
 ## אפליקציות והתראות
 
 שני האתרים (המערכת ואתר הספורט) מותקנים כאפליקציה, ועובדים גם כשאין אינטרנט בחלק מהמסכים. התראות בטלפון דורשות מפתחות VAPID. בלי המפתחות הכל שאר עובד, ורק ההתראות כבויות.
@@ -426,4 +439,5 @@ pm2 start tamheed
 | אף אחד לא מצליח להיכנס אחרי ההעלאה | `PASSWORD_ENC_KEY_HEX` לא זהה לערך הישן |
 | `MongoServerError: Authentication failed` | הסיסמה או `authSource` בשורת `MONGO_URI` לא תואמים למשתמש שנוצר במסד |
 | `connect ECONNREFUSED 127.0.0.1:27017` | MongoDB לא רץ: `sudo systemctl status mongod` ו-`sudo journalctl -u mongod -n 50` |
+| אין תמונות שחקן בקלף | `ls -la server/models/modnet.onnx` (כ-26MB). אם חסר: `node server/scripts/fetchPortraitModel.js`. אם `npm ci` נכשל על `sharp` או `onnxruntime-node`, השרת צריך Linux x64 או arm64 ו-Node 20.9 ומעלה (`node -v`) |
 | `mongod` לא עולה אחרי ההתקנה | המעבד בלי AVX (סעיף 0), או טעות הזחה ב-`/etc/mongod.conf` |

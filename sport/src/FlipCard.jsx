@@ -1,11 +1,8 @@
-import { useState } from "react";
-import { photoUrl } from "./api.js";
-import { cardCells, lessonDays, birthDateLabel, attendanceLabel } from "./format.js";
+import { useEffect, useState } from "react";
+import { getIdNumber, photoUrl } from "./api.js";
+import { cardCells, birthDateLabel } from "./format.js";
 import { Silhouette, LogoBadge, FlipIcon } from "./Art.jsx";
-
-// The shield outline of the front face, in the face's own 264×384 pixels.
-const SHIELD =
-  "M0 34 Q0 16 18 14 L100 6 Q132 0 164 6 L246 14 Q264 16 264 34 L264 318 Q264 332 250 338 L142 381 Q132 385 122 381 L14 338 Q0 332 0 318 Z";
+import { CardBack, CardPanel, FACE_CLIP, IdArt } from "./CardArt.jsx";
 
 function Photo({ hasPhoto, version, className }) {
   const src = photoUrl(version);
@@ -18,15 +15,8 @@ export function FifaFace({ student, card }) {
   const name = [student.firstname, student.lastname].filter(Boolean).join(" ");
   return (
     <div className="fifa">
-      <div className="fifa-body" style={{ clipPath: `path("${SHIELD}")` }}>
-        <div className="fifa-bg" />
-        <svg className="fifa-pitch" viewBox="0 0 264 384" aria-hidden="true">
-          <circle cx="132" cy="150" r="96" />
-          <path d="M0 232 H264" />
-          <circle cx="132" cy="232" r="2.5" />
-        </svg>
-        <div className="fifa-shine" />
-
+      <CardBack className="fifa-art" />
+      <div className="fifa-body" style={{ clipPath: `path("${FACE_CLIP}")` }}>
         <div className="fifa-side">
           <div className={`fifa-num${card.jerseyNumber == null ? " none" : ""}`}>{card.jerseyNumber ?? "—"}</div>
           {card.position && <div className="fifa-pos">{card.position}</div>}
@@ -35,9 +25,12 @@ export function FifaFace({ student, card }) {
           <div className="fifa-sport" aria-hidden="true">{card.sport?.icon || "⚽"}</div>
         </div>
 
-        <div className="fifa-photo">
+        {/* The cut-out player photo stands on the card; a plain photo is faded round. */}
+        <div className={`fifa-photo${student.photoCutout ? " cut" : ""}`}>
           <Photo hasPhoto={student.hasPhoto} version={student.photoVersion} className="fifa-img" />
         </div>
+
+        <CardPanel className="fifa-panel" />
 
         <div className="fifa-name">{name}</div>
 
@@ -52,66 +45,63 @@ export function FifaFace({ student, card }) {
 
         <div className="fifa-foot" dir="ltr">TAMHEED SPORT</div>
       </div>
-      <svg className="fifa-frame" viewBox="0 0 264 384" aria-hidden="true">
-        <defs>
-          <linearGradient id="fifaRing" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor="#ffd08a" />
-            <stop offset=".45" stopColor="#f7941d" />
-            <stop offset="1" stopColor="#c86d05" />
-          </linearGradient>
-        </defs>
-        <path d={SHIELD} fill="none" stroke="url(#fifaRing)" strokeWidth="9" />
-        <path
-          d={SHIELD}
-          fill="none"
-          stroke="#ffd08a"
-          strokeOpacity=".55"
-          strokeWidth="1"
-          transform="translate(132 192) scale(.94) translate(-132 -192)"
-        />
-      </svg>
     </div>
   );
 }
 
-export function IdFace({ student, card, lessons }) {
+export function IdFace({ student, card, tz }) {
   const name = [student.firstname, student.lastname].filter(Boolean).join(" ");
   return (
     <div className="idcard">
-      <svg className="id-pitch" viewBox="0 0 340 214" preserveAspectRatio="none" aria-hidden="true">
-        <path d="M230 38 V214" />
-        <circle cx="230" cy="126" r="54" />
-      </svg>
+      <IdArt className="id-art" />
       <div className="id-bar">
-        <span>تمهيد - رياضة · {card.sport?.name}</span>
+        <span>تمهيد - رياضة</span>
         <LogoBadge className="id-logo" />
       </div>
       <div className="id-main">
         <div className="id-info">
           <div className="id-name">{name}</div>
-          <p>
-            <span>المركز:</span> {card.position || "—"} · <span>القميص:</span> {card.jerseyNumber ?? "—"}
-          </p>
-          <p>
-            <span>الدروس:</span> {lessonDays(lessons)}
-          </p>
-          <p>
-            <span>تاريخ الميلاد:</span> {birthDateLabel(student.birthDate)}
-          </p>
-          <p>
-            <span>الحضور:</span> <bdi dir="ltr">{attendanceLabel(card.attendance?.rate)}</bdi>
-          </p>
+          <dl className="id-rows">
+            <dt>رقم الهوية</dt>
+            <dd><bdi dir="ltr">{tz || "—"}</bdi></dd>
+            <dt>رقم القميص</dt>
+            <dd>{card.jerseyNumber ?? "—"}</dd>
+            <dt>تاريخ الميلاد</dt>
+            <dd>{birthDateLabel(student.birthDate)}</dd>
+            <dt>مرشد تربوي</dt>
+            <dd>{student.mentor || "—"}</dd>
+          </dl>
         </div>
-        <div className="id-photo">
+        <div className={`id-photo${student.photoCutout ? " cut" : ""}`}>
           <Photo hasPhoto={student.hasPhoto} version={student.photoVersion} className="id-img" />
         </div>
       </div>
       {card.jerseyNumber != null && <div className="id-num" aria-hidden="true">{card.jerseyNumber}</div>}
+      <div className="id-foot" dir="ltr">TAMHEED SPORT</div>
     </div>
   );
 }
 
+// The ID number comes on its own, never from the offline cache: offline the
+// card shows a dash. Asked again with every new card (`me`), so another
+// sign-in in a second tab never leaves the first student's number showing.
+function useIdNumber(me) {
+  const [tz, setTz] = useState("");
+  useEffect(() => {
+    let gone = false;
+    setTz("");
+    getIdNumber().then((r) => {
+      if (!gone && r.ok) setTz(String(r.data?.tz || ""));
+    });
+    return () => {
+      gone = true;
+    };
+  }, [me]);
+  return tz;
+}
+
 export default function FlipCard({ me }) {
+  const tz = useIdNumber(me);
   const [flipped, setFlipped] = useState(false);
   const toggle = () => setFlipped((f) => !f);
   const onKeyDown = (e) => {
@@ -135,7 +125,7 @@ export default function FlipCard({ me }) {
             <FifaFace student={me.student} card={me.card} />
           </div>
           <div className="face face-back" aria-hidden={!flipped}>
-            <IdFace student={me.student} card={me.card} lessons={me.lessons} />
+            <IdFace student={me.student} card={me.card} tz={tz} />
           </div>
         </div>
       </div>
