@@ -36,6 +36,7 @@ import SportPage from '../Sport/SportPage';
 import FloatingAIButton from '../AI/FloatingAIButton';
 import { canStored } from '../../utils/session';
 import PrivacyPage from '../Privacy/PrivacyPage';
+import GuidePage from '../../guide/GuidePage';
 import { TourProvider } from '../../tours/TourProvider';
 import TrainingBanner from '../../journey/TrainingBanner';
 import { useDemo } from '../../journey/demoMode';
@@ -81,6 +82,7 @@ export default function CRoutes() {
         <Route element={<ProtectedLayout />}>
           {/* ادارة الاثنينعربيالاثنينالأربعاء */}
           <Route path='/dashboard' element={<Dashboard />} />
+          <Route path='/guide' element={<GuidePage />} />
           <Route element={<RoleGuard />}>
             <Route path="/calendar" element={<AttendancePage />} />
             

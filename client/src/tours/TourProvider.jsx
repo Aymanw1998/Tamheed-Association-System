@@ -277,6 +277,10 @@ export function TourProvider({ children }) {
           onFullJourney={runFullJourney}
           onChapter={(id) => runChapter(id, true)}
           onWhatsNew={openWhatsNew}
+          onGuide={async () => {
+            setHelpOpen(false);
+            if (await leaveOk()) navigate("/guide");
+          }}
         />
       )}
 

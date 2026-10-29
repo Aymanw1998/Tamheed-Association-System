@@ -26,6 +26,7 @@ const translations = {
       reports: "التقارير",
       files: "الملفات",
       profile: "الملف الشخصي",
+      guide: "دليل المستخدم",
       logout: "تسجيل الخروج",
       openMenu: "فتح القائمة",
     },

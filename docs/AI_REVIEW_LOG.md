@@ -2322,4 +2322,98 @@ All five are fixed in the changes above (`{ updatedAt: null }` plus lessons crea
 
 4. **Round 4: not finished.** Codex hit its usage limit (available again 2026-10-28 01:59) before answering. Its own run had written 10 dotenv samples for `env-get.sh`; one failed only in its harness, which fed the sample through `/dev/stdin`. All 10 pass with a sample file, which is how the script reads `.env` (Claude, Git Bash). **Pending:** a Codex verdict on the round-3 fixes (pm2 states, `flock`, dotenv comments).
 
-**Owner's server progress (2026-10-27):** AVX present, Ubuntu 24.04 (`noble`), 2 GB swap on, MongoDB 8.0.34 and tools 100.20.0 installed, `mongod` running with the guide's config. Users, auth and the data move are not done yet.
+**Owner's server progress (2026-10-27):** AVX present, Ubuntu 24.04 (`noble`), 2 GB swap on, MongoDB 8.0.34 and tools 100.20.0 installed, `mongod` running with the guide's config.
+
+**Move done (2026-10-27, by the owner):**
+- Users and authorization were set; the first `mongorestore` failed authentication, and the owner then completed it.
+- The data was moved from Atlas, `MONGO_URI` switched, and the app restarted.
+- `deploy/mongo-backup.sh` ran (`backup ok`, a 12K archive), and root's crontab has `30 2 * * *`. The server is on UTC, so that is 04:30/05:30 in Israel.
+
+**Measured on the server after the move (`perfCheck`):**
+
+| Measure | Before (Atlas) | After (local) |
+| --- | --- | --- |
+| One database round trip | ~221 ms | ~1.2 ms |
+| Average answer, app | ~263 ms | 10 ms |
+| Average answer, nginx + HTTPS | ~280 ms | 12.8 ms |
+| Slowest public call | | 24.1 ms (the player card) |
+
+**Still open:**
+- A reboot for the pending kernel.
+- The Atlas cluster is kept a week.
+- Offsite copies of the backups (Stage B).
+- Codex's round 4 on the backup script.
+
+**Codex round 4 (2026-10-28, Codex CLI 0.164.0, gpt-6-astra, read-only):** received.
+- pm2 states, `flock -n` and unquoted dotenv comments: all three "Resolved". Codex ran 10 parser samples and 13 mocked pm2 paths (success, refusal, dump failure).
+- **New, low:** `deploy/env-get.sh:22` knows only `"` and `'`. dotenv also accepts backtick quotes, so a backtick-quoted `MONGO_URI` would reach `mongodump` with the backticks and the backup would fail. Claude confirmed it: dotenv 16.5.0 parses ``A=`x y` `` as `x y`. The server's backup already ran (`backup ok`), so its `.env` doesn't use backticks. Not fixed yet.
+- **Correction to an older entry:** nginx `proxy_read_timeout 1h` resets on any data. The 25 s sport SSE heartbeat keeps a stream open longer than an hour, so it doesn't cap a stream's life.
+- Not exercised: real Ubuntu `flock`, pm2 and MongoDB.
+
+**Fresh local run (2026-10-28, Claude):** server 933/933. Client 666/667: the one failure is the known `JourneyProvider.test.js` timeout, and that file passes alone (20/20). Build compiled. `npm run verify` doesn't cover the sport site.
+
+## 2026-10-29: Print does nothing on iPhone
+
+**Owner report:** on an iPhone, the "طباعة" button in the PDF preview did nothing (screenshot of a report preview).
+
+**Cause:** the client is a home-screen app (`"display": "standalone"` in `client/public/manifest.json`), and iOS ignores `print()` there. The button printed through a hidden iframe.
+
+**Change (uncommitted), `client/src/Components/ExportPDF/pdfPreview.js`:**
+- On iOS, including iPadOS that reports a Mac with touch, the print button makes a PDF `File` and calls `navigator.share` inside the click. The share sheet offers Print.
+- It does that only when `share` and `canShare` exist and `canShare` accepts the file. Otherwise the old iframe print runs. Other platforms are unchanged.
+- Closing the sheet (`AbortError`) does nothing. Any other failure shows a message to download the PDF and print it from the file.
+
+**Tests:** `pdfPreview.test.js`: share on iPhone, the iframe when `canShare` refuses or is missing, the iframe elsewhere, and one message per non-cancel failure (`NotAllowedError`, `DataError`), none for `AbortError`.
+
+**Codex review (2026-10-29, Codex CLI 0.164.0, gpt-6-astra, read-only):**
+- **Round 1, two P2 findings, both fixed:**
+  - every share failure was swallowed, so the button could look dead again;
+  - a missing `canShare` was taken as file-sharing support.
+- **Round 2:** both "Resolved"; "No new concrete findings in the supplied diff."
+
+**Verification:** the PDF preview tests passed 10/10. The full client run passed 673/674; the one failure is the known `JourneyProvider.test.js` timeout. **Not tested:** a real iPhone, including whether Print appears in the share sheet.
+
+**Status:** Codex review complete; nothing committed or deployed.
+
+## 2026-10-29: In-app user guide, stage 1 (structure and three screens)
+
+**Owner request:**
+- A user guide that opens from a link inside the system and updates when the system changes, rather than a booklet that goes stale.
+- Arabic or Hebrew, chosen by the reader; for all roles; short on phones.
+- Approved first stage: the structure, plus the dashboard, lessons and attendance.
+
+**Changes (uncommitted):**
+- **New `client/src/guide/`:**
+  - `guideContent.js`: one entry per screen in Arabic and Hebrew. A step can require permissions. Each entry has an `updated` value and its journey chapter. Screens not written yet are listed in `GUIDE_PENDING`.
+  - `guideLogic.js`:
+    - shows only the screens the user can open (`canAccessPath`) and the steps they can do;
+    - search, in the chosen language;
+    - the «جديد» badge;
+    - the language and the last-seen versions are kept per device, in `localStorage`.
+  - `GuidePage.jsx` at `/guide`. Cards start folded. «أرني» runs the screen's journey chapter alone on demo data; "open screen" goes to the page.
+- **Links:** a menu item in `Header.jsx`, and a «دليل المستخدم» button in the help center. `TourProvider` asks `confirmLeave` before it navigates.
+- **What's new:** a release entry announces the guide.
+- `journeyLogic.js`: `held` is exported.
+- `releases.test.js`: the journey release is found by id, plus a newest-first check.
+
+**Updates:**
+- Changing a screen means editing its entry and changing `updated`, with a letter for a second change the same day.
+- Readers who last saw another `updated` get «جديد». So does a screen they didn't have before.
+- `guideContent.test.js` fails when a section in `tours/sections.js` has no entry and isn't pending. It can't detect a change to an existing screen.
+
+**Codex review (2026-10-29, Codex CLI 0.164.0, gpt-6-astra, read-only):**
+- **Round 1, three findings, all fixed:**
+  - **P2:** approve and reject were one step, gated by the approve permission. They are now four steps that match `Dashboard.jsx:41-44`.
+  - **P2:** a change made the same day as a visit was never marked new. The guide now keeps the version it last saw for each entry.
+  - **P3:** the date color had 2.56:1 contrast. It is now `#64748b` (4.76:1).
+- **Round 2:** all three "Resolved"; "No new concrete findings within the reviewed scope."
+- **After round 2:** the page reads permissions once per visit (`useState`) instead of two `eslint-disable` comments. The build failed on those comments, because the project doesn't load the `react-hooks` rule.
+
+**Verification:**
+- Server 933/933.
+- Client 693/694. The one failure is the known `JourneyProvider.test.js` timeout; the guide tests pass 19/19.
+- The client build compiled after the eslint fix.
+- At phone width (375 px), the page was rendered under Jest with its real CSS and checked in the browser pane, in Arabic and Hebrew.
+- **Not tested:** the real app while signed in, a real phone, and the Hebrew translation, which needs a fluent reader.
+
+**Status:** Codex review complete; nothing committed or deployed. Next: the remaining eight screens (`GUIDE_PENDING`), then saving the guide as a PDF.

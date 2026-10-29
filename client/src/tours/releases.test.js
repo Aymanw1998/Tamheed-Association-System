@@ -36,7 +36,12 @@ test("every release tourId is a chapter id, and «أرني» opens it", () => {
   });
 });
 
-test("the guided journey release is the newest, and «أرني» starts the full journey", () => {
-  expect(RELEASES[0].id).toBe("2026-10-22-guided-journey");
-  expect(releaseShowMe(RELEASES[0])).toEqual({ chapterId: "journey-intro", only: false });
+test("the guided journey release's «أرني» starts the full journey", () => {
+  const journey = RELEASES.find((r) => r.id === "2026-10-22-guided-journey");
+  expect(releaseShowMe(journey)).toEqual({ chapterId: "journey-intro", only: false });
+});
+
+test("releases are newest first", () => {
+  const dates = RELEASES.map((r) => r.date);
+  expect(dates).toEqual([...dates].sort().reverse());
 });

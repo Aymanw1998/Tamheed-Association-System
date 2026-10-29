@@ -8,7 +8,7 @@ import { hasPermission } from "../utils/permissionKeys";
 export const INTRO_ID = "journey-intro";
 
 // `requires` is one key, or an array of keys that are all needed.
-const held = (permissions, key) => {
+export const held = (permissions, key) => {
   if (key == null) return true;
   if (Array.isArray(key)) return key.every((k) => hasPermission(permissions, k));
   return hasPermission(permissions, key);

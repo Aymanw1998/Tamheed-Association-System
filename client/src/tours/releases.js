@@ -4,6 +4,14 @@
 // chapter alone; "journey-intro" starts the full journey), or null for no «أرني».
 export const RELEASES = [
   {
+    id: "2026-10-29-user-guide",
+    date: "2026-10-29",
+    requires: null,
+    tourId: null,
+    title: "دليل المستخدم",
+    body: "شرح قصير لكل شاشة بالعربية أو بالعبرية، من القائمة أو من زر المساعدة. ما يتغيّر في النظام يظهر فيه بعلامة «جديد».",
+  },
+  {
     id: "2026-10-22-guided-journey",
     date: "2026-10-22",
     requires: null,

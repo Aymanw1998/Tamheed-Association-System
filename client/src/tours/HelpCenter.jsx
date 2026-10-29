@@ -45,7 +45,7 @@ function CloseButton({ onClose }) {
 
 // chapters: the journey chapters this user may run; screen: the open screen's
 // chapter (or null); tours: the saved done / skipped state.
-export function HelpCenter({ chapters, screen, tours, onClose, onFullJourney, onChapter, onWhatsNew }) {
+export function HelpCenter({ chapters, screen, tours, onClose, onFullJourney, onChapter, onWhatsNew, onGuide }) {
   const { t } = useI18n();
   const h = (key) => t(`tour.help.${key}`);
   const statusOf = (id) => tours?.[id]?.status || "none";
@@ -61,6 +61,7 @@ export function HelpCenter({ chapters, screen, tours, onClose, onFullJourney, on
           {h("explainScreen")}
         </button>
         <button type="button" className={styles.actionButton} onClick={onWhatsNew}>{h("whatsNew")}</button>
+        <button type="button" className={styles.actionButton} onClick={onGuide}>{h("guide")}</button>
       </div>
       {!screen && <p className={styles.note}>{h("noScreenChapter")}</p>}
 

@@ -175,6 +175,7 @@ export default function Header() {
         <a href="/reports" data-tour="menu-reports" onClick={(event) => onNavClick(event, "/reports")}>{t("nav.reports")}<NewBadge section="reports" /></a>
         <a href="/files" data-tour="menu-files" onClick={(event) => onNavClick(event, "/files")}>{t("nav.files")}<NewBadge section="files" /></a>
         <a href="/profile" data-tour="menu-profile" onClick={(event) => onNavClick(event, "/profile")}>{t("nav.profile")}</a>
+        <a href="/guide" data-tour="menu-guide" onClick={(event) => onNavClick(event, "/guide")}>{t("nav.guide")}</a>
         {canViewVehicles && (
           <a href="/vehicles" data-tour="menu-vehicles" onClick={(event) => onNavClick(event, "/vehicles")}>{t("nav.vehicles")}<NewBadge section="vehicles" /></a>
         )}

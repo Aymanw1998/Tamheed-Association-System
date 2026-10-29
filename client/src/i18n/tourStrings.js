@@ -22,6 +22,7 @@ export const tourStrings = {
       explainScreen: "شرح هذه الشاشة",
       noScreenChapter: "لا يوجد فصل لهذه الشاشة.",
       whatsNew: "ما الجديد",
+      guide: "دليل المستخدم",
       chaptersTitle: "فصول المسار",
       start: "ابدأ",
       noChapters: "لا توجد فصول متاحة حاليًا.",
