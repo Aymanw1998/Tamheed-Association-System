@@ -1,10 +1,12 @@
+const crypto = require("crypto");
 const { ensureFootball } = require("../Sport/Sport.controller");
 const { SportPlayerModelDef } = require("../Sport/SportPlayer.model");
 const { SportLessonModelDef } = require("../Sport/SportLesson.model");
 const { SportAttendanceModelDef } = require("../Sport/SportAttendance.model");
 const { UserModelDef } = require("../User/User.model");
 const drive = require("../../services/googleDrive.service");
-const { ageOn, buildCard, nextLesson } = require("../../utils/sportCards");
+const { ageOn, buildCard, nextLesson, israelToday } = require("../../utils/sportCards");
+const { SportNoticeModelDef } = require("../Sport/SportNotice.model");
 const { logWithSource } = require("../../middleware/logger");
 const { photoVersion } = require("../../utils/photoVersion");
 const { playerPhotoJob, cutoutReady } = require("../../services/playerPhotoJob");
@@ -13,6 +15,10 @@ const SERVER_ERROR = "حدث خطأ غير متوقع، حاول مرة أخرى
 const HISTORY_LIMIT = 60;
 const rows = (r) => (r?.success && Array.isArray(r.result) ? r.result : []);
 const sid = (v) => String(v);
+// An opaque name for this student on this device (no id, no tz): the app
+// tells sign-ins apart with it, to keep one student's notices and "seen"
+// marks away from the next on a shared phone.
+const deviceKey = (studentId) => crypto.createHash("sha1").update(`sport-student:${studentId}`).digest("hex").slice(0, 12);
 const slot = (l) => ({ name: l.name, day: l.date.day, startMin: l.date.startMin, endMin: l.date.endMin });
 // "YYYY-MM-DD" from the stored birth date, or null.
 const birthDay = (v) => {
@@ -28,6 +34,7 @@ function createSportPortalController(deps = {}) {
     lessons = SportLessonModelDef,
     attendance = SportAttendanceModelDef,
     users = UserModelDef,
+    notices = SportNoticeModelDef,
     files = drive,
     playerPhotos = playerPhotoJob,
     log = logWithSource,
@@ -77,6 +84,7 @@ function createSportPortalController(deps = {}) {
       return res.json({
         ok: true,
         student: {
+          key: deviceKey(studentId),
           firstname: student.firstname || "",
           gender: student.gender || "",
           lastname: student.lastname || "",
@@ -148,7 +156,43 @@ function createSportPortalController(deps = {}) {
     return res.json({ ok: true, tz: String(req.sportStudent.tz || "") });
   };
 
-  return { me, photo, idNumber };
+  // The notices meant for this student: to every player, or to a lesson they
+  // are in; not past their end date. Newest first.
+  const NOTICE_LIMIT = 50;
+  const myNotices = async (req, res) => {
+    try {
+      const studentId = sid(req.sportStudent._id);
+      const sport = await ensureSport();
+      const sportId = sid(sport._id);
+      const [playerRows, lessonRows, noticeRows] = await Promise.all([
+        players.get({ studentId, sportId }),
+        lessons.get({ "players.studentId": studentId }),
+        notices.get({ sportId }),
+      ]);
+      if (!rows(playerRows)[0]) return res.status(401).json({ ok: false, code: "SPORT_AUTH" });
+      const mine = new Map(
+        rows(lessonRows)
+          .filter((l) => sid(l.sportId) === sportId && (l.players || []).some((p) => sid(p.studentId) === studentId))
+          .map((l) => [sid(l._id), l.name]),
+      );
+      const today = israelToday(now());
+      const list = rows(noticeRows)
+        .filter((n) => (!n.lessonId || mine.has(sid(n.lessonId))) && (!n.expiresOn || n.expiresOn >= today))
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        .slice(0, NOTICE_LIMIT)
+        .map((n) => ({
+          id: sid(n._id), title: n.title, body: n.body || "", createdAt: n.createdAt,
+          lessonName: n.lessonId ? mine.get(sid(n.lessonId)) : null,
+        }));
+      res.set("Cache-Control", "no-store");
+      return res.json({ ok: true, notices: list });
+    } catch (err) {
+      log("SportPortal.notices", err);
+      return res.status(500).json({ ok: false, message: SERVER_ERROR });
+    }
+  };
+
+  return { me, photo, idNumber, notices: myNotices };
 }
 
 module.exports = { ...createSportPortalController(), createSportPortalController };

@@ -57,7 +57,7 @@ const RECORDS = [
   rec("l1", "2026-05-03", "غائب", "s2"), rec("l3", "2026-05-07", "حاضر", "s2"),
 ];
 
-function setup({ students, players, lessons, records, files, playerPhotos } = {}) {
+function setup({ students, players, lessons, records, files, playerPhotos, notices } = {}) {
   const logs = [];
   const scheduled = [];
   const stores = {
@@ -77,6 +77,7 @@ function setup({ students, players, lessons, records, files, playerPhotos } = {}
     lessons: store(lessons || LESSONS),
     attendance: store(records || RECORDS),
     files: files || { extractFileId: () => "PHOTOFILEID123", downloadStream: async () => { const s = new PassThrough(); s.end("IMG"); return s; } },
+    notices: store(notices || []),
     users: store([{ _id: "c".repeat(24), firstname: "إبراهيم", lastname: "الوهباني", tz: COACH.tz, email: COACH.email }]),
     playerPhotos: playerPhotos || { schedule: (id) => scheduled.push(String(id)), read: async () => null },
     log: (...a) => logs.push(a),
@@ -101,7 +102,7 @@ test("me returns the card, lessons, next lesson and history of the signed-in stu
   assert.equal(r.statusCode, 200);
   assert.deepEqual(r.body, {
     ok: true,
-    student: { firstname: "علي", lastname: "حداد", gender: "ذكر", age: 14, birthDate: "2012-03-15", hasPhoto: true, photoVersion: crypto.createHash("sha1").update(ME.photo).digest("hex").slice(0, 10), photoCutout: false, mentor: "" },
+    student: { key: crypto.createHash("sha1").update("sport-student:s1").digest("hex").slice(0, 12), firstname: "علي", lastname: "حداد", gender: "ذكر", age: 14, birthDate: "2012-03-15", hasPhoto: true, photoVersion: crypto.createHash("sha1").update(ME.photo).digest("hex").slice(0, 10), photoCutout: false, mentor: "" },
     card: {
       sport: { name: "كرة القدم", icon: "⚽" },
       jerseyNumber: 7,
@@ -306,4 +307,30 @@ test("/id answers only the signed-in student's own ID number, never to be stored
   assert.equal(r.headers["Cache-Control"], "no-store");
   const other = await call(portal.idNumber, "s2");
   assert.equal(other.body.tz, MATE.tz);
+});
+
+test("notices: to everyone and to the student's own lessons, not expired, newest first, no other sport", async () => {
+  const n = (id, extra) => ({ _id: id, sportId: "sp1", title: id, body: "", createdAt: new Date("2026-05-0" + id.slice(1) + "T10:00:00Z"), ...extra });
+  const { portal, call } = setup({ notices: [
+    n("n1"),
+    n("n2", { lessonId: "l2" }),
+    n("n3", { lessonId: "l3" }),
+    n("n4", { expiresOn: "2026-05-31" }),
+    n("n5", { expiresOn: "2026-06-01" }),
+    n("n6", { sportId: "other" }),
+  ] });
+  const r = await call(portal.notices, "s1");
+  assert.equal(r.statusCode, 200);
+  assert.equal(r.headers["Cache-Control"], "no-store");
+  assert.deepEqual(r.body.notices.map((x) => x.id), ["n5", "n2", "n1"]);
+  assert.equal(r.body.notices[1].lessonName, "تدريب الأربعاء");
+  assert.equal(r.body.notices[2].lessonName, null);
+  const mate = await call(portal.notices, "s2");
+  assert.deepEqual(mate.body.notices.map((x) => x.id), ["n5", "n3", "n1"]);
+});
+
+test("notices answer 401 to a student who is no longer a player", async () => {
+  const { portal, call } = setup({ players: [{ studentId: "s2", sportId: "sp1", stats: {} }] });
+  const r = await call(portal.notices, "s1");
+  assert.equal(r.statusCode, 401);
 });

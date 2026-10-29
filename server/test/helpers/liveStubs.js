@@ -20,6 +20,18 @@ const photoJobs = [];
 const playerPhotoJob = { schedule: (id) => { photoJobs.push(String(id)); }, remove: async (id) => { photoJobs.push(`remove:${id}`); }, read: async () => null };
 const cutoutReady = (player, link) => Boolean(player?.photoCutout) && player.photoCutout === photoVersion(link);
 const noPhotos = { async get() { return { success: true, result: [] }; }, async put() { return { success: true }; }, async delete() { return { success: true, result: { deletedCount: 0 } }; } };
+// Sport notices: an in-memory store (clear with `notices.length = 0`), and
+// `pushes` records every push.sendToStudents(ids, payload) as [ids, payload].
+const notices = [];
+let noticeSeq = 0;
+const matchesAll = (doc, filter) => Object.entries(filter).every(([k, v]) => String(doc[k]) === String(v));
+const noticeStore = {
+  async get(filter = {}) { return { success: true, result: notices.filter((n) => matchesAll(n, filter)).map((n) => ({ ...n })) }; },
+  async create(data) { noticeSeq += 1; const doc = { _id: noticeSeq.toString(16).padStart(24, "0"), ...data }; notices.push(doc); return { success: true, result: { ...doc } }; },
+  async delete(filter) { const before = notices.length; for (let i = notices.length - 1; i >= 0; i -= 1) if (matchesAll(notices[i], filter)) notices.splice(i, 1); return { success: true, result: { deletedCount: before - notices.length } }; },
+};
+const pushes = [];
+const push = { sendToStudents: async (ids, payload) => { pushes.push([Array.from(ids || [], String), payload]); return { sent: 0, removed: 0 }; } };
 const requireFreeOrMine = () => (req, res, next) => next();
 const deps = {};
 for (const suffix of ["", ".js"]) {
@@ -28,6 +40,8 @@ for (const suffix of ["", ".js"]) {
   deps[`../../services/playerPhotoJob${suffix}`] = { playerPhotoJob, cutoutReady };
   deps[`../../utils/photoVersion${suffix}`] = { photoVersion };
   deps[`./SportPlayerPhoto.model${suffix}`] = { SportPlayerPhotoModelDef: noPhotos };
+  deps[`./SportNotice.model${suffix}`] = { SportNoticeModelDef: noticeStore };
+  deps[`../../utils/push${suffix}`] = { push };
 }
 
-module.exports = { deps, changes, students, holders, photoJobs };
+module.exports = { deps, changes, students, holders, photoJobs, notices, pushes };

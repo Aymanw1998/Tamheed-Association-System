@@ -14,11 +14,13 @@ const { notifyCardChanged } = require("../../utils/cardPush");
 const { checkVersion, editorStamp, sameVersion, nextStamp, raceLost, holderOf, lockedAnswer } = require("../../middleware/lockGuard");
 const { notifyChange, liveHub } = require("../../services/liveHub");
 const { SportPlayerPhotoModelDef } = require("./SportPlayerPhoto.model");
+const { SportNoticeModelDef } = require("./SportNotice.model");
+const { push } = require("../../utils/push");
 const { playerPhotoJob, cutoutReady } = require("../../services/playerPhotoJob");
 const { photoVersion } = require("../../utils/photoVersion");
 
 const SERVER_ERROR = "حدث خطأ غير متوقع، حاول مرة أخرى";
-const NOT_FOUND = { student: "الطالب غير موجود", player: "اللاعب غير موجود", lesson: "الدرس غير موجود" };
+const NOT_FOUND = { student: "الطالب غير موجود", player: "اللاعب غير موجود", lesson: "الدرس غير موجود", notice: "الإعلان غير موجود" };
 const SPORT_ROOM = "9";
 const DAY_NAMES = ["", "الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
 const STATUSES = ["حاضر", "غائب", "متأخر"];
@@ -591,7 +593,82 @@ const todayLessons = handle("todayLessons", async (req, res) => {
   return res.status(200).json({ ok: true, date, lessons });
 });
 
+/* ---------- notices ---------- */
+
+const NOTICE_TITLE_MAX = 80;
+const NOTICE_BODY_MAX = 1000;
+const newestFirst = (a, b) => new Date(b.createdAt) - new Date(a.createdAt);
+const noticeOut = (n, lessonsById) => ({
+  _id: String(n._id), title: n.title, body: n.body || "", createdAt: n.createdAt,
+  lessonId: n.lessonId || null, lessonName: n.lessonId ? lessonsById.get(String(n.lessonId))?.name || null : null,
+  expiresOn: n.expiresOn || null, createdBy: n.createdBy?.name || "",
+});
+// The players a notice reaches: one lesson's roster, or every player of the sport.
+async function noticeAudience(sportId, lessonId, lessons) {
+  if (lessonId) return playerIdsOf(lessons.find((l) => String(l._id) === String(lessonId)));
+  return rows(await SportPlayerModelDef.get({ sportId })).map((p) => String(p.studentId));
+}
+// Best effort: a failed push never fails the save.
+const sendNoticePush = (studentIds, title) =>
+  Promise.resolve()
+    .then(() => push.sendToStudents(studentIds, { title: "تمهيد - رياضة", body: `إعلان جديد: ${title}`, url: "/?tab=notices" }))
+    .catch((err) => logWithSource("Sport.noticePush", err));
+
+const listNotices = handle("listNotices", async (req, res) => {
+  const sport = await ensureFootball();
+  const sportId = String(sport._id);
+  const [notices, lessons] = await Promise.all([SportNoticeModelDef.get({ sportId }), SportLessonModelDef.get({ sportId })]);
+  const byId = new Map(rows(lessons).map((l) => [String(l._id), l]));
+  const today = israelToday(new Date());
+  const out = rows(notices).sort(newestFirst).map((n) => ({ ...noticeOut(n, byId), expired: Boolean(n.expiresOn && n.expiresOn < today) }));
+  return res.status(200).json({ ok: true, notices: out });
+});
+
+const createNotice = handle("createNotice", async (req, res) => {
+  const title = text(req.body?.title);
+  const body = text(req.body?.body);
+  const lessonId = text(req.body?.lessonId) || null;
+  const expiresOn = text(req.body?.expiresOn) || null;
+  if (!title) return fail(res, 400, "عنوان الإعلان مطلوب");
+  if ([...title].length > NOTICE_TITLE_MAX) return fail(res, 400, `العنوان طويل جدًا (حتى ${NOTICE_TITLE_MAX} حرفًا)`);
+  if ([...body].length > NOTICE_BODY_MAX) return fail(res, 400, `النص طويل جدًا (حتى ${NOTICE_BODY_MAX} حرف)`);
+  // A real calendar day (2027-02-31 does not round-trip), today or later.
+  const realDay = (d) => DATE_RE.test(d) && !Number.isNaN(Date.parse(d)) && new Date(`${d}T00:00:00Z`).toISOString().slice(0, 10) === d;
+  if (expiresOn && (!realDay(expiresOn) || expiresOn < israelToday(new Date()))) {
+    return fail(res, 400, "تاريخ الانتهاء غير صحيح");
+  }
+  const sport = await ensureFootball();
+  const sportId = String(sport._id);
+  const lessons = rows(await SportLessonModelDef.get({ sportId }));
+  if (lessonId && !lessons.some((l) => String(l._id) === lessonId)) return fail(res, 400, NOT_FOUND.lesson);
+  const created = await SportNoticeModelDef.create({
+    sportId, title, body, lessonId, expiresOn,
+    createdBy: { id: req.actor?.id || null, name: req.actor?.name || "" }, createdAt: new Date(),
+  });
+  const notice = created?.result;
+  await record(req, "create", "notice", notice, title);
+  notifyChange("sportNotice", notice?._id);
+  const audience = await noticeAudience(sportId, lessonId, lessons);
+  tellStudents(audience);
+  sendNoticePush(audience, title);
+  return res.status(201).json({ ok: true, notice: noticeOut(notice, new Map(lessons.map((l) => [String(l._id), l]))) });
+});
+
+const deleteNotice = handle("deleteNotice", async (req, res) => {
+  const sport = await ensureFootball();
+  const sportId = String(sport._id);
+  const notice = await findOne(SportNoticeModelDef, req.params.id);
+  if (!notice || String(notice.sportId) !== sportId) return fail(res, 404, NOT_FOUND.notice);
+  await SportNoticeModelDef.delete({ _id: String(notice._id) });
+  await record(req, "delete", "notice", null, notice.title, notice);
+  notifyChange("sportNotice", notice._id);
+  const lessons = rows(await SportLessonModelDef.get({ sportId }));
+  tellStudents(await noticeAudience(sportId, notice.lessonId, lessons));
+  return res.status(200).json({ ok: true });
+});
+
 module.exports = {
   ensureFootball, getSport, setStats, listPlayers, searchStudents, savePlayer, deletePlayer, playerPhoto, bumpStat,
   listLessons, createLesson, updateLesson, deleteLesson, addLessonPlayer, removeLessonPlayer, getAttendance, saveAttendance, todayLessons,
+  listNotices, createNotice, deleteNotice,
 };

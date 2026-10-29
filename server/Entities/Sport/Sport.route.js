@@ -35,6 +35,9 @@ router.post("/lessons/:id/players", requirePermission("sports.coach", "sports.ma
 router.delete("/lessons/:id/players/:studentId", requirePermission("sports.coach", "sports.manage"), lockedLesson, controller.removeLessonPlayer);
 router.get("/lessons/:id/attendance", requirePermission("sports.view", "sports.coach", "sports.manage"), controller.getAttendance);
 router.put("/lessons/:id/attendance", requirePermission("sports.coach", "sports.manage"), lockedSheet, controller.saveAttendance);
+router.get("/notices", requirePermission("sports.view", "sports.coach", "sports.manage"), controller.listNotices);
+router.post("/notices", requirePermission("sports.coach", "sports.manage"), controller.createNotice);
+router.delete("/notices/:id", requirePermission("sports.coach", "sports.manage"), controller.deleteNotice);
 router.get("/attendance/today", requirePermission("sports.view", "sports.coach", "sports.manage"), controller.todayLessons);
 
 module.exports = router;

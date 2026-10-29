@@ -25,6 +25,7 @@ const RULES = {
   // The lesson schedule shows sport lessons too (GET /lesson/sport-schedule).
   sportLesson: (actor) => anyOf(actor, [...SPORT_VIEW, "lessons.view"]),
   sportAttendance: (actor) => anyOf(actor, SPORT_VIEW),
+  sportNotice: (actor) => anyOf(actor, SPORT_VIEW),
   report: (actor, id, { audience }) => anyOf(actor, ["reports.viewAll"]) || isMe(actor, audience?.owner),
   user: (actor, id) => anyOf(actor, ["users.view"]) || String(actor?.id ?? "") === String(id),
   vehicle: (actor) => hasVehiclePermission(actor, "view"),

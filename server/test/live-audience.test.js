@@ -37,3 +37,9 @@ test("sport events reach the sport staff; unknown kinds and types reach nobody",
   assert.equal(mayReceive(ADMIN, "storage", { entity: "student", id: "s1" }), false);
   assert.equal(mayReceive(null, "change", { entity: "lesson", id: "L1" }), false);
 });
+
+test("notice changes reach the sport staff only", () => {
+  assert.equal(mayReceive(COACH, "change", { entity: "sportNotice", id: "n1" }), true);
+  assert.equal(mayReceive(GUIDE, "change", { entity: "sportNotice", id: "n1" }), false);
+  assert.equal(mayReceive(ADMIN, "change", { entity: "sportNotice", id: "n1" }), false);
+});

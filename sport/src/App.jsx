@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { getMe, logout } from "./api.js";
+import { getMe, getNotices, logout } from "./api.js";
 import LoginPage from "./LoginPage.jsx";
 import HomePage from "./HomePage.jsx";
-import LessonsPage from "./LessonsPage.jsx";
+import NoticesPage from "./NoticesPage.jsx";
+import { markSeen, readSeen, unseenCount } from "./noticesSeen";
 import StadiumHeader from "./StadiumHeader.jsx";
 import BottomTabs from "./BottomTabs.jsx";
 import { Ball } from "./Art.jsx";
@@ -23,7 +24,13 @@ async function endSession() {
 export default function App() {
   const [state, setState] = useState("loading"); // loading | out | in | error
   const [me, setMe] = useState(null);
-  const [tab, setTab] = useState("home");
+  // A notice push opens the site on /?tab=notices.
+  const [tab, setTab] = useState(() => (new URLSearchParams(window.location.search).get("tab") === "notices" ? "notices" : "home"));
+  // The notices with the student they were read for: only that student's
+  // list is ever shown or marked seen.
+  const [noticeBox, setNoticeBox] = useState({ key: "", list: [] });
+  const [noticesFailed, setNoticesFailed] = useState(false);
+  const [seenBefore, setSeenBefore] = useState(0);
   const [guideOpen, setGuideOpen] = useState(false);
 
   const closeGuide = () => {
@@ -88,10 +95,56 @@ export default function App() {
       // On a network failure we still leave the screen.
     }
     setMe(null);
+    setNoticeBox({ key: "", list: [] });
     setTab("home");
     setGuideOpen(false);
     setState("out");
   };
+
+  // Another student signed in (on a shared phone, or in another tab): nothing
+  // of the previous one stays, and the "seen" marks are this student's.
+  const studentKey = me?.student?.key || "";
+  const notices = noticeBox.key === studentKey ? noticeBox.list : [];
+  useEffect(() => {
+    setNoticesFailed(false);
+    setSeenBefore(readSeen(studentKey));
+  }, [studentKey]);
+
+  // The notices are read again with every new card (sign-in, return to the
+  // app, a live change). Best effort: the card shows even when they fail; a
+  // 401 ends the session like /me does.
+  useEffect(() => {
+    if (state !== "in") return undefined;
+    let gone = false;
+    const owner = studentKey;
+    Promise.resolve()
+      .then(() => getNotices())
+      .then((r) => {
+        if (gone) return;
+        if (r.ok) {
+          setNoticeBox({ key: owner, list: r.data?.notices || [] });
+          setNoticesFailed(false);
+        } else if (r.status === 401) {
+          setNoticeBox({ key: "", list: [] });
+          setState("out");
+          endSession();
+        } else setNoticesFailed(true);
+      })
+      .catch(() => !gone && setNoticesFailed(true));
+    return () => {
+      gone = true;
+    };
+  }, [state, me, studentKey]);
+
+  // Opening the notices tab marks what is there as seen; the "new" marks stay
+  // for this visit (seenBefore is read when the tab opens).
+  const openTab = (next) => {
+    if (next === "notices" && tab !== "notices") setSeenBefore(readSeen(studentKey));
+    setTab(next);
+  };
+  useEffect(() => {
+    if (tab === "notices" && noticeBox.key === studentKey) markSeen(noticeBox.list, studentKey);
+  }, [tab, noticeBox, studentKey]);
 
   const chrome = <AppChrome aboveTabs={state === "in"} />;
   if (state === "loading") {
@@ -118,9 +171,9 @@ export default function App() {
     <div className="app">
       <StadiumHeader firstname={me.student.firstname} onLogout={onLogout} onHelp={() => setGuideOpen(true)} />
       <main className="content">
-        {tab === "home" ? <HomePage me={me} /> : <LessonsPage me={me} />}
+        {tab === "home" ? <HomePage me={me} /> : <NoticesPage notices={notices} seenBefore={seenBefore} failed={noticesFailed} />}
       </main>
-      <BottomTabs tab={tab} onChange={setTab} />
+      <BottomTabs tab={tab} onChange={openTab} badges={{ notices: tab === "notices" ? 0 : unseenCount(notices, readSeen(studentKey)) }} />
       {chrome}
       {guideOpen && <FirstVisitGuide firstname={me.student.firstname} gender={me.student.gender} onClose={closeGuide} />}
     </div>

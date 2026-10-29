@@ -34,6 +34,8 @@ async function call(path, options = {}) {
 
 export const getMe = () => call("/me");
 // The student's own ID number: never kept offline (see pwa/shouldCache.js).
+// The staff's notices to this student; not kept offline either.
+export const getNotices = () => call("/notices", { cache: "no-store" });
 export const getIdNumber = () => call("/id", { cache: "no-store" });
 export const requestCode = (tz) => call("/request-code", { method: "POST", body: JSON.stringify({ tz }) });
 export const verifyCode = (tz, code) => call("/verify", { method: "POST", body: JSON.stringify({ tz, code }) });

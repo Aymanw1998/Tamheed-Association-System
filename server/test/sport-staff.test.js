@@ -163,7 +163,8 @@ test("the route table is exactly the football staff API", () => {
     "GET /players/:studentId/photo", "PUT /players/:studentId", "DELETE /players/:studentId", "POST /players/:studentId/stats",
     "GET /lessons", "POST /lessons", "PUT /lessons/:id", "DELETE /lessons/:id",
     "POST /lessons/:id/players", "DELETE /lessons/:id/players/:studentId",
-    "GET /lessons/:id/attendance", "PUT /lessons/:id/attendance", "GET /attendance/today",
+    "GET /lessons/:id/attendance", "PUT /lessons/:id/attendance",
+    "GET /notices", "POST /notices", "DELETE /notices/:id", "GET /attendance/today",
   ]);
 });
 
@@ -545,4 +546,61 @@ test("GET /players names the student's mentor (main_teacher), or nothing", async
   const byId = new Map(r.body.players.map((p) => [p.studentId, p]));
   assert.equal(byId.get(sid(1)).mentor, "إبراهيم الوهباني");
   assert.equal(byId.get(sid(2)).mentor, "");
+});
+
+/* ---------- notices ---------- */
+
+test("a coach posts a notice to every player: saved, announced, pushed to all players", async () => {
+  const ctx = world();
+  live.notices.length = 0;
+  live.pushes.length = 0;
+  live.students.length = 0;
+  const r = await call(ctx, COACH, "post", "/notices", { body: { title: "  تدريب إضافي  ", body: "يوم الجمعة" } });
+  assert.equal(r.statusCode, 201);
+  assert.equal(r.body.notice.title, "تدريب إضافي");
+  assert.equal(r.body.notice.lessonId, null);
+  assert.equal(live.notices.length, 1);
+  await new Promise((done) => setImmediate(done));
+  const everyone = ctx.players.all().map((p) => String(p.studentId)).sort();
+  assert.deepEqual(live.pushes.map(([ids]) => ids.sort()), [everyone]);
+  assert.match(live.pushes[0][1].body, /تدريب إضافي/);
+  assert.deepEqual(live.students[0][0].sort(), everyone);
+});
+
+test("a notice to one lesson reaches only that lesson's players", async () => {
+  const ctx = world();
+  live.notices.length = 0;
+  live.pushes.length = 0;
+  const lesson = ctx.lessons.all().find((l) => String(l._id) === LESSON_A);
+  const r = await call(ctx, MANAGER, "post", "/notices", { body: { title: "x", lessonId: LESSON_A } });
+  assert.equal(r.statusCode, 201);
+  assert.equal(r.body.notice.lessonName, lesson.name);
+  await new Promise((done) => setImmediate(done));
+  assert.deepEqual(live.pushes[0][0].sort(), (lesson.players || []).map((p) => String(p.studentId)).sort());
+});
+
+test("notices are validated: title, lengths, lesson and end date", async () => {
+  const ctx = world();
+  for (const body of [{}, { title: "  " }, { title: "x".repeat(81) }, { title: "x", body: "y".repeat(1001) },
+    { title: "x", lessonId: "f".repeat(24) }, { title: "x", expiresOn: "2020-01-01" }, { title: "x", expiresOn: "soon" },
+    { title: "x", expiresOn: "2099-02-31" }, { title: "x", expiresOn: "2099-04-31" }, { title: "x", expiresOn: "2099-02-29" }]) {
+    const r = await call(ctx, COACH, "post", "/notices", { body });
+    assert.equal(r.statusCode, 400, JSON.stringify(body));
+  }
+});
+
+test("a viewer reads notices but cannot post or delete; a coach deletes", async () => {
+  const ctx = world();
+  live.notices.length = 0;
+  const made = await call(ctx, COACH, "post", "/notices", { body: { title: "x" } });
+  const list = await call(ctx, VIEWER, "get", "/notices");
+  assert.equal(list.statusCode, 200);
+  assert.equal(list.body.notices.length, 1);
+  assert.equal(list.body.notices[0].expired, false);
+  assert.equal((await call(ctx, VIEWER, "post", "/notices", { body: { title: "y" } })).statusCode, 403);
+  const id = made.body.notice._id;
+  assert.equal((await call(ctx, VIEWER, "delete", "/notices/:id", { params: { id } })).statusCode, 403);
+  assert.equal((await call(ctx, COACH, "delete", "/notices/:id", { params: { id } })).statusCode, 200);
+  assert.equal(live.notices.length, 0);
+  assert.equal((await call(ctx, COACH, "delete", "/notices/:id", { params: { id } })).statusCode, 404);
 });

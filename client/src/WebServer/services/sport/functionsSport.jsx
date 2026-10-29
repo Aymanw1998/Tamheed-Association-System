@@ -45,6 +45,11 @@ export const getPlayerPhoto = async (studentId) => {
 export const bumpStat = (studentId, key, delta) =>
   call(() => api.post(`${namespace}/players/${enc(studentId)}/stats`, { key, delta }));
 
+// Notices to the players.
+export const getNotices = () => call(() => api.get(`${namespace}/notices`));
+export const createNotice = (payload) => call(() => api.post(`${namespace}/notices`, payload));
+export const deleteNotice = (id) => call(() => api.delete(`${namespace}/notices/${enc(id)}`));
+
 // Lessons.
 export const getLessons = () => call(() => api.get(`${namespace}/lessons`));
 export const createLesson = (payload) => call(() => api.post(`${namespace}/lessons`, payload));

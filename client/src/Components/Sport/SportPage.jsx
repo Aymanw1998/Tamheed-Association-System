@@ -6,6 +6,7 @@ import PlayersTab from "./PlayersTab";
 import StatsSettingsTab from "./StatsSettingsTab";
 import LessonsTab from "./LessonsTab";
 import AttendanceTab from "./AttendanceTab";
+import NoticesTab from "./NoticesTab";
 import styles from "./Sport.module.css";
 
 export default function SportPage() {
@@ -31,7 +32,7 @@ export default function SportPage() {
   useEffect(() => { load(); }, [load]);
 
   const tabs = useMemo(
-    () => ["players", "lessons", "attendance", ...(canManage ? ["settings"] : [])],
+    () => ["players", "lessons", "attendance", "notices", ...(canManage ? ["settings"] : [])],
     [canManage],
   );
   const props = { ...data, canManage, canCoach, reload: load };
@@ -53,6 +54,7 @@ export default function SportPage() {
           {tab === "players" && <PlayersTab {...props} />}
           {tab === "lessons" && <LessonsTab {...props} />}
           {tab === "attendance" && <AttendanceTab {...props} />}
+          {tab === "notices" && <NoticesTab {...props} />}
           {tab === "settings" && canManage && <StatsSettingsTab {...props} />}
         </>
       )}

@@ -16,6 +16,7 @@ router.post("/logout", auth.logout);
 router.get("/me", auth.requireSportStudent, portal.me);
 router.get("/photo", auth.requireSportStudent, portal.photo);
 router.get("/id", auth.requireSportStudent, portal.idNumber);
+router.get("/notices", auth.requireSportStudent, portal.notices);
 // SSE: tells the open sport site to reload /me when staff change the player.
 router.get("/live", auth.requireSportStudent, createSportLive());
 

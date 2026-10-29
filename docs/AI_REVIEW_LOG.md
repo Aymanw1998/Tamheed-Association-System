@@ -2373,7 +2373,7 @@ All five are fixed in the changes above (`{ updatedAt: null }` plus lessons crea
 
 **Verification:** the PDF preview tests passed 10/10. The full client run passed 673/674; the one failure is the known `JourneyProvider.test.js` timeout. **Not tested:** a real iPhone, including whether Print appears in the share sheet.
 
-**Status:** Codex review complete; nothing committed or deployed.
+**Status:** Codex review complete; committed in 4a2dc2f. Not deployed by Claude.
 
 ## 2026-10-29: In-app user guide, stage 1 (structure and three screens)
 
@@ -2501,4 +2501,52 @@ All five are fixed in the changes above (`{ updatedAt: null }` plus lessons crea
 - Rendered cards were checked in the browser as a static page.
 - **Not tested:** the Ubuntu server (installing `sharp` and `onnxruntime-node`, downloading the model, memory), a real iPhone (mask and clip-path), and the signed-in app with real students.
 
-**Status:** Codex review complete; nothing committed or deployed.
+**Status:** Codex review complete; committed in 484a4c8. Not deployed by Claude.
+
+## 2026-10-29: Sport notices (the «دروسي» tab replaced)
+
+**Owner request:**
+- The sport site gets one main screen and notices.
+- The «دروسي» tab is removed and notices take its place.
+- In the Tamheed staff system's sport section, staff post important notices for distribution.
+
+The owner approved these defaults:
+- A coach or manager posts; viewers read.
+- A notice goes to every player or to one lesson's players.
+- An optional end date.
+- A push to the players it reaches.
+- New notices are marked on the sport site.
+- Posting and deleting only, no editing.
+
+**Changes (uncommitted):**
+- **Server:**
+  - `SportNotice.model.js`.
+  - `Sport.controller.js`: `listNotices`, `createNotice`, `deleteNotice`, with an audience and a best-effort push.
+  - `Sport.route.js`: `GET/POST /api/sports/notices` and `DELETE /notices/:id`.
+  - The portal's `GET /api/sport-portal/notices`: only this player's notices (sport-wide or a lesson they are in), not expired, newest first, at most 50, `no-store`.
+  - `liveAudience.js`: a `sportNotice` rule for sport staff.
+  - The portal's `/me` returns an opaque `student.key`, so the app can tell sign-ins apart on a shared phone.
+- **Staff client:** a «الإعلانات» tab (`NoticesTab.jsx`) to post, list and delete notices. The sports entry of the user guide is updated (`2026-10-29a`).
+- **Sport site:**
+  - `NoticesPage.jsx` replaces `LessonsPage.jsx` (deleted).
+  - The bottom tab has a counter of new notices.
+  - A notice push opens `/?tab=notices`.
+  - Seen marks are kept per student key (`noticesSeen.js`).
+  - The notices are never in the offline cache.
+  - The first-visit guide text is updated.
+
+**Codex review (2026-10-29, Codex CLI, gpt-6-astra, read-only):**
+- **Round 1:**
+  - **P1:** a previous student's notices could stay visible after another sign-in on the same phone.
+  - **P2:** staff live refresh never fired, because `liveAudience` had no `sportNotice` rule.
+  - **P2:** one device-wide "seen" time hid one student's new notices after another student read theirs.
+  - **P3:** impossible end dates such as 2027-02-31 were accepted.
+- **Round 2:** findings 1, 2 and 4 resolved; finding 3 "partly". During an account switch, A's list could be marked seen under B's key. Fixed by tagging each list with the key it was read for.
+- **Round 3:** pending. Codex hit its usage limit before answering (available again at 22:16). **Not reviewed yet:** the `noticeBox` fix in `sport/src/App.jsx`.
+
+**Verification:**
+- Server 971/971, sport site 62/62, client 700/700 (the flaky `JourneyProvider` test failed once and passed on rerun). Both builds compiled.
+- The notices page was checked at phone width as a static render.
+- **Not tested:** the signed-in staff tab, a real push on a phone, the live Ubuntu server.
+
+**Status:** waiting for Codex round 3; nothing committed or deployed. The previous commit 484a4c8 was not yet pushed when this entry was written (`git push` was waiting for the owner's GitHub sign-in).

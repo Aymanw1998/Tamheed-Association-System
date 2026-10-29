@@ -3,10 +3,10 @@ import { createRoot } from "react-dom/client";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
-jest.mock("./api.js", () => ({ getMe: jest.fn(), logout: jest.fn() }));
+jest.mock("./api.js", () => ({ getMe: jest.fn(), getNotices: jest.fn().mockResolvedValue({ ok: true, status: 200, data: { notices: [] } }), logout: jest.fn() }));
 jest.mock("./LoginPage.jsx", () => () => <div>login</div>);
 jest.mock("./HomePage.jsx", () => () => <div>home</div>);
-jest.mock("./LessonsPage.jsx", () => () => <div>lessons</div>);
+jest.mock("./NoticesPage.jsx", () => () => <div>notices</div>);
 jest.mock("./StadiumHeader.jsx", () => () => <div>header</div>);
 jest.mock("./BottomTabs.jsx", () => () => <div>tabs</div>);
 jest.mock("./guide/FirstVisitGuide.jsx", () => () => <div>guide</div>);

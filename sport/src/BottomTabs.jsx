@@ -1,11 +1,12 @@
-import { HomeIcon, CalendarIcon } from "./Art.jsx";
+import { HomeIcon, BellIcon } from "./Art.jsx";
 
 const TABS = [
   { id: "home", label: "الرئيسية", Icon: HomeIcon },
-  { id: "lessons", label: "دروسي", Icon: CalendarIcon },
+  { id: "notices", label: "الإعلانات", Icon: BellIcon },
 ];
 
-export default function BottomTabs({ tab, onChange }) {
+// `badges` holds a count per tab id (new notices); 0 shows nothing.
+export default function BottomTabs({ tab, onChange, badges = {} }) {
   return (
     <nav className="tabs">
       {TABS.map(({ id, label, Icon }) => (
@@ -17,7 +18,10 @@ export default function BottomTabs({ tab, onChange }) {
           onClick={() => onChange(id)}
         >
           <Icon />
-          <span>{label}</span>
+          <span>
+            {label}
+            {badges[id] > 0 && <em className="tab-badge" aria-label={`${badges[id]} جديد`}>{badges[id]}</em>}
+          </span>
         </button>
       ))}
     </nav>
