@@ -38,6 +38,32 @@ async function send(method, subscription) {
   if (!res.ok) throw new Error("subscribe failed");
 }
 
+// Whether the system sends phone notifications at all (an admin switch on the
+// server: the key is null while it is off). False on any failure.
+export async function pushOnServer() {
+  try {
+    const res = await fetch(KEY_URL, { credentials: "same-origin", cache: "no-store" });
+    const data = res.ok ? await res.json() : null;
+    return Boolean(data?.ok && data.key);
+  } catch {
+    return false;
+  }
+}
+
+// Tells the server again about this device's existing subscription (the
+// first POST may have failed). Idempotent on the server. True when it is known there.
+export async function resyncSport() {
+  try {
+    if (!pushSupported()) return false;
+    const { sub } = await currentSubscription();
+    if (!sub) return false;
+    await send("POST", sub.toJSON());
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function isSubscribed() {
   try {
     if (!pushSupported()) return false;

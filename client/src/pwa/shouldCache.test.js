@@ -19,6 +19,8 @@ describe("shouldCache", () => {
     ["/api/locks/student%3A1", "GET"],
     ["/api/LOCKS/student:1", "GET"],
     ["/api/invitetoken/validate", "GET"],
+    ["/api/push/key", "GET"],
+    ["/api/push/settings", "GET"],
     ["/api/vehicle/12/documents/5/download", "GET"],
     ["/api/storage-backend/file/1", "GET"],
     ["/static/x.js", "GET"],

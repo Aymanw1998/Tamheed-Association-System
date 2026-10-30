@@ -160,6 +160,8 @@ const EXACT_GUARDS = {
   },
   "Vehicle/Vehicle.route.js": { "DELETE /:id": "vehicles.delete" },
   "Lock/Lock.route.js": { "POST /force-release": "permissions.manage" },
+  // The system-wide phone notifications switch.
+  "Push/Push.route.js": { "GET /settings": "permissions.manage", "PUT /settings": "permissions.manage" },
   "Notice/Notice.route.js": { "POST /:id/archive": "notices.post" },
   "Lesson/Lesson.route.js": {
     "POST /copy-month": "lessons.copyMonth",

@@ -104,7 +104,7 @@ test("with no VAPID keys every send is a no-op and webpush is never called", asy
   const webpush = stubWebpush();
   const subscriptions = memoryStore([{ kind: "staff", tz: "111", ...sub(1) }, { kind: "sport", studentId: "s1", ...sub(2) }]);
   const push = createPush({ webpush, subscriptions, env: {} });
-  assert.equal(push.publicKey(), null);
+  assert.equal(await push.publicKey(), null);
   assert.deepEqual(await push.sendToStaff(["111"], { title: "t", body: "b", url: "/" }), { sent: 0, removed: 0 });
   assert.deepEqual(await push.sendToStudents(["s1"], { title: "t", body: "b", url: "/" }), { sent: 0, removed: 0 });
   assert.equal(webpush.calls.length, 0);
@@ -137,7 +137,8 @@ function staffApp(store, push) {
   const loadActor = (req, res, next) => { req.actor = { tz: req.user.tz }; next(); };
   const app = express();
   app.use(express.json());
-  app.use("/api/push", createPushRouter({ requireAuth, loadActor, store, push }));
+  const requirePermission = (key) => (req, res, next) => (req.headers["x-perm"] === key ? next() : res.status(403).json({ code: "FORBIDDEN" }));
+  app.use("/api/push", createPushRouter({ requireAuth, loadActor, requirePermission, store, push }));
   return app;
 }
 
@@ -254,6 +255,7 @@ test("length limits answer 400; a missing actor tz answers 401", async () => {
   noTz.use("/api/push", createPushRouter({
     requireAuth: (req, res, next) => { req.user = {}; next(); },
     loadActor: (req, res, next) => { req.actor = {}; next(); },
+    requirePermission: () => (req, res, next) => next(),
     store, push,
   }));
   const second = await serve(noTz);
@@ -292,4 +294,126 @@ test("a failed send is logged once with status and host only", async () => {
   assert.match(lines[0], /500@fcm.googleapis.com/);
   assert.match(lines[0], /429@fcm.googleapis.com/);
   assert.ok(!lines[0].includes("/fcm/send/") && !lines[0].includes("p1"));
+});
+
+// The admin switch: one row, keys made on the first switch-on when the
+// environment has none.
+function memorySettings(row = null) {
+  const box = { row, reads: 0 };
+  return Object.assign(box, {
+    async read() { box.reads += 1; return box.row && { ...box.row }; },
+    async write(data) { box.row = { ...(box.row || {}), ...data }; },
+  });
+}
+const keyMaker = () => {
+  let n = 0;
+  return Object.assign(stubWebpush(), { generateVAPIDKeys: () => { n += 1; return { publicKey: `made-pub-${n}`, privateKey: `made-priv-${n}` }; } });
+};
+
+test("no keys and no row: off; switching on makes keys once, off keeps them, on again reuses them", async () => {
+  const webpush = keyMaker();
+  const settings = memorySettings();
+  const subscriptions = memoryStore([{ kind: "staff", tz: "111", ...sub(1) }]);
+  const push = createPush({ webpush, subscriptions, settings, env: {} });
+  assert.deepEqual(await push.status(), { enabled: false, keysFrom: "none" });
+  assert.equal(await push.publicKey(), null);
+
+  assert.deepEqual(await push.setEnabled(true, { subject: "https://example.org", by: "900" }), { enabled: true, keysFrom: "server" });
+  assert.equal(await push.publicKey(), "made-pub-1");
+  assert.equal(settings.row.updatedBy, "900");
+  await push.sendToStaff(["111"], { title: "t", body: "b", url: "/" });
+  assert.deepEqual(webpush.calls[0].options.vapidDetails, { subject: "https://example.org", publicKey: "made-pub-1", privateKey: "made-priv-1" });
+
+  assert.deepEqual(await push.setEnabled(false), { enabled: false, keysFrom: "server" });
+  assert.equal(await push.publicKey(), null);
+  assert.deepEqual(await push.sendToStaff(["111"], { title: "t", body: "b", url: "/" }), { sent: 0, removed: 0 });
+  assert.equal(webpush.calls.length, 1);
+
+  await push.setEnabled(true, { subject: "https://other.org" });
+  assert.equal(await push.publicKey(), "made-pub-1");
+  assert.equal(settings.row.subject, "https://example.org");
+});
+
+test("keys in the environment: on with no row, the switch turns them off and on, nothing is stored", async () => {
+  const webpush = keyMaker();
+  const settings = memorySettings();
+  const push = createPush({ webpush, subscriptions: memoryStore(), settings, env: ENV });
+  assert.deepEqual(await push.status(), { enabled: true, keysFrom: "env" });
+  assert.equal(await push.publicKey(), "pub-key");
+  await push.setEnabled(false);
+  assert.equal(await push.publicKey(), null);
+  assert.equal(settings.row.privateKey, undefined);
+  await push.setEnabled(true);
+  assert.equal(await push.publicKey(), "pub-key");
+  assert.equal(settings.row.privateKey, undefined);
+});
+
+test("another process's switch is read again after 30 seconds; a failed read means off", async () => {
+  let clock = 0;
+  const settings = memorySettings({ enabled: true, publicKey: "p", privateKey: "k", subject: "https://x.org" });
+  const push = createPush({ webpush: keyMaker(), subscriptions: memoryStore(), settings, env: {}, now: () => clock });
+  assert.equal(await push.publicKey(), "p");
+  settings.row.enabled = false;
+  clock = 29 * 1000;
+  assert.equal(await push.publicKey(), "p");
+  clock = 31 * 1000;
+  assert.equal(await push.publicKey(), null);
+
+  const broken = createPush({ webpush: keyMaker(), subscriptions: memoryStore(), settings: { read: async () => { throw new Error("db down"); } }, env: ENV });
+  assert.equal(await broken.publicKey(), null);
+});
+
+test("GET/PUT /api/push/settings: permissions.manage only, a boolean only, never the keys", async () => {
+  const settings = memorySettings();
+  const push = createPush({ webpush: keyMaker(), subscriptions: memoryStore(), settings, env: {} });
+  const { server, base } = await serve(staffApp(memoryStore(), push));
+  const put = (body, headers) => fetch(`${base}/api/push/settings`, { method: "PUT", headers: { "content-type": "application/json", ...headers }, body: JSON.stringify(body) });
+  const admin = { "x-tz": "900", "x-perm": "permissions.manage" };
+  try {
+    assert.equal((await fetch(`${base}/api/push/settings`)).status, 401);
+    assert.equal((await fetch(`${base}/api/push/settings`, { headers: { "x-tz": "111" } })).status, 403);
+    assert.equal((await put({ enabled: true }, { "x-tz": "111" })).status, 403);
+    assert.equal(settings.row, null);
+    assert.equal((await put({ enabled: "yes" }, admin)).status, 400);
+
+    const on = await put({ enabled: true }, admin);
+    assert.equal(on.status, 200);
+    const text = await on.text();
+    assert.deepEqual(JSON.parse(text), { ok: true, enabled: true, keysFrom: "server" });
+    assert.ok(!text.includes("made-priv") && !text.includes("made-pub"));
+    assert.equal(settings.row.subject, base.replace("http://", "https://"));
+    assert.deepEqual(await (await fetch(`${base}/api/push/settings`, { headers: admin })).json(), { ok: true, enabled: true, keysFrom: "server" });
+    const key = await fetch(`${base}/api/push/key`);
+    assert.equal(key.headers.get("cache-control"), "no-store");
+    assert.deepEqual(await key.json(), { ok: true, key: "made-pub-1" });
+  } finally { server.close(); }
+});
+
+test("two first switch-ons at once make one key pair", async () => {
+  const webpush = keyMaker();
+  const settings = memorySettings();
+  const slowRead = settings.read;
+  settings.read = async () => { await new Promise((r) => setTimeout(r, 5)); return slowRead(); };
+  const push = createPush({ webpush, subscriptions: memoryStore(), settings, env: {} });
+  await Promise.all([push.setEnabled(true, { subject: "https://a.org" }), push.setEnabled(true, { subject: "https://a.org" })]);
+  assert.equal(settings.row.publicKey, "made-pub-1");
+  assert.equal(await push.publicKey(), "made-pub-1");
+});
+
+test("a read that started before a switch-off does not bring the old state back", async () => {
+  const settings = memorySettings({ enabled: true, publicKey: "p", privateKey: "k", subject: "https://x.org" });
+  const plainRead = settings.read;
+  let release;
+  settings.read = async () => {
+    const row = await plainRead();
+    if (release === undefined) await new Promise((r) => { release = r; });
+    return row;
+  };
+  const push = createPush({ webpush: keyMaker(), subscriptions: memoryStore(), settings, env: {} });
+  const early = push.publicKey(); // stalls holding enabled: true
+  await new Promise((r) => setImmediate(r));
+  await push.setEnabled(false);
+  release();
+  assert.equal(await early, "p");
+  assert.equal(await push.publicKey(), null);
 });

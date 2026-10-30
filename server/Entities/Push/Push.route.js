@@ -1,10 +1,13 @@
 const express = require("express");
 const { requireAuth } = require("../../middleware/authMiddleware");
-const { loadActor } = require("../../middleware/permissionMiddleware");
+const { loadActor, requirePermission } = require("../../middleware/permissionMiddleware");
 const { logWithSource } = require("../../middleware/logger");
 
 // Web push subscriptions.
-//   GET    /key         public: the VAPID public key -> { ok, key }
+//   GET    /key         public: the VAPID public key -> { ok, key }; key is
+//                        null while phone notifications are off
+//   GET    /settings    permissions.manage: { ok, enabled, keysFrom }
+//   PUT    /settings    permissions.manage: { enabled } -> the same
 //   POST   /subscribe   staff (signed in): { subscription } -> upsert by endpoint
 //   DELETE /subscribe   staff: remove the caller's own subscription
 // The sport site has the same pair under /api/sport-portal/push (see
@@ -82,13 +85,49 @@ function subscribeHandlers({ store, owner, source }) {
 const staffOwner = (req) => (req.actor?.tz ? { kind: "staff", tz: String(req.actor.tz) } : null);
 const sportOwner = (req) => (req.sportStudent?._id ? { kind: "sport", studentId: String(req.sportStudent._id) } : null);
 
-function createPushRouter({ requireAuth, loadActor, store, push }) {
+// VAPID needs a contact (mailto: or https:). The site's own address is used:
+// it is known on every server and is never a person's private address.
+const contactFor = (req) => {
+  const host = String(req.get("host") || "").toLowerCase();
+  return /^[a-z0-9.-]+(:\d+)?$/.test(host) ? `https://${host}` : "https://tamheed.local";
+};
+
+function createPushRouter({ requireAuth, loadActor, requirePermission, store, push }) {
   const router = express.Router();
   const handlers = subscribeHandlers({ store, owner: staffOwner, source: "Push" });
 
-  router.get("/key", (req, res) => res.status(200).json({ ok: true, key: push.publicKey() }));
+  router.get("/key", async (req, res) => {
+    try {
+      res.set("Cache-Control", "no-store");
+      return res.status(200).json({ ok: true, key: await push.publicKey() });
+    } catch (error) {
+      logWithSource("Push.key", error);
+      return res.status(500).json({ ok: false, message: SERVER_ERROR });
+    }
+  });
   router.post("/subscribe", requireAuth, loadActor, handlers.subscribe);
   router.delete("/subscribe", requireAuth, loadActor, handlers.unsubscribe);
+
+  router.get("/settings", requireAuth, loadActor, requirePermission("permissions.manage"), async (req, res) => {
+    try {
+      return res.status(200).json({ ok: true, ...(await push.status()) });
+    } catch (error) {
+      logWithSource("Push.settings", error);
+      return res.status(500).json({ ok: false, message: SERVER_ERROR });
+    }
+  });
+  router.put("/settings", requireAuth, loadActor, requirePermission("permissions.manage"), async (req, res) => {
+    try {
+      const enabled = req.body?.enabled;
+      if (typeof enabled !== "boolean") return res.status(400).json({ ok: false, code: "BAD_SETTING" });
+      const state = await push.setEnabled(enabled, { subject: contactFor(req), by: req.actor?.tz });
+      logWithSource("Push.settings", `phone notifications ${enabled ? "on" : "off"} by ${req.actor?.tz}`);
+      return res.status(200).json({ ok: true, ...state });
+    } catch (error) {
+      logWithSource("Push.settings", error);
+      return res.status(500).json({ ok: false, message: SERVER_ERROR });
+    }
+  });
   return router;
 }
 
@@ -103,7 +142,7 @@ function createSportSubscribeRouter({ requireSportStudent, store }) {
 
 const store = require("./PushSubscription.model").PushSubscriptionModelDef;
 
-const router = createPushRouter({ requireAuth, loadActor, store, push: require("../../utils/push").push });
+const router = createPushRouter({ requireAuth, loadActor, requirePermission, store, push: require("../../utils/push").push });
 
 module.exports = router;
 module.exports.createPushRouter = createPushRouter;

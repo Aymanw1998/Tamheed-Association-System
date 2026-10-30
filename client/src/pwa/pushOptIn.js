@@ -105,3 +105,29 @@ export async function unsubscribeStaff() {
     return { ok: false, reason: "failed" };
   }
 }
+
+// Whether the system sends phone notifications at all (an admin switch on the
+// server: the key is null while it is off). False on any failure.
+export async function pushOnServer() {
+  try {
+    const { data } = await api.get("/push/key");
+    return Boolean(data?.ok && data.key);
+  } catch {
+    return false;
+  }
+}
+
+// iPhone and iPad get notifications only from the site added to the home screen.
+export function needsHomeScreen() {
+  if (typeof navigator === "undefined") return false;
+  const ios = /iPad|iPhone|iPod/.test(navigator.userAgent || "") || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  if (!ios) return false;
+  try {
+    return !(window.navigator.standalone === true || window.matchMedia?.("(display-mode: standalone)")?.matches === true);
+  } catch {
+    return true;
+  }
+}
+
+export const getPushSettings = () => api.get("/push/settings").then((r) => r.data);
+export const setPushSettings = (enabled) => api.put("/push/settings", { enabled }).then((r) => r.data);

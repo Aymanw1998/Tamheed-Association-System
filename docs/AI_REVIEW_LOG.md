@@ -2557,4 +2557,62 @@ The owner approved these defaults:
 - The notices page was checked at phone width as a static render.
 - **Not tested:** the signed-in staff tab, a real push on a phone, the live Ubuntu server.
 
-**Status:** committed locally in 135c744. The owner pushed 135c744 (and 0c6d07c). The round-3 fix is committed locally on top and is not pushed yet: the push needs the owner's GitHub sign-in.
+**Status:** committed locally in 135c744. The owner pushed 135c744 (and 0c6d07c). The round-3 and round-4 fixes (ea911bd, ee730b1) are committed locally and are not pushed yet: the push needs the owner's GitHub sign-in.
+
+## 2026-10-30: Phone notifications switch in the system (Claude writer)
+
+**Request:** The owner's server had no VAPID keys in `server/config/.env`, so no phone notifications were sent. The owner asked for a setting inside the system to turn phone notifications on or off, so the `.env` file never needs editing.
+
+**Changes:**
+- **Server:**
+  - `server/utils/push.js`: the keys come from the environment, or else from a new `PushSettings` row (`server/Entities/Push/PushSettings.model.js`).
+    - The first switch-on with no keys generates a pair (`web-push generateVAPIDKeys`).
+    - Switching off keeps the keys.
+    - With env keys and no row, push stays on, as before the switch existed.
+    - Each process rereads the row at most every 30 s. A failed read means off.
+    - `publicKey()` is now async.
+  - `Push.route.js`: `GET/PUT /api/push/settings` with `requirePermission("permissions.manage")`.
+    - Answers `{ ok, enabled, keysFrom }` and never the keys.
+    - The VAPID subject is `https://<Host>`.
+    - `/key` is `no-store`.
+- **Staff client:**
+  - New `Components/Profile/PhoneNotifications.jsx` on the profile page: the system switch (managers only) and this device's checkbox (only while the server has a key). On an iPhone in a browser tab it shows a hint to add the site to the home screen.
+  - `/api/push/*` is never in the service-worker cache.
+- **Sport site:** `PushButton` is offered only while the server has a key. The label is now «فعّل الإشعارات».
+- **Deploy guide:** the notifications section now describes the switch. The `.env` keys are optional.
+
+**Also in this round (separate commit 3b8e139, not reviewed by Codex):** the photo pickers no longer set `capture="environment"`, so phones offer the gallery and not only the camera.
+
+**Verification:**
+- Server 977/977, client 709/709, sport site 68/68. Both builds compiled after the round-3 fix.
+- **Not tested:** a real phone, the live server.
+
+**Codex review (2026-10-30, Codex CLI, read-only):**
+- **Round 1:** no secret leak, no permission bypass, no missed caller of the now-async `publicKey()`. Findings:
+  - **P2:** two concurrent first switch-ons could each make a key pair and overwrite each other.
+    - **Fix:** switches run one at a time in the process. The server runs one pm2 process (`instances: 1`).
+  - **P2:** a read started before a switch-off could refill the cache with "on" for another 30 s.
+    - **Fix:** a generation counter. A read that started before a switch never fills the cache.
+  - **P2:** in the profile, a late `/key` "off" answer could hide the device checkbox after a manager switched on.
+    - **Fix:** for a manager, the switch's own state decides. Only the newest check counts.
+  - **P3:** the profile and the sport button never reread the switch while open.
+    - **Fix:** both reread when the page comes back to the screen (`visibilitychange`).
+  - Codex reproduced the first three with in-memory stubs. New tests were added for each fix.
+- **Round 2:** findings 1–2 resolved (single-process deployment); the `/key` race and the refresh on return were also resolved. Two related findings:
+  - **P2:** a `/settings` read started before a switch-on could finish afterwards and uncheck the switch.
+  - **P3:** a sport check started before subscribing could bring the button back.
+  - Codex reproduced both with in-memory React checks.
+  - **Fix:** the check counter is a ref. A switch or a subscribe bumps it before and after, so answers already on their way are dropped. A test was added for each.
+- **Round 3:** both round-2 findings resolved. One new finding:
+  - **P2:** if the browser subscribed but the POST to the server failed, a return to the tab hid the sport retry button, because `isSubscribed()` checks only the browser. Codex reproduced it against HEAD and the working tree.
+  - **Fix:** a new `resyncSport()` posts the existing subscription again, once per visit. The button stays as the retry until that succeeds. A test was added.
+- **Round 4:** the round-3 case resolved. One new finding:
+  - **P2:** `synced` stayed true after the subscription changed. Scenario: another tab dropped the subscription, a new one was made, and its POST failed. On return the retry button was hidden.
+  - **Fix:** `synced` is cleared when the browser has no subscription, and before every enable. A test was added.
+- **Round 5:** "partly resolved". Two cases remained around the cached `synced` flag:
+  - **P2:** another tab replaced the subscription and its POST failed. This tab kept `synced` from the old subscription.
+  - **P2:** an old resync finished late and set `synced` back to true.
+  - **Fix:** the flag is removed. Every check (on load and on return to the screen) posts the browser's existing subscription again; the POST is idempotent on the server. The button stays as the retry while that fails. No state is left to go stale.
+- **Round 6:** "Resolved". No new concrete defects in the diff or the untracked files.
+
+**Status:** committed locally; not pushed (the push needs the owner's GitHub sign-in); not deployed.
