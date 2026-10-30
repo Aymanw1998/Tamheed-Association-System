@@ -2617,6 +2617,55 @@ The owner approved these defaults:
 
 **Status:** committed locally; not pushed (the push needs the owner's GitHub sign-in); not deployed.
 
+## 2026-10-30: Kamatera capacity and local-file-storage advice (Codex)
+
+**Owner request and scope:** Discuss Tamheed with actual Claude Code and advise
+on a Kamatera server for the main system, sports, a growing local DB, and
+photos/documents stored on the server instead of Drive. The owner clarified
+50–60 simultaneous users maximum. Existing file volume, growth and budget are
+unknown. This explicitly authorizes the bounded architecture discussion, not
+infrastructure purchases, application changes, migrations or deployment.
+
+**Ownership:** Codex is the advisory-document author and sole writer of this log,
+`KAMATERA_CAPACITY_PLAN.md`, and `claude-capacity-review-2026-10-30.md`.
+A separate Codex agent independently inspected source read-only; it did not
+edit files or count as the required actual Claude reviewer.
+
+**Findings and recommendation:** Main and sport share one API/DB; the owner's
+2026-10-27 DB move is recorded above (not live-verified today). General storage
+and original photos remain Drive-dependent; derived player photos are Mongo
+buffers. Start pricing Type B / 4 vCPU / 8 GB, with 16 GB as optional headroom;
+80 GB OS + an example 200 GB data disk, subject to measured size and growth.
+Revisit old 700M PM2 restart and 0.25 GB Mongo cache settings. Account for upload
+temp space and on-server builds. Local-file migration requires an authorized
+storage provider, link/metadata migration, verification and rollback. Current
+14-day local full DB backups stop the shared app; add off-server DB+file backups
+and plan consistency/restore testing as data grows. No concurrent-user capacity
+or live-server inspection is claimed. Official Kamatera and MongoDB sources
+are linked in the advisory document; no complete account-specific quote obtained.
+
+**Actual Claude request and response:** Prepared a minimal, sanitized architecture
+brief at `claude-capacity-review-2026-10-30.md`, excluding .env files, credentials,
+runtime logs and user records. Claude Code 2.1.258 authentication status was
+false in both restricted and owner execution contexts. A dedicated print-mode
+invocation with safe mode, all tools disabled, strict MCP configuration and no
+session persistence returned: `Failed to authenticate: OAuth session expired
+and could not be refreshed`. It reported zero API usage; no review opinion was
+received. This was an authentication/availability block, not an approval denial.
+No unrelated Claude session was resumed or interrupted.
+
+**Resolution/status:** Independent local advice completed; actual Claude review
+is pending sign-in. The owner was asked to run `claude auth login`. Do not claim
+Claude agreement. After login, resend only the prepared brief, address concrete
+feedback, and append the real response and resolution here.
+
+**Verification:** Source/document inspection and current official public docs;
+no production access, DB access, secret-file reads, real records, migration,
+seed, administrator creation, load tests or external storage changes. No app
+code changed, so `npm run verify` was not run for this documentation-only task.
+Final internal document review and `git diff --check` are recorded below once
+completed. No commit, push, deployment or unattended work was started.
+
 ## 2026-10-30: Passport photos on a white background (Claude writer)
 
 **Owner request and scope:** every student and user photo shown at the same
