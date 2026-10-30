@@ -2549,7 +2549,7 @@ The owner approved these defaults:
 - **Round 4** (on ea911bd):
   - The round-3 P2: "resolved".
   - **P2:** on a mismatch, the list loaded earlier stayed on screen. So if the /me reread failed, A's notices stayed visible under B's session. **Fix:** the mismatch branch now clears `noticeBox` at once.
-- **Round 5:** not run. **Not reviewed:** that one-line fix.
+- **Round 5** (on ee730b1): "Resolved". The list stays cleared even if the reread fails or is skipped. No new concrete defect.
 
 **Verification:**
 - After the round-3 and round-4 fixes: server 971/971, sport site 63/63 (client unchanged).
