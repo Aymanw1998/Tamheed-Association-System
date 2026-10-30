@@ -11,6 +11,7 @@ const NEVER = [
   /^\/api\/locks(\/|$)/i, // a lock's holder must always be read live
   /^\/api\/push(\/|$)/i, // the phone notifications switch must always be read live
   /^\/api\/invitetoken(\/|$)/i,
+  /^\/api\/photos(\/|$)/i, // a passport photo replaces the redirect once it is made
   /\/documents\/[^/]+\/download$/i,
 ];
 

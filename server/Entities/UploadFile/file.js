@@ -82,6 +82,9 @@ async function handleUpload(file, dbName, collection, tz = "") {
 async function handleDelete(filePathOrUrl) {
   try {
     if (!filePathOrUrl) return null;
+    // A deleted photo's passport version goes with it (a no-op for other files).
+    await require("../../services/passportPhotoJob").passportPhotoJob.forget(filePathOrUrl)
+      .catch((err) => console.error("Passport photo delete error:", err.message || err));
     return await googleDrive.deleteFile(filePathOrUrl);
   } catch (err) {
     console.error("Google Drive delete error:", err.message || err);

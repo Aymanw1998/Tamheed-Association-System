@@ -56,6 +56,9 @@ const PUBLIC_ROUTES = {
   "SportPortal/SportPortal.route.js": ["POST /request-code", "POST /verify", "POST /logout", "GET /me", "GET /photo", "GET /id", "GET /notices", "GET /live", "POST /push/subscribe", "DELETE /push/subscribe"],
   // The VAPID public key the browser needs before it can subscribe; nothing private.
   "Push/Push.route.js": ["GET /key"],
+  // An <img> cannot send the Authorization header; the passport version is as
+  // public as the Drive photo link it is named after (Photo.route.js).
+  "Photo/Photo.route.js": ["GET /passport/:fileId"],
 };
 
 // Routes any active signed-in user may call (loadActor, no key): the

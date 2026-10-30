@@ -21,6 +21,7 @@ describe("shouldCache", () => {
     ["/api/invitetoken/validate", "GET"],
     ["/api/push/key", "GET"],
     ["/api/push/settings", "GET"],
+    ["/api/photos/passport/abcdefghij12", "GET"],
     ["/api/vehicle/12/documents/5/download", "GET"],
     ["/api/storage-backend/file/1", "GET"],
     ["/static/x.js", "GET"],

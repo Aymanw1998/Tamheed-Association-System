@@ -104,6 +104,7 @@ app.use('/api/attendance', require('./Entities/Attendance/Attendance.route'))
 app.use('/api/student', require('./Entities/Student/Student.route'))
 app.use('/api/sports', require('./Entities/Sport/Sport.route'));
 app.use('/api/push', require('./Entities/Push/Push.route'));
+app.use('/api/photos', require('./Entities/Photo/Photo.route'));
 app.use('/api/sport-portal', require('./Entities/SportPortal/SportPortal.route'));
 app.use('/api/inviteToken', require('./Entities/InviteToken/InviteToken.route'))
 app.use('/api/report', require('./Entities/Report/Report.route'));
@@ -139,6 +140,8 @@ const { startAlertJob } = require('./services/alertJob');
 startAlertJob();
 // Training reminders to sport players, every 5 minutes.
 require('./services/sportPushJob').startSportPushJob();
+// Passport versions of the photos: made one at a time, the missing ones by a half-hourly sweep.
+require('./services/passportPhotoJob').passportPhotoJob.start();
 // **********************************END - AUTO_PROCCESS ***************************
 
 

@@ -2,6 +2,7 @@ import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import LOGO from "../../images/logo.png";
 import { showPdfPreview } from "./pdfPreview.js";
+import { pdfPhoto } from "../../utils/passportPhoto";
 
 /* =======================
    Helpers
@@ -92,7 +93,7 @@ const PAGE_CSS = `
     background:#f5f7f9; border:1px solid #e3e8ec; border-radius: 4mm;
   }
   .photo-frame{
-    flex:none; width: 26mm; height: 26mm; border-radius: 4mm;
+    flex:none; width: 26mm; height: 33.4mm; border-radius: 4mm; /* 35:45, passport */
     border: 1.2mm solid #fe9900; overflow:hidden; background:#fff;
   }
   .photo-frame img{ width:100%; height:100%; object-fit:cover; display:block; }
@@ -267,7 +268,7 @@ export const exportCardPdf = async ({
   docBadge = "وثيقة رسمية",
   date,
   docRef,
-  photo = null,
+  photo: photoLink = null,
   fullName = "",
   quickBadges = [], // [string]
   profile = true, // false: no photo / name row (a document, not a person's card)
@@ -280,6 +281,10 @@ export const exportCardPdf = async ({
   const now = new Date();
   const dateLabel = safeDate.toLocaleDateString("en-GB");
   const generatedAt = `${now.toLocaleDateString("en-GB")} - ${now.toLocaleTimeString("en-GB")}`;
+
+  // The passport version, inlined: html2canvas cannot read an image that a
+  // same-origin address redirects elsewhere.
+  const photo = profile ? await pdfPhoto(photoLink) : photoLink;
 
   const container = document.createElement("div");
   container.style.position = "fixed";

@@ -321,6 +321,10 @@ router.delete("/delete", express.json(), async (req, res) => {
     if (!target) return res.json({ success: true, deleted: false });
 
     await googleDrive.deleteById(target.fileId);
+    // A photo's passport version goes with it (files in a deleted folder go at
+    // the next passport sweep, which finds their originals gone).
+    await require("../../services/passportPhotoJob").passportPhotoJob.forget(target.fileId)
+      .catch((err) => console.error("Passport photo delete error:", err.message || err));
     return res.json({ success: true, deleted: true });
   } catch (error) {
     return res.status(500).json({ success: false, error: googleDrive.translateDriveError(error).message });

@@ -2616,3 +2616,58 @@ The owner approved these defaults:
 - **Round 6:** "Resolved". No new concrete defects in the diff or the untracked files.
 
 **Status:** committed locally; not pushed (the push needs the owner's GitHub sign-in); not deployed.
+
+## 2026-10-30: Passport photos on a white background (Claude writer)
+
+**Owner request and scope:** every student and user photo shown at the same
+passport size. Agreed design: the server removes the background with the
+local MODNet model and puts the person on white, head and shoulders centred,
+35:45 (420x540 JPEG); the original stays in Drive; the passport version is
+stored on the server and shown in lists, profile/edit previews and the PDF
+export; existing photos are processed one by one, automatically; the sport
+card keeps its transparent cut-out; with no person found, the original is
+cropped to passport size without background change.
+
+**Ownership:** Claude is the writer. Codex reviewed read-only (5 rounds via
+`codex exec --sandbox read-only`). This entry is appended after Codex's own
+uncommitted Kamatera entry, which this commit leaves untouched and unstaged.
+
+**Design:** rows in `PassportPhotos` keyed by the original's Drive file id (a
+new photo is a new file, so nothing on Student/User records can go stale).
+Public `GET /api/photos/passport/:fileId` (an `<img>` cannot send the bearer
+token; the Drive link is already public by id) serves the JPEG or redirects to
+the Drive link. `passportPhotoJob` makes them on upload and through a sweep
+(1 min after start, then every 30 min) that backfills, re-checks originals and
+drops unused rows. Client `passportSrc()` maps Drive links to that address.
+
+**Codex round 1 (8 findings, all fixed):** private Drive ids could be published
+(now `isPublicImage` before any download); passport and sport jobs could run
+the model at once (one process-wide worker queue); PDF export tainted by the
+cross-origin redirect (photo inlined as a data URL, fallback to the link);
+sweep could delete a just-made row (rows read before links); a failed row
+delete could keep serving a removed photo (`read` honours `forgotten`); bust
+framing cut short; extreme aspect ratios not cropped (plain fallback); sport
+thumbnails and the registration preview not 35:45.
+
+**Round 2 (5 findings, all fixed):** originals made private or deleted later
+stayed public (each sweep re-checks; rows unconfirmed for 2 h are not served);
+storage-browser deletion bypassed `forget()` (hooked); room transfers could
+make a row look unused (removed only after two sweeps in a row); arms-out
+full-body framing (head-based framing, `headOf`); the Drive check had no
+timeout (15 s, retryable).
+
+**Round 3 (2 findings, fixed):** asymmetric arms moved the head column (now the
+crown's middle); revocation suppressed the id until restart (row deleted only;
+storage-browser `forget()` after a successful Drive delete).
+
+**Round 4 (1 finding, fixed):** a file private through a second sweep got a
+permanent failed row (NOT_PUBLIC now stores nothing and is retried).
+
+**Round 5:** "Resolved". No new concrete defects.
+
+**Verification:** server `npm test` 1006/1006; client 713/713; client build
+compiles. Real MODNet run locally on two sample portraits (head and shoulders
+on white). Not verified: a real deploy, real Drive permission answers, the PDF
+export in a browser.
+
+**Status:** committed locally; not pushed; not deployed.

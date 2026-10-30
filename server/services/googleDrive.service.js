@@ -308,6 +308,22 @@ async function uploadPrivateFile({ buffer, name, mimeType, folderPath = "" }) {
   return { id: created.data.id, name: created.data.name };
 }
 
+// Whether a file is an image anyone with the link can already view (as the
+// photo uploads are, see uploadFile); false when it is gone. Throws when
+// Drive cannot be asked.
+async function isPublicImage(fileId) {
+  const drive = await getDriveClient();
+  let data;
+  try {
+    ({ data } = await drive.files.get({ fileId, fields: "mimeType, trashed, permissions(type, role)" }, { timeout: 15000 }));
+  } catch (err) {
+    if (Number(err?.code ?? err?.response?.status) === 404) return false;
+    throw err;
+  }
+  return /^image\//.test(data?.mimeType || "") && !data.trashed
+    && (data.permissions || []).some((p) => p.type === "anyone" && ["reader", "commenter", "writer"].includes(p.role));
+}
+
 async function downloadStream(fileId) {
   const drive = await getDriveClient();
   const response = await drive.files.get({ fileId, alt: "media" }, { responseType: "stream" });
@@ -334,6 +350,7 @@ async function deleteFile(urlOrId) {
 }
 
 module.exports = {
+  isPublicImage,
   getAuthUrl,
   handleOAuthCallback,
   getStatus,

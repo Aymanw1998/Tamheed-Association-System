@@ -232,13 +232,10 @@ const cropPadded = (rgba, width, height, frame) => {
   return out;
 };
 
-/**
- * @param {Buffer} photo  the student's photo (JPEG, PNG, WebP...)
- * @param {object} [opts]
- * @param {Function} [opts.matte]  ({data,width,height}) => alpha bytes; the model by default
- * @returns {Promise<Buffer>} a 600x750 WebP with transparency
- */
-const makePlayerPhoto = async (photo, { matte = modnetMatte } = {}) => {
+// The photo at work size, the person cut out (RGBA) and where the person is.
+// Throws BAD_IMAGE for what is no picture or no portrait, NO_PERSON when
+// nobody is found (or the "person" is the whole picture).
+const cutOut = async (photo, matte) => {
   let img;
   try {
     img = await sharp(photo, { limitInputPixels: MAX_INPUT_PIXELS })
@@ -252,10 +249,11 @@ const makePlayerPhoto = async (photo, { matte = modnetMatte } = {}) => {
     throw new PhotoError("BAD_IMAGE", err.message);
   }
   const { width, height } = img.info;
-  if (Math.max(width, height) / Math.min(width, height) > MAX_RATIO) throw new PhotoError("BAD_IMAGE", "not a portrait");
+  if (Math.max(width, height) / Math.min(width, height) > MAX_RATIO) {
+    throw Object.assign(new PhotoError("BAD_IMAGE", "not a portrait"), { shape: true });
+  }
   const whole = keepMainPerson(await matte({ data: img.data, width, height }), width, height);
   const first = personBox(whole, width, height);
-  // Nobody found, or the "person" is the whole picture: no player photo.
   if (!first || first.cover < 0.03 || first.cover > 0.97) throw new PhotoError("NO_PERSON");
   const alpha = keepRowsUnder(whole, width, height, first.headX);
   const box = personBox(alpha, width, height);
@@ -264,6 +262,17 @@ const makePlayerPhoto = async (photo, { matte = modnetMatte } = {}) => {
     .joinChannel(alpha, { raw: { width, height, channels: 1 } })
     .raw()
     .toBuffer();
+  return { rgba, width, height, box, alpha };
+};
+
+/**
+ * @param {Buffer} photo  the student's photo (JPEG, PNG, WebP...)
+ * @param {object} [opts]
+ * @param {Function} [opts.matte]  ({data,width,height}) => alpha bytes; the model by default
+ * @returns {Promise<Buffer>} a 600x750 WebP with transparency
+ */
+const makePlayerPhoto = async (photo, { matte = modnetMatte } = {}) => {
+  const { rgba, width, height, box } = await cutOut(photo, matte);
   const frame = frameFor(box, width);
   const cropped = cropPadded(rgba, width, height, frame);
   return sharp(cropped, { raw: { width: frame.width, height: frame.height, channels: 4 } })
@@ -275,19 +284,134 @@ const makePlayerPhoto = async (photo, { matte = modnetMatte } = {}) => {
     .toBuffer();
 };
 
-// makePlayerPhoto in a worker thread: the model's inference is synchronous
-// native work that would otherwise stall every request for about a second.
-// The worker (and the model in it) is gone when the photo is done.
-const makeInWorker = (photo, { timeoutMs = WORKER_MS } = {}) =>
+// Passport size, 35 x 45 mm (about 300 dpi).
+const PASS_W = 420;
+const PASS_H = 540;
+const WHITE = { r: 255, g: 255, b: 255 };
+const ABOVE_HEAD = 0.1; // of the frame's height, above the crown
+
+// The head: its widest row and the row where it ends (the neck narrowing, or
+// the shoulders or raised arms widening), from the opaque stretch under the
+// head's column, row by row. Null when no end shows in the upper 60%. The
+// column is the crown's middle (the top few rows), so arms raised to one side
+// never pull it off the head.
+const headOf = (alpha, width, height, box) => {
+  const crownEnd = Math.min(height - 1, box.top + Math.max(3, Math.round((box.bottom - box.top) * 0.03)));
+  let sum = 0;
+  let n = 0;
+  for (let y = box.top; y <= crownEnd; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      if (alpha[y * width + x] >= 128) {
+        sum += x;
+        n += 1;
+      }
+    }
+  }
+  if (!n) return null;
+  const cx = Math.min(width - 1, Math.max(0, Math.round(sum / n)));
+  const limit = Math.min(height - 1, box.top + Math.round((box.bottom - box.top) * 0.6));
+  let most = 0;
+  for (let y = box.top; y <= limit; y += 1) {
+    const row = y * width;
+    if (alpha[row + cx] < 128) continue;
+    let l = cx;
+    while (l > 0 && alpha[row + l - 1] >= 128) l -= 1;
+    let r = cx;
+    while (r < width - 1 && alpha[row + r + 1] >= 128) r += 1;
+    const w = r - l + 1;
+    if (most > 0 && y - box.top > most * 0.8 && (w < most * 0.85 || w > most * 1.4)) return { width: most, bottom: y, x: cx };
+    most = Math.max(most, w);
+  }
+  return null;
+};
+
+// The passport frame (7:9, in work pixels): head and shoulders, centred on
+// the head. With the head found, the head (crown to neck) ends halfway down,
+// below a little room; otherwise the shoulders fill the width. The white
+// background hides any padding, except where the body runs off the picture: there the frame stays
+// inside it, so the body never ends in a straight edge with white beyond.
+const passportFrame = (box, width, height, head = null) => {
+  const personW = box.right - box.left + 1;
+  const personH = box.bottom - box.top + 1;
+  const cutBelow = box.bottom >= height - 2;
+  const cutSides = box.left <= 1 && box.right >= width - 2;
+  let h;
+  if (head) {
+    h = (head.bottom - box.top) / (0.5 - ABOVE_HEAD);
+  } else {
+    h = Math.max((personW * PASS_H) / PASS_W, personH * 0.22);
+    // A whole figure (much taller than wide): still head and upper body.
+    if (!cutBelow && personH > personW * 2.5) h = Math.min(h, personH * 0.5);
+  }
+  if (cutSides) h = Math.min(h, (width * PASS_H) / PASS_W);
+  if (cutBelow) h = Math.min(h, (height - box.top) / (1 - ABOVE_HEAD));
+  const w = (h * PASS_W) / PASS_H;
+  let left = (head ? head.x : box.headX) - w / 2;
+  if (box.left <= 1) left = Math.max(left, 0);
+  if (box.right >= width - 2) left = Math.min(left, width - w);
+  return { left: Math.round(left), top: Math.round(box.top - h * ABOVE_HEAD), width: Math.max(1, Math.round(w)), height: Math.max(1, Math.round(h)) };
+};
+
+// Nobody found (or a picture too wide or tall for the model): the photo as
+// it is, cropped to passport size (most interesting part kept).
+const plainPassport = (photo) =>
+  sharp(photo, { limitInputPixels: MAX_INPUT_PIXELS })
+    .rotate()
+    .resize(PASS_W, PASS_H, { fit: "cover", position: sharp.strategy.attention })
+    .flatten({ background: WHITE })
+    .jpeg({ quality: 90, mozjpeg: true })
+    .toBuffer();
+
+/**
+ * A passport photo of a student or a user: the person on a white background,
+ * head and shoulders, 420x540 (35:45). With nobody found, the photo itself
+ * cropped to that size.
+ * @param {Buffer} photo
+ * @param {object} [opts]
+ * @param {Function} [opts.matte]  as for makePlayerPhoto
+ * @returns {Promise<Buffer>} a JPEG
+ */
+const makePassportPhoto = async (photo, { matte = modnetMatte } = {}) => {
+  let cut;
+  try {
+    cut = await cutOut(photo, matte);
+  } catch (err) {
+    if (err?.code !== "NO_PERSON" && !err?.shape) throw err;
+    return plainPassport(photo);
+  }
+  const { rgba, width, height, box, alpha } = cut;
+  const frame = passportFrame(box, width, height, headOf(alpha, width, height, box));
+  const cropped = cropPadded(rgba, width, height, frame);
+  return sharp(cropped, { raw: { width: frame.width, height: frame.height, channels: 4 } })
+    .resize(PASS_W, PASS_H, { fit: "fill", kernel: "lanczos3" })
+    .flatten({ background: WHITE })
+    .sharpen({ sigma: 0.5 })
+    .jpeg({ quality: 90, mozjpeg: true })
+    .toBuffer();
+};
+
+// makePlayerPhoto (or makePassportPhoto, kind "passport") in a worker thread:
+// the model's inference is synchronous native work that would otherwise stall
+// every request for about a second. The worker (and the model in it) is gone
+// when the photo is done. One worker at a time for the whole process (player
+// and passport photos alike): the model needs most of the 2GB server.
+let modelQueue = Promise.resolve();
+const makeInWorker = (photo, options = {}) => {
+  const run = modelQueue.then(() => runWorker(photo, options));
+  modelQueue = run.catch(() => {});
+  return run;
+};
+
+// Settles only once the worker has ended, so the next one starts after it.
+const runWorker = (photo, { timeoutMs = WORKER_MS, kind = "player" } = {}) =>
   new Promise((resolve, reject) => {
-    const worker = new Worker(path.join(__dirname, "playerPhotoWorker.js"), { workerData: { photo } });
+    const worker = new Worker(path.join(__dirname, "playerPhotoWorker.js"), { workerData: { photo, kind } });
     let settled = false;
     const finish = (fn, value) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      worker.terminate().catch(() => {});
-      fn(value);
+      worker.terminate().catch(() => {}).finally(() => fn(value));
     };
     const timer = setTimeout(() => finish(reject, new Error("player photo worker timed out")), timeoutMs);
     worker.once("message", (msg) =>
@@ -296,4 +420,4 @@ const makeInWorker = (photo, { timeoutMs = WORKER_MS } = {}) =>
     worker.once("exit", (code) => finish(reject, new Error(`player photo worker exited (${code})`)));
   });
 
-module.exports = { makePlayerPhoto, makeInWorker, modnetMatte, keepMainPerson, keepRowsUnder, modelSize, personBox, frameFor, PhotoError, OUT_W, OUT_H };
+module.exports = { makePlayerPhoto, makePassportPhoto, passportFrame, headOf, PASS_W, PASS_H, makeInWorker, modnetMatte, keepMainPerson, keepRowsUnder, modelSize, personBox, frameFor, PhotoError, OUT_W, OUT_H };

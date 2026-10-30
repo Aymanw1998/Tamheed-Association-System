@@ -9,6 +9,7 @@ import { toast } from "../../ALERT/SystemToasts";
 import {validate as validateINV, submit as submitFromParent} from "../../WebServer/services/inviteToken/functionInviteToken.jsx";
 import { canStored } from "../../utils/session";
 import { photoAction } from "../../utils/photoChange";
+import { passportSrc, PASSPORT_PREVIEW } from "../../utils/passportPhoto";
 import { isRequiredStudentField, responsibleGuideOptions } from "../../utils/studentForm";
 import RecentChanges from "../Audit/RecentChanges.jsx";
 import { useI18n } from "../../i18n/I18nContext";
@@ -584,9 +585,9 @@ const EditStudent = ({parent = false}) => {
         {/* معاينة الصورة إذا موجودة */}
         {photo && (
           <img
-            src={photo instanceof File ? URL.createObjectURL(photo) : photo}
+            src={photo instanceof File ? URL.createObjectURL(photo) : passportSrc(photo)}
             alt="preview"
-            style={{ width: "120px", height: "120px", objectFit: "cover", borderRadius: "8px", marginTop: "8px" }}
+            style={PASSPORT_PREVIEW}
           />
         )}
       </div>

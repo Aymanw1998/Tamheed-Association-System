@@ -68,6 +68,7 @@ const {
   safeEqual,
 } = require("./passwordCrypto");
 const { handleUpload, handleDeleteByUrl } = require("../UploadFile/file");
+const { passportPhotoJob } = require("../../services/passportPhotoJob");
 const { audit } = require("../../utils/audit");
 const {
   buildUserStorageFolder,
@@ -1742,6 +1743,7 @@ const   uploadPhoto = async (req, res) => {
     );
     await recordUser(req, "update", user, { ...user, photo: uploaded.secure_url });
     notifyChange("user", user._id);
+    passportPhotoJob.schedule(uploaded.secure_url);
 
     // The previous Drive file is removed only after the new link is stored,
     // so a failed upload never leaves the record pointing at a deleted file.

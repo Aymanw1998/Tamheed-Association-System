@@ -9,6 +9,7 @@ import { toast } from "../../ALERT/SystemToasts.jsx";
 import {validate as validateINV, submit as submitFromParent} from "../../WebServer/services/inviteToken/functionInviteToken.jsx";
 import { getMe } from "../../WebServer/services/auth/fuctionsAuth.jsx";
 import { photoAction } from "../../utils/photoChange";
+import { passportSrc, PASSPORT_PREVIEW } from "../../utils/passportPhoto";
 import { getStoredPermissions } from "../../utils/session";
 import MyPermissions from "./MyPermissions.jsx";
 import ChangeOwnPassword from "./ChangeOwnPassword.jsx";
@@ -388,9 +389,9 @@ const Profile = ({parent = false}) => {
             {/* معاينة الصورة إذا موجودة */}
             {photo && (
             <img
-                src={photo instanceof File ? URL.createObjectURL(photo) : photo}
+                src={photo instanceof File ? URL.createObjectURL(photo) : passportSrc(photo)}
                 alt="preview"
-                style={{ width: "120px", height: "120px", objectFit: "cover", borderRadius: "8px", marginTop: "8px" }}
+                style={PASSPORT_PREVIEW}
             />
             )}
         </div>

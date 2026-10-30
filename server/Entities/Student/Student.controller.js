@@ -9,6 +9,7 @@ const { createStudentScope } = require("../../utils/studentScope");
 const { checkVersion, editorStamp, sameVersion, raceLost } = require("../../middleware/lockGuard");
 const { notifyChange, liveHub } = require("../../services/liveHub");
 const { playerPhotoJob } = require("../../services/playerPhotoJob");
+const { passportPhotoJob } = require("../../services/passportPhotoJob");
 
 // Who the actor may see: null (students.viewAll) or a Set of student _ids.
 const scope = createStudentScope({ lessonModel: LessonModelDef, studentModel: StudentModelDef });
@@ -311,7 +312,10 @@ const putS = async (req, res) => {
     notifyChange("student", existing.result[0]._id);
     // A football player's name or photo shows on his own sport screen (a no-op when nobody listens).
     liveHub.toStudents([existing.result[0]._id], "me");
-    if ("photo" in newData) playerPhotoJob.schedule(studentId);
+    if ("photo" in newData) {
+      playerPhotoJob.schedule(studentId);
+      passportPhotoJob.schedule(newData.photo);
+    }
 
     await safeNotify({
       toRoles: ["ادارة"],
@@ -442,6 +446,7 @@ const uploadPhoto = async (req, res) => {
     notifyChange("student", student._id);
     liveHub.toStudents([student._id], "me");
     playerPhotoJob.schedule(student._id);
+    passportPhotoJob.schedule(uploaded.secure_url);
 
     // The previous Drive file is removed only after the new link is stored,
     // so a failed upload never leaves the record pointing at a deleted file.

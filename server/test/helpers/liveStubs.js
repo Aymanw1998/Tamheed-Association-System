@@ -6,7 +6,8 @@
 // pass (the guard itself is tested in lock-guard.test.js). `holders` sets
 // who holds a key for holderOf: holders.set(key, { clientId, name, tz }).
 // `photoJobs` records every playerPhotoJob.schedule(studentId) call; the
-// stored player photos are an empty in-memory model.
+// stored player photos are an empty in-memory model. `passportJobs` records
+// every passportPhotoJob.schedule(link) call.
 const { photoVersion } = require("../../utils/photoVersion");
 const { checkVersion, editorStamp, sameVersion, nextStamp, raceLost, lockedAnswer } = require("../../middleware/lockGuard");
 // Lock holders by key for the controllers that look them up (holderOf); empty = all free.
@@ -18,6 +19,8 @@ const notifyChange = (entity, id) => { changes.push([entity, id]); };
 const liveHub = { toStudents: (ids, type) => { students.push([Array.from(ids || [], String), type]); } };
 const photoJobs = [];
 const playerPhotoJob = { schedule: (id) => { photoJobs.push(String(id)); }, remove: async (id) => { photoJobs.push(`remove:${id}`); }, read: async () => null };
+const passportJobs = [];
+const passportPhotoJob = { schedule: async (link) => { passportJobs.push(String(link)); }, forget: async () => {}, read: async () => null };
 const cutoutReady = (player, link) => Boolean(player?.photoCutout) && player.photoCutout === photoVersion(link);
 const noPhotos = { async get() { return { success: true, result: [] }; }, async put() { return { success: true }; }, async delete() { return { success: true, result: { deletedCount: 0 } }; } };
 // Sport notices: an in-memory store (clear with `notices.length = 0`), and
@@ -38,10 +41,11 @@ for (const suffix of ["", ".js"]) {
   deps[`../../middleware/lockGuard${suffix}`] = { checkVersion, editorStamp, sameVersion, nextStamp, raceLost, requireFreeOrMine, lockedAnswer, holderOf: async (key, clientId) => { const h = holders.get(key); return h && h.clientId !== clientId ? { name: h.name, tz: h.tz } : null; } };
   deps[`../../services/liveHub${suffix}`] = { notifyChange, liveHub };
   deps[`../../services/playerPhotoJob${suffix}`] = { playerPhotoJob, cutoutReady };
+  deps[`../../services/passportPhotoJob${suffix}`] = { passportPhotoJob };
   deps[`../../utils/photoVersion${suffix}`] = { photoVersion };
   deps[`./SportPlayerPhoto.model${suffix}`] = { SportPlayerPhotoModelDef: noPhotos };
   deps[`./SportNotice.model${suffix}`] = { SportNoticeModelDef: noticeStore };
   deps[`../../utils/push${suffix}`] = { push };
 }
 
-module.exports = { deps, changes, students, holders, photoJobs, notices, pushes };
+module.exports = { deps, changes, students, holders, photoJobs, passportJobs, notices, pushes };

@@ -7,6 +7,7 @@ import { bumpStat, deletePlayer } from "../../WebServer/services/sport/functions
 import AddPlayerDialog from "./AddPlayerDialog";
 import PlayerCardModal, { Silhouette } from "./PlayerCardModal";
 import styles from "./Sport.module.css";
+import { passportSrc } from "../../utils/passportPhoto";
 import withLock from "../../locks/withLock";
 import useLiveRefresh from "../../locks/useLiveRefresh";
 import { handleSaveError } from "../../locks/staleSave";
@@ -130,7 +131,7 @@ export default function PlayersTab({ sport, players, lessons, canCoach, reload }
                 <td data-label={label("name")}>
                   <button type="button" className={styles.nameButton} title={label("openCard")} onClick={() => setCardOf(p.studentId)}>
                     {p.photo
-                      ? <img className={styles.thumb} src={p.photo} alt={label("photoAlt")} />
+                      ? <img className={styles.thumb} src={passportSrc(p.photo)} alt={label("photoAlt")} />
                       : <Silhouette className={`${styles.thumb} ${styles.thumbEmpty}`} />}
                     <span className={styles.name}>{fullName(p)}</span>
                   </button>

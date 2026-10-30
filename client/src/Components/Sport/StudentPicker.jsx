@@ -3,6 +3,7 @@ import { useI18n } from "../../i18n/I18nContext";
 import Button from "../UI/Button.jsx";
 import { searchStudents } from "../../WebServer/services/sport/functionsSport";
 import styles from "./Sport.module.css";
+import { passportSrc } from "../../utils/passportPhoto";
 
 const fullName = (p) => `${p.firstname || ""} ${p.lastname || ""}`.trim();
 export const SEARCH_DELAY = 300;
@@ -50,7 +51,7 @@ export default function StudentPicker({ onPick, isDisabled, pickLabel }) {
             <li key={s._id} className={`${styles.result} ${note ? styles.resultDisabled : ""}`}>
               <span className={styles.resultInfo}>
                 {s.photo
-                  ? <img className={styles.thumb} src={s.photo} alt={t("sport.dialog.photoAlt")} />
+                  ? <img className={styles.thumb} src={passportSrc(s.photo)} alt={t("sport.dialog.photoAlt")} />
                   : <span className={styles.thumb} aria-hidden="true" />}
                 <span>
                   <span className={styles.name}>{fullName(s)}</span>

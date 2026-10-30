@@ -3,6 +3,7 @@ const { InviteTokenModelDef } = require("./InviteToken.model");
 const { RegistrationAttemptModelDef } = require("./RegistrationAttempt.model");
 const { StudentModelDef } = require("../Student/Student.model");
 const { handleUpload } = require("../UploadFile/file");
+const { passportPhotoJob } = require("../../services/passportPhotoJob");
 const { logWithSource } = require("../../middleware/logger");
 const { isValidIsraeliId } = require("../../utils/israeliId");
 const { notifyChange } = require("../../services/liveHub");
@@ -194,6 +195,7 @@ async function savePhoto(tz, file, id) {
     if (uploaded?.secure_url) {
       await StudentModelDef.update({ tz }, { photo: uploaded.secure_url });
       if (id) notifyChange("student", id);
+      passportPhotoJob.schedule(uploaded.secure_url);
     }
   } catch (err) {
     logWithSource("InviteToken.savePhoto", err);

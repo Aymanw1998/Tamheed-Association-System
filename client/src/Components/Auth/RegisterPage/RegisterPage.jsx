@@ -7,6 +7,7 @@ import { toast } from '../../../ALERT/SystemToasts';
 import { register } from '../../../WebServer/services/auth/fuctionsAuth';
 import EyeIcon from '../../UI/EyeIcon';
 import Button from '../../UI/Button';
+import { PASSPORT_PREVIEW } from '../../../utils/passportPhoto';
 
 // This page only ever creates a brand-new account (see /register in
 // Routes.jsx) — editing an existing user is handled by a separate
@@ -294,7 +295,7 @@ export default function RegisterPage() {
             <img
               src={photo instanceof File ? URL.createObjectURL(photo) : photo}
               alt="preview"
-              style={{ width: "120px", height: "120px", objectFit: "cover", borderRadius: "8px", marginTop: "8px" }}
+              style={PASSPORT_PREVIEW}
             />
           )}
         </div>

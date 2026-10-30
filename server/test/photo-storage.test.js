@@ -184,8 +184,10 @@ for (const entity of ENTITIES) {
     const events = [];
     const { model, uploadPhoto } = entity.load(events, { secure_url: NEW_PHOTO, public_id: "new-file" });
     const res = createRes();
+    live.passportJobs.length = 0;
 
     await uploadPhoto(photoRequest(), res);
+    assert.deepEqual(live.passportJobs, [NEW_PHOTO], "the passport version is queued");
 
     assert.equal(res.statusCode, 200);
     assert.equal(res.body.photo, NEW_PHOTO);
