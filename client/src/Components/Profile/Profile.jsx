@@ -404,7 +404,6 @@ const Profile = ({parent = false}) => {
                 input.type = "file";
                 input.accept = "image/*"
                 input.onchange = handlePhoto;
-                input.capture = "environment";
                 input.click();
             }
             }> {photo ? "تغيير الصورة" : "اختر صورة"} </button>

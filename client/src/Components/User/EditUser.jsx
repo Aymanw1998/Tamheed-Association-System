@@ -698,7 +698,6 @@ const EditUser = () => {
             input.type = "file";
             input.accept = "image/*"
             input.onchange = handlePhoto;
-            input.capture = "environment";
             input.click();
           }
         }> {photo ? "تغيير الصورة" : "اختر صورة"} </button>
