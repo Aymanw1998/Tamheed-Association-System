@@ -8,6 +8,7 @@ import { register } from '../../../WebServer/services/auth/fuctionsAuth';
 import EyeIcon from '../../UI/EyeIcon';
 import Button from '../../UI/Button';
 import { PASSPORT_PREVIEW } from '../../../utils/passportPhoto';
+import { usePhotoPick, PHOTO_NOT_READY } from '../../../utils/photoPick';
 
 // This page only ever creates a brand-new account (see /register in
 // Routes.jsx) — editing an existing user is handled by a separate
@@ -46,11 +47,8 @@ export default function RegisterPage() {
     const [showPassword, setShowPassword] = useState(false);
 
   
-    const handlePhoto = (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      setPhoto(file);
-    };
+    const photoPick = usePhotoPick(setPhoto, toast.warn);
+    const handlePhoto = (e) => photoPick.pick(e.target.files[0]);
   
   
     const handleChange = async(e) => {
@@ -145,6 +143,7 @@ export default function RegisterPage() {
       setForm((prev) => ({ ...prev, [tag]: intl }));
     };
     const handleSubmit = async (e) => {
+      if (photoPick.busy) { toast.warn(PHOTO_NOT_READY); return; }
       let b = await validate();
       if (b) { toast.warn(b); return; }
       b = true

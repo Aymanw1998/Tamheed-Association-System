@@ -2720,3 +2720,51 @@ on white). Not verified: a real deploy, real Drive permission answers, the PDF
 export in a browser.
 
 **Status:** committed locally; not pushed; not deployed.
+
+## 2026-10-30: Gallery photo picker (Claude writer, Codex review)
+
+**Scope:** commit 3b8e139 removes `input.capture = "environment"` from the
+photo pickers in RegisterPage.jsx, Profile.jsx, EditStudent.jsx and
+EditUser.jsx, so phones offer the gallery as well as the camera. It was
+pushed before review; Codex reviewed it afterwards, read-only.
+
+**Codex round 1:** no regression. All four pickers keep `accept="image/*"`
+and the same file handling (first file, cancel ignored, object-URL preview,
+same upload path). No other picker in `client/` or `sport/` forces the
+camera. Existing gap, not from this commit: the pickers have no client-side
+type or size check, so a GIF or a photo over 5 MiB can be chosen and
+previewed, while the invite photo route accepts only JPEG/PNG/WebP up to
+5 MiB and answers `BAD_PHOTO` on submit.
+
+**Status:** resolved for 3b8e139. The owner asked for the type/size gap to
+be fixed (below).
+
+## 2026-10-30: Photo check when a photo is picked (Claude writer)
+
+**Scope:** the gap from the review above. New client/src/utils/photoPick.js:
+`preparePhoto` loads the picked file as an image (unreadable -> refused with
+a message); JPEG/PNG/WebP under 5 MiB is kept as it is; anything else
+(larger, GIF, HEIC the browser can read) is redrawn on white as a JPEG with
+the long side at most 2400 px, quality 0.9 then 0.8, and refused if still
+5 MiB or more. `usePhotoPick` wires it into RegisterPage, Profile,
+EditStudent and EditUser.
+
+**Codex round 1:** the run stopped at Codex's usage limit before a final
+answer; its probes showed four defects, all fixed: an earlier slow pick could
+overwrite a later one (only the latest pick counts); Profile delete during a
+pending pick brought the photo back (remove buttons call `cancel()`); a
+parent submit during a pending pick went out with no photo (save waits while
+`busy`); a file of exactly 5 MiB passed the client but multer refuses it
+(the limit is now strict).
+
+**Round 2 (1 finding, fixed):** a pending pick survived a move to another
+record when React reused EditStudent/EditUser (`scope: id` invalidates it).
+
+**Round 3:** "Resolved". No new concrete defects.
+
+**Verification:** client tests 732/732; client build compiles. In a real
+Chromium page a 46 MB 4000x3000 PNG became a 2.77 MB 2400x1800 JPEG, a small
+JPEG came back unchanged, a GIF became a JPEG and a non-image was refused.
+Not verified: a real phone (gallery, HEIC, EXIF orientation).
+
+**Status:** not committed.

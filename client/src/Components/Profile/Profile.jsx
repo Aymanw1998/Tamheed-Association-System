@@ -10,6 +10,7 @@ import {validate as validateINV, submit as submitFromParent} from "../../WebServ
 import { getMe } from "../../WebServer/services/auth/fuctionsAuth.jsx";
 import { photoAction } from "../../utils/photoChange";
 import { passportSrc, PASSPORT_PREVIEW } from "../../utils/passportPhoto";
+import { usePhotoPick, PHOTO_NOT_READY } from "../../utils/photoPick";
 import { getStoredPermissions } from "../../utils/session";
 import MyPermissions from "./MyPermissions.jsx";
 import ChangeOwnPassword from "./ChangeOwnPassword.jsx";
@@ -89,13 +90,11 @@ const Profile = ({parent = false}) => {
     }, []);
 
 
-    const handlePhoto = (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        setPhoto(file);
-    };
+    const photoPick = usePhotoPick(setPhoto, toast.warn);
+    const handlePhoto = (e) => photoPick.pick(e.target.files[0]);
     const handleDeletePhoto = async () => {
         if (!photo) return;
+        photoPick.cancel();
         setPhoto(null);
     }
     const handleDeletePhotoWithSave = async () => {
@@ -232,6 +231,7 @@ const Profile = ({parent = false}) => {
     };
 
     const handleSubmit = async (e) => {
+        if (photoPick.busy) { toast.warn(PHOTO_NOT_READY); return; }
         let b = await validate();
         if (b) { toast.warn(b); return; }
         b = true

@@ -8,6 +8,7 @@ import { toast } from "../../ALERT/SystemToasts.jsx";
 import EyeIcon from "../UI/EyeIcon";
 import { photoAction } from "../../utils/photoChange";
 import { passportSrc, PASSPORT_PREVIEW } from "../../utils/passportPhoto";
+import { usePhotoPick, PHOTO_NOT_READY } from "../../utils/photoPick";
 import { useI18n } from "../../i18n/I18nContext";
 import { canStored, getStoredUserId, getStoredViewer } from "../../utils/session";
 import { ROLE_LABEL_KEY, canManageTargetClient, isDemotion, resolveRole } from "../../utils/roles";
@@ -163,11 +164,8 @@ const EditUser = () => {
     if (res?.ok && res.user) setOpened((prev) => (prev ? { ...prev, updatedAt: res.user.updatedAt } : res.user));
   };
 
-  const handlePhoto = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    setPhoto(file);
-  };
+  const photoPick = usePhotoPick(setPhoto, toast.warn, { scope: id });
+  const handlePhoto = (e) => photoPick.pick(e.target.files[0]);
 
 
   const handleChange = async(e) => {
@@ -332,6 +330,7 @@ const EditUser = () => {
 };
 
   const handleSubmit = async (e) => {
+    if (photoPick.busy) { toast.warn(PHOTO_NOT_READY); return; }
     let b = await validate();
     if (b) { toast.warn(b); return; }
     b = true
@@ -703,7 +702,7 @@ const EditUser = () => {
           }
         }> {photo ? "تغيير الصورة" : "اختر صورة"} </button>
         {photo && (
-          <button type="button" onClick={() => setPhoto(null)} style={{ marginInlineStart: "8px" }}>
+          <button type="button" onClick={() => { photoPick.cancel(); setPhoto(null); }} style={{ marginInlineStart: "8px" }}>
             حذف الصورة
           </button>
         )}

@@ -10,6 +10,7 @@ import {validate as validateINV, submit as submitFromParent} from "../../WebServ
 import { canStored } from "../../utils/session";
 import { photoAction } from "../../utils/photoChange";
 import { passportSrc, PASSPORT_PREVIEW } from "../../utils/passportPhoto";
+import { usePhotoPick, PHOTO_NOT_READY } from "../../utils/photoPick";
 import { isRequiredStudentField, responsibleGuideOptions } from "../../utils/studentForm";
 import RecentChanges from "../Audit/RecentChanges.jsx";
 import { useI18n } from "../../i18n/I18nContext";
@@ -165,11 +166,8 @@ const EditStudent = ({parent = false}) => {
     })();
   }, [parent, registrationToken]);
 
-  const handlePhoto = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    setPhoto(file);
-  };
+  const photoPick = usePhotoPick(setPhoto, toast.warn, { scope: id });
+  const handlePhoto = (e) => photoPick.pick(e.target.files[0]);
 
 
   const handleChange = async(e) => {
@@ -296,6 +294,7 @@ const EditStudent = ({parent = false}) => {
     setForm((prev) => ({ ...prev, [tag]: intl }));
   };
   const handleSubmit = async (e) => {
+    if (photoPick.busy) { toast.warn(PHOTO_NOT_READY); return; }
     let b = await validate();
     if (b) { toast.warn(b); return; }
     b = true
@@ -579,7 +578,7 @@ const EditStudent = ({parent = false}) => {
             input.click();
           }
         }> {photo ? "تغيير الصورة" : "اختر صورة"} </button>
-        {photo && <button style={{marginLeft: "18px", backgroundColor: "red"}} onClick={()=>setPhoto(null)}>إزالة الصورة</button>}
+        {photo && <button style={{marginLeft: "18px", backgroundColor: "red"}} onClick={() => { photoPick.cancel(); setPhoto(null); }}>إزالة الصورة</button>}
         <br />
 
         {/* معاينة الصورة إذا موجودة */}
