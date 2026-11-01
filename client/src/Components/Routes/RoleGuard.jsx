@@ -1,14 +1,14 @@
 import React from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
-import { getStoredPermissions } from '../../utils/session';
-import { canAccessPath } from '../../utils/routeAccess';
+import { getStoredPermissions, getStoredUserTz } from '../../utils/session';
+import { blockedRedirect } from '../../utils/routeAccess';
 
 // Sends a signed-in user who opens a page their role can't use back to the
-// dashboard. The page rules live in utils/routeAccess.js.
+// dashboard, or to their profile when it is their own user page. The page
+// rules live in utils/routeAccess.js.
 export default function RoleGuard() {
   const { pathname } = useLocation();
-  if (!canAccessPath(pathname, getStoredPermissions())) {
-    return <Navigate to="/dashboard" replace />;
-  }
+  const to = blockedRedirect(pathname, getStoredPermissions(), getStoredUserTz());
+  if (to) return <Navigate to={to} replace />;
   return <Outlet />;
 }

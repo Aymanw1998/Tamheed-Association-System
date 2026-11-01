@@ -2768,3 +2768,568 @@ JPEG came back unchanged, a GIF became a JPEG and a non-image was refused.
 Not verified: a real phone (gallery, HEIC, EXIF orientation).
 
 **Status:** not committed.
+
+## 2026-10-31: Password eye and lesson day headers (Claude writer)
+
+**Scope:** two issues from a tester. (1) The login page's show/hide password
+button worked only sometimes: `.loginForm button:active { transform:
+translateY(1px) }` outranked the toggle's `translateY(-50%)`, so on press the
+button dropped ~16px from under the pointer and the click was lost. Fixed
+with `.loginForm .togglePassword` rules that keep its centring, padding and
+background. (2) The lessons week view's day headers used an undefined
+`var(--text)` and inherited white text on a pale yellow fill; now the
+system's dark blue with white text (about 6.5:1).
+
+**Codex round 1:** no regression. Three pre-existing defects in the same
+control, all fixed: on the register page `.formContainer button:hover`
+painted the eye away; ChangeOwnPassword (Profile) and EditUser used
+`passwordWrapper`/`togglePassword` classes missing from their CSS modules,
+so the eye sat outside the field.
+
+**Round 2:** "Resolved". No new concrete defects.
+
+**Verification:** in Chromium, three clicks on the top edge of the login
+eye toggled the field each time; on /register the eye sits inside the field
+with a transparent background. Not seen on screen: the lessons page, Profile
+and EditUser (they need a signed-in session).
+
+**Status:** not committed.
+
+## 2026-10-31: Responsible guide field always shown (Claude writer)
+
+**Scope:** the same tester did not see the responsible guide (main_teacher)
+in student edit. It was hidden while the user list was empty; the owner asked
+for it to show anyway, with only «بدون مرشد مسؤول» to choose. EditStudent.jsx
+drops `instructors.length > 0` (still `!parent && canAssignGuide`).
+
+**Codex round 1:** no unintended clearing (the empty choice stores null for a
+`students.viewAll` holder; a failed list keeps the stored id). One P3, fixed:
+a stored guide missing from a list still loading or failed was labelled
+inactive; now "loading" / "unavailable" labels until the list really loads.
+
+**Round 2:** "Resolved". No new concrete defects.
+
+**Verification:** client tests 734/734 (two new in EditStudent.lock.test.js).
+
+**Status:** not committed.
+
+## 2026-10-31: Linked student, guide and lesson pages (Claude writer)
+
+**Scope:** spec `docs/superpowers/specs/2026-10-31-student-lesson-guide-links-design.md`
+(owner-approved after a builder check), plan
+`docs/superpowers/plans/2026-10-31-student-lesson-guide-links.md`, built
+inline. Read-only pages with tabs for a student (personal details, lessons,
+responsible guide), a user (their students and lessons, empty tabs hidden)
+and a lesson (details, students with add/remove); the profile gains "my
+students/my lessons" tabs. Lists open the page; the form is `/x/new` and
+`/x/:id/edit`. The server sends a guide's name and phone with a student and a
+lesson (tz only to `users.view` holders). On the owner's request during the
+work, «دليل المستخدم» left the navigation bar (the guide stays in the help
+center).
+
+**Codex rounds (read-only), all findings fixed with a failing test first:**
+malformed guide id gave a 500 (only 24-hex ids looked up); lessons stored
+with `date.hh` showed 00:00; the `/new` routes lost their id (`RecordRoute`);
+overlapping roster writes, a stale student load and a late lesson answer;
+the roster's "press save" hint; a slow first student load hid a student
+added by ID; the profile form was rebuilt when its tabs arrived; the guided
+tours expected the form after "open" (new `*-view-edit` steps); roster
+writes from two tabs or users (each write takes the lesson lock through
+`withLock`, which now awaits its release); `removeFromList` ignored stored
+ObjectIds (server, string comparison); the user page offered «تعديل» for
+waiting/inactive or not-manageable users; «تعديل» on the lesson page now
+freezes the roster, waits for pending writes and opens the form only if the
+page is still on that lesson; a confirmation answered after moving to
+another lesson writes nothing; the picker counted «أُضيف» before the save
+(counted only after a successful write).
+
+**Pending:** round 8 (confirming the «أُضيف» fix) was sent but not answered:
+Codex hit its usage limit until 2026-11-04. The request is preserved in this
+entry; no Codex agreement is claimed for that last fix.
+
+**Found in the browser walk-through (local test DB, owner's test account):**
+a `+972…` phone showed its plus at the end (values in `<bdi>`); leaving a
+view page asked "leave?" (`unsavedChanges` patterns now match only the
+forms).
+
+**Not changed (ruling):** the roster endpoints still read-modify-write the
+whole list on the server; writes from the lesson page take the lock, the
+edit form holds it, so the remaining exposure is outside these pages.
+
+**Verification:** client 801/801, server 1013/1013, build compiles. Browser:
+student page on desktop and 375px, empty-tab texts, `/students/new`, profile
+without tabs, navigation bar. Not walked in the browser (no such data in the
+test DB): a regular lesson page, a user page, a guide's profile tabs.
+
+**Status:** not committed.
+
+## QA round on seeded local data (2026-11-01)
+
+**Writer:** Claude. **Scope:** a full QA pass (UI and API, every role) of the
+linked pages and the tester fixes, on a local MongoDB filled by the new
+`server/scripts/seedTestData.js` (10 admins, 10 guides, 10 assistants, 160
+students, 50 lessons, 2 football lessons; `--remove` deletes exactly that
+data; refuses a non-local database). The local `config/.env` now points
+`MONGO_URI` at `127.0.0.1:27017` (git-ignored; Atlas kept as a comment).
+
+**Bugs found and fixed, each with a failing test first:**
+- `/lessons/<not an id>` showed the database's English cast error; GET, PUT,
+  DELETE, addToList and removeFromList on such an id answered 500. New
+  `middleware/objectIdParam.js` (`router.param('id')` in `Lesson.route.js`)
+  answers 404 «غير موجود».
+- addToList/removeFromList with `list_students` that is not a list answered
+  500; now 400 `BAD_LIST`.
+- An admin could add an id that is no student to a roster (it was stored).
+  Unscoped actors now add only existing students (`existingIds`). This
+  reverses the earlier pinned rule "admin adds as today (no existence
+  check)"; the two tests that pinned it were updated.
+- The responsible-guide select offered waiting and inactive users (the
+  student page then showed "no guide"). Only active users are offered
+  (`responsibleGuideOptions`).
+- A double click on «إضافة» in the lesson picker counted «أُضيف: 2» for one
+  student (`LessonRoster` ignores an id whose add is on its way).
+- At 769–1180px an admin's menu hid «المركبات» and the logout button
+  (`overflow: hidden`, one row). The desktop menu now wraps
+  (`Header.module.css`); checked at 800, 1024 and 1440px.
+- The record pages' tab bar showed a vertical scrollbar (1px overflow);
+  `overflow-y: hidden` in `RecordPage.module.css`.
+- `public/index.html` loaded `bootstrap.min.css` relative to the page, so
+  every nested route (`/students/…`, `/lessons/…`) got a 404 and no
+  Bootstrap; now `%PUBLIC_URL%/bootstrap.min.css`. Student page, edit form
+  and lesson page checked afterwards: no visible change.
+
+**Passed (browser + 38 API probes):** password eye on login/profile (repeated
+clicks, label switches, stays centred); day headers; guide field with and
+without a guide; student page tabs, empty texts, unknown tz, `?tab=bogus`,
+print preview; guide link to `/users/<tz>` for admins, `/profile` for the
+guide himself, no link without `users.view`; lesson page details, picker
+search, Escape, add, remove with cancel/confirm, lock held by another user
+(clear Arabic message, nothing written); guide cannot open another guide's
+student or user pages; assistant read-only; profile tabs hidden when empty;
+375px pages without horizontal scroll; unsaved-changes guard on forms only.
+
+**Observations for the owner (not changed):** signing in again elsewhere
+ends the earlier session at its next token refresh (one refresh token per
+account); a guide may edit and change the roster of other guides' lessons
+(current permission defaults); `/users/<own tz>` sends a guide to the
+dashboard rather than `/profile`; the guided-tour invitation reappears on
+each page after «لاحقًا» and sits above dialogs.
+
+**Verification:** client 803/803, server 1018/1018, build compiles.
+
+**Codex review:** requested for this round; not available (usage limit until
+2026-11-04). Pending.
+
+**Status:** not committed.
+
+## Owner's rulings after QA: sessions, admin-only editing (2026-11-01)
+
+**Writer:** Claude. **Owner's rulings:** one account may be signed in on
+several devices; only an admin edits students, lessons and users; a guide or
+assistant opening `/users/<own tz>` lands on `/profile`, any other blocked
+page on the dashboard; only existing students accepted in the association
+(not waiting) are added to a lesson.
+
+**Changes (each with a failing test first, unless noted):**
+- Sessions: `utils/refreshSessions.js` keeps one refresh hash per device in
+  `refreshHashes` (newest 10), with atomic `api.pushCapped`/`api.pull`
+  through `UserModelDef.addRefreshHash`/`dropRefreshHash`. Sign-in adds,
+  refresh replaces only that device's hash (new added before old removed),
+  sign-out removes only that device. The old single `refreshHash` still
+  refreshes and moves to the list. Recovery and a forced password change
+  clear both. `refreshHashes` is hidden like `refreshHash` (user DTOs,
+  student DTO, assistant tools) and redacted in the audit log
+  (`hash(es)?$`). Tests: `refresh-sessions.test.js`,
+  `multi-device-session.test.js` (fails on the previous controller).
+- Found by the live check, not by the unit tests: two refresh tokens signed
+  in the same second for one user were identical, so a rotation removed the
+  other device's copy too. Each refresh token now has a random `jwtid`.
+- Admin-only editing: the guide defaults lose `students.edit`,
+  `students.photo`, `lessons.create`, `lessons.edit`, `lessons.roster`
+  (server `utils/permissions.js` and its client copy in
+  `journey/demoRoutes.js`). An admin can still grant a key to one person.
+  The `/x/:id/edit`, `/users/new` forms now need their edit/create key in
+  `routeAccess.js`; the student list shows «تعديل» only with
+  `students.edit` (test written after the change, then shown to fail
+  without the gate); the student tour's form steps require `students.edit`.
+- `blockedRedirect` (RoleGuard): own user page → `/profile`, else dashboard.
+- Roster: `existingIds` also refuses waiting students; the same rule now
+  covers an admin's `postOne` and `putOne` (self-review found the form
+  bypassed it). Students already on a lesson are kept.
+- Older tests that pinned the replaced rules were updated: guide actors in
+  lock/assistant tests get explicit grants; "admin adds as today" and
+  "guides delete photos" assertions follow the new rules.
+
+**Self-review (harsh):** (1) I wrote the multi-device controller code before
+its tests; I then ran the tests against the previous controller to show they
+fail there. (2) My first pass missed the lesson form path for the roster
+rule and the identical-token case; both are fixed with tests. (3) Two tabs
+of one browser refreshing at the same moment can each store a new hash; the
+spare hash is unusable by anyone else and drops out at the 10-device cap.
+(4) A refresh token whose sign-out arrives after it expired stays in the
+list until the cap; it cannot be used. (5) Guides now cannot take student
+photos, create lessons or change rosters, including through the AI
+assistant: this follows the ruling but is a visible change for them.
+(6) Each newly listed student costs one database read when an admin saves a
+lesson form. (7) On a desktop, a guide's student tour waits for the missing
+«تعديل» anchor before skipping that step.
+
+**Verification:** server 1034/1034, client 808/808,
+build compiles. Live: two devices on one account both refresh; the spent
+token is refused; signing out one leaves the other. Browser as a guide:
+`/users/<own>` → `/profile`, another user → dashboard, a student form →
+dashboard, no «تعديل», roster or add buttons.
+
+**Codex review:** pending (usage limit until 2026-11-04).
+
+**Status:** not committed.
+
+## System guidance turned off for now (2026-11-01)
+
+**Writer:** Claude. **Owner's ruling:** turn the system's guidance off for
+now. **Change:** `Components/Routes/GuidanceProviders.jsx` with
+`GUIDANCE_ENABLED = false` wraps the protected layout instead of
+`JourneyProvider` + `TourProvider`; while off, neither mounts, so there is no
+guided-journey invitation («أهلًا، أنا إبراهيم»), no "?" help button, no
+new-access or "what's new" cards and no "new" badges (`useJourney`/`useTour`
+answer their built-in empty defaults). Setting the constant to `true` brings
+everything back unchanged. Test: `GuidanceProviders.test.js` (written
+first). **Side effect:** `/guide` (the user guide) was reached only through
+the help center, so it has no entry point while the guidance is off; its
+«ابدأ» buttons do nothing. **Noted, not changed:** the lessons page asks for
+`/api/user/` for its guide filter, which a guide may not read (403 in the
+console; existed before today). **Verification:** client 811/811, build
+compiles; browser: no invitation or help button on the dashboard, student,
+lesson and guide pages. **Codex review:** pending (until 2026-11-04).
+**Status:** not committed (owner: wait).
+
+## Guides and assistants see only their own lessons (2026-11-01)
+
+**Writer:** Claude. **Owner's ruling:** a guide or assistant sees only the
+lessons they teach or assist in; an admin (`lessons.viewAll`) sees all.
+
+**Changes (each with a failing test first):**
+- `server/utils/lessonAccess.js`: `seesAllLessons`, `isOnLesson` (moved out
+  of the lesson controller), `mayOpenLesson`, `ownLessons`. Tests:
+  `lesson-access.test.js`.
+- Lesson controller: `getAll`, `getLessonsByQuery`, `getLessonsByToDay`
+  return only own lessons; `getOne` answers 404 for someone else's lesson;
+  the football schedule is empty without `lessons.viewAll`. `getAll` also
+  returns `names` (teacher/helper full names by user id, via
+  `contactById`) for the lessons it returns. Tests:
+  `lesson-own-only.test.js`. The dashboard reuses `getAll`, so its lesson
+  figures follow.
+- Attendance: the sheet, its dates and saving answer 404 for someone else's
+  lesson (also covers an attendance proposal approved from the assistant,
+  which saves through `bulkSave`).
+- Assistant tools: `list_lessons`, `get_student` (the student's lessons) and
+  `attendance_summary` (rows of other lessons skipped for non-admins only,
+  so an admin still counts rows of deleted lessons).
+- Client: `getAllLesson` passes `names` through; the lessons page takes the
+  guide names and its guide filter from them and no longer reads the user
+  list (the 403 a guide got). Test: `ViewAllLesson.test.js`.
+- Older tests that read another guide's lesson as a guide were rewritten to
+  the new rule.
+
+**Self-review (harsh):** (1) While rewriting the old scope tests I assumed a
+student on a guide's own lesson could be hidden from him; it cannot (the
+student scope is built from his lessons), so those tests now assert the
+full roster and the 404 for other lessons. (2) My first client edit missed
+the real `getAllLesson` (the line appears twice) and the page test passed
+only because it mocks that function; caught by re-reading, fixed and
+checked live. (3) My first `attendance_summary` change would have dropped
+an admin's rows of deleted lessons; limited to non-admins. (4) The names
+cost one user lookup per distinct staff member per list load. (5) A lesson
+whose teacher is the system account gets no name in `names`. (6) A guide no
+longer sees, for a student of his, a lesson of another guide that student
+attends (by the ruling).
+
+**Verification:** server 1047/1047, client 813/813, build compiles. Live: a
+guide gets 8 lessons (his), names in the filter, 404 for another guide's
+lesson, no football lessons, no `/api/user/` call; the admin gets 50
+lessons, 2 football lessons, 15 names.
+
+**Codex review:** pending (until 2026-11-04). **Status:** not committed.
+
+## The responsible guide sees everything about his student (2026-11-01)
+
+**Writer:** Claude. **Owner's ruling:** the responsible guide (`main_teacher`)
+sees all of his student's information, including lessons the student
+attends with other guides. Writing stays as before (admin only); the
+lesson schedule and attendance pages stay "own lessons only".
+
+**Changes (each with a failing test first, except the guard test below):**
+- `utils/lessonAccess.js`: `isResponsible`, `mayViewLesson`,
+  `responsibleStudentIds`.
+- Lesson `getOne`: a lesson holding one of the actor's own students opens
+  read-only (only his visible students named, the rest counted).
+- Student `getOneS` returns `lessons` (name, time, room): all of them for an
+  admin and for the responsible guide, otherwise the actor's own lessons.
+  The student page uses it instead of the user's lesson list (whose
+  `studentLessons` helper is removed; `byLessonTime` exported).
+- Assistant: `get_student` lists all lessons of his own student;
+  `attendance_summary` counts his own students' rows in any lesson.
+- Tests from the previous round that used S1 (a guide's own student) were
+  rewritten: S1 now shows everything, S2 (only in his lesson) does not.
+
+**Self-review (harsh):** (1) The first `isResponsible` checks compared
+`main_teacher` with the actor id as strings with no guard; an empty id
+against a student without a guide would have matched. One guarded
+`isResponsible` now serves all three places; its test was added after the
+fix (it guards the refactor, it did not fail first). (2) My cut of the old
+`studentLessons` test left half a block behind and broke the suite; fixed.
+(3) `getOneS` now reads all lessons to find the student's ones (no array
+matching in the test store); fine at this size, a filter on
+`list_students` would scale better. (4) A responsible guide can open such
+a lesson's attendance? No: attendance stays "own lessons" (404), by the
+ruling's "view" scope; the student's attendance is visible through the
+assistant summary only.
+
+**Verification:** server 1054/1054, client 812/812, build compiles. Live
+(student 770000354 of guide 770000107 added by an admin to another
+guide's lesson): the student page lists 3 lessons including it; the lesson
+opens with 2 named students and «طلاب آخرون: 10», no edit buttons; it is
+not in his schedule; saving attendance there is 404; an assistant with no
+student there gets 404.
+
+**Codex review:** pending (until 2026-11-04). **Status:** not committed.
+
+## The student page shows the student's attendance, read-only (2026-11-01)
+
+**Writer:** Claude. **Owner's ruling:** yes, the responsible guide sees his
+student's attendance in other guides' lessons on screen too, read-only,
+only his student's rows.
+
+**Changes (each with a failing test first):**
+- Student `getOneS` returns `attendance` (lesson, lessonName, date,
+  status, notes; newest first, at most 200 rows) to an attendance.view
+  holder: every row for an admin and for the responsible guide, otherwise
+  the rows of the actor's own lessons. A deleted lesson's row keeps an
+  empty `lessonName`.
+- The student page gets a «الحضور» tab (only when `attendance` is sent):
+  date · lesson, status · notes; a row links to its lesson, a deleted
+  lesson shows «درس محذوف» with no link. No inputs.
+- `LinkList` renders a row without `to` as plain text.
+- `test/helpers/liveStubs.js`: an empty attendance model for the tests that
+  load the student controller without one.
+
+**Self-review (harsh):** (1) The attendance page itself is unchanged (own
+lessons only); the student's rows from other lessons are on the student
+page only. (2) The 200-row cap drops the oldest rows with no notice; enough
+for a school year at a few lessons a week, not beyond. (3) The nightly
+absence job and opening a sheet create rows marked absent/present
+automatically; the tab shows them as they are stored. (4) The liveStubs
+default answers for `../Attendance/Attendance.model` silently; no other
+Entities controller requires that path today, but a new one would get the
+empty stub instead of an "Unexpected dependency" failure.
+
+**Verification:** server 1060/1060, client 815/815, build compiles. Live:
+an admin marked student 770000354 absent («QA») on 2026-10-29 in another
+guide's lesson 6ae6fd27a81837285224f0f4 (local test data changed). The
+responsible guide 770000107 and the admin see that row (10 rows); the
+lesson's own guide 770000149 sees only that lesson's rows; an assistant
+with no link to the student gets 404. The tab shows the rows, no inputs.
+
+**Codex review:** pending (until 2026-11-04). **Status:** not committed.
+
+## Signed in until signing out, in the system and on the sport site (2026-11-01)
+
+**Writer:** Claude. **Owner's ruling:** like Instagram or Facebook: a person
+stays signed in until he signs out himself or is signed out.
+
+**Changes (each with a failing test first):**
+- `utils/jwt.js`: refresh token 1 year by default (was 7 days), access
+  token 15 minutes by default (was 1 day); the refresh cookie now has
+  `maxAge` (it was a browser-session cookie, lost when the browser closed).
+  Each refresh already issues a new refresh token, so only a year without a
+  visit ends a session. Local `.env` `JWT_REFRESH_TTL_SEC` set to a year;
+  **the production environment must be updated too** (an env value
+  overrides the default).
+- `POST /api/user/:tz/sign-out-all` (users.edit, `canManageTarget`, not the
+  system account): clears `refreshHashes` and sets `signedOutAt`;
+  `tokenIsStale` now also counts `signedOutAt`, so the user's access tokens
+  are refused at once (TOKEN_STALE) on every device. Recorded as
+  `sign_out_all`. `signedOutAt` is server-owned (stripped from putU).
+  The user page gets «تسجيل الخروج من كل الأجهزة» (with confirmation).
+- TOKEN_STALE message is now generic («انتهت الجلسة، سجّل الدخول من جديد»).
+- Sport site: a session lasts a year and is renewed for another year on a
+  visit a day or more after it was made. `POST
+  /api/sports/players/:studentId/sign-out` (sports.manage) sets
+  `student.sportSignedOutAt`; older sport sessions are refused. The players
+  list gets «تسجيل الخروج» for sports.manage holders.
+
+**Self-review (harsh):** (1) Times are compared in whole seconds (as for a
+password change): a device that signed in within the same second as the
+sign-out keeps its session. Seen live when everything ran in one second.
+(2) An access token keeps working up to the actor cache's 5 s after a
+sign-out. (3) A session lasting a year on a shared or lost phone exposes
+the player's photo and ID number until a manager signs him out. (4) The
+sport sign-out was not checked live (sign-in needs an emailed code); only
+by tests. Admins do not hold sports.manage by default (grant-only), so the
+button shows only to whoever was granted it. (5) The production env values
+are outside the repo; without updating them the old lifetimes stay.
+
+**Verification:** server 1070/1070, client 821/821, build compiles. Live:
+the refresh cookie has Max-Age 365 days; two sessions of guide 770000107
+worked, an admin's sign-out-all → both get 401 TOKEN_STALE and both
+refreshes 401; he signs in again fine; a guide trying sign-out-all gets
+403. Guide 770000107's local sessions were ended by this check.
+
+**Codex review:** pending (until 2026-11-04). **Status:** not committed.
+
+## My devices, attendance summary, absence pushes and the sport sign-in card (2026-11-01)
+
+**Writer:** Claude. **Owner's ruling:** "do everything" on the suggestions
+list: my devices, sign out other devices, attendance summary with a month
+filter and status colours, a summary card on the student page, a danger zone,
+scrolling tabs on phones, an absence alert to the responsible guide, and the
+sport sign-in card (QR) for players without email.
+
+**Changes (a failing test first, except where the self-review says not):**
+- My devices: each session has an id (`sid`) carried in its access and
+  refresh tokens and kept across refreshes, and an entry in
+  `user.deviceTokens` `{ sid, hash, label, startedAt, lastSeenAt }`, written
+  in the same atomic write as `refreshHashes` (`api.pushCapped`/`pull` take
+  `also`). The label is "Chrome · Android" from the User-Agent; the whole
+  line is never stored. `GET /api/auth/sessions`, `DELETE
+  /api/auth/sessions/:sid`, `POST /api/auth/sessions/sign-out-others` (own
+  sessions only, loadActor, no permission key). `loadActor` and `getme` refuse
+  a token whose `sid` is no longer listed (`sessionEnded`), so a signed-out
+  device stops at once. Tokens from before ids keep working until their
+  refresh, which gives them an id. `deviceTokens` is stripped by `sanitize`,
+  server-owned, hidden by the audit log (its name ends in "Tokens"), and
+  cleared by `endAllSessions`. Profile: «الأجهزة المتصلة» (`MyDevices.jsx`).
+- Student page: the attendance tab has a month select, the rate (present and
+  late count as attended) and counts, and a coloured status badge per row
+  (`utils/attendanceView.js`, `StudentAttendance.jsx`). `RecordPage` takes
+  `facts` (guide, lessons, attendance rate under the name) and puts
+  `variant: "danger"` actions in a separate zone; the user page's «تسجيل
+  الخروج من كل الأجهزة» is one. Tabs already scrolled sideways on phones
+  (`overflow-x: auto`); unchanged.
+- Absence streak: the existing in-app `absence_streak` alert (three recorded
+  absences in a row, to the student's scope) now also goes to phones
+  (`PUSHED_TYPES`).
+- Sport sign-in card: `POST /api/sports/players/:studentId/login-card`
+  (sports.manage) makes a 32-byte random token, stores only
+  `student.sportCardHash` (+ issued at/by), and returns the link
+  `<sport site>/#card=<token>` and its QR as SVG (new dependency `qrcode`
+  1.5.4, pinned). A new card cancels the old one. `POST
+  /api/sport-portal/card { token }` (rate-limited like the code sign-in)
+  starts the usual year-long session. The sport site reads `#card=` on load,
+  wipes it from the address bar first, signs in, and shows the refusal on the
+  sign-in page; the sign-in page tells players without email to ask for the
+  card. The players list gets «بطاقة الدخول» (asks first when a card exists)
+  and a printable card the size of a bank card. `sportCardHash` is stripped
+  from the student page and list. No "code to the parent": students have no
+  parent email field.
+
+**Self-review (harsh):** (1) TDD order slipped twice: I wrote
+`utils/attendanceView.js` and `LoginCardModal`/the PlayersTab card wiring
+before running their new tests red; the tests were written first but not
+watched failing. (2) Sign-out-others keeps only this device; a token from
+before session ids on another device still works up to 15 minutes (its
+access token). (3) "Sign out one device" is checked against the 5 s actor
+cache in `loadActor` too. (4) The card is a bearer credential: whoever scans
+it signs in, until a new card is printed; reprinting does not sign out phones
+already in (the sign-out button does). (5) The absence push goes to every
+recipient of the alert (responsible guide, lesson teachers and helpers,
+students.viewAll holders), not only the responsible guide. (6) A full
+vehicle test failed once in a full run and passed alone and in the next full
+run (timing). (7) The live script that looked for a sports.manage holder hit
+the staff sign-in rate limit (20 per 15 min) and signed several seeded test
+accounts in once more.
+
+**Verification:** server 1094/1094, client 841/841, sport 72/72, client and
+sport builds compile. Live (local server): guide 770000107 on three devices
+→ the list shows "Safari · iPhone", "Chrome · Windows" (this one),
+"Chrome · Android"; signing out the iPhone → its next request 401
+TOKEN_STALE and its refresh 401; sign-out-others → ended 2, only this device
+listed, the Android 401, this device 200; `deviceTokens` not in the user
+page. Sport site at `/#card=<bad token>`: the token is wiped from the
+address bar, the page shows an error. Not checked live: card issue and card
+sign-in end to end, because the local `server/config/.env` has no
+`SPORT_SESSION_SECRET` (the sport sign-in fails closed locally, the emailed
+code too), and the signed-in screens (profile devices, student summary,
+danger zone, card print), which need a browser sign-in; covered by tests.
+
+**Codex review:** pending (until 2026-11-04). **Status:** not committed.
+
+## Sport sign-in with a passkey (fingerprint or face) (2026-11-01)
+
+**Writer:** Claude. **Owner's ruling:** the sport site signs in "several
+ways, with keypass". Read as passkeys (the owner declined the clarifying
+question); the ways are now the emailed code, the QR card and a passkey.
+
+**Changes (a failing test first, except where the self-review says not):**
+- `SportPortal.passkey.js` (new dependency `@simplewebauthn/server` 13.3.3,
+  pinned): `POST /api/sport-portal/passkey/register-options` and
+  `/passkey/register` (signed-in player) save a discoverable passkey on the
+  student (`sportPasskeys: { id, publicKey, counter, transports, createdAt,
+  lastUsedAt }`, at most 10); `/passkey/login-options` and `/passkey/login`
+  (public, the sign-in rate limit) find the student by the credential id,
+  verify, update the counter and start the usual year-long session. The
+  options name the player, never the ID number. The challenge travels in a
+  signed 5-minute cookie (`tamheed_sport_pk`), bound to its purpose (and to
+  the student for registration) and cleared on use. Relying party:
+  `SPORT_HOST` (https) in production, `localhost:3001` in development.
+- A sports manager's «تسجيل الخروج» also clears `sportPasskeys`, so a lost
+  phone cannot sign in with a fingerprint. `sportPasskeys` is stripped from
+  the student page and list. `SportPortal.auth` exports `signIn` and
+  `isPlayer` for it.
+- Sport site (`@simplewebauthn/browser` 13.3.0, pinned): «الدخول بالبصمة أو
+  بالوجه» on the sign-in page where the browser supports passkeys; after a
+  sign-in, a one-time offer on the home tab («حفظ» / «لاحقًا», remembered per
+  phone in localStorage). Closing the phone's prompt is not shown as an
+  error.
+
+**Self-review (harsh):** (1) I wrote `sport/src/passkey.js` before running its
+test red. (2) A passkey is only as safe as the phone's lock; a passkey synced
+to a family's shared Apple or Google account signs any of its devices in.
+(3) The "saved on this phone" mark is localStorage, so after clearing site
+data the offer shows again (saving again replaces the same credential id).
+(4) Not checked live end to end: the local env has no `SPORT_SESSION_SECRET`,
+so `/passkey/login-options` answers 500 locally (fail closed), and a real
+fingerprint needs a phone on the real host (passkeys require https or
+localhost and the exact host name).
+
+**Verification:** server 1105/1105 (one test runs the real webauthn library
+for the options), client 841/841, sport 81/81, sport build compiles. Live:
+the sport sign-in page shows «الدخول بالبصمة أو بالوجه» in the browser pane.
+
+**Codex review:** pending (until 2026-11-04). **Status:** not committed.
+
+## "Install the app" button with a step-by-step guide (2026-11-01)
+
+**Writer:** Claude. **Owner's ruling:** stay a web app for now (no store
+apps); on a phone, show a button that installs it for people who do not know
+how.
+
+**Changes:**
+- `pwa/installState.js` (client and sport, the same file): catches the
+  browser's `beforeinstallprompt` once for the whole app (AppChrome no longer
+  listens itself), tells the platform (`installed`, `android`, `ios-safari`,
+  `ios-other`, `desktop`), and lets any button open the guide.
+- `pwa/InstallApp.jsx` (both): `InstallAppButton` «📲 ثبّت التطبيق على
+  الهاتف», shown only on a phone where the app is not installed: on Android
+  with the browser's prompt it installs at once, otherwise it opens
+  `InstallGuide`, a bottom sheet with three steps for that phone (iPhone
+  Safari: Share → Add to Home Screen → Add, with drawn icons; iPhone Chrome:
+  the share button by the address, or open in Safari; Android: the ⋮ menu →
+  Install app). The guide is mounted once in AppChrome; the iPhone hint bar
+  gets «كيف؟» to open it.
+- Placed: the staff sign-in page and the phone menu (above «خروج»); the
+  sport sign-in page and the sport home tab.
+
+**Self-review (harsh):** (1) I wrote `installState.js` and `InstallApp.jsx`
+before running their tests red (the tests existed first). (2) The two apps
+keep two copies of the same two files (as with AppChrome); a fix must go in
+both. (3) Android browsers other than Chrome (Samsung Internet, Firefox) get
+the Chrome menu steps, which may not match their menus exactly. (4) The
+phone menu placement was not seen live (needs a staff sign-in); covered by
+the component tests only.
+
+**Verification:** client 849/849, sport 89/89, both builds compile. Live
+(browser pane, phone size, Android): the button shows on the sport and staff
+sign-in pages and opens the Android steps; at desktop size it does not show.
+
+**Codex review:** pending (until 2026-11-04). **Status:** not committed.

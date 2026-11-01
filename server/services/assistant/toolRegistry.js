@@ -47,7 +47,7 @@ const definitions = Object.freeze(TOOLS.map((tool) => Object.freeze({
 })));
 
 const SECRET_KEYS = new Set([
-  "password", "passwordHash", "refreshHash", "resetOtpHash", "resetOtpExpires", "resetOtpAttempts",
+  "password", "passwordHash", "refreshHash", "refreshHashes", "resetOtpHash", "resetOtpExpires", "resetOtpAttempts",
   "resetOtpLockedUntil", "failedLoginCount", "token", "otp",
 ]);
 

@@ -3,17 +3,40 @@ import { requestCode, verifyCode, GENERIC_ERROR_MESSAGE } from "./api.js";
 import { clearApiCache } from "./pwa/clearApiCache";
 import logo from "./logo.png";
 import { Ball, Floodlight } from "./Art.jsx";
+import { passkeySupported, signInWithPasskey } from "./passkey";
+import { InstallAppButton } from "./pwa/InstallApp";
 
 const digits = (v, max) => v.replace(/\D/g, "").slice(0, max);
 const GENERIC_ERROR = GENERIC_ERROR_MESSAGE;
 
-export default function LoginPage({ onSignedIn }) {
+// notice: why a sign-in card did not work, shown above the form.
+export default function LoginPage({ onSignedIn, notice = "" }) {
   const [step, setStep] = useState("tz");
   const [tz, setTz] = useState("");
   const [code, setCode] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const canPasskey = passkeySupported();
+
+  // A passkey saved on this phone: a fingerprint or face, no ID number.
+  const withPasskey = async () => {
+    if (busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      const r = await signInWithPasskey();
+      if (r.ok) {
+        await clearApiCache();
+        return onSignedIn();
+      }
+      if (!r.cancelled) setError(r.message || "تعذّر الدخول بالبصمة. ادخل بالرمز أو بالبطاقة");
+    } catch {
+      setError(GENERIC_ERROR);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const send = async (e) => {
     e.preventDefault();
@@ -69,6 +92,13 @@ export default function LoginPage({ onSignedIn }) {
         <h1>تمهيد - رياضة</h1>
         <p className="login-sub">بوابة اللاعبين</p>
         <div className="login-panel">
+          {notice && <p className="error" role="alert">{notice}</p>}
+          {step === "tz" && canPasskey && (
+            <>
+              <button type="button" className="btn btn-passkey" onClick={withPasskey} disabled={busy}>الدخول بالبصمة أو بالوجه</button>
+              <p className="login-or">أو برقم الهوية</p>
+            </>
+          )}
           {step === "tz" ? (
             <form onSubmit={send} className="login-form">
               <label htmlFor="tz">رقم الهوية</label>
@@ -80,6 +110,7 @@ export default function LoginPage({ onSignedIn }) {
                 onChange={(e) => setTz(digits(e.target.value, 9))}
               />
               <button className="btn" disabled={busy || tz.length < 5}>أرسل الرمز</button>
+              <p className="note">بدون بريد إلكتروني؟ اطلب من المرشد «بطاقة الدخول» وامسح الرمز بكاميرا الهاتف.</p>
             </form>
           ) : (
             <form onSubmit={verify} className="login-form">
@@ -96,6 +127,8 @@ export default function LoginPage({ onSignedIn }) {
             </form>
           )}
           {error && <p className="error" role="alert">{error}</p>}
+          {/* Phones only, until the app is installed. */}
+          <InstallAppButton className="btn btn-ghost install-app" />
         </div>
         <Ball className="login-ball" />
       </div>

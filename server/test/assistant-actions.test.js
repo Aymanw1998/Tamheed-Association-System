@@ -42,7 +42,7 @@ const LATE = "متأخر";
 
 const id = (c) => c.repeat(24);
 const ADMIN_U = { _id: id("a"), tz: "300000001", firstname: "Ad", lastname: "Min", role: ADMIN, roles: [ADMIN] };
-const G1 = { _id: id("b"), tz: "300000002", firstname: "Gu", lastname: "One", role: GUIDE, roles: [GUIDE] };
+const G1 = { _id: id("b"), tz: "300000002", firstname: "Gu", lastname: "One", role: GUIDE, roles: [GUIDE], permissionGrants: ["lessons.roster", "lessons.edit", "students.edit"] };
 const G2 = { _id: id("c"), tz: "300000003", firstname: "Gu", lastname: "Two", role: GUIDE, roles: [GUIDE] };
 const NEWCOMER = { _id: id("9"), tz: "300000004", firstname: "New", lastname: "Comer", roles: [] };
 const SYS_WAITING = { _id: id("8"), tz: SYSTEM_TZ, firstname: "Sys", lastname: "Waiting" };

@@ -168,7 +168,7 @@ test("a correct code sets a host-only httpOnly cookie on /api/sport-portal", asy
   assert.equal(options.path, "/api/sport-portal");
   assert.equal(options.sameSite, "Lax");
   assert.equal(options.domain, undefined);
-  assert.equal(options.maxAge, 30 * 24 * 60 * 60 * 1000);
+  assert.equal(options.maxAge, 365 * 24 * 60 * 60 * 1000); // a year, renewed on visits (owner, 2026-11-01)
   const payload = jwt.verify(value, process.env.SPORT_SESSION_SECRET);
   assert.equal(payload.sub, "s1");
   assert.equal(payload.typ, "sport-student");
@@ -398,4 +398,159 @@ test("a session of a student with no football row is refused with 401", async ()
   await auth.requireSportStudent({ cookies: { tamheed_sport: token } }, r, () => { passed = true; });
   assert.equal(passed, false);
   assert.equal(r.statusCode, 401);
+});
+
+// The owner's rule (2026-11-01): a player stays signed in until he signs out
+// or a sports manager signs him out, like a phone app.
+const YEAR_MS = 365 * 24 * 60 * 60 * 1000;
+const signAt = (sub, atMs) => jwt.sign({ sub, typ: "sport-student", iat: Math.floor(atMs / 1000) }, process.env.SPORT_SESSION_SECRET);
+
+test("a sign-in lasts a year", async () => {
+  const { auth } = setup();
+  await ask(auth, "100000009");
+  const r = await verify(auth, "100000009", "123456");
+  assert.equal(r.cookies[0].options.maxAge, YEAR_MS);
+  const p = jwt.decode(r.cookies[0].value);
+  assert.equal(p.exp - p.iat, YEAR_MS / 1000);
+});
+
+test("a visit more than a day after the cookie was made renews it for another year", async () => {
+  const { auth, clock } = setup();
+  const { r, called } = await guard(auth, { headers: {}, cookies: { tamheed_sport: signAt("s1", clock.t - 2 * 24 * 60 * 60 * 1000) } });
+  assert.equal(called, true);
+  assert.equal(r.cookies.length, 1);
+  assert.equal(r.cookies[0].name, "tamheed_sport");
+  assert.equal(r.cookies[0].options.maxAge, YEAR_MS);
+  assert.equal(r.cookies[0].options.path, "/api/sport-portal");
+  const p = jwt.verify(r.cookies[0].value, process.env.SPORT_SESSION_SECRET);
+  assert.equal(p.sub, "s1");
+  assert.equal(p.iat, Math.floor(clock.t / 1000));
+});
+
+test("a visit within a day of the cookie leaves it as it is", async () => {
+  const { auth, clock } = setup();
+  const { r, called } = await guard(auth, { headers: {}, cookies: { tamheed_sport: signAt("s1", clock.t - 60 * 60 * 1000) } });
+  assert.equal(called, true);
+  assert.equal(r.cookies.length, 0);
+});
+
+test("a session older than the student's sportSignedOutAt is refused; a newer one is not", async () => {
+  const at = Date.parse("2026-01-01T09:00:00Z");
+  const { auth } = setup({ students: [{ _id: "s1", tz: "100000009", email: "one@example.com", sportSignedOutAt: new Date(at) }] });
+  const old = await guard(auth, { headers: {}, cookies: { tamheed_sport: signAt("s1", at - 1000) } });
+  assert.equal(old.called, false);
+  assert.equal(old.r.statusCode, 401);
+  const after = await guard(auth, { headers: {}, cookies: { tamheed_sport: signAt("s1", at) } });
+  assert.equal(after.called, true);
+});
+
+test("signOutPlayer stamps sportSignedOutAt on the student", async () => {
+  const { auth, stores, clock } = setup();
+  const r = res();
+  await auth.signOutPlayer({ params: { studentId: "s1" } }, r);
+  assert.equal(r.statusCode, 200);
+  assert.deepEqual(r.body, { ok: true });
+  const s1 = stores.students.docs().find((d) => d._id === "s1");
+  assert.equal(new Date(s1.sportSignedOutAt).getTime(), clock.t);
+});
+
+test("signOutPlayer of an unknown student is 404 and writes nothing", async () => {
+  const { auth, stores } = setup();
+  const r = res();
+  await auth.signOutPlayer({ params: { studentId: "nobody" } }, r);
+  assert.equal(r.statusCode, 404);
+  assert.equal(stores.students.docs().length, 5);
+});
+
+// Sign-in card (owner, 2026-11-01): young players have no email. A sports
+// manager prints a card with a QR code; scanning it signs the phone in. The
+// card holds a long random token; only its hash is stored, and a new card
+// cancels the old one.
+const BAD_CARD = { ok: false, message: "البطاقة غير صالحة. اطلب بطاقة جديدة من المرشد" };
+function cardSetup() {
+  const ctx = setup();
+  let n = 0;
+  ctx.auth = createSportAuth({
+    ...ctx.stores,
+    ensureSport: async () => ({ _id: "x" }),
+    log: (...args) => ctx.logs.push(args),
+    now: () => ctx.clock.t,
+    sportUrl: () => "https://sport.test",
+    makeCardToken: () => `card-token-${(n += 1)}-${"x".repeat(30)}`,
+  });
+  return ctx;
+}
+const issue = async (auth, studentId) => { const r = res(); await auth.issueCard({ params: { studentId }, actor: { tz: "m1" } }, r); return r; };
+const useCard = async (auth, token) => { const r = res(); await auth.signInWithCard({ body: { token } }, r); return r; };
+
+test("a sign-in card is a QR of the sport site link with the token; only its hash is stored", async () => {
+  const { auth, stores } = cardSetup();
+  const r = await issue(auth, "s2");
+  assert.equal(r.statusCode, 200);
+  const token = `card-token-1-${"x".repeat(30)}`;
+  assert.equal(r.body.url, `https://sport.test/#card=${token}`);
+  assert.match(r.body.svg, /^<svg/);
+  const student = stores.students.docs().find((d) => d._id === "s2");
+  assert.equal(student.sportCardHash, sha256(token));
+  assert.equal(JSON.stringify(student).includes(token), false);
+});
+
+test("scanning the card signs the phone in, even for a player without email", async () => {
+  const { auth } = cardSetup();
+  const { body } = await issue(auth, "s2");
+  const r = await useCard(auth, body.url.split("#card=")[1]);
+  assert.equal(r.statusCode, 200);
+  assert.deepEqual(r.body, { ok: true });
+  assert.equal(r.cookies[0].name, "tamheed_sport");
+  assert.equal(jwt.decode(r.cookies[0].value).sub, "s2");
+});
+
+test("a new card cancels the old one", async () => {
+  const { auth } = cardSetup();
+  const first = (await issue(auth, "s2")).body.url.split("#card=")[1];
+  const second = (await issue(auth, "s2")).body.url.split("#card=")[1];
+  assert.deepEqual((await useCard(auth, first)).body, BAD_CARD);
+  assert.equal((await useCard(auth, second)).statusCode, 200);
+});
+
+test("an unknown, empty or short token is refused without a session", async () => {
+  const { auth } = cardSetup();
+  for (const token of ["nope-nope-nope-nope-nope-nope-nope", "", "short", undefined]) {
+    const r = await useCard(auth, token);
+    assert.equal(r.statusCode, 400);
+    assert.deepEqual(r.body, BAD_CARD);
+    assert.equal(r.cookies.length, 0);
+  }
+});
+
+test("the card of a student who is no longer a player is refused", async () => {
+  const { auth, stores } = cardSetup();
+  const token = (await issue(auth, "s1")).body.url.split("#card=")[1];
+  await stores.players.delete({ studentId: "s1" });
+  assert.deepEqual((await useCard(auth, token)).body, BAD_CARD);
+});
+
+test("a card is issued only for a player: unknown student and non-player answer 404", async () => {
+  const { auth } = cardSetup();
+  assert.equal((await issue(auth, "nobody")).statusCode, 404);
+  assert.equal((await issue(auth, "s3")).statusCode, 404); // a student, not a player
+});
+
+// Passkeys (2026-11-01): a manager's sign-out also removes the passkeys saved
+// on the player's phones, so a lost phone cannot sign in with a fingerprint.
+test("signOutPlayer removes the player's saved passkeys too", async () => {
+  const { auth, stores } = setup();
+  await stores.students.updateExisting({ _id: "s1" }, { sportPasskeys: [{ id: "c1", publicKey: "AQID", counter: 0 }] });
+  await auth.signOutPlayer({ params: { studentId: "s1" } }, res());
+  assert.deepEqual(stores.students.docs().find((d) => d._id === "s1").sportPasskeys, []);
+});
+
+test("signIn starts the year-long sport session; isPlayer reads the football row", async () => {
+  const { auth } = setup();
+  const r = res();
+  auth.signIn(r, "s1");
+  assert.equal(r.cookies[0].name, "tamheed_sport");
+  assert.equal(jwt.decode(r.cookies[0].value).sub, "s1");
+  assert.equal(await auth.isPlayer("s1"), true);
+  assert.equal(await auth.isPlayer("s3"), false);
 });

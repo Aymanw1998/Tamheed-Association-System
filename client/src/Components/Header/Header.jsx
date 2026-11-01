@@ -9,6 +9,7 @@ import { useI18n } from "../../i18n/I18nContext";
 import NoticeBell from "../Notice/NoticeBell";
 import { ADMIN_ROLES, GUIDE_ROLES, canStored, normalizeRoles } from "../../utils/session";
 import NewBadge from "../../tours/NewBadge";
+import { InstallAppButton } from "../../pwa/InstallApp";
 
 const hasAnyRole = (roles, allowedRoles) => allowedRoles.some((role) => roles.includes(role));
 
@@ -175,7 +176,6 @@ export default function Header() {
         <a href="/reports" data-tour="menu-reports" onClick={(event) => onNavClick(event, "/reports")}>{t("nav.reports")}<NewBadge section="reports" /></a>
         <a href="/files" data-tour="menu-files" onClick={(event) => onNavClick(event, "/files")}>{t("nav.files")}<NewBadge section="files" /></a>
         <a href="/profile" data-tour="menu-profile" onClick={(event) => onNavClick(event, "/profile")}>{t("nav.profile")}</a>
-        <a href="/guide" data-tour="menu-guide" onClick={(event) => onNavClick(event, "/guide")}>{t("nav.guide")}</a>
         {canViewVehicles && (
           <a href="/vehicles" data-tour="menu-vehicles" onClick={(event) => onNavClick(event, "/vehicles")}>{t("nav.vehicles")}<NewBadge section="vehicles" /></a>
         )}
@@ -185,6 +185,8 @@ export default function Header() {
         {/* {canViewAudit && (
           <a href="/audit" data-tour="menu-audit" onClick={(event) => onNavClick(event, "/audit")}>{t("nav.audit")}<NewBadge section="audit" /></a>
         )} */}
+        {/* Phones only, until the app is installed. */}
+        <InstallAppButton className={styles.installButton} />
         <button type="button" onClick={handleLogout} className={styles.logoutButton} title={t("nav.logout")}>{t("nav.logout")}</button>
       </nav>
     </header>

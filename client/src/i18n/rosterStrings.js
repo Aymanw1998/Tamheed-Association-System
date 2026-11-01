@@ -22,5 +22,7 @@ export const rosterStrings = {
     responsibleGuide: "المرشد المسؤول",
     chooseInstructor: "بدون مرشد مسؤول",
     inactiveGuide: "(غير نشط)",
+    guideLoading: "جارٍ التحميل…",
+    guideUnavailable: "(تعذّر تحميل اسم المرشد)",
   },
 };

@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import styles from "./LessonRoster.module.css";
 import Button from "../UI/Button";
 import { useI18n } from "../../i18n/I18nContext";
@@ -23,6 +24,9 @@ const detailsOf = (student) => [student?.tz, student?.layer].filter(Boolean).joi
 // hiddenCount: students the server hid from this viewer (shown only as a number).
 // pending: students found by ID number on a lesson not saved yet.
 // onLookupAdd(student) adds a found student; it resolves true when they joined.
+// linkOf(student): when given, each enrolled name links there (the lesson page).
+// confirmRemove(student): when given, removing asks it first and offers no
+// undo (the lesson page saves each change at once).
 export default function LessonRoster({
   lesson,
   students,
@@ -33,6 +37,8 @@ export default function LessonRoster({
   pending = [],
   onLookupAdd,
   onRemovePending,
+  linkOf,
+  confirmRemove,
 }) {
   const { t } = useI18n();
   const [lookupTz, setLookupTz] = useState("");
@@ -43,9 +49,14 @@ export default function LessonRoster({
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerQuery, setPickerQuery] = useState("");
   const [addedInPicker, setAddedInPicker] = useState(0);
+  // Ids whose add is on its way; in the form they clear once the list updates.
+  const adding = useRef(new Set());
   const [lastRemoved, setLastRemoved] = useState(null);
 
   const selectedIds = useMemo(() => (lesson.list_students || []).map(String), [lesson.list_students]);
+  useEffect(() => {
+    if (!confirmRemove) adding.current.clear();
+  }, [selectedIds, confirmRemove]);
   const byId = useMemo(
     () => Object.fromEntries((students || []).map((student) => [String(student._id), student])),
     [students]
@@ -109,13 +120,33 @@ export default function LessonRoster({
     setPickerOpen(true);
   };
 
-  const add = (ids) => {
+  const add = async (ids) => {
+    // A second click before the list catches up (a double click) adds nothing.
+    const fresh = ids.map(String).filter((id) => !adding.current.has(id) && !selectedIds.includes(id));
+    if (!fresh.length) return;
+    fresh.forEach((id) => adding.current.add(id));
     setLastRemoved(null);
-    setAddedInPicker((count) => count + ids.length);
-    onChange([...selectedIds, ...ids.map(String)]);
+    const next = [...selectedIds, ...fresh];
+    // On the lesson page (confirmRemove set) a change is saved at once:
+    // count it only once onChange reports the save went through.
+    if (confirmRemove) {
+      try {
+        if (await onChange(next)) setAddedInPicker((count) => count + fresh.length);
+      } finally {
+        fresh.forEach((id) => adding.current.delete(id));
+      }
+      return;
+    }
+    setAddedInPicker((count) => count + fresh.length);
+    onChange(next);
   };
 
-  const remove = (student) => {
+  const remove = async (student) => {
+    if (confirmRemove) {
+      if (!(await confirmRemove(student))) return;
+      onChange(selectedIds.filter((id) => id !== String(student._id)));
+      return;
+    }
     const index = selectedIds.indexOf(String(student._id));
     setLastRemoved({ student, index });
     onChange(selectedIds.filter((id) => id !== String(student._id)));
@@ -164,7 +195,9 @@ export default function LessonRoster({
           {shown.map((student) => (
             <li key={student._id} className={styles.row}>
               <span className={styles.who}>
-                <strong>{nameOf(student)}</strong>
+                {linkOf
+                  ? <Link to={linkOf(student)}><strong>{nameOf(student)}</strong></Link>
+                  : <strong>{nameOf(student)}</strong>}
                 <small>{detailsOf(student)}</small>
                 {conflicts[student._id] && (
                   <span className={styles.conflict}>
@@ -207,7 +240,7 @@ export default function LessonRoster({
         </div>
       )}
 
-      {canEdit && <p className={styles.hint}>لا تُحفظ التغييرات إلا بعد الضغط على زر الحفظ.</p>}
+      {canEdit && !confirmRemove && <p className={styles.hint}>لا تُحفظ التغييرات إلا بعد الضغط على زر الحفظ.</p>}
 
       {pickerOpen && (
         <div className={styles.overlay} onClick={() => setPickerOpen(false)}>

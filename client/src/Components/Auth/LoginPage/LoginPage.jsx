@@ -11,6 +11,7 @@ import ForgotPassword from '../ForgotPassword/ForgotPassword';
 import EyeIcon from '../../UI/EyeIcon';
 import ForcedPasswordChange from '../ForcedPasswordChange/ForcedPasswordChange';
 import { useI18n } from '../../../i18n/I18nContext';
+import { InstallAppButton } from '../../../pwa/InstallApp';
 
 export default function LoginPage() {
     const navigate = useNavigate();
@@ -135,6 +136,8 @@ export default function LoginPage() {
                     <button type="submit" onClick={handleLogin} disabled={loading}>{loading ? '…' : 'دخول'}</button>
                     <hr />
                     <button type="button" className={styles.secondaryButton} onClick={()=>navigate("/register")}>{'التسجيل كمستخدم جديد'}</button>
+                    {/* Phones only, until the app is installed. */}
+                    <InstallAppButton className={styles.secondaryButton} />
                 </div>
                 )}
             </div>

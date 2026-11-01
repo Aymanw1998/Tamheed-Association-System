@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { onUpdate } from "../serviceWorkerRegistration";
+import { canPromptInstall, openInstallGuide, promptInstall, subscribeInstall } from "./installState";
+import { InstallGuide } from "./InstallApp";
 
 const HINT_KEY = "pwa_ios_hint_dismissed";
 
@@ -61,7 +63,8 @@ const btn = {
 export default function AppChrome() {
   const [online, setOnline] = useState(() => (typeof navigator === "undefined" ? true : navigator.onLine !== false));
   const [worker, setWorker] = useState(null);
-  const [installEvt, setInstallEvt] = useState(null);
+  // The browser's install prompt is caught once, in installState.
+  const [installEvt, setInstallEvt] = useState(canPromptInstall);
   const [hintDismissed, setHintDismissed] = useState(readFlag);
   const [showIosHint, setShowIosHint] = useState(false);
 
@@ -79,15 +82,8 @@ export default function AppChrome() {
   useEffect(() => onUpdate(setWorker), []);
 
   useEffect(() => {
-    const onPrompt = (e) => { e.preventDefault(); setInstallEvt(e); };
-    const onInstalled = () => setInstallEvt(null);
-    window.addEventListener("beforeinstallprompt", onPrompt);
-    window.addEventListener("appinstalled", onInstalled);
     setShowIosHint(isIosSafari() && !isStandalone());
-    return () => {
-      window.removeEventListener("beforeinstallprompt", onPrompt);
-      window.removeEventListener("appinstalled", onInstalled);
-    };
+    return subscribeInstall(() => setInstallEvt(canPromptInstall()));
   }, []);
 
   const reload = () => {
@@ -103,18 +99,13 @@ export default function AppChrome() {
     setTimeout(go, 3000);
   };
 
-  const install = async () => {
-    const evt = installEvt;
-    if (!evt) return;
-    setInstallEvt(null);
-    try { await evt.prompt(); } catch {}
-  };
+  const install = () => promptInstall();
 
   const dismissHint = () => { writeFlag(); setHintDismissed(true); };
 
   const iosHint = showIosHint && !hintDismissed && !installEvt;
 
-  if (online && !worker && !installEvt && !iosHint) return null;
+  if (online && !worker && !installEvt && !iosHint) return <InstallGuide />;
 
   return (
     <div dir="rtl" style={wrap} data-testid="app-chrome">
@@ -140,11 +131,15 @@ export default function AppChrome() {
       {iosHint && (
         <div role="status" style={bar}>
           <span>للتثبيت: اضغط مشاركة ثم «إضافة إلى الشاشة الرئيسية»</span>
+          <button type="button" style={btn} onClick={openInstallGuide}>
+            كيف؟
+          </button>
           <button type="button" style={btn} onClick={dismissHint} aria-label="إغلاق">
             ×
           </button>
         </div>
       )}
+      <InstallGuide />
     </div>
   );
 }

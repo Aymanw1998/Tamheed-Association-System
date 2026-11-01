@@ -11,7 +11,7 @@ const { actorFor } = require("./helpers/actors");
 const ADMIN = "ادارة";
 const GUIDE = "مرشد";
 const ADMIN_U = { _id: "a".repeat(24), tz: "t-admin", firstname: "Ad", lastname: "Min", role: ADMIN, roles: [ADMIN], permissionGrants: ["permissions.manage", "sports.manage"] };
-const GUIDE_U = { _id: "b".repeat(24), tz: "t-guide", firstname: "Gu", lastname: "Ide", role: GUIDE, roles: [GUIDE] };
+const GUIDE_U = { _id: "b".repeat(24), tz: "t-guide", firstname: "Gu", lastname: "Ide", role: GUIDE, roles: [GUIDE], permissionGrants: ["lessons.edit", "lessons.roster", "students.edit"] };
 const USERS = { [ADMIN_U.tz]: ADMIN_U, [GUIDE_U.tz]: GUIDE_U };
 
 // Stub collection with a unique `key`: a conditional upsert that does not match

@@ -21,8 +21,9 @@ const { can, effectivePermissions, isSystemTz } = require("../utils/permissions"
 const SEVERITIES = new Set(["critical", "important", "info"]);
 const LANGS = ["ar", "he", "en"];
 
-// Alert types that also go to the recipients' phones (web push).
-const PUSHED_TYPES = new Set(["lesson_no_attendance", "sport_lesson_no_attendance"]);
+// Alert types that also go to the recipients' phones (web push). A
+// student's three absences in a row too (owner, 2026-11-01).
+const PUSHED_TYPES = new Set(["lesson_no_attendance", "sport_lesson_no_attendance", "absence_streak"]);
 
 const SELECTORS = ["permission", "permissions", "tz", "userIds", "scopeOfStudent"];
 

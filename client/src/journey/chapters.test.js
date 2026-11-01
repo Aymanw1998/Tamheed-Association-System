@@ -40,6 +40,8 @@ const collectAnchors = () => {
       for (const s of m[1].matchAll(/"([^"]+)"/g)) anchors.add(s[1]);
     }
     for (const m of text.matchAll(/setAttribute\(\s*"data-tour"\s*,\s*"([^"]+)"\s*\)/g)) anchors.add(m[1]);
+    // A record page action's `tour: "x"` (RecordPage renders it as data-tour).
+    for (const m of text.matchAll(/\btour:\s*"([^"]+)"/g)) anchors.add(m[1]);
   });
   return anchors;
 };

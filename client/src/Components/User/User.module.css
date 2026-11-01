@@ -189,3 +189,51 @@
   .mobileOnly { display: block; }
   .desktopOnly { display: none; }
 }
+
+/* The show/hide eye inside a password field. `button.togglePassword` and its
+   :hover rule outrank the form's generic button rules (filled background,
+   padding), which would otherwise hide the icon or push it out of the field. */
+.passwordWrapper {
+  position: relative;
+  display: flex;
+}
+
+.passwordWrapper input {
+  flex: 1;
+  padding-inline-end: 40px;
+}
+
+.passwordWrapper button.togglePassword {
+  position: absolute;
+  inset-inline-end: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  align-self: auto;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.passwordWrapper button.togglePassword:hover {
+  color: var(--color-primary-600);
+  background: var(--color-primary-50);
+}
+
+/* A name in the list that opens the record's page. */
+.nameLink {
+  color: var(--color-primary-600);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.nameLink:hover {
+  text-decoration: underline;
+}

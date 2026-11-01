@@ -165,3 +165,16 @@ test("sports opens view, coach and manage but stays grant-only and out of every 
   }
   assert.deepEqual([...GRANT_ONLY_MODULES].sort(), ["finance", "sports"]);
 });
+
+test("only an admin edits students, lessons and users by default (owner's rule, 2026-11-01)", () => {
+  const EDIT = ["students.create", "students.edit", "students.photo", "students.delete",
+    "lessons.create", "lessons.edit", "lessons.roster", "lessons.delete",
+    "users.create", "users.edit", "users.delete"];
+  for (const role of ["مرشد", "مساعد"]) {
+    const keys = effectivePermissions({ role });
+    assert.deepEqual(EDIT.filter((k) => keys.has(k)), [], role);
+    assert.ok(keys.has("students.view") && keys.has("lessons.view"), role);
+  }
+  const admin = effectivePermissions({ role: "ادارة" });
+  assert.deepEqual(EDIT.filter((k) => !admin.has(k)), []);
+});

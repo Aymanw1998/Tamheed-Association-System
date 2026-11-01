@@ -137,7 +137,7 @@ function loadRoutes(file, { models = {}, locks }) {
   const spy = (name) => (req, res) => { calls.push(name); return res.status(200).json({ ok: true }); };
   const controllers = new Proxy({}, { get: (_, name) => (typeof name === "string" ? spy(name) : undefined) });
   const middlewareStub = (req, res, next) => next();
-  const router = { use() {} };
+  const router = { use() {}, param() {} };
   for (const method of ["get", "post", "put", "patch", "delete"]) {
     router[method] = (route, ...handlers) => routes.push({ method: method.toUpperCase(), route, handlers });
   }
@@ -152,6 +152,7 @@ function loadRoutes(file, { models = {}, locks }) {
     }
     if (/authMiddleware/.test(name)) return { requireAuth: middlewareStub };
     if (/rateLimit/.test(name)) return { rateLimit: () => middlewareStub };
+    if (/objectIdParam/.test(name)) return require("../middleware/objectIdParam");
     if (/utils\/permissions/.test(name)) return require("../utils/permissions");
     if (/vehicleFiles/.test(name)) return { MAX_DOCUMENT_BYTES: 1 };
     if (/aiFeature/.test(name)) return { aiEnabled: () => false };

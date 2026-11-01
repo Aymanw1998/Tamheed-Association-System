@@ -15,6 +15,7 @@ import { getStoredPermissions } from "../../utils/session";
 import MyPermissions from "./MyPermissions.jsx";
 import ChangeOwnPassword from "./ChangeOwnPassword.jsx";
 import PhoneNotifications from "./PhoneNotifications.jsx";
+import MyDevices from "./MyDevices.jsx";
 
 const Profile = ({parent = false}) => {
     const [form, setForm] = useState({
@@ -315,6 +316,8 @@ const Profile = ({parent = false}) => {
         <ChangeOwnPassword />
 
         <PhoneNotifications />
+
+        <MyDevices />
 
         <fieldset className={sectionStyles.formSection} data-tour="profile-personal">
             <legend>البيانات الشخصية</legend>

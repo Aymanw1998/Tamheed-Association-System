@@ -76,6 +76,8 @@ function loadController({ user, room = "active", env = {}, ...opts } = {}) {
           if (stored && (filter.tz === stored.tz) && r === room) return { success: true, result: [stored] };
           return { success: true, result: [] };
         },
+        async addRefreshHash() { return { success: true }; },
+        async dropRefreshHash() { return { success: true }; },
         async update(...args) { if (opts.upgradeThrows && args[1] && args[1].password) throw new Error("write failed"); calls.updates.push(args); return { success: true }; },
         async incrementFailedLogin(tz, r) {
           calls.increments.push([tz, r]);

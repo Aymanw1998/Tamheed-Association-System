@@ -24,6 +24,32 @@ function parseCookieHeader(header) {
   };
 }
 
+// The owner's rule (2026-11-01): signed in until signing out, like a phone
+// app. The refresh cookie outlives closing the browser (it has a lifetime,
+// the refresh token's), and each refresh starts that lifetime again.
+test('the refresh cookie is kept after the browser closes, for the refresh token lifetime', () => {
+  const response = createResponse();
+  setRefreshCookie(response, 'test-refresh-token');
+  const { attributes } = parseCookieHeader(response.getHeader('Set-Cookie'));
+  const { REFRESH_TOKEN_TTL_SEC } = require('../utils/jwt');
+  assert.equal(Number(attributes['max-age']), REFRESH_TOKEN_TTL_SEC);
+});
+
+test('without settings, a refresh token lasts a year and an access token 15 minutes', () => {
+  const saved = { a: process.env.JWT_ACCESS_TTL_SEC, r: process.env.JWT_REFRESH_TTL_SEC };
+  delete process.env.JWT_ACCESS_TTL_SEC; delete process.env.JWT_REFRESH_TTL_SEC;
+  try {
+    delete require.cache[require.resolve('../utils/jwt')];
+    const fresh = require('../utils/jwt');
+    assert.equal(fresh.REFRESH_TOKEN_TTL_SEC, 365 * 24 * 60 * 60);
+    assert.equal(fresh.ACCESS_TOKEN_TTL_SEC, 15 * 60);
+  } finally {
+    if (saved.a !== undefined) process.env.JWT_ACCESS_TTL_SEC = saved.a;
+    if (saved.r !== undefined) process.env.JWT_REFRESH_TTL_SEC = saved.r;
+    delete require.cache[require.resolve('../utils/jwt')];
+  }
+});
+
 for (const environment of ['production', 'development']) {
   test(`logout expires the same refresh cookie set during ${environment} login`, (t) => {
     const originalEnvironment = process.env.NODE_ENV;

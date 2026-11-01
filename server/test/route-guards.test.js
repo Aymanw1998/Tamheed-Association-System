@@ -53,7 +53,7 @@ const PUBLIC_ROUTES = {
   // the user (active, not locked) exactly as loadActor does before streaming.
   "Live/Live.route.js": ["GET /stream"],
   // Student sport site (sign-in, me, photo): its own cookie and requireSportStudent, never staff auth.
-  "SportPortal/SportPortal.route.js": ["POST /request-code", "POST /verify", "POST /logout", "GET /me", "GET /photo", "GET /id", "GET /notices", "GET /live", "POST /push/subscribe", "DELETE /push/subscribe"],
+  "SportPortal/SportPortal.route.js": ["POST /request-code", "POST /verify", "POST /card", "POST /passkey/login-options", "POST /passkey/login", "POST /passkey/register-options", "POST /passkey/register", "POST /logout", "GET /me", "GET /photo", "GET /id", "GET /notices", "GET /live", "POST /push/subscribe", "DELETE /push/subscribe"],
   // The VAPID public key the browser needs before it can subscribe; nothing private.
   "Push/Push.route.js": ["GET /key"],
   // An <img> cannot send the Authorization header; the passport version is as
@@ -68,7 +68,7 @@ const ANY_ACTOR_ROUTES = {
   // The dashboard summary checks, per part, the permission of that part's own route.
   "Dashboard/Dashboard.route.js": ["GET /summary"],
   "Vehicle/Vehicle.route.js": ["GET /me/permissions", "GET /alerts"], // own permissions / assigned vehicles
-  "User/Auth.route.js": ["POST /change-password"], // one's own password; checks the current one
+  "User/Auth.route.js": ["POST /change-password", "GET /sessions", "POST /sessions/sign-out-others", "DELETE /sessions/:sid"], // one's own password (checks the current one) and one's own devices
   "Live/Live.route.js": ["POST /ticket"], // a ticket for one's own live channel
   // One's own alert inbox: every query is filtered by the caller's tz.
   "Alert/Alert.route.js": ["GET /", "POST /read-all", "POST /:id/read"],

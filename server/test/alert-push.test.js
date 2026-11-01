@@ -1,5 +1,5 @@
-// Staff pushes from the alert engine: only no-attendance alerts push, and a
-// push failure never fails raise.
+// Staff pushes from the alert engine: only no-attendance and absence-streak
+// alerts push, and a push failure never fails raise.
 const assert = require("node:assert/strict");
 const test = require("node:test");
 const { createAlertEngine } = require("../services/alertEngine");
@@ -42,9 +42,18 @@ test("a sport_lesson_no_attendance alert pushes; the url falls back to /", async
   assert.equal(calls[0][1].url, "/");
 });
 
+// Owner (2026-11-01): three absences in a row reach the phones of those
+// who get the alert (the responsible guide, the lessons' teachers).
+test("an absence_streak alert pushes to its recipients, linked to the student", async () => {
+  const { engine, calls } = setup();
+  await engine.raise(alert({ type: "absence_streak", link: "/students/800000001" }));
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0][1].url, "/students/800000001");
+});
+
 test("other alert types send no push", async () => {
   const { engine, calls } = setup();
-  await engine.raise(alert({ type: "absence_streak" }));
+  await engine.raise(alert({ type: "user_waiting" }));
   assert.equal(calls.length, 0);
 });
 

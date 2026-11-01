@@ -3,9 +3,10 @@ import { useI18n } from "../../i18n/I18nContext";
 import { toast } from "../../ALERT/SystemToasts";
 import { ask } from "../Provides/confirmBus";
 import Button from "../UI/Button.jsx";
-import { bumpStat, deletePlayer } from "../../WebServer/services/sport/functionsSport";
+import { bumpStat, deletePlayer, issueLoginCard, signOutPlayer } from "../../WebServer/services/sport/functionsSport";
 import AddPlayerDialog from "./AddPlayerDialog";
 import PlayerCardModal, { Silhouette } from "./PlayerCardModal";
+import LoginCardModal from "./LoginCardModal";
 import styles from "./Sport.module.css";
 import { passportSrc } from "../../utils/passportPhoto";
 import withLock from "../../locks/withLock";
@@ -14,7 +15,7 @@ import { handleSaveError } from "../../locks/staleSave";
 
 const fullName = (p) => `${p.firstname || ""} ${p.lastname || ""}`.trim();
 
-export default function PlayersTab({ sport, players, lessons, canCoach, reload }) {
+export default function PlayersTab({ sport, players, lessons, canCoach, canManage, reload }) {
   const { t } = useI18n();
   const stats = sport?.stats || [];
   const [rows, setRows] = useState(players);
@@ -25,6 +26,7 @@ export default function PlayersTab({ sport, players, lessons, canCoach, reload }
   const [dialog, setDialog] = useState(null); // null | { player? }
   const [pending, setPending] = useState({});
   const [cardOf, setCardOf] = useState(null); // studentId whose card is open
+  const [loginCard, setLoginCard] = useState(null); // { player, card } of the sign-in card shown
 
   useEffect(() => setRows(players), [players]);
   useLiveRefresh(["player", "sport", "sportLesson", "sportAttendance"], reload);
@@ -74,6 +76,33 @@ export default function PlayersTab({ sport, players, lessons, canCoach, reload }
     if (!res.ok) return toast.warn(res.message);
     toast.success(t("sport.removed"));
     reload();
+  };
+
+  // A player stays signed in to the sport site until he signs out or a
+  // sports manager signs him out here, on every phone (owner, 2026-11-01).
+  const signOut = async (p) => {
+    const confirmed = await ask("change", {
+      title: t("sport.players.signOutTitle"), message: t("sport.players.signOutConfirm"), confirmText: t("sport.players.signOut"),
+    }).catch(() => false);
+    if (!confirmed) return;
+    const res = await signOutPlayer(p.studentId);
+    if (!res.ok) return toast.warn(res.message);
+    toast.success(t("sport.players.signedOut"));
+  };
+
+  // A sign-in card (QR) for a player without email (owner, 2026-11-01). A
+  // new one cancels the card printed before, so that is asked first.
+  const printCard = async (p) => {
+    if (p.cardIssuedAt) {
+      const confirmed = await ask("change", {
+        title: t("sport.players.loginCardAgain"), message: t("sport.players.loginCardAgainConfirm"), confirmText: t("sport.players.loginCardAgain"),
+      }).catch(() => false);
+      if (!confirmed) return;
+    }
+    const res = await issueLoginCard(p.studentId);
+    if (!res.ok) return toast.warn(res.message);
+    setLoginCard({ player: p, card: res });
+    setRows((list) => list.map((r) => (r.studentId === p.studentId ? { ...r, cardIssuedAt: new Date().toISOString() } : r)));
   };
 
   const label = (key) => t(`sport.players.${key}`);
@@ -164,6 +193,8 @@ export default function PlayersTab({ sport, players, lessons, canCoach, reload }
                     <div className={styles.rowActions}>
                       <Button size="sm" variant="warning" onClick={() => setDialog({ player: p })}>{t("sport.edit")}</Button>
                       <Button size="sm" variant="danger" onClick={() => remove(p)}>{t("sport.remove")}</Button>
+                      {canManage && <Button size="sm" variant="secondary" onClick={() => printCard(p)}>{label("loginCard")}</Button>}
+                      {canManage && <Button size="sm" variant="secondary" onClick={() => signOut(p)}>{label("signOut")}</Button>}
                     </div>
                   </td>
                 )}
@@ -178,6 +209,8 @@ export default function PlayersTab({ sport, players, lessons, canCoach, reload }
       {cardOf && rows.find((p) => p.studentId === cardOf) && (
         <PlayerCardModal player={rows.find((p) => p.studentId === cardOf)} stats={stats} onClose={() => setCardOf(null)} />
       )}
+
+      {loginCard && <LoginCardModal player={loginCard.player} card={loginCard.card} onClose={() => setLoginCard(null)} />}
 
       {dialog && (
         <AddPlayerDialog

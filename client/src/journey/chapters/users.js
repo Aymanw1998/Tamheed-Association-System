@@ -78,6 +78,15 @@ const users = {
       action: { type: "click", target: "users-edit" },
     },
     {
+      // On a phone the card opens the user's read-only page; the form is
+      // behind «تعديل». Skipped on its own where the click already opened the form.
+      target: "user-view-edit",
+      mood: "point",
+      title: "تعديل الحساب",
+      body: "هذه صفحة المستخدم. سأضغط «تعديل» لفتح الحساب.",
+      action: { type: "click", target: "user-view-edit" },
+    },
+    {
       target: "user-account",
       mood: "explain",
       title: "بيانات الحساب",

@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import styles from "./ViewAllLesson.module.css";
-import { getAll as getAllUsers } from "../../WebServer/services/user/functionsUser";
 import { getAllLesson, getSportSchedule, updateLesson } from "../../WebServer/services/lesson/functionsLesson";
 import useLiveRefresh from "../../locks/useLiveRefresh";
 import { useNavigate } from "react-router-dom";
@@ -189,7 +188,7 @@ function WeekTimeline({
                       onShowDetails?.(l);
                       return;
                     }
-                    if (!canStored("lessons.edit")) return;
+                    // Everyone who sees the lesson opens its page; editing is a button there.
                     ev.stopPropagation();
                     navigate(`/lessons/${l._id}`);
                   }}
@@ -361,7 +360,7 @@ function DayRoomsTimeline({
                     onShowDetails?.(l);
                     return;
                   }
-                  if (!canStored("lessons.edit")) return;
+                  ev.stopPropagation();
                   navigate(`/lessons/${l._id}`);
                 }}
                 onDragStart={(e) => e.dataTransfer.setData("lesson-id", l._id)}
@@ -432,7 +431,6 @@ function SportLessonDetails({ lesson, canOpenSports, onClose, onOpenSports }) {
 ======================= */
 export default function ViewAllLesson() {
   const navigate = useNavigate();
-  const canEditLessons = canStored("lessons.edit");
   const canCreateLessons = canStored("lessons.create");
   const canSeeSports = ["sports.view", "sports.coach", "sports.manage"].some((key) => canStored(key));
 
@@ -485,17 +483,6 @@ export default function ViewAllLesson() {
   const [filterTeacher, setFilterTeacher] = useState("all"); // all | teacherId
   const [query, setQuery] = useState("");
 
-  // Load teachers list (for filter dropdown)
-  const loadTeachers = async () => {
-    try {
-      const res = await getAllUsers();
-      if (!res?.ok) return setTeachers([]);
-      setTeachers(res.users || []);
-    } catch {
-      setTeachers([]);
-    }
-  };
-
   // quiet: a live refresh keeps the schedule on screen instead of showing the loading state.
   const loadData = async ({ quiet = false } = {}) => {
     try {
@@ -517,28 +504,27 @@ export default function ViewAllLesson() {
       }));
 
       setLessons(cleaned);
+      // The staff names come with the lessons, so a guide (who may not read
+      // the user list) sees them too; the filter offers only staff on lessons.
+      const names = res.names || {};
+      setTeacherNames(names);
+      setTeachers(Object.entries(names)
+        .map(([_id, name]) => ({ _id, name }))
+        .sort((a, b) => a.name.localeCompare(b.name, "ar")));
 
     } catch {
       if (quiet) return;
       toast.error("تعذّر تحميل الدروس");
       setLessons([]);
       setTeacherNames({});
+      setTeachers([]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  useEffect(() => { loadTeachers(); }, []);
   useEffect(() => { loadData(); }, []);
-  useLiveRefresh(["lesson", "sportLesson", "user"], () => { loadData({ quiet: true }); loadTeachers(); });
-  useEffect(() => {
-    const names = {};
-    (teachers || []).forEach((teacher) => {
-      if (!teacher?._id) return;
-      names[String(teacher._id)] = [teacher.firstname, teacher.lastname].filter(Boolean).join(" ") || "غير معروف";
-    });
-    setTeacherNames(names);
-  }, [teachers]);
+  useLiveRefresh(["lesson", "sportLesson", "user"], () => { loadData({ quiet: true }); });
 
   // Options from lessons
   const roomOptions = useMemo(() => {
@@ -668,7 +654,7 @@ export default function ViewAllLesson() {
             <select value={filterTeacher} onChange={(e)=>setFilterTeacher(e.target.value)}>
               <option value="all">الكل</option>
               {(teachers || []).map(t => (
-                <option key={t._id} value={t._id}>{t.firstname} {t.lastname}</option>
+                <option key={t._id} value={t._id}>{t.name}</option>
               ))}
             </select>
           </div>
@@ -730,7 +716,7 @@ export default function ViewAllLesson() {
               day={mobileDay}
               onDayChange={setMobileDay}
               teacherNames={teacherNames}
-              onOpen={canEditLessons ? (l) => navigate(`/lessons/${l._id}`) : undefined}
+              onOpen={(l) => navigate(`/lessons/${l._id}`)}
               onShowDetails={setDetails}
             />
           </div>

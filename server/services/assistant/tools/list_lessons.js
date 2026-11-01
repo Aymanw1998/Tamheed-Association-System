@@ -1,10 +1,12 @@
 const { scopeLesson } = require("../../../utils/studentScope");
+const { ownLessons } = require("../../../utils/lessonAccess");
 const { FORBIDDEN, invalid, jerusalemDate, addDays, daysBetween, weekdayOf, hhmm, rows } = require("./_shared");
 
 const MAX_DAYS = 7;
 
-// Lessons repeat weekly (date.day 1-7, Sunday = 1). Any lessons.view holder
-// sees every lesson, like GET /api/lessons; the students inside are cut to
+// Lessons repeat weekly (date.day 1-7, Sunday = 1). Like GET /api/lessons, a
+// lessons.viewAll holder sees every lesson, anyone else only the lessons he
+// teaches or assists in (owner, 2026-11-01); the students inside are cut to
 // the user's scope with scopeLesson (shared with the Lesson controller), and only
 // counts leave this tool. The user's own lessons come first.
 module.exports = {
@@ -45,7 +47,7 @@ module.exports = {
 
     const days = dates.map((date) => {
       const day = weekdayOf(date);
-      const lessons = rows(all)
+      const lessons = ownLessons(ctx.actor, rows(all))
         .filter((l) => Number(l?.date?.day) === day)
         .map((l) => {
           const scoped = scopeLesson(l, visible);

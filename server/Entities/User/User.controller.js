@@ -57,6 +57,10 @@ const {
   lockoutAlertEmail,
   resetSystemPassword,
 } = require("../../utils/systemPassword");
+const {
+  sessionMatches, startSession, rotateSession, endSession, endOtherSessions, endAllSessions,
+  newSessionId, deviceLabel, deviceList, findDevice, sessionEnded,
+} = require("../../utils/refreshSessions");
 const { logWithSource } = require("../../middleware/logger");
 const { isValidIsraeliId } = require("../../utils/israeliId");
 const { tourSummary } = require("../../utils/tourState");
@@ -158,8 +162,8 @@ const SERVER_OWNED_FIELDS = [
   "permissionsUpdatedAt", "permissionsUpdatedBy",
   // A user is never renamed, and the folder and Drive link are server-derived.
   "tz", "storageFolder", "googleDrive",
-  "failedLoginCount", "lockedAt", "passwordChangedAt", "recoveredAt",
-  "refreshHash", "resetOtpHash", "resetOtpExpires", "resetOtpAttempts", "resetOtpLockedUntil",
+  "failedLoginCount", "lockedAt", "passwordChangedAt", "recoveredAt", "signedOutAt",
+  "refreshHash", "refreshHashes", "deviceTokens", "resetOtpHash", "resetOtpExpires", "resetOtpAttempts", "resetOtpLockedUntil",
   "tours", "knownKeys", "seenReleases",
 ];
 const stripServerOwned = (data) => {
@@ -275,14 +279,15 @@ async function countFailedSignIn(req, user, room, isSystem) {
 }
 
 const staleResponse = (res) =>
-  res.status(401).json({ code: "TOKEN_STALE", message: "انتهت الجلسة بعد تغيير كلمة المرور" });
+  res.status(401).json({ code: "TOKEN_STALE", message: "انتهت الجلسة، سجّل الدخول من جديد" });
 
 // A full session (access token + refresh cookie) for a user in the active room.
-async function issueSession(res, user) {
-  const claims = { id: user._id?.toString?.() || String(user._id || ""), tz: user.tz, roles: user.roles || [], room: "active" };
+async function issueSession(res, user, req) {
+  const sid = newSessionId();
+  const claims = { id: user._id?.toString?.() || String(user._id || ""), tz: user.tz, roles: user.roles || [], room: "active", sid };
   const accessToken = signAccessToken(claims);
   const refreshToken = signRefreshToken(claims);
-  await UserModelDef.update({ tz: user.tz }, { refreshHash: sha256(refreshToken) }, "active");
+  await startSession(UserModelDef, user.tz, sha256(refreshToken), { sid, label: deviceLabel(req?.headers?.["user-agent"]) });
   setRefreshCookie(res, refreshToken);
   return { accessToken, expirationTime: computeAccessExpMsFromNow() };
 }
@@ -307,6 +312,8 @@ function sanitize(u) {
   const o = { ...u };
   delete o.password;
   delete o.refreshHash;
+  delete o.refreshHashes;
+  delete o.deviceTokens;
   delete o.resetOtpHash;
   delete o.tours;
   delete o.knownKeys;
@@ -946,15 +953,18 @@ const login = async (req, res) => {
         room,
         scope: PASSWORD_CHANGE_SCOPE,
       }, { expiresInSec: PASSWORD_CHANGE_TOKEN_TTL_SEC });
-      await UserModelDef.update({ tz: user.tz }, { refreshHash: null, ...afterSuccess() }, "active");
+      await UserModelDef.update({ tz: user.tz }, { ...endAllSessions(), ...afterSuccess() }, "active");
       return res.status(200).json({ ok: true, mustChangePassword: true, accessToken: scopedToken });
     }
 
+    // This device's session id, kept across its refreshes ("my devices").
+    const sid = newSessionId();
     const accessToken = signAccessToken({
       id: user._id?.toString?.() || String(user._id || ""),
       tz: user.tz,
       roles: user.roles || [],
       room,
+      sid,
     });
 
     const refreshToken = signRefreshToken({
@@ -962,6 +972,7 @@ const login = async (req, res) => {
       tz: user.tz,
       roles: user.roles || [],
       room,
+      sid,
     });
     
     const normalizedStorageFolder = user.storageFolder || buildUserStorageFolder(user);
@@ -969,12 +980,13 @@ const login = async (req, res) => {
     await UserModelDef.update(
       { tz: user.tz },
       {
-        refreshHash: sha256(refreshToken),
         ...afterSuccess(),
         ...(user.storageFolder ? {} : { storageFolder: normalizedStorageFolder }),
       },
       "active"
     );
+    // One more signed-in device; the account's other sessions keep working.
+    await startSession(UserModelDef, user.tz, sha256(refreshToken), { sid, label: deviceLabel(req.headers?.["user-agent"]) });
 
     setRefreshCookie(res, refreshToken);
     await safeEnsureStorageFolder({ ...user, storageFolder: normalizedStorageFolder });
@@ -1019,8 +1031,8 @@ const refreshAccessToken = async (req, res) => {
       });
     }
 
-    const matches = user.refreshHash && user.refreshHash === sha256(token);
-    if (!matches) {
+    const oldHash = sha256(token);
+    if (!sessionMatches(user, oldHash)) {
       return res.status(401).json({
         code: "REFRESH_MISMATCH",
         message: "Refresh not valid",
@@ -1039,18 +1051,18 @@ const refreshAccessToken = async (req, res) => {
       return res.status(403).json({ code: "PASSWORD_CHANGE_REQUIRED", message: "يجب تغيير كلمة المرور أولًا" });
     }
 
+    // The device keeps its session id; a token from before ids gets one now.
+    const sid = (user.deviceTokens || []).find((d) => d.hash === oldHash)?.sid || newSessionId();
     const newRefresh = signRefreshToken({
       id: user._id?.toString?.() || String(user._id || ""),
       tz: user.tz,
       roles: user.roles || [],
       room: "active",
+      sid,
     });
 
-    await UserModelDef.update(
-      { tz: user.tz },
-      { refreshHash: sha256(newRefresh) },
-      "active"
-    );
+    // Only this device's token is replaced.
+    await rotateSession(UserModelDef, user, oldHash, sha256(newRefresh), { sid, label: deviceLabel(req.headers?.["user-agent"]) });
 
     setRefreshCookie(res, newRefresh);
 
@@ -1059,6 +1071,7 @@ const refreshAccessToken = async (req, res) => {
       tz: user.tz,
       roles: user.roles || [],
       room: "active",
+      sid,
     });
 
     return res.status(200).json({
@@ -1090,11 +1103,8 @@ const logout = async (req, res) => {
     if (token) {
       try {
         const payload = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
-        await UserModelDef.update(
-          { tz: payload.tz },
-          { refreshHash: null },
-          "active"
-        );
+        // Signs out this device only.
+        await endSession(UserModelDef, payload.tz, sha256(token));
       } catch {}
     }
 
@@ -1121,7 +1131,7 @@ const getme = async (req, res) => {
     if (!user) {
       return res.status(401).json({ code: "USER_NOT_FOUND" });
     }
-    if (tokenIsStale(req.user?.iat, user)) return staleResponse(res);
+    if (tokenIsStale(req.user?.iat, user) || sessionEnded(req.user?.sid, user)) return staleResponse(res);
 
     // The app shows and hides features from these; the server still checks
     // every request.
@@ -1585,6 +1595,79 @@ const unlockUser = async (req, res) => {
   }
 };
 
+/* ================= signOutEverywhere ================= */
+// POST /:tz/sign-out-all (users.edit): ends the user's sessions on every
+// device (owner, 2026-11-01: signed in until he signs out or is signed out).
+// The refresh tokens are dropped and signedOutAt refuses older access tokens.
+const signOutEverywhere = async (req, res) => {
+  try {
+    const { user, room } = await loadTarget(req);
+    if (!user) return notFound(res);
+    if (!canManageTarget(req.actor, user)) return forbidden(res);
+
+    const patch = { ...endAllSessions(), signedOutAt: new Date(), updatedAt: new Date() };
+    await UserModelDef.update({ tz: user.tz }, patch, room);
+    await recordUser(req, "sign_out_all", user, { ...user, ...patch });
+    notifyChange("user", user._id);
+
+    return res.status(200).json({ ok: true });
+  } catch (err) {
+    logWithSource("User.signOutEverywhere", err);
+    return res.status(500).json({ ok: false, message: err.message });
+  }
+};
+
+/* ================= my devices ================= */
+// GET /api/auth/sessions: where the signed-in user is signed in, this
+// device marked. Read fresh, not from the 5-second actor cache.
+const listMyDevices = async (req, res) => {
+  try {
+    const user = await getUserInRoomByTz(req.user?.tz, "active");
+    if (!user) return res.status(401).json({ code: "USER_NOT_FOUND" });
+    return res.status(200).json({ ok: true, devices: deviceList(user, req.user?.sid) });
+  } catch (err) {
+    logWithSource("User.listMyDevices", err);
+    return res.status(500).json({ ok: false, message: err.message });
+  }
+};
+
+// DELETE /api/auth/sessions/:sid: signs out one of one's own devices. Its
+// access token is refused at once (sessionEnded), its refresh token ended.
+const signOutDevice = async (req, res) => {
+  try {
+    const user = await getUserInRoomByTz(req.user?.tz, "active");
+    if (!user) return res.status(401).json({ code: "USER_NOT_FOUND" });
+    const device = findDevice(user, req.params?.sid);
+    if (!device) return res.status(404).json({ code: "NOT_FOUND", message: "الجهاز غير موجود" });
+    await endSession(UserModelDef, user.tz, device.hash);
+    return res.status(200).json({ ok: true });
+  } catch (err) {
+    logWithSource("User.signOutDevice", err);
+    return res.status(500).json({ ok: false, message: err.message });
+  }
+};
+
+// POST /api/auth/sessions/sign-out-others: every session but this device's.
+// This device is found by its session id, or by its refresh cookie for a
+// session from before ids.
+const signOutOtherDevices = async (req, res) => {
+  try {
+    const user = await getUserInRoomByTz(req.user?.tz, "active");
+    if (!user) return res.status(401).json({ code: "USER_NOT_FOUND" });
+    const cookieHash = req.cookies?.refresh ? sha256(req.cookies.refresh) : null;
+    const keep = findDevice(user, req.user?.sid)?.hash
+      || (cookieHash && sessionMatches(user, cookieHash) ? cookieHash : null);
+    if (!keep) return res.status(409).json({ code: "NO_CURRENT_SESSION", message: "سجّل الدخول من جديد ثم حاول مرة أخرى" });
+    const others = new Set([...(user.refreshHashes || []), ...(user.refreshHash ? [user.refreshHash] : [])]);
+    others.delete(keep);
+    await endOtherSessions(UserModelDef, user.tz, keep);
+    return res.status(200).json({ ok: true, ended: others.size });
+  } catch (err) {
+    logWithSource("User.signOutOtherDevices", err);
+    return res.status(500).json({ ok: false, message: err.message });
+  }
+};
+
 /* ================= changePassword ================= */
 // POST /api/auth/change-password { currentPassword, newPassword }: any
 // signed-in user, and the only route a "password-change" token reaches.
@@ -1622,7 +1705,7 @@ const changePassword = async (req, res) => {
       { ...who, passwordChangedAt, password: "***" });
 
     // Every older token is now stale; this session continues on new ones.
-    const session = await issueSession(res, user);
+    const session = await issueSession(res, user, req);
     return res.status(200).json({ ok: true, ...session });
   } catch (err) {
     logWithSource("User.changePassword", err);
@@ -1856,6 +1939,10 @@ module.exports = {
   putPermissions,
   putRole,
   unlockUser,
+  signOutEverywhere,
+  listMyDevices,
+  signOutDevice,
+  signOutOtherDevices,
   forgotPassword,
   resetPassword,
   changePassword,

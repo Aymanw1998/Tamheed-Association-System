@@ -138,6 +138,15 @@ const lessons = {
       action: { type: "click", target: "lessons-open" },
     },
     {
+      // A lesson now opens on its read-only page; the form is behind «تعديل».
+      target: "lesson-view-edit",
+      requires: "lessons.edit",
+      mood: "point",
+      title: "تعديل الدرس",
+      body: "هذه صفحة الدرس. سأضغط «تعديل» لفتح النموذج.",
+      action: { type: "click", target: "lesson-view-edit" },
+    },
+    {
       target: "lesson-roster",
       requires: "lessons.edit",
       mood: "point",

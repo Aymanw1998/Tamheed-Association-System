@@ -33,6 +33,10 @@ export const searchStudents = (params) => call(() => api.get(`${namespace}/stude
 export const savePlayer = (studentId, payload) =>
   call(() => api.put(`${namespace}/players/${enc(studentId)}`, payload));
 export const deletePlayer = (studentId) => call(() => api.delete(`${namespace}/players/${enc(studentId)}`));
+// sports.manage: ends the player's sport-site sessions on every phone.
+export const signOutPlayer = (studentId) => call(() => api.post(`${namespace}/players/${enc(studentId)}/sign-out`, {}));
+// A new sign-in card (QR) for a player; cancels the old card. { url, svg }.
+export const issueLoginCard = (studentId) => call(() => api.post(`${namespace}/players/${enc(studentId)}/login-card`, {}));
 // The player's cut-out photo as a Blob, or null when there is none yet.
 export const getPlayerPhoto = async (studentId) => {
   try {

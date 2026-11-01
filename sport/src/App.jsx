@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { getMe, getNotices, logout } from "./api.js";
+import { getMe, getNotices, logout, signInWithCard } from "./api.js";
+import { signInFromCard } from "./cardLogin";
+import PasskeyOffer from "./PasskeyOffer.jsx";
+import { InstallAppButton } from "./pwa/InstallApp";
 import LoginPage from "./LoginPage.jsx";
 import HomePage from "./HomePage.jsx";
 import NoticesPage from "./NoticesPage.jsx";
@@ -32,6 +35,8 @@ export default function App() {
   const [noticesFailed, setNoticesFailed] = useState(false);
   const [seenBefore, setSeenBefore] = useState(0);
   const [guideOpen, setGuideOpen] = useState(false);
+  // A sign-in card that was refused (cancelled by a newer card): shown on the sign-in page.
+  const [cardError, setCardError] = useState("");
 
   const closeGuide = () => {
     markGuideSeen();
@@ -54,8 +59,18 @@ export default function App() {
     }
   };
 
+  // Opened from a sign-in card's QR: sign this phone in with it first.
   useEffect(() => {
-    load();
+    (async () => {
+      try {
+        const card = await signInFromCard({ location: window.location, history: window.history, signIn: signInWithCard });
+        if (card.tried && card.ok) await clearApiCache();
+        if (card.tried && !card.ok) setCardError(card.message || "البطاقة غير صالحة. اطلب بطاقة جديدة من المرشد");
+      } catch {
+        // The usual sign-in page is shown.
+      }
+      load();
+    })();
   }, []);
 
   // While signed in, reload quietly when the app comes back to the screen, so
@@ -166,7 +181,7 @@ export default function App() {
       </div>
     );
   }
-  if (state === "out") return (<><LoginPage onSignedIn={load} />{chrome}</>);
+  if (state === "out") return (<><LoginPage onSignedIn={load} notice={cardError} />{chrome}</>);
   if (state === "error") {
     return (
       <div className="center-note">
@@ -181,6 +196,8 @@ export default function App() {
     <div className="app">
       <StadiumHeader firstname={me.student.firstname} onLogout={onLogout} onHelp={() => setGuideOpen(true)} />
       <main className="content">
+        {tab === "home" && !guideOpen && <PasskeyOffer />}
+        {tab === "home" && <InstallAppButton className="btn btn-ghost install-app" />}
         {tab === "home" ? <HomePage me={me} /> : <NoticesPage notices={notices} seenBefore={seenBefore} failed={noticesFailed} />}
       </main>
       <BottomTabs tab={tab} onChange={openTab} badges={{ notices: tab === "notices" ? 0 : unseenCount(notices, readSeen(studentKey)) }} />

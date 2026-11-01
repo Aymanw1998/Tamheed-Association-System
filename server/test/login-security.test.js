@@ -25,6 +25,8 @@ function loadController(storedPassword = FAKE_HASH, extra = {}) {
           if (filter.tz === "1" || filter._id === "1") return { success: true, result: [user] };
           return { success: true, result: [] };
         },
+        async addRefreshHash() { return { success: true }; },
+        async dropRefreshHash() { return { success: true }; },
         async update() { return { success: true }; },
       },
     },
@@ -157,7 +159,7 @@ function startPhotoApp(userTz) {
       getAllU: noop(), uploadPhoto: handler("upload"), deletePhoto: handler("delete"), getOneU: noop(),
       putU: noop(), deleteU: noop(), postU: noop(), changeRoom: noop(),
       viewPassword: noop(), updateStoragePermissions: noop(),
-      getPermissions: noop(), putPermissions: noop(), putRole: noop(), unlockUser: noop(), recoverSystem: noop(),
+      getPermissions: noop(), putPermissions: noop(), putRole: noop(), unlockUser: noop(), signOutEverywhere: noop(), recoverSystem: noop(),
     },
   };
   // The lock guard would look the user up in the database; locks have their own tests.
@@ -238,7 +240,8 @@ test("getme adds the resolved role and the effective permissions", async () => {
   assert.equal(body.user.tz, "1");
   assert.equal(body.user.password, undefined);
   assert.equal(body.role, "مرشد");
-  assert.ok(body.permissions.includes("students.edit"));
+  assert.ok(body.permissions.includes("students.view"));
+  assert.ok(!body.permissions.includes("students.edit"));
   assert.ok(body.permissions.includes("vehicles.view"));
   assert.ok(!body.permissions.includes("students.delete"));
   // Only the system account is flagged; nobody else carries the field.

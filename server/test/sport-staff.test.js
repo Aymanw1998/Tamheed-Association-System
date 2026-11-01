@@ -160,7 +160,7 @@ test("the route table is exactly the football staff API", () => {
   const ctx = world();
   assert.deepEqual(ctx.routes.map((r) => `${r.method.toUpperCase()} ${r.path}`), [
     "GET /", "PUT /stats", "GET /players", "GET /students/search",
-    "GET /players/:studentId/photo", "PUT /players/:studentId", "DELETE /players/:studentId", "POST /players/:studentId/stats",
+    "GET /players/:studentId/photo", "PUT /players/:studentId", "DELETE /players/:studentId", "POST /players/:studentId/sign-out", "POST /players/:studentId/login-card", "POST /players/:studentId/stats",
     "GET /lessons", "POST /lessons", "PUT /lessons/:id", "DELETE /lessons/:id",
     "POST /lessons/:id/players", "DELETE /lessons/:id/players/:studentId",
     "GET /lessons/:id/attendance", "PUT /lessons/:id/attendance",
@@ -235,7 +235,7 @@ test("GET /players lists football players with lessons, values and attendance, a
   const r = await call(ctx, VIEWER, "get", "/players");
   assert.equal(r.statusCode, 200);
   assert.equal(r.body.players.length, 2);
-  const expected = ["age", "attendance", "birthDate", "firstname", "gender", "jerseyNumber", "lastname", "layer", "lessons", "mentor", "photo", "photoCutout", "position", "school", "studentId", "tz", "values"];
+  const expected = ["age", "attendance", "birthDate", "cardIssuedAt", "firstname", "gender", "jerseyNumber", "lastname", "layer", "lessons", "mentor", "photo", "photoCutout", "position", "school", "studentId", "tz", "values"];
   for (const p of r.body.players) assert.deepEqual(Object.keys(p).sort(), expected);
   const one = r.body.players.find((p) => p.studentId === sid(1));
   assert.deepEqual(plain(one.lessons), [{ _id: LESSON_A, name: "أشبال الأحد", day: 1, startMin: 1000 }]);

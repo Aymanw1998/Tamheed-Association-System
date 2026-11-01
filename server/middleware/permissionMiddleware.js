@@ -4,6 +4,7 @@ const {
 const { logWithSource } = require("./logger");
 const { LOCKED_MESSAGE, isLocked } = require("../utils/loginLockout");
 const { tokenIsStale } = require("../utils/systemPassword");
+const { sessionEnded } = require("../utils/refreshSessions");
 
 const FORBIDDEN_BODY = { code: "FORBIDDEN", message: "لا توجد صلاحية" };
 const PASSWORD_CHANGE_SCOPE = "password-change";
@@ -31,9 +32,10 @@ function createLoadActor({ findActiveUserByTz, systemTz, allowPasswordChange = f
       const tz = req.user?.tz;
       const user = tz ? await findActiveUserByTz(tz) : null;
       if (!user) return res.status(401).json({ code: "NO_ACTIVE" });
-      // Signed before the last password change or recovery: that session ended.
-      if (tokenIsStale(req.user?.iat, user)) {
-        return res.status(401).json({ code: "TOKEN_STALE", message: "انتهت الجلسة بعد تغيير كلمة المرور" });
+      // Signed before the last password change, recovery or admin sign-out, or
+      // its device was signed out from "my devices": that session ended.
+      if (tokenIsStale(req.user?.iat, user) || sessionEnded(req.user?.sid, user)) {
+        return res.status(401).json({ code: "TOKEN_STALE", message: "انتهت الجلسة، سجّل الدخول من جديد" });
       }
 
       const actorTz = String(user.tz || "");

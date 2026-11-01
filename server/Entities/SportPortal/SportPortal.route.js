@@ -1,5 +1,6 @@
 const express = require("express");
 const auth = require("./SportPortal.auth");
+const passkey = require("./SportPortal.passkey");
 const portal = require("./SportPortal.controller");
 const { rateLimit } = require("../../middleware/rateLimit");
 const push = require("../Push/Push.route");
@@ -12,6 +13,13 @@ const loginLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 30, scope: "sport-
 
 router.post("/request-code", loginLimit, auth.requestCode);
 router.post("/verify", loginLimit, auth.verify);
+// The sign-in card's QR (players without email).
+router.post("/card", loginLimit, auth.signInWithCard);
+// Passkeys: saved by a signed-in player, then a fingerprint or face signs in.
+router.post("/passkey/login-options", loginLimit, passkey.loginOptions);
+router.post("/passkey/login", loginLimit, passkey.login);
+router.post("/passkey/register-options", auth.requireSportStudent, passkey.registerOptions);
+router.post("/passkey/register", auth.requireSportStudent, passkey.register);
 router.post("/logout", auth.logout);
 router.get("/me", auth.requireSportStudent, portal.me);
 router.get("/photo", auth.requireSportStudent, portal.photo);

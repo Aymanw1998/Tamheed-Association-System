@@ -46,3 +46,16 @@ test.each([null, undefined, ""])("no extra option when there is no current guide
 test("a missing instructors list is treated as empty", () => {
   expect(responsibleGuideOptions(undefined, "gone")).toEqual([{ value: "gone", label: "", inactive: true }]);
 });
+
+test("only active users are offered; a stored waiting or inactive guide shows as inactive", () => {
+  const users = [
+    { _id: "u1", firstname: "A", lastname: "One", room: "active" },
+    { _id: "w1", firstname: "W", lastname: "Wait", room: "waiting" },
+    { _id: "n1", firstname: "N", lastname: "Off", room: "noActive" },
+  ];
+  expect(responsibleGuideOptions(users, "")).toEqual([{ value: "u1", label: "A One", inactive: false }]);
+  expect(responsibleGuideOptions(users, "w1")).toEqual([
+    { value: "w1", label: "", inactive: true },
+    { value: "u1", label: "A One", inactive: false },
+  ]);
+});

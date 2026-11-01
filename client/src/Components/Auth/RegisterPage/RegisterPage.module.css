@@ -99,13 +99,15 @@
   padding-inline-end: 40px;
 }
 
-.togglePassword {
+.passwordWrapper button.togglePassword {
   position: absolute;
   inset-inline-end: 4px;
   top: 50%;
   transform: translateY(-50%);
+  align-self: auto;
   width: 32px;
   height: 32px;
+  padding: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -116,7 +118,7 @@
   cursor: pointer;
 }
 
-.togglePassword:hover {
+.passwordWrapper button.togglePassword:hover {
   color: var(--color-primary-600);
   background: var(--color-primary-50);
 }

@@ -31,13 +31,14 @@ function mustChangePassword(user, { isSystem, now = new Date() } = {}) {
   return new Date(now).getTime() - changed >= PASSWORD_MAX_AGE_DAYS * DAY_MS;
 }
 
-// Sessions end when the password changes or the account is recovered: a token
-// signed (iat, in seconds) before either is refused. Whole seconds, so the
+// Sessions end when the password changes, the account is recovered or an
+// admin signs the user out everywhere (signedOutAt): a token signed (iat, in
+// seconds) before any of them is refused. Whole seconds, so the
 // token issued in the same second as the change still works.
 function tokenIsStale(iat, user) {
   if (typeof iat !== "number" || !Number.isFinite(iat)) return false;
   const latest = Math.max(
-    ...[user?.passwordChangedAt, user?.recoveredAt].map(toTime).filter((t) => !Number.isNaN(t)),
+    ...[user?.passwordChangedAt, user?.recoveredAt, user?.signedOutAt].map(toTime).filter((t) => !Number.isNaN(t)),
     0,
   );
   return iat < Math.floor(latest / 1000);
@@ -149,6 +150,7 @@ async function resetSystemPassword({ user, model, room = "active", email, send, 
     failedLoginCount: 0,
     lockedAt: null,
     refreshHash: null,
+    refreshHashes: [],
     // Ends every session signed before now (tokenIsStale) and starts the cooldown.
     recoveredAt: new Date(),
   };

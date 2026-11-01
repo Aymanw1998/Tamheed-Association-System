@@ -233,3 +233,14 @@
   .mobileOnly { display: block; }
   .desktopOnly { display: none; }
 }
+
+/* A name in the list that opens the record's page. */
+.nameLink {
+  color: var(--color-primary-600);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.nameLink:hover {
+  text-decoration: underline;
+}

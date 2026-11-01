@@ -19,3 +19,24 @@ test("keeps a lock this tab already held before the one-shot", async () => {
   await withLock("player:1", async () => "done");
   expect(released()).toHaveLength(0);
 });
+
+test("finishes only after the release is done, so a following write never loses its lock", async () => {
+  let release;
+  api.post.mockImplementation((path) => (path === "/locks/release"
+    ? new Promise((r) => { release = r; })
+    : Promise.resolve({ data: { ok: true, created: true } })));
+  let finished = false;
+  const done = withLock("lesson:L1", async () => "x").then(() => { finished = true; });
+  await new Promise((r) => setTimeout(r, 0));
+  expect(finished).toBe(false);
+  release({ data: { ok: true } });
+  await done;
+  expect(finished).toBe(true);
+});
+
+test("a failed release does not fail the write", async () => {
+  api.post.mockImplementation((path) => (path === "/locks/release"
+    ? Promise.reject(new Error("offline"))
+    : Promise.resolve({ data: { ok: true, created: true } })));
+  await expect(withLock("lesson:L1", async () => "x")).resolves.toBe("x");
+});

@@ -13,9 +13,11 @@ export const getUnsavedChanges = () => state;
 
 // Pages whose edits a navigation away could lose.
 export const EDIT_PATTERNS = [
-  /^\/students\/(new|[^/]+)$/,
-  /^\/users\/(new|[^/]+)$/,
-  /^\/lessons\/(new|[^/]+)$/,
+  // A student, user or lesson opens on a read-only page (/x/:id); its form is
+  // /x/new or /x/:id/edit.
+  /^\/students\/(new|[^/]+\/edit)$/,
+  /^\/users\/(new|[^/]+\/edit)$/,
+  /^\/lessons\/(new|[^/]+\/edit)$/,
   /^\/vehicles\/(new|[^/]+)$/,
   /^\/subs\/(new|[^/]+)$/,
   /^\/selectSubfor\/[^/]+$/,

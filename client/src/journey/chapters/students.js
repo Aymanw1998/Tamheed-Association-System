@@ -126,19 +126,32 @@ const students = {
       action: { type: "click", target: "students-open" },
     },
     {
+      // On a phone the card opens the student's read-only page; the form is
+      // behind «تعديل». Skipped on its own where the click already opened the form.
+      target: "student-view-edit",
+      requires: "students.edit",
+      mood: "point",
+      title: "تعديل الطالب",
+      body: "هذه صفحة الطالب. سأضغط «تعديل» لفتح بطاقته كاملة.",
+      action: { type: "click", target: "student-view-edit" },
+    },
+    {
       target: "student-details",
+      requires: "students.edit",
       mood: "point",
       title: "بيانات الطالب",
       body: "الاسم وتاريخ الميلاد والجنس، ورقم الهوية ثابت.",
     },
     {
       target: "student-parents",
+      requires: "students.edit",
       mood: "point",
       title: "بيانات الأهل",
       body: "اختيارية، لكنها تساعد على التواصل السريع مع الأهل.",
     },
     {
       target: "student-health",
+      requires: "students.edit",
       mood: "point",
       title: "الصحة والملاحظات",
       body: "هنا يُسجَّل ما يلزم المرشد معرفته عن صحة الطالب.",

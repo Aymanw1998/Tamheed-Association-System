@@ -266,8 +266,10 @@ const ROLE_DEFAULTS = {
   "ادارة": ["dashboard", "calendar", "students", "lessons", "attendance", "reports", "vehicles",
     "files", "notices", "users.view", "users.create", "users.edit", "users.approve",
     "users.delete", "ai"],
-  "مرشد": ["dashboard", "calendar", "students.view", "students.edit", "students.photo",
-    "lessons.view", "lessons.create", "lessons.edit", "lessons.roster",
+  // Only an admin edits students, lessons and users (owner, 2026-11-01); an
+  // admin may still grant one guide an edit key in the permissions screen.
+  "مرشد": ["dashboard", "calendar", "students.view",
+    "lessons.view",
     "attendance", "reports.create", "reports.editOwn", "reports.exportPdf",
     "files.use", "ai"],
   "مساعد": ["dashboard", "calendar", "students.view", "lessons.view", "attendance.view",

@@ -242,17 +242,19 @@ test("the lookup route is guarded by lessons.roster, then rate limited, and decl
 
 /* ================= lessons ================= */
 
-test("a guide reading another guide's lesson sees no hidden ids, only hiddenCount; the true total stays", async () => {
+test("a guide reads his own lesson in full; another guide's lesson is not found", async () => {
   const w = world();
-  const res = await call(w.lesson.getOne, reqAs(GUIDE, { params: { id: "lesson-2" } }));
+  // A student on the guide's own lesson is visible to him with it.
+  w.lessons.all().find((l) => l._id === "lesson-1").list_students.push(sid(5));
+  const res = await call(w.lesson.getOne, reqAs(GUIDE, { params: { id: "lesson-1" } }));
   assert.equal(res.statusCode, 200);
-  assert.deepEqual(plain(res.body.lesson.list_students), []);
-  assert.equal(res.body.lesson.hiddenCount, 2);
+  assert.deepEqual(plain(res.body.lesson.list_students), [sid(1), sid(5)]);
+  assert.equal(res.body.lesson.hiddenCount, 0);
   assert.equal(res.body.lesson.num_in_list, 2);
 
-  const own = await call(w.lesson.getOne, reqAs(GUIDE, { params: { id: "lesson-1" } }));
-  assert.deepEqual(plain(own.body.lesson.list_students), [sid(1)]);
-  assert.equal(own.body.lesson.hiddenCount, 0);
+  // Owner's rule (2026-11-01): only the lessons one teaches or assists in.
+  const theirs = await call(w.lesson.getOne, reqAs(GUIDE, { params: { id: "lesson-2" } }));
+  assert.equal(theirs.statusCode, 404);
 
   const admin = await call(w.lesson.getOne, reqAs(ADMIN, { params: { id: "lesson-2" } }));
   assert.deepEqual(plain(admin.body.lesson.list_students), [sid(3), sid(4)]);
@@ -272,9 +274,9 @@ test("lesson lists (all, query, today) never leak hidden student ids to a guide"
     assert.equal(res.statusCode, 200, name);
     const body = JSON.stringify(res.body);
     for (const hidden of [sid(3), sid(4)]) assert.ok(!body.includes(hidden), `${name} leaks ${hidden}`);
-    const theirs = res.body.lessons.find((l) => l._id === "lesson-2");
-    assert.equal(theirs.num_in_list, 2, `${name} keeps the true total`);
-    assert.equal(theirs.hiddenCount, 2, name);
+    // Only his own lesson (owner, 2026-11-01).
+    assert.deepEqual(res.body.lessons.map((l) => l._id), ["lesson-1"], name);
+    assert.equal(res.body.lessons[0].num_in_list, 1, `${name} keeps the true total`);
 
     const admin = await call(w.lesson[name], reqAs(ADMIN, extra));
     assert.deepEqual(plain(admin.body.lessons.find((l) => l._id === "lesson-2").list_students), [sid(3), sid(4)], `${name} admin`);
@@ -329,26 +331,38 @@ test("a scoped addToList takes _ids only if visible; existing but hidden _ids an
   assert.equal(res.statusCode, 200);
   assert.deepEqual(plain(w.lessons.all().find((l) => l._id === "lesson-1").list_students), [sid(1), sid(2)]);
 
-  // An admin adds as today (no existence check).
+  // An admin adds real students only: an id that is no student is dropped.
   await call(w.lesson.addToList, reqAs(ADMIN, { params: { id: "lesson-2" }, body: { list_students: ["anything"] } }));
-  assert.deepEqual(plain(w.lessons.all().find((l) => l._id === "lesson-2").list_students), [sid(3), sid(4), "anything"]);
+  assert.deepEqual(plain(w.lessons.all().find((l) => l._id === "lesson-2").list_students), [sid(3), sid(4)]);
 });
 
 /* ================= attendance ================= */
 
-test("a guide's attendance sheet lists only visible students", async () => {
+test("a guide's attendance sheet lists his lesson's students, never another lesson's", async () => {
   const w = world();
-  // Add s1 (visible through lesson-1) to lesson-2 so the sheet mixes both.
-  w.lessons.all().find((l) => l._id === "lesson-2").list_students.push(sid(1));
-  const q = { lessonId: "lesson-2", year: 2026, month: 10, day: 17 };
+  // A student put on the guide's own lesson becomes visible to him with it.
+  w.lessons.all().find((l) => l._id === "lesson-1").list_students.push(sid(5));
+  const q = { lessonId: "lesson-1", year: 2026, month: 10, day: 17 };
   const res = await call(w.att.getSheet, reqAs(GUIDE, { query: q }));
   assert.equal(res.statusCode, 200);
-  assert.deepEqual(plain(res.body.schema.items.map((i) => i.studentId)), [sid(1)]);
-  assert.deepEqual(w.attendance.all().map((r) => r.student), [sid(1)], "no rows created for hidden students");
-  assert.ok(!JSON.stringify(res.body).includes(S[2].tz));
+  assert.deepEqual(plain(res.body.schema.items.map((i) => i.studentId)), [sid(1), sid(5)]);
+  for (const hidden of [S[2].tz, S[3].tz]) assert.ok(!JSON.stringify(res.body).includes(hidden));
 
   const admin = await call(w.att.getSheet, reqAs(ADMIN, { query: q }));
-  assert.deepEqual(plain(admin.body.schema.items.map((i) => i.studentId)), [sid(3), sid(4), sid(1)]);
+  assert.deepEqual(plain(admin.body.schema.items.map((i) => i.studentId)), [sid(1), sid(5)]);
+});
+
+// Owner's rule (2026-11-01): only the lessons one teaches or assists in.
+test("a guide cannot open, list the dates of, or save attendance for another guide's lesson", async () => {
+  const w = world();
+  const q = { lessonId: "lesson-2", year: 2026, month: 10, day: 17 };
+  assert.equal((await call(w.att.getSheet, reqAs(GUIDE, { query: q }))).statusCode, 404);
+  assert.equal((await call(w.att.getLessonDates, reqAs(GUIDE, { query: { lessonId: "lesson-2" } }))).statusCode, 404);
+  const save = await call(w.att.bulkSave, reqAs(GUIDE, { body: { ...q, items: [{ studentId: sid(3), status: "غائب" }] } }));
+  assert.equal(save.statusCode, 404);
+  assert.deepEqual(w.attendance.all(), [], "nothing written, no rows created");
+  assert.equal((await call(w.att.getSheet, reqAs(ADMIN, { query: q }))).statusCode, 200);
+  assert.equal((await call(w.att.getLessonDates, reqAs(ADMIN, { query: { lessonId: "lesson-2" } }))).statusCode, 200);
 });
 
 test("attendance save ignores rows for hidden students", async () => {
@@ -390,7 +404,7 @@ test("a scoped actor cannot make himself teacher or helper of a lesson he is not
   const list = await call(w.student.getAllS, reqAs(GUIDE));
   assert.deepEqual(list.body.students.map((s) => s._id).sort(), [sid(1), sid(2)]);
   const one = await call(w.lesson.getOne, reqAs(GUIDE, { params: { id: "lesson-2" } }));
-  assert.deepEqual(plain(one.body.lesson.list_students), []);
+  assert.equal(one.statusCode, 404, "another guide's lesson is not found");
 
   // Same teacher value is not a change; editing other fields still works.
   const same = await call(w.lesson.putOne, reqAs(GUIDE, { params: { id: "lesson-2" }, body: { teacher: OTHER._id, name: "N" } }));
@@ -463,7 +477,8 @@ test("a scoped postOne must name himself and keeps only existing, non-pending st
 
   const admin = await call(w.lesson.postOne, reqAs(ADMIN, { body: { ...lesson, date: { day: 6, startMin: 600, endMin: 645 }, teacher: OTHER._id, list_students: ["anything"] } }));
   assert.equal(admin.statusCode, 201);
-  assert.deepEqual(plain(w.lessons.all().at(-1).list_students), ["anything"], "admin as today");
+  // An admin too stores only existing, accepted students (owner, 2026-11-01).
+  assert.deepEqual(plain(w.lessons.all().at(-1).list_students), []);
 });
 
 test("a scoped attendance save writes only rows for students in that lesson", async () => {
@@ -477,7 +492,7 @@ test("a scoped attendance save writes only rows for students in that lesson", as
   assert.deepEqual(w.attendance.all().map((r) => r.student), [sid(1)]);
 });
 
-test("pending (waiting-list) students are not found by lookup nor added by addToList for a scoped actor", async () => {
+test("pending (waiting-list) students are not found by a scoped lookup and never added by addToList", async () => {
   const w = world();
   w.students.all()[4].status = PENDING;
   const look = await call(w.student.lookupS, reqAs(GUIDE, { params: { tz: S[4].tz } }));
@@ -489,7 +504,8 @@ test("pending (waiting-list) students are not found by lookup nor added by addTo
   assert.deepEqual(plain(lessonById(w, "lesson-1").list_students), [sid(1), sid(3)]);
 
   await call(w.lesson.addToList, reqAs(ADMIN, { params: { id: "lesson-1" }, body: { list_students: [sid(5)] } }));
-  assert.deepEqual(plain(lessonById(w, "lesson-1").list_students), [sid(1), sid(3), sid(5)], "admin as today");
+  // Not even by an admin: only students accepted in the association (owner, 2026-11-01).
+  assert.deepEqual(plain(lessonById(w, "lesson-1").list_students), [sid(1), sid(3)]);
 });
 
 /* ================= fix round 2 ================= */
@@ -518,12 +534,12 @@ test("a scoped guide adds an out-of-scope student only by exact tz (list_tz), ne
   assert.deepEqual(plain(lessonById(w, "lesson-1").list_students), [sid(1), sid(5), sid(2), sid(3)]);
 });
 
-test("an admin still adds by _id (unchanged) and may also use list_tz", async () => {
+test("an admin adds real students by _id and may also use list_tz", async () => {
   const w = world();
   await call(w.lesson.addToList, reqAs(ADMIN, { params: { id: "lesson-1" }, body: { list_students: [sid(5), "anything"] } }));
-  assert.deepEqual(plain(lessonById(w, "lesson-1").list_students), [sid(1), sid(5), "anything"]);
+  assert.deepEqual(plain(lessonById(w, "lesson-1").list_students), [sid(1), sid(5)]);
   await call(w.lesson.addToList, reqAs(ADMIN, { params: { id: "lesson-1" }, body: { list_tz: [S[2].tz, S[4].tz] } }));
-  assert.deepEqual(plain(lessonById(w, "lesson-1").list_students), [sid(1), sid(5), "anything", sid(3)]);
+  assert.deepEqual(plain(lessonById(w, "lesson-1").list_students), [sid(1), sid(5), sid(3)]);
 });
 
 test("putS refuses a tz change that collides with another student (409 TZ_EXISTS)", async () => {
@@ -617,11 +633,11 @@ test("an unchanged stale main_teacher (inactive or legacy) does not block saving
 test("attendance save with nothing to write records no audit row", async () => {
   const w = world();
   const base = { year: 2026, month: 10, day: 17 };
-  // Scoped: hidden roster only, and an unknown lesson.
-  for (const lessonId of ["lesson-2", "lesson-404"]) {
-    const res = await call(w.att.bulkSave, reqAs(GUIDE, { body: { ...base, lessonId, items: [{ studentId: sid(3), status: "غائب" }] } }));
-    assert.equal(res.statusCode, 200, lessonId);
-  }
+  // Scoped: another guide's lesson is not found; an unknown lesson saves nothing.
+  const theirs = await call(w.att.bulkSave, reqAs(GUIDE, { body: { ...base, lessonId: "lesson-2", items: [{ studentId: sid(3), status: "غائب" }] } }));
+  assert.equal(theirs.statusCode, 404);
+  const unknown = await call(w.att.bulkSave, reqAs(GUIDE, { body: { ...base, lessonId: "lesson-404", items: [{ studentId: sid(3), status: "غائب" }] } }));
+  assert.equal(unknown.statusCode, 200);
   // Admin with an empty list.
   const empty = await call(w.att.bulkSave, reqAs(ADMIN, { body: { ...base, lessonId: "lesson-1", items: [] } }));
   assert.equal(empty.statusCode, 200);

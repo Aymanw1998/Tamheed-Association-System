@@ -148,6 +148,32 @@ const api = {
     return { success: true, result: toPlain(updated) };
   },
 
+  // Appends `item` to the array `field` of one existing document, keeping only
+  // the last `max` items, and sets the `set` fields, in one atomic write.
+  // `also` ({ otherField: item }) appends to more arrays, capped the same way.
+  // Never upserts.
+  async pushCapped({ dbName, collection, filter, field, item, max, set = {}, also = {} }) {
+    await ensureConnected();
+    const Model = getModel(dbName, collection);
+    const update = { $push: { [field]: { $each: [item], $slice: -max } } };
+    for (const [name, value] of Object.entries(also)) update.$push[name] = { $each: [value], $slice: -max };
+    if (Object.keys(set).length) update.$set = set;
+    await Model.updateOne(filter, update);
+    return { success: true };
+  },
+
+  // Removes every `item` from the array `field` of one existing document and
+  // sets the `set` fields, in one atomic write. `also` ({ otherField:
+  // condition }) pulls from more arrays in the same write. Never upserts.
+  async pull({ dbName, collection, filter, field, item, set = {}, also = {} }) {
+    await ensureConnected();
+    const Model = getModel(dbName, collection);
+    const update = { $pull: { [field]: item, ...also } };
+    if (Object.keys(set).length) update.$set = set;
+    await Model.updateOne(filter, update);
+    return { success: true };
+  },
+
   // Conditional upsert for locks: sets `newData` on the document matching the
   // filter, or creates it. When the filter does not match but the unique key
   // already exists, MongoDB throws E11000 (duplicate key), which the caller

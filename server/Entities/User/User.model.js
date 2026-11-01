@@ -196,6 +196,53 @@ UserModelDef.lockIfThresholdReached = async function (tz, lockedAt, threshold, c
   });
 };
 
+// Sign-in sessions (utils/refreshSessions): add one device's refresh hash,
+// keeping the newest `max`; clearLegacy also empties the old single field.
+// device: the session's "my devices" entry (utils/refreshSessions), written
+// in the same atomic write.
+UserModelDef.addRefreshHash = async function (tz, hash, max, clearLegacy = false, device) {
+  return await api.pushCapped({
+    dbName: this.dbName,
+    collection: this.collections.active,
+    filter: { tz },
+    field: 'refreshHashes',
+    item: hash,
+    max,
+    set: clearLegacy ? { refreshHash: null } : {},
+    also: device ? { deviceTokens: device } : {},
+  });
+};
+
+// "Sign out other devices": only this hash and its device entry stay.
+UserModelDef.keepOnlyRefreshHash = async function (tz, hash) {
+  return await api.pull({
+    dbName: this.dbName,
+    collection: this.collections.active,
+    filter: { tz },
+    field: 'deviceTokens',
+    item: { hash: { $ne: hash } },
+    set: { refreshHashes: [hash], refreshHash: null },
+  });
+};
+
+// Ends one device's session; the old single field too when it holds that hash.
+UserModelDef.dropRefreshHash = async function (tz, hash) {
+  await api.pull({
+    dbName: this.dbName,
+    collection: this.collections.active,
+    filter: { tz },
+    field: 'refreshHashes',
+    item: hash,
+    also: { deviceTokens: { hash } },
+  });
+  return await api.updateExisting({
+    dbName: this.dbName,
+    collection: this.collections.active,
+    filter: { tz, refreshHash: hash },
+    newData: { refreshHash: null },
+  });
+};
+
 //Build for deleting a user
 /**
  * 
@@ -213,7 +260,7 @@ UserModelDef.delete = async function (filter, collection = 'active') {
 // Every write empties loadActor's short user cache (services/actorCache), so a
 // role, permission, lockout or password change applies to the next request.
 const { clearActors } = require("../../services/actorCache");
-for (const name of ["create", "update", "updateExisting", "incrementFailedLogin", "lockIfThresholdReached", "delete"]) {
+for (const name of ["create", "update", "updateExisting", "incrementFailedLogin", "lockIfThresholdReached", "addRefreshHash", "dropRefreshHash", "keepOnlyRefreshHash", "delete"]) {
   const write = UserModelDef[name];
   UserModelDef[name] = async function (...args) {
     try {

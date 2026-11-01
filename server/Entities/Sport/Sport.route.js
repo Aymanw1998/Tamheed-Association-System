@@ -26,6 +26,11 @@ router.get("/students/search", requirePermission("sports.coach", "sports.manage"
 router.get("/players/:studentId/photo", requirePermission("sports.view", "sports.coach", "sports.manage"), controller.playerPhoto);
 router.put("/players/:studentId", requirePermission("sports.coach", "sports.manage"), lockedPlayer, controller.savePlayer);
 router.delete("/players/:studentId", requirePermission("sports.coach", "sports.manage"), lockedPlayer, controller.deletePlayer);
+// Ends the player's sport-site sessions on every phone (SportPortal.auth),
+// loaded on first use so this file does not pull in the portal.
+router.post("/players/:studentId/sign-out", requirePermission("sports.manage"), (req, res) => require("../SportPortal/SportPortal.auth").signOutPlayer(req, res));
+// A new sign-in card (QR) for a player without email; cancels the old card.
+router.post("/players/:studentId/login-card", requirePermission("sports.manage"), (req, res) => require("../SportPortal/SportPortal.auth").issueCard(req, res));
 router.post("/players/:studentId/stats", requirePermission("sports.coach", "sports.manage"), lockedPlayer, controller.bumpStat);
 router.get("/lessons", requirePermission("sports.view", "sports.coach", "sports.manage"), controller.listLessons);
 router.post("/lessons", requirePermission("sports.manage"), controller.createLesson);

@@ -15,18 +15,22 @@ import AuditPage from '../Audit/AuditPage';
 
 import ViewAllStudent from '../Student/ViewAllStudent';
 import EditStudent from '../Student/EditStudent';
+import StudentView from '../Student/StudentView';
+import RecordRoute from './RecordRoute';
 
 import ViewAllUser from '../User/ViewAllUser';
 import EditUser from '../User/EditUser';
+import UserView from '../User/UserView';
 
 import ViewAllLesson from '../Lesson/ViewAllLesson';
 import EditLesson from '../Lesson/EditLesson';
+import LessonView from '../Lesson/LessonView';
 
 import { setAuthTokens } from '../../WebServer/services/api';
 import Dashboard from '../Dashboard/Dashboard';
 import ViewAllReport from '../Report/ViewAllReport';
 import EditReport from '../Report/EditReport';
-import Profile from '../Profile/Profile';
+import ProfilePage from '../Profile/ProfilePage';
 
 import AttendancePage from '../Attendance/AttendancePage';
 import FilesPage from '../Files/FilesPage';
@@ -37,10 +41,9 @@ import FloatingAIButton from '../AI/FloatingAIButton';
 import { canStored } from '../../utils/session';
 import PrivacyPage from '../Privacy/PrivacyPage';
 import GuidePage from '../../guide/GuidePage';
-import { TourProvider } from '../../tours/TourProvider';
 import TrainingBanner from '../../journey/TrainingBanner';
 import { useDemo } from '../../journey/demoMode';
-import { JourneyProvider } from '../../journey/JourneyProvider';
+import GuidanceProviders from './GuidanceProviders';
 import LiveEventsProvider from '../../locks/LiveEventsProvider';
 
 // The assistant (alerts now, chat later) shows for accounts with ai.use.
@@ -52,16 +55,13 @@ function ProtectedLayout() {
   const { epoch } = useDemo();
   return (
     <div style={{ height: "100vh", width: "100vw" }}>
-      {/* The journey wraps the help center: every «أرني» and «ابدأ» runs it. */}
       <LiveEventsProvider />
-      <JourneyProvider>
-        <TourProvider>
-          <TrainingBanner />
-          <Header key={`header-${epoch}`} />
-          <Outlet key={`outlet-${epoch}`} />
-          {/* {canStored("ai.use") && <FloatingAIButton key={`ai-${epoch}`} />} */}
-        </TourProvider>
-      </JourneyProvider>
+      <GuidanceProviders>
+        <TrainingBanner />
+        <Header key={`header-${epoch}`} />
+        <Outlet key={`outlet-${epoch}`} />
+        {/* {canStored("ai.use") && <FloatingAIButton key={`ai-${epoch}`} />} */}
+      </GuidanceProviders>
     </div>
   );
 }
@@ -87,13 +87,17 @@ export default function CRoutes() {
             <Route path="/calendar" element={<AttendancePage />} />
             
             <Route path="/students" element={<ViewAllStudent />} />
-            <Route path="/students/:id" element={<EditStudent/>} />
+            {/* A record opens on its read-only page; /new and /:id/edit open the form. */}
+            <Route path="/students/:id" element={<RecordRoute view={<StudentView/>} form={<EditStudent/>} />} />
+            <Route path="/students/:id/edit" element={<EditStudent/>} />
 
             <Route path="/users" element={<ViewAllUser />} />
-            <Route path="/users/:id" element={<EditUser/>} />
+            <Route path="/users/:id" element={<RecordRoute view={<UserView/>} form={<EditUser/>} />} />
+            <Route path="/users/:id/edit" element={<EditUser/>} />
 
             <Route path="/lessons" element={<ViewAllLesson/>} />
-            <Route path="/lessons/:id" element={<EditLesson/>} />
+            <Route path="/lessons/:id" element={<RecordRoute view={<LessonView/>} form={<EditLesson/>} />} />
+            <Route path="/lessons/:id/edit" element={<EditLesson/>} />
 
             <Route path="/reports" element={<ViewAllReport/>} />
             <Route path="/reports/:id" element={<EditReport/>} />
@@ -107,7 +111,7 @@ export default function CRoutes() {
             <Route path="/audit" element={<AuditPage/>} />
 
             <Route path="/files" element={<FilesPage/>} />
-            <Route path="/profile" element={<Profile/>} />
+            <Route path="/profile" element={<ProfilePage/>} />
           </Route>
 
           <Route path="*" element={<Navigate to="/dashboard" replace />} />

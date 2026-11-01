@@ -461,3 +461,18 @@ svg.id-img { height: 86%; }
   display: inline-block; min-width: 18px; height: 18px; margin-inline-start: 5px; padding: 0 5px; border-radius: 9px;
   background: #e5484d; color: #fff; font-size: 11px; font-style: normal; line-height: 18px; text-align: center; vertical-align: 1px;
 }
+
+/* Passkeys: the sign-in button and the offer after signing in. */
+.btn-passkey { width: 100%; }
+.login-or { margin: 10px 0 4px; text-align: center; color: #64748b; font-size: 13px; }
+.btn-ghost { background: transparent; color: var(--navy); box-shadow: none; border: 1px solid #cbd5e1; }
+.passkey-offer {
+  margin: 0 0 14px; padding: 12px 14px; border-radius: 14px;
+  background: #e9f6ef; color: #17603a; font-size: 14px;
+}
+.passkey-offer p { margin: 0 0 8px; }
+.passkey-offer-actions { display: flex; gap: 8px; }
+
+/* "Install the app" (pwa/InstallApp.jsx), phones only. */
+.install-app { display: block; width: 100%; margin: 12px 0 0; }
+.content > .install-app { margin: 0 0 14px; background: #fff; }

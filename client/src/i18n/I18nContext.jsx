@@ -5,6 +5,7 @@ import { noticeStrings } from "./noticeStrings";
 import { accessStrings } from "./accessStrings";
 import { assistantStrings } from "./assistantStrings";
 import { rosterStrings } from "./rosterStrings";
+import { recordStrings } from "./recordStrings";
 import { tourStrings } from "./tourStrings";
 import { sportStrings } from "./sportStrings";
 
@@ -96,6 +97,7 @@ dictionary.nav.sports = sportStrings.ar.navTitle;
 dictionary.notices = noticeStrings.ar;
 dictionary.nav.notices = noticeStrings.ar.navTitle;
 dictionary.roster = rosterStrings.ar;
+dictionary.record = recordStrings.ar;
 dictionary.assistant = assistantStrings.ar;
 dictionary.tour = tourStrings.ar;
 dictionary.perms = accessStrings.ar.perms;

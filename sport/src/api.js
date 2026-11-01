@@ -39,6 +39,13 @@ export const getNotices = () => call("/notices", { cache: "no-store" });
 export const getIdNumber = () => call("/id", { cache: "no-store" });
 export const requestCode = (tz) => call("/request-code", { method: "POST", body: JSON.stringify({ tz }) });
 export const verifyCode = (tz, code) => call("/verify", { method: "POST", body: JSON.stringify({ tz, code }) });
+// The printed sign-in card's QR (players without email).
+export const signInWithCard = (token) => call("/card", { method: "POST", body: JSON.stringify({ token }) });
+// Passkeys: options from the server, the phone's answer back (passkey.js).
+export const passkeyLoginOptions = () => call("/passkey/login-options", { method: "POST" });
+export const passkeyLogin = (response) => call("/passkey/login", { method: "POST", body: JSON.stringify({ response }) });
+export const passkeyRegisterOptions = () => call("/passkey/register-options", { method: "POST" });
+export const passkeyRegister = (response) => call("/passkey/register", { method: "POST", body: JSON.stringify({ response }) });
 export const logout = () => call("/logout", { method: "POST" });
 export const PHOTO_URL = `${BASE}/photo`;
 // The version changes with the photo, so a new photo is not hidden by the browser cache.

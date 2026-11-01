@@ -1,4 +1,6 @@
+const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
+const QRCode = require("qrcode");
 const { StudentModelDef } = require("../Student/Student.model");
 const { SportPlayerModelDef } = require("../Sport/SportPlayer.model");
 const { SportLoginCodeModelDef } = require("../Sport/SportLoginCode.model");
@@ -10,7 +12,12 @@ const { logWithSource } = require("../../middleware/logger");
 const COOKIE_NAME = "tamheed_sport";
 const COOKIE_PATH = "/api/sport-portal";
 const SESSION_TYP = "sport-student";
-const SESSION_MS = 30 * 24 * 60 * 60 * 1000;
+// Signed in until signing out (owner, 2026-11-01): a session lasts a year and
+// is renewed for another year on a visit a day or more after it was made, so
+// only a year without a visit ends it. A sports manager's sign-out
+// (student.sportSignedOutAt) ends every older session.
+const SESSION_MS = 365 * 24 * 60 * 60 * 1000;
+const RENEW_MS = 24 * 60 * 60 * 1000;
 const CODE_TTL_MS = 10 * 60 * 1000;
 const LOCK_MS = 10 * 60 * 1000;
 const RESEND_MS = 60 * 1000;
@@ -20,6 +27,13 @@ const NO_SECRET = "SPORT_SESSION_SECRET is not set";
 const GENERIC_CODE_MESSAGE = "إذا كان الرقم مسجّلًا ولديه بريد، سيصله رمز. لم يصلك؟ توجّه إلى المرشد";
 const BAD_CODE_MESSAGE = "الرمز غير صحيح أو انتهت صلاحيته";
 const SERVER_ERROR = "حدث خطأ غير متوقع، حاول مرة أخرى";
+const BAD_CARD_MESSAGE = "البطاقة غير صالحة. اطلب بطاقة جديدة من المرشد";
+// A card token is 32 random bytes (43 characters); anything shorter is not one.
+const MIN_CARD_TOKEN = 32;
+
+// The sport site's address for the card's link: SPORT_HOST in production,
+// the sport dev server (sport/.env PORT) otherwise.
+const defaultSportUrl = () => (process.env.SPORT_HOST ? `https://${process.env.SPORT_HOST}` : "http://localhost:3001");
 
 const rows = (r) => (r?.success && Array.isArray(r.result) ? r.result : []);
 
@@ -41,9 +55,26 @@ function createSportAuth(deps = {}) {
     codes = SportLoginCodeModelDef,
     sendCode = sendSportLoginCodeEmail,
     makeCode = generateOtp6,
+    makeCardToken = () => crypto.randomBytes(32).toString("base64url"),
+    sportUrl = defaultSportUrl,
     log = logWithSource,
     now = () => Date.now(),
   } = deps;
+
+  // iat is set from now() (not the system clock), like every other time here.
+  const startSession = (res, studentId, key) => {
+    const token = jwt.sign({ sub: String(studentId), typ: SESSION_TYP, iat: Math.floor(now() / 1000) }, key, {
+      algorithm: "HS256",
+      expiresIn: Math.floor(SESSION_MS / 1000),
+    });
+    res.cookie(COOKIE_NAME, token, { ...cookieOptions(), maxAge: SESSION_MS });
+  };
+
+  // Signed (iat, whole seconds) before the student's last sign-out by a manager.
+  const signedOutSince = (iat, student) => {
+    const at = new Date(student?.sportSignedOutAt ?? NaN).getTime();
+    return !Number.isNaN(at) && Number(iat) < Math.floor(at / 1000);
+  };
 
   // Fails closed: there is no fallback to any other secret.
   const secret = () => {
@@ -140,11 +171,7 @@ function createSportAuth(deps = {}) {
 
       // A used code is cleared, so it cannot be replayed.
       await codes.delete({ studentId });
-      const token = jwt.sign({ sub: studentId, typ: SESSION_TYP }, secretValue, {
-        algorithm: "HS256",
-        expiresIn: Math.floor(SESSION_MS / 1000),
-      });
-      res.cookie(COOKIE_NAME, token, { ...cookieOptions(), maxAge: SESSION_MS });
+      startSession(res, studentId, secretValue);
       return res.json({ ok: true });
     } catch (err) {
       log("SportPortal.verify", err);
@@ -175,7 +202,8 @@ function createSportAuth(deps = {}) {
       // The student and the player row are read together (one round trip).
       const [found, isPlayer] = await Promise.all([students.get({ _id: String(payload.sub) }), hasSportRow(payload.sub)]);
       const student = rows(found)[0];
-      if (!student || !isPlayer) return refuse();
+      if (!student || !isPlayer || signedOutSince(payload.iat, student)) return refuse();
+      if (now() - Number(payload.iat) * 1000 >= RENEW_MS) startSession(res, student._id, key);
       req.sportStudent = student;
       return next();
     } catch (err) {
@@ -184,7 +212,70 @@ function createSportAuth(deps = {}) {
     }
   };
 
-  return { requestCode, verify, logout, requireSportStudent };
+  // POST /api/sports/players/:studentId/sign-out (sports.manage): ends the
+  // player's sessions on every phone.
+  const signOutPlayer = async (req, res) => {
+    try {
+      const studentId = String(req.params?.studentId ?? "").trim();
+      const student = studentId ? rows(await students.get({ _id: studentId }))[0] : null;
+      if (!student) return res.status(404).json({ ok: false, message: "غير موجود" });
+      // Its passkeys go too: a lost phone cannot sign in with a fingerprint.
+      await students.updateExisting({ _id: studentId }, { sportSignedOutAt: new Date(now()), sportPasskeys: [] });
+      return res.json({ ok: true });
+    } catch (err) {
+      log("SportPortal.signOutPlayer", err);
+      return res.status(500).json({ ok: false, message: SERVER_ERROR });
+    }
+  };
+
+  // POST /api/sports/players/:studentId/login-card (sports.manage): a new
+  // sign-in card for a player, for players without email (owner,
+  // 2026-11-01). The token goes in the link's #fragment, so it never reaches
+  // a server log; only its hash is stored, and the new card cancels the old.
+  const issueCard = async (req, res) => {
+    try {
+      const studentId = String(req.params?.studentId ?? "").trim();
+      const student = studentId ? rows(await students.get({ _id: studentId }))[0] : null;
+      if (!student || !(await hasSportRow(studentId))) return res.status(404).json({ ok: false, message: "اللاعب غير موجود" });
+      const token = makeCardToken();
+      await students.updateExisting({ _id: studentId }, {
+        sportCardHash: sha256(token),
+        sportCardIssuedAt: new Date(now()),
+        sportCardIssuedBy: String(req.actor?.tz || ""),
+      });
+      const url = `${sportUrl()}/#card=${token}`;
+      const svg = await QRCode.toString(url, { type: "svg", margin: 1, errorCorrectionLevel: "M" });
+      return res.json({ ok: true, url, svg });
+    } catch (err) {
+      log("SportPortal.issueCard", err);
+      return res.status(500).json({ ok: false, message: SERVER_ERROR });
+    }
+  };
+
+  // POST /api/sport-portal/card { token }: the scanned card signs this phone in.
+  const signInWithCard = async (req, res) => {
+    const bad = () => res.status(400).json({ ok: false, message: BAD_CARD_MESSAGE });
+    try {
+      const token = String(req.body?.token ?? "").trim();
+      const secretValue = secret();
+      if (token.length < MIN_CARD_TOKEN) return bad();
+      const found = rows(await students.get({ sportCardHash: sha256(token) }));
+      if (found.length !== 1) return bad();
+      const studentId = String(found[0]._id);
+      if (!(await hasSportRow(studentId))) return bad();
+      startSession(res, studentId, secretValue);
+      return res.json({ ok: true });
+    } catch (err) {
+      log("SportPortal.signInWithCard", err);
+      return res.status(500).json({ ok: false, message: SERVER_ERROR });
+    }
+  };
+
+  // For the passkey sign-in (SportPortal.passkey.js).
+  const signIn = (res, studentId) => startSession(res, studentId, secret());
+  const isPlayer = (studentId) => hasSportRow(studentId);
+
+  return { requestCode, verify, logout, requireSportStudent, signOutPlayer, issueCard, signInWithCard, signIn, isPlayer };
 }
 
 module.exports = {
@@ -193,4 +284,5 @@ module.exports = {
   COOKIE_NAME,
   GENERIC_CODE_MESSAGE,
   BAD_CODE_MESSAGE,
+  BAD_CARD_MESSAGE,
 };

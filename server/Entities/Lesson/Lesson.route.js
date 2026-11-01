@@ -21,6 +21,10 @@ const {
 const { requireAuth: protect } = require('../../middleware/authMiddleware');
 const { loadActor, requirePermission } = require('../../middleware/permissionMiddleware');
 const { requireFreeOrMine } = require('../../middleware/lockGuard');
+const { objectIdParam } = require('../../middleware/objectIdParam');
+
+// Every /:id route answers 404 for an id that is not an ObjectId.
+router.param('id', objectIdParam);
 
 // Writes to one lesson (its form and its roster) share the key lesson:<id>.
 const lockedLesson = requireFreeOrMine((req) => (req.params.id ? `lesson:${req.params.id}` : null));

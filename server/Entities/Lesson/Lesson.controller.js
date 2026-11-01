@@ -7,6 +7,9 @@ const { StudentModelDef } = require("../Student/Student.model");
 const { SportLessonModelDef } = require("../Sport/SportLesson.model");
 const { conflictsInRoom9 } = require("../../utils/lessonConflict");
 const { createStudentScope, mergeRoster, scopeLesson } = require("../../utils/studentScope");
+const { contactById } = require("../../utils/guideContact");
+// Without lessons.viewAll only the lessons the actor teaches or assists in.
+const { isOnLesson, mayOpenLesson, mayViewLesson, ownLessons, responsibleStudentIds, seesAllLessons } = require("../../utils/lessonAccess");
 const { checkVersion, editorStamp, sameVersion, raceLost } = require("../../middleware/lockGuard");
 const { notifyChange } = require("../../services/liveHub");
 
@@ -51,6 +54,27 @@ async function idsFromTz(tzs) {
   return ids;
 }
 
+// _ids an unscoped actor (students.viewAll) may put on a roster: students who
+// exist and are accepted in the association (not waiting), so a mistyped or
+// made-up id is never stored. Duplicates are dropped.
+async function existingIds(ids) {
+  const accepted = [];
+  const seen = new Set();
+  for (const s of ids) {
+    const key = String(s);
+    if (seen.has(key) || !OBJECT_ID.test(key)) continue;
+    seen.add(key);
+    const found = await StudentModelDef.get({ _id: key });
+    const student = found?.result?.[0];
+    if (student && student.status !== PENDING_STATUS) accepted.push(s);
+  }
+  return accepted;
+}
+
+// list_students, when sent, must be a list.
+const notAList = (body) => body?.list_students !== undefined && !Array.isArray(body.list_students);
+const NOT_A_LIST = { ok: false, code: "BAD_LIST", message: "قائمة الطلاب غير صالحة" };
+
 // Most full ID numbers one request may name; more is refused (TOO_MANY).
 const MAX_LIST_TZ = 50;
 const tooManyTz = (body) => Array.isArray(body?.list_tz) && body.list_tz.length > MAX_LIST_TZ;
@@ -64,11 +88,6 @@ function appendNew(list, ids) {
   return out;
 }
 
-// Whether the actor is this lesson's teacher or helper.
-const isOnLesson = (actor, lesson) => {
-  const me = String(actor?.id ?? "");
-  return Boolean(me) && [lesson?.teacher, lesson?.helper].some((v) => v != null && String(v) === me);
-};
 const FORBIDDEN = { code: "FORBIDDEN", message: "لا توجد صلاحية" };
 
 // The system account is never a teacher or helper. A failed lookup throws
@@ -149,13 +168,23 @@ const getDow1to7 = (date = new Date()) => {
 
 /* ===================== CRUD ===================== */
 
+// The teacher's and helper's full names of these lessons, by user _id, so a
+// screen shows them without reading the user list (which needs users.view).
+async function staffNames(lessons, actor) {
+  const ids = [...new Set(lessons.flatMap((l) => [l.teacher, l.helper]).filter((v) => v != null && v !== "").map(String))];
+  const contacts = await Promise.all(ids.map((uid) => contactById(UserModelDef, uid, actor)));
+  return Object.fromEntries(ids.map((uid, i) => [uid, contacts[i]?.name]).filter(([, name]) => name));
+}
+
 // GET ALL
 const getAll = async (req, res) => {
   try {
     const [result, visible] = await Promise.all([LessonModelDef.get({}), scope.visibleStudentIds(req.actor)]);
+    const lessons = ownLessons(req.actor, result?.result || []);
     return res.status(200).json({
       ok: true,
-      lessons: (result?.result || []).map((l) => scopeLesson(l, visible)),
+      lessons: lessons.map((l) => scopeLesson(l, visible)),
+      names: await staffNames(lessons, req.actor),
     });
   } catch (err) {
     logWithSource("Lesson.getAll", err);
@@ -173,10 +202,21 @@ const getOne = async (req, res) => {
     }
 
     const lesson = result.result[0];
+    // Someone else's lesson is "not found", the same as a missing one, unless
+    // it holds one of the actor's own students (he views it, never edits it).
+    if (!mayOpenLesson(req.actor, lesson)
+      && !mayViewLesson(req.actor, lesson, await responsibleStudentIds(StudentModelDef, req.actor))) {
+      return res.status(404).json({ ok: false, message: "غير موجود" });
+    }
     lesson.num_in_list = (lesson.list_students || []).length;
     const visible = await scope.visibleStudentIds(req.actor);
+    // The teacher's and helper's name and phone (see utils/guideContact).
+    const [teacherContact, helperContact] = await Promise.all([
+      contactById(UserModelDef, lesson.teacher, req.actor),
+      contactById(UserModelDef, lesson.helper, req.actor),
+    ]);
 
-    return res.status(200).json({ ok: true, lesson: scopeLesson(lesson, visible) });
+    return res.status(200).json({ ok: true, lesson: { ...scopeLesson(lesson, visible), teacherContact, helperContact } });
   } catch (err) {
     logWithSource("Lesson.getOne", err);
     return res.status(500).json({ ok: false, message: err.message });
@@ -200,7 +240,7 @@ const getLessonsByQuery = async (req, res) => {
 
     return res.status(200).json({
       ok: true,
-      lessons: (result?.result || []).map((l) => scopeLesson(l, visible)),
+      lessons: ownLessons(req.actor, result?.result || []).map((l) => scopeLesson(l, visible)),
     });
   } catch (err) {
     logWithSource("Lesson.getLessonsByQuery", err);
@@ -211,6 +251,8 @@ const getLessonsByQuery = async (req, res) => {
 // Football lessons for the general schedule: read-only, room 9, no player ids.
 const getSportSchedule = async (req, res) => {
   try {
+    // Football has no guide or assistant here: only those who see every lesson.
+    if (!seesAllLessons(req.actor)) return res.status(200).json({ ok: true, lessons: [] });
     const result = await SportLessonModelDef.get({});
     return res.status(200).json({
       ok: true,
@@ -246,6 +288,9 @@ const postOne = async (req, res) => {
     if (visible) {
       if (!isOnLesson(req.actor, model)) return res.status(403).json(FORBIDDEN);
       model.list_students = await addableIds(model.list_students, visible);
+    } else {
+      // Anyone else: only students who exist and are accepted (owner, 2026-11-01).
+      model.list_students = await existingIds(Array.isArray(model.list_students) ? model.list_students : []);
     }
     // Students named by exact tz (list_tz) join the roster for any actor.
     if (req.body?.list_tz !== undefined) {
@@ -312,6 +357,18 @@ const putOne = async (req, res) => {
       } else {
         next.list_students = Array.isArray(current.list_students) ? current.list_students : [];
       }
+    } else if (Array.isArray(next.list_students)) {
+      // Anyone else keeps the students already on the lesson; a newly listed
+      // one must exist and be accepted (owner, 2026-11-01).
+      const onLesson = new Set((current.list_students || []).map(String));
+      const added = new Set((await existingIds(next.list_students.filter((s) => !onLesson.has(String(s))))).map(String));
+      const seen = new Set();
+      next.list_students = next.list_students.filter((s) => {
+        const key = String(s);
+        if (seen.has(key) || !(onLesson.has(key) || added.has(key))) return false;
+        seen.add(key);
+        return true;
+      });
     }
     if (await namesSystemAccount([req.body?.teacher, req.body?.helper])) return res.status(400).json(SYSTEM_STAFF);
 
@@ -371,6 +428,7 @@ const addToList = async (req, res) => {
   try {
     const { id } = req.params;
     if (tooManyTz(req.body)) return res.status(400).json(TOO_MANY);
+    if (notAList(req.body)) return res.status(400).json(NOT_A_LIST);
     const list = req.body.list_students || [];
 
     const existingRes = await LessonModelDef.get({ _id: id });
@@ -386,7 +444,7 @@ const addToList = async (req, res) => {
     // A scoped actor adds _ids only for students he can see (addableIds);
     // anyone else must be named by exact tz in list_tz (idsFromTz).
     const visible = await scope.visibleStudentIds(req.actor);
-    if (visible) toAdd = await addableIds(toAdd, visible);
+    toAdd = visible ? await addableIds(toAdd, visible) : await existingIds(toAdd);
     if (req.body?.list_tz !== undefined) {
       toAdd = appendNew(toAdd, (await idsFromTz(req.body.list_tz)).filter((s) => !set.has(String(s))));
     }
@@ -413,6 +471,7 @@ const addToList = async (req, res) => {
 const removeFromList = async (req, res) => {
   try {
     const { id } = req.params;
+    if (notAList(req.body)) return res.status(400).json(NOT_A_LIST);
     const removeList = req.body.list_students || [];
 
     const existingRes = await LessonModelDef.get({ _id: id });
@@ -429,7 +488,8 @@ const removeFromList = async (req, res) => {
         const key = String(s);
         return !(visible.has(key) && removeList.some((r) => String(r) === key));
       })
-      : (lesson.list_students || []).filter((s) => !removeList.includes(s));
+      // Compared as strings: the lesson may hold ObjectIds, the request strings.
+      : (lesson.list_students || []).filter((s) => !removeList.some((r) => String(r) === String(s)));
 
     const updatedAt = new Date();
     await LessonModelDef.update(
@@ -454,7 +514,7 @@ const getLessonsByToDay = async (req, res) => {
 
     return res.status(200).json({
       ok: true,
-      lessons: (result?.result || []).map((l) => scopeLesson(l, visible)),
+      lessons: ownLessons(req.actor, result?.result || []).map((l) => scopeLesson(l, visible)),
     });
   } catch (err) {
     logWithSource("Lesson.getLessonsByToDay", err);

@@ -4,7 +4,7 @@ const multer = require('multer');
 
 const {
   getAllU, uploadPhoto, deletePhoto, getOneU, putU, deleteU, postU, changeRoom, viewPassword, updateStoragePermissions,
-  getPermissions, putPermissions, putRole, unlockUser, recoverSystem,
+  getPermissions, putPermissions, putRole, unlockUser, signOutEverywhere, recoverSystem,
 } = require('./User.controller');
 
 // alias
@@ -51,6 +51,7 @@ router.post('/', requirePermission('users.create'), postU);
 router.post('/system/recover', requirePermission('systemRecovery.reset'), recoverRateLimit, recoverSystem);
 router.post("/changeStatus/:tz", requirePermission('users.approve'), lockedUser, changeRoom);
 router.post('/:tz/unlock', requirePermission('users.unlock'), lockedUser, unlockUser);
+router.post('/:tz/sign-out-all', requirePermission('users.edit'), signOutEverywhere);
 router.post('/upload-photo/:tz', requireSelfOr('tz', 'users.edit'), lockedUser, upload.single('file'), uploadPhoto);
 
 router.patch('/:tz/storage-permissions', requirePermission('files.manageAll'), lockedUser, updateStoragePermissions);

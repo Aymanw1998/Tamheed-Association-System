@@ -84,13 +84,17 @@
   overflow: hidden;
   display: flex;
   align-items: center;
+  /* Between the phone menu and a wide screen the links take a second row
+     instead of pushing the last ones (and logout) out of sight. */
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 4px;
   padding: 0 20px;
 }
 
 .navbarV a {
   color: var(--color-text-on-primary);
-  padding: 15px 30px;
+  padding: 15px clamp(12px, 1.8vw, 30px);
   text-decoration: none;
   display: block;
   font-weight: 500;
@@ -160,6 +164,7 @@
     border-radius: 18px;
     display: flex;
     flex-direction: column;
+    flex-wrap: nowrap;
     align-items: stretch;
     gap: 0;
     padding: 8px 12px 12px;
@@ -203,4 +208,16 @@
     z-index: 1200;
     backdrop-filter: blur(4px);
   }
+}
+
+/* "Install the app" in the phone menu (pwa/InstallApp.jsx). */
+.installButton {
+  background-color: var(--color-success-100);
+  color: var(--color-success-700);
+  border: 1px solid var(--color-success-500);
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
 }

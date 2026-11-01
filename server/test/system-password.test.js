@@ -176,6 +176,7 @@ test("a password-change token is refused on GET /api/students and accepted on ch
   const authRouter = mountRouter("../Entities/User/Auth.route", "../Entities/User/User.controller", {
     register: ok("register"), login: ok("login"), refreshAccessToken: ok("refresh"), logout: ok("logout"),
     getme: ok("me"), forgotPassword: ok("forgot"), resetPassword: ok("reset"), changePassword: ok("change"),
+    listMyDevices: ok("devices"), signOutDevice: ok("device-out"), signOutOtherDevices: ok("others-out"),
   });
   const app = express();
   app.use(express.json());
@@ -231,6 +232,16 @@ function loadController({ users = [], env = {}, sendThrows = false, sendHangs = 
           calls.updates.push([filter, data, room]);
           const hit = find(filter.tz);
           if (hit) Object.assign(hit, data);
+          return { success: true };
+        },
+        async addRefreshHash(tz, hash, max, clearLegacy) {
+          const hit = find(tz);
+          if (hit) { hit.refreshHashes = [...(hit.refreshHashes || []), hash].slice(-max); if (clearLegacy) hit.refreshHash = null; }
+          return { success: true };
+        },
+        async dropRefreshHash(tz, hash) {
+          const hit = find(tz);
+          if (hit) { hit.refreshHashes = (hit.refreshHashes || []).filter((h) => h !== hash); if (hit.refreshHash === hash) hit.refreshHash = null; }
           return { success: true };
         },
         async updateExisting(filter, data, room) {
@@ -553,6 +564,8 @@ test("the IT script resets without the 3-failure condition, emails, and audits a
     async get(filter, room) {
       return { success: true, result: room === "active" && filter.tz === SYSTEM_TZ ? [systemUser({ failedLoginCount: 0 })] : [] };
     },
+    async addRefreshHash() { return { success: true }; },
+    async dropRefreshHash() { return { success: true }; },
     async update(filter, data, room) { updates.push({ filter, data, room }); return { success: true }; },
   };
   const result = await systemRecover({
@@ -590,6 +603,8 @@ test("the IT script refuses an unusable mailbox or a missing system account and 
   const updates = [];
   const model = {
     async get() { return { success: true, result: [] }; },
+    async addRefreshHash() { return { success: true }; },
+    async dropRefreshHash() { return { success: true }; },
     async update(...a) { updates.push(a); return { success: true }; },
   };
   const send = async () => assert.fail("no email");
@@ -675,6 +690,9 @@ test("fix3: tokenIsStale compares whole seconds against passwordChangedAt and re
   assert.equal(sp.tokenIsStale(sec(changed), { passwordChangedAt: changed }), false, "issued right after the change");
   assert.equal(sp.tokenIsStale(undefined, { passwordChangedAt: changed }), false, "no iat: nothing to compare");
   assert.equal(sp.tokenIsStale(sec("2026-10-19T09:00:00Z"), {}), false);
+  // An admin's "sign out everywhere" (signedOutAt) ends older tokens too.
+  assert.equal(sp.tokenIsStale(sec("2026-10-19T10:00:04Z"), { signedOutAt: changed }), true);
+  assert.equal(sp.tokenIsStale(sec(changed), { signedOutAt: changed }), false, "signed in again right after");
   assert.equal(sp.tokenIsStale(sec("2026-10-19T10:00:04Z"), { passwordChangedAt: new Date(0), recoveredAt: changed }), true);
 });
 
@@ -872,6 +890,8 @@ function loadEnsureSystemAdmin({ users = [], env = {}, smtp = true } = {}) {
     async get(filter, room) {
       return { success: true, result: room === "active" ? store.filter((u) => u.tz === filter.tz) : [] };
     },
+    async addRefreshHash() { return { success: true }; },
+    async dropRefreshHash() { return { success: true }; },
     async update(filter, data, room) { calls.updates.push({ filter, data, room }); return { success: true }; },
     async create(data, room) { calls.creates.push({ data, room }); return { success: true }; },
   };

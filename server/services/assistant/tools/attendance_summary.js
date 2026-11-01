@@ -1,4 +1,5 @@
 const { ABSENT_STATUS, isAutoAbsence } = require("../../../utils/attendanceMarks");
+const { isResponsible, ownLessons, seesAllLessons } = require("../../../utils/lessonAccess");
 const {
   FORBIDDEN, NOT_FOUND, invalid, OBJECT_ID, jerusalemDate, addDays, daysBetween, dateKeyOf, dateOfKey,
   fullName, rows, bucketOf,
@@ -65,7 +66,11 @@ module.exports = {
       ctx.models.Lesson.get({}),
     ]);
     const studentById = new Map(rows(students).filter((s) => !ctx.isSystemTz(s.tz)).map((s) => [String(s._id), s]));
+    // Without lessons.viewAll: rows of the lessons the user is on, and every
+    // row of his own students (he is their responsible guide, owner 2026-11-01).
+    const seesAll = seesAllLessons(ctx.actor);
     const lessonName = new Map(rows(lessons).map((l) => [String(l._id), l.name || ""]));
+    const mine = new Set(ownLessons(ctx.actor, rows(lessons)).map((l) => String(l._id)));
 
     const perStudent = new Map();
     const perLesson = new Map();
@@ -74,6 +79,7 @@ module.exports = {
       const sid = String(r.student);
       if (visible && !visible.has(sid)) continue;
       if (!studentById.has(sid)) continue;
+      if (!seesAll && !mine.has(String(r.lesson ?? "")) && !isResponsible(studentById.get(sid), ctx.actor)) continue;
       const bucket = bucketOf(r.status);
       totals[bucket] += 1;
       if (!perStudent.has(sid)) perStudent.set(sid, { rows: [], ...counts(), autoAbsent: 0, lastAbsence: null });

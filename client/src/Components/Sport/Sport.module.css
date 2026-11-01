@@ -95,3 +95,35 @@
 .noticeExpired { opacity: 0.6; border-inline-start-color: var(--color-border-strong); }
 .noticeHead { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
 .noticeBody { margin: var(--space-2) 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* The player's sign-in card (LoginCardModal). */
+.cardBackdrop {
+  position: fixed; inset: 0; z-index: 1000;
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px; background: rgba(15, 23, 42, 0.55);
+}
+.loginCardSheet {
+  display: flex; flex-direction: column; gap: 12px; align-items: center;
+  max-width: 100%; padding: 16px; border-radius: 16px; background: var(--color-surface, #fff);
+}
+.loginCard {
+  width: 85.6mm; max-width: calc(100vw - 64px); /* a bank card's size */
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 14px; border: 2px solid #166534; border-radius: 14px; background: #fff; color: #0f172a;
+  text-align: center;
+}
+.loginCardTitle { font-size: 15px; color: #166534; }
+.loginCardName { font-size: 18px; font-weight: 800; }
+.loginCardQr { width: 150px; height: 150px; }
+.loginCardQr svg { width: 100%; height: 100%; display: block; }
+.loginCardHow { margin: 0; font-size: 12px; }
+.loginCardKeep { margin: 0; font-size: 11px; color: #b91c1c; font-weight: 600; }
+.loginCardActions { display: flex; gap: 8px; }
+
+/* Printing the card: the card alone, at its real size. */
+@media print {
+  body * { visibility: hidden !important; }
+  .loginCard, .loginCard * { visibility: visible !important; }
+  .cardBackdrop { position: static; background: none; padding: 0; }
+  .loginCard { position: absolute; top: 10mm; left: 10mm; max-width: none; }
+}

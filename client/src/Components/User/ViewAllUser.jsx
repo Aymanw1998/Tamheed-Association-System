@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { changeStatus, deleteU, getAll, unlockUser, recoverSystemAccount } from "../../WebServer/services/user/functionsUser.jsx";
 import useLiveRefresh from "../../locks/useLiveRefresh";
 import { recoveryResultKey } from "../../utils/passwordChange";
@@ -347,7 +347,10 @@ const ViewAllUser = () => {
               sortedFilteredUsers.map((user) => (
                 <tr key={user._id}>
                   <td data-label="رقم الهوية">{user.tz}</td>
-                  <td data-label="اسم المستخدم">{`${user.firstname || ""} ${user.lastname || ""}`.trim()}</td>
+                  <td data-label="اسم المستخدم">
+                    {/* The name opens the user's page; «تعديل» opens the form. */}
+                    <Link to={`/users/${user.tz}`} className={styles.nameLink}>{`${user.firstname || ""} ${user.lastname || ""}`.trim()}</Link>
+                  </td>
                   <td data-label="العمر">
                     {user.birth_date ? new Date().getFullYear() - new Date(user.birth_date).getFullYear() : "-"}
                   </td>
@@ -358,7 +361,7 @@ const ViewAllUser = () => {
                       {user.room !== "waiting" && user.room !== "noActive" && (
                         <>
                           {canManage(user) && (
-                            <Button size="sm" variant="warning" data-tour="users-edit" onClick={() => navigate(`/users/${user.tz}`)}>
+                            <Button size="sm" variant="warning" data-tour="users-edit" onClick={() => navigate(`/users/${user.tz}/edit`)}>
                               تعديل
                             </Button>
                           )}

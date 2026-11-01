@@ -10,7 +10,7 @@ const OTP_NAME = /^otp|Otp|OTP/;
 
 function isSecret(field) {
   const name = String(field);
-  return /password|token|secret|api_?key|hash$/i.test(name) || OTP_NAME.test(name);
+  return /password|token|secret|api_?key|hash(es)?$/i.test(name) || OTP_NAME.test(name);
 }
 
 const isPlain = (v) => v !== null && typeof v === "object" && Object.getPrototypeOf(v) === Object.prototype;

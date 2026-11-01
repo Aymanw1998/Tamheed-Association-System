@@ -162,6 +162,22 @@
   transform: translateY(1px);
 }
 
+/* The eye button sits inside the password field, so the form's button look
+   above must not reach it. Its pressed nudge replaced the button's centring:
+   the button jumped down under the pointer and the click was often lost. */
+.loginForm .togglePassword,
+.loginForm .togglePassword:active {
+  padding: 0;
+  background: transparent;
+  color: var(--color-text-secondary);
+  transform: translateY(-50%);
+}
+
+.loginForm .togglePassword:hover {
+  color: var(--color-primary-600);
+  background: var(--color-primary-50);
+}
+
 .loginForm hr {
   border: none;
   border-top: 1px solid var(--color-border);

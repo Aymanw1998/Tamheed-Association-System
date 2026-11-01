@@ -1,4 +1,5 @@
 const { isAutoAbsence } = require("../../../utils/attendanceMarks");
+const { isResponsible, ownLessons } = require("../../../utils/lessonAccess");
 const {
   FORBIDDEN, NOT_FOUND, OBJECT_ID, idMatch, jerusalemDate, addDays, dateKeyOf, dateOfKey, hhmm,
   fullName, rows, bucketOf,
@@ -72,7 +73,9 @@ module.exports = {
         mainTeacher: users.get(String(student.main_teacher))?.name || null,
         notes: student.notes || "",
       },
-      lessons: rows(lessons).map((l) => ({
+      // All lessons for an admin and for the student's responsible guide
+      // (owner, 2026-11-01); otherwise only the lessons the user is on.
+      lessons: (isResponsible(student, ctx.actor) ? rows(lessons) : ownLessons(ctx.actor, rows(lessons))).map((l) => ({
         id: String(l._id), name: l.name || "", day: Number(l?.date?.day) || null,
         start: hhmm(l?.date?.startMin), end: hhmm(l?.date?.endMin), room: l.room ?? "",
       })),

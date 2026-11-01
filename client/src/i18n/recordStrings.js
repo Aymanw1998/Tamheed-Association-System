@@ -1,0 +1,31 @@
+// Text for the student, user and lesson view pages and the profile tabs.
+// Merged in I18nContext as `record`. {name} is replaced by the component.
+export const recordStrings = {
+  ar: {
+    personal: "التفاصيل الشخصية",
+    lessons: "الدروس",
+    guide: "المرشد المسؤول",
+    students: "قائمة الطلاب",
+    lessonDetails: "تفاصيل الدرس",
+    myDetails: "تفاصيلي",
+    myStudents: "طلابي",
+    myLessons: "دروسي",
+    theirStudents: "طلابه",
+    theirLessons: "دروسه",
+    noLessons: "لا يوجد دروس بعد",
+    noGuide: "لا يوجد مرشد مسؤول بعد",
+    attendance: "الحضور",
+    noAttendance: "لا يوجد حضور مسجّل بعد",
+    deletedLesson: "درس محذوف",
+    attendanceMonth: "الشهر",
+    allMonths: "كل الأشهر",
+    attendanceRate: "نسبة الحضور",
+    signOutAll: "تسجيل الخروج من كل الأجهزة",
+    signOutAllConfirm: "سيُطلب منه تسجيل الدخول من جديد على كل جهاز. متابعة؟",
+    signedOutAll: "تم تسجيل خروجه من كل الأجهزة",
+    signOutAllFailed: "تعذّر تسجيل الخروج",
+    edit: "تعديل",
+    print: "طباعة الملف",
+    removeConfirm: "إزالة {name} من الدرس؟",
+  },
+};

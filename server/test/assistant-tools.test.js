@@ -70,11 +70,11 @@ const VEHICLES = [{ _id: "3a".repeat(12), plate: "1234567", nickname: "Van", sta
 const NOTICES = [{ _id: "4a".repeat(12), title: "Hello", body: "Body", severity: "info", category: "manual", createdAt: "2026-10-19T00:00:00.000Z",
   createdBy: ADMIN_U._id, createdByName: "Ad Min", readBy: [] }];
 
-function registry() {
+function registry({ lessons = [L1, L2, L3], attendance = ATTENDANCE } = {}) {
   const models = {
     Student: memoryModel([S1, S2, S3, S4]),
-    Lesson: memoryModel([L1, L2, L3]),
-    Attendance: memoryModel(ATTENDANCE),
+    Lesson: memoryModel(lessons),
+    Attendance: memoryModel(attendance),
     Report: memoryModel(REPORTS),
     User: memoryModel({ active: [SYS, ADMIN_U, G1, G2, HELPER_U, LOCKED, UNLOCKER], waiting: [NEWCOMER, SYS_WAITING], noActive: [] }),
     Vehicle: memoryModel(VEHICLES),
@@ -179,17 +179,43 @@ test("guide: a hidden child is not found by name, by ID number or by _id", async
   assert.deepEqual(await reg.run("navigate", { screen: "student", id: S3._id }, guide()), { error: "NOT_FOUND" });
 });
 
-test("guide: lessons he does not teach are listed without their hidden students", async () => {
+// Owner's rule (2026-11-01): a guide or assistant sees only the lessons he
+// teaches or assists in; an admin sees all.
+test("guide: list_lessons lists only his own lessons", async () => {
   const res = await registry().run("list_lessons", {}, guide());
   const [day] = res.days;
   assert.equal(day.date, "2026-10-20");
-  assert.deepEqual(day.lessons.map((l) => l.name), ["Math", "Art"], "his own lessons first");
-  const art = day.lessons.find((l) => l.name === "Art");
-  assert.equal(art.students, 0);
-  assert.equal(art.mine, false);
+  assert.deepEqual(day.lessons.map((l) => l.name), ["Math"]);
   assert.equal(day.lessons[0].mine, true);
   assert.ok(!JSON.stringify(res).includes(S3._id));
-  assert.ok(!JSON.stringify(res).includes("Hidden"));
+  assert.ok(!JSON.stringify(res).includes("Art"));
+  const all = await registry().run("list_lessons", {}, admin());
+  assert.deepEqual(all.days[0].lessons.map((l) => l.name).sort(), ["Art", "Math"]);
+});
+
+// S1 is the guide's own student (main_teacher G1); S2 is only in his lesson
+// Math. Both also sit in G2's lesson Art. The responsible guide sees all of
+// his student's lessons and attendance; for anyone else, only his own lessons.
+const ART_WITH_BOTH = { ...L2, list_students: [S3._id, S1._id, S2._id] };
+
+test("guide: get_student lists all lessons of his own student, only his lessons of another", async () => {
+  const reg = registry({ lessons: [L1, ART_WITH_BOTH, L3] });
+  assert.deepEqual((await reg.run("get_student", { id: S1._id }, guide())).lessons.map((l) => l.name), ["Art"]);
+  assert.deepEqual((await reg.run("get_student", { id: S2._id }, guide())).lessons.map((l) => l.name).sort(), ["Math"]);
+  assert.deepEqual((await reg.run("get_student", { id: S2._id }, admin())).lessons.map((l) => l.name).sort(), ["Art", "Math"]);
+});
+
+test("guide: attendance_summary counts his own student everywhere, another student only in his lessons", async () => {
+  const reg = registry({
+    lessons: [L1, ART_WITH_BOTH, L3],
+    attendance: [...ATTENDANCE, row(S1._id, L2._id, 20261019, ABSENT), row(S2._id, L2._id, 20261019, PRESENT)],
+  });
+  const res = await reg.run("attendance_summary", { from: "2026-10-01", to: "2026-10-20" }, guide());
+  assert.equal(res.students.find((s) => s.id === S1._id).absent, 1, "his student's absence in Art counts");
+  assert.equal(res.students.find((s) => s.id === S2._id).present, 0, "S2 in Art is not his to see");
+  assert.deepEqual(res.lessons.map((l) => l.name).sort(), ["Art", "Math"]);
+  const all = await reg.run("attendance_summary", { from: "2026-10-01", to: "2026-10-20" }, admin());
+  assert.equal(all.students.find((s) => s.id === S2._id).present, 1);
 });
 
 test("guide: attendance_summary counts only visible students", async () => {

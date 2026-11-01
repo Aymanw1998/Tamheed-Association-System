@@ -7,7 +7,8 @@
 // who holds a key for holderOf: holders.set(key, { clientId, name, tz }).
 // `photoJobs` records every playerPhotoJob.schedule(studentId) call; the
 // stored player photos are an empty in-memory model. `passportJobs` records
-// every passportPhotoJob.schedule(link) call.
+// every passportPhotoJob.schedule(link) call. The attendance model (read by
+// the student page) is empty.
 const { photoVersion } = require("../../utils/photoVersion");
 const { checkVersion, editorStamp, sameVersion, nextStamp, raceLost, lockedAnswer } = require("../../middleware/lockGuard");
 // Lock holders by key for the controllers that look them up (holderOf); empty = all free.
@@ -42,10 +43,15 @@ for (const suffix of ["", ".js"]) {
   deps[`../../services/liveHub${suffix}`] = { notifyChange, liveHub };
   deps[`../../services/playerPhotoJob${suffix}`] = { playerPhotoJob, cutoutReady };
   deps[`../../services/passportPhotoJob${suffix}`] = { passportPhotoJob };
+  deps[`../../utils/guideContact${suffix}`] = require("../../utils/guideContact");
+  deps[`../../utils/refreshSessions${suffix}`] = require("../../utils/refreshSessions");
+  deps[`../../utils/lessonAccess${suffix}`] = require("../../utils/lessonAccess");
   deps[`../../utils/photoVersion${suffix}`] = { photoVersion };
   deps[`./SportPlayerPhoto.model${suffix}`] = { SportPlayerPhotoModelDef: noPhotos };
   deps[`./SportNotice.model${suffix}`] = { SportNoticeModelDef: noticeStore };
   deps[`../../utils/push${suffix}`] = { push };
+  // The student page reads the student's attendance; none unless a test passes its own.
+  deps[`../Attendance/Attendance.model${suffix}`] = { AttendanceModelDef: { async latestOfStudent() { return []; }, async get() { return { success: true, result: [] }; } } };
 }
 
 module.exports = { deps, changes, students, holders, photoJobs, passportJobs, notices, pushes };

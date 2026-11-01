@@ -15,7 +15,8 @@ export const getAllLesson = async() => {
     try{
         const {data, status} = await api.get('/lesson');
         if(![200,201].includes(status) || !data.ok) throw new Error ('تعذّر تحميل الدروس');
-        return {ok: true, lessons: (data.lessons || data.schema || []).map(normalizeLesson).filter(Boolean)};
+        // names: the staff's full names by user _id (the server's lesson list carries them).
+        return {ok: true, lessons: (data.lessons || data.schema || []).map(normalizeLesson).filter(Boolean), names: data.names || {}};
     } catch(err) {    
         return {ok: false, status: err.response?.status, data: err.response?.data, message: err.response?.data?.message || err.message || 'تعذّر إتمام العملية.'};
     }
@@ -123,14 +124,13 @@ export async function addToList(lessonId, { list_students = [], list_tz = [] } =
     }
 }
 
-export async function removeFromList(lessonId, traineeIds = []) {
+export async function removeFromList(lessonId, studentIds = []) {
     try{
-        const { data, status } = await api.post('/lesson/removeFromList', {
-            id: lessonId,
-            list_trainees: traineeIds,
+        const { data, status } = await api.post(`/lesson/removeFromList/${encodeURIComponent(lessonId)}`, {
+            list_students: studentIds,
         });
-        if (![200,201].includes(status)) throw new Error(data?.message || 'تعذّرت إزالة الطالب من الدرس');
-        return {ok: true, lessons: data.lessons || data.schema};
+        if (![200,201].includes(status) || !data?.ok) throw new Error(data?.message || 'تعذّرت إزالة الطالب من الدرس');
+        return {ok: true, updatedAt: data.updatedAt};
     } catch(err) {
         return {ok: false, status: err.response?.status, data: err.response?.data, message: err.response?.data?.message || err.message || 'تعذّر إتمام العملية.'};
     }

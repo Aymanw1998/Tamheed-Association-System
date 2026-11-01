@@ -191,6 +191,12 @@ export const saveUserPermissions = (tz, { grants, revokes }) =>
 export const changeUserRole = (tz, role) => call(() => api.put(`${userPath(tz)}/role`, { role }));
 // users.unlock: clears the failed sign-in counter and the lock.
 export const unlockUser = (tz) => call(() => api.post(`${userPath(tz)}/unlock`, {}));
+// users.edit: ends the user's sessions on every device.
+export const signOutEverywhere = (tz) => call(() => api.post(`${userPath(tz)}/sign-out-all`, {}));
+// My own devices (profile page): list, sign out one, sign out all but this one.
+export const listMyDevices = () => call(() => api.get("/auth/sessions"));
+export const signOutMyDevice = (sid) => call(() => api.delete(`/auth/sessions/${encodeURIComponent(sid)}`));
+export const signOutOtherDevices = () => call(() => api.post("/auth/sessions/sign-out-others", {}));
 // systemRecovery.reset: emails a temporary password to the system mailbox.
 // 409 RECOVERY_NOT_ALLOWED (under 3 failed sign-ins), 429 cooldown/rate limit.
 export const recoverSystemAccount = () => call(() => api.post("/user/system/recover", {}));

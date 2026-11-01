@@ -11,6 +11,9 @@ const {
   forgotPassword,
   resetPassword,
   changePassword,
+  listMyDevices,
+  signOutDevice,
+  signOutOtherDevices,
 } = require('./User.controller'); // ملاحظة عربية
 
 const { requireAuth, requireAuthAllowingPasswordChange } = require('../../middleware/authMiddleware'); // عربيالأحد authMiddleware
@@ -57,6 +60,11 @@ router.post(
   loadActorAllowingPasswordChange,
   changePassword,
 );
+
+// "My devices": any signed-in user, for their own sessions only.
+router.get("/sessions", requireAuth, loadActor, listMyDevices);
+router.post("/sessions/sign-out-others", requireAuth, loadActor, signOutOtherDevices);
+router.delete("/sessions/:sid", requireAuth, loadActor, signOutDevice);
 
 router.get("/google")
 module.exports = router;

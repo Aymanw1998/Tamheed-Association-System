@@ -160,7 +160,8 @@ test("GET permissions returns role, grants, revokes, effective, defaults and gra
   assert.deepEqual(body.revokes, ["ai.use"]);
   assert.ok(body.effective.includes("vehicles.view"));
   assert.ok(!body.effective.includes("ai.use"));
-  assert.ok(body.defaults.includes("lessons.roster"));
+  assert.ok(body.defaults.includes("lessons.view"));
+  assert.ok(!body.defaults.includes("lessons.roster"), "only an admin edits lessons by default");
   assert.ok(!body.defaults.includes("vehicles.view"));
   assert.ok(body.grantable.includes("vehicles.view"));
   assert.ok(!body.grantable.includes("users.passwords"), "dangerous keys are never grantable by a manager");
@@ -374,6 +375,26 @@ test("unlock of a user the actor cannot manage is 403; of the system account 404
   assert.equal(sys.res.statusCode, 404);
 });
 
+/* ================= signOutEverywhere ================= */
+// The owner's rule (2026-11-01): a user stays signed in until he signs out
+// or an admin signs him out; that ends every device's session at once.
+
+test("sign out everywhere ends every session, stamps signedOutAt and records it", async () => {
+  const users = createUsers({ active: [MANAGER, { ...GUIDE_USER, refreshHashes: ["h1", "h2"] }] });
+  const before = Date.now();
+  const { res: out, audit } = await call("signOutEverywhere", MANAGER, { params: { tz: GUIDE_USER.tz } }, users);
+  assert.equal(out.statusCode, 200);
+  const saved = stored(users, GUIDE_USER.tz);
+  assert.deepEqual(plain(saved.refreshHashes), []);
+  assert.ok(new Date(saved.signedOutAt).getTime() >= before);
+  assert.ok(audit.find({ module: "users", action: "sign_out_all", targetId: GUIDE_USER.tz })[0], "recorded");
+});
+
+test("sign out everywhere of a user the actor cannot manage is 403; of the system account 404", async () => {
+  assert.equal((await call("signOutEverywhere", MANAGER, { params: { tz: MANAGER_2.tz } })).res.statusCode, 403);
+  assert.equal((await call("signOutEverywhere", MANAGER, { params: { tz: SYSTEM_TZ } })).res.statusCode, 404);
+});
+
 /* ================= putU ================= */
 
 test("putU strips role, permission, vehicle, lockout and session fields from an admin edit", async () => {
@@ -385,7 +406,7 @@ test("putU strips role, permission, vehicle, lockout and session fields from an 
       permissionGrants: ["permissions.manage"], permissionRevokes: ["lessons.view"],
       vehiclePermissions: ["view", "edit"],
       failedLoginCount: 0, lockedAt: null, passwordChangedAt: "2000-01-01",
-      refreshHash: "injected", resetOtpHash: "injected", resetOtpExpires: "2099-01-01",
+      refreshHash: "injected", signedOutAt: "2000-01-01", resetOtpHash: "injected", resetOtpExpires: "2099-01-01",
       resetOtpAttempts: 0, resetOtpLockedUntil: "2000-01-01",
     },
   });
@@ -588,7 +609,7 @@ test("a guide (no users.approve) cannot approve — 403", async () => {
 });
 
 test("an approver missing a default leaf of the role cannot approve as it — 403", async () => {
-  const lacking = { ...ADMIN_USER, permissionRevokes: ["lessons.roster"] };
+  const lacking = { ...ADMIN_USER, permissionRevokes: ["attendance.record"] };
   const { res: out } = await call("changeRoom", lacking, {
     params: { tz: WAITING.tz }, body: { from: "waiting", to: "active", role: GUIDE },
   }, roomSeed());

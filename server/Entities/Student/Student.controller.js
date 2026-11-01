@@ -6,6 +6,12 @@ const { LessonModelDef } = require("../Lesson/Lesson.model");
 const { UserModelDef } = require("../User/User.model");
 const { isSystemTz, can } = require("../../utils/permissions");
 const { createStudentScope } = require("../../utils/studentScope");
+const { contactById } = require("../../utils/guideContact");
+const { isResponsible, ownLessons, seesAllLessons } = require("../../utils/lessonAccess");
+const { AttendanceModelDef } = require("../Attendance/Attendance.model");
+// The student page's attendance: every date (dateKey is yyyymmdd), newest 200 rows.
+const LAST_DATE_KEY = 99991231;
+const ATTENDANCE_ROWS = 200;
 const { checkVersion, editorStamp, sameVersion, raceLost } = require("../../middleware/lockGuard");
 const { notifyChange, liveHub } = require("../../services/liveHub");
 const { playerPhotoJob } = require("../../services/playerPhotoJob");
@@ -67,6 +73,11 @@ function sanitize(u) {
   const o = { ...u };
   delete o.password;
   delete o.refreshHash;
+  delete o.refreshHashes;
+  // The sport sign-in card's hash (SportPortal.auth issueCard).
+  delete o.sportCardHash;
+  // Passkeys saved on the player's phones (SportPortal.passkey.js).
+  delete o.sportPasskeys;
   return o;
 }
 
@@ -178,9 +189,35 @@ const getOneS = async (req, res) => {
       });
     }
 
+    const student = sanitize(result.result[0]);
+    // The responsible guide's name and phone (see utils/guideContact).
+    student.guide = await contactById(UserModelDef, student.main_teacher, req.actor);
+    // The lessons the student is in: all of them for an admin and for the
+    // student's responsible guide (owner, 2026-11-01), otherwise only the
+    // ones the actor teaches or assists in. Name, time and room only.
+    const sid = String(student._id);
+    const allLessons = (await LessonModelDef.get({}))?.result || [];
+    const inLessons = allLessons.filter((l) => (l.list_students || []).some((x) => String(x) === sid));
+    const responsible = isResponsible(student, req.actor);
+    student.lessons = (responsible ? inLessons : ownLessons(req.actor, inLessons))
+      .map((l) => ({ _id: String(l._id), name: l.name || "", date: l.date || {}, room: l.room ?? "" }));
+    // The student's attendance, read-only (owner, 2026-11-01): every row for an
+    // admin and for the responsible guide, otherwise the rows of the actor's
+    // own lessons. Newest first, at most ATTENDANCE_ROWS.
+    if (can(req.actor, "attendance.view")) {
+      const names = new Map(allLessons.map((l) => [String(l._id), l.name || ""]));
+      const own = new Set(ownLessons(req.actor, allLessons).map((l) => String(l._id)));
+      const rows = (await AttendanceModelDef.latestOfStudent(sid, LAST_DATE_KEY, ATTENDANCE_ROWS)) || [];
+      student.attendance = rows
+        .filter((r) => responsible || seesAllLessons(req.actor) || own.has(String(r.lesson)))
+        .map((r) => ({
+          lesson: String(r.lesson), lessonName: names.get(String(r.lesson)) || "", dateKey: Number(r.dateKey),
+          year: Number(r.year), month: Number(r.month), day: Number(r.day), status: r.status || "", notes: r.notes || "",
+        }));
+    }
     return res.status(200).json({
       ok: true,
-      student: sanitize(result.result[0]),
+      student,
     });
   } catch (err) {
     logWithSource("Student.getOneS", err);

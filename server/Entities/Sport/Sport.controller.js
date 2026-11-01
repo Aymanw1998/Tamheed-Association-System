@@ -236,6 +236,8 @@ const listPlayers = handle("listPlayers", async (req, res) => {
       lessons: lessonRows.filter((l) => inLesson(l, p.studentId))
         .map((l) => ({ _id: String(l._id), name: l.name, day: l.date?.day, startMin: l.date?.startMin })),
       values: card.values, attendance: card.attendance,
+      // When the player's current sign-in card was printed (none: null).
+      cardIssuedAt: s.sportCardIssuedAt || null,
     });
   }
   return res.status(200).json({ ok: true, players: out });

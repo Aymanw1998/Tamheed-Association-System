@@ -4,6 +4,11 @@ import { hasPermission } from "./permissionKeys";
 // page behind login is open to every signed-in user. These mirror what the
 // menu and the page buttons offer; the server enforces its own rules.
 const RESTRICTED = [
+  // The forms: only an admin edits by default (owner, 2026-11-01).
+  { pattern: /^\/users\/new$/, key: "users.create" },
+  { pattern: /^\/users\/[^/]+\/edit$/, key: "users.edit" },
+  { pattern: /^\/students\/[^/]+\/edit$/, key: "students.edit" },
+  { pattern: /^\/lessons\/[^/]+\/edit$/, key: "lessons.edit" },
   { pattern: /^\/users(\/|$)/, key: "users.view" },
   { pattern: /^\/notices(\/|$)/, key: "notices.view" },
   { pattern: /^\/students\/new$/, key: "students.create" },
@@ -19,4 +24,13 @@ export const canAccessPath = (pathname, permissions) => {
   const rule = RESTRICTED.find(({ pattern }) => pattern.test(path));
   if (!rule) return true;
   return rule.any ? rule.any.some((key) => hasPermission(permissions, key)) : hasPermission(permissions, rule.key);
+};
+
+// Where a blocked page sends the user: their own user page (/users/<own tz>,
+// or its form) opens their profile; anything else goes to the dashboard.
+// null when the page is allowed.
+export const blockedRedirect = (pathname, permissions, ownTz) => {
+  if (canAccessPath(pathname, permissions)) return null;
+  const own = String(pathname || "").match(/^\/users\/([^/]+)(?:\/edit)?\/?$/);
+  return own && ownTz && own[1] === String(ownTz) ? "/profile" : "/dashboard";
 };

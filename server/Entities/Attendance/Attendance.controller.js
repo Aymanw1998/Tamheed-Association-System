@@ -9,6 +9,9 @@ const { createStudentScope } = require("../../utils/studentScope");
 const { ABSENT_STATUS, AUTO_ABSENCE_NOTE, sheetVersion } = require("../../utils/attendanceMarks");
 const { checkVersion, editorStamp } = require("../../middleware/lockGuard");
 const { notifyChange } = require("../../services/liveHub");
+// Without lessons.viewAll: attendance only for the lessons one teaches or assists in.
+const { mayOpenLesson } = require("../../utils/lessonAccess");
+const NOT_FOUND = { ok: false, message: "غير موجود" };
 
 // Student scope: null (students.viewAll) or the Set of visible student _ids.
 const scope = createStudentScope({ lessonModel: LessonModelDef, studentModel: StudentModelDef });
@@ -121,6 +124,7 @@ const getSheet = async (req, res) => {
     const dateKey = calcDateKey(y, m, d);
 
     const baseLesson = await getLessonById(lessonId);
+    if (baseLesson && !mayOpenLesson(req.actor, baseLesson)) return res.status(404).json(NOT_FOUND);
     // Only rows for students the actor can see (no rows are created for the others).
     const visible = baseLesson ? await scope.visibleStudentIds(req.actor) : null;
     if (baseLesson && visible) {
@@ -221,6 +225,9 @@ const bulkSave = async (req, res) => {
       });
     }
 
+    const lessonDoc = await getLessonById(String(lessonId));
+    if (lessonDoc && !mayOpenLesson(req.actor, lessonDoc)) return res.status(404).json(NOT_FOUND);
+
     // A scoped actor's rows are written only for students he can see who are
     // on this lesson's roster; the rest are ignored (never written).
     const visible = await scope.visibleStudentIds(req.actor);
@@ -318,6 +325,9 @@ const getLessonDates = async (req, res) => {
         message: "lessonId required",
       });
     }
+
+    const lesson = await getLessonById(String(lessonId));
+    if (lesson && !mayOpenLesson(req.actor, lesson)) return res.status(404).json(NOT_FOUND);
 
     const rowsResult = await AttendanceModelDef.get({
       lesson: String(lessonId),

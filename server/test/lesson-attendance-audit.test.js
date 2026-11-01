@@ -66,7 +66,7 @@ function lessonSetup(seed = [], users = []) {
     "../../utils/permissions": require("../utils/permissions"),
     "../../middleware/logger": { logWithSource() {} },
     "../Notification/Notification.controller": {},
-    "../Student/Student.model": { StudentModelDef: createStore() },
+    "../Student/Student.model": { StudentModelDef: createStore([{ _id: "1".repeat(24), tz: "1", firstname: "A", lastname: "B" }]) },
     "../../utils/studentScope": require("../utils/studentScope"),
     "../../utils/attendanceMarks": require("../utils/attendanceMarks"),
     ...audit.deps,
@@ -90,9 +90,9 @@ test("lesson create, edit, roster changes and delete are recorded in the audit l
   assert.equal(edited.before.name, "Math");
   assert.equal(edited.after.name, "Algebra");
 
-  await controller.addToList(req({ params: { id }, body: { list_students: ["s1"] } }), createRes());
+  await controller.addToList(req({ params: { id }, body: { list_students: ["1".repeat(24)] } }), createRes());
   const roster = audit.find({ module: "lessons", action: "update", targetId: id }).at(-1);
-  assert.deepEqual(roster.after.list_students, ["s1"]);
+  assert.deepEqual(roster.after.list_students, ["1".repeat(24)]);
 
   const removed = createRes();
   await controller.deleteOne(req({ params: { id } }), removed);

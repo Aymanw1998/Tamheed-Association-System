@@ -109,6 +109,9 @@ const EditStudent = ({parent = false}) => {
 
   
   const [instructors, setInstructors] = useState([]);
+  // "loading" | "ok" | "failed": a stored guide missing from the list is only
+  // called inactive once the list really loaded.
+  const [instructorsState, setInstructorsState] = useState("loading");
 
   const loadTeachers = async() => {
     if(parent) return;
@@ -116,8 +119,10 @@ const EditStudent = ({parent = false}) => {
       const res = await getUsers();
       // Every account the server lists (the system account is already left out).
       setInstructors(res.ok ? res.users : []);
+      setInstructorsState(res.ok ? "ok" : "failed");
     } catch(err) {
       setInstructors([]);
+      setInstructorsState("failed");
     }
   }
   useEffect(()=>{loadTeachers()},[])
@@ -510,7 +515,8 @@ const EditStudent = ({parent = false}) => {
         <input name="layer" data-tour="student-layer" value={form.layer} onChange={handleChange} required />
         {error.layer != "" && <label style={{color: "red"}}>{error.layer}</label>}
 
-        {!parent && canAssignGuide && instructors.length > 0 && <>
+        {/* Shown even before any staff account exists: the list then holds only «بدون مرشد مسؤول». */}
+        {!parent && canAssignGuide && <>
           <label>{t("roster.responsibleGuide")}:</label>
           <select
             name="main_teacher"
@@ -521,7 +527,9 @@ const EditStudent = ({parent = false}) => {
             {/* A stored guide who is no longer listed (inactive) still shows. */}
             {responsibleGuideOptions(instructors, form.main_teacher).map((o) => (
               <option key={o.value} value={o.value}>
-                {o.inactive ? t("roster.inactiveGuide") : o.label}
+                {o.inactive
+                  ? t({ ok: "roster.inactiveGuide", loading: "roster.guideLoading" }[instructorsState] || "roster.guideUnavailable")
+                  : o.label}
               </option>
             ))}
           </select>

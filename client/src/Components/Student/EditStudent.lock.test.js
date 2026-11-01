@@ -65,3 +65,22 @@ test("EditStudent shows the lock screen when the acquire answers 423", async () 
   expect(container.textContent).toContain("مفتوح الآن لدى منى أحمد (123)");
   expect(container.querySelector('[name="firstname"]')).toBeNull();
 });
+
+test("EditStudent shows the responsible guide field even when no staff account exists", async () => {
+  api.post.mockResolvedValue({ data: { ok: true } });
+  await mount();
+  const select = container.querySelector('select[name="main_teacher"]');
+  expect(select).not.toBeNull();
+  expect([...select.options].map((o) => o.textContent)).toEqual(["بدون مرشد مسؤول"]);
+});
+
+test("EditStudent does not call a stored guide inactive when the user list failed to load", async () => {
+  const { getAll } = require("../../WebServer/services/user/functionsUser.jsx");
+  getAll.mockResolvedValueOnce({ ok: false, message: "fail" });
+  getOne.mockResolvedValue({ ok: true, student: { ...student, main_teacher: "u1" } });
+  api.post.mockResolvedValue({ data: { ok: true } });
+  await mount();
+  const select = container.querySelector('select[name="main_teacher"]');
+  expect(select.value).toBe("u1");
+  expect(select.selectedOptions[0].textContent).toBe("(تعذّر تحميل اسم المرشد)");
+});

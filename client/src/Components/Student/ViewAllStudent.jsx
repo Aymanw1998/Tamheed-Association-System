@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { deleteS, getAll, update } from "../../WebServer/services/student/functionsStudent.jsx";
 import useLiveRefresh from "../../locks/useLiveRefresh";
 import styles from "./Student.module.css";
@@ -37,6 +37,8 @@ const ViewAllStudent = () => {
   const navigate = useNavigate();
   const isAdmin = canStored("students.viewAll");
   const canCreateStudents = canStored("students.create");
+  // Only an admin edits by default; others open the read-only page by the name.
+  const canEditStudents = canStored("students.edit");
   const canParentLink = canStored("students.parentLink");
 
   const [students, setStudents] = useState([]);
@@ -260,7 +262,10 @@ const ViewAllStudent = () => {
                 <tr key={student._id || student.tz}>
                   <td data-label="رقم الهوية">{student.tz}</td>
                   <td data-label="اسم الطالب">
-                    {`${student.firstname || ""} ${student.lastname || ""}`.trim()}
+                    {/* The name opens the student's page; «تعديل» opens the form. */}
+                    <Link to={`/students/${student.tz}`} className={styles.nameLink}>
+                      {`${student.firstname || ""} ${student.lastname || ""}`.trim()}
+                    </Link>
                   </td>
                   <td data-label="اسم الأب">{student.father_name || "-"}</td>
                   <td data-label="العمر">{getAge(student.birth_date)}</td>
@@ -274,14 +279,16 @@ const ViewAllStudent = () => {
                     <div className={styles.rowActions}>
                       {student.status === ACTIVE_STATUS && (
                         <>
-                          <Button
-                            size="sm"
-                            variant="warning"
-                            data-tour="students-open"
-                            onClick={() => navigate(`/students/${student.tz}`)}
-                          >
-                            تعديل
-                          </Button>
+                          {canEditStudents && (
+                            <Button
+                              size="sm"
+                              variant="warning"
+                              data-tour="students-open"
+                              onClick={() => navigate(`/students/${student.tz}/edit`)}
+                            >
+                              تعديل
+                            </Button>
+                          )}
                           <Button
                             size="sm"
                             variant="secondary"

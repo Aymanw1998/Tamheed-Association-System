@@ -1,7 +1,9 @@
-import { canAccessPath } from "./routeAccess";
+import { canAccessPath, blockedRedirect } from "./routeAccess";
 
-const ADMIN = ["users.view", "notices.view", "students.view", "students.create", "lessons.create", "vehicles.view", "audit.view"];
-const GUIDE = ["students.view", "lessons.create"];
+const ADMIN = ["users.view", "users.create", "users.edit", "notices.view", "students.view", "students.create", "students.edit",
+  "lessons.view", "lessons.create", "lessons.edit", "vehicles.view", "audit.view"];
+// Only an admin edits students, lessons and users (owner, 2026-11-01).
+const GUIDE = ["students.view", "lessons.view"];
 const ASSISTANT = ["dashboard.view"];
 
 test.each([
@@ -11,11 +13,14 @@ test.each([
   ["/files", true, true, true],
   ["/lessons", true, true, true],
   ["/lessons/6ab7d576de1b6cee14016499", true, true, true],
-  ["/lessons/new", true, true, false],
+  ["/lessons/new", true, false, false],
   ["/reports", true, true, true],
   ["/reports/new", true, true, true],
   ["/students", true, true, false],
   ["/students/990000036", true, true, false],
+  ["/students/990000036/edit", true, false, false],
+  ["/lessons/6ab7d576de1b6cee14016499/edit", true, false, false],
+  ["/users/990000010/edit", true, false, false],
   ["/students/new", true, false, false],
   ["/users", true, false, false],
   ["/users/new", true, false, false],
@@ -50,4 +55,21 @@ test("/sports needs any of sports.view, coach or manage", () => {
   expect(canAccessPath("/sports", ["sports.view"])).toBe(true);
   expect(canAccessPath("/sports", [])).toBe(false);
   expect(canAccessPath("/sports/", ["students.view"])).toBe(false);
+});
+
+test("a guide or assistant opening their own user page goes to /profile", () => {
+  expect(blockedRedirect("/users/990000010", GUIDE, "990000010")).toBe("/profile");
+  expect(blockedRedirect("/users/990000010/edit", ASSISTANT, "990000010")).toBe("/profile");
+});
+
+test("any other blocked page goes to the dashboard", () => {
+  expect(blockedRedirect("/users/990000099", GUIDE, "990000010")).toBe("/dashboard");
+  expect(blockedRedirect("/users", GUIDE, "990000010")).toBe("/dashboard");
+  expect(blockedRedirect("/students/1/edit", GUIDE, "")).toBe("/dashboard");
+  expect(blockedRedirect("/users/", GUIDE, "")).toBe("/dashboard");
+});
+
+test("an allowed page is not redirected", () => {
+  expect(blockedRedirect("/users/990000010", ADMIN, "990000010")).toBe(null);
+  expect(blockedRedirect("/lessons/abc", GUIDE, "1")).toBe(null);
 });

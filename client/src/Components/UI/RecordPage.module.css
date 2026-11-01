@@ -1,0 +1,181 @@
+/* The record pages (student, user, lesson): a photo card and a tabs card.
+   Desktop: the card is a fixed column on the right. Phone: stacked. */
+.page {
+  display: flex;
+  gap: var(--space-4);
+  align-items: flex-start;
+  max-width: 1000px;
+  margin: var(--space-5) auto;
+  padding: 0 var(--space-4);
+}
+
+.status {
+  margin: var(--space-6) auto;
+  text-align: center;
+  color: var(--color-text-secondary);
+}
+
+.card,
+.body {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.card {
+  flex: 0 0 220px;
+  padding: var(--space-4);
+  text-align: center;
+}
+
+.photo {
+  width: 105px;
+  height: 135px; /* 35:45, like the passport photos */
+  margin: 0 auto var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-primary-50);
+  color: var(--color-primary-400);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--fs-lg, 1.1rem);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.subtitle {
+  margin: var(--space-1) 0 0;
+  color: var(--color-text-secondary);
+  font-size: var(--fs-sm);
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+.body {
+  flex: 1;
+  min-width: 0;
+}
+
+.tabs {
+  display: flex;
+  border-bottom: 1px solid var(--color-border);
+  padding: 0 var(--space-3);
+  overflow-x: auto;
+  /* overflow-x: auto turns y to auto too; the active tab's underline would
+     then show a vertical scrollbar. */
+  overflow-y: hidden;
+}
+
+.tab {
+  flex: 1;
+  min-width: max-content;
+  padding: var(--space-3) var(--space-2);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  color: var(--color-text-secondary);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+
+.tab:hover {
+  color: var(--color-primary-600);
+}
+
+.tabOn {
+  color: var(--color-primary-600);
+  border-bottom-color: var(--color-primary-600);
+  font-weight: 600;
+}
+
+.panel {
+  padding: var(--space-3) var(--space-4) var(--space-4);
+}
+
+@media (max-width: 768px) {
+  .page {
+    flex-direction: column;
+    align-items: stretch;
+    margin: var(--space-3) auto;
+    padding: 0 var(--space-3);
+    gap: var(--space-3);
+  }
+
+  .card {
+    flex: none;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: var(--space-3);
+    align-items: center;
+    text-align: start;
+  }
+
+  .photo {
+    width: 56px;
+    height: 72px;
+    margin: 0;
+  }
+
+  .actions {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    margin-top: 0;
+  }
+
+  .actions > * {
+    flex: 1;
+  }
+}
+
+/* The profile's tabs around its form. */
+.profileTabs {
+  max-width: 1000px;
+  margin: var(--space-4) auto 0;
+  padding: 0 var(--space-4);
+}
+
+/* At a glance under the name (RecordPage facts). */
+.facts {
+  margin: var(--space-3) 0 0;
+  padding: var(--space-2) 0 0;
+  border-top: 1px solid var(--color-border);
+  display: grid;
+  gap: var(--space-1);
+  text-align: start;
+  font-size: var(--fs-sm);
+}
+.fact {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.fact dt { color: var(--color-text-secondary); }
+.fact dd { margin: 0; font-weight: 700; color: var(--color-text-primary); }
+
+/* Actions that end or remove something, apart from the others. */
+.dangerZone {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+  border-top: 1px dashed var(--color-danger-500);
+}

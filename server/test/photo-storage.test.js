@@ -247,10 +247,10 @@ async function runRoute(route, req) {
   return res;
 }
 
-test("only admins and guides can delete a student's photo", async () => {
+test("only admins can delete a student's photo", async () => {
   const cases = [
     { roles: ["ادارة"], allowed: true },
-    { roles: ["مرشد"], allowed: true },
+    { roles: ["مرشد"], allowed: false },
     { roles: ["مساعد"], allowed: false },
   ];
 
