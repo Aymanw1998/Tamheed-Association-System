@@ -3483,3 +3483,35 @@ browser (signing in needs the seeded password); the dropdown's look on a
 phone is unverified.
 
 **Codex review:** pending (until 2026-11-05). **Status:** not committed.
+
+### Follow-up: signing in became slow after the update (2026-11-02)
+
+**Owner's report:** after updating the server, signing in takes a long time.
+
+**Finding (not measured on the server):** login waited for the separate file
+storage service before answering: one POST `/folder` for the user's folder,
+then one GET `/list` per shared file, in sequence, none with a time limit.
+A slow or unreachable storage service made every sign-in wait for it. The
+code is older than the update; what changed on the storage side is unknown.
+
+**Change (server):**
+- `User.controller.js` `login`: answers first; the folder and the shared-file
+  permissions run right after (still never fatal).
+- `Storage.controller.js`: the `/folder` and `/list` calls have a 10-second
+  limit (`STORAGE_QUICK_TIMEOUT_MS`).
+- `filterExistingSharedItems`: a storage error used to delete the share
+  record; now the share stays, and only a file the storage service no
+  longer lists loses it. Without this the time limit would have deleted
+  shares whenever the service was slow.
+
+**Test:** `multi-device-session.test.js` (+2: login answers while storage
+never answers; a failing storage service does not fail the sign-in) and
+`storage-share-check.test.js` (3: no answer keeps the share; an unlisted
+file loses it; both calls have a time limit). The login and keep-the-share
+tests were seen failing first; the time-limit test was written after the
+timeouts. The storage test helper gained a `get` stand-in (throws unless a
+test gives one) and matches `sharedWith.userId`.
+
+**Verification:** server 1145/1145. Not checked on the live server.
+
+**Codex review:** pending (until 2026-11-05). **Status:** not committed.

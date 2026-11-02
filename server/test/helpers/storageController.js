@@ -11,7 +11,10 @@ const { auditStub } = require("./auditStub");
 function createStore(seed = []) {
   let docs = seed.map((d, i) => ({ _id: `meta-${i}`, ...d }));
   let next = docs.length;
-  const matches = (doc, filter = {}) => Object.keys(filter).every((k) => (filter[k] == null ? doc[k] == null : String(doc[k]) === String(filter[k])));
+  const matches = (doc, filter = {}) => Object.keys(filter).every((k) => {
+    if (k === "sharedWith.userId") return (doc.sharedWith || []).some((s) => String(s.userId) === String(filter[k]));
+    return filter[k] == null ? doc[k] == null : String(doc[k]) === String(filter[k]);
+  });
   return {
     async get(filter = {}) { return { success: true, result: docs.filter((d) => matches(d, filter)).map((d) => structuredClone(d)) }; },
     async create(data) { const doc = { _id: `meta-${next++}`, ...structuredClone(data) }; docs.push(doc); return { success: true, result: doc }; },
@@ -24,7 +27,7 @@ function createStore(seed = []) {
 const ADMIN = { _id: "a".repeat(24), tz: "100000009", firstname: "Ad", lastname: "Min", roles: ["ادارة"] };
 const OTHER = { _id: "b".repeat(24), tz: "200000008", firstname: "Oth", lastname: "Er", roles: ["مرشد"] };
 
-function loadStorageController(seed = [], { users: baseUsers = [ADMIN, OTHER], extraUsers = [] } = {}) {
+function loadStorageController(seed = [], { users: baseUsers = [ADMIN, OTHER], extraUsers = [], axiosGet } = {}) {
   const published = [];
   const storage = createStore(seed);
   const all = [...baseUsers, ...extraUsers];
@@ -36,9 +39,10 @@ function loadStorageController(seed = [], { users: baseUsers = [ADMIN, OTHER], e
   };
   const calls = [];
   const axios = {
-    async post(url, body) { calls.push(["post", url, body]); return { data: { success: true, filename: body?.fileName, relativePath: "" } }; },
+    async post(url, body, options) { calls.push(["post", url, body, options]); return { data: { success: true, filename: body?.fileName, relativePath: "" } }; },
     async patch(url, body) { calls.push(["patch", url, body]); return { data: { success: true, name: body.newName } }; },
     async delete(url, options) { calls.push(["delete", url, options]); return { data: { success: true, deleted: true } }; },
+    async get(url, options) { calls.push(["get", url, options]); if (axiosGet) return axiosGet(url, options); throw new Error("no list stand-in"); },
   };
   const audit = auditStub();
   const liveBus = {

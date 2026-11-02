@@ -13,7 +13,7 @@ const bcrypt = require("bcryptjs");
 
 const HASH = bcrypt.hashSync("real-pass", 4);
 
-function world() {
+function world(storage = {}) {
   const user = { _id: "id-1", tz: "1", roles: ["مرشد"], password: HASH, storageFolder: "f" };
   let n = 0;
   const accessClaims = [];
@@ -74,6 +74,7 @@ function world() {
       buildUserStorageFolder: () => "folder",
       ensureUserStorageFolder: async () => {},
       syncStorageViewPermissionsForUser: async () => {},
+      ...storage,
     },
     "../Notification/Notification.controller": {},
     ...require("./helpers/alertEventsStub").noopAlertDeps,
@@ -208,4 +209,34 @@ test("getme refuses an access token of a device signed out from the list", async
   await c.getme({ user: { tz: "1", sid: sidOf(phone) }, headers: {} }, r);
   assert.equal(r.statusCode, 401);
   assert.equal(r.body.code, "TOKEN_STALE");
+});
+
+// Owner, 2026-11-02: signing in became slow after an update. Login waited for
+// the file storage service (the user's folder, then each shared file); it now
+// answers first and that work runs after.
+test("signing in does not wait for the file storage service", async () => {
+  const calls = [];
+  const { c } = world({
+    ensureUserStorageFolder: () => { calls.push("folder"); return new Promise(() => {}); },
+    syncStorageViewPermissionsForUser: () => { calls.push("shares"); return new Promise(() => {}); },
+  });
+  const r = res();
+  const done = c.login({ body: { tz: "1", password: "real-pass" }, headers: {}, cookies: {} }, r);
+  const outcome = await Promise.race([done.then(() => "answered"), new Promise((ok) => setTimeout(() => ok("waiting"), 200))]);
+  assert.equal(outcome, "answered");
+  assert.equal(r.statusCode, 200);
+  assert.ok(r.body.accessToken);
+  await new Promise((ok) => setImmediate(ok));
+  assert.ok(calls.includes("folder"));
+});
+
+test("a failing storage service does not fail the sign-in", async () => {
+  const { c } = world({
+    ensureUserStorageFolder: async () => { throw new Error("storage down"); },
+    syncStorageViewPermissionsForUser: async () => { throw new Error("storage down"); },
+  });
+  const r = res();
+  await c.login({ body: { tz: "1", password: "real-pass" }, headers: {}, cookies: {} }, r);
+  await new Promise((ok) => setImmediate(ok));
+  assert.equal(r.statusCode, 200);
 });

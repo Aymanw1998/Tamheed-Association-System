@@ -17,6 +17,9 @@ const STORAGE_API_BASE_URL = (
   process.env.CENTRAL_STORAGE_API_URL ||
   `${process.env.API_URI || "https://api.wahbani.com"}/api/storage`
 ).replace(/\/+$/, "");
+// Folder and list calls are small; a storage service that does not answer
+// in this time is treated as failed rather than waited on.
+const STORAGE_QUICK_TIMEOUT_MS = 10 * 1000;
 const STORAGE_FILE_BASE_URL = (
   process.env.CENTRAL_STORAGE_FILE_BASE_URL ||
   `${STORAGE_API_BASE_URL}/file`
@@ -572,7 +575,7 @@ const ensureUserStorageFolder = async (user = {}) => {
   const folder = buildUserStorageFolder(user);
   if (!folder) return null;
 
-  await axios.post(`${STORAGE_API_BASE_URL}/folder`, buildStoragePayload(folder));
+  await axios.post(`${STORAGE_API_BASE_URL}/folder`, buildStoragePayload(folder), { timeout: STORAGE_QUICK_TIMEOUT_MS });
   return folder;
 };
 
@@ -847,6 +850,7 @@ const filterExistingSharedItems = async (items = []) => {
       const parentPayload = buildStoragePayload(parentFolder);
       const { data } = await axios.get(`${STORAGE_API_BASE_URL}/list`, {
         params: parentPayload,
+        timeout: STORAGE_QUICK_TIMEOUT_MS,
       });
       const parentItems = Array.isArray(data?.items) ? data.items : [];
       const exists = parentItems.some((entry) => {
@@ -860,7 +864,9 @@ const filterExistingSharedItems = async (items = []) => {
         await StorageModelDef.delete({ relativePath }).catch(() => null);
       }
     } catch {
-      await StorageModelDef.delete({ relativePath }).catch(() => null);
+      // No answer (slow, timed out or down) says nothing about the file:
+      // the share stays.
+      existing.push(item);
     }
   }
 

@@ -995,8 +995,11 @@ const login = async (req, res) => {
     await startSession(UserModelDef, user.tz, sha256(refreshToken), { sid, label: deviceLabel(req.headers?.["user-agent"]) });
 
     setRefreshCookie(res, refreshToken);
-    await safeEnsureStorageFolder({ ...user, storageFolder: normalizedStorageFolder });
-    await safeSyncStoragePermissions({ ...user, storageFolder: normalizedStorageFolder });
+    // The file storage service is a separate server: signing in does not wait
+    // for it (owner, 2026-11-02: a slow storage service made every sign-in
+    // slow). The folder and the shared-file permissions follow right after.
+    const stored = { ...user, storageFolder: normalizedStorageFolder };
+    safeEnsureStorageFolder(stored).then(() => safeSyncStoragePermissions(stored));
 
     return res.status(200).json({
       ok: true,
