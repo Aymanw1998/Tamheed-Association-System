@@ -244,3 +244,12 @@
 .nameLink:hover {
   text-decoration: underline;
 }
+
+/* A list row that opens the record's page (owner, 2026-11-02). */
+.openRow {
+  cursor: pointer;
+}
+
+.openRow:hover td {
+  background: var(--color-primary-50, rgba(30, 101, 128, 0.06));
+}

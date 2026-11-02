@@ -86,3 +86,12 @@ test("an unknown room is refused instead of falling back to active users", async
   assert.equal(res.statusCode, 400);
   assert.deepEqual(deletes, []);
 });
+
+// Owner, 2026-11-02: a deleted user's alerts go with them.
+test("deleting a user removes the alerts about them and their own inbox", async () => {
+  const { forgotten } = require("./helpers/alertEventsStub");
+  forgotten.length = 0;
+  const { res } = await deleteUser({ tz: "990000069", from: "active" });
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(forgotten, [["user", "990000069"]]);
+});

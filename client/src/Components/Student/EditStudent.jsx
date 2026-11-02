@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 // ملاحظة عربية
-import { create, update, getOne, /*softDelete,*/ deleteS, uploadPhoto, deletePhoto } from "../../WebServer/services/student/functionsStudent.jsx";
+import { create, update, getOne, uploadPhoto, deletePhoto } from "../../WebServer/services/student/functionsStudent.jsx";
 import {getAll as getUsers} from "../../WebServer/services/user/functionsUser.jsx"
 import styles from "./Student.module.css";
 import sectionStyles from "../UI/FormSection.module.css";
@@ -385,20 +385,6 @@ const EditStudent = ({parent = false}) => {
 };
 
   // ملاحظة عربية
-  const handleHardDelete = async () => {
-    if (!isEdit) return;
-    try {
-      const res = await deleteS(form.tz);
-      if(!res) return;
-      if(!res.ok) throw new Error(res.message);
-
-      toast.success("تم الحذف بنجاح");
-      navigate(-1);
-    } catch (e) {
-      toast.error(e.message || "تعذّر إتمام العملية");
-    }
-  };
-  // ملاحظة عربية
   if (parent) {
     if (inviteStatus.checking) {
       return (
@@ -605,13 +591,7 @@ const EditStudent = ({parent = false}) => {
           {saving ? "جارٍ الحفظ…" : parent ? "إرسال الطلب" : (isEdit ? "حفظ التعديلات" : "إضافة الطالب")}
         </button>
 
-        {isEdit && !parent && (
-          <center>
-            <button type="button" data-tour="student-delete" style={{ background: "#7f1d1d", width: "100%" }} onClick={handleHardDelete} disabled={readonly}>
-              حذف
-            </button>
-          </center>
-        )}
+        {/* Deleting is on the student's page (owner, 2026-11-02). */}
 
         {!parent && (<button type="button" data-tour="student-back" style={{ background: "#6b7280", width: "100%" }} onClick={() => navigate(-1)}>
           العودة إلى القائمة

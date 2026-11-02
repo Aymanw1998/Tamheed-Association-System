@@ -10,6 +10,20 @@ const SERVER_ERROR = "حدث خطأ غير متوقع، حاول مرة أخرى
 const SEVERITIES = ["critical", "important", "info"];
 const CATEGORIES = ["vehicle", "system", "manual"];
 const fail = (res, status, message, extra = {}) => res.status(status).json({ ok: false, message, ...extra });
+const rules = require("../../utils/vehicleRules.js");
+const MAX_END_DAYS = 365;
+
+// An optional end date (owner, 2026-11-02): today up to a year ahead. The
+// notice is gone after that day; expireAt is the end of it in Israel
+// (UTC+2, so in summer an hour later), for the TTL index.
+function endDateOf(value) {
+  const endDate = String(value ?? "").trim();
+  if (!endDate) return { endDate: "" };
+  const days = rules.isValidDateOnly(endDate) ? rules.daysBetween(rules.todayInJerusalem(), endDate) : NaN;
+  if (!(days >= 0 && days <= MAX_END_DAYS)) return { error: "تاريخ الانتهاء يجب أن يكون من اليوم وحتى سنة" };
+  const [y, m, d] = endDate.split("-").map(Number);
+  return { endDate, expireAt: new Date(Date.UTC(y, m - 1, d + 1) - 2 * 60 * 60 * 1000) };
+}
 
 // Access is checked in Notice.route.js; req.actor comes from loadActor.
 
@@ -45,9 +59,11 @@ const create = handle("create", async (req, res) => {
   if (!title || title.length > 120) errors.title = "العنوان مطلوب (حتى 120 حرفًا)";
   if (body.length > 2000) errors.body = "النص طويل جدًا (حتى 2000 حرف)";
   if (!SEVERITIES.includes(severity)) errors.severity = "درجة الأهمية غير صحيحة";
+  const end = endDateOf(req.body?.endDate);
+  if (end.error) errors.endDate = end.error;
   if (Object.keys(errors).length) return fail(res, 400, "يرجى تصحيح الحقول", { errors });
   const { notice } = await service.publishNotice({
-    title, body, severity, category: "manual",
+    title, body, severity, category: "manual", endDate: end.endDate, expireAt: end.expireAt,
     // The system account is stored as "system" / "النظام"; its author has read it.
     createdBy: actorRef(req.actor, req.actor.id), createdByName: actorDisplayName(req.actor),
     readBy: [String(req.actor.id)],

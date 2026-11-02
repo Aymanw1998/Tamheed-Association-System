@@ -10,6 +10,7 @@ const { lookupByPlate } = require("../../services/vehicleLookup.service.js");
 const { audit: auditLog } = require("../../utils/audit.js");
 const { checkVersion, editorStamp, sameVersion, raceLost } = require("../../middleware/lockGuard.js");
 const { notifyChange } = require("../../services/liveHub.js");
+const recordAlerts = require("../../services/recordAlerts.js");
 
 const OBJECT_ID = /^[a-f0-9]{24}$/i;
 const SERVER_ERROR = "حدث خطأ غير متوقع، حاول مرة أخرى";
@@ -83,6 +84,13 @@ async function audit(vehicle, req, action, { changes = [], reason = "", details 
 
 // `guarded`: written only if nobody saved since `vehicle` was read; answers
 // null (nothing written) when someone did.
+// The vehicle's alerts follow its records (owner, 2026-11-02): a renewal or
+// archiving removes the old ones at once, a delete removes them all. A
+// failure here is logged and never fails the write.
+const syncAlerts = (vehicle) => Promise.resolve()
+  .then(() => recordAlerts.syncVehicle(vehicle))
+  .catch((err) => logWithSource("Vehicle.syncAlerts", err));
+
 async function saveVehicle(vehicle, patch, actor, { guarded = false } = {}) {
   const data = { ...patch, updatedBy: actorId(actor), updatedByName: actor?.isSystem ? SYSTEM_ACTOR_NAME : String(actor?.name ?? ""), updatedAt: new Date().toISOString() };
   if (guarded) {
@@ -92,7 +100,9 @@ async function saveVehicle(vehicle, patch, actor, { guarded = false } = {}) {
     await VehicleModelDef.update({ _id: String(vehicle._id) }, data);
   }
   notifyChange("vehicle", String(vehicle._id));
-  return { ...vehicle, ...data };
+  const saved = { ...vehicle, ...data };
+  await syncAlerts(saved);
+  return saved;
 }
 
 const requireNotArchived = (res, vehicle) => {
@@ -418,6 +428,9 @@ const remove = async (req, res) => {
     await VehicleAuditDef.delete({ vehicleId: String(vehicle._id) });
     await VehicleModelDef.delete({ _id: String(vehicle._id) });
     notifyChange("vehicle", String(vehicle._id));
+    await Promise.resolve()
+      .then(() => recordAlerts.forget("vehicle", String(vehicle._id)))
+      .catch((err) => logWithSource("Vehicle.remove.alerts", err));
     // Only the fact of the delete: nothing else about the vehicle is kept.
     await auditLog.record(req, {
       module: "vehicles", action: "delete", targetType: "vehicle",

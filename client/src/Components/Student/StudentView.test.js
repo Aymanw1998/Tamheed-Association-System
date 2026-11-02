@@ -10,7 +10,8 @@ jest.mock("react-router-dom", () => {
   return jest.requireActual("react-router");
 });
 jest.mock("../../WebServer/services/api", () => ({ __esModule: true, default: { get: jest.fn(), post: jest.fn() }, API_BASE_URL: "/api" }));
-jest.mock("../../WebServer/services/student/functionsStudent.jsx", () => ({ getOne: jest.fn() }));
+jest.mock("../../WebServer/services/student/functionsStudent.jsx", () => ({ getOne: jest.fn(), deleteS: jest.fn(), update: jest.fn() }));
+jest.mock("../../ALERT/SystemToasts", () => ({ toast: { success: jest.fn(), warn: jest.fn(), error: jest.fn() } }));
 jest.mock("../../WebServer/services/lesson/functionsLesson.jsx", () => ({ getAllLesson: jest.fn() }));
 jest.mock("../ExportPDF/ExportPDF.jsx", () => ({ exportStudentPdf: jest.fn() }));
 let mockPerms = [];
@@ -20,7 +21,7 @@ jest.mock("../../utils/session", () => ({
   getStoredUserId: () => "viewer-1",
 }));
 
-import { getOne } from "../../WebServer/services/student/functionsStudent.jsx";
+import { getOne, deleteS, update } from "../../WebServer/services/student/functionsStudent.jsx";
 import { getAllLesson } from "../../WebServer/services/lesson/functionsLesson.jsx";
 import { exportStudentPdf } from "../ExportPDF/ExportPDF.jsx";
 import StudentView from "./StudentView";
@@ -53,6 +54,7 @@ const mount = async (path = "/students/800000001") => {
   await act(async () => root.render(
     <I18nProvider><MemoryRouter initialEntries={[path]}><Routes>
       <Route path="/students/:id" element={<StudentView />} />
+      <Route path="/students" element={<p data-testid="students-list">list</p>} />
     </Routes></MemoryRouter></I18nProvider>
   ));
 };
@@ -225,4 +227,102 @@ test("no attendance rows shows «لا يوجد حضور مسجّل بعد»", as
 test("no attendance tab when the server sends none (no attendance.view)", async () => {
   await mount();
   expect([...container.querySelectorAll('[role="tab"]')].map((t) => t.textContent)).not.toContain("الحضور");
+});
+
+// Owner, 2026-11-02: deleting a student is done on their page, apart in the
+// danger zone, no longer in the edit form.
+const deleteButton = () => [...container.querySelectorAll('[data-testid="danger-zone"] button')].find((b) => b.textContent === "حذف");
+
+test("with students.delete the page offers «حذف» in the danger zone; it deletes and goes back to the list", async () => {
+  mockPerms = ["students.view", "students.delete"];
+  getOne.mockResolvedValue({ ok: true, student: STUDENT });
+  deleteS.mockResolvedValue({ ok: true });
+  await mount();
+  await act(async () => deleteButton().click());
+  expect(deleteS).toHaveBeenCalledWith("800000001");
+  expect(container.querySelector('[data-testid="students-list"]')).not.toBeNull();
+});
+
+test("a cancelled or failed delete stays on the page", async () => {
+  mockPerms = ["students.view", "students.delete"];
+  getOne.mockResolvedValue({ ok: true, student: STUDENT });
+  deleteS.mockResolvedValue(null);
+  await mount();
+  await act(async () => deleteButton().click());
+  deleteS.mockResolvedValue({ ok: false, message: "x" });
+  await act(async () => deleteButton().click());
+  expect(container.querySelector('[data-testid="students-list"]')).toBeNull();
+});
+
+test("no «حذف» without students.delete", async () => {
+  mockPerms = ["students.view", "students.edit"];
+  getOne.mockResolvedValue({ ok: true, student: STUDENT });
+  await mount();
+  expect(deleteButton()).toBeUndefined();
+});
+
+// Owner, 2026-11-02: a waiting request and an inactive student are opened
+// from the list too; approving, rejecting and activating are on the page.
+const btn = (label) => [...container.querySelectorAll("button")].find((b) => b.textContent === label);
+
+test("a waiting request shows its state, «قبول» and, in the danger zone, «رفض»", async () => {
+  mockPerms = ["students.view", "students.edit", "students.delete"];
+  getOne.mockResolvedValue({ ok: true, student: { ...STUDENT, status: "ينتظر" } });
+  await mount();
+  expect(container.querySelector('[data-testid="record-facts"]').textContent).toContain("ينتظر");
+  expect(btn("قبول")).toBeDefined();
+  expect([...container.querySelectorAll('[data-testid="danger-zone"] button')].map((b) => b.textContent)).toEqual(["رفض"]);
+});
+
+test("«قبول» makes the student active and keeps the page open", async () => {
+  mockPerms = ["students.view", "students.edit"];
+  getOne.mockResolvedValue({ ok: true, student: { ...STUDENT, status: "ينتظر" } });
+  update.mockResolvedValue({ ok: true, student: {} });
+  await mount();
+  await act(async () => btn("قبول").click());
+  expect(update).toHaveBeenCalledWith("800000001", { status: "عادي" });
+  expect(btn("قبول")).toBeUndefined();
+  expect(container.querySelector('[data-testid="students-list"]')).toBeNull();
+});
+
+test("a cancelled «قبول» leaves the request waiting", async () => {
+  mockPerms = ["students.view", "students.edit"];
+  getOne.mockResolvedValue({ ok: true, student: { ...STUDENT, status: "ينتظر" } });
+  update.mockResolvedValue(null);
+  await mount();
+  await act(async () => btn("قبول").click());
+  expect(btn("قبول")).toBeDefined();
+});
+
+test("«رفض» deletes the request and goes back to the list", async () => {
+  mockPerms = ["students.view", "students.delete"];
+  getOne.mockResolvedValue({ ok: true, student: { ...STUDENT, status: "ينتظر" } });
+  deleteS.mockResolvedValue({ ok: true });
+  await mount();
+  await act(async () => btn("رفض").click());
+  expect(deleteS).toHaveBeenCalledWith("800000001");
+  expect(container.querySelector('[data-testid="students-list"]')).not.toBeNull();
+});
+
+test("an inactive student gets «تفعيل»", async () => {
+  mockPerms = ["students.view", "students.edit"];
+  getOne.mockResolvedValue({ ok: true, student: { ...STUDENT, status: "غير فعال" } });
+  update.mockResolvedValue({ ok: true, student: {} });
+  await mount();
+  await act(async () => btn("تفعيل").click());
+  expect(update).toHaveBeenCalledWith("800000001", { status: "عادي" });
+});
+
+test("no «قبول» without students.edit, and no «قبول» or «تفعيل» for an active student", async () => {
+  mockPerms = ["students.view", "students.delete"];
+  getOne.mockResolvedValue({ ok: true, student: { ...STUDENT, status: "ينتظر" } });
+  await mount();
+  expect(btn("قبول")).toBeUndefined();
+  await act(async () => root.unmount());
+  container.remove();
+  mockPerms = ["students.view", "students.edit"];
+  getOne.mockResolvedValue({ ok: true, student: STUDENT });
+  await mount();
+  expect(btn("قبول")).toBeUndefined();
+  expect(btn("تفعيل")).toBeUndefined();
 });

@@ -246,3 +246,62 @@ test("a push failure does not fail publishing a notice", async () => {
   const r = await guarded(ctx, ADMIN, "create", { body: { title: "اجتماع", body: "x", severity: "info" } });
   assert.equal(r.statusCode, 201);
 });
+
+// Owner, 2026-11-02: a notice may get an end date; a notice someone read is
+// gone for them 30 days later, except a vehicle notice, which stays until the
+// document is renewed (services/recordAlerts).
+const DAY_MS = 24 * 60 * 60 * 1000;
+const isoDay = (offsetDays) => new Date(Date.now() + offsetDays * DAY_MS).toISOString().slice(0, 10);
+
+test("an admin may give a manual notice an end date; after it the notice is gone", async () => {
+  const ctx = setup();
+  const created = await guarded(ctx, ADMIN, "create", { body: { title: "اجتماع", body: "", severity: "info", endDate: isoDay(10) } });
+  assert.equal(created.statusCode, 201);
+  assert.equal(ctx.rows[0].endDate, isoDay(10));
+  assert.ok(ctx.rows[0].expireAt instanceof Date || typeof ctx.rows[0].expireAt === "object", "a Date for the TTL index");
+  assert.ok(new Date(ctx.rows[0].expireAt) > new Date(Date.now() + 9 * DAY_MS));
+  assert.equal((await guarded(ctx, READER, "list")).body.notices[0].endDate, isoDay(10));
+  ctx.rows[0].expireAt = new Date(Date.now() - 1000);
+  assert.equal((await guarded(ctx, READER, "list")).body.notices.length, 0);
+  assert.equal((await guarded(ctx, READER, "unreadCount")).body.count, 0);
+});
+
+test("without an end date a notice has none; a bad end date is refused", async () => {
+  const ctx = setup();
+  await guarded(ctx, ADMIN, "create", { body: { title: "x", severity: "info" } });
+  assert.equal(ctx.rows[0].expireAt, undefined);
+  for (const endDate of ["2026-13-01", "tomorrow", isoDay(-2), isoDay(400)]) {
+    const bad = await guarded(ctx, ADMIN, "create", { body: { title: "x", severity: "info", endDate } });
+    assert.equal(bad.statusCode, 400, endDate);
+    assert.ok(bad.body.errors.endDate, endDate);
+  }
+});
+
+test("a notice read more than 30 days ago is gone for that reader only", async () => {
+  const ctx = setup();
+  const { notice } = await ctx.service.publishNotice({ title: "t", body: "b", category: "system", severity: "info" });
+  await guarded(ctx, ADMIN, "read", { params: { id: notice._id } });
+  assert.ok(ctx.rows[0].readTimes[ADMIN._id], "the time it was read is kept");
+  assert.equal((await guarded(ctx, ADMIN, "list")).body.notices.length, 1);
+  ctx.rows[0].readTimes[ADMIN._id] = new Date(Date.now() - 31 * DAY_MS).toISOString();
+  assert.equal((await guarded(ctx, ADMIN, "list")).body.notices.length, 0);
+  assert.equal((await guarded(ctx, READER, "list")).body.notices.length, 1);
+});
+
+test("reading all records the time too, and a vehicle notice stays after 30 days", async () => {
+  const ctx = setup();
+  await ctx.service.publishNotice({ title: "t", body: "b", category: "vehicle", severity: "info", dedupKey: "vehicle:v:test:due7:2026-11-09" });
+  await guarded(ctx, ADMIN, "readAll");
+  ctx.rows[0].readTimes[ADMIN._id] = new Date(Date.now() - 90 * DAY_MS).toISOString();
+  assert.equal((await guarded(ctx, ADMIN, "list")).body.notices.length, 1);
+});
+
+test("a notice read before read times were kept counts from when it was posted", async () => {
+  const ctx = setup();
+  const { notice } = await ctx.service.publishNotice({ title: "t", body: "b", category: "system", severity: "info" });
+  const row = ctx.rows.find((r) => r._id === notice._id);
+  row.readBy = [ADMIN._id];
+  row.createdAt = new Date(Date.now() - 40 * DAY_MS).toISOString();
+  assert.equal((await guarded(ctx, ADMIN, "list")).body.notices.length, 0);
+  assert.equal((await guarded(ctx, READER, "list")).body.notices.length, 1);
+});

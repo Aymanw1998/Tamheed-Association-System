@@ -13,7 +13,8 @@ import styles from "./Notice.module.css";
 
 const TONE = { critical: "danger", important: "warning", info: "neutral" };
 const notifyChanged = () => window.dispatchEvent(new Event("NOTICES_CHANGED"));
-const emptyDraft = { title: "", body: "", severity: "info" };
+// endDate (optional, owner 2026-11-02): the notice is gone after that day.
+const emptyDraft = { title: "", body: "", severity: "info", endDate: "" };
 
 export default function NoticesBoard() {
   const { t } = useI18n();
@@ -119,6 +120,7 @@ export default function NoticesBoard() {
                   <td>
                     <button type="button" className={styles.linkButton} onClick={() => open(n)}>{n.title}</button>
                     {n.body && <div className={styles.body}>{n.body}</div>}
+                    {n.endDate && <div className={styles.body}>{t("notices.endsOn").replace("{date}", n.endDate)}</div>}
                   </td>
                   <td>{t(`notices.category.${n.category}`)}</td>
                   <td>{new Date(n.createdAt).toLocaleString("ar")}</td>
@@ -149,6 +151,11 @@ export default function NoticesBoard() {
           <select data-tour="notices-severity" value={draft.severity} onChange={(e) => setDraft({ ...draft, severity: e.target.value })}>
             {["info", "important", "critical"].map((s) => <option key={s} value={s}>{t(`notices.severity.${s}`)}</option>)}
           </select>
+        </label>
+        <label>{t("notices.f.endDate")}
+          <input type="date" data-tour="notices-end-date" value={draft.endDate} onChange={(e) => setDraft({ ...draft, endDate: e.target.value })} />
+          <small>{t("notices.f.endDateHint")}</small>
+          {errors.endDate && <span role="alert">{errors.endDate}</span>}
         </label>
         <Button type="submit" data-tour="notices-submit" loading={busy === "publish"}>{t("notices.publish")}</Button>
       </form>

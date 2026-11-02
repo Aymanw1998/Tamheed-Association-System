@@ -121,3 +121,31 @@ test("each new notice also raises a personal alert (same dedup key); a failing a
   assert.equal(result.error, undefined);
   assert.equal(failing.mails.length, 1);
 });
+
+// Owner, 2026-11-02: a vehicle alert stays until the document is renewed. The
+// nightly check keeps only the current stage of every document; a renewed,
+// superseded or archived vehicle's alerts and notices go.
+test("the nightly check keeps only the current alerts of every vehicle", async () => {
+  const deps = fakeDeps({ vehicles: [vehicle] });
+  const kept = [];
+  deps.pruneVehicleAlerts = async (keys) => { kept.push([...keys].sort()); };
+  await job.runVehicleExpiryCheck({ now: NOW, deps });
+  assert.equal(kept.length, 1);
+  assert.deepEqual(kept[0], deps.notices.map((n) => n.dedupKey).sort());
+});
+
+test("when a vehicle cannot be checked, nothing is pruned", async () => {
+  const deps = fakeDeps({ vehicles: [vehicle, { _id: "bad", get licenses() { throw new Error("broken"); } }] });
+  let pruned = false;
+  deps.pruneVehicleAlerts = async () => { pruned = true; };
+  await job.runVehicleExpiryCheck({ now: NOW, deps });
+  assert.equal(pruned, false);
+});
+
+test("a pruning failure is logged and the run still finishes", async () => {
+  const deps = fakeDeps({ vehicles: [vehicle] });
+  deps.pruneVehicleAlerts = async () => { throw new Error("db down"); };
+  const result = await job.runVehicleExpiryCheck({ now: NOW, deps });
+  assert.equal(result.created, 2);
+  assert.equal(deps.runs.length, 1);
+});

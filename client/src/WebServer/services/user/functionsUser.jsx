@@ -49,7 +49,8 @@ export const getUserById = async (tzOrId, {publicMode = false} = {}) => {
     const res = publicMode ? await publicApi.get(`/user/public/${tzOrId}`) : await api.get(`/user/${tzOrId}`);
     const {status, data} = res;
     if (![200,201].includes(status) || !data?.ok) throw new Error('لا يوجد مستخدم بالمعرّف: ' + tzOrId);
-    return {ok: true, user: normalizeUser(data.user)};
+    // The server names the room (active, waiting, noActive) beside the user.
+    return {ok: true, user: normalizeUser(data.room ? {...data.user, room: data.room} : data.user)};
   } catch (err) {
     return {ok: false, status: err.response?.status, data: err.response?.data, message: err.response?.data?.message || err.message || 'تعذّر إتمام العملية.'};
   }

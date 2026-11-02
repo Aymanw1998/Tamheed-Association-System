@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { getOneLesson, getAllLesson, addToList, removeFromList } from "../../WebServer/services/lesson/functionsLesson.jsx";
+import { getOneLesson, getAllLesson, addToList, removeFromList, deleteLesson } from "../../WebServer/services/lesson/functionsLesson.jsx";
 import { getAll as getStudents } from "../../WebServer/services/student/functionsStudent.jsx";
 import { ask } from "../Provides/confirmBus";
 import { toast } from "../../ALERT/SystemToasts";
@@ -99,17 +99,31 @@ export default function LessonView() {
   // The form takes the same lock this page's writes take; it opens only after
   // they (and their lock release) are done, so no release lands under it.
   // Changes made after the click are waited for too: drain until no new one came.
-  const openForm = async () => {
-    leaving.current = true;
-    setOpening(true);
+  const settle = async () => {
     let pending;
     do {
       pending = queue.current;
       await pending;
     } while (pending !== queue.current);
+  };
+  const openForm = async () => {
+    leaving.current = true;
+    setOpening(true);
+    await settle();
     // The user may have gone elsewhere meanwhile: never pull them back.
     if (!mounted.current || shownId.current !== id) return;
     navigate(`/lessons/${id}/edit`);
+  };
+
+  // Deleting is done here, not in the form (owner, 2026-11-02), after any
+  // roster change in flight. deleteLesson asks first; null means cancelled.
+  const remove = async () => {
+    await settle();
+    const res = await deleteLesson(id);
+    if (!res) return;
+    if (!res.ok) return toast.warn(res.message || t("record.deleteFailed"));
+    toast.success(t("record.deleted"));
+    navigate("/lessons");
   };
 
   const confirmRemove = (student) =>
@@ -118,7 +132,10 @@ export default function LessonView() {
   if (!lesson) return <RecordPage loading={!error} error={error} />;
 
   const viewer = getStoredUserId();
-  const actions = canStored("lessons.edit") ? [{ label: t("record.edit"), onClick: openForm, tour: "lesson-view-edit" }] : [];
+  const actions = [
+    canStored("lessons.edit") && { label: t("record.edit"), onClick: openForm, tour: "lesson-view-edit" },
+    canStored("lessons.delete") && { label: t("record.delete"), onClick: remove, variant: "danger", tour: "lesson-delete" },
+  ].filter(Boolean);
 
   const tabs = [
     {

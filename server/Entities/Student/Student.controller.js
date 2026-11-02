@@ -378,6 +378,11 @@ const putS = async (req, res) => {
 };
 
 // DELETE /api/students/:tz
+// A deleted record's alerts go with it (owner, 2026-11-02). Never fatal.
+const forgetAlerts = (kind, id) => Promise.resolve()
+  .then(() => require("../../services/recordAlerts").forget(kind, id))
+  .catch((err) => logWithSource("Student.forgetAlerts", err));
+
 const deleteS = async (req, res) => {
   try {
     const tz = String(req.params.tz ?? "").trim();
@@ -402,6 +407,7 @@ const deleteS = async (req, res) => {
     if (!deleted?.result?.deletedCount) return res.status(409).json(await raceLost(() => StudentModelDef.get({ _id: String(existing.result[0]._id) })));
     await recordStudent(req, "delete", existing.result[0], null);
     notifyChange("student", existing.result[0]._id);
+    await forgetAlerts("student", existing.result[0]._id);
     // Its player photo goes with it, at once.
     await playerPhotoJob.remove(existing.result[0]._id).catch((e) => logWithSource("Student.delete.playerPhoto", e));
 

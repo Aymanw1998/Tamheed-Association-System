@@ -55,15 +55,21 @@ export const severityClass = (severity) =>
 export const normalizeAlert = (alert) =>
   alert && typeof alert === "object" ? { ...alert, read: Boolean(alert.read ?? alert.readAt) } : alert;
 
-// Fold a fetched list into the current one (alerts that arrived on the stream
-// meanwhile stay). An alert already read here stays read.
+// Fold a fetched list into the current one. Alerts newer than the newest
+// fetched one arrived on the stream meanwhile and stay; an older one the
+// server no longer sent was deleted there (its record went, or it expired)
+// and goes. An alert already read here stays read.
 export const mergeAlerts = (current, fetched) => {
-  const known = new Map((Array.isArray(current) ? current : []).map((alert) => [alert.id, alert]));
-  return (Array.isArray(fetched) ? fetched : []).reduce((list, alert) => {
-    const item = normalizeAlert(alert);
-    if (known.get(item?.id)?.read) item.read = true;
+  const mine = Array.isArray(current) ? current : [];
+  const rows = (Array.isArray(fetched) ? fetched : []).map(normalizeAlert).filter(Boolean);
+  const known = new Map(mine.map((alert) => [alert.id, alert]));
+  // Nothing fetched: the server has none, so none stays.
+  const newest = rows.length ? Math.max(...rows.map((alert) => new Date(alert.at).getTime()).filter((t) => !Number.isNaN(t))) : Infinity;
+  const live = mine.filter((alert) => !rows.some((row) => row.id === alert.id) && new Date(alert.at).getTime() > newest);
+  return rows.reduce((list, item) => {
+    if (known.get(item.id)?.read) item.read = true;
     return mergeAlert(list, item);
-  }, Array.isArray(current) ? current : []);
+  }, live);
 };
 
 // Only in-app routes: "/x" yes, "//host", "http://..." and "" no.

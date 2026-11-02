@@ -15,6 +15,7 @@ import AppChrome from "./pwa/AppChrome.jsx";
 import { clearApiCache } from "./pwa/clearApiCache";
 import { unsubscribeSport } from "./pwa/pushOptIn";
 import { hasSeenGuide, markGuideSeen } from "./guide/guideSteps.js";
+import { GUIDE_ENABLED } from "./guide/guideSwitch.js";
 import { attachRefresh } from "./refreshOnReturn";
 import { openLiveMe } from "./liveMe";
 
@@ -53,7 +54,7 @@ export default function App() {
       if (!r.ok) return setState("error");
       setMe(r.data);
       setState("in");
-      if (!hasSeenGuide()) setGuideOpen(true);
+      if (GUIDE_ENABLED && !hasSeenGuide()) setGuideOpen(true);
     } catch {
       setState("error");
     }
@@ -194,7 +195,7 @@ export default function App() {
 
   return (
     <div className="app">
-      <StadiumHeader firstname={me.student.firstname} onLogout={onLogout} onHelp={() => setGuideOpen(true)} />
+      <StadiumHeader firstname={me.student.firstname} onLogout={onLogout} onHelp={GUIDE_ENABLED ? () => setGuideOpen(true) : undefined} />
       <main className="content">
         {tab === "home" && !guideOpen && <PasskeyOffer />}
         {tab === "home" && <InstallAppButton className="btn btn-ghost install-app" />}

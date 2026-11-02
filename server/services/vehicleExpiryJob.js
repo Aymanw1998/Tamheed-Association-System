@@ -1,7 +1,9 @@
 // Nightly check (01:00 Asia/Jerusalem): every non-archived vehicle's licence,
 // test and insurance. New stages become notices for everyone with notices.view,
 // one digest email each, and a personal alert (AiAlerts) for every
-// vehicles.view holder. Dependencies are injectable for tests.
+// vehicles.view holder. Then only the current stage of each document keeps its
+// alerts and notices: a renewed, superseded or archived vehicle's go (owner,
+// 2026-11-02). Dependencies are injectable for tests.
 const cron = require("node-cron");
 const rules = require("../utils/vehicleRules");
 const { planVehicleNotices, buildDigest, dedupKeyFor } = require("../utils/vehicleNotices");
@@ -26,6 +28,7 @@ function createDeps() {
     listRecipients: () => notices.listNoticeRecipients(),
     // A personal alert for every vehicles.view holder (same dedup key).
     raiseVehicleAlert: (alert, notice) => require("./alertEvents").vehicleStage(alert, notice),
+    pruneVehicleAlerts: (keys) => require("./recordAlerts").pruneVehicles(keys),
     smtpConfigured: mail.smtpConfigured,
     sendDigest: (to, digest) => mail.sendNoticeDigestEmail(to, digest),
     async findRun(job, date) {
@@ -49,10 +52,12 @@ async function runVehicleExpiryCheck({ now = new Date(), trigger = "cron", deps 
   try {
     const vehicles = await deps.loadVehicles();
     const alerts = [];
+    let unchecked = 0;
     for (const vehicle of vehicles) {
       try {
         alerts.push(...rules.buildAlerts(vehicle, today));
       } catch (err) {
+        unchecked += 1;
         deps.log("vehicle failed", vehicle?._id, err);
       }
     }
@@ -74,6 +79,13 @@ async function runVehicleExpiryCheck({ now = new Date(), trigger = "cron", deps 
       } catch (err) {
         deps.log("publish failed", notice?.dedupKey, err?.message);
       }
+    }
+
+    // A vehicle that could not be checked would lose its alerts: no pruning then.
+    if (!unchecked && typeof deps.pruneVehicleAlerts === "function") {
+      await Promise.resolve()
+        .then(() => deps.pruneVehicleAlerts(new Set(alerts.map(dedupKeyFor))))
+        .catch((err) => deps.log("prune failed", err?.message));
     }
 
     if (fresh.length && deps.smtpConfigured()) {

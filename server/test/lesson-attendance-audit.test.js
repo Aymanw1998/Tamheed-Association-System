@@ -69,6 +69,7 @@ function lessonSetup(seed = [], users = []) {
     "../Student/Student.model": { StudentModelDef: createStore([{ _id: "1".repeat(24), tz: "1", firstname: "A", lastname: "B" }]) },
     "../../utils/studentScope": require("../utils/studentScope"),
     "../../utils/attendanceMarks": require("../utils/attendanceMarks"),
+    ...require("./helpers/alertEventsStub").noopAlertDeps,
     ...audit.deps,
   });
   return { controller, lessons, audit };
@@ -95,8 +96,12 @@ test("lesson create, edit, roster changes and delete are recorded in the audit l
   assert.deepEqual(roster.after.list_students, ["1".repeat(24)]);
 
   const removed = createRes();
+  const { forgotten } = require("./helpers/alertEventsStub");
+  forgotten.length = 0;
   await controller.deleteOne(req({ params: { id } }), removed);
   assert.equal(removed.statusCode, 200);
+  // Its alerts go with it (owner, 2026-11-02).
+  assert.deepEqual(forgotten, [["lesson", id]]);
   const [deleted] = audit.find({ module: "lessons", action: "delete", targetId: id });
   assert.equal(deleted.before.name, "Algebra");
   assert.equal(deleted.after, null);

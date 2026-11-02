@@ -12,4 +12,14 @@ const alertEvents = {
   vehicleStage: noop,
 };
 
-module.exports = { noopAlertDeps: { "../../services/alertEvents": alertEvents } };
+// services/recordAlerts: each forget(kind, id) is kept in `forgotten`.
+const forgotten = [];
+const recordAlerts = {
+  async forget(kind, id) { forgotten.push([kind, String(id)]); },
+  async syncVehicle() {},
+};
+
+module.exports = {
+  forgotten,
+  noopAlertDeps: { "../../services/alertEvents": alertEvents, "../../services/recordAlerts": recordAlerts },
+};

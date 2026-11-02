@@ -3333,3 +3333,153 @@ the component tests only.
 sign-in pages and opens the Android steps; at desktop size it does not show.
 
 **Codex review:** pending (until 2026-11-04). **Status:** not committed.
+
+## Alerts follow their records; actions move from the lists to the record pages (2026-11-02)
+
+**Writer:** Claude. **Owner's request:** a deleted vehicle's alerts and
+notices go with it; a read alert is deleted 30 days later, or on an end date
+the admin picks; licence/test/insurance alerts stay until renewed; a parent's
+registration request stays until someone opens it. Lists of students, users
+and lessons open the record's page, and print, edit and delete are there,
+not in the list or the edit form.
+
+**Changes (server):**
+- `services/alertRetention.js` (new): `expiryOnRaise` (180 days; none for
+  `parent_registration` and the vehicle types), `expiryOnRead` (30 days; none
+  for the vehicle types), `recordPrefixes(kind, id)` (the dedupKey starts of
+  a vehicle's, student's, lesson's or user's alerts), `prefixPattern`.
+- `Alert.model`: every row has `expireAt`; reading moves it; the TTL index is
+  now `{ expireAt: 1 }, expireAfterSeconds: 0`. `ensureAlertIndexes` drops
+  the old `at_1` TTL index and backfills `expireAt` on older rows (MongoDB
+  4.2+ pipeline update). New `removeByPrefixes`, `removeExcept`,
+  `removeForRecipient`.
+- `services/recordAlerts.js` (new): `forget(kind, id)`, `syncVehicle(vehicle)`
+  (keeps only the keys of the vehicle's current stages, in AiAlerts and
+  Notices), `pruneVehicles(keys)`. Wired into vehicle save (every
+  `saveVehicle`, so renewal and archive) and delete, student/lesson/user
+  delete (a user's own inbox too). Each call is caught and logged, never
+  failing the write. The nightly vehicle check prunes stale vehicle keys
+  unless a vehicle failed to be checked.
+- Notices: optional `endDate` on a manual notice (today to a year ahead;
+  `expireAt` is the end of that day at UTC+2, a TTL index deletes it; hidden
+  at once after it). `readTimes[userId]` is kept on read; a non-vehicle
+  notice read more than 30 days ago is hidden for that reader (rows read
+  before this count from `createdAt`).
+
+**Changes (client):**
+- `mergeAlerts` drops an alert the server no longer sends (older than the
+  newest fetched), so deleted alerts leave the open list.
+- Notices board: «تاريخ الانتهاء (اختياري)» with a hint; the row shows it.
+- Students and users lists: a row opens the record's page; «تعديل», «ملف
+  الطالب/المستخدم», unlock and «عرض التفاصيل» are gone from the rows (phone
+  cards too). Waiting/inactive queues keep approve/reject/activate/delete.
+- Record pages: student «حذف» (students.delete), lesson «حذف»
+  (lessons.delete, after roster writes settle), user «طباعة الملف», «رفع
+  الحظر», «إيقاف الحساب» (confirmed) and «حذف الحساب» (users.delete, a user
+  the viewer may manage); delete/suspend in the danger zone. The edit forms
+  no longer have delete (or suspend).
+
+**Rulings:** (1) The "delete with the record" rule was applied to students,
+lessons and users too, not only vehicles. (2) Queue buttons (approve/reject
+waiting students and users, activate/delete inactive users) stay in the
+lists: waiting/inactive rows have no page actions. (3) A read vehicle alert
+stays until the renewal (or a newer stage) replaces it, so only the current
+stage of each document is ever shown. (4) The guided tour (switched off)
+still walks the old order for the student delete step; its anchors exist.
+
+**Self-review (harsh):** (1) TDD was followed: every new test was run red
+before the code. (2) The Alert model's backfill and the TTL changes ran
+against the local database without an error, but were not checked against
+production data. (3) A vehicle edit that creates a new due stage shows it
+only after the nightly check. (4) `endDate` uses UTC+2, so in summer the
+notice lasts one hour past midnight. (5) Not checked live in the browser:
+signing in needs the seeded password from `.env`, which I do not read.
+
+**Verification:** server 1140/1140 (one pre-existing flaky vehicle
+concurrency test failed once in a full run, passed alone 5/5 and in the next
+full run), client 869/869, client build compiles. The server started
+locally with the new indexes without an error.
+
+**Codex review:** pending (until 2026-11-05). **Status:** not committed.
+
+### Follow-up: waiting and inactive records are decided on their page (2026-11-02)
+
+**Owner's request:** waiting and inactive students, and users, are opened
+from the list first; approve or reject is done on the details page.
+This replaces ruling (2) above.
+
+**Changes (client):**
+- Students and users lists (table and phone cards): every row opens the
+  record's page; no approve/reject/activate/delete buttons remain. The users
+  table's last column is now «الحالة» (waiting / suspended / locked badge).
+- Student page: «الحالة» fact when not «عادي»; a waiting request gets «قبول»
+  (students.edit, sets «عادي» after the confirm, stays on the page) and
+  «رفض» in the danger zone (students.delete); an inactive student gets
+  «تفعيل» (students.edit).
+- User page: «الحالة» fact for a waiting or suspended account; «قبول» picks
+  a role and calls changeStatus waiting→active; «تفعيل» reactivates
+  (asks for a role only when the account has none); both need users.approve
+  and a user the viewer may manage, then the page reloads. «حذف الحساب»
+  deletes from the account's own room.
+- `getUserById` now keeps the `room` the server sends beside the user. Before
+  this, the user page treated every account as active.
+- «إيقاف الحساب» now also needs users.approve (the changeStatus route's
+  permission), so it is no longer offered to someone the server refuses.
+
+**Rulings:** (1) Inactive students had no list buttons; they get «تفعيل» on
+their page, since the request covers inactive ones too. (2) Edit and print stay
+on a waiting student's page, so parent details can be fixed before
+approving. (3) Tour anchors `users-approve` and `students-reject` moved to
+the page actions; the (switched-off) tour still walks the old order.
+
+**Self-review (harsh):** (1) TDD was not followed for this follow-up: the
+code came first and the new tests passed on their first run, so they were
+not seen failing. (2) Not checked live in the browser, for the same reason
+as above.
+
+**Verification:** client 882/882, client build compiles. The server was not
+changed.
+
+**Codex review:** pending (until 2026-11-05). **Status:** not committed.
+
+### Follow-up: the sport site's guide is off too (2026-11-02)
+
+**Owner's ruling:** turn off the sport site's guide as well. The 2026-11-01
+switch covered only the main system; I had told the owner the sport site
+had no guide, which was wrong (missed `sport/src/guide`).
+
+**Change (sport):** `guide/guideSwitch.js` with `GUIDE_ENABLED = false`.
+While it is off, `App.jsx` does not open `FirstVisitGuide` on a first visit
+and passes no `onHelp`; `StadiumHeader` shows the "؟" button only when
+`onHelp` is given. Setting it to `true` brings both back unchanged.
+
+**Test:** `App.guide.test.js` (a first visit opens no guide; no help
+button), written first and seen failing on both.
+
+**Verification:** sport 91/91, sport build compiles. Not checked live.
+
+**Codex review:** pending (until 2026-11-05). **Status:** not committed.
+
+### Follow-up: a lighter main menu (2026-11-02)
+
+**Owner's ruling:** step 1 only: take the non-page items out of the main
+menu. Grouping the pages into sections was offered and not chosen.
+
+**Change (client, `Components/Header`):** the menu holds the pages only.
+«لوحة التحكم» left it; the logo is now a link to `/dashboard` (it used to go
+to `/`, which redirects). «الملف الشخصي», «ثبّت التطبيق» (phones only) and
+«تسجيل الخروج» moved to a small menu under the user's name (`AccountMenu`,
+a button with `aria-expanded`; closes on Escape, on a click outside, and
+after choosing the profile). Before `getMe` answers, the button reads
+«حسابي», so signing out is always reachable. The tour anchors
+`menu-dashboard` and `menu-profile` moved with their items.
+
+**Test:** `Header.test.js` (7 tests), written first and seen failing (the
+logo test first passed against the old menu link and was tightened to the
+logo).
+
+**Verification:** client 889/889, client build compiles. Not checked in the
+browser (signing in needs the seeded password); the dropdown's look on a
+phone is unverified.
+
+**Codex review:** pending (until 2026-11-05). **Status:** not committed.

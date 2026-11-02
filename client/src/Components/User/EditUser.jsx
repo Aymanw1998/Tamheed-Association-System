@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 // ملاحظة عربية
-import { create, update, getUserById as getOne, /*softDelete,*/ deleteU, uploadPhoto, deletePhoto, changeStatus, viewPassword, changeUserRole, unlockUser } from "../../WebServer/services/user/functionsUser.jsx";
+import { create, update, getUserById as getOne, uploadPhoto, deletePhoto, viewPassword, changeUserRole, unlockUser } from "../../WebServer/services/user/functionsUser.jsx";
 import styles from "./User.module.css";
 import sectionStyles from "../UI/FormSection.module.css";
 import { toast } from "../../ALERT/SystemToasts.jsx";
@@ -411,34 +411,6 @@ const EditUser = () => {
     }
   };
 
-  // ملاحظة عربية
-  const handleHardDelete = async () => {
-    if (!isEdit) return;
-    try {
-      const res = await deleteU(form.tz);
-      if(!res) return;
-      if(!res.ok) throw new Error(res.message);
-
-      toast.success("تم الحذف بنجاح");
-      navigate(-1);
-    } catch (e) {
-      toast.error(e.message || "تعذّر إتمام العملية");
-    }
-  };
-
-  const sendToRoomNoActive = async () => {
-    if (!isEdit) return;
-    try {
-      const res = await changeStatus(form.tz, "active", "noActive");
-      if(!res) return;
-      if(!res.ok) throw new Error(res.message);
-
-      toast.success("تم إيقاف الحساب بنجاح");
-      navigate(-1);
-    } catch (e) {
-      toast.error(e.message || "تعذّر إتمام العملية");
-    }
-  }
 
   // PUT /:tz/role. A demotion clears the user's grants and revokes, so it is
   // confirmed first; afterwards the manager may go straight to the tab.
@@ -725,19 +697,7 @@ const EditUser = () => {
             {saving ? "جارٍ الحفظ…" : (isEdit ? "حفظ التعديلات" : "إضافة المستخدم")}
           </button>
         )}
-        <br/>
-        {isEdit && canManage && (
-          <center>
-          <div style={{margin: "0 auto"}} data-tour="user-account-actions">
-            <button type="button" style={{ background: "#7f1d1d", margin: "10px" }} onClick={handleHardDelete} disabled={readonly}>
-              {"حذف الحساب"}
-            </button>
-            <button type="button" style={{ background: "#7f1d1d", margin: "10px" }} onClick={sendToRoomNoActive} disabled={readonly}>
-              {"إيقاف الحساب"}
-            </button>
-          </div>
-          </center>
-        )}
+        {/* Suspending and deleting are on the user's page (owner, 2026-11-02). */}
         <br/>
         {(<button type="button" style={{ background: "#6b7280", width: "100%" }} onClick={() => navigate(-1)}>
           العودة إلى القائمة

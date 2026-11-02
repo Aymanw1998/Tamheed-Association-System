@@ -14,6 +14,19 @@ NoticeModelDef.get = async function (filter = {}) {
 NoticeModelDef.create = async function (data) {
   return await api.create({ dbName: this.dbName, collection: this.collection, data });
 };
+// Every notice whose dedupKey starts with one of the prefixes (a deleted
+// vehicle's), and those under a prefix that are not current (services/recordAlerts).
+const { prefixPattern } = require("../../services/alertRetention");
+NoticeModelDef.removeByPrefixes = async function (prefixes = []) {
+  const list = prefixes.filter(Boolean);
+  if (!list.length) return 0;
+  const filter = { $or: list.map((p) => ({ dedupKey: { $regex: prefixPattern(p) } })) };
+  return (await api.delete({ dbName: this.dbName, collection: this.collection, filter }))?.result?.deletedCount || 0;
+};
+NoticeModelDef.removeExcept = async function (prefix, keepKeys = []) {
+  const filter = { dedupKey: { $regex: prefixPattern(prefix), $nin: [...keepKeys] } };
+  return (await api.delete({ dbName: this.dbName, collection: this.collection, filter }))?.result?.deletedCount || 0;
+};
 // api.update upserts, so callers must have loaded the notice first.
 NoticeModelDef.update = async function (filter, newData) {
   return await api.update({ dbName: this.dbName, collection: this.collection, filter, newData });
@@ -32,11 +45,11 @@ JobRunModelDef.create = async function (data) {
 
 // api.js never creates indexes; this makes a repeated dedupKey impossible even
 // if two checks race. Manual notices have no dedupKey, hence the partial filter.
+// A notice with an end date is deleted at its expireAt (rows without one stay).
 async function ensureNoticeIndexes() {
-  await mongoose.connection
-    .useDb(dbName, { useCache: true })
-    .collection(NoticeModelDef.collection)
-    .createIndex({ dedupKey: 1 }, { unique: true, partialFilterExpression: { dedupKey: { $type: "string" } } });
+  const collection = mongoose.connection.useDb(dbName, { useCache: true }).collection(NoticeModelDef.collection);
+  await collection.createIndex({ dedupKey: 1 }, { unique: true, partialFilterExpression: { dedupKey: { $type: "string" } } });
+  await collection.createIndex({ expireAt: 1 }, { expireAfterSeconds: 0 });
 }
 
 // Lock rows expire after 7 days; ordinary run rows (no lockKey) are kept.

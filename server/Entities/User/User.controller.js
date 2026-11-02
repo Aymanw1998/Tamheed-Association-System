@@ -773,6 +773,11 @@ const updateStoragePermissions = async (req, res) => {
   }
 };
 
+// A deleted record's alerts go with it (owner, 2026-11-02). Never fatal.
+const forgetAlerts = (kind, id) => Promise.resolve()
+  .then(() => require("../../services/recordAlerts").forget(kind, id))
+  .catch((err) => logWithSource("User.forgetAlerts", err));
+
 const deleteU = async (req, res) => {
   try {
     const tz = String(req.params.tz ?? "").trim();
@@ -798,6 +803,7 @@ const deleteU = async (req, res) => {
     if (!deleted?.result?.deletedCount) return res.status(409).json(await raceLost(() => UserModelDef.get({ tz: existing.tz }, room), sanitize));
     await recordUser(req, "delete", { ...existing, room }, null);
     notifyChange("user", existing._id);
+    await forgetAlerts("user", existing.tz);
 
     return res.status(200).json({
       ok: true,

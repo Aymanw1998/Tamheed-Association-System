@@ -71,3 +71,17 @@ test("adding a found student and then saving builds on the new version (no 409 n
   await act(async () => root.unmount());
   container.remove();
 });
+
+// Owner, 2026-11-02: deleting is done on the lesson's page, not in the form.
+test("the edit form offers no «حذف»", async () => {
+  getOneLesson.mockResolvedValue({ ok: true, lesson: lesson(OPENED, []) });
+  container = document.createElement("div");
+  document.body.appendChild(container);
+  root = createRoot(container);
+  await act(async () => root.render(<I18nProvider><EditLesson /></I18nProvider>));
+  const labels = [...container.querySelectorAll("button")].map((b) => b.textContent.trim());
+  expect(labels.some((l) => l.includes("حفظ التعديلات"))).toBe(true);
+  expect(labels).not.toContain("حذف");
+  await act(async () => root.unmount());
+  container.remove();
+});

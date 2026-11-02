@@ -11,7 +11,7 @@ jest.mock("react-router-dom", () => {
 });
 jest.mock("../../WebServer/services/api", () => ({ __esModule: true, default: { get: jest.fn(), post: jest.fn() }, API_BASE_URL: "/api" }));
 jest.mock("../../WebServer/services/lesson/functionsLesson.jsx", () => ({
-  getOneLesson: jest.fn(), getAllLesson: jest.fn(), addToList: jest.fn(), removeFromList: jest.fn(),
+  getOneLesson: jest.fn(), getAllLesson: jest.fn(), addToList: jest.fn(), removeFromList: jest.fn(), deleteLesson: jest.fn(),
 }));
 // One mock serves both specifiers (LessonRoster imports it without ".jsx").
 jest.mock("../../WebServer/services/student/functionsStudent.jsx", () => ({ getAll: jest.fn(), lookupStudent: jest.fn() }));
@@ -24,7 +24,7 @@ jest.mock("../../utils/session", () => ({
   getStoredUserId: () => "viewer-1",
 }));
 
-import { getOneLesson, getAllLesson, removeFromList } from "../../WebServer/services/lesson/functionsLesson.jsx";
+import { getOneLesson, getAllLesson, removeFromList, deleteLesson } from "../../WebServer/services/lesson/functionsLesson.jsx";
 import { getAll as getStudents } from "../../WebServer/services/student/functionsStudent.jsx";
 import { ask } from "../Provides/confirmBus";
 import { toast } from "../../ALERT/SystemToasts";
@@ -51,6 +51,7 @@ const mount = async () => {
   await act(async () => root.render(
     <I18nProvider><MemoryRouter initialEntries={["/lessons/L1"]}><Routes>
       <Route path="/lessons/:id" element={<LessonView />} />
+      <Route path="/lessons" element={<p data-testid="lessons-list">list</p>} />
     </Routes></MemoryRouter></I18nProvider>
   ));
 };
@@ -351,4 +352,30 @@ test("a double click on «إضافة» adds and counts the student once", async 
   expect(addToList).toHaveBeenCalledTimes(1);
   expect(container.textContent).toContain("أُضيف: 1");
   expect(container.textContent).not.toContain("أُضيف: 2");
+});
+
+// Owner, 2026-11-02: deleting a lesson is done on its page, apart in the
+// danger zone, no longer in the edit form.
+const deleteLessonButton = () => [...container.querySelectorAll('[data-testid="danger-zone"] button')].find((b) => b.textContent === "حذف");
+
+test("with lessons.delete the page offers «حذف»; it deletes and goes back to the timetable", async () => {
+  mockPerms = ["lessons.view", "lessons.delete"];
+  deleteLesson.mockResolvedValue({ ok: true });
+  await mount();
+  await act(async () => deleteLessonButton().click());
+  expect(deleteLesson).toHaveBeenCalledWith("L1");
+  expect(container.querySelector('[data-testid="lessons-list"]')).not.toBeNull();
+});
+
+test("a cancelled delete stays on the lesson; no «حذف» without lessons.delete", async () => {
+  mockPerms = ["lessons.view", "lessons.delete"];
+  deleteLesson.mockResolvedValue(null);
+  await mount();
+  await act(async () => deleteLessonButton().click());
+  expect(container.querySelector('[data-testid="lessons-list"]')).toBeNull();
+  await act(async () => root.unmount());
+  container.remove();
+  mockPerms = ["lessons.view", "lessons.edit"];
+  await mount();
+  expect(deleteLessonButton()).toBeUndefined();
 });

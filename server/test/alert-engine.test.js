@@ -153,7 +153,7 @@ test("raise refuses a text without ar/he/en or an unknown severity", async () =>
 test("AiAlerts has the unique { recipientTz, dedupKey } index and the stream index", () => {
   assert.deepEqual(plain(ALERT_INDEXES.find((i) => i.key.dedupKey)), { key: { recipientTz: 1, dedupKey: 1 }, options: { unique: true } });
   assert.ok(ALERT_INDEXES.some((i) => i.key.recipientTz === 1 && i.key.at === 1));
-  assert.deepEqual(plain(ALERT_INDEXES.find((i) => i.options?.expireAfterSeconds)), { key: { at: 1 }, options: { expireAfterSeconds: 180 * 24 * 60 * 60 } });
+  assert.deepEqual(plain(ALERT_INDEXES.find((i) => i.options?.expireAfterSeconds !== undefined)), { key: { expireAt: 1 }, options: { expireAfterSeconds: 0 } });
 });
 
 /* ---------------- templates ---------------- */

@@ -283,11 +283,15 @@ test("deleting a student also deletes their photo from Drive", async () => {
   );
   const { deleteS } = loadStudentController(model, createDriveStorage(events, null));
   const res = createRes();
+  const { forgotten } = require("./helpers/alertEventsStub");
+  forgotten.length = 0;
 
   const admin = { tz: "123456782", roles: ["ادارة"] };
   await deleteS({ params: { tz: "123456782" }, user: admin, actor: actorFor(admin) }, res);
 
   assert.equal(res.statusCode, 200);
+  // Its alerts go with it (owner, 2026-11-02).
+  assert.deepEqual(forgotten, [["student", "student-1"]]);
   assert.deepEqual(JSON.parse(JSON.stringify(events)), [
     ["db-delete", { _id: "student-1", updatedAt: null }],
     ["drive-delete", OLD_PHOTO],

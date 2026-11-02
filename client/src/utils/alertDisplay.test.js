@@ -58,6 +58,14 @@ test("mergeAlerts keeps stream alerts that arrived before the fetch finished", (
   expect(mergeAlerts(undefined, undefined)).toEqual([]);
 });
 
+// Owner, 2026-11-02: a deleted record's alerts go; the list drops them too.
+test("mergeAlerts drops an alert the server no longer has", () => {
+  const gone = a("gone", "2026-01-02T00:00:00Z");
+  const merged = mergeAlerts([gone, a("1", "2026-01-03T00:00:00Z")], [a("1", "2026-01-03T00:00:00Z")]);
+  expect(merged.map((x) => x.id)).toEqual(["1"]);
+  expect(mergeAlerts([gone], [])).toEqual([]);
+});
+
 test("normalizeAlert maps readAt or a missing flag to a boolean read", () => {
   expect(normalizeAlert({ id: "1" }).read).toBe(false);
   expect(normalizeAlert({ id: "1", readAt: "2026-01-01" }).read).toBe(true);

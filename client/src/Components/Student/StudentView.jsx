@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { getOne } from "../../WebServer/services/student/functionsStudent.jsx";
+import { getOne, deleteS, update } from "../../WebServer/services/student/functionsStudent.jsx";
+import { toast } from "../../ALERT/SystemToasts";
 import { exportStudentPdf } from "../ExportPDF/ExportPDF.jsx";
 import { canStored, getStoredUserId } from "../../utils/session";
 import { byLessonTime, lessonWhen, guideLink } from "../../utils/recordLinks";
@@ -15,8 +16,14 @@ const dateOf = (v) => {
   return d && !Number.isNaN(d.getTime()) ? d.toLocaleDateString("en-GB") : "";
 };
 
+const ACTIVE_STATUS = "عادي";
+const PENDING_STATUS = "ينتظر";
+
 // A student's read-only page: every detail, their lessons and their
-// responsible guide, with edit and print for those allowed.
+// responsible guide, with edit, print and delete for those allowed. Lists
+// open this page; the actions are here, not in the list (owner, 2026-11-02),
+// approving or rejecting a waiting request and activating an inactive
+// student included.
 export default function StudentView() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -44,9 +51,33 @@ export default function StudentView() {
   if (!student) return <RecordPage loading={!error} error={error} />;
 
   const s = student;
+  // deleteS asks first; null means it was cancelled.
+  const remove = async () => {
+    const res = await deleteS(s.tz);
+    if (!res) return;
+    if (!res.ok) return toast.warn(res.message || t("record.deleteFailed"));
+    toast.success(t("record.deleted"));
+    navigate("/students");
+  };
+  const status = String(s.status || "").trim() || ACTIVE_STATUS;
+  const waiting = status === PENDING_STATUS;
+  // update asks first; null means it was cancelled. The student stays on the
+  // page, now active.
+  const activate = async () => {
+    const res = await update(s.tz, { status: ACTIVE_STATUS });
+    if (!res) return;
+    if (!res.ok) return toast.warn(res.message || t(waiting ? "record.approveFailed" : "record.activateFailed"));
+    toast.success(t(waiting ? "record.approvedStudent" : "record.activated"));
+    setStudent({ ...s, status: ACTIVE_STATUS });
+  };
+  const canEdit = canStored("students.edit");
   const actions = [
-    canStored("students.edit") && { label: t("record.edit"), onClick: () => navigate(`/students/${s.tz}/edit`), tour: "student-view-edit" },
+    waiting && canEdit && { label: t("record.approve"), onClick: activate, variant: "success", tour: "students-approve" },
+    !waiting && status !== ACTIVE_STATUS && canEdit && { label: t("record.activate"), onClick: activate, variant: "success" },
+    canEdit && { label: t("record.edit"), onClick: () => navigate(`/students/${s.tz}/edit`), tour: "student-view-edit" },
     canStored("students.view") && { label: t("record.print"), onClick: () => exportStudentPdf(s, s.guide?.name || "") },
+    waiting && canStored("students.delete") && { label: t("record.reject"), onClick: remove, variant: "danger", tour: "students-reject" },
+    !waiting && canStored("students.delete") && { label: t("record.delete"), onClick: remove, variant: "danger", tour: "student-delete" },
   ].filter(Boolean);
 
   const tabs = [
@@ -100,6 +131,7 @@ export default function StudentView() {
   // attendance.view holder, the rate over the rows sent.
   const rate = Array.isArray(s.attendance) ? attendanceTotals(s.attendance).rate : undefined;
   const facts = [
+    status !== ACTIVE_STATUS && [t("record.status"), status],
     [t("record.guide"), s.guide?.name || "—"],
     [t("record.lessons"), String(mine.length)],
     rate !== undefined && [t("record.attendanceRate"), rate === null ? "—" : `${rate}%`],

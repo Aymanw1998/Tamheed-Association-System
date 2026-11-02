@@ -8,7 +8,11 @@ export const noticeStrings = {
     cols: { severity: "الأهمية", title: "العنوان", category: "الفئة", date: "التاريخ", author: "الكاتب", status: "الحالة" },
     read: "مقروء", unread: "جديد", markRead: "تحديد كمقروء", markAll: "تحديد الكل كمقروء", archive: "أرشفة", archiveConfirm: "هل تريد أرشفة هذا الإعلان لدى جميع أعضاء الإدارة؟", open: "فتح",
     system: "النظام", empty: "لا توجد إعلانات", newTitle: "إعلان جديد للإدارة",
-    f: { title: "العنوان", body: "النص", severity: "الأهمية" }, publish: "نشر",
+    f: {
+      title: "العنوان", body: "النص", severity: "الأهمية", endDate: "تاريخ الانتهاء (اختياري)",
+      endDateHint: "يُحذف الإعلان بعد هذا اليوم. بدونه يختفي عند كل عضو بعد 30 يومًا من قراءته.",
+    },
+    endsOn: "ينتهي في {date}", publish: "نشر",
     runCheck: "تشغيل فحص المركبات الآن", runDone: "اكتمل الفحص. الإعلانات الجديدة: {n}", published: "تم نشر الإعلان بنجاح",
   },
 };

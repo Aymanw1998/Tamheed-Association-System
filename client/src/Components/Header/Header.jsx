@@ -13,6 +13,47 @@ import { InstallAppButton } from "../../pwa/InstallApp";
 
 const hasAnyRole = (roles, allowedRoles) => allowedRoles.some((role) => roles.includes(role));
 
+// The user's name opens a small menu: profile, installing the app (phones
+// only) and signing out (owner, 2026-11-02: they left the main menu). It is
+// there before the user's details load, so signing out is always reachable.
+function AccountMenu({ label, onNav, onLogout, t }) {
+  const [open, setOpen] = useState(false);
+  const boxRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDocClick = (event) => {
+      if (boxRef.current && !boxRef.current.contains(event.target)) setOpen(false);
+    };
+    document.addEventListener("click", onDocClick);
+    return () => document.removeEventListener("click", onDocClick);
+  }, [open]);
+
+  return (
+    <div className={styles.account} ref={boxRef} onKeyDown={(event) => event.key === "Escape" && setOpen(false)}>
+      <button
+        type="button"
+        className={styles.userBadge}
+        data-testid="account-button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-controls="account-menu"
+        onClick={() => setOpen((value) => !value)}
+      >
+        {label} <span aria-hidden="true">▾</span>
+      </button>
+      {open && (
+        <div id="account-menu" role="menu" className={styles.accountMenu} data-testid="account-menu">
+          <a href="/profile" role="menuitem" data-tour="menu-profile" onClick={(event) => { setOpen(false); onNav(event, "/profile"); }}>{t("nav.profile")}</a>
+          {/* Phones only, until the app is installed. */}
+          <InstallAppButton className={styles.installButton} />
+          <button type="button" role="menuitem" onClick={onLogout} className={styles.logoutButton}>{t("nav.logout")}</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Header() {
   const { dir, t } = useI18n();
   const [user, setUser] = useState(null);
@@ -102,22 +143,24 @@ export default function Header() {
     navigate(to);
   };
 
+  const accountMenu = (
+    <AccountMenu
+      label={user ? `${user.firstname || ""} ${user.lastname || ""} - ${displayRole}` : t("nav.account")}
+      onNav={onNavClick}
+      onLogout={handleLogout}
+      t={t}
+    />
+  );
+
   return (
     <header id="header" className={styles.header} ref={headerRef} dir={dir}>
       <div className={styles.headerContent}>
-        <img
-          src={LOGO}
-          alt="logo"
-          className={styles.logo}
-          onClick={(event) => onNavClick(event, "/")}
-          style={{ cursor: "pointer" }}
-        />
+        {/* The logo is the way to the dashboard. */}
+        <a href="/dashboard" data-tour="menu-dashboard" title={t("nav.dashboard")} onClick={(event) => onNavClick(event, "/dashboard")}>
+          <img src={LOGO} alt={t("nav.dashboard")} className={styles.logo} />
+        </a>
         <span className={styles.title}>{t("appTitle")}</span>
-        {user && !isMobile && (
-          <div className={styles.userBadge}>
-            {user.firstname} {user.lastname} - {displayRole}
-          </div>
-        )}
+        {!isMobile && accountMenu}
       </div>
 
       <div className={styles.headerContent}>
@@ -145,11 +188,7 @@ export default function Header() {
             <NewBadge section="notices" />
           </span>
         )}
-        {user && isMobile && (
-          <div className={styles.userBadge}>
-            {user.firstname} {user.lastname} - {displayRole}
-          </div>
-        )}
+        {isMobile && accountMenu}
       </div>
 
       {isMobile && menuOpen && <div className={styles.backdrop} onClick={() => setMenuOpen(false)} />}
@@ -161,7 +200,6 @@ export default function Header() {
         className={`${styles.navbarV} ${isMobile ? styles.mobileNav : ""}`}
         data-open={isMobile ? menuOpen : true}
       >
-        <a href="/dashboard" data-tour="menu-dashboard" onClick={(event) => onNavClick(event, "/dashboard")}>{t("nav.dashboard")}<NewBadge section="dashboard" /></a>
         <a href="/calendar" data-tour="menu-calendar" onClick={(event) => onNavClick(event, "/calendar")}>{t("nav.attendance")}<NewBadge section="calendar" /></a>
         {canViewUsers && (
           <a href="/users" data-tour="menu-users" onClick={(event) => onNavClick(event, "/users")}>{t("nav.users")}<NewBadge section="users" /></a>
@@ -175,7 +213,6 @@ export default function Header() {
         <a href="/lessons" data-tour="menu-lessons" onClick={(event) => onNavClick(event, "/lessons")}>{t("nav.lessons")}<NewBadge section="lessons" /></a>
         <a href="/reports" data-tour="menu-reports" onClick={(event) => onNavClick(event, "/reports")}>{t("nav.reports")}<NewBadge section="reports" /></a>
         <a href="/files" data-tour="menu-files" onClick={(event) => onNavClick(event, "/files")}>{t("nav.files")}<NewBadge section="files" /></a>
-        <a href="/profile" data-tour="menu-profile" onClick={(event) => onNavClick(event, "/profile")}>{t("nav.profile")}</a>
         {canViewVehicles && (
           <a href="/vehicles" data-tour="menu-vehicles" onClick={(event) => onNavClick(event, "/vehicles")}>{t("nav.vehicles")}<NewBadge section="vehicles" /></a>
         )}
@@ -185,9 +222,6 @@ export default function Header() {
         {/* {canViewAudit && (
           <a href="/audit" data-tour="menu-audit" onClick={(event) => onNavClick(event, "/audit")}>{t("nav.audit")}<NewBadge section="audit" /></a>
         )} */}
-        {/* Phones only, until the app is installed. */}
-        <InstallAppButton className={styles.installButton} />
-        <button type="button" onClick={handleLogout} className={styles.logoutButton} title={t("nav.logout")}>{t("nav.logout")}</button>
       </nav>
     </header>
   );

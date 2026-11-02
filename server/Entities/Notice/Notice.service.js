@@ -7,9 +7,14 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_LIST = 200;
 
 const isDuplicate = (err) => err && (err.code === 11000 || /E11000/.test(String(err.message)));
+// A notice someone read is gone for them this long after (owner, 2026-11-02);
+// a vehicle notice stays until the renewal removes it (services/recordAlerts).
+const READ_KEEP_MS = 30 * 24 * 60 * 60 * 1000;
 
+// endDate ("YYYY-MM-DD") and expireAt (a Date, for the TTL index) together:
+// an end date the author chose.
 async function publishNotice({ title, body, category, severity, link = "", dedupKey = null, createdBy = "system", createdByName = "",
-  readBy = createdBy === "system" ? [] : [String(createdBy)] }) {
+  readBy = createdBy === "system" ? [] : [String(createdBy)], endDate = "", expireAt = null }) {
   if (dedupKey) {
     const found = await NoticeModelDef.get({ dedupKey });
     if (found?.result?.length) return { created: false, notice: found.result[0] };
@@ -21,6 +26,7 @@ async function publishNotice({ title, body, category, severity, link = "", dedup
     archivedAt: null, archivedBy: null,
   };
   if (dedupKey) data.dedupKey = dedupKey;
+  if (endDate && expireAt) Object.assign(data, { endDate, expireAt });
   try {
     const created = await NoticeModelDef.create(data);
     return { created: true, notice: created.result };
@@ -37,15 +43,29 @@ async function existingDedupKeys(prefix = "vehicle:") {
 
 const withRead = (row, userId) => ({ ...row, read: (row.readBy || []).includes(String(userId)) });
 
-async function activeNotices() {
+// Past its end date a notice is gone at once, before the TTL index deletes it.
+async function activeNotices(now = new Date()) {
   const found = await NoticeModelDef.get({});
   return (found?.result || [])
     .filter((row) => !row.archivedAt)
+    .filter((row) => !row.expireAt || new Date(row.expireAt) > now)
     .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
 }
 
+// Read more than 30 days ago by this user: no longer theirs to see. Rows read
+// before read times were kept count from when they were posted.
+function stillShown(row, userId, now) {
+  if (row.category === "vehicle") return true;
+  const reader = String(userId);
+  if (!(row.readBy || []).includes(reader)) return true;
+  const readAt = new Date(row.readTimes?.[reader] || row.createdAt || 0);
+  return now - readAt <= READ_KEEP_MS;
+}
+
 async function listNotices({ userId, status = "all", category = "", severity = "" }) {
-  return (await activeNotices())
+  const now = new Date();
+  return (await activeNotices(now))
+    .filter((row) => stillShown(row, userId, now))
     .map((row) => withRead(row, userId))
     .filter((row) => (status === "unread" ? !row.read : true))
     .filter((row) => (category ? row.category === category : true))
@@ -66,9 +86,11 @@ async function findNotice(id) {
 async function markRead(id, userId) {
   const notice = await findNotice(id);
   if (!notice) return null;
-  const readBy = Array.from(new Set([...(notice.readBy || []), String(userId)]));
-  await NoticeModelDef.update({ _id: notice._id }, { readBy });
-  return { ...notice, readBy };
+  const reader = String(userId);
+  const readBy = Array.from(new Set([...(notice.readBy || []), reader]));
+  const readTimes = { ...(notice.readTimes || {}), [reader]: notice.readTimes?.[reader] || new Date().toISOString() };
+  await NoticeModelDef.update({ _id: notice._id }, { readBy, readTimes });
+  return { ...notice, readBy, readTimes };
 }
 
 async function markAllRead(userId) {

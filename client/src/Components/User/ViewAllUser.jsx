@@ -1,33 +1,26 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { changeStatus, deleteU, getAll, unlockUser, recoverSystemAccount } from "../../WebServer/services/user/functionsUser.jsx";
+import { getAll, recoverSystemAccount } from "../../WebServer/services/user/functionsUser.jsx";
 import useLiveRefresh from "../../locks/useLiveRefresh";
 import { recoveryResultKey } from "../../utils/passwordChange";
 import styles from "./User.module.css";
 import Fabtn from "../Global/Fabtn/Fabtn.jsx";
 import { toast } from "../../ALERT/SystemToasts.jsx";
 import UserStatusFilter from "./UserStatusFilter.jsx";
-import { exportUserPdf } from "../ExportPDF/ExportPDF.jsx";
-import { canStored, getStoredUserId, getStoredViewer } from "../../utils/session";
+import { canStored, getStoredViewer } from "../../utils/session";
 import Button from "../UI/Button.jsx";
 import MobileUserList from "./MobileUserList.jsx";
 import StatusBadge from "../UI/StatusBadge.jsx";
 import { useI18n } from "../../i18n/I18nContext";
-import { canManageTargetClient, resolveRole, roleLabel } from "../../utils/roles";
+import { resolveRole, roleLabel } from "../../utils/roles";
 import { ask } from "../Provides/confirmBus";
-import { useRolePicker, permissionError } from "./RolePickerDialog.jsx";
 
 const ViewAllUser = () => {
   const { t } = useI18n();
-  const { pickRole, roleDialog } = useRolePicker();
   const canCreateUsers = canStored("users.create");
-  const canUnlock = canStored("users.unlock");
   const canRecoverSystem = canStored("systemRecovery.reset");
   const [recovering, setRecovering] = useState(false);
-  // Hides actions on users the viewer may not manage (self, equal or higher
-  // rank); the server refuses them anyway.
   const viewer = getStoredViewer();
-  const canManage = (user) => canManageTargetClient(viewer, user);
   const userId = viewer.id;
   const userTZ = viewer.tz;
   const navigate = useNavigate();
@@ -171,46 +164,12 @@ const ViewAllUser = () => {
     navigate("/users/new");
   };
 
-  // Approval assigns a role (the server requires one).
-  const onWaitingToActive = async (user) => {
-    const role = await pickRole(user);
-    if (!role) return;
-    const res = await changeStatus(user.tz, "waiting", "active", role);
-    if (!res?.ok) return toast.error(permissionError(t, res));
-    toast.success(t("perms.approved"));
-    loadUsers();
-  };
-
-  // Reactivating a user who has no role is an approval too.
-  const onNoActiveToActive = async (user) => {
-    let role;
-    if (!resolveRole(user)) {
-      role = await pickRole(user);
-      if (!role) return;
-    }
-    try {
-      const res = await changeStatus(user.tz, "noActive", "active", role);
-      if (!res?.ok) throw new Error(permissionError(t, res));
-      toast.success("تم تفعيل المستخدم بنجاح");
-      loadUsers();
-    } catch (error) {
-      console.error(error);
-      toast.error(error.message || "تعذّر تفعيل المستخدم");
-    }
-  };
-
-  const onUnlock = async (user) => {
-    let ok = false;
-    try {
-      ok = await ask("change", { title: t("perms.unlock"), message: t("perms.unlockConfirm"), confirmText: t("perms.unlock"), cancelText: t("perms.cancel") });
-    } catch {
-      ok = false;
-    }
-    if (!ok) return;
-    const res = await unlockUser(user.tz);
-    if (!res.ok) return toast.warn(permissionError(t, res));
-    toast.success(t("perms.unlocked"));
-    loadUsers();
+  // A row opens the user's page, where print, edit, unlock, suspend and
+  // delete are, and approve/activate for a waiting or suspended account
+  // (owner, 2026-11-02); a click on the name link is left to it.
+  const openUser = (event, user) => {
+    if (event.target.closest("a, button")) return;
+    navigate(`/users/${user.tz}`);
   };
 
   // Emails a temporary password to the system mailbox; the server allows it
@@ -235,18 +194,6 @@ const ViewAllUser = () => {
       else toast.warn(message);
     } finally {
       setRecovering(false);
-    }
-  };
-
-  const handleDeleteUser = async (user, from) => {
-    try {
-      const res = await deleteU(user.tz, from);
-      if (!res?.ok) throw new Error(res?.message || "تعذّر حذف المستخدم");
-      toast.success("تم حذف المستخدم بنجاح");
-      loadUsers();
-    } catch (error) {
-      console.error(error);
-      toast.error("تعذّر حذف المستخدم");
     }
   };
 
@@ -321,11 +268,6 @@ const ViewAllUser = () => {
           <MobileUserList
             users={sortedFilteredUsers}
             onOpen={(user) => navigate(`/users/${user.tz}`)}
-            onPdf={exportUserPdf}
-            onActivate={(user) => (user.room === "waiting" ? onWaitingToActive(user) : onNoActiveToActive(user))}
-            onDelete={(user) => handleDeleteUser(user, user.room)}
-            onUnlock={canUnlock ? onUnlock : undefined}
-            canManage={canManage}
           />
         </div>
       )}
@@ -339,66 +281,30 @@ const ViewAllUser = () => {
               <th>العمر</th>
               <th>الجنس</th>
               <th>الدور</th>
-              <th>الإجراءات</th>
+              <th>الحالة</th>
             </tr>
           </thead>
           <tbody>
             {sortedFilteredUsers.length > 0 ? (
               sortedFilteredUsers.map((user) => (
-                <tr key={user._id}>
+                <tr
+                  key={user._id}
+                  className={styles.openRow}
+                  onClick={(e) => openUser(e, user)}
+                >
                   <td data-label="رقم الهوية">{user.tz}</td>
                   <td data-label="اسم المستخدم">
-                    {/* The name opens the user's page; «تعديل» opens the form. */}
-                    <Link to={`/users/${user.tz}`} className={styles.nameLink}>{`${user.firstname || ""} ${user.lastname || ""}`.trim()}</Link>
+                    <Link to={`/users/${user.tz}`} className={styles.nameLink} data-tour="users-edit">{`${user.firstname || ""} ${user.lastname || ""}`.trim()}</Link>
                   </td>
                   <td data-label="العمر">
                     {user.birth_date ? new Date().getFullYear() - new Date(user.birth_date).getFullYear() : "-"}
                   </td>
                   <td data-label="الجنس">{user.gender || "-"}</td>
                   <td data-label="الدور">{roleLabel(resolveRole(user)) || (Array.isArray(user.roles) ? user.roles : []).join("، ") || "-"}</td>
-                  <td data-label="الإجراءات">
-                    <div className={styles.rowActions}>
-                      {user.room !== "waiting" && user.room !== "noActive" && (
-                        <>
-                          {canManage(user) && (
-                            <Button size="sm" variant="warning" data-tour="users-edit" onClick={() => navigate(`/users/${user.tz}/edit`)}>
-                              تعديل
-                            </Button>
-                          )}
-                          <Button size="sm" variant="secondary" data-tour="users-pdf" onClick={() => exportUserPdf(user)}>
-                            ملف المستخدم
-                          </Button>
-                          {user.lockedAt && <StatusBadge tone="danger">{t("perms.locked")}</StatusBadge>}
-                          {user.lockedAt && canUnlock && canManage(user) && (
-                            <Button size="sm" variant="secondary" onClick={() => onUnlock(user)}>
-                              {t("perms.unlock")}
-                            </Button>
-                          )}
-                        </>
-                      )}
-
-                      {user.room === "waiting" && canManage(user) && (
-                        <>
-                          <Button size="sm" variant="success" data-tour="users-approve" onClick={() => onWaitingToActive(user)}>
-                            قبول
-                          </Button>
-                          <Button size="sm" variant="danger" onClick={() => handleDeleteUser(user, "waiting")}>
-                            حذف
-                          </Button>
-                        </>
-                      )}
-
-                      {user.room === "noActive" && canManage(user) && (
-                        <>
-                          <Button size="sm" variant="success" onClick={() => onNoActiveToActive(user)}>
-                            تفعيل
-                          </Button>
-                          <Button size="sm" variant="danger" onClick={() => handleDeleteUser(user, "noActive")}>
-                            حذف
-                          </Button>
-                        </>
-                      )}
-                    </div>
+                  <td data-label="الحالة">
+                    {user.room === "waiting" ? <StatusBadge tone="warning">{t("record.waiting")}</StatusBadge>
+                      : user.room === "noActive" ? <StatusBadge tone="neutral">{t("record.suspendedState")}</StatusBadge>
+                      : user.lockedAt ? <StatusBadge tone="danger">{t("perms.locked")}</StatusBadge> : "-"}
                   </td>
                 </tr>
               ))
@@ -412,8 +318,6 @@ const ViewAllUser = () => {
           </tbody>
         </table>
       )}
-
-      {roleDialog}
 
       <Fabtn
         anchor="#page-add-user"

@@ -57,6 +57,7 @@ function setup({ vehicles = [], extraUsers = [] } = {}) {
   const userStore = createStore([ADMIN, GUIDE, VIEWER, DOCS, FOUR, FIVE, ...extraUsers]);
   const uploads = [];
   const audit = auditStub();
+  const recordAlerts = { calls: [], async forget(kind, id) { this.calls.push(["forget", kind, String(id)]); }, async syncVehicle(v) { this.calls.push(["sync", structuredClone(v)]); } };
   const drive = {
     async uploadPrivateFile(args) {
       uploads.push(args);
@@ -89,6 +90,7 @@ function setup({ vehicles = [], extraUsers = [] } = {}) {
     "../../utils/permissions.js": require("../utils/permissions"),
     "../../utils/vehicleFiles.js": require("../utils/vehicleFiles"),
     "../../services/vehicleLookup.service.js": lookupStub,
+    "../../services/recordAlerts.js": recordAlerts,
     ...audit.deps,
   };
   const filename = path.join(__dirname, "../Entities/Vehicle/Vehicle.controller.js");
@@ -103,7 +105,7 @@ function setup({ vehicles = [], extraUsers = [] } = {}) {
       return dependencies[name];
     },
   }, { filename });
-  return { controller: module.exports, vehicleStore, auditStore, uploads, drive, audit };
+  return { controller: module.exports, vehicleStore, auditStore, uploads, drive, audit, recordAlerts };
 }
 
 function createRes() {
@@ -845,4 +847,42 @@ test("two vehicle saves on the same version at once: one is written, the other i
   const winner = a.statusCode === 200 ? "Mazda" : "Honda";
   assert.equal((a.statusCode === 409 ? a : b).body.code, "STALE");
   assert.equal(vehicleStore.all().find((v) => String(v._id) === String(id)).make, winner);
+});
+
+// Owner, 2026-11-02: deleting a vehicle removes every alert and notice about
+// it; saving one keeps only the alerts of its current stages, so a renewal
+// removes the old alert at once.
+test("deleting a vehicle removes its alerts and notices", async () => {
+  const { controller, recordAlerts } = setup();
+  const id = (await createVehicle(controller)).body.vehicle._id;
+  recordAlerts.calls.length = 0;
+  assert.equal((await adminDelete(controller, id, { confirmPlate: "12-345-67" })).res.statusCode, 200);
+  assert.deepEqual(recordAlerts.calls, [["forget", "vehicle", id]]);
+});
+
+test("a renewed licence and archiving resync the vehicle's alerts", async () => {
+  const { controller, recordAlerts } = setup();
+  const id = (await createVehicle(controller)).body.vehicle._id;
+  const compliance = (await guard(controller, "compliance", ADMIN)).req;
+  recordAlerts.calls.length = 0;
+  await controller.addLicense({ ...compliance, params: { id }, body: { validUntil: "2027-11-01" } }, createRes());
+  const synced = recordAlerts.calls.filter(([op]) => op === "sync");
+  assert.equal(synced.length, 1);
+  assert.equal(String(synced[0][1]._id), id);
+  assert.equal(synced[0][1].licenses.at(-1).validUntil, "2027-11-01");
+  const archiver = (await guard(controller, "archive", ADMIN)).req;
+  await controller.archive({ ...archiver, params: { id }, body: { reason: "sold" } }, createRes());
+  assert.equal(recordAlerts.calls.filter(([op]) => op === "sync").at(-1)[1].status, "archived");
+});
+
+test("an alert failure never fails the vehicle write", async () => {
+  const { controller, recordAlerts } = setup();
+  recordAlerts.syncVehicle = async () => { throw new Error("db down"); };
+  recordAlerts.forget = async () => { throw new Error("db down"); };
+  const id = (await createVehicle(controller)).body.vehicle._id;
+  const compliance = (await guard(controller, "compliance", ADMIN)).req;
+  const r = createRes();
+  await controller.addLicense({ ...compliance, params: { id }, body: { validUntil: "2027-11-01" } }, r);
+  assert.ok(r.statusCode < 300, String(r.statusCode));
+  assert.equal((await adminDelete(controller, id, { confirmPlate: "12-345-67" })).res.statusCode, 200);
 });

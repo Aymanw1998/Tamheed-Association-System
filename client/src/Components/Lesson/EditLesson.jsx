@@ -6,7 +6,6 @@ import {
   createLesson,
   updateLesson,
   getAllLesson,
-  deleteLesson,
   addToList,
 } from '../../WebServer/services/lesson/functionsLesson';
 import styles from './EditLesson.module.css';
@@ -37,7 +36,6 @@ const EditLesson = () => {
   // Students found by ID number on a lesson that is not saved yet.
   const [pendingLooked, setPendingLooked] = useState([]);
   const isAdmin = canStored(id === "new" ? "lessons.create" : "lessons.edit");
-  const canDelete = canStored("lessons.delete");
   
   const navigate = useNavigate();
   const searchParams = new URLSearchParams(window.location.search);
@@ -267,23 +265,6 @@ const EditLesson = () => {
     }
   };
 
-  // حذف
-  const handleDelete = async () => {
-    if (id === 'new') return;
-
-    try {
-      const resDL = await deleteLesson(id);
-      if(!resDL) return;
-      if (resDL.ok) {
-        toast.success('تم حذف الدرس بنجاح');
-        navigate(-1);
-      } else {
-        toast.warn('تعذّر حذف الدرس');
-      }
-    } catch {
-      toast.error('تعذّر حذف الدرس');
-    }
-  };
 
   if (lock.status === 'blocked') {
     return <LockedScreen holder={lock.holder} onForceRelease={forceRelease(lockKey)} />;
@@ -456,11 +437,7 @@ const EditLesson = () => {
           <Button type="button" data-tour="lesson-save" onClick={handleSave} disabled={readonly}>
             {id !== 'new' ? 'حفظ التعديلات' : 'حفظ الدرس'}
           </Button>
-          {id !== 'new' && canDelete && (
-            <Button type="button" variant="danger" data-tour="lesson-delete" onClick={handleDelete} disabled={readonly}>
-            حذف
-            </Button>
-          )}
+          {/* Deleting is on the lesson's page (owner, 2026-11-02). */}
           <Button type="button" variant="secondary" onClick={() => navigate(-1)}>الرجوع للقائمة</Button>
         </div>
       )}

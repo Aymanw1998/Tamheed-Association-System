@@ -29,6 +29,7 @@ const translations = {
       profile: "الملف الشخصي",
       guide: "دليل المستخدم",
       logout: "تسجيل الخروج",
+      account: "حسابي",
       openMenu: "فتح القائمة",
     },
     common: {

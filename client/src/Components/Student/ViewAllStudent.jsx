@@ -1,11 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { deleteS, getAll, update } from "../../WebServer/services/student/functionsStudent.jsx";
+import { getAll } from "../../WebServer/services/student/functionsStudent.jsx";
 import useLiveRefresh from "../../locks/useLiveRefresh";
 import styles from "./Student.module.css";
 import Fabtn from "../Global/Fabtn/Fabtn";
-import { toast } from "../../ALERT/SystemToasts";
-import { exportStudentPdf } from "../ExportPDF/ExportPDF.jsx";
 import { canStored } from "../../utils/session.js";
 import StudentStatusFilter from "./StudentStatusFilter.jsx";
 import Button from "../UI/Button.jsx";
@@ -37,8 +35,13 @@ const ViewAllStudent = () => {
   const navigate = useNavigate();
   const isAdmin = canStored("students.viewAll");
   const canCreateStudents = canStored("students.create");
-  // Only an admin edits by default; others open the read-only page by the name.
-  const canEditStudents = canStored("students.edit");
+  // A row opens the student's page, where print, edit and delete are, and
+  // approve/reject for a waiting request (owner, 2026-11-02); a click on the
+  // name link is left to it.
+  const openStudent = (event, student) => {
+    if (event.target.closest("a, button")) return;
+    navigate(`/students/${student.tz}`);
+  };
   const canParentLink = canStored("students.parentLink");
 
   const [students, setStudents] = useState([]);
@@ -151,28 +154,6 @@ const ViewAllStudent = () => {
   };
   const closeParentLink = useCallback(() => setShowParentLink(false), []);
 
-  const handleApproveStudent = async (tz) => {
-    const res = await update(tz, { status: ACTIVE_STATUS });
-    if (!res?.ok) {
-      toast.error(res?.message || "تعذّر قبول الطالب");
-      return;
-    }
-
-    toast.success("تم قبول الطالب بنجاح");
-    loadStudent();
-  };
-
-  const handleRejectStudent = async (tz) => {
-    const res = await deleteS(tz);
-    if (!res?.ok) {
-      toast.error(res?.message || "تعذّر رفض الطالب");
-      return;
-    }
-
-    toast.success("تم حذف الطالب من قائمة الانتظار");
-    loadStudent();
-  };
-
   return (
     <div>
       <div>
@@ -236,9 +217,6 @@ const ViewAllStudent = () => {
             statusOf={getStudentFilterKey}
             toneOf={(student) => STATUS_TONE[getStudentFilterKey(student)]}
             onOpen={(student) => navigate(`/students/${student.tz}`)}
-            onPdf={exportStudentPdf}
-            onApprove={(student) => handleApproveStudent(student.tz)}
-            onReject={(student) => handleRejectStudent(student.tz)}
           />
         </div>
       )}
@@ -253,17 +231,19 @@ const ViewAllStudent = () => {
               <th>العمر</th>
               <th>الجنس</th>
               <th>الحالة</th>
-              <th>الإجراءات</th>
             </tr>
           </thead>
           <tbody>
             {sortedFilteredStudents.length > 0 ? (
               sortedFilteredStudents.map((student) => (
-                <tr key={student._id || student.tz}>
+                <tr
+                  key={student._id || student.tz}
+                  className={styles.openRow}
+                  onClick={(e) => openStudent(e, student)}
+                >
                   <td data-label="رقم الهوية">{student.tz}</td>
                   <td data-label="اسم الطالب">
-                    {/* The name opens the student's page; «تعديل» opens the form. */}
-                    <Link to={`/students/${student.tz}`} className={styles.nameLink}>
+                    <Link to={`/students/${student.tz}`} className={styles.nameLink} data-tour="students-open">
                       {`${student.firstname || ""} ${student.lastname || ""}`.trim()}
                     </Link>
                   </td>
@@ -275,67 +255,11 @@ const ViewAllStudent = () => {
                       {student.status || ACTIVE_STATUS}
                     </StatusBadge>
                   </td>
-                  <td data-label="الإجراءات">
-                    <div className={styles.rowActions}>
-                      {student.status === ACTIVE_STATUS && (
-                        <>
-                          {canEditStudents && (
-                            <Button
-                              size="sm"
-                              variant="warning"
-                              data-tour="students-open"
-                              onClick={() => navigate(`/students/${student.tz}/edit`)}
-                            >
-                              تعديل
-                            </Button>
-                          )}
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            data-tour="students-file"
-                            onClick={() => exportStudentPdf(student)}
-                          >
-                            ملف الطالب
-                          </Button>
-                        </>
-                      )}
-
-                      {student.status === PENDING_STATUS && (
-                        <>
-                          <Button
-                            size="sm"
-                            variant="success"
-                            onClick={() => handleApproveStudent(student.tz)}
-                          >
-                            قبول
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="danger"
-                            data-tour="students-reject"
-                            onClick={() => handleRejectStudent(student.tz)}
-                          >
-                            رفض
-                          </Button>
-                        </>
-                      )}
-
-                      {getStudentFilterKey(student) === "noActive" && (
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onClick={() => navigate(`/students/${student.tz}`)}
-                        >
-                          عرض التفاصيل
-                        </Button>
-                      )}
-                    </div>
-                  </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan={7} className={styles.emptyState}>
+                <td colSpan={6} className={styles.emptyState}>
                   لا يوجد طلاب في هذه القائمة
                 </td>
               </tr>

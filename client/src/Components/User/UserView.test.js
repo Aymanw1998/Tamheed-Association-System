@@ -10,12 +10,20 @@ jest.mock("react-router-dom", () => {
   return jest.requireActual("react-router");
 });
 jest.mock("../../WebServer/services/api", () => ({ __esModule: true, default: { get: jest.fn(), post: jest.fn() }, API_BASE_URL: "/api" }));
-jest.mock("../../WebServer/services/user/functionsUser.jsx", () => ({ getUserById: jest.fn(), signOutEverywhere: jest.fn() }));
+jest.mock("../../WebServer/services/user/functionsUser.jsx", () => ({
+  getUserById: jest.fn(), signOutEverywhere: jest.fn(), deleteU: jest.fn(), changeStatus: jest.fn(), unlockUser: jest.fn(),
+}));
+jest.mock("../ExportPDF/ExportPDF.jsx", () => ({ exportUserPdf: jest.fn() }));
 let mockConfirm = true;
 jest.mock("../Provides/confirmBus", () => ({ ask: () => Promise.resolve(mockConfirm) }));
 jest.mock("../../ALERT/SystemToasts", () => ({ toast: { success() {}, warn() {}, error() {} } }));
 jest.mock("../../WebServer/services/student/functionsStudent.jsx", () => ({ getAll: jest.fn() }));
 jest.mock("../../WebServer/services/lesson/functionsLesson.jsx", () => ({ getAllLesson: jest.fn() }));
+let mockRole = "مرشد";
+jest.mock("./RolePickerDialog.jsx", () => ({
+  useRolePicker: () => ({ pickRole: () => Promise.resolve(mockRole), roleDialog: null }),
+  permissionError: (t, res) => res?.message || "error",
+}));
 let mockPerms = [];
 let mockViewer = { id: "admin-1", tz: "900000001", role: "ادارة", isSystem: false };
 jest.mock("../../utils/session", () => ({
@@ -24,7 +32,8 @@ jest.mock("../../utils/session", () => ({
   getStoredViewer: () => mockViewer,
 }));
 
-import { getUserById, signOutEverywhere } from "../../WebServer/services/user/functionsUser.jsx";
+import { getUserById, signOutEverywhere, deleteU, changeStatus, unlockUser } from "../../WebServer/services/user/functionsUser.jsx";
+import { exportUserPdf } from "../ExportPDF/ExportPDF.jsx";
 import { getAll as getStudents } from "../../WebServer/services/student/functionsStudent.jsx";
 import { getAllLesson } from "../../WebServer/services/lesson/functionsLesson.jsx";
 import UserView from "./UserView";
@@ -47,6 +56,7 @@ const mount = async () => {
   await act(async () => root.render(
     <I18nProvider><MemoryRouter initialEntries={["/users/900000002"]}><Routes>
       <Route path="/users/:id" element={<UserView />} />
+      <Route path="/users" element={<p data-testid="users-list">list</p>} />
     </Routes></MemoryRouter></I18nProvider>
   ));
 };
@@ -149,4 +159,128 @@ test("no sign-out button without users.edit", async () => {
   mockPerms = ["users.view"];
   await mount();
   expect(signOutButton()).toBeUndefined();
+});
+
+// Owner, 2026-11-02: printing, unlocking, suspending and deleting a user are
+// done on their page (the last two apart, in the danger zone), no longer in
+// the list or the edit form.
+const button = (label) => [...container.querySelectorAll("button")].find((b) => b.textContent === label);
+const inDanger = (label) => [...container.querySelectorAll('[data-testid="danger-zone"] button')].some((b) => b.textContent === label);
+
+test("print is offered to anyone who sees the user", async () => {
+  mockPerms = ["users.view"];
+  await mount();
+  await act(async () => button("طباعة الملف").click());
+  expect(exportUserPdf).toHaveBeenCalledWith(USER);
+});
+
+test("with users.delete «حذف الحساب» sits in the danger zone; it deletes from the active room and goes to the list", async () => {
+  mockPerms = ["users.view", "users.edit", "users.delete"];
+  deleteU.mockResolvedValue({ ok: true });
+  await mount();
+  expect(inDanger("حذف الحساب")).toBe(true);
+  await act(async () => button("حذف الحساب").click());
+  expect(deleteU).toHaveBeenCalledWith("900000002", "active");
+  expect(container.querySelector('[data-testid="users-list"]')).not.toBeNull();
+});
+
+test("«إيقاف الحساب» asks first, then moves the user to the inactive accounts", async () => {
+  mockPerms = ["users.view", "users.edit", "users.approve"];
+  mockConfirm = true;
+  changeStatus.mockResolvedValue({ ok: true });
+  await mount();
+  expect(inDanger("إيقاف الحساب")).toBe(true);
+  await act(async () => button("إيقاف الحساب").click());
+  expect(changeStatus).toHaveBeenCalledWith("900000002", "active", "noActive");
+  expect(container.querySelector('[data-testid="users-list"]')).not.toBeNull();
+});
+
+test("no delete or suspend for a user the viewer may not manage, or without the permissions", async () => {
+  mockPerms = ["users.view"];
+  await mount();
+  expect(button("حذف الحساب")).toBeUndefined();
+  expect(button("إيقاف الحساب")).toBeUndefined();
+  await act(async () => root.unmount());
+  container.remove();
+  mockPerms = ["users.view", "users.edit", "users.delete"];
+  mockViewer = { id: "guide-2", tz: "900000009", role: "مرشد", isSystem: false };
+  await mount();
+  expect(button("حذف الحساب")).toBeUndefined();
+  expect(button("إيقاف الحساب")).toBeUndefined();
+});
+
+test("a locked account can be unlocked here with users.unlock", async () => {
+  mockPerms = ["users.view", "users.unlock"];
+  mockConfirm = true;
+  getUserById.mockResolvedValue({ ok: true, user: { ...USER, lockedAt: "2026-11-01T10:00:00Z" } });
+  unlockUser.mockResolvedValue({ ok: true });
+  await mount();
+  await act(async () => button("رفع الحظر").click());
+  expect(unlockUser).toHaveBeenCalledWith("900000002");
+});
+
+// Owner, 2026-11-02: a waiting or suspended account is opened from the list
+// too; approving and reactivating are on its page.
+test("a waiting account shows its state and «قبول»; approving picks a role and reloads the page", async () => {
+  mockPerms = ["users.view", "users.approve", "users.delete"];
+  mockRole = "مرشد";
+  getUserById.mockResolvedValue({ ok: true, user: { ...USER, room: "waiting" } });
+  changeStatus.mockResolvedValue({ ok: true });
+  await mount();
+  expect(container.querySelector('[data-testid="record-facts"]').textContent).toContain("بانتظار الموافقة");
+  expect(inDanger("حذف الحساب")).toBe(true);
+  const calls = getUserById.mock.calls.length;
+  await act(async () => button("قبول").click());
+  expect(changeStatus).toHaveBeenCalledWith("900000002", "waiting", "active", "مرشد");
+  expect(getUserById.mock.calls.length).toBe(calls + 1);
+});
+
+test("cancelling the role picker approves nobody", async () => {
+  mockPerms = ["users.view", "users.approve"];
+  mockRole = null;
+  changeStatus.mockClear();
+  getUserById.mockResolvedValue({ ok: true, user: { ...USER, room: "waiting" } });
+  await mount();
+  await act(async () => button("قبول").click());
+  expect(changeStatus).not.toHaveBeenCalled();
+});
+
+test("a suspended account with a role is reactivated with «تفعيل», no role asked", async () => {
+  mockPerms = ["users.view", "users.approve"];
+  mockRole = null;
+  getUserById.mockResolvedValue({ ok: true, user: { ...USER, room: "noActive" } });
+  changeStatus.mockResolvedValue({ ok: true });
+  await mount();
+  expect(container.querySelector('[data-testid="record-facts"]').textContent).toContain("موقوف");
+  await act(async () => button("تفعيل").click());
+  expect(changeStatus).toHaveBeenCalledWith("900000002", "noActive", "active", undefined);
+});
+
+test("deleting a waiting account deletes it from the waiting room", async () => {
+  mockPerms = ["users.view", "users.delete"];
+  deleteU.mockResolvedValue({ ok: true });
+  getUserById.mockResolvedValue({ ok: true, user: { ...USER, room: "waiting" } });
+  await mount();
+  await act(async () => button("حذف الحساب").click());
+  expect(deleteU).toHaveBeenCalledWith("900000002", "waiting");
+});
+
+test("no «قبول» without users.approve, or on an account the viewer may not manage", async () => {
+  getUserById.mockResolvedValue({ ok: true, user: { ...USER, room: "waiting" } });
+  mockPerms = ["users.view", "users.edit"];
+  await mount();
+  expect(button("قبول")).toBeUndefined();
+  await act(async () => root.unmount());
+  container.remove();
+  mockPerms = ["users.view", "users.approve"];
+  mockViewer = { id: "guide-2", tz: "900000009", role: "مرشد", isSystem: false };
+  await mount();
+  expect(button("قبول")).toBeUndefined();
+});
+
+test("an active account offers neither «قبول» nor «تفعيل»", async () => {
+  mockPerms = ["users.view", "users.approve"];
+  await mount();
+  expect(button("قبول")).toBeUndefined();
+  expect(button("تفعيل")).toBeUndefined();
 });

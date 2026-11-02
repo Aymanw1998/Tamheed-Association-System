@@ -23,7 +23,7 @@ export default function StadiumHeader({ firstname, onLogout, onHelp }) {
       <div className="stadium-top">
         <LogoBadge className="hero-logo" />
         <span className="top-actions">
-          <button type="button" className="help-btn" onClick={onHelp} aria-label="جولة تعريفية" title="جولة تعريفية">؟</button>
+          {onHelp && <button type="button" className="help-btn" onClick={onHelp} aria-label="جولة تعريفية" title="جولة تعريفية">؟</button>}
           <button type="button" className="logout" onClick={onLogout}>خروج</button>
         </span>
       </div>

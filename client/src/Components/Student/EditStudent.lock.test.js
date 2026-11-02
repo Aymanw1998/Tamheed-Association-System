@@ -84,3 +84,11 @@ test("EditStudent does not call a stored guide inactive when the user list faile
   expect(select.value).toBe("u1");
   expect(select.selectedOptions[0].textContent).toBe("(تعذّر تحميل اسم المرشد)");
 });
+
+// Owner, 2026-11-02: deleting is done on the student's page, not in the form.
+test("the edit form offers no «حذف»", async () => {
+  api.post.mockResolvedValue({ data: { ok: true } });
+  await mount();
+  expect(container.querySelector('[name="firstname"]')).not.toBeNull();
+  expect([...container.querySelectorAll("button")].map((b) => b.textContent.trim())).not.toContain("حذف");
+});

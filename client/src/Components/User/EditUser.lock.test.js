@@ -69,3 +69,20 @@ test("changing the role and then saving the form builds on the new version (no 4
   await act(async () => root.unmount());
   container.remove();
 });
+
+// Owner, 2026-11-02: suspending and deleting are done on the user's page, not
+// in the form.
+test("the edit form offers no «حذف الحساب» or «إيقاف الحساب»", async () => {
+  api.post.mockImplementation(async () => ({ data: { ok: true } }));
+  getUserById.mockResolvedValue({ ok: true, user: user(OPENED) });
+  const container = document.createElement("div");
+  document.body.appendChild(container);
+  const root = createRoot(container);
+  await act(async () => root.render(<I18nProvider><EditUser /></I18nProvider>));
+  expect(container.querySelector('[data-tour="user-save"]')).not.toBeNull();
+  const labels = [...container.querySelectorAll("button")].map((b) => b.textContent.trim());
+  expect(labels).not.toContain("حذف الحساب");
+  expect(labels).not.toContain("إيقاف الحساب");
+  await act(async () => root.unmount());
+  container.remove();
+});

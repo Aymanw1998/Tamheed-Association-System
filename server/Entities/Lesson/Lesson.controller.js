@@ -405,6 +405,11 @@ const putOne = async (req, res) => {
 };
 
 // DELETE
+// A deleted record's alerts go with it (owner, 2026-11-02). Never fatal.
+const forgetAlerts = (kind, id) => Promise.resolve()
+  .then(() => require("../../services/recordAlerts").forget(kind, id))
+  .catch((err) => logWithSource("Lesson.forgetAlerts", err));
+
 const deleteOne = async (req, res) => {
   try {
     const { id } = req.params;
@@ -415,6 +420,7 @@ const deleteOne = async (req, res) => {
     await LessonModelDef.delete({ _id: id });
     if (existing) await recordLesson(req, "delete", existing, null);
     notifyChange("lesson", id);
+    if (existing) await forgetAlerts("lesson", existing._id);
 
     return res.status(200).json({ ok: true, removed: true });
   } catch (err) {
