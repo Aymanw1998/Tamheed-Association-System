@@ -3515,3 +3515,48 @@ test gives one) and matches `sharedWith.userId`.
 **Verification:** server 1145/1145. Not checked on the live server.
 
 **Codex review:** pending (until 2026-11-05). **Status:** not committed.
+
+### Follow-up: permissions taken away show at once; permissions on the user page (2026-11-02)
+
+**Owner's report:** permissions removed from another account do not show on
+that person's screen at once; a guide whose role defaults were revoked still
+had them. **Owner's ruling:** the permissions belong on the user's page, not
+in the edit form.
+
+**Finding:** the server computes (role defaults + grants) - revokes on every
+request, so it already refused the revoked keys. The person's browser did
+not: it keeps the permissions in local storage and the pages read them only
+when they draw. They were refreshed on navigation (`RequireAuth` -> `getMe`)
+but after the new page had drawn, with no redraw, and never while a page was
+open. The server already broadcasts `change {entity: "user", id}` to every
+staff screen when a user's permissions or role change; the person's own
+screen ignored it.
+
+**Change (client):**
+- `utils/session.js`: `rememberSessionUser` announces a real change in the
+  stored roles or permissions (`subscribePermissions`, `getPermissionsVersion`).
+- `Components/Routes/useOwnAccessLive.js`: on a live change of the signed-in
+  user's own record, or a reconnected channel, reloads `/auth/me`;
+  `usePermissionsVersion` for the layout.
+- `Routes.jsx` `ProtectedLayout`: the header and page keys include the access
+  version, so both redraw (remount) when access changes.
+- Owner's follow-up ruling: the page says what changed. `AccessChangeNotice.jsx`
+  (`useAccessUpdates`) shows «ألغت الإدارة صلاحياتك: …» / «أضافت الإدارة لك
+  صلاحيات: …» under the menu. The menu redraws at once; the page redraws at
+  once unless it holds unsaved edits (`getUnsavedChanges() === true`), then
+  it waits until the user leaves it or presses «حدّث الآن».
+- `UserView.jsx`: a «الصلاحيات» tab (permissions.manage, active accounts)
+  with `PermissionsTab`; tour anchors `user-tab-permissions` and
+  `user-permissions` moved with it (`RecordTabs` gained a tab `tour`).
+- `EditUser.jsx`: the details/permissions tabs are gone; after a role
+  change, «الآن» opens `/users/:tz?tab=permissions`.
+
+**Test:** `session.test.js` (+1), `useOwnAccessLive.test.js` (5),
+`UserView.test.js` (+2), `AccessChangeNotice.test.js` (6), all seen failing first (the "no tab without
+permissions.manage" one passed at once, as it should). The edit form's
+missing tab has no test of its own.
+
+**Verification:** client 903/903, client build compiles. Not checked in the
+browser or live.
+
+**Codex review:** pending (until 2026-11-05). **Status:** not committed.

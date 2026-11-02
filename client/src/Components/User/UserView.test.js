@@ -19,6 +19,7 @@ jest.mock("../Provides/confirmBus", () => ({ ask: () => Promise.resolve(mockConf
 jest.mock("../../ALERT/SystemToasts", () => ({ toast: { success() {}, warn() {}, error() {} } }));
 jest.mock("../../WebServer/services/student/functionsStudent.jsx", () => ({ getAll: jest.fn() }));
 jest.mock("../../WebServer/services/lesson/functionsLesson.jsx", () => ({ getAllLesson: jest.fn() }));
+jest.mock("./PermissionsTab.jsx", () => ({ __esModule: true, default: ({ tz }) => <p data-testid="perms-tab">{tz}</p> }));
 let mockRole = "مرشد";
 jest.mock("./RolePickerDialog.jsx", () => ({
   useRolePicker: () => ({ pickRole: () => Promise.resolve(mockRole), roleDialog: null }),
@@ -283,4 +284,27 @@ test("an active account offers neither «قبول» nor «تفعيل»", async (
   await mount();
   expect(button("قبول")).toBeUndefined();
   expect(button("تفعيل")).toBeUndefined();
+});
+
+
+// Owner, 2026-11-02: a user's permissions are on the user's page, not in the
+// edit form.
+test("with permissions.manage the page has a permissions tab for an active user", async () => {
+  mockPerms = ["users.view", "permissions.manage"];
+  await mount();
+  expect(tabLabels()).toContain("الصلاحيات");
+  const tab = [...container.querySelectorAll('[role="tab"]')].find((el) => el.textContent === "الصلاحيات");
+  expect(tab.getAttribute("data-tour")).toBe("user-tab-permissions");
+  await act(async () => tab.click());
+  expect(container.querySelector('[data-tour="user-permissions"] [data-testid="perms-tab"]').textContent).toBe("900000002");
+});
+
+test("no permissions tab without permissions.manage, or for a waiting or inactive account", async () => {
+  await mount();
+  expect(tabLabels()).not.toContain("الصلاحيات");
+  await act(async () => root.unmount()); container.remove();
+  mockPerms = ["users.view", "permissions.manage"];
+  getUserById.mockResolvedValue({ ok: true, user: { ...USER, room: "waiting" } });
+  await mount();
+  expect(tabLabels()).not.toContain("الصلاحيات");
 });

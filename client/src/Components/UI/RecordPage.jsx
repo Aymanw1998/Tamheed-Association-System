@@ -84,6 +84,7 @@ export function RecordTabs({ tabs = [], keepMounted = false }) {
                 type="button"
                 role="tab"
                 aria-selected={t.id === active?.id}
+                data-tour={t.tour}
                 className={`${styles.tab} ${t.id === active?.id ? styles.tabOn : ""}`}
                 onClick={() => open(t.id)}
               >

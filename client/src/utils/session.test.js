@@ -84,3 +84,25 @@ test("the user's gender is remembered for choosing the guide", () => {
   rememberSessionUser({ _id: "u1", gender: "ذكر" });
   expect(getStoredGender()).toBe("ذكر");
 });
+
+// Owner, 2026-11-02: permissions taken from someone show at once on their
+// screen. A change in the stored permissions or roles tells the listeners
+// (the layout redraws the menu and the page); the same ones again do not.
+test("a change in permissions or roles tells the listeners, the same ones do not", () => {
+  const { subscribePermissions, getPermissionsVersion } = require("./session");
+  const seen = jest.fn();
+  rememberSessionUser({ _id: "u1", roles: ["مرشد"], permissions: ["students.view", "lessons.view"] });
+  const stop = subscribePermissions(seen);
+  const before = getPermissionsVersion();
+  rememberSessionUser({ _id: "u1", roles: ["مرشد"], permissions: ["students.view", "lessons.view"] });
+  expect(seen).not.toHaveBeenCalled();
+  rememberSessionUser({ _id: "u1", roles: ["مرشد"], permissions: ["lessons.view"] });
+  expect(seen).toHaveBeenCalledTimes(1);
+  expect(getPermissionsVersion()).not.toBe(before);
+  expect(canStored("students.view")).toBe(false);
+  rememberSessionUser({ _id: "u1", roles: ["مساعد"], permissions: ["lessons.view"] });
+  expect(seen).toHaveBeenCalledTimes(2);
+  stop();
+  rememberSessionUser({ _id: "u1", roles: ["مساعد"], permissions: [] });
+  expect(seen).toHaveBeenCalledTimes(2);
+});

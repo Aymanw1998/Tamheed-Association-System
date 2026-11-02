@@ -13,6 +13,7 @@ import { useI18n } from "../../i18n/I18nContext";
 import RecordPage from "../UI/RecordPage";
 import { DetailGroup, LinkList } from "../UI/RecordParts";
 import { useRolePicker, permissionError } from "./RolePickerDialog.jsx";
+import PermissionsTab from "./PermissionsTab.jsx";
 
 const nameOf = (p) => `${p?.firstname || ""} ${p?.lastname || ""}`.trim();
 const dateOf = (v) => {
@@ -76,10 +77,19 @@ export default function UserView() {
 
   if (!user) return <RecordPage loading={!error} error={error} />;
 
+  // A user's permissions are here, not in the edit form (owner, 2026-11-02);
+  // like the form, for active accounts only. The tab disables what the
+  // viewer may not grant, and the server checks every change again.
   const tabs = [
     { id: "personal", label: t("record.personal"), content: <DetailGroup rows={userDetails(user)} /> },
     ...guideTabs({ ...theirs, studentsLabel: t("record.theirStudents"), lessonsLabel: t("record.theirLessons") }),
-  ];
+    canStored("permissions.manage") && (user.room || "active") === "active" && {
+      id: "permissions",
+      label: t("perms.tab"),
+      tour: "user-tab-permissions",
+      content: <div data-tour="user-permissions"><PermissionsTab tz={user.tz} onSaved={() => {}} /></div>,
+    },
+  ].filter(Boolean);
   // Like the users list: only an active account the viewer may manage (lower
   // rank, not themself); the form edits active accounts only.
   const editable = canStored("users.edit") && user.room !== "waiting" && user.room !== "noActive"

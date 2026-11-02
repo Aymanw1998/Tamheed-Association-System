@@ -25,16 +25,33 @@ export const normalizeRoles = (value) => {
   return [];
 };
 
+// Pages read the stored permissions when they draw, so a change in them
+// (an admin took a permission away, or the role changed) is announced: the
+// layout redraws the menu and the page (owner, 2026-11-02).
+let accessVersion = 0;
+const accessListeners = new Set();
+function accessChanged() {
+  accessVersion += 1;
+  for (const fn of [...accessListeners]) fn();
+}
+export const subscribePermissions = (fn) => {
+  accessListeners.add(fn);
+  return () => accessListeners.delete(fn);
+};
+export const getPermissionsVersion = () => accessVersion;
+
 // Saves who is signed in for the pages that check roles. Called on login and
 // after every /auth/me check, so a session restored from the refresh cookie
 // (after local storage was cleared) gets its roles back.
 export const rememberSessionUser = (user) => {
   if (!user) return;
+  const accessBefore = `${localStorage.getItem("roles")}|${localStorage.getItem("permissions")}`;
   if (user._id) localStorage.setItem("user_id", String(user._id));
   if (user.tz) localStorage.setItem("user_tz", String(user.tz));
   if (typeof user.gender === "string" && user.gender) localStorage.setItem("gender", user.gender);
   if (Array.isArray(user.roles)) localStorage.setItem("roles", JSON.stringify(user.roles));
   if (Array.isArray(user.permissions)) localStorage.setItem("permissions", JSON.stringify(user.permissions));
+  if (`${localStorage.getItem("roles")}|${localStorage.getItem("permissions")}` !== accessBefore) accessChanged();
   if (typeof user.role === "string" && user.role) localStorage.setItem("role", user.role);
   // The server flags only the system account; anyone else clears the flag.
   if (user.isSystem === true) localStorage.setItem("isSystem", "1");

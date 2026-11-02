@@ -15,7 +15,6 @@ import { ROLE_LABEL_KEY, canManageTargetClient, isDemotion, resolveRole } from "
 import { ask } from "../Provides/confirmBus";
 import StatusBadge from "../UI/StatusBadge.jsx";
 import { fillText } from "../../utils/vehicleDisplay";
-import PermissionsTab from "./PermissionsTab.jsx";
 import { permissionError, viewerAssignableRoles } from "./RolePickerDialog.jsx";
 import RecentChanges from "../Audit/RecentChanges.jsx";
 import tabStyles from "./PermissionsTab.module.css";
@@ -87,8 +86,6 @@ const EditUser = () => {
   const [currentRole, setCurrentRole] = useState(null);
   const [roleChoice, setRoleChoice] = useState("");
   const [savingRole, setSavingRole] = useState(false);
-  const [tab, setTab] = useState("details");
-  const [tabKey, setTabKey] = useState(0);
   const [unlocking, setUnlocking] = useState(false);
   const [resettingTours, setResettingTours] = useState(false);
   // The user as opened: its updatedAt is the baseVersion of the save. Users
@@ -114,7 +111,6 @@ const EditUser = () => {
   const lockKey = isEdit && opened?._id ? `user:${opened._id}` : null;
   const lock = useItemLock(lockKey, { enabled: canSubmit });
   const readonly = lock.status === "readonly";
-  const showTabs = isEdit && canManagePermissions;
   // Roles below the viewer's own (all for the system account); the server
   // applies the same rule to approvals, new accounts and role changes.
   const viewerRoles = viewerAssignableRoles();
@@ -428,11 +424,11 @@ const EditUser = () => {
     setCurrentRole(roleChoice);
     setForm((prev) => ({ ...prev, role: roleChoice, roles: [roleChoice] }));
     toast.success(t("perms.roleSaved"));
-    setTabKey((k) => k + 1); // reload the tab and recent changes: the role's defaults changed
     if (!canManagePermissions) return;
     const now = await safeAsk({ title: t("perms.addNowTitle"), message: t("perms.addNowMessage"), confirmText: t("perms.addNow"), cancelText: t("perms.later") });
+    // The permissions are on the user's page (owner, 2026-11-02).
     if (now) {
-      setTab("permissions");
+      navigate(`/users/${form.tz}?tab=permissions`);
     } else {
       navigate(-1);
     }
@@ -449,7 +445,6 @@ const EditUser = () => {
     await refreshBase();
     setForm((prev) => ({ ...prev, lockedAt: null, failedLoginCount: 0 }));
     toast.success(t("perms.unlocked"));
-    setTabKey((k) => k + 1);
   };
 
   // POST /tours/reset/:tz: clears every tour id, so the guided journey is offered again at the next sign-in.
@@ -476,28 +471,6 @@ const EditUser = () => {
       <SaveNotice notice={notice} />
       {recovery.element}
 
-      {showTabs && (
-        <div className={tabStyles.tabs} data-tour="user-tabs" role="tablist">
-          {["details", "permissions"].map((name) => (
-            <button
-              key={name}
-              type="button"
-              role="tab"
-              data-tour={name === "permissions" ? "user-tab-permissions" : undefined}
-              aria-selected={tab === name}
-              className={`${tabStyles.tabButton} ${tab === name ? tabStyles.tabActive : ""}`}
-              onClick={() => setTab(name)}
-            >
-              {t(name === "details" ? "perms.detailsTab" : "perms.tab")}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {showTabs && tab === "permissions" ? (
-        <ReadOnlyArea readonly={readonly} data-tour="user-permissions"><PermissionsTab key={tabKey} tz={form.tz} onSaved={refreshBase} /></ReadOnlyArea>
-      ) : (
-      <>
       <ReadOnlyArea readonly={readonly} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <fieldset className={sectionStyles.formSection} data-tour="user-account">
         <legend>بيانات الحساب</legend>
@@ -703,8 +676,6 @@ const EditUser = () => {
           العودة إلى القائمة
         </button>)}
       </div>
-      </>
-      )}
 
       {/* {isEdit && canStored("audit.view") && form.tz && <RecentChanges key={tabKey} targetIds={[form.tz]} />} */}
     </div>

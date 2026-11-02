@@ -51,6 +51,11 @@ export const accessStrings = {
         SELF: "لا يمكنك تعديل صلاحياتك", UNKNOWN_KEY: "صلاحية غير معروفة",
         UNKNOWN_ROLE: "دور غير معروف", ROLE_REQUIRED: "اختر دورًا للمستخدم", generic: "تعذّر إتمام العملية",
       },
+      // Shown on the signed-in user's page when an admin changes their access.
+      accessRemoved: "ألغت الإدارة صلاحياتك: {list}",
+      accessAdded: "أضافت الإدارة لك صلاحيات: {list}",
+      accessWaiting: "ستتحدّث الصفحة بعد أن تحفظ تعديلاتك أو تغادرها.",
+      accessApplyNow: "حدّث الآن", accessClose: "إغلاق",
       modules: modules.ar, leaves: leaves.ar,
       // Module-specific leaf names; they win over the shared `leaves`.
       leavesByModule: { sports: { coach: "تدريب الفرق", manage: "إدارة الرياضة" } },

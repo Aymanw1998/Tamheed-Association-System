@@ -43,6 +43,8 @@ import PrivacyPage from '../Privacy/PrivacyPage';
 import GuidePage from '../../guide/GuidePage';
 import TrainingBanner from '../../journey/TrainingBanner';
 import { useDemo } from '../../journey/demoMode';
+import useOwnAccessLive, { usePermissionsVersion } from './useOwnAccessLive';
+import useAccessUpdates from './AccessChangeNotice';
 import GuidanceProviders from './GuidanceProviders';
 import LiveEventsProvider from '../../locks/LiveEventsProvider';
 
@@ -53,13 +55,21 @@ function ProtectedLayout() {
   // the header's notices bell and the assistant's alerts) remount and reload
   // from the right source, never mixing demo and real data.
   const { epoch } = useDemo();
+  // A change in this user's permissions or role (an admin's edit arrives
+  // live, or /auth/me on navigation finds it) redraws the menu at once and
+  // the page too, unless it holds unsaved edits; the notice names what
+  // changed (owner, 2026-11-02).
+  useOwnAccessLive();
+  const access = usePermissionsVersion();
+  const { applied, notice } = useAccessUpdates();
   return (
     <div style={{ height: "100vh", width: "100vw" }}>
       <LiveEventsProvider />
       <GuidanceProviders>
         <TrainingBanner />
-        <Header key={`header-${epoch}`} />
-        <Outlet key={`outlet-${epoch}`} />
+        <Header key={`header-${epoch}-${access}`} />
+        {notice}
+        <Outlet key={`outlet-${epoch}-${applied}`} />
         {/* {canStored("ai.use") && <FloatingAIButton key={`ai-${epoch}`} />} */}
       </GuidanceProviders>
     </div>
