@@ -19,3 +19,24 @@ test("offline bar follows the offline and online events", () => {
   act(() => { root.unmount(); });
   host.remove();
 });
+
+// Owner, 2026-11-03: with a bar showing («كيف؟»), «إغلاق» in the install
+// guide did nothing: the guide sat inside the bars' wrapper, which lets
+// clicks through (pointer-events: none), so the guide got no clicks at all.
+test("the install guide is not inside the click-through bar wrapper", () => {
+  const { openInstallGuide } = require("./installState");
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  const root = createRoot(host);
+  act(() => { root.render(<AppChrome />); });
+  act(() => { window.dispatchEvent(new Event("offline")); });
+  act(() => { openInstallGuide(); });
+  const guide = host.querySelector('[data-testid="install-guide"]');
+  expect(guide).not.toBeNull();
+  for (let el = guide; el && el !== host; el = el.parentElement) expect(el.style.pointerEvents).not.toBe("none");
+  act(() => { host.querySelector('[data-testid="install-guide-close"]').click(); });
+  expect(host.querySelector('[data-testid="install-guide"]')).toBeNull();
+  act(() => { window.dispatchEvent(new Event("online")); });
+  act(() => { root.unmount(); });
+  host.remove();
+});

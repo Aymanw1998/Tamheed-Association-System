@@ -49,23 +49,23 @@ beforeEach(async () => {
 });
 afterEach(async () => { await act(async () => root.unmount()); host.remove(); setUnsavedChanges(null); });
 
-test("a removed permission is named on the page, and the page redraws at once", async () => {
+// Owner, 2026-11-03: one general message, without listing what changed.
+test("a changed permission shows a general message, and the page redraws at once", async () => {
   await act(async () => rememberSessionUser({ _id: "me", roles: ["مرشد"], permissions: ["students.view", "lessons.view"] }));
-  expect(banner().textContent).toContain("ألغت الإدارة صلاحياتك");
-  expect(banner().textContent).toContain("الطلاب: تعديل");
+  expect(banner().textContent).toContain("عدّلت الإدارة صلاحياتك");
+  expect(banner().textContent).not.toContain("الطلاب");
   expect(mounts).toBe(2);
 });
 
-test("an added permission is named too", async () => {
+test("an added permission shows the same message", async () => {
   await act(async () => rememberSessionUser({ _id: "me", roles: ["مرشد"], permissions: ["students.view", "students.edit", "lessons.view", "reports.create"] }));
-  expect(banner().textContent).toContain("أضافت الإدارة لك");
-  expect(banner().textContent).toContain("التقارير: إضافة");
+  expect(banner().textContent).toContain("عدّلت الإدارة صلاحياتك");
+  expect(banner().textContent).not.toContain("التقارير");
 });
 
 test("with unsaved edits the page waits; «حدّث الآن» redraws it", async () => {
   setUnsavedChanges(true);
   await act(async () => rememberSessionUser({ _id: "me", roles: ["مرشد"], permissions: ["lessons.view"] }));
-  expect(banner().textContent).toContain("الطلاب: تعديل");
   expect(banner().textContent).toContain("بعد أن تحفظ");
   expect(mounts).toBe(1);
   await act(async () => button("حدّث الآن").click());

@@ -64,7 +64,6 @@ const PUBLIC_ROUTES = {
 // Routes any active signed-in user may call (loadActor, no key): the
 // controller scopes the answer to the caller.
 const ANY_ACTOR_ROUTES = {
-  "Report/Report.route.js": ["GET /", "GET /:id"], // reports.viewAll checked in the controller
   // The dashboard summary checks, per part, the permission of that part's own route.
   "Dashboard/Dashboard.route.js": ["GET /summary"],
   "Vehicle/Vehicle.route.js": ["GET /me/permissions", "GET /alerts"], // own permissions / assigned vehicles

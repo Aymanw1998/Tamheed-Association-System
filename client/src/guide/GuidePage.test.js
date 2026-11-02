@@ -19,8 +19,11 @@ jest.mock("../journey/JourneyProvider", () => ({ useJourney: () => mockJourney }
 let root;
 let container;
 
-const mount = async (permissions = []) => {
-  localStorage.setItem("permissions", JSON.stringify(permissions));
+// Lessons, attendance and reports need their keys too (owner, 2026-11-03);
+// a guide-like user has them. A test passes the keys it adds.
+const BASIC = ["lessons.view", "attendance.view", "reports.viewAll"];
+const mount = async (permissions = [], { bare = false } = {}) => {
+  localStorage.setItem("permissions", JSON.stringify(bare ? permissions : [...BASIC, ...permissions]));
   localStorage.setItem("user_id", "u1");
   container = document.createElement("div");
   document.body.appendChild(container);
@@ -55,6 +58,11 @@ test("shows a card per screen the user can open, folded", async () => {
   expect(card("lessons").querySelector("details").open).toBe(false);
   // No lessons.create: the steps for a new lesson are left out.
   expect(card("lessons").textContent).not.toContain("درس جديد");
+});
+
+test("with no keys only the dashboard is shown", async () => {
+  await mount([], { bare: true });
+  expect(cards()).toEqual(["dashboard"]);
 });
 
 test("a user who can create lessons sees how", async () => {

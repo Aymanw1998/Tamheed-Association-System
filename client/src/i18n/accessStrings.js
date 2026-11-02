@@ -52,8 +52,7 @@ export const accessStrings = {
         UNKNOWN_ROLE: "دور غير معروف", ROLE_REQUIRED: "اختر دورًا للمستخدم", generic: "تعذّر إتمام العملية",
       },
       // Shown on the signed-in user's page when an admin changes their access.
-      accessRemoved: "ألغت الإدارة صلاحياتك: {list}",
-      accessAdded: "أضافت الإدارة لك صلاحيات: {list}",
+      accessChanged: "عدّلت الإدارة صلاحياتك.",
       accessWaiting: "ستتحدّث الصفحة بعد أن تحفظ تعديلاتك أو تغادرها.",
       accessApplyNow: "حدّث الآن", accessClose: "إغلاق",
       modules: modules.ar, leaves: leaves.ar,

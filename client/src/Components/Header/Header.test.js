@@ -18,6 +18,7 @@ let mockPerms = [];
 jest.mock("../../utils/session", () => ({
   ...jest.requireActual("../../utils/session"),
   canStored: (k) => mockPerms.includes(k),
+  getStoredPermissions: () => mockPerms,
 }));
 
 import { getMe, logout } from "../../WebServer/services/auth/fuctionsAuth";
@@ -50,7 +51,7 @@ const accountMenu = () => host.querySelector('[data-testid="account-menu"]');
 const item = (label) => [...(accountMenu()?.querySelectorAll("a, button") || [])].find((el) => el.textContent.trim() === label);
 
 beforeEach(() => {
-  mockPerms = ["students.view", "users.view"];
+  mockPerms = ["students.view", "users.view", "attendance.view", "lessons.view", "reports.create", "files.use"];
   window.innerWidth = 1280;
   getMe.mockResolvedValue({ firstname: "أيمن", lastname: "و", roles: ["ادارة"] });
   getMyPermissions.mockResolvedValue({ ok: true, permissions: [] });
@@ -112,4 +113,13 @@ test("sign-out is reachable before the user's details load", async () => {
   await mount();
   await act(async () => accountButton().click());
   expect(item("تسجيل الخروج")).toBeDefined();
+});
+
+
+// Owner, 2026-11-03: taking a section away (e.g. reports from a guide) takes
+// its link out of the menu too.
+test("each page link follows its permission", async () => {
+  mockPerms = ["students.view", "lessons.view"];
+  await mount();
+  expect(navText()).toEqual(["الطلاب", "الدروس"]);
 });

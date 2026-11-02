@@ -7,7 +7,8 @@ import { getMyPermissions } from "../../WebServer/services/vehicle/functionsVehi
 import { confirmLeave } from "../../utils/unsavedChanges";
 import { useI18n } from "../../i18n/I18nContext";
 import NoticeBell from "../Notice/NoticeBell";
-import { ADMIN_ROLES, GUIDE_ROLES, canStored, normalizeRoles } from "../../utils/session";
+import { ADMIN_ROLES, GUIDE_ROLES, canStored, getStoredPermissions, normalizeRoles } from "../../utils/session";
+import { canAccessPath } from "../../utils/routeAccess";
 import NewBadge from "../../tours/NewBadge";
 import { InstallAppButton } from "../../pwa/InstallApp";
 
@@ -72,6 +73,8 @@ export default function Header() {
   const canViewUsers = canStored("users.view");
   const canViewNotices = canStored("notices.view");
   const canViewAudit = canStored("audit.view");
+  // The page links follow the same rules as the pages (utils/routeAccess).
+  const opens = (path) => canAccessPath(path, getStoredPermissions());
   const displayRole = isAdmin ? t("roles.admin") : isGuide ? t("roles.guide") : t("roles.assistantGuide");
 
   const loadData = useCallback(async () => {
@@ -200,7 +203,9 @@ export default function Header() {
         className={`${styles.navbarV} ${isMobile ? styles.mobileNav : ""}`}
         data-open={isMobile ? menuOpen : true}
       >
-        <a href="/calendar" data-tour="menu-calendar" onClick={(event) => onNavClick(event, "/calendar")}>{t("nav.attendance")}<NewBadge section="calendar" /></a>
+        {opens("/calendar") && (
+          <a href="/calendar" data-tour="menu-calendar" onClick={(event) => onNavClick(event, "/calendar")}>{t("nav.attendance")}<NewBadge section="calendar" /></a>
+        )}
         {canViewUsers && (
           <a href="/users" data-tour="menu-users" onClick={(event) => onNavClick(event, "/users")}>{t("nav.users")}<NewBadge section="users" /></a>
         )}
@@ -210,9 +215,15 @@ export default function Header() {
         {/* {canViewNotices && (
           <a href="/notices" onClick={(event) => onNavClick(event, "/notices")}>{t("nav.notices")}</a>
         )} */}
-        <a href="/lessons" data-tour="menu-lessons" onClick={(event) => onNavClick(event, "/lessons")}>{t("nav.lessons")}<NewBadge section="lessons" /></a>
-        <a href="/reports" data-tour="menu-reports" onClick={(event) => onNavClick(event, "/reports")}>{t("nav.reports")}<NewBadge section="reports" /></a>
-        <a href="/files" data-tour="menu-files" onClick={(event) => onNavClick(event, "/files")}>{t("nav.files")}<NewBadge section="files" /></a>
+        {opens("/lessons") && (
+          <a href="/lessons" data-tour="menu-lessons" onClick={(event) => onNavClick(event, "/lessons")}>{t("nav.lessons")}<NewBadge section="lessons" /></a>
+        )}
+        {opens("/reports") && (
+          <a href="/reports" data-tour="menu-reports" onClick={(event) => onNavClick(event, "/reports")}>{t("nav.reports")}<NewBadge section="reports" /></a>
+        )}
+        {opens("/files") && (
+          <a href="/files" data-tour="menu-files" onClick={(event) => onNavClick(event, "/files")}>{t("nav.files")}<NewBadge section="files" /></a>
+        )}
         {canViewVehicles && (
           <a href="/vehicles" data-tour="menu-vehicles" onClick={(event) => onNavClick(event, "/vehicles")}>{t("nav.vehicles")}<NewBadge section="vehicles" /></a>
         )}

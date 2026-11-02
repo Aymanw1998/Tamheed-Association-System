@@ -1,10 +1,11 @@
 import { canAccessPath, blockedRedirect } from "./routeAccess";
 
 const ADMIN = ["users.view", "users.create", "users.edit", "notices.view", "students.view", "students.create", "students.edit",
-  "lessons.view", "lessons.create", "lessons.edit", "vehicles.view", "audit.view"];
+  "lessons.view", "lessons.create", "lessons.edit", "vehicles.view", "audit.view",
+  "attendance.view", "reports.create", "reports.viewAll", "files.use"];
 // Only an admin edits students, lessons and users (owner, 2026-11-01).
-const GUIDE = ["students.view", "lessons.view"];
-const ASSISTANT = ["dashboard.view"];
+const GUIDE = ["students.view", "lessons.view", "attendance.view", "reports.create", "files.use"];
+const ASSISTANT = ["dashboard.view", "lessons.view", "attendance.view", "reports.create", "files.use"];
 
 test.each([
   ["/dashboard", true, true, true],
@@ -72,4 +73,21 @@ test("any other blocked page goes to the dashboard", () => {
 test("an allowed page is not redirected", () => {
   expect(blockedRedirect("/users/990000010", ADMIN, "990000010")).toBe(null);
   expect(blockedRedirect("/lessons/abc", GUIDE, "1")).toBe(null);
+});
+
+
+// Owner, 2026-11-03: a section taken away disappears from the menu and its
+// page is closed, like the others: attendance, lessons, reports and files.
+test.each([
+  ["/calendar", ["attendance.view"]],
+  ["/lessons", ["lessons.view"]],
+  ["/lessons/6ab7d576de1b6cee14016499", ["lessons.view"]],
+  ["/reports", ["reports.create"]],
+  ["/reports", ["reports.viewAll"]],
+  ["/reports/new", ["reports.create"]],
+  ["/files", ["files.use"]],
+  ["/files", ["files.manageAll"]],
+])("%s opens with %j and is closed with no key of its section", (path, keys) => {
+  expect(canAccessPath(path, keys)).toBe(true);
+  expect(canAccessPath(path, ["dashboard.view", "students.view"])).toBe(false);
 });

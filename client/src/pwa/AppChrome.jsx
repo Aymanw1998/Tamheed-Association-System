@@ -107,7 +107,10 @@ export default function AppChrome() {
 
   if (online && !worker && !installEvt && !iosHint) return <InstallGuide />;
 
+  // The guide sits outside the wrapper: the wrapper lets clicks through
+  // (pointer-events: none), which would make the guide unclickable.
   return (
+    <>
     <div dir="rtl" style={wrap} data-testid="app-chrome">
       {!online && (
         <div role="status" style={{ ...bar, background: "#7a4b00" }}>
@@ -139,7 +142,8 @@ export default function AppChrome() {
           </button>
         </div>
       )}
-      <InstallGuide />
     </div>
+    <InstallGuide />
+    </>
   );
 }

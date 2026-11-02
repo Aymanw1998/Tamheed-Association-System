@@ -24,7 +24,7 @@ test("shows only screens the user can open, and only the steps they can do", () 
   expect(shown[0].steps.map((s) => s.text.ar)).toEqual(["أرقام", "قبول"]);
   expect(visibleGuide([], guide).map((e) => e.id)).toEqual(["dashboard"]);
   expect(visibleGuide([], guide)[0].steps).toHaveLength(1);
-  expect(visibleGuide(["users.view", "lessons.create"], guide).map((e) => e.id)).toEqual(["dashboard", "users", "lessons"]);
+  expect(visibleGuide(["users.view", "lessons.view", "lessons.create"], guide).map((e) => e.id)).toEqual(["dashboard", "users", "lessons"]);
 });
 
 test("never changes the content it is given", () => {

@@ -3560,3 +3560,36 @@ missing tab has no test of its own.
 browser or live.
 
 **Codex review:** pending (until 2026-11-05). **Status:** not committed.
+
+### Follow-up: menu links follow every section's permission; a general message; install guide close (2026-11-03)
+
+**Owner's report:** taking «التقارير» away from a guide left the link in the
+menu. The access message should be general, without listing what changed.
+«إغلاق» in the install guide opened from «كيف؟» did nothing.
+
+**Change:**
+- Client `utils/routeAccess.js`: `/calendar` needs attendance.view,
+  `/lessons` lessons.view, `/reports` any reports key, `/files` files.use or
+  files.manageAll (they were open to every signed-in user). `Header.jsx`
+  shows those four links through `canAccessPath`, so menu and page agree.
+  The help page (`guide/guideLogic.js`) uses the same rules.
+- Server `Report.route.js`: reading reports needs some reports key; the
+  controller still filters per caller. Removed from the route-guards
+  public list.
+- Client `AccessChangeNotice.jsx`: one message, «عدّلت الإدارة صلاحياتك.»;
+  the waiting text and «حدّث الآن» stay.
+- `pwa/AppChrome.jsx` (client and sport): the bars' wrapper has
+  `pointer-events: none` and the install guide was rendered inside it, so
+  the guide got no clicks whenever a bar showed. The guide is now rendered
+  beside the wrapper.
+
+**Test:** `routeAccess.test.js` (+8), `Header.test.js` (+1),
+`AccessChangeNotice.test.js` (2 rewritten), `AppChrome.test.js` (+1 in each
+app), the guards test: all seen failing first. `GuidePage.test.js` and
+`guideLogic.test.js` fixtures gained the section keys (+1 test: no keys,
+dashboard only).
+
+**Verification:** client 914/914, sport 92/92, server 1145/1145; client and
+sport builds compile. Not checked on a phone or live.
+
+**Codex review:** pending (until 2026-11-06). **Status:** not committed.

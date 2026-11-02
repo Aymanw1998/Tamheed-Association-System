@@ -24,9 +24,11 @@ const lockedReport = requireFreeOrMine((req) => `report:${req.params.id}`);
 
 router.use(requireAuth, loadActor);
 
-// Reads are filtered per caller in the controller (reports.viewAll).
-router.get("/", getAll);
-router.get("/:id", getById);
+// Reading needs some reports key (owner, 2026-11-03: a section taken away
+// closes); the controller then filters per caller (reports.viewAll).
+const READ_KEYS = ["reports.create", "reports.editOwn", "reports.viewAll", "reports.editAll", "reports.delete", "reports.exportPdf"];
+router.get("/", requirePermission(...READ_KEYS), getAll);
+router.get("/:id", requirePermission(...READ_KEYS), getById);
 router.post("/", requirePermission("reports.create"), post);
 router.put("/:id", requirePermission("reports.editOwn", "reports.editAll"), lockedForEdit, put);
 router.delete("/:id", requirePermission("reports.delete"), lockedReport, remove);

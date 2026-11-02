@@ -17,6 +17,11 @@ const RESTRICTED = [
   { pattern: /^\/vehicles(\/|$)/, key: "vehicles.view" },
   { pattern: /^\/sports(\/|$)/, any: ["sports.view", "sports.coach", "sports.manage"] },
   { pattern: /^\/audit(\/|$)/, key: "audit.view" },
+  // A section taken away closes too (owner, 2026-11-03), as on the server.
+  { pattern: /^\/calendar(\/|$)/, key: "attendance.view" },
+  { pattern: /^\/lessons(\/|$)/, key: "lessons.view" },
+  { pattern: /^\/reports(\/|$)/, any: ["reports.create", "reports.editOwn", "reports.viewAll", "reports.editAll", "reports.delete", "reports.exportPdf"] },
+  { pattern: /^\/files(\/|$)/, any: ["files.use", "files.manageAll"] },
 ];
 
 export const canAccessPath = (pathname, permissions) => {
