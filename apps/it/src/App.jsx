@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { getMe, logout, setSignedOutHandler, systemPass } from "./api";
 import { Link, usePath } from "./router.jsx";
 import { goTo, systemUrlWithPass, takePassFromAddress } from "./siteLink";
+import logo from "./logo.png";
 import Avatar from "./ui/Avatar.jsx";
 import { passportSrc } from "./ui/passportPhoto";
 import SignIn from "./screens/SignIn.jsx";
@@ -77,7 +78,10 @@ export default function App() {
   return (
     <div className="shell">
       <header className="top">
-        <strong className="brand">قسم IT</strong>
+        <strong className="brand">
+          <span className="brand-logo"><img src={logo} alt="" /></span>
+          قسم IT
+        </strong>
         <nav aria-label="القائمة">
           {links.map((link) => (
             <Link key={link.to} to={link.to} className={path === link.to || (link.to === "/" && path.startsWith("/users")) ? "active" : ""}>{link.label}</Link>

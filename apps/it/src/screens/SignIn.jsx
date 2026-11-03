@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { errorText, login, loginPass, verify } from "../api";
+import logo from "../logo.png";
 
 const PASS_FAILED = "انتهت صلاحية الانتقال، سجّل الدخول من جديد";
 
@@ -63,6 +64,7 @@ export default function SignIn({ pass = "", onSignedIn }) {
 
   return (
     <main className="signin">
+      <img className="signin-logo" src={logo} alt="شعار جمعية تمهيد - قسم IT" />
       <h1>قسم تكنولوجيا المعلومات</h1>
       {step === "pass" && <p role="status">جارٍ الانتقال…</p>}
 

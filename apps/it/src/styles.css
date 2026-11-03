@@ -57,6 +57,7 @@ label.check { display: flex; align-items: center; gap: 8px; }
 .signin { max-width: 380px; margin: 8vh auto; padding: 24px 20px; background: #fff; border-radius: 12px; box-shadow: 0 4px 24px rgba(11, 42, 58, .08); }
 .signin form { display: grid; gap: 14px; }
 .signin h1 { text-align: center; margin-bottom: 18px; }
+.signin-logo { display: block; width: 150px; height: 150px; margin: 0 auto 10px; object-fit: contain; }
 
 /* Shell */
 .top {
@@ -68,6 +69,12 @@ label.check { display: flex; align-items: center; gap: 8px; }
   background: var(--navy);
   color: #fff;
 }
+.brand { display: inline-flex; align-items: center; gap: 8px; }
+.brand-logo {
+  display: inline-grid; place-items: center; width: 40px; height: 40px; flex: none;
+  border-radius: 50%; background: #fff; overflow: hidden; box-shadow: 0 0 0 2px #f7941d;
+}
+.brand-logo img { width: 88%; height: 88%; object-fit: contain; }
 .top nav { display: flex; flex-wrap: wrap; gap: 4px; flex: 1; }
 .top nav a { color: #cfe3ee; text-decoration: none; padding: 6px 10px; border-radius: 8px; }
 .top nav a.active, .top nav a:hover { background: rgba(255, 255, 255, .14); color: #fff; }
