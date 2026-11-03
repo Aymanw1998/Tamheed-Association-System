@@ -135,6 +135,27 @@ Notes:
   `SYSTEM_ADMIN_EMAIL` and is recorded in the audit log.
 - Recovery when nobody can sign in as 000000000 stays on the server only
   (`scripts/systemRecover.js`, already there).
+- One password for both sites (owner, 2026-11-03): no separate IT password;
+  the email code is the IT site's extra protection.
+
+### Moving between the sites (owner, 2026-11-03)
+
+- A user who is IT and has an everyday role sees a button in each site that
+  opens the other one already signed in, without typing the ID number and
+  password again: «النظام» on the IT site opens the everyday app; on the
+  everyday app the button «قسم الIT» opens the IT site. A user
+  without the other side (not IT, or IT with no everyday role) sees no
+  button.
+- The password never travels between the sites. The server issues a
+  one-time pass for the signed-in user: random, valid 60 seconds, usable
+  once, bound to that user and to the direction. The other site exchanges it
+  with the server for its own session; the two sessions stay separate.
+- Everyday → IT: the pass replaces the password step only; the email code is
+  still asked (a stolen everyday session must not open the IT site).
+- IT → everyday: the pass is enough; no code.
+- The pass is handed over outside the address's query string (e.g. the URL
+  fragment, then removed from the address bar), so it is not written to
+  server or proxy logs.
 
 ## Screens of the IT site
 
