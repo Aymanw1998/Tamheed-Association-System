@@ -4192,3 +4192,69 @@ fallback and the worker; not on a hashed asset), `apps/it` `App.test.js`.
 **Verification:** server 1262/1262, `apps/it` 63/63, build.
 
 **Codex review:** pending (until 2026-11-06). **Status:** committed.
+
+### Follow-up: an IT user changes his own permissions (2026-11-03)
+
+**Change:** Owner: an IT user may always change his own everyday
+permissions. `utils/permissionRules.js` `validatePermissionChange`: oneself is
+allowed for the IT actor (still never an IT key, `NOT_GRANTABLE`); refused as
+`SELF` for everyday actors and for the system target; another IT user stays
+`FORBIDDEN`. The IT site's permissions tab on his own page becomes editable
+(the server's `grantable`), no client change.
+
+**Test:** `it-rules.test.js`, `it-api.test.js` (own GET/PUT, IT key refused,
+another IT user 403).
+
+**Verification:** server 1263/1263.
+
+**Codex review:** pending (until 2026-11-06). **Status:** committed.
+
+### Follow-up: site switch addresses and buttons; any password (2026-11-03)
+
+**Change:** Owner, three requests.
+1. «قسم الIT» went to `it.system.<domain>`. `apps/system` `itHostFor`: a
+   leading `system.` or `www.` is replaced (`it.<domain>`). `apps/it`
+   `systemHostFor`: «النظام» goes to `system.<domain>` (it was the bare
+   domain). `REACT_APP_IT_URL` / `REACT_APP_SYSTEM_URL` still win.
+2. Both switch buttons sit inside the name's menu with their own look
+   (`.switchSite`, `.switchIcon`, `.switchText` in both `Header.module.css`).
+   An uncommitted outside edit to `apps/it/src/ui/Header.jsx` had moved the
+   name button into the closed menu (the menu could not open); replaced by
+   this. An untracked root `sport/public/` folder was left alone.
+3. Any non-empty password on every site: `newPasswordProblem` keeps only
+   `PASSWORD_REQUIRED` (empty) and the 128-character cap; no minimum length,
+   no "different from the current one". Mirrored in
+   `apps/system/src/utils/passwordChange.js`, the hints, the guide text and
+   the IT change screen.
+
+**Test:** `apps/system` `siteLink.test.js`, `Header.test.js`,
+`passwordChange.test.js`; `apps/it` `siteLink.test.js`, `App.test.js`,
+`ChangePassword.test.js`; server `system-password.test.js`, `it-api.test.js`.
+
+**Verification:** server 1264/1264, `apps/system` 944/944, `apps/it` 65/65,
+both builds; the IT menu checked locally.
+
+**Codex review:** pending (until 2026-11-06). **Status:** committed.
+
+### Follow-up: «مدير IT», and two password fields on the IT site (2026-11-03)
+
+**Change:** Owner: an IT user with wide rights removes another user from IT
+(he becomes a regular user); 000000000 has everything. Ruling: a new flag
+`itManager`, set and cleared only by the system account
+(`POST /api/it/members/:tz/manager`, `requireSystemIt`, audit
+`member_manager_on|off`). The members routes (list, add, remove, block,
+unblock) take `requireItManager` (the system account or an `itManager`); a
+manager never acts on another manager, himself (`SELF`) or the system
+account (`MANAGER_ACCOUNT`, `SYSTEM_ACCOUNT`). Removing from IT clears
+`itManager`. `/me` returns `isItManager`. `apps/it`: «مستخدمو IT» in the menu
+for managers, the «مدير IT» badge and toggle (system account only), no
+actions on a manager's row or one's own for a manager. Second request: the
+IT user page's password is set with two fields that must match, and an eye.
+
+**Test:** `it-api.test.js` (manager flow and limits), `it-auth.test.js`,
+`route-guards.test.js`; `apps/it` `Members.test.js`, `UserPage.test.js`.
+
+**Verification:** server 1265/1265, `apps/it` 66/66, build; the password
+form checked locally.
+
+**Codex review:** pending (until 2026-11-06). **Status:** committed.

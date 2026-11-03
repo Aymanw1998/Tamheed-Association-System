@@ -86,6 +86,8 @@ export const addMember = (tz) => send("POST", `/members/${enc(tz)}`);
 export const removeMember = (tz) => send("DELETE", `/members/${enc(tz)}`);
 export const blockMember = (tz) => send("POST", `/members/${enc(tz)}/block`);
 export const unblockMember = (tz) => send("POST", `/members/${enc(tz)}/unblock`);
+// «مدير IT» (the system account only).
+export const setMemberManager = (tz, manager) => send("POST", `/members/${enc(tz)}/manager`, { manager });
 
 // Audit, storage, settings
 export const getAudit = (filters = {}, page = 1) => {

@@ -154,13 +154,15 @@ label.check { display: flex; align-items: center; gap: 8px; font-weight: 500; co
 /* Show / hide the password (the everyday app's login). */
 .password-wrap { position: relative; display: flex; }
 .password-wrap input { flex: 1; padding-inline-end: 44px; }
-.signin .toggle-password {
+.password-form { display: grid; gap: 12px; max-width: 420px; margin-top: 10px; }
+.password-form button[type="submit"] { justify-self: start; }
+.signin .toggle-password, .password-form .toggle-password {
   position: absolute; inset-inline-end: 4px; top: 50%; transform: translateY(-50%);
   width: 34px; min-height: 34px; height: 34px; padding: 0;
   border: none; background: transparent; color: var(--color-text-secondary);
   border-radius: var(--radius-sm);
 }
-.signin .toggle-password:hover:not(:disabled) { filter: none; color: var(--color-primary-600); background: var(--color-primary-50); }
+.signin .toggle-password:hover:not(:disabled), .password-form .toggle-password:hover:not(:disabled) { filter: none; color: var(--color-primary-600); background: var(--color-primary-50); }
 
 /* Page */
 .page { max-width: 1000px; margin: 0 auto; padding: var(--space-4); }

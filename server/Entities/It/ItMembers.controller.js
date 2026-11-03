@@ -1,6 +1,8 @@
 // The IT site's users list, and the IT users themselves (IT-site design,
 // "Screens of the IT site" 2 and 4). Members are managed by the system
-// account only: add marks an existing active user as IT (a real email is
+// account and by an «مدير IT» (itManager, given and taken only by the system
+// account, owner 2026-11-03), who never touches another manager, himself or
+// the system account: add marks an existing active user as IT (a real email is
 // required), remove takes him out of IT, block stops only his IT sign-in. The
 // everyday account is unchanged by any of them; the system account itself is
 // never removed or blocked. Each change writes an audit row, module "it".
@@ -15,6 +17,8 @@ const NO_REAL_EMAIL = { ok: false, code: "NO_REAL_EMAIL", message: "لا يمك�
 const ALREADY_IT = { ok: false, code: "ALREADY_IT", message: "المستخدم من IT مسبقًا" };
 const NOT_IT = { ok: false, code: "NOT_IT", message: "المستخدم ليس من IT" };
 const BAD_ROOM = { ok: false, code: "BAD_ROOM" };
+const MANAGER_ACCOUNT = { ok: false, code: "MANAGER_ACCOUNT", message: "مدير IT يديره حساب النظام فقط" };
+const SELF = { ok: false, code: "SELF", message: "لا يمكنك تغيير عضويتك في IT" };
 const SERVER_ERROR = { ok: false, message: "حدث خطأ غير متوقع، حاول مرة أخرى" };
 
 // Only these fields leave the server (no password, hashes, codes or devices).
@@ -37,6 +41,7 @@ const memberRow = (user) => ({
   photo: user.photo || null,
   itSince: user.itSince || null,
   itBlockedAt: user.itBlockedAt || null,
+  itManager: user.itManager === true,
 });
 
 const membership = (user) => ({
@@ -46,11 +51,20 @@ const membership = (user) => ({
   isIT: isItUser(user),
   itSince: user.itSince ?? null,
   itBlockedAt: user.itBlockedAt ?? null,
+  itManager: user.itManager === true,
 });
 
-// After requireIt: the members routes answer only the system account.
+// After requireIt: making or unmaking a manager answers only the system account.
 function requireSystemIt(req, res, next) {
   return req.actor?.it === true && req.actor.isSystem === true ? next() : res.status(403).json(FORBIDDEN);
+}
+
+// An «مدير IT»: the system account, or an IT user it made a manager.
+const isItManagerActor = (actor) => actor?.it === true && (actor.isSystem === true || actor.user?.itManager === true);
+
+// After requireIt: the members routes answer the system account and the managers.
+function requireItManager(req, res, next) {
+  return isItManagerActor(req.actor) ? next() : res.status(403).json(FORBIDDEN);
 }
 
 function createItMembers(deps = {}) {
@@ -105,8 +119,11 @@ function createItMembers(deps = {}) {
   const target = async (req, res) => {
     const tz = String(req.params?.tz ?? "").trim();
     if (isSystem(tz)) { res.status(403).json(SYSTEM_ACCOUNT); return null; }
+    if (tz && tz === String(req.actor?.tz ?? "")) { res.status(403).json(SELF); return null; }
     const user = tz ? await findActive(tz) : null;
     if (!user) { res.status(404).json(NOT_FOUND); return null; }
+    // A manager is managed by the system account only.
+    if (user.itManager === true && req.actor?.isSystem !== true) { res.status(403).json(MANAGER_ACCOUNT); return null; }
     return user;
   };
 
@@ -137,7 +154,7 @@ function createItMembers(deps = {}) {
     const user = await target(req, res);
     if (!user) return undefined;
     if (!isItUser(user)) return res.status(409).json(NOT_IT);
-    await write(req, user, "member_remove", { isIT: false, itBlockedAt: null, itSignedOutAt: now(), itPasskeys: [] });
+    await write(req, user, "member_remove", { isIT: false, itBlockedAt: null, itSignedOutAt: now(), itPasskeys: [], itManager: false });
     return res.status(200).json({ ok: true });
   });
 
@@ -161,7 +178,18 @@ function createItMembers(deps = {}) {
     return res.status(200).json({ ok: true, member: memberRow(after) });
   });
 
-  return { listUsers, list, add, remove, block, unblock };
+  // POST /api/it/members/:tz/manager { manager } (system account only): makes
+  // an IT user an «مدير IT», or takes it back.
+  const setManager = guard("setManager", async (req, res) => {
+    const user = await target(req, res);
+    if (!user) return undefined;
+    if (!isItUser(user)) return res.status(409).json(NOT_IT);
+    const manager = req.body?.manager === true;
+    const after = await write(req, user, manager ? "member_manager_on" : "member_manager_off", { itManager: manager });
+    return res.status(200).json({ ok: true, member: memberRow(after) });
+  });
+
+  return { listUsers, list, add, remove, block, unblock, setManager };
 }
 
-module.exports = { ...createItMembers(), createItMembers, requireSystemIt };
+module.exports = { ...createItMembers(), createItMembers, requireSystemIt, requireItManager, isItManagerActor };

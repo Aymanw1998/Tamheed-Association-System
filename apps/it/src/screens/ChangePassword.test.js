@@ -8,23 +8,22 @@ afterEach(async () => { await unmountAll(); jest.clearAllMocks(); });
 
 const field = (c, name) => c.querySelector(`input[name="${name}"]`);
 
-test("ChangePassword: a short or mismatched password is stopped here; a good one is saved", async () => {
+test("ChangePassword: an empty or mismatched password is stopped here; any other is saved", async () => {
   api.changeOwnPassword.mockImplementation(() => ok());
   const onDone = jest.fn();
   const c = await mount(<ChangePassword onDone={onDone} onSignOut={jest.fn()} />);
-  await type(field(c, "newPassword"), "short");
-  await type(field(c, "confirmPassword"), "short");
   await submit(c.querySelector("form"));
-  expect(c.querySelector("[role=alert]").textContent).toContain("قصيرة");
+  expect(c.querySelector("[role=alert]").textContent).toContain("يجب إدخال");
   await type(field(c, "newPassword"), "a-long-enough-one");
   await type(field(c, "confirmPassword"), "a-long-enough-two");
   await submit(c.querySelector("form"));
   expect(c.querySelector("[role=alert]").textContent).toContain("غير متطابقتين");
   expect(api.changeOwnPassword).not.toHaveBeenCalled();
 
-  await type(field(c, "confirmPassword"), "a-long-enough-one");
+  await type(field(c, "newPassword"), "1");
+  await type(field(c, "confirmPassword"), "1");
   await submit(c.querySelector("form"));
-  expect(api.changeOwnPassword).toHaveBeenCalledWith("a-long-enough-one");
+  expect(api.changeOwnPassword).toHaveBeenCalledWith("1");
   expect(toastText()).toContain("تم تغيير كلمة المرور");
   expect(onDone).toHaveBeenCalledTimes(1);
 });

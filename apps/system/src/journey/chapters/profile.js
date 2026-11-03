@@ -31,7 +31,7 @@ const profile = {
       target: "password-new",
       mood: "explain",
       title: "كلمة المرور الجديدة",
-      body: "ثم الجديدة: ثمانية أحرف على الأقل ومختلفة.",
+      body: "ثم الجديدة: أي كلمة مرور تختارها.",
       action: { type: "type", target: "password-new", value: "demo-new-2026" },
     },
     {

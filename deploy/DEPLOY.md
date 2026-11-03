@@ -166,7 +166,7 @@ sudo certbot --nginx -d הדומיין-שלך
    ```
 
    הערך שמודפס הוא הסוד. מעתיקים אותו ל-`.env`, ולא שומרים אותו בשום מקום אחר. הוא שונה מ-`SPORT_SESSION_SECRET`.
-4. **כפתור המעבר בין האתרים:** הכפתור «النظام» באתר ה-IT פותח את האפליקציה היומיומית. כתובתה נקבעת בזמן הבנייה במשתנה `REACT_APP_SYSTEM_URL` (למשל `https://<domain>`). אם הוא ריק, האתר משתמש בכתובת של עצמו בלי התחילית `it.`. מגדירים אותו לפני `bash deploy/update.sh` (למשל `export REACT_APP_SYSTEM_URL=https://<domain>`), כי `update.sh` בונה גם את `apps/it`.
+4. **כפתור המעבר בין האתרים:** הכפתור «النظام» באתר ה-IT פותח את האפליקציה היומיומית. כתובתה נקבעת בזמן הבנייה במשתנה `REACT_APP_SYSTEM_URL` (למשל `https://<domain>`). אם הוא ריק, האתר עובר ל-`system.<domain>`. בכיוון ההפוך, הכפתור «قسم الIT» במערכת עובר ל-`it.<domain>` (גם מ-`system.` וגם מ-`www.`), או ל-`REACT_APP_IT_URL` אם הוגדר. שני הכפתורים נמצאים בתפריט של השם. מגדירים אותו לפני `bash deploy/update.sh` (למשל `export REACT_APP_SYSTEM_URL=https://<domain>`), כי `update.sh` בונה גם את `apps/it`.
 5. **הפעלה מחדש עם הערכים החדשים:**
    ```bash
    bash deploy/update.sh

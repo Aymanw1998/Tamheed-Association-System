@@ -73,7 +73,13 @@ function AccountMenu({ label, onNav, onLogout, t, showIt, onItRefused }) {
         <div id="account-menu" role="menu" className={styles.accountMenu} data-testid="account-menu">
           <a href="/profile" role="menuitem" data-tour="menu-profile" onClick={(event) => { setOpen(false); onNav(event, "/profile"); }}>{t("nav.profile")}</a>
           {showIt && (
-            <button type="button" role="menuitem" data-testid="it-site-button" onClick={openIt}>{t("nav.itSite")}</button>
+            <button type="button" role="menuitem" data-testid="it-site-button" className={styles.switchSite} onClick={openIt}>
+              <span className={styles.switchIcon} aria-hidden="true">⇄</span>
+              <span className={styles.switchText}>
+                <strong>{t("nav.itSite")}</strong>
+                <small>{t("nav.itSiteHint")}</small>
+              </span>
+            </button>
           )}
           {/* Phones only, until the app is installed. */}
           <InstallAppButton className={styles.installButton} />

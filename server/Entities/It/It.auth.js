@@ -287,6 +287,8 @@ function createItAuth(deps = {}) {
       ok: true, tz, name, isSystem, photo: user?.photo || null, hasEverydayRole: Boolean(resolveRole(user)),
       // The site shows only «تغيير كلمة المرور» until it is changed (requireIt refuses the rest).
       mustChangePassword: Boolean(req.actor.mustChangePassword),
+      // «مستخدمو IT»: the system account and the managers it named.
+      isItManager: isSystem === true || user?.itManager === true,
     });
   };
 

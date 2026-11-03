@@ -297,7 +297,7 @@ test("password: IT resets (ending the user's sessions) and views; 403 on another
   assert.ok(row, "the reset is audited");
   // The stored row keeps the password field, never its value (utils/audit diffChanges).
   assert.deepEqual(require("../utils/audit").diffChanges(row.before, row.after).password, { before: "***", after: "***" });
-  assert.equal((await call("PUT", `/users/${GUIDE.tz}/password`, { as: IT_A.tz, body: { password: "short" } })).status, 400);
+  assert.equal((await call("PUT", `/users/${GUIDE.tz}/password`, { as: IT_A.tz, body: { password: "x".repeat(129) } })).status, 400);
   assert.equal((await call("PUT", `/users/${GUIDE.tz}/password`, { as: IT_A.tz, body: {} })).status, 400);
 
   const view = await call("GET", `/users/${GUIDE.tz}/password`, { as: IT_A.tz });
@@ -395,7 +395,7 @@ test("the system account lists, adds, blocks, unblocks and removes IT users, eac
   assert.equal(list.status, 200);
   assert.deepEqual(list.body.members.map((m) => m.tz).sort(), [IT_A.tz, IT_B.tz, IT_C.tz].sort());
   for (const row of list.body.members) {
-    assert.deepEqual(Object.keys(row).sort(), ["firstname", "itBlockedAt", "itSince", "lastname", "photo", "role", "tz"]);
+    assert.deepEqual(Object.keys(row).sort(), ["firstname", "itBlockedAt", "itManager", "itSince", "lastname", "photo", "role", "tz"]);
   }
 
   const before = Date.now();
@@ -586,7 +586,7 @@ test("a temporary password: only /me and the change work until it is changed; th
   assert.equal((await call("GET", "/role-defaults", { as: IT_B.tz })).status, 403);
   assert.equal((await call("GET", "/audit", { as: IT_B.tz })).status, 403);
 
-  assert.equal((await call("POST", "/change-password", { as: IT_B.tz, body: { newPassword: "short" } })).body.code, "PASSWORD_TOO_SHORT");
+  assert.equal((await call("POST", "/change-password", { as: IT_B.tz, body: { newPassword: "" } })).body.code, "PASSWORD_REQUIRED");
   const changed = await call("POST", "/change-password", { as: IT_B.tz, body: { newPassword: "a-new-long-placeholder" } });
   assert.equal(changed.status, 200);
   const after = users.find(IT_B.tz);
@@ -600,4 +600,52 @@ test("a temporary password: only /me and the change work until it is changed; th
 
   // Without a temporary password there is nothing to change here.
   assert.equal((await call("POST", "/change-password", { as: IT_A.tz, body: { newPassword: "a-new-long-placeholder" } })).status, 403);
+}));
+
+test("an IT user reads and changes his own everyday permissions on the IT site, never an IT key", withApp(async ({ call, users }) => {
+  const mine = await call("GET", `/users/${IT_A.tz}/permissions`, { as: IT_A.tz });
+  assert.equal(mine.status, 200);
+  assert.ok(mine.body.grantable.length > 0, "editable");
+  const saved = await call("PUT", `/users/${IT_A.tz}/permissions`, { as: IT_A.tz, body: { grants: ["vehicles.view"], revokes: [] } });
+  assert.equal(saved.status, 200);
+  assert.deepEqual(users.find(IT_A.tz).permissionGrants, ["vehicles.view"]);
+  const itKey = await call("PUT", `/users/${IT_A.tz}/permissions`, { as: IT_A.tz, body: { grants: ["users.passwords"], revokes: [] } });
+  assert.equal(itKey.status, 400);
+  // Another IT user's: still out of reach.
+  assert.equal((await call("PUT", `/users/${IT_B.tz}/permissions`, { as: IT_A.tz, body: { grants: ["vehicles.view"], revokes: [] } })).status, 403);
+}));
+
+test("an «مدير IT» (given only by the system account) manages IT users, never another manager, himself or the system account", withApp(async ({ call, users, audit }) => {
+  // Only the system account makes or unmakes a manager.
+  assert.equal((await call("POST", `/members/${IT_A.tz}/manager`, { as: IT_B.tz, body: { manager: true } })).status, 403);
+  const made = await call("POST", `/members/${IT_A.tz}/manager`, { as: SYSTEM_TZ, body: { manager: true } });
+  assert.equal(made.status, 200);
+  assert.equal(users.find(IT_A.tz).itManager, true);
+  assert.equal(audit.find({ action: "member_manager_on", targetId: IT_A.tz }).length, 1);
+  assert.equal((await call("GET", "/me", { as: IT_A.tz })).body.isItManager, true);
+  assert.equal((await call("GET", "/me", { as: IT_B.tz })).body.isItManager, false);
+
+  // The manager lists, blocks, unblocks, removes and adds.
+  assert.equal((await call("GET", "/members", { as: IT_A.tz })).status, 200);
+  assert.equal((await call("POST", `/members/${IT_B.tz}/block`, { as: IT_A.tz })).status, 200);
+  assert.equal((await call("POST", `/members/${IT_B.tz}/unblock`, { as: IT_A.tz })).status, 200);
+  assert.equal((await call("DELETE", `/members/${IT_B.tz}`, { as: IT_A.tz })).status, 200);
+  assert.equal(users.find(IT_B.tz).isIT, false, "a regular user now");
+  assert.equal((await call("POST", `/members/${IT_B.tz}`, { as: IT_A.tz })).status, 200);
+  assert.equal(users.find(IT_B.tz).isIT, true);
+
+  // Never another manager, himself, or the system account; never makes a manager.
+  users.find(IT_B.tz).itManager = true;
+  assert.equal((await call("DELETE", `/members/${IT_B.tz}`, { as: IT_A.tz })).status, 403);
+  assert.equal((await call("POST", `/members/${IT_B.tz}/block`, { as: IT_A.tz })).status, 403);
+  assert.equal((await call("DELETE", `/members/${IT_A.tz}`, { as: IT_A.tz })).status, 403);
+  assert.equal((await call("DELETE", `/members/${SYSTEM_TZ}`, { as: IT_A.tz })).status, 403);
+  assert.equal((await call("POST", `/members/${IT_C.tz}/manager`, { as: IT_A.tz, body: { manager: true } })).status, 403);
+
+  // The system account removes a manager: out of IT and no longer a manager.
+  assert.equal((await call("DELETE", `/members/${IT_B.tz}`, { as: SYSTEM_TZ })).status, 200);
+  assert.equal(users.find(IT_B.tz).itManager, false);
+  // A plain IT user still has no members screen.
+  users.find(IT_A.tz).itManager = false;
+  assert.equal((await call("GET", "/members", { as: IT_A.tz })).status, 403);
 }));

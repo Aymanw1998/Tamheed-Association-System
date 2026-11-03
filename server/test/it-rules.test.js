@@ -139,7 +139,12 @@ test("only an IT actor changes permissions, and never grants an IT key", () => {
   }
   assert.deepEqual(validatePermissionChange(itActor, otherItDoc, { grants: ["ai"] }, CTX), { ok: false, code: "FORBIDDEN" });
   assert.deepEqual(validatePermissionChange(systemIt, otherItDoc, { grants: ["ai"] }, CTX), { ok: true });
-  assert.deepEqual(validatePermissionChange(itActor, itDoc, { grants: ["ai"] }, CTX), { ok: false, code: "SELF" });
+  // His own everyday permissions: always, on the IT site (owner, 2026-11-03); never an IT key.
+  assert.deepEqual(validatePermissionChange(itActor, itDoc, { grants: ["ai"] }, CTX), { ok: true });
+  assert.deepEqual(validatePermissionChange(itActor, itDoc, { revokes: ["students.view"] }, CTX), { ok: true });
+  assert.deepEqual(validatePermissionChange(itActor, itDoc, { grants: ["audit.view"] }, CTX), { ok: false, code: "NOT_GRANTABLE" });
+  // The same user in the everyday app: still not himself.
+  assert.deepEqual(validatePermissionChange(actorOf(itDoc), itDoc, { grants: ["ai"] }, CTX), { ok: false, code: "SELF" });
 });
 
 test("an IT user may give himself an everyday role", () => {

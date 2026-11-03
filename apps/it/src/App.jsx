@@ -30,8 +30,8 @@ function Screen({ path, me }) {
   if (path === "/audit") return <Audit />;
   if (path === "/storage") return <Storage />;
   if (path === "/settings") return <Settings />;
-  // The IT users screen exists only for the system account (the server checks too).
-  if (path === "/members" && me.isSystem) return <Members />;
+  // The IT users screen: the system account and the «مدير IT» users (the server checks too).
+  if (path === "/members" && (me.isSystem || me.isItManager)) return <Members me={me} />;
   return <Users />;
 }
 
@@ -85,7 +85,7 @@ export default function App() {
   if (me.mustChangePassword) return <><ChangePassword onDone={loadMe} onSignOut={signOut} /><Toaster /></>;
 
   // The system account is shown by its name only, never by its ID number.
-  const links = me.isSystem ? [...NAV, { to: "/members", label: "مستخدمو IT" }] : NAV;
+  const links = me.isSystem || me.isItManager ? [...NAV, { to: "/members", label: "مستخدمو IT" }] : NAV;
   return (
     <div className="shell">
       <Header links={links} path={path} me={me} onOpenSystem={hasSystem ? openSystem : null} onSignOut={signOut} />

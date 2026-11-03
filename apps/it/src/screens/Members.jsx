@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { addMember, blockMember, errorText, getMembers, removeMember, unblockMember } from "../api";
+import { addMember, blockMember, errorText, getMembers, removeMember, setMemberManager, unblockMember } from "../api";
 import { roleLabel } from "../strings";
 import Avatar from "../ui/Avatar.jsx";
 import ConfirmDialog from "../ui/ConfirmDialog.jsx";
@@ -12,10 +12,13 @@ const ADD_ERRORS = {
   NOT_FOUND: "المستخدم غير موجود بين المستخدمين النشطين.",
   SYSTEM_ACCOUNT: "لا يمكن تعديل حساب النظام.",
   NOT_IT: "المستخدم ليس من قسم IT.",
+  MANAGER_ACCOUNT: "مدير IT يديره حساب النظام فقط.",
+  SELF: "لا يمكنك تغيير عضويتك في IT.",
 };
 
-// IT users: shown to the system account only (the server checks too).
-export default function Members() {
+// IT users: the system account and the «مدير IT» users (the server checks
+// too). Only the system account makes a manager, and manages one.
+export default function Members({ me = {} }) {
   const [members, setMembers] = useState(null);
   const [error, setError] = useState("");
   const [tz, setTz] = useState("");
@@ -63,13 +66,23 @@ export default function Members() {
                   <strong>{name || member.tz}</strong>
                   <small className="muted">{member.tz} — {roleLabel(member.role)}</small>
                 </span>
+                {member.itManager && <span className="badge info">مدير IT</span>}
                 {blocked && <span className="badge danger">محظور</span>}
-                {blocked ? (
-                  <button type="button" onClick={() => act(() => unblockMember(member.tz), "تم إلغاء الحظر")}>إلغاء الحظر</button>
-                ) : (
-                  <button type="button" onClick={() => act(() => blockMember(member.tz), "تم الحظر")}>حظر</button>
+                {me.isSystem && (
+                  <button type="button" onClick={() => act(() => setMemberManager(member.tz, !member.itManager), member.itManager ? "لم يعد مدير IT" : "أصبح مدير IT")}>
+                    {member.itManager ? "إلغاء مدير IT" : "جعله مدير IT"}
+                  </button>
                 )}
-                <button type="button" className="danger" onClick={() => setConfirm(member)}>إزالة</button>
+                {(me.isSystem || (!member.itManager && member.tz !== me.tz)) && (
+                  <>
+                    {blocked ? (
+                      <button type="button" onClick={() => act(() => unblockMember(member.tz), "تم إلغاء الحظر")}>إلغاء الحظر</button>
+                    ) : (
+                      <button type="button" onClick={() => act(() => blockMember(member.tz), "تم الحظر")}>حظر</button>
+                    )}
+                    <button type="button" className="danger" onClick={() => setConfirm(member)}>إزالة</button>
+                  </>
+                )}
               </li>
             );
           })}

@@ -1,13 +1,13 @@
 import { newPasswordError, resetPasswordError, MIN_PASSWORD_LENGTH, MAX_PASSWORD_LENGTH, isForcedChange } from "./passwordChange";
 import { accessStrings } from "../i18n/accessStrings";
 
-test("the new password mirrors the server rule: 8+ characters, different, confirmed", () => {
-  expect(MIN_PASSWORD_LENGTH).toBe(8);
+test("the new password mirrors the server rule: any non-empty one, confirmed (owner, 2026-11-03)", () => {
+  expect(MIN_PASSWORD_LENGTH).toBe(1);
   const base = { currentPassword: "old-pass-1", newPassword: "brand-new-9", confirmPassword: "brand-new-9" };
   expect(newPasswordError(base)).toBe(null);
   expect(newPasswordError({ ...base, currentPassword: "" })).toBe("BAD_INPUT");
-  expect(newPasswordError({ ...base, newPassword: "short", confirmPassword: "short" })).toBe("PASSWORD_TOO_SHORT");
-  expect(newPasswordError({ ...base, newPassword: "old-pass-1", confirmPassword: "old-pass-1" })).toBe("PASSWORD_SAME");
+  expect(newPasswordError({ ...base, newPassword: "1", confirmPassword: "1" })).toBe(null);
+  expect(newPasswordError({ ...base, newPassword: "old-pass-1", confirmPassword: "old-pass-1" })).toBe(null);
   expect(newPasswordError({ ...base, confirmPassword: "other-pass-9" })).toBe("MISMATCH");
 });
 
@@ -28,12 +28,12 @@ test("the own-password form has its strings", () => {
   expect(accessStrings.ar.passwordChange.ownTitle).toBeTruthy();
 });
 
-test("the reset-by-email form checks 8 to 128 characters and the confirmation before sending", () => {
+test("the reset-by-email form checks only the 128-character cap and the confirmation before sending", () => {
   expect(MAX_PASSWORD_LENGTH).toBe(128);
   const ok = { newPassword: "brand-new-9", confirmPassword: "brand-new-9" };
   expect(resetPasswordError(ok)).toBe(null);
   expect(resetPasswordError({ ...ok, newPassword: "" })).toBe("BAD_INPUT");
-  expect(resetPasswordError({ newPassword: "short", confirmPassword: "short" })).toBe("PASSWORD_TOO_SHORT");
+  expect(resetPasswordError({ newPassword: "short", confirmPassword: "short" })).toBe(null);
   const long = "x".repeat(129);
   expect(resetPasswordError({ newPassword: long, confirmPassword: long })).toBe("PASSWORD_TOO_LONG");
   expect(resetPasswordError({ newPassword: "x".repeat(128), confirmPassword: "x".repeat(128) })).toBe(null);
@@ -42,8 +42,7 @@ test("the reset-by-email form checks 8 to 128 characters and the confirmation be
   expect(newPasswordError({ currentPassword: "old-pass-1", newPassword: long, confirmPassword: long })).toBe("PASSWORD_TOO_LONG");
 });
 
-test("the reset form's 8-128 hint exists", () => {
-  expect(accessStrings.ar.passwordChange.resetHint).toMatch(/8/);
-  expect(accessStrings.ar.passwordChange.resetHint).toMatch(/128/);
+test("the reset form says any password will do", () => {
+  expect(accessStrings.ar.passwordChange.resetHint).toMatch(/أي كلمة مرور/);
   expect(accessStrings.ar.passwordChange.errors.PASSWORD_TOO_LONG).toMatch(/128/);
 });

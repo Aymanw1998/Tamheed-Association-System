@@ -1,7 +1,7 @@
 import UserPage from "./UserPage.jsx";
 import * as api from "../api";
 import * as router from "../router.jsx";
-import { mount, unmountAll, ok, fail, button, click, type, flush, toastText } from "../testUtils";
+import { mount, unmountAll, ok, fail, button, click, type, flush, toastText, submit } from "../testUtils";
 
 jest.mock("../api", () => ({
   ...jest.requireActual("../api"),
@@ -61,9 +61,14 @@ test("UserPage: role, permissions, reset/view password, unlock, devices", async 
   expect(api.getPassword).toHaveBeenCalledWith(TZ);
   expect(c.textContent).toContain("يوجد كلمة مرور");
 
-  // Reset the password.
+  // Reset the password: two fields that must match (owner, 2026-11-03).
   await type(c.querySelector('input[name="newPassword"]'), "a-new-test-password");
-  await click(button(c, "تعيين كلمة المرور"));
+  await type(c.querySelector('input[name="confirmPassword"]'), "another");
+  await submit(c.querySelector(".password-form"));
+  expect(api.resetPassword).not.toHaveBeenCalled();
+  expect(toastText()).toContain("غير متطابقتين");
+  await type(c.querySelector('input[name="confirmPassword"]'), "a-new-test-password");
+  await submit(c.querySelector(".password-form"));
   expect(api.resetPassword).toHaveBeenCalledWith(TZ, "a-new-test-password");
   expect(c.querySelector('input[name="newPassword"]').value).toBe("");
 

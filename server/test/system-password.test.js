@@ -413,12 +413,10 @@ test("change-password checks the current password and the new one", async () => 
   const wrong = await changePassword(ctx, sys, { currentPassword: "nope", newPassword: "brand-new-pass-9" });
   assert.equal(wrong.statusCode, 400);
   assert.equal(wrong.body.code, "WRONG_PASSWORD");
-  const short = await changePassword(ctx, sys, { currentPassword: "current-pass-1", newPassword: "short" });
-  assert.equal(short.statusCode, 400);
-  assert.equal(short.body.code, "PASSWORD_TOO_SHORT");
-  const same = await changePassword(ctx, sys, { currentPassword: "current-pass-1", newPassword: "current-pass-1" });
-  assert.equal(same.statusCode, 400);
-  assert.equal(same.body.code, "PASSWORD_SAME");
+  // Any password (owner, 2026-11-03): only an over-long one is refused.
+  const long = await changePassword(ctx, sys, { currentPassword: "current-pass-1", newPassword: "x".repeat(129) });
+  assert.equal(long.statusCode, 400);
+  assert.equal(long.body.code, "PASSWORD_TOO_LONG");
   assert.equal(ctx.calls.updates.length, 0);
 });
 
@@ -774,9 +772,9 @@ test("minor: a second recovery within 10 minutes answers 429", async () => {
 test("minor: reset-password (emailed code) applies the new-password rule", async () => {
   const ctx = loadController({ users: [{ ...GUIDE, resetOtpHash: "sha:123456", resetOtpExpires: new Date(Date.now() + 60000) }] });
   const res = makeRes();
-  await ctx.controller.resetPassword({ body: { tz: GUIDE.tz, otp: "123456", newPassword: "short", confirmPassword: "short" } }, res);
+  await ctx.controller.resetPassword({ body: { tz: GUIDE.tz, otp: "123456", newPassword: "x".repeat(129), confirmPassword: "x".repeat(129) } }, res);
   assert.equal(res.statusCode, 400);
-  assert.equal(res.body.code, "PASSWORD_TOO_SHORT");
+  assert.equal(res.body.code, "PASSWORD_TOO_LONG");
   assert.equal(ctx.calls.updates.length, 0);
 });
 
@@ -856,7 +854,6 @@ test("final1: the system account editing itself cannot change its stored email; 
 
 test("final2: reset-password rule rejections carry a readable Arabic message", async () => {
   for (const [newPassword, code, pattern] of [
-    ["short", "PASSWORD_TOO_SHORT", /8/],
     ["x".repeat(129), "PASSWORD_TOO_LONG", /128/],
   ]) {
     const ctx = loadController({ users: [{ ...GUIDE, resetOtpHash: "sha:123456", resetOtpExpires: new Date(Date.now() + 60000) }] });
@@ -959,4 +956,12 @@ test("generateTempDigits: eight digits", () => {
   assert.equal(TEMP_DIGITS_LENGTH, 8);
   for (let i = 0; i < 20; i += 1) assert.match(generateTempDigits(), /^[0-9]{8}$/);
   assert.equal(generateTempDigits(() => 7), "77777777");
+});
+
+test("any non-empty password is accepted (owner, 2026-11-03): short, digits only, or the same as before", () => {
+  const { newPasswordProblem } = require("../utils/systemPassword");
+  for (const value of ["1", "abc", "123456", "same"]) assert.equal(newPasswordProblem(value, "same"), null, value);
+  assert.equal(newPasswordProblem(""), "PASSWORD_REQUIRED");
+  assert.equal(newPasswordProblem(undefined), "PASSWORD_REQUIRED");
+  assert.equal(newPasswordProblem("x".repeat(129)), "PASSWORD_TOO_LONG");
 });

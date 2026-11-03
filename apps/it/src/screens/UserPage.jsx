@@ -6,6 +6,7 @@ import { Link, navigate } from "../router.jsx";
 import { ROLES, ROOMS, accountText, fillText, roleLabel } from "../strings";
 import Avatar from "../ui/Avatar.jsx";
 import ConfirmDialog from "../ui/ConfirmDialog.jsx";
+import EyeIcon from "../ui/EyeIcon.jsx";
 import PermissionsEditor from "../ui/PermissionsEditor.jsx";
 import { passportSrc } from "../ui/passportPhoto";
 import { toast } from "../ui/toast.jsx";
@@ -27,6 +28,8 @@ export default function UserPage({ tz }) {
   const [role, setRoleValue] = useState("");
   const [hasPassword, setHasPassword] = useState(null);
   const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [devices, setDevices] = useState(null);
   const [asking, setAsking] = useState(null); // "disable" | "remove"
 
@@ -67,8 +70,10 @@ export default function UserPage({ tz }) {
   };
   const savePassword = async (event) => {
     event.preventDefault();
+    // Two fields that must match, as in the everyday app (owner, 2026-11-03).
+    if (newPassword !== confirmPassword) return toast.error("كلمتا المرور غير متطابقتين");
     const res = await run(() => resetPassword(tz, newPassword), "تم تعيين كلمة المرور");
-    if (res.ok) { setNewPassword(""); setHasPassword(null); }
+    if (res.ok) { setNewPassword(""); setConfirmPassword(""); setHasPassword(null); }
   };
   const unlock = () => run(() => unlockUser(tz), "تم رفع الحظر", loadUser);
   const endDevice = (sid) => run(() => endSession(tz, sid), "تم إنهاء الجلسة", loadDevices);
@@ -125,9 +130,27 @@ export default function UserPage({ tz }) {
           <button type="button" onClick={viewPassword}>عرض كلمة المرور</button>
           {hasPassword !== null && <span>{hasPassword ? "يوجد كلمة مرور" : "لا توجد كلمة مرور"}</span>}
         </div>
-        <form className="row" onSubmit={savePassword}>
-          <input name="newPassword" type="password" autoComplete="new-password" placeholder="كلمة مرور جديدة (8 إلى 128 حرفًا)" aria-label="كلمة مرور جديدة" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
-          <button type="submit" disabled={!newPassword}>تعيين كلمة المرور</button>
+        <form className="password-form" onSubmit={savePassword}>
+          <label>
+            كلمة المرور الجديدة
+            <span className="password-wrap">
+              <input name="newPassword" type={showPassword ? "text" : "password"} autoComplete="new-password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+              <button
+                type="button"
+                className="toggle-password"
+                onClick={() => setShowPassword((value) => !value)}
+                aria-label={showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
+                aria-pressed={showPassword}
+              >
+                <EyeIcon open={showPassword} />
+              </button>
+            </span>
+          </label>
+          <label>
+            تأكيد كلمة المرور
+            <input name="confirmPassword" type={showPassword ? "text" : "password"} autoComplete="new-password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
+          </label>
+          <button type="submit" className="primary" disabled={!newPassword || !confirmPassword}>تعيين كلمة المرور</button>
         </form>
       </div>
 

@@ -52,14 +52,20 @@ export default function Header({ links, path, me, onOpenSystem, onSignOut }) {
       </button>
       {accountOpen && (
         <div id="account-menu" role="menu" className={styles.accountMenu}>
+          {/* «النظام»: the everyday app, signed in (owner, 2026-11-03: inside the name's menu). */}
+          {onOpenSystem && (
+            <button type="button" role="menuitem" data-testid="system-site-button" className={styles.switchSite} onClick={() => { setAccountOpen(false); onOpenSystem(); }}>
+              <span className={styles.switchIcon} aria-hidden="true">⇄</span>
+              <span className={styles.switchText}>
+                <strong>النظام</strong>
+                <small>الانتقال إلى النظام اليومي</small>
+              </span>
+            </button>
+          )}
           <button type="button" role="menuitem" onClick={onSignOut} className={styles.logoutButton}>تسجيل الخروج</button>
         </div>
       )}
     </div>
-  );
-
-  const systemButton = onOpenSystem && (
-    <button type="button" className={styles.systemButton} onClick={onOpenSystem}>النظام</button>
   );
 
   return (
@@ -69,7 +75,6 @@ export default function Header({ links, path, me, onOpenSystem, onSignOut }) {
           <img src={logo} alt="المستخدمون" className={styles.logo} />
         </a>
         <span className={styles.title}>جمعية تمهيد - قسم IT</span>
-        {!phone && systemButton}
         {!phone && account}
       </div>
 
@@ -87,7 +92,6 @@ export default function Header({ links, path, me, onOpenSystem, onSignOut }) {
             <span />
             <span />
           </button>
-          {systemButton}
           {account}
         </div>
       )}

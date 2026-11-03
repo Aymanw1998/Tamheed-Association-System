@@ -33,6 +33,7 @@ const translations = {
       account: "حسابي",
       openMenu: "فتح القائمة",
       itSite: "قسم الIT",
+      itSiteHint: "الانتقال إلى موقع قسم IT",
       itBlocked: "اسمح بالنوافذ المنبثقة ثم أعد المحاولة.",
       itFailed: "تعذّر فتح قسم الIT.",
     },

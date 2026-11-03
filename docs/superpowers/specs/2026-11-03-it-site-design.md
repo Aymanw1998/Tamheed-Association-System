@@ -74,7 +74,8 @@ The owner's words, summarised:
 | Unlock a locked user | no | yes | — |
 | Audit log | no | yes | — |
 | Connect / change the Google Drive account | no | yes | yes |
-| Add / remove / block IT users | no | no | yes |
+| Add / remove / block IT users | no | an «مدير IT» only (owner, 2026-11-03), never another manager, himself or 000000000 | yes |
+| Make or unmake an «مدير IT» | no | no | yes |
 | Create a brand-new user who is IT from the start (owner, 2026-11-03; temporary password to his own email) | no | yes | yes |
 | Sign in to the IT site with a passkey instead of the password and the code (owner, 2026-11-03) | — | yes | yes |
 | Set each role's default permissions («صلاحيات الأدوار», owner 2026-11-03; never an IT key or a grant-only module) | no | yes | yes |

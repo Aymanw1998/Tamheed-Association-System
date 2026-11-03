@@ -9,7 +9,8 @@ const PASSWORD_CHANGE_SCOPE = "password-change";
 const PASSWORD_CHANGE_TOKEN_TTL_SEC = 15 * 60;
 const RECOVERY_MIN_FAILURES = 3;
 const RECOVERY_COOLDOWN_MS = 10 * 60 * 1000;
-const MIN_PASSWORD_LENGTH = 8;
+// Any non-empty password (owner, 2026-11-03).
+const MIN_PASSWORD_LENGTH = 1;
 const MAX_PASSWORD_LENGTH = 128;
 const TEMP_PASSWORD_LENGTH = 16;
 // A new IT user's first password: digits only, changed at the first sign-in.
@@ -68,20 +69,21 @@ function generateTempPassword(randomInt = crypto.randomInt) {
   return out;
 }
 
-// Null when acceptable, else an error code for the client.
+// Null when acceptable, else an error code for the client. Any password is
+// accepted on every site (owner, 2026-11-03): no minimum length, no other
+// rule. It must not be empty, and the 128-character cap only keeps a huge
+// body out of the encryption.
 function newPasswordProblem(newPassword, currentPassword) {
-  if (typeof newPassword !== "string" || newPassword.length < MIN_PASSWORD_LENGTH) return "PASSWORD_TOO_SHORT";
+  if (typeof newPassword !== "string" || newPassword.length < MIN_PASSWORD_LENGTH) return "PASSWORD_REQUIRED";
   if (newPassword.length > MAX_PASSWORD_LENGTH) return "PASSWORD_TOO_LONG";
-  if (newPassword === currentPassword) return "PASSWORD_SAME";
   return null;
 }
 
 // Readable Arabic text for newPasswordProblem codes, worded like the client's
 // passwordChange.errors (apps/system/src/i18n/accessStrings.js).
 const PASSWORD_PROBLEM_MESSAGES = {
-  PASSWORD_TOO_SHORT: `كلمة المرور الجديدة قصيرة جدًا (${MIN_PASSWORD_LENGTH} أحرف على الأقل).`,
+  PASSWORD_REQUIRED: "يجب إدخال كلمة مرور جديدة.",
   PASSWORD_TOO_LONG: `كلمة المرور الجديدة طويلة جدًا (${MAX_PASSWORD_LENGTH} حرفًا على الأكثر).`,
-  PASSWORD_SAME: "كلمة المرور الجديدة يجب أن تختلف عن الحالية.",
 };
 const passwordProblemMessage = (code) => PASSWORD_PROBLEM_MESSAGES[code] || "كلمة المرور الجديدة غير صالحة.";
 

@@ -26,15 +26,21 @@ beforeEach(() => {
 });
 afterEach(async () => { await unmountAll(); jest.clearAllMocks(); });
 
+// «النظام» lives in the name's menu (owner, 2026-11-03): opened first when closed.
+const systemButton = async (c) => {
+  if (!c.querySelector("#account-menu")) await click(c.querySelector('[aria-controls="account-menu"]'));
+  return c.querySelector('[data-testid="system-site-button"]') || undefined;
+};
+
 test("the button shows only for a user with both sides", async () => {
   api.getMe.mockImplementation(() => ok({ ...ME, hasEverydayRole: true }));
   let c = await mount(<App />);
-  expect(button(c, "النظام")).toBeDefined();
+  expect((await systemButton(c))).toBeDefined();
   await unmountAll();
 
   api.getMe.mockImplementation(() => ok({ ...ME, hasEverydayRole: false }));
   c = await mount(<App />);
-  expect(button(c, "النظام")).toBeUndefined();
+  expect((await systemButton(c))).toBeUndefined();
 });
 
 test("no /system-pass request is made on load, only when the button is clicked", async () => {
@@ -42,7 +48,7 @@ test("no /system-pass request is made on load, only when the button is clicked",
   api.systemPass.mockImplementation(() => ok({ pass: "p1" }));
   const c = await mount(<App />);
   expect(api.systemPass).not.toHaveBeenCalled();
-  await click(button(c, "النظام"));
+  await click((await systemButton(c)));
   expect(api.systemPass).toHaveBeenCalledTimes(1);
 });
 
@@ -50,16 +56,16 @@ test("a refused pass on click hides the button", async () => {
   api.getMe.mockImplementation(() => ok({ ...ME, hasEverydayRole: true }));
   api.systemPass.mockImplementation(() => fail(403, { code: "FORBIDDEN" }));
   const c = await mount(<App />);
-  await click(button(c, "النظام"));
+  await click((await systemButton(c)));
   expect(nav.goTo).not.toHaveBeenCalled();
-  expect(button(c, "النظام")).toBeUndefined();
+  expect((await systemButton(c))).toBeUndefined();
 });
 
 test("the button opens the everyday site with a fresh pass in the fragment", async () => {
   api.getMe.mockImplementation(() => ok({ ...ME, hasEverydayRole: true }));
   api.systemPass.mockImplementation(() => ok({ pass: "fresh-pass" }));
   const c = await mount(<App />);
-  await click(button(c, "النظام"));
+  await click((await systemButton(c)));
   expect(api.systemPass).toHaveBeenCalledTimes(1);
   expect(nav.goTo).toHaveBeenCalledTimes(1);
   const url = nav.goTo.mock.calls[0][0];

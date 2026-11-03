@@ -81,9 +81,13 @@ function grantableBy(actor) {
 
 function validatePermissionChange(actor, target, changes, ctx = {}) {
   const { grants = [], revokes = [] } = changes || {};
-  if (isSelf(actor, target)) return { ok: false, code: "SELF" };
+  // An IT user changes his own everyday permissions on the IT site (owner,
+  // 2026-11-03), never an IT key (below). Nobody else changes his own, and
+  // the system account's are not stored.
+  const self = isSelf(actor, target);
+  if (self && (!isItActor(actor) || isSystemTarget(target, ctx))) return { ok: false, code: "SELF" };
   if (!isItActor(actor)) return { ok: false, code: "FORBIDDEN" };
-  if (!canManageTarget(actor, target, ctx)) return { ok: false, code: "FORBIDDEN" };
+  if (!self && !canManageTarget(actor, target, ctx)) return { ok: false, code: "FORBIDDEN" };
 
   if ((grants != null && !Array.isArray(grants)) || (revokes != null && !Array.isArray(revokes))) {
     return { ok: false, code: "UNKNOWN_KEY" };

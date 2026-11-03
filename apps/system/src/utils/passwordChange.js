@@ -1,13 +1,13 @@
-// The forced password change after login (system account, password older than
-// 30 days). Mirrors server/utils/systemPassword.js newPasswordProblem; the
-// server still decides.
-export const MIN_PASSWORD_LENGTH = 8;
+// The password forms (forced change, own change, reset). Mirrors
+// server/utils/systemPassword.js newPasswordProblem; the server still decides.
+// Any non-empty password (owner, 2026-11-03); 128 characters at most.
+export const MIN_PASSWORD_LENGTH = 1;
 export const MAX_PASSWORD_LENGTH = 128;
 
 // Null when the length is acceptable, else an error code.
 function lengthError(newPassword) {
   const length = String(newPassword).length;
-  if (length < MIN_PASSWORD_LENGTH) return "PASSWORD_TOO_SHORT";
+  if (length < MIN_PASSWORD_LENGTH) return "BAD_INPUT";
   if (length > MAX_PASSWORD_LENGTH) return "PASSWORD_TOO_LONG";
   return null;
 }
@@ -17,7 +17,6 @@ export function newPasswordError({ currentPassword, newPassword, confirmPassword
   if (!currentPassword || !newPassword) return "BAD_INPUT";
   const tooShortOrLong = lengthError(newPassword);
   if (tooShortOrLong) return tooShortOrLong;
-  if (newPassword === currentPassword) return "PASSWORD_SAME";
   if (newPassword !== confirmPassword) return "MISMATCH";
   return null;
 }

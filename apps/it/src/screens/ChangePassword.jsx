@@ -4,9 +4,9 @@ import logo from "../logo.png";
 import EyeIcon from "../ui/EyeIcon.jsx";
 import { toast } from "../ui/toast.jsx";
 
-const MIN = 8;
+// Any non-empty password (owner, 2026-11-03).
 const ERRORS = {
-  PASSWORD_TOO_SHORT: `كلمة المرور الجديدة قصيرة جدًا (${MIN} أحرف على الأقل).`,
+  PASSWORD_REQUIRED: "يجب إدخال كلمة مرور جديدة.",
   PASSWORD_TOO_LONG: "كلمة المرور الجديدة طويلة جدًا.",
 };
 
@@ -22,7 +22,7 @@ export default function ChangePassword({ onDone, onSignOut }) {
   const submit = async (event) => {
     event.preventDefault();
     setError("");
-    if (password.length < MIN) return setError(ERRORS.PASSWORD_TOO_SHORT);
+    if (!password) return setError(ERRORS.PASSWORD_REQUIRED);
     if (password !== again) return setError("كلمتا المرور غير متطابقتين");
     setBusy(true);
     const res = await changeOwnPassword(password);

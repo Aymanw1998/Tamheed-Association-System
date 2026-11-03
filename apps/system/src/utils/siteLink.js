@@ -1,13 +1,16 @@
 // Moving between the sites. The pass travels in the address fragment (#pass=),
 // which the browser never sends to a server or proxy log.
 
-// The IT site's address: REACT_APP_IT_URL when set, else this site's address
-// with «it.» in front (it.<domain>).
+// it.<domain> for this site's host: a leading «system.» or «www.» is replaced,
+// never kept (system.<domain> → it.<domain>, owner 2026-11-03).
+export const itHostFor = (host) => `it.${String(host).replace(/^(system|www)\./i, "")}`;
+
+// The IT site's address: REACT_APP_IT_URL when set, else it.<domain>.
 export const itUrl = () => {
   const configured = String(process.env.REACT_APP_IT_URL || "").trim().replace(/\/+$/, "");
   if (configured) return configured;
   const { protocol, host } = window.location;
-  return `${protocol}//it.${host}`;
+  return `${protocol}//${itHostFor(host)}`;
 };
 
 export const itUrlWithPass = (pass) => `${itUrl()}/#pass=${encodeURIComponent(pass)}`;

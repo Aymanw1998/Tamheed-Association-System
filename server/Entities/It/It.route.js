@@ -7,7 +7,7 @@ const { rateLimit } = require("../../middleware/rateLimit");
 const itMembers = require("./ItMembers.controller");
 const { createAuditRouter } = require("../Audit/Audit.route");
 
-const { requireSystemIt } = itMembers;
+const { requireSystemIt, requireItManager } = itMembers;
 
 // Handlers of a module loaded on first request, so requiring this router
 // (tests, server start order) does not pull in the database layer early.
@@ -120,12 +120,14 @@ function createItRouter(deps = {}) {
   // A brand-new IT user: any IT user (owner, 2026-11-03).
   router.post("/members", requireIt, requirePermission("users.create"), users.createItUser);
 
-  // IT users (existing ones): the system account only.
-  router.get("/members", requireIt, requireSystemIt, members.list);
-  router.post("/members/:tz", requireIt, requireSystemIt, members.add);
-  router.delete("/members/:tz", requireIt, requireSystemIt, members.remove);
-  router.post("/members/:tz/block", requireIt, requireSystemIt, members.block);
-  router.post("/members/:tz/unblock", requireIt, requireSystemIt, members.unblock);
+  // IT users (existing ones): the system account and the «مدير IT» users.
+  router.get("/members", requireIt, requireItManager, members.list);
+  router.post("/members/:tz", requireIt, requireItManager, members.add);
+  router.delete("/members/:tz", requireIt, requireItManager, members.remove);
+  router.post("/members/:tz/block", requireIt, requireItManager, members.block);
+  router.post("/members/:tz/unblock", requireIt, requireItManager, members.unblock);
+  // «مدير IT»: given and taken by the system account only.
+  router.post("/members/:tz/manager", requireIt, requireSystemIt, members.setManager);
 
   return router;
 }

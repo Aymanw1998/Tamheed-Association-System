@@ -299,3 +299,56 @@
     max-width: calc(100% - 72px);
   }
 }
+
+/* The button to the other site (IT ⇄ system) inside the name's menu
+   (owner, 2026-11-03): its own look, apart from the menu's links. */
+.switchSite {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 52px;
+  padding: 8px 12px;
+  border: 1px solid var(--color-primary-300);
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--color-primary-600), var(--color-primary-400));
+  color: var(--color-text-on-primary);
+  text-align: start;
+  font: inherit;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(30, 101, 128, 0.25);
+  transition: filter 0.15s ease, transform 0.15s ease;
+}
+
+.switchSite:hover:not(:disabled),
+.switchSite:focus-visible {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+
+.switchSite:focus-visible {
+  outline: 2px solid var(--color-accent-500);
+  outline-offset: 2px;
+}
+
+.switchIcon {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--color-accent-500);
+  color: #fff;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.switchText {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.switchText strong { font-size: 0.98rem; }
+.switchText small { font-size: 0.75rem; opacity: 0.9; }

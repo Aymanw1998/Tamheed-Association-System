@@ -112,8 +112,8 @@ function routesOf(source) {
   return routes;
 }
 
-// requireSystemIt: the system account only (the IT site's members routes).
-const GUARD = /requirePermission\(|requireSelfOr\(|requireVehiclePermission\(|requireSystemIt\b/;
+// requireSystemIt / requireItManager: the system account (and the «مدير IT» users) on the IT site's members routes.
+const GUARD = /requirePermission\(|requireSelfOr\(|requireVehiclePermission\(|requireSystemIt\b|requireItManager\b/;
 
 test("no role-based guard remains in any router", () => {
   for (const file of ROUTE_FILES) {

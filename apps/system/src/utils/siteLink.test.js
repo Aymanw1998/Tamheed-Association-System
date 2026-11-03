@@ -1,4 +1,4 @@
-import { itUrl, itUrlWithPass, takePassFromAddress, isItLink } from "./siteLink";
+import { itUrl, itUrlWithPass, takePassFromAddress, isItLink, itHostFor } from "./siteLink";
 
 afterEach(() => {
   delete process.env.REACT_APP_IT_URL;
@@ -9,7 +9,7 @@ test("the IT site address is REACT_APP_IT_URL when set, else this site's address
   process.env.REACT_APP_IT_URL = "https://it.example.test/";
   expect(itUrl()).toBe("https://it.example.test");
   delete process.env.REACT_APP_IT_URL;
-  expect(itUrl()).toBe(`${window.location.protocol}//it.${window.location.host}`);
+  expect(itUrl()).toBe(`${window.location.protocol}//${itHostFor(window.location.host)}`);
 });
 
 test("the pass goes in the fragment, never in the query string", () => {
@@ -44,4 +44,12 @@ test("only a link into the IT site's own address is an IT link", () => {
   expect(isItLink("http://it.example.test/users/1")).toBe(false);
   expect(isItLink("/users/1")).toBe(false);
   expect(isItLink(null)).toBe(false);
+});
+
+test("the IT host replaces system. or www. (owner, 2026-11-03), never stacks it.system.", () => {
+  expect(itHostFor("system.tamheed-ramla.org")).toBe("it.tamheed-ramla.org");
+  expect(itHostFor("www.tamheed-ramla.org")).toBe("it.tamheed-ramla.org");
+  expect(itHostFor("tamheed-ramla.org")).toBe("it.tamheed-ramla.org");
+  expect(itHostFor("SYSTEM.Tamheed-Ramla.org")).toBe("it.Tamheed-Ramla.org");
+  expect(itHostFor("localhost:3000")).toBe("it.localhost:3000");
 });
