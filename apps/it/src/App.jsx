@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { getMe, logout, setPasswordChangeHandler, setSignedOutHandler, systemPass } from "./api";
 import { usePath } from "./router.jsx";
-import { goTo, systemUrlWithPass, takePassFromAddress } from "./siteLink";
+import { openSite, systemUrlWithPass, takePassFromAddress } from "./siteLink";
 import Header from "./ui/Header.jsx";
 import PasskeyOffer from "./ui/PasskeyOffer.jsx";
 import { Toaster, toast } from "./ui/toast.jsx";
@@ -68,7 +68,8 @@ export default function App() {
       toast.error("تعذّر فتح النظام");
       return setHasSystem(false);
     }
-    goTo(systemUrlWithPass(res.data.pass));
+    // A new tab with the full address (an installed app opens the everyday app).
+    openSite(systemUrlWithPass(res.data.pass));
   };
 
   const signOut = async () => {

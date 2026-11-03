@@ -13,7 +13,8 @@ import { toast } from '../../ALERT/SystemToasts';
 
 import { getAll as getAllS} from '../../WebServer/services/student/functionsStudent';
 import { getAll as getAllU } from '../../WebServer/services/user/functionsUser';
-import { canStored, normalizeRoles, ADMIN_ROLES, getStoredUserId } from '../../utils/session';
+import { canStored, getStoredUserId } from '../../utils/session';
+import { resolveRole } from '../../utils/roles';
 import { buildAddPayload, countAdded, unwrapCreated } from '../../utils/lessonRoster';
 import { useI18n } from '../../i18n/I18nContext';
 import { ROOM_OPTIONS } from '../../utils/rooms';
@@ -124,13 +125,12 @@ const EditLesson = () => {
       const usersRes = await getAllU();
       if (usersRes?.ok) {
         const allUsers = usersRes.users || [];
-        // Administrators run lessons too, so they belong in the same picker.
-        // The system account is never in the list (the server leaves it out).
-        setTeachers(allUsers.filter((u) => {
-          const roles = normalizeRoles(u.roles);
-          return roles.includes('مرشد') || roles.some((r) => ADMIN_ROLES.includes(r));
-        }));
-        setHelpers(allUsers.filter((u) => normalizeRoles(u.roles).includes('مساعد')));
+        // A lesson's guide is a guide or an administrator: administrators may
+        // have lessons of their own (owner, 2026-11-03). The role is read from
+        // role or roles (resolveRole). The system account is never in the list
+        // (the server leaves it out).
+        setTeachers(allUsers.filter((u) => ['مرشد', 'ادارة'].includes(resolveRole(u))));
+        setHelpers(allUsers.filter((u) => resolveRole(u) === 'مساعد'));
       } else{
         throw new Error(usersRes?.message)
       }
@@ -371,7 +371,7 @@ const EditLesson = () => {
       <fieldset className={sectionStyles.formSection} data-tour="lesson-staff">
         <legend>الطاقم</legend>
         <div className={styles.formControl}>
-          <label htmlFor="lesson-teacher">المرشد:<span style={{color: "red"}}>*</span></label>
+          <label htmlFor="lesson-teacher">المرشد / الإدارة:<span style={{color: "red"}}>*</span></label>
           {id === 'new' && !viewAll && <small>{t('roster.teacherHint')}</small>}
           <select
             name="teacher"
@@ -381,16 +381,22 @@ const EditLesson = () => {
             onChange={handleChange}
             disabled={!editing}
           >
-            <option value="">اختر المرشد</option>
+            <option value="">اختر المرشد أو أحد الإدارة</option>
             {myId && !viewAll && !teachers.some((u) => String(u._id) === myId) && (
               <option value={myId}>{t('common.you')}</option>
             )}
-            {Array.isArray(teachers) &&
-              teachers.map((t) => (
-                <option key={t._id} value={t._id}>
-                  {t.firstname} {t.lastname}{t.tz ? ` (${String(t.tz).slice(-4)})` : ''}
-                </option>
-              ))}
+            {[['مرشد', 'المرشدون'], ['ادارة', 'الإدارة']].map(([role, label]) => {
+              const group = (Array.isArray(teachers) ? teachers : []).filter((u) => resolveRole(u) === role);
+              return group.length > 0 && (
+                <optgroup key={role} label={label}>
+                  {group.map((u) => (
+                    <option key={u._id} value={u._id}>
+                      {u.firstname} {u.lastname}{u.tz ? ` (${String(u.tz).slice(-4)})` : ''}
+                    </option>
+                  ))}
+                </optgroup>
+              );
+            })}
           </select>
           <label style={{color: "red"}}>{error.teacher}</label>
         </div>

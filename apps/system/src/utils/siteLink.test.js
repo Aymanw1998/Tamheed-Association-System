@@ -53,3 +53,24 @@ test("the IT host replaces system. or www. (owner, 2026-11-03), never stacks it.
   expect(itHostFor("SYSTEM.Tamheed-Ramla.org")).toBe("it.Tamheed-Ramla.org");
   expect(itHostFor("localhost:3000")).toBe("it.localhost:3000");
 });
+
+test("openSite opens a new tab with the full address, or this tab when it is blocked", () => {
+  const { openSite } = require("./siteLink");
+  const tab = { opener: {} };
+  const open = jest.spyOn(window, "open").mockImplementation(() => tab);
+  expect(openSite("https://it.example.test/#pass=x")).toBe(true);
+  expect(open).toHaveBeenCalledWith("https://it.example.test/#pass=x", "_blank");
+  expect(tab.opener).toBeNull();
+  open.mockImplementation(() => null);
+  const assign = jest.fn();
+  const saved = window.location;
+  delete window.location;
+  window.location = { ...saved, assign };
+  try {
+    expect(openSite("https://it.example.test/#pass=y")).toBe(false);
+    expect(assign).toHaveBeenCalledWith("https://it.example.test/#pass=y");
+  } finally {
+    window.location = saved;
+    open.mockRestore();
+  }
+});

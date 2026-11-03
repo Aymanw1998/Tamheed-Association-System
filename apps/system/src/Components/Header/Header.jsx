@@ -12,7 +12,7 @@ import { canAccessPath } from "../../utils/routeAccess";
 import NewBadge from "../../tours/NewBadge";
 import { InstallAppButton } from "../../pwa/InstallApp";
 import { toast } from "../../ALERT/SystemToasts";
-import { itUrlWithPass } from "../../utils/siteLink";
+import { itUrlWithPass, openSite } from "../../utils/siteLink";
 import { resolveRole } from "../../utils/roles";
 
 const hasAnyRole = (roles, allowedRoles) => allowedRoles.some((role) => roles.includes(role));
@@ -33,25 +33,20 @@ function AccountMenu({ label, onNav, onLogout, t, showIt, onItRefused }) {
     return () => document.removeEventListener("click", onDocClick);
   }, [open]);
 
-  // «قسم الIT»: a one-time pass from the server, then the IT site in a new tab,
-  // signed in without typing the password. The tab is opened first (on the
-  // click, so a pop-up blocker allows it) and sent to the address when the
-  // pass arrives. A 403 means this user has no IT side: no button.
+  // «قسم الIT»: a one-time pass from the server, then the IT site in a new tab
+  // (openSite), signed in without typing the password. A 403 means this user
+  // has no IT side: no button.
   const openIt = async () => {
     setOpen(false);
-    const tab = window.open("", "_blank");
-    if (!tab) return toast.warn(t("nav.itBlocked"));
-    tab.opener = null;
     try {
       const pass = await requestItPass();
       if (!pass) {
-        tab.close();
         onItRefused();
         return;
       }
-      tab.location.href = itUrlWithPass(pass);
+      // A new tab with the full address (an installed app opens the IT app).
+      openSite(itUrlWithPass(pass));
     } catch {
-      tab.close();
       toast.error(t("nav.itFailed"));
     }
   };

@@ -14,7 +14,7 @@ jest.mock("./api", () => ({
   getMembers: jest.fn(),
   setPasswordChangeHandler: jest.fn(),
 }));
-jest.mock("./siteLink", () => ({ ...jest.requireActual("./siteLink"), goTo: jest.fn() }));
+jest.mock("./siteLink", () => ({ ...jest.requireActual("./siteLink"), openSite: jest.fn() }));
 
 const ME = { tz: "100000001", name: "مستخدم تجريبي", isSystem: false, photo: null };
 
@@ -57,7 +57,7 @@ test("a refused pass on click hides the button", async () => {
   api.systemPass.mockImplementation(() => fail(403, { code: "FORBIDDEN" }));
   const c = await mount(<App />);
   await click((await systemButton(c)));
-  expect(nav.goTo).not.toHaveBeenCalled();
+  expect(nav.openSite).not.toHaveBeenCalled();
   expect((await systemButton(c))).toBeUndefined();
 });
 
@@ -67,8 +67,8 @@ test("the button opens the everyday site with a fresh pass in the fragment", asy
   const c = await mount(<App />);
   await click((await systemButton(c)));
   expect(api.systemPass).toHaveBeenCalledTimes(1);
-  expect(nav.goTo).toHaveBeenCalledTimes(1);
-  const url = nav.goTo.mock.calls[0][0];
+  expect(nav.openSite).toHaveBeenCalledTimes(1);
+  const url = nav.openSite.mock.calls[0][0];
   expect(url).toMatch(/#pass=fresh-pass$/);
   expect(url).not.toContain("?");
 });

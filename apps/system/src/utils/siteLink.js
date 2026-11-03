@@ -38,3 +38,13 @@ export const isItLink = (link) => {
     return false;
   }
 };
+
+// Opens the other site in a new tab, with the full address at once: an
+// installed web app hands it to the other installed app (owner, 2026-11-03).
+// A blocked tab falls back to this one.
+export const openSite = (url) => {
+  const tab = window.open(url, "_blank");
+  if (!tab) { window.location.assign(url); return false; }
+  try { tab.opener = null; } catch { /* another origin */ }
+  return true;
+};

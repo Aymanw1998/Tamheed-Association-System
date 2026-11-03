@@ -169,17 +169,18 @@ describe("opening the IT site", () => {
   });
   afterEach(() => { delete process.env.REACT_APP_IT_URL; jest.restoreAllMocks(); });
 
-  test("the pass is asked for only on click, and the new tab gets it in the fragment", async () => {
+  test("the pass is asked for only on click, and a new tab opens with it in the fragment", async () => {
     requestItPass.mockResolvedValue("one-time_pass");
     await mount();
     await openMenu();
     expect(requestItPass).not.toHaveBeenCalled();
     await act(async () => itButton().click());
     expect(requestItPass).toHaveBeenCalledTimes(1);
-    expect(tab.location.href).toBe("https://it.example.test/#pass=one-time_pass");
-    expect(tab.location.href).not.toContain("?");
+    // The full address at once (an installed web app can hand it to the IT app).
+    expect(window.open).toHaveBeenCalledTimes(1);
+    expect(window.open).toHaveBeenCalledWith("https://it.example.test/#pass=one-time_pass", "_blank");
+    expect(window.open.mock.calls[0][0]).not.toContain("?");
     expect(tab.opener).toBeNull();
-    expect(tab.close).not.toHaveBeenCalled();
   });
 
   test("a refused pass (403) opens nothing and takes the button away", async () => {
@@ -187,8 +188,7 @@ describe("opening the IT site", () => {
     await mount();
     await openMenu();
     await act(async () => itButton().click());
-    expect(tab.location.href).toBe("");
-    expect(tab.close).toHaveBeenCalled();
+    expect(window.open).not.toHaveBeenCalled();
     await openMenu();
     expect(itButton()).toBeUndefined();
   });

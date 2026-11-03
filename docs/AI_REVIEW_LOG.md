@@ -4258,3 +4258,40 @@ IT user page's password is set with two fields that must match, and an eye.
 form checked locally.
 
 **Codex review:** pending (until 2026-11-06). **Status:** committed.
+
+### Follow-up: administrators as a lesson's guide (2026-11-03)
+
+**Change:** Owner: administrators may have lessons of their own; the lesson's
+guide is a guide or an administrator. The server never restricted the
+teacher's role (only the system account is refused); the form's picker
+already meant to include administrators but read only `roles`, so a user
+whose role sits in `role` alone was missing. `EditLesson.jsx`: the guide
+list and the helper list use `resolveRole` (role or roles); the guide
+options come in two groups, «المرشدون» and «الإدارة»; the label reads
+«المرشد / الإدارة».
+
+**Test:** `apps/system` `EditLesson.lock.test.js` (both groups, either field,
+no assistant among the guides).
+
+**Verification:** `apps/system` 945/945, build.
+
+**Codex review:** pending (until 2026-11-06). **Status:** committed.
+
+### Follow-up: the site switch opens a new tab with the full address (2026-11-03)
+
+**Change:** Owner: «قسم الIT» and «النظام» open the other site in a new tab,
+and an installed web app moves to the other app. `openSite(url)` in both
+`siteLink.js`: `window.open(url, "_blank")` with the full address at once
+(a blank tab filled in later cannot be handed to another installed app),
+`opener` cleared, the same tab when the browser blocks it. The everyday
+header now asks for the pass first and then opens; the IT site used to leave
+in the same tab (`goTo`).
+
+**Test:** `apps/system` `Header.test.js`, `siteLink.test.js`; `apps/it`
+`App.test.js`.
+
+**Verification:** `apps/system` 946/946, `apps/it` 66/66, both
+builds. Moving between installed apps is up to the phone; not checked on a
+phone.
+
+**Codex review:** pending (until 2026-11-06). **Status:** committed.

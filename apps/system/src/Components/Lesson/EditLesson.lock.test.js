@@ -85,3 +85,25 @@ test("the edit form offers no «حذف»", async () => {
   await act(async () => root.unmount());
   container.remove();
 });
+
+// Owner, 2026-11-03: administrators may have lessons of their own.
+test("the guide picker offers guides and administrators, in two groups, whichever field holds the role", async () => {
+  getOneLesson.mockResolvedValue({ ok: true, lesson: lesson(OPENED, []) });
+  getAllU.mockImplementation(async () => ({ ok: true, users: [
+    { _id: "t1", firstname: "مرشد", lastname: "أول", roles: ["مرشد"] },
+    { _id: "a1", firstname: "مدير", lastname: "أول", role: "ادارة", roles: [] },
+    { _id: "a2", firstname: "مدير", lastname: "ثان", roles: ["الإدارة"] },
+    { _id: "h1", firstname: "مساعد", lastname: "أول", roles: ["مساعد"] },
+  ] }));
+  container = document.createElement("div");
+  document.body.appendChild(container);
+  root = createRoot(container);
+  await act(async () => root.render(<I18nProvider><EditLesson /></I18nProvider>));
+  const groups = [...container.querySelectorAll("#lesson-teacher optgroup")];
+  expect(groups.map((g) => g.label)).toEqual(["المرشدون", "الإدارة"]);
+  expect([...groups[0].querySelectorAll("option")].map((o) => o.value)).toEqual(["t1"]);
+  expect([...groups[1].querySelectorAll("option")].map((o) => o.value)).toEqual(["a1", "a2"]);
+  expect([...container.querySelectorAll("#lesson-teacher option")].map((o) => o.value)).not.toContain("h1");
+  await act(async () => root.unmount());
+  container.remove();
+});
