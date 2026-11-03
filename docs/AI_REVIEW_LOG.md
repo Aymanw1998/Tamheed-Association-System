@@ -2767,7 +2767,7 @@ Chromium page a 46 MB 4000x3000 PNG became a 2.77 MB 2400x1800 JPEG, a small
 JPEG came back unchanged, a GIF became a JPEG and a non-image was refused.
 Not verified: a real phone (gallery, HEIC, EXIF orientation).
 
-**Status:** committed.
+**Status:** not committed.
 
 ## 2026-10-31: Password eye and lesson day headers (Claude writer)
 
@@ -2793,7 +2793,7 @@ eye toggled the field each time; on /register the eye sits inside the field
 with a transparent background. Not seen on screen: the lessons page, Profile
 and EditUser (they need a signed-in session).
 
-**Status:** committed.
+**Status:** not committed.
 
 ## 2026-10-31: Responsible guide field always shown (Claude writer)
 
@@ -2811,7 +2811,7 @@ inactive; now "loading" / "unavailable" labels until the list really loads.
 
 **Verification:** client tests 734/734 (two new in EditStudent.lock.test.js).
 
-**Status:** committed.
+**Status:** not committed.
 
 ## 2026-10-31: Linked student, guide and lesson pages (Claude writer)
 
@@ -2861,7 +2861,7 @@ student page on desktop and 375px, empty-tab texts, `/students/new`, profile
 without tabs, navigation bar. Not walked in the browser (no such data in the
 test DB): a regular lesson page, a user page, a guide's profile tabs.
 
-**Status:** committed.
+**Status:** not committed.
 
 ## QA round on seeded local data (2026-11-01)
 
@@ -2920,7 +2920,7 @@ each page after «لاحقًا» and sits above dialogs.
 **Codex review:** requested for this round; not available (usage limit until
 2026-11-04). Pending.
 
-**Status:** committed.
+**Status:** not committed.
 
 ## Owner's rulings after QA: sessions, admin-only editing (2026-11-01)
 
@@ -2982,7 +2982,7 @@ dashboard, no «تعديل», roster or add buttons.
 
 **Codex review:** pending (usage limit until 2026-11-04).
 
-**Status:** committed.
+**Status:** not committed.
 
 ## System guidance turned off for now (2026-11-01)
 
@@ -3049,7 +3049,7 @@ guide gets 8 lessons (his), names in the filter, 404 for another guide's
 lesson, no football lessons, no `/api/user/` call; the admin gets 50
 lessons, 2 football lessons, 15 names.
 
-**Codex review:** pending (until 2026-11-04). **Status:** committed.
+**Codex review:** pending (until 2026-11-04). **Status:** not committed.
 
 ## The responsible guide sees everything about his student (2026-11-01)
 
@@ -3092,7 +3092,7 @@ opens with 2 named students and «طلاب آخرون: 10», no edit buttons; it
 not in his schedule; saving attendance there is 404; an assistant with no
 student there gets 404.
 
-**Codex review:** pending (until 2026-11-04). **Status:** committed.
+**Codex review:** pending (until 2026-11-04). **Status:** not committed.
 
 ## The student page shows the student's attendance, read-only (2026-11-01)
 
@@ -3130,7 +3130,7 @@ responsible guide 770000107 and the admin see that row (10 rows); the
 lesson's own guide 770000149 sees only that lesson's rows; an assistant
 with no link to the student gets 404. The tab shows the rows, no inputs.
 
-**Codex review:** pending (until 2026-11-04). **Status:** committed.
+**Codex review:** pending (until 2026-11-04). **Status:** not committed.
 
 ## Signed in until signing out, in the system and on the sport site (2026-11-01)
 
@@ -3175,7 +3175,7 @@ worked, an admin's sign-out-all → both get 401 TOKEN_STALE and both
 refreshes 401; he signs in again fine; a guide trying sign-out-all gets
 403. Guide 770000107's local sessions were ended by this check.
 
-**Codex review:** pending (until 2026-11-04). **Status:** committed.
+**Codex review:** pending (until 2026-11-04). **Status:** not committed.
 
 ## My devices, attendance summary, absence pushes and the sport sign-in card (2026-11-01)
 
@@ -3252,7 +3252,7 @@ sign-in end to end, because the local `server/config/.env` has no
 code too), and the signed-in screens (profile devices, student summary,
 danger zone, card print), which need a browser sign-in; covered by tests.
 
-**Codex review:** pending (until 2026-11-04). **Status:** committed.
+**Codex review:** pending (until 2026-11-04). **Status:** not committed.
 
 ## Sport sign-in with a passkey (fingerprint or face) (2026-11-01)
 
@@ -3296,7 +3296,7 @@ localhost and the exact host name).
 for the options), client 841/841, sport 81/81, sport build compiles. Live:
 the sport sign-in page shows «الدخول بالبصمة أو بالوجه» in the browser pane.
 
-**Codex review:** pending (until 2026-11-04). **Status:** committed.
+**Codex review:** pending (until 2026-11-04). **Status:** not committed.
 
 ## "Install the app" button with a step-by-step guide (2026-11-01)
 
@@ -3332,7 +3332,7 @@ the component tests only.
 (browser pane, phone size, Android): the button shows on the sport and staff
 sign-in pages and opens the Android steps; at desktop size it does not show.
 
-**Codex review:** pending (until 2026-11-04). **Status:** committed.
+**Codex review:** pending (until 2026-11-04). **Status:** not committed.
 
 ## Alerts follow their records; actions move from the lists to the record pages (2026-11-02)
 
@@ -3400,7 +3400,7 @@ concurrency test failed once in a full run, passed alone 5/5 and in the next
 full run), client 869/869, client build compiles. The server started
 locally with the new indexes without an error.
 
-**Codex review:** pending (until 2026-11-05). **Status:** committed.
+**Codex review:** pending (until 2026-11-05). **Status:** not committed.
 
 ### Follow-up: waiting and inactive records are decided on their page (2026-11-02)
 
@@ -3440,7 +3440,7 @@ as above.
 **Verification:** client 882/882, client build compiles. The server was not
 changed.
 
-**Codex review:** pending (until 2026-11-05). **Status:** committed.
+**Codex review:** pending (until 2026-11-05). **Status:** not committed.
 
 ### Follow-up: the sport site's guide is off too (2026-11-02)
 
@@ -3458,7 +3458,7 @@ button), written first and seen failing on both.
 
 **Verification:** sport 91/91, sport build compiles. Not checked live.
 
-**Codex review:** pending (until 2026-11-05). **Status:** committed.
+**Codex review:** pending (until 2026-11-05). **Status:** not committed.
 
 ### Follow-up: a lighter main menu (2026-11-02)
 
@@ -3482,7 +3482,7 @@ logo).
 browser (signing in needs the seeded password); the dropdown's look on a
 phone is unverified.
 
-**Codex review:** pending (until 2026-11-05). **Status:** committed.
+**Codex review:** pending (until 2026-11-05). **Status:** not committed.
 
 ### Follow-up: signing in became slow after the update (2026-11-02)
 
@@ -3514,7 +3514,7 @@ test gives one) and matches `sharedWith.userId`.
 
 **Verification:** server 1145/1145. Not checked on the live server.
 
-**Codex review:** pending (until 2026-11-05). **Status:** committed.
+**Codex review:** pending (until 2026-11-05). **Status:** not committed.
 
 ### Follow-up: permissions taken away show at once; permissions on the user page (2026-11-02)
 
@@ -3559,7 +3559,7 @@ missing tab has no test of its own.
 **Verification:** client 903/903, client build compiles. Not checked in the
 browser or live.
 
-**Codex review:** pending (until 2026-11-05). **Status:** committed.
+**Codex review:** pending (until 2026-11-05). **Status:** not committed.
 
 ### Follow-up: menu links follow every section's permission; a general message; install guide close (2026-11-03)
 
@@ -3592,7 +3592,7 @@ dashboard only).
 **Verification:** client 914/914, sport 92/92, server 1145/1145; client and
 sport builds compile. Not checked on a phone or live.
 
-**Codex review:** pending (until 2026-11-06). **Status:** committed.
+**Codex review:** pending (until 2026-11-06). **Status:** not committed.
 
 ### Follow-up: dashboard follows the sections; filters in a «فلتر» window (2026-11-03)
 
