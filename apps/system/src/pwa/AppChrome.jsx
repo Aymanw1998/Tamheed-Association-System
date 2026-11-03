@@ -126,9 +126,9 @@ export default function AppChrome() {
       )}
       {installEvt && (
         <div style={bar}>
-          <button type="button" style={btn} onClick={install}>
+          {/* <button type="button" style={btn} onClick={install}>
             تثبيت التطبيق
-          </button>
+          </button> */}
         </div>
       )}
       {iosHint && (
