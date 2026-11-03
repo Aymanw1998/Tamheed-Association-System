@@ -186,6 +186,10 @@ app.use(require("express").json({ limit: "50mb" }));
 const StartServer = async () => {
   try {
     await connectDB();
+    // The role defaults IT set («صلاحيات الأدوار») replace the code's before
+    // the first request; without them every role keeps the code's set.
+    await require('./Entities/It/RoleDefaults.controller').roleDefaults().load()
+      .catch((err) => console.error('Role defaults:', err.message));
     // **********************************END - ALERTS POPUP***************************
     const httpServer = http.createServer(app)
     const PORT = process.env.PORT || 5000;

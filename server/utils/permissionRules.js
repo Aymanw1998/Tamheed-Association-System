@@ -6,7 +6,7 @@
 const {
   ALL_KEYS,
   IT_KEYS,
-  ROLE_DEFAULTS,
+  roleDefaults,
   ROLE_RANK,
   can,
   effectivePermissions,
@@ -101,7 +101,7 @@ function canAssignRole(actor, target, newRole, ctx = {}) {
   if (!(ROLE_RANK[role] < rankOf(actor))) return false;
   const held = permissionSet(actor);
   if (!can(held, "users.changeRole")) return false;
-  for (const leaf of expandKeys(ROLE_DEFAULTS[role])) if (!held.has(leaf)) return false;
+  for (const leaf of roleDefaults(role)) if (!held.has(leaf)) return false;
   return true;
 }
 

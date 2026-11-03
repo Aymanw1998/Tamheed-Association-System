@@ -1,5 +1,6 @@
 import UserPage from "./UserPage.jsx";
 import * as api from "../api";
+import * as router from "../router.jsx";
 import { mount, unmountAll, ok, fail, button, click, type, flush, toastText } from "../testUtils";
 
 jest.mock("../api", () => ({
@@ -13,7 +14,11 @@ jest.mock("../api", () => ({
   unlockUser: jest.fn(),
   getSessions: jest.fn(),
   endSession: jest.fn(),
+  moveUser: jest.fn(),
+  deleteUser: jest.fn(),
 }));
+
+jest.mock("../router.jsx", () => ({ ...jest.requireActual("../router.jsx"), navigate: jest.fn() }));
 
 const TZ = "100000002";
 const USER = { tz: TZ, firstname: "ليلى", lastname: "الثانية", role: "مرشد", photo: null, lockedAt: "2026-11-01T10:00:00Z" };
@@ -100,4 +105,46 @@ test("UserPage: a user that is not found", async () => {
   api.getUser.mockImplementation(() => fail(404, { code: "NOT_FOUND" }));
   const c = await mount(<UserPage tz={TZ} />);
   expect(c.textContent).toContain("المستخدم غير موجود");
+});
+
+test("UserPage: disabling asks first, then moves the account to noActive", async () => {
+  api.moveUser.mockImplementation(() => ok());
+  const c = await mount(<UserPage tz={TZ} />);
+  await click(button(c, "تعطيل الحساب"));
+  expect(api.moveUser).not.toHaveBeenCalled();
+  await click(button(c.querySelector("[role=dialog]"), "تأكيد"));
+  await flush();
+  expect(api.moveUser).toHaveBeenCalledWith(TZ, "active", "noActive");
+  expect(toastText()).toContain("تم تعطيل الحساب");
+});
+
+test("UserPage: a disabled account is enabled again; a waiting one is approved with the chosen role", async () => {
+  api.moveUser.mockImplementation(() => ok());
+  api.getUser.mockImplementation(() => ok({ user: USER, room: "noActive" }));
+  let c = await mount(<UserPage tz={TZ} />);
+  await click(button(c, "تفعيل الحساب"));
+  await flush();
+  expect(api.moveUser).toHaveBeenLastCalledWith(TZ, "noActive", "active", undefined);
+  await unmountAll();
+
+  api.getUser.mockImplementation(() => ok({ user: { ...USER, role: null, roles: [] }, room: "waiting" }));
+  c = await mount(<UserPage tz={TZ} />);
+  await click(button(c, "قبول المستخدم"));
+  expect(toastText()).toContain("اختر دورًا أولًا");
+  await type(c.querySelector('select[name="role"]'), "مساعد");
+  await click(button(c, "قبول المستخدم"));
+  await flush();
+  expect(api.moveUser).toHaveBeenLastCalledWith(TZ, "waiting", "active", "مساعد");
+});
+
+test("UserPage: deleting asks first, then goes back to the list", async () => {
+  api.deleteUser.mockImplementation(() => ok());
+  const c = await mount(<UserPage tz={TZ} />);
+  await click(button(c, "حذف المستخدم"));
+  expect(c.querySelector("[role=dialog]").textContent).toContain("نهائيًا");
+  await click(button(c.querySelector("[role=dialog]"), "تأكيد"));
+  await flush();
+  expect(api.deleteUser).toHaveBeenCalledWith(TZ, "active");
+  expect(router.navigate).toHaveBeenCalledWith("/");
+  expect(toastText()).toContain("تم حذف المستخدم");
 });

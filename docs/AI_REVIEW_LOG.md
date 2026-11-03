@@ -4034,3 +4034,31 @@ is reported as skipped, with no audit row.
 **Verification:** see the commit; server and `apps/system` suites run once each.
 
 **Codex review:** pending (until 2026-11-06). **Status:** committed.
+
+### Follow-up: role defaults and account state on the IT site (2026-11-03)
+
+**Change:** Owner: any IT user sets each everyday role's default permissions
+(«صلاحيات الأدوار»), and IT may disable, re-enable, approve and delete users.
+`server/utils/permissions.js`: `roleDefaults(role)` (a stored set or the code's
+`ROLE_DEFAULTS`), `setRoleDefaultsOverride`, `checkRoleDefaults` (no IT key, no
+grant-only module, no unknown key), `ROLE_DEFAULT_KEYS`; `effectivePermissions`,
+`canAssignRole`, `canGiveFirstRole` and `getPermissions` read `roleDefaults`.
+`IT_SET` gains `users.delete`. New `server/Entities/It/RoleDefaults.model.js`
+(one row per changed role) and `RoleDefaults.controller.js` (`load` at start in
+`server.js`, `list`, `save`, `reset`; audit `permissions` /
+`role_defaults_change|role_defaults_reset`). `It.route.js`: `GET|PUT|DELETE
+/role-defaults[/:role]` (`permissions.manage`), `POST /users/:tz/room`
+(`users.approve`, everyday `changeRoom`), `DELETE /users/:tz?from=` (`users.delete`,
+everyday `deleteU`); another IT user stays out of reach (`canManageTarget`).
+`apps/it`: `screens/RoleDefaults.jsx` (menu «صلاحيات الأدوار»), «حالة الحساب»
+card on `UserPage.jsx`, `api.js`, `strings.js`.
+
+**Test:** `server/test/role-defaults.test.js`, `it-api.test.js` (routes behind
+the IT session, role defaults reach the role's users, disable/enable/delete,
+403 on another IT user), `it-rules.test.js`; `apps/it`
+`RoleDefaults.test.js`, `UserPage.test.js`.
+
+**Verification:** server 1246/1246, `apps/it` 44/44, `apps/it` build; local
+browser check with made-up data.
+
+**Codex review:** pending (until 2026-11-06). **Status:** committed.

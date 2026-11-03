@@ -56,6 +56,14 @@ export const resetPassword = (tz, password) => send("PUT", `/users/${enc(tz)}/pa
 export const unlockUser = (tz) => send("POST", `/users/${enc(tz)}/unlock`);
 export const getSessions = (tz) => call(`/users/${enc(tz)}/sessions`);
 export const endSession = (tz, sid) => send("DELETE", `/users/${enc(tz)}/sessions/${enc(sid)}`);
+// Account state: move between rooms (active / waiting / noActive), or delete.
+export const moveUser = (tz, from, to, role) => send("POST", `/users/${enc(tz)}/room`, role ? { from, to, role } : { from, to });
+export const deleteUser = (tz, from) => send("DELETE", `/users/${enc(tz)}?from=${enc(from)}`);
+
+// Role defaults («صلاحيات الأدوار»)
+export const getRoleDefaults = () => call("/role-defaults");
+export const saveRoleDefaults = (role, keys) => send("PUT", `/role-defaults/${enc(role)}`, { keys });
+export const resetRoleDefaults = (role) => send("DELETE", `/role-defaults/${enc(role)}`);
 
 // IT users (the system account only)
 export const getMembers = () => call("/members");

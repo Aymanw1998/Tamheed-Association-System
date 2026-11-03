@@ -189,6 +189,13 @@ label.check { display: flex; align-items: center; gap: 8px; font-weight: 500; co
 .badge.warning { background: var(--color-warning-100); color: var(--color-warning-700); }
 .badge.danger { background: var(--color-danger-100); color: var(--color-danger-700); }
 
+/* «صلاحيات الأدوار» */
+.role-tabs { margin-bottom: var(--space-3); }
+.role-tabs .badge { margin-inline-start: 6px; }
+
+/* Account state */
+.account-actions { margin-top: var(--space-2); }
+
 /* Audit table */
 .table-wrap {
   overflow-x: auto; background: var(--color-surface); border: 1px solid var(--color-border);

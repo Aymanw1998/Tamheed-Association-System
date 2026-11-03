@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import {
-  endSession, errorText, getPassword, getSessions, getUser, resetPassword, setRole, unlockUser,
+  deleteUser, endSession, errorText, getPassword, getSessions, getUser, moveUser, resetPassword, setRole, unlockUser,
 } from "../api";
-import { Link } from "../router.jsx";
-import { ROLES, ROOMS, roleLabel } from "../strings";
+import { Link, navigate } from "../router.jsx";
+import { ROLES, ROOMS, accountText, fillText, roleLabel } from "../strings";
 import Avatar from "../ui/Avatar.jsx";
+import ConfirmDialog from "../ui/ConfirmDialog.jsx";
 import PermissionsEditor from "../ui/PermissionsEditor.jsx";
 import { passportSrc } from "../ui/passportPhoto";
 import { toast } from "../ui/toast.jsx";
@@ -27,6 +28,7 @@ export default function UserPage({ tz }) {
   const [hasPassword, setHasPassword] = useState(null);
   const [newPassword, setNewPassword] = useState("");
   const [devices, setDevices] = useState(null);
+  const [asking, setAsking] = useState(null); // "disable" | "remove"
 
   const loadUser = useCallback(async () => {
     const res = await getUser(tz);
@@ -70,6 +72,20 @@ export default function UserPage({ tz }) {
   };
   const unlock = () => run(() => unlockUser(tz), "تم رفع الحظر", loadUser);
   const endDevice = (sid) => run(() => endSession(tz, sid), "تم إنهاء الجلسة", loadDevices);
+
+  // Account state: disable (to noActive), enable or approve (to active, with a
+  // role when the user has none), delete. The server refuses another IT user.
+  const disable = () => run(() => moveUser(tz, room, "noActive"), accountText.disabled, loadUser);
+  const activate = () => {
+    const chosen = current || role;
+    if (!chosen) return toast.warn(accountText.needRole);
+    const okText = room === "waiting" ? accountText.approved : accountText.enabled;
+    return run(() => moveUser(tz, room, "active", current ? undefined : chosen), okText, loadUser);
+  };
+  const remove = async () => {
+    const res = await run(() => deleteUser(tz, room), accountText.removed);
+    if (res.ok) navigate("/");
+  };
 
   return (
     <section className="user-page">
@@ -139,6 +155,27 @@ export default function UserPage({ tz }) {
           </ul>
         )}
       </div>
+
+      <div className="card" data-card="account">
+        <h2>{accountText.title}</h2>
+        <p className="muted">{accountText.hint[room]}</p>
+        <div className="row account-actions">
+          {room === "active" && <button type="button" onClick={() => setAsking("disable")}>{accountText.disable}</button>}
+          {room === "noActive" && <button type="button" className="primary" onClick={activate}>{accountText.enable}</button>}
+          {room === "waiting" && <button type="button" className="primary" onClick={activate}>{accountText.approve}</button>}
+          <button type="button" className="danger" onClick={() => setAsking("remove")}>{accountText.remove}</button>
+        </div>
+      </div>
+
+      {asking && (
+        <ConfirmDialog
+          title={asking === "remove" ? accountText.remove : accountText.disable}
+          message={fillText(asking === "remove" ? accountText.removeConfirm : accountText.disableConfirm, { name: name || tz })}
+          danger
+          onCancel={() => setAsking(null)}
+          onConfirm={() => { const action = asking; setAsking(null); if (action === "remove") remove(); else disable(); }}
+        />
+      )}
     </section>
   );
 }

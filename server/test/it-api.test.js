@@ -22,6 +22,8 @@ const { createItMembers } = require("../Entities/It/ItMembers.controller");
 const { createRequireIt, IT_COOKIE } = require("../middleware/requireIt");
 const { createDriveConnectState } = require("../utils/driveConnectState");
 const { createGoogleDriveRouter } = require("../Entities/Storage/GoogleDrive.route");
+const { createRoleDefaults } = require("../Entities/It/RoleDefaults.controller");
+const { setRoleDefaultsOverride } = require("../utils/permissions");
 
 // Synthetic values only.
 const SYSTEM_TZ = "900000001";
@@ -64,6 +66,16 @@ function createUsers(seed) {
       return { success: true, result: hit ? structuredClone(hit) : null };
     },
     async updateExisting(filter, data, room = "active") { return this.update(filter, data, room); },
+    async create(data, room = "active") {
+      const doc = { _id: `new-${data.tz}`, ...structuredClone(data) };
+      rooms[room].push(doc);
+      return { success: true, result: structuredClone(doc) };
+    },
+    async delete(filter, room = "active") {
+      const before = rooms[room].length;
+      rooms[room] = rooms[room].filter((d) => !matches(d, filter));
+      return { success: true, result: { deletedCount: before - rooms[room].length } };
+    },
     async dropRefreshHash(tz, hash) {
       const hit = rooms.active.find((d) => d.tz === tz);
       if (hit) {
@@ -136,6 +148,11 @@ async function startApp() {
     users: loadUserController(users, audit),
     members: createItMembers({ users, audit: audit.deps["../../utils/audit"].audit, systemTz: () => SYSTEM_TZ, notify: () => {} }),
     lockedUser: (req, res, next) => next(),
+    roleDefaults: createRoleDefaults({
+      model: { readAll: async () => [], write: async () => {}, remove: async () => {} },
+      users: async () => users.rooms.active,
+      audit: audit.deps["../../utils/audit"].audit,
+    }),
     auditModel: { async page(filter, { page, pageSize }) { auditRows.push({ filter, page, pageSize }); return { items: [{ action: "x" }], total: 1 }; } },
     drive: {
       getAuthUrl: (stateToken) => `https://accounts.example.test/auth?state=${stateToken}`,
@@ -194,6 +211,8 @@ test("every IT route needs the IT session, and only IT_HOST serves them", withAp
     ["GET", `/users/${GUIDE.tz}/sessions`], ["DELETE", `/users/${GUIDE.tz}/sessions/sid-1`], ["GET", "/audit"],
     ["GET", "/storage/google/status"], ["POST", "/storage/google/connect-url"], ["POST", "/locks/force-release"],
     ["GET", "/push/settings"], ["PUT", "/push/settings"], ["GET", "/members"], ["POST", `/members/${GUIDE.tz}`],
+    ["POST", `/users/${GUIDE.tz}/room`], ["DELETE", `/users/${GUIDE.tz}?from=active`],
+    ["GET", "/role-defaults"], ["PUT", `/role-defaults/${encodeURIComponent("مرشد")}`], ["DELETE", `/role-defaults/${encodeURIComponent("مرشد")}`],
   ]) {
     assert.equal((await call(method, url, { body: {} })).status, 401, `${method} ${url} without the IT cookie`);
     assert.equal((await call(method, url, { as: IT_A.tz, body: {}, host: "tamheed.example.test" })).status, 404, `${method} ${url} on another host`);
@@ -447,3 +466,39 @@ test("the everyday API no longer serves audit, Drive connect, force-release or p
   assert.ok(push.includes("POST /subscribe"));
   assert.ok(!push.some((r) => r.endsWith(" /settings")));
 });
+
+test("role defaults: an IT user reads and changes a role's defaults; the role's users get them", withApp(async ({ call }) => {
+  try {
+    const list = await call("GET", "/role-defaults", { as: IT_A.tz });
+    assert.equal(list.status, 200);
+    assert.equal(list.body.roles.length, 3);
+    const saved = await call("PUT", `/role-defaults/${encodeURIComponent("مرشد")}`, { as: IT_A.tz, body: { keys: ["students"] } });
+    assert.equal(saved.status, 200);
+    assert.ok(saved.body.role.defaults.includes("students.edit"));
+    const guide = await call("GET", `/users/${GUIDE.tz}/permissions`, { as: IT_A.tz });
+    assert.ok(guide.body.defaults.includes("students.edit"));
+    assert.ok(!guide.body.defaults.includes("ai.use"));
+    const refused = await call("PUT", `/role-defaults/${encodeURIComponent("مرشد")}`, { as: IT_A.tz, body: { keys: ["audit.view"] } });
+    assert.equal(refused.status, 400);
+  } finally {
+    setRoleDefaultsOverride("مرشد", null);
+  }
+}));
+
+test("account state: IT disables and re-enables an everyday user, and deletes one; 403 on another IT user", withApp(async ({ call, users }) => {
+  const off = await call("POST", `/users/${ADMIN.tz}/room`, { as: IT_A.tz, body: { from: "active", to: "noActive" } });
+  assert.equal(off.status, 200);
+  assert.ok(users.find(ADMIN.tz, "noActive"));
+  assert.equal(users.find(ADMIN.tz, "active"), undefined);
+  const on = await call("POST", `/users/${ADMIN.tz}/room`, { as: IT_A.tz, body: { from: "noActive", to: "active" } });
+  assert.equal(on.status, 200);
+  assert.ok(users.find(ADMIN.tz, "active"));
+
+  const gone = await call("DELETE", `/users/${NO_MAIL.tz}?from=active`, { as: IT_A.tz });
+  assert.equal(gone.status, 200);
+  assert.equal(users.find(NO_MAIL.tz, "active"), undefined);
+
+  assert.equal((await call("POST", `/users/${IT_B.tz}/room`, { as: IT_A.tz, body: { from: "active", to: "noActive" } })).status, 403);
+  assert.equal((await call("DELETE", `/users/${IT_B.tz}?from=active`, { as: IT_A.tz })).status, 403);
+  assert.ok(users.find(IT_B.tz, "active"));
+}));

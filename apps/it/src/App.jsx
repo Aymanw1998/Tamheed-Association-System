@@ -11,9 +11,11 @@ import Members from "./screens/Members.jsx";
 import Audit from "./screens/Audit.jsx";
 import Storage from "./screens/Storage.jsx";
 import Settings from "./screens/Settings.jsx";
+import RoleDefaults from "./screens/RoleDefaults.jsx";
 
 const NAV = [
   { to: "/", label: "المستخدمون" },
+  { to: "/roles", label: "صلاحيات الأدوار" },
   { to: "/audit", label: "سجل التغييرات" },
   { to: "/storage", label: "التخزين" },
   { to: "/settings", label: "الإعدادات" },
@@ -22,6 +24,7 @@ const NAV = [
 function Screen({ path, me }) {
   const user = /^\/users\/([^/]+)$/.exec(path);
   if (user) return <UserPage key={user[1]} tz={decodeURIComponent(user[1])} />;
+  if (path === "/roles") return <RoleDefaults />;
   if (path === "/audit") return <Audit />;
   if (path === "/storage") return <Storage />;
   if (path === "/settings") return <Settings />;

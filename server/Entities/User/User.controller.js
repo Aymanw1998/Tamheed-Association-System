@@ -28,7 +28,7 @@ const {
 } = require("../../utils/loginLockout");
 
 const {
-  ROLE_DEFAULTS,
+  roleDefaults,
   ROLE_RANK,
   isSystemTz,
   actorRef,
@@ -599,7 +599,7 @@ function canGiveFirstRole(actor, target, role, gateKey) {
   if (!can(held, gateKey) || !canManageTarget(actor, target)) return false;
   const actorRank = ROLE_RANK[resolveRole(actor)] || 0;
   if (!(ROLE_RANK[role] < actorRank)) return false;
-  for (const leaf of expandKeys(ROLE_DEFAULTS[role])) if (!held.has(leaf)) return false;
+  for (const leaf of roleDefaults(role)) if (!held.has(leaf)) return false;
   return true;
 }
 
@@ -1508,7 +1508,7 @@ const getPermissions = async (req, res) => {
       grants: listOf(user.permissionGrants),
       revokes: listOf(user.permissionRevokes),
       effective: [...effectivePermissions(user)],
-      defaults: [...expandKeys(role ? ROLE_DEFAULTS[role] : [])],
+      defaults: role ? [...roleDefaults(role)] : [],
       grantable: editable ? [...grantableBy(req.actor)] : [],
       updatedAt: user.permissionsUpdatedAt || null,
       updatedBy: user.permissionsUpdatedBy || null,

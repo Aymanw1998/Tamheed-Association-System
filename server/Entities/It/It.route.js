@@ -35,6 +35,7 @@ function createItRouter(deps = {}) {
   const requireIt = deps.requireIt || defaultRequireIt;
   const users = deps.users || lazyHandlers(() => require("../User/User.controller"));
   const members = deps.members || itMembers;
+  const roleDefaults = deps.roleDefaults || lazyHandlers(() => require("./RoleDefaults.controller").roleDefaults());
   // Refuses a change while the user is open in an everyday tab (423).
   const lockedUser = deps.lockedUser || ((req, res, next) => require("../User/User.route").lockedUser(req, res, next));
 
@@ -81,6 +82,10 @@ function createItRouter(deps = {}) {
   router.get("/users", requireIt, requirePermission("users.view"), members.listUsers);
   router.get("/users/:tz", requireIt, requirePermission("users.view"), users.getOneU);
   router.put("/users/:tz/role", requireIt, requirePermission("users.changeRole"), lockedUser, users.putRole);
+  // Account state: { from, to } between active / waiting / noActive (role for
+  // an approval); delete with ?from=<room>. Never another IT user (canManageTarget).
+  router.post("/users/:tz/room", requireIt, requirePermission("users.approve"), lockedUser, users.changeRoom);
+  router.delete("/users/:tz", requireIt, requirePermission("users.delete"), lockedUser, users.deleteU);
   router.get("/users/:tz/permissions", requireIt, requirePermission("permissions.manage"), users.getPermissions);
   router.put("/users/:tz/permissions", requireIt, requirePermission("permissions.manage"), lockedUser, users.putPermissions);
   router.get("/users/:tz/password", requireIt, requirePermission("users.passwords"), users.viewPassword);
@@ -88,6 +93,11 @@ function createItRouter(deps = {}) {
   router.post("/users/:tz/unlock", requireIt, requirePermission("users.unlock"), lockedUser, users.unlockUser);
   router.get("/users/:tz/sessions", requireIt, requirePermission("users.unlock"), users.listUserDevices);
   router.delete("/users/:tz/sessions/:sid", requireIt, requirePermission("users.unlock"), users.signOutUserDevice);
+
+  // «صلاحيات الأدوار»: each everyday role's default permissions, any IT user.
+  router.get("/role-defaults", requireIt, requirePermission("permissions.manage"), roleDefaults.list);
+  router.put("/role-defaults/:role", requireIt, requirePermission("permissions.manage"), roleDefaults.save);
+  router.delete("/role-defaults/:role", requireIt, requirePermission("permissions.manage"), roleDefaults.reset);
 
   // The session and permission checks run first: others never use up the budget.
   router.post("/system/recover", requireIt, requirePermission("systemRecovery.reset"), recoverRateLimit, users.recoverSystem);

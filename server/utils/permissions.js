@@ -40,8 +40,9 @@ const IT_KEYS = new Set([
   "audit.view", "storage.drive", "systemRecovery.reset",
 ]);
 
-// What an IT user may do on the IT site.
-const IT_SET = [...IT_KEYS, "users.view", "users.changeRole", "users.resetPassword", "users.approve"];
+// What an IT user may do on the IT site. users.approve also disables and
+// re-enables an account; users.delete deletes one (owner, 2026-11-03).
+const IT_SET = [...IT_KEYS, "users.view", "users.changeRole", "users.resetPassword", "users.approve", "users.delete"];
 
 const GRANT_ONLY_MODULES = new Set(["sports", "finance"]);
 
@@ -84,6 +85,40 @@ function expandKeys(keys) {
   return out;
 }
 
+/* ================= Role defaults set on the IT site ================= */
+// IT may replace a role's defaults («صلاحيات الأدوار», owner 2026-11-03). The
+// stored sets live here (Entities/It/RoleDefaults.controller.js loads them at
+// start and after each change); a role without one uses ROLE_DEFAULTS.
+// No IT key and no grant-only module may ever be a default.
+const ROLE_DEFAULT_KEYS = ALL_KEYS.filter((key) => !IT_KEYS.has(key) && !GRANT_ONLY_MODULES.has(key.split(".")[0]));
+const roleOverrides = new Map();
+
+// keys: module or leaf keys → { ok, keys: leaves } or { ok: false, code }.
+function checkRoleDefaults(keys) {
+  if (!Array.isArray(keys)) return { ok: false, code: "UNKNOWN_KEY" };
+  for (const raw of keys) {
+    const key = typeof raw === "string" ? raw.trim() : "";
+    const module = key.split(".")[0];
+    if (!Object.hasOwn(PERMISSION_TREE, key) && !ALL_KEYS.includes(key)) return { ok: false, code: "UNKNOWN_KEY" };
+    if (GRANT_ONLY_MODULES.has(module)) return { ok: false, code: "GRANT_ONLY" };
+    for (const leaf of expandKeys([key])) if (IT_KEYS.has(leaf)) return { ok: false, code: "IT_KEY" };
+  }
+  return { ok: true, keys: [...expandKeys(keys)] };
+}
+
+// null drops the stored set (back to ROLE_DEFAULTS); keys that may not be
+// defaults are left out.
+function setRoleDefaultsOverride(role, keys) {
+  if (keys == null) return roleOverrides.delete(role);
+  roleOverrides.set(role, [...expandKeys(keys)].filter((key) => ROLE_DEFAULT_KEYS.includes(key)));
+}
+
+// A role's default leaves now.
+function roleDefaults(role) {
+  if (roleOverrides.has(role)) return new Set(roleOverrides.get(role));
+  return expandKeys(Object.hasOwn(ROLE_DEFAULTS, role) ? ROLE_DEFAULTS[role] : []);
+}
+
 function resolveRole(user) {
   const direct = normalizeRole(user?.role);
   if (direct) return direct;
@@ -103,7 +138,7 @@ function effectivePermissions(user, { isSystem = false } = {}) {
     allowed = new Set(ALL_KEYS);
   } else {
     const role = resolveRole(user);
-    allowed = expandKeys(role ? ROLE_DEFAULTS[role] : []);
+    allowed = role ? roleDefaults(role) : new Set();
     for (const key of expandKeys(user?.permissionGrants)) allowed.add(key);
     for (const key of expandKeys(user?.permissionRevokes)) allowed.delete(key);
   }
@@ -174,6 +209,10 @@ module.exports = {
   IT_KEYS,
   GRANT_ONLY_MODULES,
   ALL_KEYS,
+  ROLE_DEFAULT_KEYS,
+  checkRoleDefaults,
+  setRoleDefaultsOverride,
+  roleDefaults,
   normalizeRole,
   resolveRole,
   expandKeys,

@@ -61,8 +61,42 @@ export const auditActions = {
   role_change: "تغيير دور", unlock: "رفع حظر", lock: "حظر", upload: "رفع", rename: "إعادة تسمية",
   share: "مشاركة", unshare: "إلغاء مشاركة", drive_connect: "ربط Drive", system_recovery: "استعادة حساب النظام",
   sign_in: "دخول", pass_to_it: "انتقال إلى موقع IT", pass_to_system: "انتقال إلى النظام",
+  role_defaults_change: "تغيير صلاحيات دور", role_defaults_reset: "إرجاع صلاحيات دور إلى الأصل",
 };
 export const auditModules = {
   users: "المستخدمون", students: "الطلاب", lessons: "الدروس", attendance: "الحضور", reports: "التقارير",
   vehicles: "المركبات", files: "الملفات", notices: "الإعلانات", it: "موقع IT", storage: "التخزين",
+  permissions: "الصلاحيات",
+};
+
+// «صلاحيات الأدوار»
+export const roleDefaultsText = {
+  title: "صلاحيات الأدوار",
+  intro: "ما يحصل عليه كل دور تلقائيًا. التغيير يصل فورًا إلى كل مستخدمي الدور، وتبقى الصلاحيات الخاصة الممنوحة أو المسحوبة لكل مستخدم كما هي.",
+  users: "{count} مستخدمين بهذا الدور",
+  custom: "معدّلة", original: "الأصلية",
+  lastChange: "آخر تغيير: {who}، {when}",
+  save: "حفظ", reset: "الرجوع إلى الأصل",
+  saveTitle: "حفظ صلاحيات الدور «{role}»",
+  saveAffects: "يصل التغيير إلى {count} مستخدمين.",
+  resetTitle: "الرجوع إلى الأصل",
+  resetConfirm: "ستعود صلاحيات الدور «{role}» إلى الصلاحيات الأصلية، ويصل ذلك إلى {count} مستخدمين. هل تريد المتابعة؟",
+  saved: "تم حفظ صلاحيات الدور", resetDone: "عادت صلاحيات الدور إلى الأصل",
+  notAllowed: "لا يمكن أن تكون صلاحية تلقائية لدور",
+  errors: {
+    IT_KEY: "صلاحيات قسم IT لا تُعطى لأي دور تلقائيًا",
+    GRANT_ONLY: "هذه الصلاحية تُمنح لشخص بعينه فقط، لا لدور",
+    UNKNOWN_KEY: "صلاحية غير معروفة", UNKNOWN_ROLE: "دور غير معروف",
+  },
+};
+
+// Account state on the user page
+export const accountText = {
+  title: "حالة الحساب",
+  disable: "تعطيل الحساب", enable: "تفعيل الحساب", approve: "قبول المستخدم", remove: "حذف المستخدم",
+  disableConfirm: "لن يتمكن {name} من الدخول إلى النظام حتى يُفعَّل الحساب من جديد. هل تريد المتابعة؟",
+  removeConfirm: "سيُحذف {name} نهائيًا ولا يمكن التراجع. هل تريد المتابعة؟",
+  needRole: "اختر دورًا أولًا (في بطاقة «الدور»)",
+  disabled: "تم تعطيل الحساب", enabled: "تم تفعيل الحساب", approved: "تم قبول المستخدم", removed: "تم حذف المستخدم",
+  hint: { active: "الحساب نشط ويمكنه الدخول.", waiting: "الحساب بانتظار القبول.", noActive: "الحساب معطّل ولا يمكنه الدخول." },
 };
