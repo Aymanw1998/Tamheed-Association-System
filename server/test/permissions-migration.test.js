@@ -75,10 +75,13 @@ test("apply writes all three rooms and skips unchanged users", async () => {
   assert.equal(model.updates[0][1].role, GUIDE);
 });
 
-test("system account only gets role", async () => {
+test("the system account is left alone: no update, no everyday role in its row", async () => {
   const model = stubModel({ active: [{ tz: "SYS", roles: [], vehiclePermissions: ["view"] }] });
-  await migrateUsers(model, { apply: true, systemTz: "SYS" });
-  assert.deepEqual(model.updates, [[{ tz: "SYS" }, { role: ADMIN }, "active"]]);
+  const result = await migrateUsers(model, { apply: true, systemTz: "SYS" });
+  assert.deepEqual(model.updates, []);
+  assert.equal(result.rows[0].system, true);
+  assert.equal(result.rows[0].role, null);
+  assert.ok(!formatRow(result.rows[0]).includes(ADMIN));
 });
 
 test("a before/after mismatch is an error and the user is not written", async () => {

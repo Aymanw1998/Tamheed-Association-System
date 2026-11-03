@@ -2,7 +2,7 @@
 // "npm run permissions:migrate -- --apply".
 // Gives every user a single `role`, moves legacy `vehiclePermissions` into
 // `permissionGrants`, and checks that nobody gains or loses access.
-// The system account only gets role = "ادارة"; nothing else on it is touched.
+// The system account is IT with no everyday role: it is never written here.
 const path = require("path");
 const {
   normalizeRole, resolveRole, expandKeys, effectivePermissions, isSystemTz,
@@ -64,10 +64,8 @@ async function migrateUsers(model, { apply = false, systemTz } = {}) {
 
     for (const user of users) {
       if (isSystemTz(user.tz, systemTz)) {
-        const needs = user.role !== ADMIN;
-        rows.push({ tz: user.tz, room, system: true, oldRoles: user.roles || [], role: ADMIN,
+        rows.push({ tz: user.tz, room, system: true, oldRoles: user.roles || [], role: null,
           grants: [], before: null, after: null, warnings: [], error: false });
-        if (apply && needs) await model.update({ tz: user.tz }, { role: ADMIN }, room);
         continue;
       }
 
