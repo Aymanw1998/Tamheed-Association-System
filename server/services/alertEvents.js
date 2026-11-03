@@ -17,6 +17,13 @@ function jerusalemDay(now) {
 const fullName = (person = {}) => [person.firstname, person.lastname].filter(Boolean).join(" ").trim();
 const VEHICLE_KINDS = new Set(["license", "test", "insurance"]);
 
+// Unlocking and auditing are IT actions: their alerts go to the IT users (not
+// blocked), linked to the user's page on the IT site.
+function itUserLink(tz) {
+  const host = String(process.env.IT_HOST || "").trim();
+  return host ? `https://${host}/users/${tz}` : `/users/${tz}`;
+}
+
 function createAlertEvents({ engine, now = () => new Date() } = {}) {
   const getEngine = () => engine || require("./alertEngine").getAlertEngine();
   const day = () => jerusalemDay(now());
@@ -47,13 +54,13 @@ function createAlertEvents({ engine, now = () => new Date() } = {}) {
   // The automatic lock after repeated failed sign-ins.
   const accountLocked = (user = {}) => send("account_locked", {
     params: { name: fullName(user) },
-    rule: { permission: "users.unlock", system: true },
-    link: `/users/${user.tz}`,
+    rule: { it: true, system: true },
+    link: itUserLink(user.tz),
     dedupKey: `account_locked:${user.tz}:${day()}`,
   });
 
-  // A role or permission change: audit.view holders (linked to the user's
-  // page) and the user (own text, linked to their profile). The actor who
+  // A role or permission change: the IT users (linked to the user's page on
+  // the IT site) and the user (own text, linked to their profile). The actor who
   // made the change is never alerted about his own action.
   async function accessChanged(target = {}, { change = "permissions", actorTz } = {}) {
     const kind = change === "role" ? "role" : "permissions";
@@ -62,13 +69,13 @@ function createAlertEvents({ engine, now = () => new Date() } = {}) {
     const notActor = (tz) => !actor || tz !== actor;
     const e = getEngine();
     const self = (await e.recipientsFor({ tz: target.tz })).filter(notActor);
-    const others = (await e.recipientsFor({ permission: "audit.view" }))
+    const others = (await e.recipientsFor({ it: true }))
       .filter((tz) => !self.includes(tz) && tz !== String(target.tz) && notActor(tz));
     const severity = defaultSeverity("access_changed");
     const created = [];
     if (others.length) {
       const text = renderAlert("access_changed", { name: fullName(target), change: kind, self: false });
-      const link = `/users/${target.tz}`;
+      const link = itUserLink(target.tz);
       created.push(...(await e.raise({ type: "access_changed", severity, text, link, dedupKey, recipients: others })).created);
     }
     if (self.length) {

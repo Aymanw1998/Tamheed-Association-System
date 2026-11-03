@@ -55,9 +55,9 @@ const PUBLIC_ROUTES = {
   "Live/Live.route.js": ["GET /stream"],
   // Student sport site (sign-in, me, photo): its own cookie and requireSportStudent, never staff auth.
   "SportPortal/SportPortal.route.js": ["POST /request-code", "POST /verify", "POST /card", "POST /passkey/login-options", "POST /passkey/login", "POST /passkey/register-options", "POST /passkey/register", "POST /logout", "GET /me", "GET /photo", "GET /id", "GET /notices", "GET /live", "POST /push/subscribe", "DELETE /push/subscribe"],
-  // IT site sign-in and me: IT_HOST only (router.use(requireItHost)), its own cookie and requireIt, never staff auth.
-  // login-pass: a one-time pass replaces the password step; system-pass: requireIt, the handler checks the everyday role.
-  "It/It.route.js": ["POST /login", "POST /verify", "POST /login-pass", "POST /logout", "GET /me", "POST /system-pass"],
+  // IT site sign-in: IT_HOST only (router.use(requireItHost)), its own cookie, never staff auth.
+  // login-pass: a one-time pass replaces the password step.
+  "It/It.route.js": ["POST /login", "POST /verify", "POST /login-pass", "POST /logout"],
   // The VAPID public key the browser needs before it can subscribe; nothing private.
   "Push/Push.route.js": ["GET /key"],
   // An <img> cannot send the Authorization header; the passport version is as
@@ -82,7 +82,12 @@ const ANY_ACTOR_ROUTES = {
   "Lock/Lock.route.js": ["POST /acquire", "POST /heartbeat", "POST /release", "GET /:key"],
   // One's own tour state: every write targets the caller's own record.
   "routes/tours.routes.js": ["GET /", "POST /item/:id", "POST /known-keys", "POST /releases/seen"],
+  // The IT actor (requireIt) about himself: who he is, and his pass to the everyday app (the handler checks the role).
+  "It/It.route.js": ["GET /me", "POST /system-pass"],
 };
+
+// requireIt loads the IT site's actor (middleware/requireIt.js), as loadActor does the everyday one.
+const LOADS_ACTOR = /loadActor|requireIt\b/;
 
 // Router files outside Entities/ are named "routes/<file>" by rel().
 const fileOf = (name) => (name.startsWith("routes/") ? path.join(SERVER, name) : path.join(ENTITIES, name));
@@ -107,7 +112,8 @@ function routesOf(source) {
   return routes;
 }
 
-const GUARD = /requirePermission\(|requireSelfOr\(|requireVehiclePermission\(/;
+// requireSystemIt: the system account only (the IT site's members routes).
+const GUARD = /requirePermission\(|requireSelfOr\(|requireVehiclePermission\(|requireSystemIt\b/;
 
 test("no role-based guard remains in any router", () => {
   for (const file of ROUTE_FILES) {
@@ -125,7 +131,7 @@ test("every non-public route loads the actor and checks a permission", () => {
     if (EXCLUDED_FILES.has(name)) continue;
     const source = stripComments(fs.readFileSync(file, "utf8"));
     const usesLine = source.split("\n").filter((line) => /router\.use\(/.test(line)).join("\n");
-    const fileLoadsActor = /loadActor/.test(usesLine);
+    const fileLoadsActor = LOADS_ACTOR.test(usesLine);
     const publicRoutes = new Set(PUBLIC_ROUTES[name] || []);
     const anyActor = new Set(ANY_ACTOR_ROUTES[name] || []);
 
@@ -133,7 +139,7 @@ test("every non-public route loads the actor and checks a permission", () => {
       const key = `${route.method} ${route.path}`;
       if (publicRoutes.has(key)) continue;
       checked += 1;
-      assert.ok(fileLoadsActor || /loadActor/.test(route.chain), `${name} ${key} does not load the actor`);
+      assert.ok(fileLoadsActor || LOADS_ACTOR.test(route.chain), `${name} ${key} does not load the actor`);
       if (anyActor.has(key)) continue;
       assert.ok(GUARD.test(route.chain), `${name} ${key} has no permission guard`);
     }
@@ -160,9 +166,25 @@ const EXACT_GUARDS = {
     "POST /": "users.create",
   },
   "Vehicle/Vehicle.route.js": { "DELETE /:id": "vehicles.delete" },
+  // Lock and push settings: their routers are mounted only on /api/it (It.route.js).
   "Lock/Lock.route.js": { "POST /force-release": "permissions.manage" },
   // The system-wide phone notifications switch.
   "Push/Push.route.js": { "GET /settings": "permissions.manage", "PUT /settings": "permissions.manage" },
+  "Audit/Audit.route.js": { "GET /": "audit.view" },
+  // The IT site (IT-site design, "Who may do what").
+  "It/It.route.js": {
+    "GET /users": "users.view",
+    "GET /users/:tz": "users.view",
+    "PUT /users/:tz/role": "users.changeRole",
+    "GET /users/:tz/permissions": "permissions.manage",
+    "PUT /users/:tz/permissions": "permissions.manage",
+    "GET /users/:tz/password": "users.passwords",
+    "PUT /users/:tz/password": "users.resetPassword",
+    "POST /users/:tz/unlock": "users.unlock",
+    "GET /users/:tz/sessions": "users.unlock",
+    "DELETE /users/:tz/sessions/:sid": "users.unlock",
+    "POST /system/recover": "systemRecovery.reset",
+  },
   "Notice/Notice.route.js": { "POST /:id/archive": "notices.post" },
   "Lesson/Lesson.route.js": {
     "POST /copy-month": "lessons.copyMonth",

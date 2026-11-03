@@ -749,9 +749,13 @@ test("fix3: recovery ends existing sessions; a token issued after it is fine", a
   assert.equal(sp.tokenIsStale(sec(Date.now()), stored), false);
 });
 
-test("fix3: Google Drive routes also go through loadActor", () => {
-  const source = fs.readFileSync(path.join(__dirname, "../Entities/Storage/GoogleDrive.route.js"), "utf8");
-  assert.match(source, /requireAuth:\s*\[requireAuth,\s*loadActor\]/);
+// The connect routes moved to the IT site; requireIt re-reads the user and
+// refuses stale and locked sessions as loadActor does.
+test("fix3: Google Drive connect routes go through requireIt; the everyday mount has none", () => {
+  const source = fs.readFileSync(path.join(__dirname, "../Entities/It/It.route.js"), "utf8");
+  assert.match(source, /createGoogleDriveRouter\(\{[^}]*requireAuth:\s*requireIt,/);
+  const everyday = fs.readFileSync(path.join(__dirname, "../Entities/Storage/GoogleDrive.route.js"), "utf8");
+  assert.match(everyday, /function defaultRouter\(\) \{[^}]*withConnect: false,/);
 });
 
 test("minor: a second recovery within 10 minutes answers 429", async () => {

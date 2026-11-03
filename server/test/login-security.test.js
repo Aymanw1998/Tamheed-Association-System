@@ -116,11 +116,14 @@ test("login still accepts the real password", async () => {
   assert.equal(res.statusCode, 200);
 });
 
+// The IT site's actor (middleware/requireIt.js); the route is on /api/it only.
+const IT_ACTOR = { id: "it-1", tz: "999999998", it: true, isSystem: false, permissions: new Set() };
+
 test("viewPassword never returns the stored value", async () => {
   for (const stored of [FAKE_HASH, "enc:secret-value", "plain-secret"]) {
     const { viewPassword } = loadController(stored);
     const res = makeRes();
-    await viewPassword({ params: { tz: "1" } }, res);
+    await viewPassword({ params: { tz: "1" }, actor: IT_ACTOR }, res);
     const text = JSON.stringify(res.body);
     assert.equal(res.statusCode, 200);
     assert.equal(res.body.ok, true);
@@ -134,7 +137,7 @@ test("viewPassword never returns the stored value", async () => {
 test("viewPassword reports hasPassword false when none is stored", async () => {
   const { viewPassword } = loadController("");
   const res = makeRes();
-  await viewPassword({ params: { tz: "1" } }, res);
+  await viewPassword({ params: { tz: "1" }, actor: IT_ACTOR }, res);
   assert.deepEqual(JSON.parse(JSON.stringify(res.body)), { ok: true, hasPassword: false });
 });
 

@@ -4,7 +4,7 @@ const test = require("node:test");
 const express = require("express");
 
 const { createLocks } = require("../services/locks");
-const { createLockRouter } = require("../Entities/Lock/Lock.route");
+const { createLockRouter, createLockAdminRouter } = require("../Entities/Lock/Lock.route");
 const { requirePermission } = require("../middleware/permissionMiddleware");
 const { actorFor } = require("./helpers/actors");
 
@@ -166,16 +166,27 @@ async function startApp({ reports = { get: async () => ({ result: [] }) } } = {}
   const loadActor = (req, res, next) => { req.actor = actorFor(USERS[req.user.tz]); next(); };
   const app = express();
   app.use(express.json());
-  app.use("/api/locks", createLockRouter({ requireAuth, loadActor, requirePermission, locks: ctx.locks, reports }));
+  app.use("/api/locks", createLockRouter({ requireAuth, loadActor, locks: ctx.locks, reports }));
+  // The IT site's force-release (/api/it/locks): x-it gives the actor the IT key, as requireIt does.
+  const itActor = (req, res, next) => requireAuth(req, res, () => {
+    req.actor = actorFor(USERS[req.user.tz]);
+    if (req.headers["x-it"]) req.actor.permissions = new Set([...req.actor.permissions, "permissions.manage"]);
+    next();
+  });
+  app.use("/api/it/locks", createLockAdminRouter({ loadActor: itActor, requirePermission, locks: ctx.locks }));
   const server = http.createServer(app);
   await new Promise((resolve) => server.listen(0, resolve));
   const base = `http://127.0.0.1:${server.address().port}`;
-  const call = async (method, path, { tz, client, body } = {}) => {
+  const call = async (method, path, { tz, client, body, it, prefix = "/api/locks" } = {}) => {
     const headers = { "content-type": "application/json" };
     if (tz) headers["x-tz"] = tz;
     if (client) headers["x-client-id"] = client;
-    const res = await fetch(`${base}/api/locks${path}`, { method, headers, body: body ? JSON.stringify(body) : undefined });
-    return { status: res.status, body: await res.json() };
+    if (it) headers["x-it"] = "1";
+    const res = await fetch(`${base}${prefix}${path}`, { method, headers, body: body ? JSON.stringify(body) : undefined });
+    const text = await res.text();
+    let parsed = text;
+    try { parsed = JSON.parse(text); } catch { /* an unknown route answers HTML */ }
+    return { status: res.status, body: parsed };
   };
   return { ...ctx, server, call, base };
 }
@@ -237,24 +248,28 @@ test("routes: heartbeat is 200 while held and 410 LOST after force-release", asy
     const key = { key: "attendance:5:2026-10-25" };
     await call("POST", "/acquire", { tz: GUIDE_U.tz, client: "tab-1", body: key });
     assert.equal((await call("POST", "/heartbeat", { tz: GUIDE_U.tz, client: "tab-1", body: key })).status, 200);
-    // permissions.manage is an IT key: a stored grant of it opens nothing here.
-    assert.equal((await call("POST", "/force-release", { tz: ADMIN_U.tz, client: "tab-9", body: key })).status, 403);
+    // The everyday API has no force-release any more (IT site only).
+    assert.equal((await call("POST", "/force-release", { tz: ADMIN_U.tz, client: "tab-9", body: key })).status, 404);
     assert.equal((await call("POST", "/heartbeat", { tz: GUIDE_U.tz, client: "tab-1", body: key })).status, 200);
-    assert.equal(await locks.forceRelease(key.key), true);
+    assert.equal((await call("POST", "/force-release", { tz: ADMIN_U.tz, it: true, body: key, prefix: "/api/it/locks" })).status, 200);
+    assert.equal(await locks.forceRelease(key.key), false, "already freed");
     const lost = await call("POST", "/heartbeat", { tz: GUIDE_U.tz, client: "tab-1", body: key });
     assert.equal(lost.status, 410);
     assert.deepEqual(lost.body, { ok: false, code: "LOST" });
   } finally { server.close(); }
 });
 
-test("routes: force-release needs permissions.manage", async () => {
+test("routes: the IT force-release needs permissions.manage and a valid key, not a tab", async () => {
   const { server, call } = await startApp();
   try {
     const key = { key: "student:1" };
     await call("POST", "/acquire", { tz: ADMIN_U.tz, client: "tab-1", body: key });
-    const denied = await call("POST", "/force-release", { tz: GUIDE_U.tz, client: "tab-2", body: key });
+    // permissions.manage is an IT key: a stored grant of it opens nothing here.
+    const denied = await call("POST", "/force-release", { tz: ADMIN_U.tz, body: key, prefix: "/api/it/locks" });
     assert.equal(denied.status, 403);
     assert.equal((await call("POST", "/heartbeat", { tz: ADMIN_U.tz, client: "tab-1", body: key })).status, 200);
+    assert.equal((await call("POST", "/force-release", { tz: GUIDE_U.tz, it: true, body: { key: "nope" }, prefix: "/api/it/locks" })).status, 400);
+    assert.equal((await call("POST", "/force-release", { it: true, body: key, prefix: "/api/it/locks" })).status, 401);
   } finally { server.close(); }
 });
 

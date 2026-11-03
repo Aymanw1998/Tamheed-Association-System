@@ -3878,3 +3878,40 @@ pass and writes no audit row. Both seen failing first.
 **Verification:** server 1211/1211.
 
 **Codex review:** pending (until 2026-11-06). **Status:** committed.
+
+### Follow-up: the IT API (2026-11-03)
+
+**Change:** Task 6 of the IT site. `server/Entities/It/It.route.js` is now
+`createItRouter(deps)`; below the sign-in routes every route takes
+`requireIt`. Users: `GET /api/it/users?room=` (only tz, names, role, isIT,
+photo, lockedAt, room; never the system account), `GET /users/:tz`, and
+`/users/:tz/role|permissions|password|unlock|sessions[/:sid]`, which reuse
+the everyday handlers (getOneU, putRole, getPermissions, putPermissions,
+viewPassword, unlockUser) with the IT actor; new thin handlers
+`resetUserPassword` (canResetPassword, password length rule,
+passwordChangedAt as putU), `listUserDevices`, `signOutUserDevice`.
+viewPassword now checks canManageTarget (403 on another IT user).
+`POST /system/recover` is rate-limited again (3 an hour, after the
+permission check). Audit list, Drive status/connect-url, lock force-release
+and push settings moved from the everyday API to `/api/it/audit`,
+`/api/it/storage/google/*`, `/api/it/locks/force-release`,
+`/api/it/push/settings` through router factories that take the
+auth middleware; Google's `/api/storage/google/callback` stays, shares one
+state store, and sends a flow started on the IT site back to
+`https://IT_HOST/storage?drive=`. Members (`ItMembers.controller.js`,
+`requireSystemIt`): list/add/remove/block/unblock, system account only,
+real email required, the system account never removed or blocked, audit
+module `it`. A new `itSignedOutAt` (block, removal) keeps sessions from
+before a block ended after the unblock. Alerts: `account_locked` goes to IT
+users not blocked plus the system account, `access_changed` to IT users;
+both link to the IT site's user page when `IT_HOST` is set.
+
+**Test:** `it-api.test.js` (new, 18), seen failing first (module missing);
+`alert-engine.test.js` restores the other-recipient text/link coverage for
+IT users (7 seen failing first); `route-guards.test.js` learns `requireIt`
+and `requireSystemIt` and pins the IT keys; `audit`, `locks`, `push`,
+`login-security`, `system-password` tests follow the moved routes.
+
+**Verification:** server 1231/1231.
+
+**Codex review:** pending (until 2026-11-06). **Status:** committed.

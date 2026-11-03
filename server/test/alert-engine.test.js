@@ -27,7 +27,10 @@ const MANAGER = { _id: "m".repeat(24), tz: "t-manager", firstname: "Man", lastna
 const GUIDE_U = { _id: "g".repeat(24), tz: "t-guide", firstname: "Gu", lastname: "Ide", role: GUIDE, roles: [GUIDE] };
 const GUIDE_2 = { _id: "f".repeat(24), tz: "t-guide-2", firstname: "Other", lastname: "Guide", role: GUIDE, roles: [GUIDE] };
 const HELPER_U = { _id: "h".repeat(24), tz: "t-helper", firstname: "He", lastname: "Lper", role: HELPER, roles: [HELPER] };
-const USERS = [SYS, ADMIN_U, MANAGER, GUIDE_U, GUIDE_2, HELPER_U];
+// IT users (no everyday role): one active, one blocked.
+const IT_U = { _id: "i".repeat(24), tz: "t-it", firstname: "It", lastname: "User", isIT: true };
+const IT_BLOCKED = { _id: "j".repeat(24), tz: "t-it-blocked", firstname: "It", lastname: "Blocked", isIT: true, itBlockedAt: new Date("2026-10-01T00:00:00Z") };
+const USERS = [SYS, ADMIN_U, MANAGER, GUIDE_U, GUIDE_2, HELPER_U, IT_U, IT_BLOCKED];
 
 const STUDENT = { _id: "1".repeat(24), tz: "stu-1", firstname: "Kid", lastname: "One", main_teacher: GUIDE_U._id };
 const LESSON = { _id: "2".repeat(24), name: "Lesson", teacher: GUIDE_U._id, helper: HELPER_U._id, list_students: [STUDENT._id] };
@@ -93,6 +96,13 @@ test("a permission rule reaches active holders only, never the system account", 
   assert.deepEqual(sorted(await engine.recipientsFor({ permissions: ["students.viewAll", "students.edit"] })), sorted([ADMIN_U.tz, MANAGER.tz]));
   assert.deepEqual(await engine.recipientsFor({ permission: "sports.manage" }), [MANAGER.tz]);
   assert.deepEqual(await engine.recipientsFor({ permission: "audit.view" }), [], "an IT key reaches nobody here");
+});
+
+test("it: true reaches the IT users who are not blocked; with system: true the system account too", async () => {
+  const { engine } = makeEngine();
+  assert.deepEqual(await engine.recipientsFor({ it: true }), [IT_U.tz]);
+  assert.deepEqual(sorted(await engine.recipientsFor({ it: true, system: true })), sorted([IT_U.tz, SYSTEM_TZ]));
+  assert.deepEqual(await engine.recipientsFor({ it: false }), [], "only it: true selects");
 });
 
 test("system: true adds the system account; alone it means the system account only", async () => {
@@ -201,32 +211,51 @@ test("user_waiting reaches users.approve holders, once per day", async () => {
   assert.equal(store.docs.length, 4, "a new day is a new alert");
 });
 
-test("account_locked reaches the system account (users.unlock is an IT key)", async () => {
+// IT_HOST set/unset around one call; the link points at the IT site's user page.
+async function withItHost(value, fn) {
+  const saved = process.env.IT_HOST;
+  if (value === undefined) delete process.env.IT_HOST; else process.env.IT_HOST = value;
+  try { return await fn(); } finally { if (saved === undefined) delete process.env.IT_HOST; else process.env.IT_HOST = saved; }
+}
+
+test("account_locked reaches the IT users who are not blocked and the system account", async () => {
   const { events, store } = makeEvents();
-  await events.accountLocked({ tz: GUIDE_U.tz, firstname: "Gu", lastname: "Ide" });
-  assert.deepEqual(recipientsOf(store, "account_locked"), [SYSTEM_TZ]);
+  await withItHost(undefined, () => events.accountLocked({ tz: GUIDE_U.tz, firstname: "Gu", lastname: "Ide" }));
+  assert.deepEqual(recipientsOf(store, "account_locked"), sorted([IT_U.tz, SYSTEM_TZ]));
   assert.equal(store.docs[0].severity, "critical");
   assert.equal(store.docs[0].link, `/users/${GUIDE_U.tz}`);
 });
 
-test("access_changed reaches the target user (audit.view is an IT key)", async () => {
+test("account_locked links to the user's page on the IT site when IT_HOST is set", async () => {
   const { events, store } = makeEvents();
-  await events.accessChanged({ tz: GUIDE_U.tz, firstname: "Gu", lastname: "Ide" }, { change: "permissions" });
-  assert.deepEqual(recipientsOf(store, "access_changed"), [GUIDE_U.tz]);
+  await withItHost("it.example.test", () => events.accountLocked({ tz: GUIDE_U.tz, firstname: "Gu", lastname: "Ide" }));
+  assert.ok(store.docs.length > 0);
+  for (const doc of store.docs) assert.equal(doc.link, `https://it.example.test/users/${GUIDE_U.tz}`);
+});
+
+test("access_changed reaches the IT users and the target user (with its own text), never the system account", async () => {
+  const { events, store } = makeEvents();
+  await withItHost("it.example.test", () => events.accessChanged({ tz: GUIDE_U.tz, firstname: "Gu", lastname: "Ide" }, { change: "permissions" }));
+  assert.deepEqual(recipientsOf(store, "access_changed"), sorted([IT_U.tz, GUIDE_U.tz]));
   const self = store.docs.find((d) => d.recipientTz === GUIDE_U.tz);
+  const other = store.docs.find((d) => d.recipientTz === IT_U.tz);
+  assert.notEqual(self.text.en, other.text.en);
   assert.equal(self.link, "/profile", "the user's own alert opens their profile");
+  assert.equal(other.link, `https://it.example.test/users/${GUIDE_U.tz}`);
+  await withItHost(undefined, () => events.accessChanged({ tz: GUIDE_2.tz, firstname: "Other", lastname: "Guide" }, { change: "role" }));
+  assert.equal(store.docs.find((d) => d.recipientTz === IT_U.tz && d.dedupKey.includes(GUIDE_2.tz)).link, `/users/${GUIDE_2.tz}`);
 });
 
 test("access_changed never alerts the actor who made the change", async () => {
   const { events, store } = makeEvents();
-  await events.accessChanged({ tz: GUIDE_U.tz, firstname: "Gu", lastname: "Ide" }, { change: "role", actorTz: MANAGER.tz });
+  await events.accessChanged({ tz: GUIDE_U.tz, firstname: "Gu", lastname: "Ide" }, { change: "role", actorTz: IT_U.tz });
   assert.deepEqual(recipientsOf(store, "access_changed"), [GUIDE_U.tz]);
 });
 
-test("access_changed of a user who is not active reaches nobody (audit.view is an IT key)", async () => {
+test("access_changed of a user who is not active reaches only the IT users", async () => {
   const { events, store } = makeEvents();
   await events.accessChanged({ tz: "t-waiting", firstname: "W", lastname: "U" }, { change: "role" });
-  assert.deepEqual(recipientsOf(store, "access_changed"), []);
+  assert.deepEqual(recipientsOf(store, "access_changed"), [IT_U.tz]);
 });
 
 test("system_login_failures reaches the system account only", async () => {
@@ -269,10 +298,13 @@ async function startInbox(store, clock = { now: Date.UTC(2026, 9, 20, 11) }) {
     req.user = { tz };
     return next();
   };
-  // x-perms: the caller's current permission keys (comma list); x-system: 1 for the system account.
+  // x-perms: the caller's current permission keys (comma list); x-system: 1 for the system account;
+  // x-it: "1" an IT user, "blocked" a blocked one.
   const loadActor = (req, res, next) => {
     const perms = String(req.headers["x-perms"] || "").split(",").filter(Boolean);
-    req.actor = { tz: req.user.tz, permissions: new Set(perms), isSystem: req.headers["x-system"] === "1" };
+    const it = req.headers["x-it"];
+    const user = { tz: req.user.tz, ...(it && { isIT: true }), ...(it === "blocked" && { itBlockedAt: new Date() }) };
+    req.actor = { tz: req.user.tz, permissions: new Set(perms), isSystem: req.headers["x-system"] === "1", user };
     next();
   };
   app.use("/api/alerts", createAlertRouter({ requireAuth, loadActor, store, now: () => new Date(clock.now) }));
@@ -345,9 +377,13 @@ test("GET /api/alerts shows only the types the caller may still see (by current 
     // Demoted to nothing: only the alerts about the caller's own work stay.
     assert.deepEqual(await typesFor({}), ["access_changed", "lesson_no_attendance", "report_missing"]);
     assert.deepEqual(await typesFor({ "x-perms": "students.viewAll" }), ["access_changed", "lesson_no_attendance", "report_missing"]);
-    assert.deepEqual(await typesFor({ "x-perms": "students.viewAll,students.edit,users.approve,users.unlock,vehicles.view,attendance.view" }),
-      ["absence_streak", "access_changed", "account_locked", "lesson_no_attendance", "parent_registration", "report_missing",
+    assert.deepEqual(await typesFor({ "x-perms": "students.viewAll,students.edit,users.approve,vehicles.view,attendance.view" }),
+      ["absence_streak", "access_changed", "lesson_no_attendance", "parent_registration", "report_missing",
         "user_waiting", "vehicle_insurance", "vehicle_license", "vehicle_test"]);
+    // account_locked: IT users (not blocked) and the system account; an IT key in a set opens nothing.
+    assert.ok(!(await typesFor({ "x-perms": "users.unlock" })).includes("account_locked"));
+    assert.deepEqual(await typesFor({ "x-it": "1" }), ["access_changed", "account_locked", "lesson_no_attendance", "report_missing"]);
+    assert.ok(!(await typesFor({ "x-it": "blocked" })).includes("account_locked"));
     const system = await typesFor({ "x-system": "1" });
     assert.ok(system.includes("system_login_failures") && system.includes("account_locked"));
     assert.ok(!system.includes("made_up"), "an unknown type is never shown");

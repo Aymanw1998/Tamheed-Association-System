@@ -10,7 +10,7 @@ process.env.JWT_ACCESS_SECRET = "test-access-secret";
 process.env.JWT_REFRESH_SECRET = "test-refresh-secret";
 
 const { createPush } = require("../utils/push");
-const { createPushRouter, createSportSubscribeRouter } = require("../Entities/Push/Push.route");
+const { createPushRouter, createPushSettingsRouter, createSportSubscribeRouter } = require("../Entities/Push/Push.route");
 const { PushSubscriptionModelDef, PUSH_SUBSCRIPTION_INDEXES } = require("../Entities/Push/PushSubscription.model");
 
 const ENV = { VAPID_PUBLIC_KEY: "pub-key", VAPID_PRIVATE_KEY: "priv-key", VAPID_SUBJECT: "mailto:ops@example.com" };
@@ -138,7 +138,10 @@ function staffApp(store, push) {
   const app = express();
   app.use(express.json());
   const requirePermission = (key) => (req, res, next) => (req.headers["x-perm"] === key ? next() : res.status(403).json({ code: "FORBIDDEN" }));
-  app.use("/api/push", createPushRouter({ requireAuth, loadActor, requirePermission, store, push }));
+  app.use("/api/push", createPushRouter({ requireAuth, loadActor, store, push }));
+  // The switch lives on the IT site; its loadActor signs in too, as requireIt does.
+  const itActor = (req, res, next) => requireAuth(req, res, () => loadActor(req, res, next));
+  app.use("/api/it/push", createPushSettingsRouter({ loadActor: itActor, requirePermission, push }));
   return app;
 }
 
@@ -363,15 +366,16 @@ test("another process's switch is read again after 30 seconds; a failed read mea
   assert.equal(await broken.publicKey(), null);
 });
 
-test("GET/PUT /api/push/settings: permissions.manage only, a boolean only, never the keys", async () => {
+test("GET/PUT /api/it/push/settings: permissions.manage only, a boolean only, never the keys; gone from /api/push", async () => {
   const settings = memorySettings();
   const push = createPush({ webpush: keyMaker(), subscriptions: memoryStore(), settings, env: {} });
   const { server, base } = await serve(staffApp(memoryStore(), push));
-  const put = (body, headers) => fetch(`${base}/api/push/settings`, { method: "PUT", headers: { "content-type": "application/json", ...headers }, body: JSON.stringify(body) });
+  const put = (body, headers) => fetch(`${base}/api/it/push/settings`, { method: "PUT", headers: { "content-type": "application/json", ...headers }, body: JSON.stringify(body) });
   const admin = { "x-tz": "900", "x-perm": "permissions.manage" };
   try {
-    assert.equal((await fetch(`${base}/api/push/settings`)).status, 401);
-    assert.equal((await fetch(`${base}/api/push/settings`, { headers: { "x-tz": "111" } })).status, 403);
+    assert.equal((await fetch(`${base}/api/it/push/settings`)).status, 401);
+    assert.equal((await fetch(`${base}/api/push/settings`, { headers: admin })).status, 404);
+    assert.equal((await fetch(`${base}/api/it/push/settings`, { headers: { "x-tz": "111" } })).status, 403);
     assert.equal((await put({ enabled: true }, { "x-tz": "111" })).status, 403);
     assert.equal(settings.row, null);
     assert.equal((await put({ enabled: "yes" }, admin)).status, 400);
@@ -382,7 +386,7 @@ test("GET/PUT /api/push/settings: permissions.manage only, a boolean only, never
     assert.deepEqual(JSON.parse(text), { ok: true, enabled: true, keysFrom: "server" });
     assert.ok(!text.includes("made-priv") && !text.includes("made-pub"));
     assert.equal(settings.row.subject, base.replace("http://", "https://"));
-    assert.deepEqual(await (await fetch(`${base}/api/push/settings`, { headers: admin })).json(), { ok: true, enabled: true, keysFrom: "server" });
+    assert.deepEqual(await (await fetch(`${base}/api/it/push/settings`, { headers: admin })).json(), { ok: true, enabled: true, keysFrom: "server" });
     const key = await fetch(`${base}/api/push/key`);
     assert.equal(key.headers.get("cache-control"), "no-store");
     assert.deepEqual(await key.json(), { ok: true, key: "made-pub-1" });

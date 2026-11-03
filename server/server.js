@@ -112,7 +112,7 @@ app.use('/api/inviteToken', require('./Entities/InviteToken/InviteToken.route'))
 app.use('/api/report', require('./Entities/Report/Report.route'));
 app.use('/api/vehicle', require('./Entities/Vehicle/Vehicle.route'));
 app.use('/api/notices', require('./Entities/Notice/Notice.route'));
-app.use('/api/audit', require('./Entities/Audit/Audit.route'));
+// The audit log is on the IT site only (/api/it/audit, Entities/It/It.route.js).
 // Signed-in live channel (ticket + SSE); replaces the old open /api/events.
 app.use('/api/live', require('./Entities/Live/Live.route'));
 // Item locks owned by a browser tab (acquire, heartbeat, release).

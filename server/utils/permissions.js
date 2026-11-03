@@ -112,12 +112,14 @@ function effectivePermissions(user, { isSystem = false } = {}) {
 }
 
 const isItUser = (user) => user?.isIT === true;
+// An IT user the system account has not blocked.
+const isUnblockedItUser = (user) => isItUser(user) && !user.itBlockedAt;
 
 // The IT set: empty unless the user is IT and not blocked. The system
 // account always has it and is never blocked.
 function itPermissions(user, { isSystem = false } = {}) {
   if (isSystem) return new Set(IT_SET);
-  if (!isItUser(user) || user.itBlockedAt) return new Set();
+  if (!isUnblockedItUser(user)) return new Set();
   return new Set(IT_SET);
 }
 
@@ -177,6 +179,7 @@ module.exports = {
   expandKeys,
   effectivePermissions,
   isItUser,
+  isUnblockedItUser,
   itPermissions,
   hasRealEmail,
   can,

@@ -1,6 +1,6 @@
 const express = require("express");
 const { requireAuth } = require("../../middleware/authMiddleware");
-const { loadActor, requirePermission } = require("../../middleware/permissionMiddleware");
+const { loadActor } = require("../../middleware/permissionMiddleware");
 const { logWithSource } = require("../../middleware/logger");
 const { liveHub } = require("../../services/liveHub");
 const { createLocks } = require("../../services/locks");
@@ -13,12 +13,13 @@ const { lockedMessage } = require("../../middleware/lockGuard");
 //   POST /heartbeat      { key } -> 200 { ok:true }  | 410 { ok:false, code:"LOST" }
 //   POST /release        { key } -> 200 { ok:true }   (no-op for a non-owner;
 //                          a beacon may send { clientId, token } in the body)
-//   POST /force-release  { key } -> 200 { ok:true }   (permissions.manage)
 //   GET  /:key                   -> 200 { ok, holder|null }
 // Taking or keeping a lock needs the module's edit permission (the same keys
 // its write routes require); reading the holder needs its view permission.
 // The holder is always the tab, so the
 // same user in another tab is blocked like anyone else.
+// Force-releasing a stuck lock is an IT action: createLockAdminRouter, mounted
+// only on /api/it (POST /api/it/locks/force-release).
 const KEY_PATTERN = /^(?:(?:student|player|lesson|sportLesson|report|user|vehicle):[^\s:]{1,64}|(?:attendance|sportAttendance):[^\s:]{1,64}:\d{4}-\d{2}-\d{2})$/;
 const FORBIDDEN = { ok: false, code: "FORBIDDEN", message: "لا توجد صلاحية" };
 const SPORT_EDIT = ["sports.coach", "sports.manage"];
@@ -71,7 +72,7 @@ const lazyReports = () => ({ get: (filter) => require("../Report/Report.model").
 const BAD_KEY = { ok: false, code: "BAD_KEY", message: "مفتاح القفل غير صالح" };
 const NO_CLIENT = { ok: false, code: "NO_CLIENT", message: "معرّف المتصفح مفقود" };
 
-function createLockRouter({ requireAuth, loadActor, requirePermission, locks, reports = lazyReports() }) {
+function createLockRouter({ requireAuth, loadActor, locks, reports = lazyReports() }) {
   const router = express.Router();
   const ctx = { reports };
 
@@ -127,11 +128,6 @@ function createLockRouter({ requireAuth, loadActor, requirePermission, locks, re
     return res.status(200).json({ ok: true });
   });
 
-  const forceRelease = guard("forceRelease", async (req, res) => {
-    await locks.forceRelease(req.lockKey);
-    return res.status(200).json({ ok: true });
-  });
-
   const holder = guard("holder", async (req, res) => {
     // Without the module's view permission the holder is not revealed.
     if (!(await allowed("view", req.actor, req.lockKey, ctx))) return res.status(200).json({ ok: true, holder: null });
@@ -141,20 +137,42 @@ function createLockRouter({ requireAuth, loadActor, requirePermission, locks, re
   router.post("/acquire", requireAuth, loadActor, fromBody, canEdit, acquire);
   router.post("/heartbeat", requireAuth, loadActor, fromBody, canEdit, heartbeat);
   router.post("/release", beaconHeaders, requireAuth, loadActor, fromBody, release);
-  router.post("/force-release", requireAuth, loadActor, requirePermission("permissions.manage"), fromBody, forceRelease);
   router.get("/:key", requireAuth, loadActor, fromParam, holder);
 
   return router;
 }
 
-const router = createLockRouter({
-  requireAuth,
-  loadActor,
-  requirePermission,
-  locks: createLocks({ model: require("./Lock.model").LockModelDef, hub: liveHub }),
-});
+// POST /force-release { key } -> 200 { ok:true } (permissions.manage, an IT
+// key). No tab is needed: it frees whoever holds the key. loadActor signs the
+// caller in and sets req.actor (requireIt on /api/it).
+function createLockAdminRouter({ loadActor, requirePermission, locks }) {
+  const router = express.Router();
+  const readKey = (req, res, next) => {
+    const key = req.body?.key;
+    if (typeof key !== "string" || !KEY_PATTERN.test(key)) return res.status(400).json(BAD_KEY);
+    req.lockKey = key;
+    return next();
+  };
+  const forceRelease = async (req, res) => {
+    try {
+      await locks.forceRelease(req.lockKey);
+      return res.status(200).json({ ok: true });
+    } catch (error) {
+      logWithSource("Lock.forceRelease", error);
+      return res.status(500).json({ ok: false, message: SERVER_ERROR });
+    }
+  };
+  router.post("/force-release", loadActor, requirePermission("permissions.manage"), readKey, forceRelease);
+  return router;
+}
+
+// One locks service for the everyday routes and the IT site's force-release.
+const locks = createLocks({ model: require("./Lock.model").LockModelDef, hub: liveHub });
+const router = createLockRouter({ requireAuth, loadActor, locks });
 
 module.exports = router;
+module.exports.locks = locks;
 module.exports.createLockRouter = createLockRouter;
+module.exports.createLockAdminRouter = createLockAdminRouter;
 module.exports.KEY_PATTERN = KEY_PATTERN;
 module.exports.LOCK_RULES = LOCK_RULES;

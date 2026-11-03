@@ -48,6 +48,8 @@ const UserModelDef = {
     isIT: { type: 'boolean', required: false, default: false },
     itBlockedAt: { type: 'date', required: false, default: null },
     itSince: { type: 'date', required: false, default: null },
+    // Set by a block or a removal: IT sessions from before it stay ended.
+    itSignedOutAt: { type: 'date', required: false, default: null },
     permissionsUpdatedAt: { type: 'date', required: false },
     permissionsUpdatedBy: { type: 'string', required: false },
     passwordChangedAt: { type: 'date', required: false, default: null },

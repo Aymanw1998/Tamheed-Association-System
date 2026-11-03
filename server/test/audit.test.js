@@ -88,13 +88,13 @@ function startApp({ permissions = [], rows = [] } = {}) {
   const model = {
     async page(filter, opts) { seen.filter = filter; seen.opts = opts; return { items: rows, total: rows.length }; },
   };
-  const requireAuth = (req, res, next) => { req.user = { tz: "1" }; next(); };
+  // Signs in and loads the actor, as requireIt does on /api/it.
   const loadActor = (req, res, next) => {
-    req.actor = { permissions: new Set(permissions) };
+    req.actor = { tz: "1", permissions: new Set(permissions) };
     next();
   };
   const app = express();
-  app.use("/api/audit", createAuditRouter({ model, requireAuth, loadActor }));
+  app.use("/api/audit", createAuditRouter({ model, loadActor }));
   const server = http.createServer(app);
   return new Promise((resolve) =>
     server.listen(0, () => resolve({ server, seen, base: `http://127.0.0.1:${server.address().port}/api/audit` }))

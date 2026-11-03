@@ -1,15 +1,15 @@
 const express = require("express");
 const { requireAuth } = require("../../middleware/authMiddleware");
-const { loadActor, requirePermission } = require("../../middleware/permissionMiddleware");
+const { loadActor } = require("../../middleware/permissionMiddleware");
 const { logWithSource } = require("../../middleware/logger");
 
 // Web push subscriptions.
 //   GET    /key         public: the VAPID public key -> { ok, key }; key is
 //                        null while phone notifications are off
-//   GET    /settings    permissions.manage: { ok, enabled, keysFrom }
-//   PUT    /settings    permissions.manage: { enabled } -> the same
 //   POST   /subscribe   staff (signed in): { subscription } -> upsert by endpoint
 //   DELETE /subscribe   staff: remove the caller's own subscription
+// The switch (GET|PUT /settings, permissions.manage: { ok, enabled, keysFrom })
+// is createPushSettingsRouter, on /api/it/push only.
 // The sport site has the same pair under /api/sport-portal/push (see
 // SportPortal.route.js); both use subscribeHandlers.
 const SERVER_ERROR = "حدث خطأ غير متوقع، حاول مرة أخرى";
@@ -92,7 +92,7 @@ const contactFor = (req) => {
   return /^[a-z0-9.-]+(:\d+)?$/.test(host) ? `https://${host}` : "https://tamheed.local";
 };
 
-function createPushRouter({ requireAuth, loadActor, requirePermission, store, push }) {
+function createPushRouter({ requireAuth, loadActor, store, push }) {
   const router = express.Router();
   const handlers = subscribeHandlers({ store, owner: staffOwner, source: "Push" });
 
@@ -107,8 +107,15 @@ function createPushRouter({ requireAuth, loadActor, requirePermission, store, pu
   });
   router.post("/subscribe", requireAuth, loadActor, handlers.subscribe);
   router.delete("/subscribe", requireAuth, loadActor, handlers.unsubscribe);
+  return router;
+}
 
-  router.get("/settings", requireAuth, loadActor, requirePermission("permissions.manage"), async (req, res) => {
+// The phone-notifications switch is an IT action («الإعدادات» on the IT
+// site): mounted only on /api/it. loadActor signs the caller in and sets
+// req.actor (requireIt there).
+function createPushSettingsRouter({ loadActor, requirePermission, push }) {
+  const router = express.Router();
+  router.get("/settings", loadActor, requirePermission("permissions.manage"), async (req, res) => {
     try {
       return res.status(200).json({ ok: true, ...(await push.status()) });
     } catch (error) {
@@ -116,7 +123,7 @@ function createPushRouter({ requireAuth, loadActor, requirePermission, store, pu
       return res.status(500).json({ ok: false, message: SERVER_ERROR });
     }
   });
-  router.put("/settings", requireAuth, loadActor, requirePermission("permissions.manage"), async (req, res) => {
+  router.put("/settings", loadActor, requirePermission("permissions.manage"), async (req, res) => {
     try {
       const enabled = req.body?.enabled;
       if (typeof enabled !== "boolean") return res.status(400).json({ ok: false, code: "BAD_SETTING" });
@@ -142,10 +149,11 @@ function createSportSubscribeRouter({ requireSportStudent, store }) {
 
 const store = require("./PushSubscription.model").PushSubscriptionModelDef;
 
-const router = createPushRouter({ requireAuth, loadActor, requirePermission, store, push: require("../../utils/push").push });
+const router = createPushRouter({ requireAuth, loadActor, store, push: require("../../utils/push").push });
 
 module.exports = router;
 module.exports.createPushRouter = createPushRouter;
+module.exports.createPushSettingsRouter = createPushSettingsRouter;
 module.exports.createSportSubscribeRouter = createSportSubscribeRouter;
 module.exports.subscribeHandlers = subscribeHandlers;
 module.exports.sportOwner = sportOwner;

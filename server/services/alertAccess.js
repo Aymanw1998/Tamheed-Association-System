@@ -1,4 +1,4 @@
-const { can } = require("../utils/permissions");
+const { can, isUnblockedItUser } = require("../utils/permissions");
 
 // Which alert types a user may still read, judged by their permissions now
 // (not when the alert was raised), so a demoted user stops seeing alerts they
@@ -6,12 +6,14 @@ const { can } = require("../utils/permissions");
 // live stream's alert push. Types not listed here are never shown.
 const always = () => true;
 const isSystem = (actor) => actor?.isSystem === true;
+// The IT users (not blocked) and the system account: who unlocks and audits.
+const itOrSystem = (actor) => isSystem(actor) || isUnblockedItUser(actor?.user);
 const has = (...keys) => (actor) => keys.every((key) => can(actor, key));
 
 const ALERT_ACCESS = {
   parent_registration: has("students.viewAll", "students.edit"),
   user_waiting: has("users.approve"),
-  account_locked: (actor) => isSystem(actor) || can(actor, "users.unlock"),
+  account_locked: itOrSystem,
   system_login_failures: isSystem,
   vehicle_license: has("vehicles.view"),
   vehicle_test: has("vehicles.view"),

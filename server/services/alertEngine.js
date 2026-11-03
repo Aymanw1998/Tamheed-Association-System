@@ -1,4 +1,4 @@
-const { can, effectivePermissions, isSystemTz } = require("../utils/permissions");
+const { can, effectivePermissions, isSystemTz, isUnblockedItUser } = require("../utils/permissions");
 
 // The alert engine: decides who receives an alert and writes it to each
 // recipient's AiAlerts inbox (the live stream picks new rows up from there).
@@ -9,6 +9,7 @@ const { can, effectivePermissions, isSystemTz } = require("../utils/permissions"
 //   { permissions: [keys] }             holders of every key
 //   { tz }                              that user
 //   { userIds: [_id] }                  those users
+//   { it: true }                        IT users who are not blocked
 //   { scopeOfStudent: _id, permission } users whose student scope includes the
 //                                       student (main teacher, teacher/helper of
 //                                       a lesson with the student, students.viewAll)
@@ -25,7 +26,7 @@ const LANGS = ["ar", "he", "en"];
 // student's three absences in a row too (owner, 2026-11-01).
 const PUSHED_TYPES = new Set(["lesson_no_attendance", "sport_lesson_no_attendance", "absence_streak"]);
 
-const SELECTORS = ["permission", "permissions", "tz", "userIds", "scopeOfStudent"];
+const SELECTORS = ["permission", "permissions", "tz", "userIds", "scopeOfStudent", "it"];
 
 function createAlertEngine({
   listActiveUsers,
@@ -60,6 +61,7 @@ function createAlertEngine({
     ];
     if (rule.permissions !== undefined && !Array.isArray(rule.permissions)) return [];
     if (keys.length) out = out.filter((u) => keys.every((key) => can(u.permissions, key)));
+    if (rule.it !== undefined) out = rule.it === true ? out.filter(isUnblockedItUser) : [];
     if (rule.tz !== undefined) out = out.filter((u) => String(u.tz) === String(rule.tz ?? "").trim());
     if (rule.userIds !== undefined) {
       const ids = new Set((Array.isArray(rule.userIds) ? rule.userIds : []).filter(Boolean).map(String));

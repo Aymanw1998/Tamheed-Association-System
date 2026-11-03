@@ -54,3 +54,5 @@ router.delete('/:tz/:from', requirePermission('users.delete'), lockedUser, delet
 
 
 module.exports = router;
+// The IT site's user routes take the same lock check (It.route.js).
+module.exports.lockedUser = lockedUser;

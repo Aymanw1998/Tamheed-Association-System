@@ -163,7 +163,7 @@ const SERVER_OWNED_FIELDS = [
   "role", "roles", "permissionGrants", "permissionRevokes", "vehiclePermissions",
   "permissionsUpdatedAt", "permissionsUpdatedBy",
   // IT membership is managed only on the IT site, never by an everyday edit.
-  "isIT", "itBlockedAt", "itSince",
+  "isIT", "itBlockedAt", "itSince", "itSignedOutAt",
   // A user is never renamed, and the folder and Drive link are server-derived.
   "tz", "storageFolder", "googleDrive",
   "failedLoginCount", "lockedAt", "passwordChangedAt", "recoveredAt", "signedOutAt",
@@ -1655,6 +1655,69 @@ const signOutEverywhere = async (req, res) => {
   }
 };
 
+/* ================= IT site: a user's password and devices ================= */
+// PUT /api/it/users/:tz/password { password } (users.resetPassword): sets a
+// new password, as putU's password path does (canResetPassword, then
+// passwordChangedAt ends the user's sessions). Nothing else is written.
+const resetUserPassword = async (req, res) => {
+  try {
+    const tz = String(req.params.tz ?? "").trim();
+    const password = req.body?.password;
+    if (typeof password !== "string" || !password) return invalid(res, "BAD_INPUT");
+    const problem = newPasswordProblem(password);
+    if (problem) return res.status(400).json({ ok: false, code: problem, message: passwordProblemMessage(problem) });
+
+    const existing = tz ? await getUserInRoomByTz(tz, "active") : null;
+    if (!existing || isSystemUser(existing)) return notFound(res);
+    if (!canResetPassword(req.actor, existing)) return forbidden(res);
+
+    const stale = checkVersion(existing, req, sanitize);
+    if (stale) return res.status(409).json(stale);
+    const patch = { password, passwordChangedAt: new Date(), updatedAt: new Date(), ...editorStamp(req) };
+    const updated = await UserModelDef.updateExisting(sameVersion({ tz: existing.tz }, existing), patch, "active");
+    if (!updated?.result) return res.status(409).json(await raceLost(() => UserModelDef.get({ tz: existing.tz }, "active"), sanitize));
+    await recordUser(req, "update", existing, { ...existing, ...patch });
+    notifyChange("user", existing._id);
+    return res.status(200).json({ ok: true });
+  } catch (err) {
+    logWithSource("User.resetUserPassword", err);
+    return res.status(500).json({ ok: false, message: err.message });
+  }
+};
+
+// GET /api/it/users/:tz/sessions: where the user is signed in (no hashes).
+const listUserDevices = async (req, res) => {
+  try {
+    const { user } = await loadTarget(req);
+    if (!user) return notFound(res);
+    if (!canManageTarget(req.actor, user)) return forbidden(res);
+    return res.status(200).json({ ok: true, devices: deviceList(user, null) });
+  } catch (err) {
+    logWithSource("User.listUserDevices", err);
+    return res.status(500).json({ ok: false, message: err.message });
+  }
+};
+
+// DELETE /api/it/users/:tz/sessions/:sid: signs that device out, as "my
+// devices" does (its access token is refused at once, its refresh ended).
+const signOutUserDevice = async (req, res) => {
+  try {
+    const { user } = await loadTarget(req);
+    if (!user) return notFound(res);
+    if (!canManageTarget(req.actor, user)) return forbidden(res);
+    const device = findDevice(user, req.params?.sid);
+    if (!device) return res.status(404).json({ code: "NOT_FOUND", message: "الجهاز غير موجود" });
+    await endSession(UserModelDef, user.tz, device.hash);
+    const who = { tz: user.tz, firstname: user.firstname, lastname: user.lastname };
+    await recordUser(req, "sign_out_device", who, { ...who, signedOutDevice: device.label || device.sid });
+    notifyChange("user", user._id);
+    return res.status(200).json({ ok: true });
+  } catch (err) {
+    logWithSource("User.signOutUserDevice", err);
+    return res.status(500).json({ ok: false, message: err.message });
+  }
+};
+
 /* ================= my devices ================= */
 // GET /api/auth/sessions: where the signed-in user is signed in, this
 // device marked. Read fresh, not from the 5-second actor cache.
@@ -1811,6 +1874,8 @@ const viewPassword = async (req, res) => {
         message: "User not found",
       });
     }
+    // An IT user's account is the system account's only (canManageTarget).
+    if (!canManageTarget(req.actor, user)) return forbidden(res);
 
     // Only report whether a password exists; never return the stored value.
     const hasPassword = typeof user.password === "string" && user.password.trim() !== "";
@@ -1978,6 +2043,9 @@ module.exports = {
   putRole,
   unlockUser,
   signOutEverywhere,
+  resetUserPassword,
+  listUserDevices,
+  signOutUserDevice,
   listMyDevices,
   signOutDevice,
   signOutOtherDevices,

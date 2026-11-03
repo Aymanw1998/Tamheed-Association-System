@@ -3,7 +3,7 @@
 // Authorization header or refresh cookie.
 const jwt = require("jsonwebtoken");
 const { isSportHost } = require("../utils/sportHost");
-const { isSystemTz, isItUser, itPermissions } = require("../utils/permissions");
+const { isSystemTz, isUnblockedItUser, itPermissions } = require("../utils/permissions");
 const { isLocked } = require("../utils/loginLockout");
 const { tokenIsStale } = require("../utils/systemPassword");
 const { logWithSource } = require("./logger");
@@ -47,15 +47,16 @@ const toTime = (value) => {
 };
 
 // Older (iat, whole seconds) than a password change, recovery or sign-out, or
-// than the user's (re)joining or blocking in IT.
+// than the user's (re)joining, blocking or removal in IT (itSignedOutAt
+// outlives an unblock).
 function itTokenIsStale(iat, user) {
   if (tokenIsStale(iat, user)) return true;
-  const latest = Math.max(...[user?.itSince, user?.itBlockedAt].map(toTime).filter((t) => !Number.isNaN(t)), 0);
+  const latest = Math.max(...[user?.itSince, user?.itBlockedAt, user?.itSignedOutAt].map(toTime).filter((t) => !Number.isNaN(t)), 0);
   return typeof iat === "number" && iat < Math.floor(latest / 1000);
 }
 
 // May use the IT site now: the system account always, anyone else while IT and not blocked.
-const mayUseIt = (user, isSystem) => isSystem || (isItUser(user) && !user.itBlockedAt);
+const mayUseIt = (user, isSystem) => isSystem || isUnblockedItUser(user);
 
 // Loaded lazily so requiring this file does not pull in the database layer.
 const defaultUsers = () => require("../Entities/User/User.model").UserModelDef;

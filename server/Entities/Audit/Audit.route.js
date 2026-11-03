@@ -1,6 +1,5 @@
 const express = require("express");
-const { requireAuth } = require("../../middleware/authMiddleware");
-const { loadActor, requirePermission } = require("../../middleware/permissionMiddleware");
+const { requirePermission } = require("../../middleware/permissionMiddleware");
 const { logWithSource } = require("../../middleware/logger");
 
 const PAGE_SIZE = 50;
@@ -66,9 +65,11 @@ function buildFilter(query = {}) {
   return filter;
 }
 
-function createAuditRouter({ model, requireAuth, loadActor }) {
+// The audit log is an IT action (IT-site design): mounted only on /api/it.
+// loadActor signs the caller in and sets req.actor (requireIt there).
+function createAuditRouter({ model, loadActor }) {
   const router = express.Router();
-  router.use(requireAuth, loadActor);
+  router.use(loadActor);
 
   router.get("/", requirePermission("audit.view"), async (req, res) => {
     try {
@@ -85,12 +86,4 @@ function createAuditRouter({ model, requireAuth, loadActor }) {
   return router;
 }
 
-const router = createAuditRouter({
-  model: require("./Audit.model").AuditModelDef,
-  requireAuth,
-  loadActor,
-});
-
-module.exports = router;
-module.exports.createAuditRouter = createAuditRouter;
-module.exports.buildFilter = buildFilter;
+module.exports = { createAuditRouter, buildFilter };
