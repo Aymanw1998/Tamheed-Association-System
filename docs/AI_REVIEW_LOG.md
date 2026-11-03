@@ -4172,3 +4172,23 @@ the form's note and save button (no role, password or email).
 943/943, build. Not checked in a browser (needs the database).
 
 **Codex review:** pending (until 2026-11-06). **Status:** committed.
+
+### Follow-up: the app shell is never served stale; the change screen opens on any refusal (2026-11-03)
+
+**Change:** The owner saw a new IT user reach the full IT site after the first
+sign-in (the server refused every call with `PASSWORD_CHANGE_REQUIRED`, but
+the page had no change screen): the browser ran an older build. The shell
+had no Cache-Control, so Chrome could reuse an old `index.html`.
+`utils/sportHost.js` `cacheHeaders`: `Cache-Control: no-cache` for
+`index.html`, `service-worker.js` and `manifest.json` in `hostStatic` (sport,
+IT) and on the everyday static and shell fallback (`server.js`); hashed
+`static/` files keep the default. `apps/it` `api.js`
+`setPasswordChangeHandler`: any 403 `PASSWORD_CHANGE_REQUIRED` switches the
+app to «تغيير كلمة المرور» (`App.jsx`), whatever `/me` said.
+
+**Test:** `server/test/sport-host.test.js` (no-cache on the shell, the SPA
+fallback and the worker; not on a hashed asset), `apps/it` `App.test.js`.
+
+**Verification:** server 1262/1262, `apps/it` 63/63, build.
+
+**Codex review:** pending (until 2026-11-06). **Status:** committed.

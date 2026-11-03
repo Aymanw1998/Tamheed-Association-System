@@ -24,7 +24,7 @@ const crypto = require("crypto")
 dotenv.config({path: './config/.env'});
 const { ensureSystemAdmin } = require('./scripts/ensureSystemAdmin');
 const { createFatalShutdown } = require('./utils/fatalShutdown');
-const { sportStatic, hostStatic } = require('./utils/sportHost');
+const { sportStatic, hostStatic, cacheHeaders } = require('./utils/sportHost');
 //Craete app
 const app = express();
 app.use(logger);
@@ -78,10 +78,13 @@ if (process.env.SERVE_CLIENT === 'true') {
   app.use(sportStatic(path.join(__dirname, '..', 'apps', 'sport', 'build'), process.env.SPORT_HOST));
   // The IT site on its own host name (IT_HOST).
   app.use(hostStatic(path.join(__dirname, '..', 'apps', 'it', 'build'), process.env.IT_HOST));
-  app.use(express.static(clientBuild));
-  app.get(/^\/(?!api(\/|$)).*/, (req, res, next) =>
-    req.accepts('html') ? res.sendFile(path.join(clientBuild, 'index.html')) : next()
-  );
+  // The shell and the service worker are always checked again (cacheHeaders).
+  app.use(express.static(clientBuild, { setHeaders: cacheHeaders }));
+  app.get(/^\/(?!api(\/|$)).*/, (req, res, next) => {
+    if (!req.accepts('html')) return next();
+    res.set('Cache-Control', 'no-cache');
+    return res.sendFile(path.join(clientBuild, 'index.html'));
+  });
 }
 
 //Middleware to parse JSON requests

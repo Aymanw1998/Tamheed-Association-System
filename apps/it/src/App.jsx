@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { getMe, logout, setSignedOutHandler, systemPass } from "./api";
+import { getMe, logout, setPasswordChangeHandler, setSignedOutHandler, systemPass } from "./api";
 import { usePath } from "./router.jsx";
 import { goTo, systemUrlWithPass, takePassFromAddress } from "./siteLink";
 import Header from "./ui/Header.jsx";
@@ -55,8 +55,10 @@ export default function App() {
 
   useEffect(() => {
     setSignedOutHandler(() => { setMe(null); setState("out"); });
+    // Any refusal "change the temporary password first" opens that screen.
+    setPasswordChangeHandler(() => setMe((prev) => (prev ? { ...prev, mustChangePassword: true } : prev)));
     loadMe();
-    return () => setSignedOutHandler(null);
+    return () => { setSignedOutHandler(null); setPasswordChangeHandler(null); };
   }, [loadMe]);
 
   const openSystem = async () => {

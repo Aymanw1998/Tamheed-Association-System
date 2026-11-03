@@ -133,3 +133,27 @@ test("hostStatic serves nothing when its host is not set", () => {
   mw(fakeReq("it.tamheed-ramla.org"), {}, () => { called = true; });
   assert.equal(called, true);
 });
+
+test("hostStatic: the app shell and the service worker are always checked again; built assets may be cached", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "host-cache-"));
+  const app = express();
+  app.set("trust proxy", 1);
+  app.use(hostStatic(dir, SPORT));
+  const server = app.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const get = (p) => fetch(`${base}${p}`, { headers: { "X-Forwarded-Host": SPORT, Accept: "text/html" } });
+  try {
+    fs.writeFileSync(path.join(dir, "index.html"), "<!doctype html><p>shell</p>");
+    fs.writeFileSync(path.join(dir, "service-worker.js"), "/* sw */");
+    fs.mkdirSync(path.join(dir, "static"));
+    fs.writeFileSync(path.join(dir, "static", "main.abc123.js"), "/* js */");
+    for (const p of ["/", "/index.html", "/users/1", "/service-worker.js"]) {
+      assert.equal((await get(p)).headers.get("cache-control"), "no-cache", p);
+    }
+    assert.notEqual((await get("/static/main.abc123.js")).headers.get("cache-control"), "no-cache");
+  } finally {
+    server.close();
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

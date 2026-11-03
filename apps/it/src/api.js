@@ -7,6 +7,10 @@ let onSignedOut = () => {};
 // App registers what to do when any call finds the IT session gone.
 export const setSignedOutHandler = (fn) => { onSignedOut = typeof fn === "function" ? fn : () => {}; };
 
+let onPasswordChange = () => {};
+// App registers what to do when the server asks for the temporary password to be changed first.
+export const setPasswordChangeHandler = (fn) => { onPasswordChange = typeof fn === "function" ? fn : () => {}; };
+
 async function call(path, { method = "GET", body } = {}) {
   try {
     const res = await fetch(`${BASE}${path}`, {
@@ -19,6 +23,7 @@ async function call(path, { method = "GET", body } = {}) {
     let data = null;
     try { data = await res.json(); } catch { data = null; }
     if (res.status === 401 && data?.code === "IT_SIGNED_OUT") onSignedOut();
+    if (res.status === 403 && data?.code === "PASSWORD_CHANGE_REQUIRED") onPasswordChange();
     return { status: res.status, ok: res.ok && data?.ok !== false, data: data || {} };
   } catch {
     return { status: 0, ok: false, data: { ok: false, code: "NETWORK" } };

@@ -1,6 +1,7 @@
 import App from "./App.jsx";
 import * as api from "./api";
 import * as nav from "./siteLink";
+import { act } from "react";
 import { mount, unmountAll, ok, fail, button, click, byText } from "./testUtils";
 
 jest.mock("./api", () => ({
@@ -11,6 +12,7 @@ jest.mock("./api", () => ({
   logout: jest.fn(),
   getUsers: jest.fn(),
   getMembers: jest.fn(),
+  setPasswordChangeHandler: jest.fn(),
 }));
 jest.mock("./siteLink", () => ({ ...jest.requireActual("./siteLink"), goTo: jest.fn() }));
 
@@ -126,4 +128,14 @@ test("a temporary password: only «تغيير كلمة المرور» shows unti
   expect(c.textContent).toContain("تغيير كلمة المرور");
   expect(c.querySelector("nav")).toBeNull();
   expect(api.getUsers).not.toHaveBeenCalled();
+});
+
+test("any refusal «change the password first» opens the change screen", async () => {
+  api.getMe.mockImplementation(() => ok({ ...ME }));
+  let trigger = null;
+  api.setPasswordChangeHandler.mockImplementation((fn) => { if (fn) trigger = fn; });
+  const c = await mount(<App />);
+  expect(c.textContent).not.toContain("تغيير كلمة المرور");
+  await act(async () => { trigger(); });
+  expect(c.textContent).toContain("تغيير كلمة المرور");
 });
