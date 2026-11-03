@@ -1,10 +1,8 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 
-const { effectivePermissions } = require("../utils/permissions");
+const { IT_KEYS, effectivePermissions, itPermissions } = require("../utils/permissions");
 const {
-  holdsDangerous,
-  isPermissionManager,
   canManageTarget,
   grantableBy,
   validatePermissionChange,
@@ -21,8 +19,8 @@ function userDoc(id, role, { grants = [], revokes = [] } = {}) {
   return { _id: id, tz: `tz-${id}`, role, roles: [role], permissionGrants: grants, permissionRevokes: revokes };
 }
 
-// The shape loadActor puts on req.actor.
-function actorOf(doc, { isSystem = false } = {}) {
+// The shape loadActor puts on req.actor; `it` marks the IT site's actor.
+function actorOf(doc, { isSystem = false, it = false } = {}) {
   return {
     id: String(doc._id),
     tz: doc.tz,
@@ -30,8 +28,9 @@ function actorOf(doc, { isSystem = false } = {}) {
     role: doc.role,
     grants: doc.permissionGrants,
     revokes: doc.permissionRevokes,
-    permissions: effectivePermissions(doc, { isSystem }),
+    permissions: it ? itPermissions(doc, { isSystem }) : effectivePermissions(doc, { isSystem }),
     isSystem,
+    it,
     user: doc,
   };
 }
@@ -43,16 +42,9 @@ const admin = actorOf(adminDoc);
 const otherAdmin = userDoc("a2", ADMIN);
 const guide = userDoc("g1", GUIDE);
 const assistant = userDoc("s1", ASSISTANT);
-
-test("holdsDangerous and isPermissionManager read the effective set", () => {
-  assert.equal(holdsDangerous(adminDoc), false);
-  assert.equal(holdsDangerous(userDoc("g2", GUIDE, { grants: ["audit.view"] })), true);
-  assert.equal(holdsDangerous(system), true);
-  assert.equal(holdsDangerous(userDoc("g3", GUIDE, { grants: ["audit.view"], revokes: ["audit"] })), false);
-  assert.equal(isPermissionManager(adminDoc), false);
-  assert.equal(isPermissionManager(userDoc("g4", GUIDE, { grants: ["permissions.manage"] })), true);
-  assert.equal(isPermissionManager(actorOf(userDoc("g5", GUIDE, { grants: ["permissions"] }))), true);
-});
+// The IT site's actor (an IT user) and the system account there.
+const itActor = actorOf({ ...userDoc("it1", GUIDE), isIT: true }, { it: true });
+const systemIt = actorOf(systemDoc, { isSystem: true, it: true });
 
 test("an admin manages lower ranks only", () => {
   assert.equal(canManageTarget(admin, guide, { isSystemTarget: false }), true);
@@ -69,22 +61,23 @@ test("self is detected by id or tz", () => {
   assert.equal(canManageTarget(actorOf(guide), sameTz, {}), false);
 });
 
-test("a target holding a dangerous key is managed by the system only", () => {
+test("a stored IT-key grant no longer shields a target; rank decides", () => {
   const dangerousGuide = userDoc("g6", GUIDE, { grants: ["audit.view"] });
-  assert.equal(canManageTarget(admin, dangerousGuide, { isSystemTarget: false }), false);
+  assert.equal(canManageTarget(admin, dangerousGuide, { isSystemTarget: false }), true);
   assert.equal(canManageTarget(system, dangerousGuide, { isSystemTarget: false }), true);
   assert.equal(canManageTarget(system, otherAdmin, { isSystemTarget: false }), true);
   assert.equal(canManageTarget(system, systemDoc, { isSystemTarget: true }), false);
 });
 
-test("grantableBy: system all, manager own set minus dangerous, others nothing", () => {
-  assert.ok(grantableBy(system).has("permissions.manage"));
-  assert.ok(grantableBy(system).has("audit.view"));
+test("grantableBy: the IT actor every key but the IT keys, everyone else nothing", () => {
+  for (const actor of [itActor, systemIt]) {
+    const set = grantableBy(actor);
+    assert.ok(set.has("students.view") && set.has("sports.manage") && set.has("users.resetPassword"));
+    for (const key of IT_KEYS) assert.equal(set.has(key), false, key);
+  }
+  assert.equal(grantableBy(system).size, 0);
   const manager = actorOf(userDoc("m1", ADMIN, { grants: ["permissions.manage", "audit.view"] }));
-  const set = grantableBy(manager);
-  assert.ok(set.has("students.view"));
-  assert.equal(set.has("permissions.manage"), false);
-  assert.equal(set.has("audit.view"), false);
+  assert.equal(grantableBy(manager).size, 0);
   assert.equal(grantableBy(admin).size, 0);
 });
 
@@ -97,17 +90,15 @@ const narrowManagerDoc = userDoc("m2", ADMIN, {
 });
 const narrowManager = actorOf(narrowManagerDoc);
 
-test("a permission manager grants only what he holds and nothing dangerous", () => {
+test("the IT actor grants any everyday key and nothing of IT; a stored manage grant is no manager", () => {
   const ctx = { isSystemTarget: false };
-  assert.deepEqual(validatePermissionChange(narrowManager, guide, { grants: ["students"] }, ctx),
-    { ok: false, code: "NOT_GRANTABLE" });
   assert.deepEqual(validatePermissionChange(narrowManager, guide, { grants: ["students.view"] }, ctx),
-    { ok: true });
-  assert.deepEqual(validatePermissionChange(narrowManager, guide, { grants: ["audit.view"] }, ctx),
+    { ok: false, code: "FORBIDDEN" });
+  assert.deepEqual(validatePermissionChange(itActor, guide, { grants: ["students"] }, ctx), { ok: true });
+  assert.deepEqual(validatePermissionChange(itActor, guide, { revokes: ["students.delete"] }, ctx), { ok: true });
+  assert.deepEqual(validatePermissionChange(itActor, guide, { grants: ["audit.view"] }, ctx),
     { ok: false, code: "NOT_GRANTABLE" });
-  assert.deepEqual(validatePermissionChange(narrowManager, guide, { revokes: ["students.delete"] }, ctx),
-    { ok: false, code: "NOT_GRANTABLE" });
-  assert.deepEqual(validatePermissionChange(narrowManager, guide, { grants: ["nope.key"] }, ctx),
+  assert.deepEqual(validatePermissionChange(itActor, guide, { grants: ["nope.key"] }, ctx),
     { ok: false, code: "UNKNOWN_KEY" });
 });
 
@@ -130,13 +121,16 @@ test("a non-manager cannot change permissions at all", () => {
     { ok: false, code: "FORBIDDEN" });
 });
 
-test("the system grants anything, including permissions.manage", () => {
+test("the system changes permissions only as the IT actor, and never grants an IT key", () => {
   const ctx = { isSystemTarget: false };
-  assert.deepEqual(validatePermissionChange(system, guide, { grants: ["permissions.manage"] }, ctx), { ok: true });
+  assert.deepEqual(validatePermissionChange(system, guide, { grants: ["students.create"] }, ctx),
+    { ok: false, code: "FORBIDDEN" });
+  assert.deepEqual(validatePermissionChange(systemIt, guide, { grants: ["students.create"] }, ctx), { ok: true });
+  assert.deepEqual(validatePermissionChange(systemIt, guide, { grants: ["permissions.manage"] }, ctx),
+    { ok: false, code: "NOT_GRANTABLE" });
   const otherManager = userDoc("m4", ADMIN, { grants: ["permissions.manage"] });
-  assert.deepEqual(validatePermissionChange(system, otherManager, { revokes: ["permissions.manage"] }, ctx),
-    { ok: true });
-  assert.deepEqual(validatePermissionChange(system, systemDoc, { grants: [] }, { isSystemTarget: true }),
+  assert.deepEqual(validatePermissionChange(systemIt, otherManager, { grants: ["ai"] }, ctx), { ok: true });
+  assert.deepEqual(validatePermissionChange(systemIt, systemDoc, { grants: [] }, { isSystemTarget: true }),
     { ok: false, code: "SELF" });
 });
 
@@ -146,7 +140,9 @@ test("canAssignRole needs changeRole, every default leaf, and a role strictly be
   assert.equal(canAssignRole(guideChanger, assistant, ADMIN, ctx), false);
   assert.equal(canAssignRole(guideChanger, assistant, GUIDE, ctx), false); // own rank
   assert.equal(canAssignRole(guideChanger, userDoc("n1", null), ASSISTANT, ctx), true);
-  assert.equal(canAssignRole(admin, guide, ASSISTANT, ctx), false);
+  // users.changeRole is an admin default now (IT-site design, 2026-11-03).
+  assert.equal(canAssignRole(admin, guide, ASSISTANT, ctx), true);
+  assert.equal(canAssignRole(actorOf(userDoc("c0", ADMIN, { revokes: ["users.changeRole"] })), guide, ASSISTANT, ctx), false);
   const adminChanger = actorOf(userDoc("c2", ADMIN, { grants: ["users.changeRole"] }));
   assert.equal(canAssignRole(adminChanger, guide, ADMIN, ctx), false); // own rank
   assert.equal(canAssignRole(adminChanger, guide, ASSISTANT, ctx), true);
@@ -200,9 +196,9 @@ test("a raw user doc whose tz is the system tz is treated as the system actor", 
   withSystemTz("tz-sys", () => {
     const rawSystem = { ...systemDoc };
     assert.equal(canManageTarget(rawSystem, otherAdmin), true);
-    assert.ok(grantableBy(rawSystem).has("permissions.manage"));
-    assert.equal(holdsDangerous(rawSystem), true);
-    assert.deepEqual(validatePermissionChange(rawSystem, guide, { grants: ["audit.view"] }), { ok: true });
+    // Raw records carry no it flag: the everyday system grants nothing.
+    assert.equal(grantableBy(rawSystem).size, 0);
+    assert.deepEqual(validatePermissionChange(rawSystem, guide, { grants: ["students.create"] }), { ok: false, code: "FORBIDDEN" });
     assert.equal(canAssignRole(rawSystem, guide, ADMIN), true);
   });
   // Without the env, the same doc is just an admin.
@@ -220,17 +216,17 @@ test("an explicit req.actor.isSystem flag is trusted over the tz", () => {
 
 test("validatePermissionChange tolerates null changes", () => {
   const ctx = { isSystemTarget: false };
-  assert.deepEqual(validatePermissionChange(narrowManager, guide, null, ctx), { ok: true });
-  assert.deepEqual(validatePermissionChange(narrowManager, guide, undefined, ctx), { ok: true });
+  assert.deepEqual(validatePermissionChange(itActor, guide, null, ctx), { ok: true });
+  assert.deepEqual(validatePermissionChange(itActor, guide, undefined, ctx), { ok: true });
 });
 
 test("non-array grants or revokes are UNKNOWN_KEY", () => {
   const ctx = { isSystemTarget: false };
-  assert.deepEqual(validatePermissionChange(narrowManager, guide, { grants: "students.view" }, ctx),
+  assert.deepEqual(validatePermissionChange(itActor, guide, { grants: "students.view" }, ctx),
     { ok: false, code: "UNKNOWN_KEY" });
-  assert.deepEqual(validatePermissionChange(narrowManager, guide, { revokes: { a: 1 } }, ctx),
+  assert.deepEqual(validatePermissionChange(itActor, guide, { revokes: { a: 1 } }, ctx),
     { ok: false, code: "UNKNOWN_KEY" });
-  assert.deepEqual(validatePermissionChange(narrowManager, guide, { grants: [42] }, ctx),
+  assert.deepEqual(validatePermissionChange(itActor, guide, { grants: [42] }, ctx),
     { ok: false, code: "UNKNOWN_KEY" });
 });
 
@@ -241,14 +237,13 @@ test("self is detected despite surrounding whitespace in id or tz", () => {
   assert.equal(canManageTarget(actorTz, { ...assistant, tz: "tz-g1  " }, {}), false);
 });
 
-test("a dangerous key held only through a module grant makes the target system-only", () => {
+test("a stored IT module grant is ignored: the target is managed by rank", () => {
   const ctx = { isSystemTarget: false };
   const viaAudit = userDoc("g7", GUIDE, { grants: ["audit"] });
   const viaPermissions = userDoc("g8", GUIDE, { grants: ["permissions"] });
-  assert.equal(canManageTarget(admin, viaAudit, ctx), false);
-  assert.equal(canManageTarget(admin, viaPermissions, ctx), false);
-  assert.deepEqual(validatePermissionChange(narrowManager, viaPermissions, { grants: [] }, ctx),
-    { ok: false, code: "FORBIDDEN" });
+  assert.equal(canManageTarget(admin, viaAudit, ctx), true);
+  assert.equal(canManageTarget(admin, viaPermissions, ctx), true);
+  assert.deepEqual(validatePermissionChange(itActor, viaPermissions, { grants: [] }, ctx), { ok: true });
   assert.equal(canManageTarget(system, viaAudit, ctx), true);
 });
 

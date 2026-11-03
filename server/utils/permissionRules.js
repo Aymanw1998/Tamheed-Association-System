@@ -1,15 +1,17 @@
 // Who may change whom. Pure rules, no I/O.
 // `actor` is req.actor (or a raw user record); `target` is a user record.
 // The system account is detected fail-closed: ctx.isSystemTarget OR the
-// target's tz matching SYSTEM_ADMIN_TZ.
+// target's tz matching SYSTEM_ADMIN_TZ. `actor.it` is true only for the IT
+// site's actor; a missing flag is false (the everyday app).
 const {
   ALL_KEYS,
-  DANGEROUS_KEYS,
+  IT_KEYS,
   ROLE_DEFAULTS,
   ROLE_RANK,
   can,
   effectivePermissions,
   expandKeys,
+  isItUser,
   isSystemTz,
   normalizeRole,
   resolveRole,
@@ -27,20 +29,12 @@ function isSystemTarget(target, ctx) {
   return ctx?.isSystemTarget === true || isSystemTz(target?.tz);
 }
 
+const isItActor = (actor) => actor?.it === true;
+
 function permissionSet(user) {
   if (!user) return new Set();
   if (user.permissions instanceof Set) return user.permissions;
   return effectivePermissions(user, { isSystem: isSystemActor(user) });
-}
-
-function holdsDangerous(user) {
-  const set = permissionSet(user);
-  for (const key of DANGEROUS_KEYS) if (set.has(key)) return true;
-  return false;
-}
-
-function isPermissionManager(user) {
-  return can(permissionSet(user), "permissions.manage");
 }
 
 function rankOf(user) {
@@ -56,29 +50,29 @@ function isSelf(actor, target) {
   return Boolean(actorTz) && actorTz === targetTz;
 }
 
+// An IT user's account is touched only by the system account on the IT
+// site; an IT actor manages any everyday user; in the everyday app the system
+// account manages anyone else and everyone else needs a higher rank.
 function canManageTarget(actor, target, ctx = {}) {
   if (!actor || !target || isSystemTarget(target, ctx)) return false;
   if (isSelf(actor, target)) return false;
+  if (isItUser(target)) return isSystemActor(actor) && isItActor(actor);
+  if (isItActor(actor)) return true;
   if (isSystemActor(actor)) return true;
-  if (holdsDangerous(target)) return false;
   return rankOf(actor) > rankOf(target);
 }
 
+// Only the IT actor changes permissions, and never grants an IT key.
 function grantableBy(actor) {
-  if (isSystemActor(actor)) return new Set(ALL_KEYS);
-  if (!isPermissionManager(actor)) return new Set();
-  const out = new Set(permissionSet(actor));
-  for (const key of DANGEROUS_KEYS) out.delete(key);
-  return out;
+  if (!isItActor(actor)) return new Set();
+  return new Set(ALL_KEYS.filter((key) => !IT_KEYS.has(key)));
 }
 
 function validatePermissionChange(actor, target, changes, ctx = {}) {
   const { grants = [], revokes = [] } = changes || {};
   if (isSelf(actor, target)) return { ok: false, code: "SELF" };
-  const systemActor = isSystemActor(actor);
-  if (!systemActor && !isPermissionManager(actor)) return { ok: false, code: "FORBIDDEN" };
+  if (!isItActor(actor)) return { ok: false, code: "FORBIDDEN" };
   if (!canManageTarget(actor, target, ctx)) return { ok: false, code: "FORBIDDEN" };
-  if (!systemActor && isPermissionManager(target)) return { ok: false, code: "FORBIDDEN" };
 
   if ((grants != null && !Array.isArray(grants)) || (revokes != null && !Array.isArray(revokes))) {
     return { ok: false, code: "UNKNOWN_KEY" };
@@ -98,16 +92,25 @@ function validatePermissionChange(actor, target, changes, ctx = {}) {
 
 function canAssignRole(actor, target, newRole, ctx = {}) {
   const role = normalizeRole(newRole);
-  if (!role) return false;
-  if (isSelf(actor, target)) return false;
+  if (!role || !actor || !target || isSystemTarget(target, ctx)) return false;
+  // The one self exception: an IT user gives himself an everyday role.
+  if (isSelf(actor, target)) return isItActor(actor);
   if (!canManageTarget(actor, target, ctx)) return false;
-  if (isSystemActor(actor)) return true;
+  if (isItActor(actor) || isSystemActor(actor)) return true;
   // Only a role strictly below one's own.
   if (!(ROLE_RANK[role] < rankOf(actor))) return false;
   const held = permissionSet(actor);
   if (!can(held, "users.changeRole")) return false;
   for (const leaf of expandKeys(ROLE_DEFAULTS[role])) if (!held.has(leaf)) return false;
   return true;
+}
+
+// Setting a new password: the IT actor for whoever he manages; in the
+// everyday app users.resetPassword and a target he manages (lower rank, not
+// IT, not himself).
+function canResetPassword(actor, target, ctx = {}) {
+  if (!canManageTarget(actor, target, ctx)) return false;
+  return isItActor(actor) || can(permissionSet(actor), "users.resetPassword");
 }
 
 // Promotion or same rank keeps special permissions; demotion (including to
@@ -135,11 +138,11 @@ function applyRoleChange(target, newRole) {
 }
 
 module.exports = {
-  holdsDangerous,
-  isPermissionManager,
+  isItActor,
   canManageTarget,
   grantableBy,
   validatePermissionChange,
   canAssignRole,
+  canResetPassword,
   applyRoleChange,
 };

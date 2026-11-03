@@ -650,8 +650,16 @@ test("fix1: a self edit through putU ignores the password and never stamps passw
 
 test("fix1: a users.passwords holder setting another user's password stamps passwordChangedAt", async () => {
   const ctx = loadController({ users: [GUIDE, KEY_ADMIN] });
+  // users.passwords is an IT key: a stored grant is ignored.
+  const ignored = await putU(ctx, KEY_ADMIN, GUIDE.tz, { password: "another-pass-9" });
+  assert.equal(ignored.statusCode, 200);
+  assert.equal(ctx.find(GUIDE.tz).password, "enc:guide-pass-1");
+  // An actor whose set holds the key (as only the IT actor's will).
+  const holder = actorFor(KEY_ADMIN);
+  holder.permissions = new Set([...holder.permissions, "users.passwords"]);
   const before = Date.now();
-  const res = await putU(ctx, KEY_ADMIN, GUIDE.tz, { password: "another-pass-9" });
+  const res = makeRes();
+  await ctx.controller.putU({ params: { tz: GUIDE.tz }, body: { password: "another-pass-9" }, actor: holder, ip: "127.0.0.1", user: { tz: KEY_ADMIN.tz } }, res);
   assert.equal(res.statusCode, 200);
   const stored = ctx.find(GUIDE.tz);
   assert.equal(stored.password, "another-pass-9");

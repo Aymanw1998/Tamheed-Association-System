@@ -3720,3 +3720,33 @@ optional `photo`; the student and user tables and phone cards pass
 **Verification:** apps/system 932/932.
 
 **Codex review:** pending (until 2026-11-06). **Status:** committed.
+
+### Follow-up: the IT layer in the permission model (2026-11-03)
+
+**Change:** `server/utils/permissions.js`: `users.resetPassword` leaf;
+`IT_KEYS` (`permissions.manage`, `users.passwords` now meaning *view*,
+`users.unlock`, `audit.view`, `storage.drive`, `systemRecovery.reset`), with
+`DANGEROUS_KEYS` kept as an alias; ادارة defaults gain `users.changeRole` and
+`users.resetPassword`; `effectivePermissions` never holds an IT key (system
+included; stored IT grants ignored); new `isItUser`, `itPermissions`.
+`server/utils/permissionRules.js`: actor flag `it` (missing = false);
+`canManageTarget` (IT target: system IT actor only; IT actor: any everyday
+user), `canAssignRole` (IT actor may give himself a role),
+`validatePermissionChange`/`grantableBy` (IT actor only, never an IT key),
+new `canResetPassword`; `holdsDangerous`/`isPermissionManager` removed. Client
+mirrors: `permissionKeys.js` (tree, `IT_KEYS`), `demoRoutes.js`
+(defaults, grantable), `accessStrings.js` (labels). No controller change.
+
+**Test:** `it-rules.test.js` (new, 10), seen failing first. Existing tests
+that asserted the old dangerous-key behaviour were moved to the design's table:
+`permissions`, `permission-rules`, `alert-engine`, `assistant-tools`, `locks`,
+`login-security`, `permission-middleware`, `system-account`,
+`system-password`, `user-audit`, `user-permissions-api` (permission changes
+now by an IT actor), apps/system `demoRoutes`, `permissionKeys` (+1).
+
+**Verification:** server 1166/1166, apps/system 933/933. Until Tasks 3 and 5
+land, nobody in the everyday app sets another user's password or email (putU
+still checks `users.passwords`), unlocks, sees the audit log, force-releases a
+lock or changes permissions.
+
+**Codex review:** pending (until 2026-11-06). **Status:** committed.

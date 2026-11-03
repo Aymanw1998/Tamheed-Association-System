@@ -10,16 +10,17 @@ const PERMISSION_TREE = {
   vehicles: ["view", "edit", "compliance", "documents", "archive", "delete"], // delete: admin default only
   files: ["use", "manageAll"],
   notices: ["view", "post", "runCheck"],
-  users: ["view", "create", "edit", "approve", "delete", "changeRole", "passwords", "unlock"],
+  // passwords: view a user's password (IT); resetPassword: set a new one.
+  users: ["view", "create", "edit", "approve", "delete", "changeRole", "passwords", "unlock", "resetPassword"],
   ai: ["use"], permissions: ["manage"], audit: ["view"], systemRecovery: ["reset"],
   sports: ["view", "coach", "manage"], finance: ["view"], // finance reserved
-  storage: ["drive"], // the Drive account the app stores in: system account, or whom it grants
+  storage: ["drive"], // the Drive account the app stores in: an IT action
 };
 
 const ROLE_DEFAULTS = {
   "ادارة": ["dashboard", "calendar", "students", "lessons", "attendance", "reports", "vehicles",
             "files", "notices", "users.view", "users.create", "users.edit", "users.approve",
-            "users.delete", "ai"],
+            "users.delete", "users.changeRole", "users.resetPassword", "ai"],
   // Only an admin edits students, lessons and users (owner, 2026-11-01); an
   // admin may still grant one guide an edit key in the permissions screen.
   "مرشد": ["dashboard", "calendar", "students.view",
@@ -32,10 +33,17 @@ const ROLE_DEFAULTS = {
 
 const ROLE_RANK = { "ادارة": 3, "مرشد": 2, "مساعد": 1 };
 
-const DANGEROUS_KEYS = new Set([
-  "users.changeRole", "users.passwords", "users.unlock",
-  "permissions.manage", "audit.view", "systemRecovery.reset", "storage.drive",
+// What only the IT site does (IT-site design, 2026-11-03). No everyday set
+// ever holds one, not even the system account's.
+const IT_KEYS = new Set([
+  "permissions.manage", "users.passwords", "users.unlock",
+  "audit.view", "storage.drive", "systemRecovery.reset",
 ]);
+// The old name, until its last users move to IT_KEYS.
+const DANGEROUS_KEYS = IT_KEYS;
+
+// What an IT user may do on the IT site.
+const IT_SET = [...IT_KEYS, "users.view", "users.changeRole", "users.resetPassword", "users.approve"];
 
 const GRANT_ONLY_MODULES = new Set(["sports", "finance"]);
 
@@ -89,14 +97,30 @@ function resolveRole(user) {
   return best;
 }
 
-// effective = (roleDefaults U grants) - revokes
+// The everyday set: effective = (roleDefaults U grants) - revokes - IT_KEYS.
+// The system account holds every other key; a stored IT-key grant is ignored.
 function effectivePermissions(user, { isSystem = false } = {}) {
-  if (isSystem) return new Set(ALL_KEYS);
-  const role = resolveRole(user);
-  const allowed = expandKeys(role ? ROLE_DEFAULTS[role] : []);
-  for (const key of expandKeys(user?.permissionGrants)) allowed.add(key);
-  for (const key of expandKeys(user?.permissionRevokes)) allowed.delete(key);
+  let allowed;
+  if (isSystem) {
+    allowed = new Set(ALL_KEYS);
+  } else {
+    const role = resolveRole(user);
+    allowed = expandKeys(role ? ROLE_DEFAULTS[role] : []);
+    for (const key of expandKeys(user?.permissionGrants)) allowed.add(key);
+    for (const key of expandKeys(user?.permissionRevokes)) allowed.delete(key);
+  }
+  for (const key of IT_KEYS) allowed.delete(key);
   return allowed;
+}
+
+const isItUser = (user) => user?.isIT === true;
+
+// The IT set: empty unless the user is IT and not blocked. The system
+// account always has it and is never blocked.
+function itPermissions(user, { isSystem = false } = {}) {
+  if (isSystem) return new Set(IT_SET);
+  if (!isItUser(user) || user.itBlockedAt) return new Set();
+  return new Set(IT_SET);
 }
 
 // actorOrSet is a Set of keys or an actor (user) object. A module key means
@@ -138,6 +162,7 @@ module.exports = {
   PERMISSION_TREE,
   ROLE_RANK,
   ROLE_DEFAULTS,
+  IT_KEYS,
   DANGEROUS_KEYS,
   GRANT_ONLY_MODULES,
   ALL_KEYS,
@@ -145,6 +170,8 @@ module.exports = {
   resolveRole,
   expandKeys,
   effectivePermissions,
+  isItUser,
+  itPermissions,
   can,
   isSystemTz,
 };

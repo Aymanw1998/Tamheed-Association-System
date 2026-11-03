@@ -316,19 +316,17 @@ test("pending_items: admin sees registrations and waiting users, not locked acco
   assert.equal(res.waitingUsers.count, 1);
 });
 
-test("pending_items: users.unlock alone sees only locked accounts", async () => {
+test("pending_items: a stored users.unlock grant (an IT key) sees nothing", async () => {
   const res = await registry().run("pending_items", {}, actorFor(UNLOCKER));
-  assert.deepEqual(Object.keys(res), ["lockedAccounts"]);
-  assert.deepEqual(res.lockedAccounts.items.map((u) => u.name), ["Lo Cked"]);
+  assert.deepEqual(res, { error: "FORBIDDEN" });
 });
 
-test("pending_items: the system account sees all three, never itself", async () => {
+test("pending_items: the system account sees registrations and waiting users (unlock is IT), never itself", async () => {
   const res = await registry().run("pending_items", {}, system());
-  assert.deepEqual(Object.keys(res).sort(), ["lockedAccounts", "parentRegistrations", "waitingUsers"]);
+  assert.deepEqual(Object.keys(res).sort(), ["parentRegistrations", "waitingUsers"]);
   const text = JSON.stringify(res);
   assert.ok(!text.includes(SYSTEM_TZ));
   assert.ok(!text.includes("Sys "));
-  assert.equal(res.lockedAccounts.count, 1);
   assert.equal(res.waitingUsers.count, 1);
 });
 

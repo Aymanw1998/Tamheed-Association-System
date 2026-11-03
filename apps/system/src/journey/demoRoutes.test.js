@@ -366,8 +366,9 @@ describe("chapters 7-13: every save the guide makes succeeds in the demo store",
     expect(call("post", "/storage/share", { data: { relativePath: "لا-يوجد", targetTz: store.users[1].tz, role: "read" } }).status).toBe(404);
   });
 
-  test("users: the permissions tab gets the role defaults and what the manager may grant", async () => {
+  test("users: the permissions tab gets the role defaults and what the IT actor may grant", async () => {
     store = createDemoStore({ meId: "me-1", meTz: "me-tz", role: "ادارة", permissions: [...ADMIN_KEYS, "permissions.manage"] });
+    store.me.it = true;
     const target = store.users.find((u) => u.role === "مساعد");
     const res = ok(await Users.getUserPermissions(target.tz));
     expect(res.defaults).toEqual(expect.arrayContaining(["students.view", "files.use"]));
@@ -375,11 +376,13 @@ describe("chapters 7-13: every save the guide makes succeeds in the demo store",
     expect(res.effective).toEqual(res.defaults);
     expect(res.grantable).toContain("students.create");
     expect(res.grantable).not.toContain("permissions.manage");
-    expect(res.grantable).not.toContain("users.changeRole");
+    expect(res.grantable).not.toContain("users.passwords");
+    expect(res.grantable).toContain("users.changeRole");
   });
 
   test("users: a grant then a revoke are saved and change the effective permissions", async () => {
     store = createDemoStore({ meId: "me-1", meTz: "me-tz", role: "ادارة", permissions: [...ADMIN_KEYS, "permissions.manage"] });
+    store.me.it = true;
     const target = store.users.find((u) => u.role === "مساعد");
     const granted = ok(await Users.saveUserPermissions(target.tz, { grants: ["students.create"], revokes: [] }));
     expect(granted.effective).toContain("students.create");
@@ -389,9 +392,12 @@ describe("chapters 7-13: every save the guide makes succeeds in the demo store",
     expect(revoked.effective).not.toContain("students.create");
   });
 
-  test("users: nobody grants their own permissions, and a non-manager grants nothing", async () => {
+  test("users: nobody grants their own permissions, and nobody but the IT actor grants anything", async () => {
     store = createDemoStore({ meId: "me-1", meTz: "me-tz", role: "ادارة", permissions: [...ADMIN_KEYS, "permissions.manage"] });
     const me = store.users.find((u) => u._id === "me-1");
+    const someone = store.users.find((u) => u.role === "مساعد");
+    expect(ok(await Users.getUserPermissions(someone.tz)).grantable).toEqual([]);
+    store.me.it = true;
     expect(ok(await Users.getUserPermissions(me.tz)).grantable).toEqual([]);
     store = createDemoStore({ meId: "me-2", role: "مرشد", permissions: ["students.view"] });
     const other = store.users.find((u) => u.role === "مساعد");

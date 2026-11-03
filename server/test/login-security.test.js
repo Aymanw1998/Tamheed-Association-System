@@ -248,15 +248,15 @@ test("getme adds the resolved role and the effective permissions", async () => {
   assert.equal(Object.hasOwn(body, "isSystem"), false);
 });
 
-test("getme gives the system account every permission", async () => {
+test("getme gives the system account every permission but the IT keys", async () => {
   const saved = process.env.SYSTEM_ADMIN_TZ;
   process.env.SYSTEM_ADMIN_TZ = "1";
   try {
     const { getme } = loadController(FAKE_HASH, { role: "ادارة" });
     const res = makeRes();
     await getme({ user: { tz: "1" } }, res);
-    const { ALL_KEYS } = require("../utils/permissions");
-    assert.deepEqual([...res.body.permissions].sort(), [...ALL_KEYS].sort());
+    const { ALL_KEYS, IT_KEYS } = require("../utils/permissions");
+    assert.deepEqual([...res.body.permissions].sort(), ALL_KEYS.filter((key) => !IT_KEYS.has(key)).sort());
     assert.equal(res.body.isSystem, true);
   } finally {
     if (saved === undefined) delete process.env.SYSTEM_ADMIN_TZ; else process.env.SYSTEM_ADMIN_TZ = saved;

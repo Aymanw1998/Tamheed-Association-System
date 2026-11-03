@@ -232,12 +232,15 @@ test("routes: a beacon release with a bad token is 401 and a non-owner client id
 });
 
 test("routes: heartbeat is 200 while held and 410 LOST after force-release", async () => {
-  const { server, call } = await startApp();
+  const { server, call, locks } = await startApp();
   try {
     const key = { key: "attendance:5:2026-10-25" };
     await call("POST", "/acquire", { tz: GUIDE_U.tz, client: "tab-1", body: key });
     assert.equal((await call("POST", "/heartbeat", { tz: GUIDE_U.tz, client: "tab-1", body: key })).status, 200);
-    assert.equal((await call("POST", "/force-release", { tz: ADMIN_U.tz, client: "tab-9", body: key })).status, 200);
+    // permissions.manage is an IT key: a stored grant of it opens nothing here.
+    assert.equal((await call("POST", "/force-release", { tz: ADMIN_U.tz, client: "tab-9", body: key })).status, 403);
+    assert.equal((await call("POST", "/heartbeat", { tz: GUIDE_U.tz, client: "tab-1", body: key })).status, 200);
+    assert.equal(await locks.forceRelease(key.key), true);
     const lost = await call("POST", "/heartbeat", { tz: GUIDE_U.tz, client: "tab-1", body: key });
     assert.equal(lost.status, 410);
     assert.deepEqual(lost.body, { ok: false, code: "LOST" });

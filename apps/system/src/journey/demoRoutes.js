@@ -5,7 +5,7 @@
 // (the adapter then answers an empty GET or blocks the write).
 
 import { demoId } from "./demoData";
-import { ALL_KEYS, hasPermission } from "../utils/permissionKeys";
+import { ALL_KEYS, IT_KEYS } from "../utils/permissionKeys";
 import { effectiveOf, expandKeys } from "../utils/permissionTree";
 
 // Requests that still go to the real server during training, matched exactly
@@ -259,13 +259,13 @@ const withFolderSize = (store, entry) =>
     : entry;
 
 // ------------------------------------------------------------------ permissions
-// A copy of ROLE_DEFAULTS, ROLE_RANK and DANGEROUS_KEYS in
-// server/utils/permissions.js and of grantableBy in server/utils/permissionRules.js.
+// A copy of ROLE_DEFAULTS and ROLE_RANK in server/utils/permissions.js (IT_KEYS
+// comes from utils/permissionKeys) and of grantableBy in server/utils/permissionRules.js.
 
 const ROLE_DEFAULTS = {
   "ادارة": ["dashboard", "calendar", "students", "lessons", "attendance", "reports", "vehicles",
     "files", "notices", "users.view", "users.create", "users.edit", "users.approve",
-    "users.delete", "ai"],
+    "users.delete", "users.changeRole", "users.resetPassword", "ai"],
   // Only an admin edits students, lessons and users (owner, 2026-11-01); an
   // admin may still grant one guide an edit key in the permissions screen.
   "مرشد": ["dashboard", "calendar", "students.view",
@@ -276,22 +276,16 @@ const ROLE_DEFAULTS = {
     "reports.create", "reports.editOwn", "reports.exportPdf", "files.use", "ai"],
 };
 const ROLE_RANK = { "ادارة": 3, "مرشد": 2, "مساعد": 1 };
-const DANGEROUS_KEYS = new Set([
-  "users.changeRole", "users.passwords", "users.unlock",
-  "permissions.manage", "audit.view", "systemRecovery.reset", "storage.drive",
-]);
 
 const roleDefaults = (role) => expandKeys(ROLE_DEFAULTS[role] || []);
 
 const isMe = (store, user) => same(user._id, store.me?.id) || same(user.tz, store.me?.tz);
 
-// What the signed-in user may grant to this user: nothing to oneself.
+// What the signed-in user may grant to this user: only the IT site's actor
+// (`me.it`) grants, never to oneself, and never an IT key.
 const grantableFor = (store, user) => {
-  if (isMe(store, user)) return [];
-  if (store.me?.isSystem) return [...ALL_KEYS];
-  const mine = store.me?.permissions || [];
-  if (!hasPermission(mine, "permissions.manage")) return [];
-  return expandKeys(mine).filter((key) => !DANGEROUS_KEYS.has(key));
+  if (isMe(store, user) || store.me?.it !== true) return [];
+  return ALL_KEYS.filter((key) => !IT_KEYS.has(key));
 };
 
 const permissionView = (user) => {

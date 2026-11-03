@@ -9,6 +9,7 @@ const test = require("node:test");
 const vm = require("node:vm");
 const { actorFor } = require("./helpers/actors");
 const { auditStub } = require("./helpers/auditStub");
+const { itPermissions } = require("../utils/permissions");
 
 // The rules detect the system account by this tz (read from the real process).
 // Synthetic, checksum-valid ID numbers (not real people).
@@ -131,10 +132,19 @@ const HELPER_USER = { _id: "h1", tz: "helper-1", firstname: "He", lastname: "Lpe
   permissionGrants: ["sports.view"] };
 
 const seed = () => ({ active: [SYS, MANAGER, MANAGER_2, ADMIN_USER, ADMIN_2, GUIDE_USER, HELPER_USER] });
+// Acting on the IT site (the `it` actor of the IT-site design): an IT user,
+// and the system account there. Only these change permissions.
+const IT_USER = { _id: "t1", tz: "it-1", firstname: "I", lastname: "T", role: GUIDE, roles: [GUIDE], isIT: true };
+const SYS_IT = { ...SYS, isIT: true };
 
 const actorOf = (user) => actorFor(user, { isSystem: user.tz === SYSTEM_TZ });
+const itActorOf = (user) => {
+  const isSystem = user.tz === SYSTEM_TZ;
+  return { ...actorFor(user, { isSystem }), it: true, permissions: itPermissions(user, { isSystem }) };
+};
 const req = (actorUser, extra = {}) => ({
-  user: { tz: actorUser.tz }, actor: actorOf(actorUser), params: {}, query: {}, body: {}, ip: "127.0.0.1", ...extra,
+  user: { tz: actorUser.tz }, actor: actorUser.isIT ? itActorOf(actorUser) : actorOf(actorUser),
+  params: {}, query: {}, body: {}, ip: "127.0.0.1", ...extra,
 });
 const res = () => ({ statusCode: 200, status(c) { this.statusCode = c; return this; }, json(v) { this.body = v; return this; } });
 const plain = (v) => JSON.parse(JSON.stringify(v));
@@ -152,7 +162,7 @@ const FORBIDDEN = { code: "FORBIDDEN", message: "لا توجد صلاحية" };
 /* ================= GET /:tz/permissions ================= */
 
 test("GET permissions returns role, grants, revokes, effective, defaults and grantable", async () => {
-  const { res: out, body } = await call("getPermissions", MANAGER, { params: { tz: GUIDE_USER.tz } });
+  const { res: out, body } = await call("getPermissions", IT_USER, { params: { tz: GUIDE_USER.tz } });
   assert.equal(out.statusCode, 200);
   assert.equal(body.ok, true);
   assert.equal(body.role, GUIDE);
@@ -164,7 +174,7 @@ test("GET permissions returns role, grants, revokes, effective, defaults and gra
   assert.ok(!body.defaults.includes("lessons.roster"), "only an admin edits lessons by default");
   assert.ok(!body.defaults.includes("vehicles.view"));
   assert.ok(body.grantable.includes("vehicles.view"));
-  assert.ok(!body.grantable.includes("users.passwords"), "dangerous keys are never grantable by a manager");
+  assert.ok(!body.grantable.includes("users.passwords"), "IT keys are never grantable");
   assert.equal(body.updatedAt, null);
   assert.equal(body.updatedBy, null);
 });
@@ -173,6 +183,9 @@ test("GET permissions answers grantable [] when the actor cannot change this tar
   const { res: out, body } = await call("getPermissions", MANAGER, { params: { tz: MANAGER_2.tz } });
   assert.equal(out.statusCode, 200);
   assert.deepEqual(body.grantable, []);
+  // Outside the IT site nobody changes permissions, however high his rank.
+  const everyday = await call("getPermissions", MANAGER, { params: { tz: GUIDE_USER.tz } });
+  assert.deepEqual(everyday.body.grantable, []);
 });
 
 test("GET permissions of the system account is 404", async () => {
@@ -190,7 +203,7 @@ test("GET permissions of an unknown user is 404", async () => {
 /* ================= PUT /:tz/permissions ================= */
 
 test("PUT permissions saves grants/revokes, stamps updatedAt/By and records permission_change", async () => {
-  const { res: out, body, users, audit } = await call("putPermissions", MANAGER, {
+  const { res: out, body, users, audit } = await call("putPermissions", IT_USER, {
     params: { tz: GUIDE_USER.tz }, body: { grants: ["vehicles.view", "vehicles.edit"], revokes: [] },
   });
   assert.equal(out.statusCode, 200);
@@ -199,7 +212,7 @@ test("PUT permissions saves grants/revokes, stamps updatedAt/By and records perm
   assert.deepEqual(saved.permissionGrants, ["vehicles.view", "vehicles.edit"]);
   assert.deepEqual(saved.permissionRevokes, []);
   assert.ok(saved.permissionsUpdatedAt instanceof Date);
-  assert.equal(saved.permissionsUpdatedBy, MANAGER.tz);
+  assert.equal(saved.permissionsUpdatedBy, IT_USER.tz);
   const [row] = audit.find({ module: "users", action: "permission_change", targetId: GUIDE_USER.tz });
   assert.ok(row, "permission_change recorded");
   assert.deepEqual(row.before.permissionGrants, ["vehicles.view"]);
@@ -208,8 +221,8 @@ test("PUT permissions saves grants/revokes, stamps updatedAt/By and records perm
   assert.deepEqual(row.after.permissionRevokes, []);
 });
 
-test("PUT permissions refuses a dangerous key from a manager with 400 NOT_GRANTABLE", async () => {
-  const { res: out, body, users } = await call("putPermissions", MANAGER, {
+test("PUT permissions refuses an IT key with 400 NOT_GRANTABLE", async () => {
+  const { res: out, body, users } = await call("putPermissions", IT_USER, {
     params: { tz: GUIDE_USER.tz }, body: { grants: ["vehicles.view", "users.passwords"], revokes: [] },
   });
   assert.equal(out.statusCode, 400);
@@ -218,7 +231,7 @@ test("PUT permissions refuses a dangerous key from a manager with 400 NOT_GRANTA
 });
 
 test("PUT permissions refuses an unknown key with 400 UNKNOWN_KEY", async () => {
-  const { res: out, body } = await call("putPermissions", MANAGER, {
+  const { res: out, body } = await call("putPermissions", IT_USER, {
     params: { tz: GUIDE_USER.tz }, body: { grants: ["vehicles.fly"] },
   });
   assert.equal(out.statusCode, 400);
@@ -241,13 +254,19 @@ test("PUT permissions on oneself is 400 SELF", async () => {
   assert.deepEqual(body, { ok: false, code: "SELF" });
 });
 
-test("PUT permissions without permissions.manage, or on an equal-rank target, is 403", async () => {
+test("PUT permissions by anyone but the IT actor, or on an IT user, is 403", async () => {
   const noKey = await call("putPermissions", ADMIN_USER, { params: { tz: GUIDE_USER.tz }, body: { grants: [] } });
   assert.equal(noKey.res.statusCode, 403);
   assert.deepEqual(noKey.body, FORBIDDEN);
-  const peer = await call("putPermissions", MANAGER, { params: { tz: ADMIN_USER.tz }, body: { grants: [] } });
-  assert.equal(peer.res.statusCode, 403);
-  assert.deepEqual(peer.body, FORBIDDEN);
+  // A stored permissions.manage grant opens nothing.
+  const manager = await call("putPermissions", MANAGER, { params: { tz: GUIDE_USER.tz }, body: { grants: [] } });
+  assert.equal(manager.res.statusCode, 403);
+  assert.deepEqual(manager.body, FORBIDDEN);
+  const otherIt = { ...GUIDE_USER, _id: "t2", tz: "it-2", isIT: true };
+  const users = createUsers({ active: [...seed().active, otherIt] });
+  const itPeer = await call("putPermissions", IT_USER, { params: { tz: otherIt.tz }, body: { grants: [] } }, users);
+  assert.equal(itPeer.res.statusCode, 403);
+  assert.equal((await call("putPermissions", SYS_IT, { params: { tz: otherIt.tz }, body: { grants: [] } }, users)).res.statusCode, 200);
 });
 
 test("PUT permissions on the system account is 404", async () => {
@@ -256,27 +275,38 @@ test("PUT permissions on the system account is 404", async () => {
   assert.equal(stored(users, SYSTEM_TZ).permissionGrants, undefined);
 });
 
-test("the system account may grant a dangerous key; updatedBy never names its tz", async () => {
-  const { res: out, users } = await call("putPermissions", SYS, {
+test("the system account changes permissions on the IT site only, never grants an IT key; updatedBy never names its tz", async () => {
+  const everyday = await call("putPermissions", SYS, {
+    params: { tz: GUIDE_USER.tz }, body: { grants: ["vehicles.edit"], revokes: [] },
+  });
+  assert.equal(everyday.res.statusCode, 403);
+  const itKey = await call("putPermissions", SYS_IT, {
     params: { tz: GUIDE_USER.tz }, body: { grants: ["users.passwords"], revokes: [] },
+  });
+  assert.equal(itKey.res.statusCode, 400);
+  assert.deepEqual(itKey.body, { ok: false, code: "NOT_GRANTABLE" });
+  const { res: out, users } = await call("putPermissions", SYS_IT, {
+    params: { tz: GUIDE_USER.tz }, body: { grants: ["vehicles.edit"], revokes: [] },
   });
   assert.equal(out.statusCode, 200);
   const saved = stored(users, GUIDE_USER.tz);
-  assert.deepEqual(saved.permissionGrants, ["users.passwords"]);
+  assert.deepEqual(saved.permissionGrants, ["vehicles.edit"]);
   assert.equal(saved.permissionsUpdatedBy, "system");
 });
 
-test("PUT permissions validates only what changed: an existing grant the manager lacks survives a resubmit", async () => {
-  // HELPER_USER holds sports.view (granted earlier); a manager cannot grant sports.
-  const kept = await call("putPermissions", MANAGER, {
-    params: { tz: HELPER_USER.tz }, body: { grants: ["sports.view", "vehicles.view"], revokes: [] },
-  });
+test("PUT permissions validates only what changed: an old grant the IT actor may not give survives a resubmit", async () => {
+  // An IT-key grant stored before the IT site (ignored, but still on record).
+  const oldGrant = () => createUsers({ active: [...seed().active.filter((u) => u !== HELPER_USER),
+    { ...HELPER_USER, permissionGrants: ["sports.view", "audit.view"] }] });
+  const kept = await call("putPermissions", IT_USER, {
+    params: { tz: HELPER_USER.tz }, body: { grants: ["sports.view", "audit.view", "vehicles.view"], revokes: [] },
+  }, oldGrant());
   assert.equal(kept.res.statusCode, 200);
-  assert.deepEqual(stored(kept.users, HELPER_USER.tz).permissionGrants, ["sports.view", "vehicles.view"]);
+  assert.deepEqual(stored(kept.users, HELPER_USER.tz).permissionGrants, ["sports.view", "audit.view", "vehicles.view"]);
 
-  const removed = await call("putPermissions", MANAGER, {
-    params: { tz: HELPER_USER.tz }, body: { grants: [], revokes: [] },
-  });
+  const removed = await call("putPermissions", IT_USER, {
+    params: { tz: HELPER_USER.tz }, body: { grants: ["sports.view"], revokes: [] },
+  }, oldGrant());
   assert.equal(removed.res.statusCode, 400);
   assert.deepEqual(removed.body, { ok: false, code: "NOT_GRANTABLE" });
 });
@@ -307,11 +337,11 @@ test("PUT role and PUT permissions pass the actor to the access_changed alert (s
     accessChanged: async (target, options) => { seen.push({ tz: target.tz, ...options }); return { created: [] }; },
   } };
   await call("putRole", MANAGER, { params: { tz: GUIDE_USER.tz }, body: { role: HELPER } }, createUsers(seed()), capture);
-  await call("putPermissions", MANAGER, { params: { tz: GUIDE_USER.tz }, body: { grants: [], revokes: [] } }, createUsers(seed()), capture);
+  await call("putPermissions", IT_USER, { params: { tz: GUIDE_USER.tz }, body: { grants: [], revokes: [] } }, createUsers(seed()), capture);
   await new Promise((resolve) => setImmediate(resolve));
   assert.deepEqual(seen, [
     { tz: GUIDE_USER.tz, change: "role", actorTz: MANAGER.tz },
-    { tz: GUIDE_USER.tz, change: "permissions", actorTz: MANAGER.tz },
+    { tz: GUIDE_USER.tz, change: "permissions", actorTz: IT_USER.tz },
   ]);
 });
 
@@ -326,13 +356,17 @@ test("PUT role promotion keeps special permissions", async () => {
   assert.deepEqual(saved.permissionGrants, ["sports.view"]);
 });
 
-test("PUT role without users.changeRole is 403", async () => {
-  const { res: out, body, users } = await call("putRole", ADMIN_USER, {
+test("PUT role without users.changeRole is 403; an admin holds it by default", async () => {
+  const noKey = { ...ADMIN_USER, permissionRevokes: ["users.changeRole"] };
+  const { res: out, body, users } = await call("putRole", noKey, {
     params: { tz: GUIDE_USER.tz }, body: { role: HELPER },
   });
   assert.equal(out.statusCode, 403);
   assert.deepEqual(body, FORBIDDEN);
   assert.equal(stored(users, GUIDE_USER.tz).role, GUIDE);
+  const byDefault = await call("putRole", ADMIN_USER, { params: { tz: GUIDE_USER.tz }, body: { role: HELPER } });
+  assert.equal(byDefault.res.statusCode, 200);
+  assert.equal(stored(byDefault.users, GUIDE_USER.tz).role, HELPER);
 });
 
 test("PUT role on oneself or an equal-rank user is 403", async () => {
@@ -791,11 +825,12 @@ test("getme does not treat a padded tz as the system account", async () => {
 
 test("an admin cannot re-approve a user who already has a role (needs users.changeRole)", async () => {
   const users = createUsers(seed());
-  const moved = await call("changeRoom", ADMIN_USER, {
+  const noChangeRole = { ...ADMIN_USER, permissionRevokes: ["users.changeRole"] };
+  const moved = await call("changeRoom", noChangeRole, {
     params: { tz: HELPER_USER.tz }, body: { from: "active", to: "waiting" },
   }, users);
   assert.equal(moved.res.statusCode, 200);
-  const approved = await call("changeRoom", ADMIN_USER, {
+  const approved = await call("changeRoom", noChangeRole, {
     params: { tz: HELPER_USER.tz }, body: { from: "waiting", to: "active", role: GUIDE },
   }, users);
   assert.equal(approved.res.statusCode, 403);
@@ -853,7 +888,7 @@ test("PATCH storage-permissions needs canManageTarget; system and missing target
 });
 
 test("PUT permissions stores trimmed keys", async () => {
-  const { res: out, users } = await call("putPermissions", MANAGER, {
+  const { res: out, users } = await call("putPermissions", IT_USER, {
     params: { tz: GUIDE_USER.tz }, body: { grants: ["vehicles.view", " vehicles.edit ", "vehicles.edit"], revokes: [" ai.use"] },
   });
   assert.equal(out.statusCode, 200);
@@ -865,7 +900,7 @@ test("PUT permissions stores trimmed keys", async () => {
 test("records written by PUT role, PUT permissions and register need no migration", async () => {
   const users = createUsers(seed());
   await call("putRole", MANAGER, { params: { tz: GUIDE_USER.tz }, body: { role: HELPER } }, users);
-  await call("putPermissions", MANAGER, { params: { tz: HELPER_USER.tz }, body: { grants: ["sports.view", "vehicles.view"], revokes: ["ai.use"] } }, users);
+  await call("putPermissions", IT_USER, { params: { tz: HELPER_USER.tz }, body: { grants: ["sports.view", "vehicles.view"], revokes: ["ai.use"] } }, users);
   const { controller } = loadController(users);
   await controller.register({ body: { tz: NEW_TZ, password: "placeholder", roles: [ADMIN] } }, res());
 
@@ -916,15 +951,25 @@ test("putU: an admin without users.passwords cannot set another user's password;
   assert.equal(saved.firstname, "Renamed");
 });
 
-test("putU: a users.passwords holder, and the system, may set another user's password", async () => {
+test("putU: only an actor holding users.passwords sets another user's password", async () => {
+  // users.passwords is an IT key: a stored grant, and the everyday system
+  // account, no longer carry it.
   const pwAdmin = { ...ADMIN_USER, permissionGrants: ["users.passwords"] };
   for (const actor of [pwAdmin, SYS]) {
     const { res: out, users } = await call("putU", actor, {
       params: { tz: PW_GUIDE.tz }, body: { password: "new-placeholder" },
     }, pwSeed(actor));
     assert.equal(out.statusCode, 200, actor.tz);
-    assert.equal(stored(users, PW_GUIDE.tz).password, "new-placeholder", actor.tz);
+    assert.equal(stored(users, PW_GUIDE.tz).password, "enc:old-placeholder", actor.tz);
   }
+  // An actor whose set holds the key (as only the IT actor's will).
+  const holder = actorOf(SYS);
+  holder.permissions = new Set([...holder.permissions, "users.passwords"]);
+  const { res: out, users } = await call("putU", SYS, {
+    actor: holder, params: { tz: PW_GUIDE.tz }, body: { password: "new-placeholder" },
+  }, pwSeed(SYS));
+  assert.equal(out.statusCode, 200);
+  assert.equal(stored(users, PW_GUIDE.tz).password, "new-placeholder");
 });
 
 // One's own password changes only through POST /api/auth/change-password
@@ -1111,7 +1156,7 @@ test("every fifth failure on the system account raises system_login_failures", a
 
 test("PUT permissions and PUT role raise access_changed for the target", async () => {
   const spy = alertSpy();
-  await call("putPermissions", MANAGER, { params: { tz: GUIDE_USER.tz }, body: { grants: ["vehicles.view", "vehicles.edit"], revokes: [] } },
+  await call("putPermissions", IT_USER, { params: { tz: GUIDE_USER.tz }, body: { grants: ["vehicles.view", "vehicles.edit"], revokes: [] } },
     createUsers(seed()), spy.deps);
   await call("putRole", MANAGER, { params: { tz: GUIDE_USER.tz }, body: { role: HELPER } }, createUsers(seed()), spy.deps);
   await flush();

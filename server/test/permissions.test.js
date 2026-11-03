@@ -5,6 +5,7 @@ const {
   PERMISSION_TREE,
   ROLE_RANK,
   ROLE_DEFAULTS,
+  IT_KEYS,
   DANGEROUS_KEYS,
   GRANT_ONLY_MODULES,
   ALL_KEYS,
@@ -36,20 +37,25 @@ test("constants have the expected shape", () => {
   assert.deepEqual(ROLE_RANK, { [ADMIN]: 3, [GUIDE]: 2, [ASSISTANT]: 1 });
   assert.deepEqual([...GRANT_ONLY_MODULES].sort(), ["finance", "sports"]);
   assert.deepEqual(
-    [...DANGEROUS_KEYS].sort(),
-    ["audit.view", "permissions.manage", "storage.drive", "systemRecovery.reset", "users.changeRole", "users.passwords", "users.unlock"],
+    [...IT_KEYS].sort(),
+    ["audit.view", "permissions.manage", "storage.drive", "systemRecovery.reset", "users.passwords", "users.unlock"],
   );
-  // The Drive account is the system account's; it may grant it (owner, 2026-11-03).
+  // Kept as an alias until its last users move to IT_KEYS.
+  assert.equal(DANGEROUS_KEYS, IT_KEYS);
+  assert.deepEqual(PERMISSION_TREE.users,
+    ["view", "create", "edit", "approve", "delete", "changeRole", "passwords", "unlock", "resetPassword"]);
+  // The Drive account is an IT action (IT-site design, 2026-11-03).
   assert.deepEqual(PERMISSION_TREE.storage, ["drive"]);
   for (const role of [ADMIN, GUIDE, ASSISTANT]) assert.ok(!effectivePermissions({ role }).has("storage.drive"), role);
   assert.equal(ALL_KEYS.length, Object.values(PERMISSION_TREE).flat().length);
   assert.ok(ALL_KEYS.includes("students.viewAll"));
 });
 
-test("admin defaults include broad keys and exclude dangerous and grant-only", () => {
+test("admin defaults include broad keys, role changes and password resets, and exclude IT and grant-only", () => {
   const set = effectivePermissions({ role: ADMIN });
-  for (const key of ["students.viewAll", "lessons.viewAll", "files.manageAll", "users.delete"]) assert.ok(set.has(key), key);
-  for (const key of DANGEROUS_KEYS) assert.ok(!set.has(key), key);
+  for (const key of ["students.viewAll", "lessons.viewAll", "files.manageAll", "users.delete",
+    "users.changeRole", "users.resetPassword"]) assert.ok(set.has(key), key);
+  for (const key of IT_KEYS) assert.ok(!set.has(key), key);
   assert.ok(!set.has("sports.view"));
   assert.ok(!set.has("finance.view"));
 });
@@ -82,9 +88,9 @@ test("revoking a module beats a granted leaf", () => {
   assert.equal([...set].filter((k) => k.startsWith("students.")).length, 0);
 });
 
-test("system gets every leaf", () => {
-  assert.equal(effectivePermissions({}, { isSystem: true }).size, ALL_KEYS.length);
-  assert.equal(effectivePermissions({ role: ASSISTANT }, { isSystem: true }).size, ALL_KEYS.length);
+test("system gets every leaf except the IT keys", () => {
+  assert.equal(effectivePermissions({}, { isSystem: true }).size, ALL_KEYS.length - IT_KEYS.size);
+  assert.equal(effectivePermissions({ role: ASSISTANT }, { isSystem: true }).size, ALL_KEYS.length - IT_KEYS.size);
 });
 
 test("role falls back to the highest of roles[]", () => {
@@ -144,14 +150,14 @@ test("can uses an actor's permission Set instead of recomputing from its fields"
 
 test("the system account ignores permissionRevokes", () => {
   const set = effectivePermissions({ role: ASSISTANT, permissionRevokes: ["users", "ai"] }, { isSystem: true });
-  assert.equal(set.size, ALL_KEYS.length);
+  assert.equal(set.size, ALL_KEYS.length - IT_KEYS.size);
   assert.ok(set.has("users.view") && set.has("ai.use"));
 });
 
-test("grant-only and dangerous keys can be granted through permissionGrants", () => {
+test("grant-only keys can be granted through permissionGrants; IT keys never reach the everyday set", () => {
   const user = { role: GUIDE, permissionGrants: ["sports", "users.passwords"] };
   assert.equal(can(user, "sports.view"), true);
-  assert.equal(can(user, "users.passwords"), true);
+  assert.equal(can(user, "users.passwords"), false);
   assert.equal(can({ role: ADMIN }, "users.passwords"), false);
 });
 

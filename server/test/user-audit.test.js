@@ -150,9 +150,11 @@ test("approving a waiting user is recorded as approve; other room moves as updat
 test("a password change is recorded, and the stored diff hides both values", async () => {
   const users = createUsers({ active: [{ _id: "u9", tz: "400000006", firstname: "P", lastname: "W", password: "old-placeholder" }] });
   const { controller, audit } = loadController(users);
-  // Setting another user's password needs users.passwords.
-  const pwAdmin = { ...ADMIN, permissionGrants: [...ADMIN.permissionGrants, "users.passwords"] };
-  await controller.putU(req({ actor: actorFor(pwAdmin), params: { tz: "400000006" }, body: { password: "new-placeholder" } }), res());
+  // Setting another user's password needs users.passwords, an IT key that no
+  // stored grant carries: the actor's set holds it (as only the IT actor's will).
+  const pwAdmin = actorFor(ADMIN);
+  pwAdmin.permissions = new Set([...pwAdmin.permissions, "users.passwords"]);
+  await controller.putU(req({ actor: pwAdmin, params: { tz: "400000006" }, body: { password: "new-placeholder" } }), res());
   assert.equal(users.rooms.active[0].password, "new-placeholder");
   const [update] = audit.find({ module: "users", action: "update", targetId: "400000006" });
   assert.ok(update, "update recorded");

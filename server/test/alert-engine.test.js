@@ -22,7 +22,8 @@ const HELPER = "مساعد";
 const SYS = { _id: "s".repeat(24), tz: SYSTEM_TZ, firstname: "Sys", lastname: "Tem" };
 const ADMIN_U = { _id: "a".repeat(24), tz: "t-admin", firstname: "Ad", lastname: "Min", role: ADMIN, roles: [ADMIN] };
 const MANAGER = { _id: "m".repeat(24), tz: "t-manager", firstname: "Man", lastname: "Ager", role: ADMIN, roles: [ADMIN],
-  permissionGrants: ["users.unlock", "audit.view"] };
+  // users.unlock and audit.view are IT keys: these stored grants are ignored.
+  permissionGrants: ["users.unlock", "audit.view", "sports.manage"] };
 const GUIDE_U = { _id: "g".repeat(24), tz: "t-guide", firstname: "Gu", lastname: "Ide", role: GUIDE, roles: [GUIDE] };
 const GUIDE_2 = { _id: "f".repeat(24), tz: "t-guide-2", firstname: "Other", lastname: "Guide", role: GUIDE, roles: [GUIDE] };
 const HELPER_U = { _id: "h".repeat(24), tz: "t-helper", firstname: "He", lastname: "Lper", role: HELPER, roles: [HELPER] };
@@ -90,12 +91,14 @@ test("a permission rule reaches active holders only, never the system account", 
   const { engine } = makeEngine();
   assert.deepEqual(sorted(await engine.recipientsFor({ permission: "users.approve" })), sorted([ADMIN_U.tz, MANAGER.tz]));
   assert.deepEqual(sorted(await engine.recipientsFor({ permissions: ["students.viewAll", "students.edit"] })), sorted([ADMIN_U.tz, MANAGER.tz]));
-  assert.deepEqual(await engine.recipientsFor({ permission: "audit.view" }), [MANAGER.tz]);
+  assert.deepEqual(await engine.recipientsFor({ permission: "sports.manage" }), [MANAGER.tz]);
+  assert.deepEqual(await engine.recipientsFor({ permission: "audit.view" }), [], "an IT key reaches nobody here");
 });
 
 test("system: true adds the system account; alone it means the system account only", async () => {
   const { engine } = makeEngine();
-  assert.deepEqual(sorted(await engine.recipientsFor({ permission: "users.unlock", system: true })), sorted([MANAGER.tz, SYSTEM_TZ]));
+  assert.deepEqual(sorted(await engine.recipientsFor({ permission: "sports.manage", system: true })), sorted([MANAGER.tz, SYSTEM_TZ]));
+  assert.deepEqual(await engine.recipientsFor({ permission: "users.unlock", system: true }), [SYSTEM_TZ]);
   assert.deepEqual(await engine.recipientsFor({ system: true }), [SYSTEM_TZ]);
 });
 
@@ -118,7 +121,7 @@ test("scopeOfStudent: main teacher, lesson teacher/helper and students.viewAll h
 
 test("a list of rules is their union", async () => {
   const { engine } = makeEngine();
-  const tzs = await engine.recipientsFor([{ permission: "audit.view" }, { tz: GUIDE_U.tz }]);
+  const tzs = await engine.recipientsFor([{ permission: "sports.manage" }, { tz: GUIDE_U.tz }]);
   assert.deepEqual(sorted(tzs), sorted([MANAGER.tz, GUIDE_U.tz]));
 });
 
@@ -198,23 +201,20 @@ test("user_waiting reaches users.approve holders, once per day", async () => {
   assert.equal(store.docs.length, 4, "a new day is a new alert");
 });
 
-test("account_locked reaches users.unlock holders and the system account", async () => {
+test("account_locked reaches the system account (users.unlock is an IT key)", async () => {
   const { events, store } = makeEvents();
   await events.accountLocked({ tz: GUIDE_U.tz, firstname: "Gu", lastname: "Ide" });
-  assert.deepEqual(recipientsOf(store, "account_locked"), sorted([MANAGER.tz, SYSTEM_TZ]));
+  assert.deepEqual(recipientsOf(store, "account_locked"), [SYSTEM_TZ]);
   assert.equal(store.docs[0].severity, "critical");
   assert.equal(store.docs[0].link, `/users/${GUIDE_U.tz}`);
 });
 
-test("access_changed reaches audit.view holders and the target user (with its own text)", async () => {
+test("access_changed reaches the target user (audit.view is an IT key)", async () => {
   const { events, store } = makeEvents();
   await events.accessChanged({ tz: GUIDE_U.tz, firstname: "Gu", lastname: "Ide" }, { change: "permissions" });
-  assert.deepEqual(recipientsOf(store, "access_changed"), sorted([MANAGER.tz, GUIDE_U.tz]));
+  assert.deepEqual(recipientsOf(store, "access_changed"), [GUIDE_U.tz]);
   const self = store.docs.find((d) => d.recipientTz === GUIDE_U.tz);
-  const other = store.docs.find((d) => d.recipientTz === MANAGER.tz);
-  assert.notEqual(self.text.en, other.text.en);
   assert.equal(self.link, "/profile", "the user's own alert opens their profile");
-  assert.equal(other.link, `/users/${GUIDE_U.tz}`);
 });
 
 test("access_changed never alerts the actor who made the change", async () => {
@@ -223,10 +223,10 @@ test("access_changed never alerts the actor who made the change", async () => {
   assert.deepEqual(recipientsOf(store, "access_changed"), [GUIDE_U.tz]);
 });
 
-test("access_changed of a user who is not active reaches only the audit.view holders", async () => {
+test("access_changed of a user who is not active reaches nobody (audit.view is an IT key)", async () => {
   const { events, store } = makeEvents();
   await events.accessChanged({ tz: "t-waiting", firstname: "W", lastname: "U" }, { change: "role" });
-  assert.deepEqual(recipientsOf(store, "access_changed"), [MANAGER.tz]);
+  assert.deepEqual(recipientsOf(store, "access_changed"), []);
 });
 
 test("system_login_failures reaches the system account only", async () => {

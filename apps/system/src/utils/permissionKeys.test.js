@@ -1,4 +1,4 @@
-import { PERMISSION_TREE, ALL_KEYS, hasPermission } from "./permissionKeys";
+import { PERMISSION_TREE, ALL_KEYS, IT_KEYS, hasPermission } from "./permissionKeys";
 
 test("vehicles has six leaves including delete", () => {
   expect(PERMISSION_TREE.vehicles).toEqual(["view", "edit", "compliance", "documents", "archive", "delete"]);
@@ -25,4 +25,11 @@ test("unknown keys and bad input are denied", () => {
 test("lessons has a viewAll leaf", () => {
   expect(PERMISSION_TREE.lessons).toEqual(["view", "viewAll", "create", "edit", "roster", "delete", "copyMonth"]);
   expect(hasPermission(["lessons.viewAll"], "lessons.viewAll")).toBe(true);
+});
+
+test("users has a resetPassword leaf and IT_KEYS mirrors the server's six IT keys", () => {
+  expect(PERMISSION_TREE.users).toContain("resetPassword");
+  expect([...IT_KEYS].sort()).toEqual(["audit.view", "permissions.manage", "storage.drive",
+    "systemRecovery.reset", "users.passwords", "users.unlock"]);
+  for (const key of IT_KEYS) expect(ALL_KEYS).toContain(key);
 });

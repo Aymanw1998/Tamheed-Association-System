@@ -18,7 +18,8 @@ const leaves = {
     record: "تسجيل", editOwn: "تعديل ما أنشأه", editAll: "تعديل الكل", exportPdf: "تصدير PDF",
     compliance: "الفحوصات والتأمين", documents: "المستندات", archive: "أرشفة",
     use: "استخدام", manageAll: "إدارة كل الملفات", post: "نشر", runCheck: "تشغيل الفحص",
-    approve: "قبول", changeRole: "تغيير الدور", passwords: "كلمات المرور", unlock: "رفع الحظر",
+    approve: "قبول", changeRole: "تغيير الدور", passwords: "عرض كلمات المرور", unlock: "رفع الحظر",
+    resetPassword: "تعيين كلمة مرور جديدة",
     manage: "إدارة الصلاحيات", reset: "إعادة تعيين",
   },
 };

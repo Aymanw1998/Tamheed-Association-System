@@ -52,13 +52,21 @@ test("a user no longer in the active room gets 401 NO_ACTIVE", async () => {
   } finally { server.close(); }
 });
 
-test("the system account passes any key and is labelled system", async () => {
+test("the system account passes any everyday key and is labelled system", async () => {
   const users = { [SYSTEM_TZ]: { tz: SYSTEM_TZ, lockedAt: new Date() } };
-  const { server, base } = await startApp(users, ["systemRecovery.reset", "permissions.manage"]);
+  const { server, base } = await startApp(users, ["sports.manage", "vehicles.delete"]);
   try {
     const res = await get(base, SYSTEM_TZ);
     assert.equal(res.status, 200);
     assert.deepEqual((await res.json()).label, { actor: "system", actorName: "النظام" });
+  } finally { server.close(); }
+});
+
+test("the IT keys pass nobody in the everyday app, the system account included", async () => {
+  const users = { [SYSTEM_TZ]: { tz: SYSTEM_TZ } };
+  const { server, base } = await startApp(users, ["systemRecovery.reset", "permissions.manage"]);
+  try {
+    assert.equal((await get(base, SYSTEM_TZ)).status, 403);
   } finally { server.close(); }
 });
 
