@@ -6,7 +6,7 @@ const crypto = require("crypto");
 const { SitePassModelDef } = require("./SitePass.model");
 const { sha256 } = require("../../utils/jwt");
 const { isSystemTz, resolveRole } = require("../../utils/permissions");
-const { mayUseIt } = require("../../middleware/requireIt");
+const { mayUseIt, itSecret } = require("../../middleware/requireIt");
 const { audit: defaultAudit } = require("../../utils/audit");
 const { logWithSource } = require("../../middleware/logger");
 const defaultItAuth = require("./It.auth");
@@ -70,12 +70,16 @@ function createSitePasses(deps = {}) {
     { module: "it", action, targetType: "user", targetId: tz },
   );
 
-  // POST /api/auth/it-pass (everyday requireAuth + loadActor): only an IT
-  // user who is not blocked (the system account always).
+  // Both sides (IT-site design): IT, not blocked, and an everyday role. The
+  // system account holds no everyday role, so it gets no pass either way.
+  const hasBothSides = (user, isSystem) => mayUseIt(user, isSystem) && Boolean(resolveRole(user));
+
+  // POST /api/auth/it-pass (everyday requireAuth + loadActor): only a user
+  // with both sides.
   const itPass = async (req, res) => {
     try {
       const { tz, isSystem, user } = req.actor || {};
-      if (!tz || !mayUseIt(user, isSystem === true)) return res.status(403).json(FORBIDDEN);
+      if (!tz || !hasBothSides(user, isSystem === true)) return res.status(403).json(FORBIDDEN);
       return res.json({ ok: true, pass: await issue(tz, TO_IT) });
     } catch (err) {
       log("SitePass.itPass", err);
@@ -83,11 +87,11 @@ function createSitePasses(deps = {}) {
     }
   };
 
-  // POST /api/it/system-pass (requireIt): only a user with an everyday role.
+  // POST /api/it/system-pass (requireIt): only a user with both sides.
   const systemPass = async (req, res) => {
     try {
-      const { tz, user } = req.actor || {};
-      if (!tz || !resolveRole(user)) return res.status(403).json(FORBIDDEN);
+      const { tz, isSystem, user } = req.actor || {};
+      if (!tz || !hasBothSides(user, isSystem === true)) return res.status(403).json(FORBIDDEN);
       return res.json({ ok: true, pass: await issue(tz, TO_SYSTEM) });
     } catch (err) {
       log("SitePass.systemPass", err);
@@ -102,6 +106,8 @@ function createSitePasses(deps = {}) {
   const loginToIt = async (req, res) => {
     const generic = (extra = {}) => res.json({ ok: true, message: GENERIC_LOGIN_MESSAGE, ...extra });
     try {
+      // Fails closed before the pass is spent or a use is audited.
+      itSecret();
       const tz = await use(req.body?.pass, TO_IT);
       if (!tz) return generic();
       await recordUse(req, tz, "pass_to_it");

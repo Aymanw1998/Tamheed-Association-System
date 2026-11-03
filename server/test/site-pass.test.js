@@ -238,19 +238,20 @@ test("a pass for the IT site goes through the same code gates as the password lo
   await toIt(tries, p4);
   assert.equal(tries.sent.length, 0);
 
-  // The system account with an expired password: no code.
+  // The system account with an expired password: no code. (The system
+  // account gets no pass from it-pass; issued directly to pin the shared gate.)
   const expired = setup();
   userOf(expired, SYSTEM_TZ).passwordChangedAt = null;
-  const p5 = (await askItPass(expired, SYSTEM_TZ)).body.pass;
+  const p5 = await expired.passes.issue(SYSTEM_TZ, "it");
   await toIt(expired, p5);
   assert.equal(expired.sent.length, 0);
 });
 
 test("a system-account pass to the IT site alerts only once the code is verified", async () => {
+  // it-pass refuses the system account (no everyday role); issued directly to
+  // pin that the pass path leaves the alert to verify.
   const ctx = setup();
-  const issued = await askItPass(ctx, SYSTEM_TZ);
-  assert.equal(issued.statusCode, 200);
-  await toIt(ctx, issued.body.pass);
+  await toIt(ctx, await ctx.passes.issue(SYSTEM_TZ, "it"));
   assert.deepEqual(ctx.sent, [{ to: SYSTEM_EMAIL, code: "123456" }]);
   assert.equal(ctx.alerts.length, 0);
   assert.equal(ctx.audits.filter((a) => a.row.action === "sign_in").length, 0);
@@ -293,9 +294,13 @@ test("a pass made for one site does not open the other direction", async () => {
 
 test("no pass for a user who is not IT, or IT without an everyday role", async () => {
   const ctx = setup();
-  // Everyday → IT: only an IT user who is not blocked.
+  // Everyday → IT: only an IT user who is not blocked and has an everyday role.
   assert.equal((await askItPass(ctx, "100000025")).statusCode, 403);
   assert.equal((await askItPass(ctx, "100000033")).statusCode, 403);
+  // IT with no everyday role, holding an everyday session: no pass.
+  assert.equal((await askItPass(ctx, "100000017")).statusCode, 403);
+  // The system account is IT with no everyday role: no pass either.
+  assert.equal((await askItPass(ctx, SYSTEM_TZ)).statusCode, 403);
   // IT → everyday: only a user with an everyday role.
   assert.equal((await askSystemPass(ctx, "100000017")).statusCode, 403);
   assert.equal((await askSystemPass(ctx, SYSTEM_TZ)).statusCode, 403);
@@ -441,4 +446,24 @@ test("the pass collection: unique hash, removed by MongoDB once expired", () => 
     { key: { hash: 1 }, options: { unique: true } },
     { key: { expiresAt: 1 }, options: { expireAfterSeconds: 0 } },
   ]);
+});
+
+test("a missing IT_SESSION_SECRET does not spend the pass or write an audit row", async () => {
+  const ctx = setup();
+  const { pass } = (await askItPass(ctx, "100000009")).body;
+  const saved = process.env.IT_SESSION_SECRET;
+  delete process.env.IT_SESSION_SECRET;
+  try {
+    const r = await toIt(ctx, pass);
+    assert.equal(r.body.message, GENERIC_LOGIN_MESSAGE);
+    assert.equal(r.body.tz, undefined);
+  } finally {
+    process.env.IT_SESSION_SECRET = saved;
+  }
+  assert.equal(ctx.stores.passes.docs().length, 1, "the pass is still there");
+  assert.equal(ctx.audits.length, 0);
+  assert.equal(ctx.sent.length, 0);
+  // Once the secret is back, the same pass works.
+  await toIt(ctx, pass);
+  assert.equal(ctx.sent.length, 1);
 });

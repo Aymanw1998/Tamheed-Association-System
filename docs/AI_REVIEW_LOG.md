@@ -3860,3 +3860,21 @@ login-pass routes use their neighbours' rate limits; a pass use is audited
 **Verification:** server 1210/1210.
 
 **Codex review:** pending (until 2026-11-06). **Status:** committed.
+
+### Follow-up: site pass only for IT users with an everyday role (2026-11-03)
+
+**Change:** review finding on the one-time pass: `POST /api/auth/it-pass`
+checked only IT and not blocked, so an IT user with no everyday role holding
+an everyday session, and the system account, got a pass. Both pass routes now
+require both sides (IT, not blocked, an everyday role), as the design says;
+the system account gets 403 on both. `POST /api/it/login-pass` checks
+`IT_SESSION_SECRET` before spending the pass, so a missing secret neither
+burns it nor writes an audit row.
+
+**Test:** `site-pass.test.js` +1 (13): the no-pass test adds an IT user
+without a role and the system account on it-pass; a missing secret keeps the
+pass and writes no audit row. Both seen failing first.
+
+**Verification:** server 1211/1211.
+
+**Codex review:** pending (until 2026-11-06). **Status:** committed.
