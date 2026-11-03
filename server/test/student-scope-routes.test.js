@@ -154,6 +154,15 @@ test("a guide's student list holds only his 2 of the 5 students; an admin sees a
   assert.equal(admin.body.students.length, 5);
 });
 
+test("an administrator can still make an IT guide a student's responsible guide", async () => {
+  const w = world();
+  const itGuide = { _id: "d".repeat(24), tz: "900000004", firstname: "It", lastname: "Guide", roles: ["مرشد"], isIT: true };
+  await w.users.create(itGuide);
+  const put = await call(w.student.putS, reqAs(ADMIN, { params: { tz: S[4].tz }, body: { main_teacher: itGuide._id } }));
+  assert.equal(put.statusCode, 200);
+  assert.equal(w.students.all()[4].main_teacher, itGuide._id);
+});
+
 test("a hidden or unknown student answers 404 for a guide on get, edit, photo upload and photo delete", async () => {
   const w = world();
   for (const tz of [S[2].tz, "899999999"]) {

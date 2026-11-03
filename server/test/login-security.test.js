@@ -158,8 +158,8 @@ function startPhotoApp(userTz) {
     exports: {
       getAllU: noop(), uploadPhoto: handler("upload"), deletePhoto: handler("delete"), getOneU: noop(),
       putU: noop(), deleteU: noop(), postU: noop(), changeRoom: noop(),
-      viewPassword: noop(), updateStoragePermissions: noop(),
-      getPermissions: noop(), putPermissions: noop(), putRole: noop(), unlockUser: noop(), signOutEverywhere: noop(), recoverSystem: noop(),
+      updateStoragePermissions: noop(),
+      putRole: noop(), signOutEverywhere: noop(),
     },
   };
   // The lock guard would look the user up in the database; locks have their own tests.

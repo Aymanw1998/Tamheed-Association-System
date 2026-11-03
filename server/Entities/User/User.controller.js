@@ -43,6 +43,7 @@ const {
   grantableBy,
   validatePermissionChange,
   canAssignRole,
+  canResetPassword,
   applyRoleChange,
 } = require("../../utils/permissionRules");
 const {
@@ -693,20 +694,20 @@ const putU = async (req, res) => {
       existing = await getUserInRoomByTz(tz, room);
     } else {
       dropStorageUnlessAllowed(req, newData);
-      // Another user's password, or the email a password reset is sent to:
-      // only the system or a users.passwords holder.
-      if (!can(req.actor, "users.passwords")) {
-        delete newData.password;
-        delete newData.email;
-      }
       existing = await getUserInRoomByTz(tz, room);
       if (!existing || isSystemUser(existing)) return notFound(res);
       if (!canManageTarget(req.actor, existing)) return forbidden(res);
+      // Another user's password, or the email a password reset is sent to:
+      // only where the actor may reset that user's password (lower rank, not IT).
+      if (!canResetPassword(req.actor, existing)) {
+        delete newData.password;
+        delete newData.email;
+      }
     }
     // The URL may name the user by _id; the update (which upserts) goes by the
     // stored tz, so it never creates a stray record.
     if (!existing) return notFound(res);
-    // A password set for another user (users.passwords) ends their sessions.
+    // A password set for another user (users.resetPassword) ends their sessions.
     if (isAdmin && newData.password) newData.passwordChangedAt = new Date();
 
     const stale = checkVersion(existing, req, sanitize);

@@ -3750,3 +3750,24 @@ still checks `users.passwords`), unlocks, sees the audit log, force-releases a
 lock or changes permissions.
 
 **Codex review:** pending (until 2026-11-06). **Status:** committed.
+
+### Follow-up: everyday user routes follow the IT rules (2026-11-03)
+
+**Change:** `putU` sets another user's password (and the email a reset is sent
+to) only where `canResetPassword` allows it (`users.resetPassword`, a lower
+rank, not IT), checked after the target is read in full so `isIT` reaches the
+rules. Every account action on an IT user from an everyday actor is 403. Removed
+from `User.route.js` (handlers stay exported for the IT router, Task 6):
+`GET /viewPassword/:tz`, `GET|PUT /:tz/permissions`, `POST /:tz/unlock`,
+`POST /system/recover`. The `DANGEROUS_KEYS` alias is gone.
+
+**Test:** `user-it-protection.test.js` (new, 7), seen failing first. Moved with
+the new rules: `user-permissions-api`, `system-account`, `system-password`
+(password/email now by `users.resetPassword`; the route-regex test for
+`/system/recover` dropped, Task 6 re-pins it on the IT router), `route-guards`,
+`login-security`, `permissions`; `student-scope-routes` +1 (an IT guide can be a
+student's responsible guide).
+
+**Verification:** server 1173/1173.
+
+**Codex review:** pending (until 2026-11-06). **Status:** committed.

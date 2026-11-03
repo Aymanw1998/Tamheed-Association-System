@@ -648,18 +648,10 @@ test("fix1: a self edit through putU ignores the password and never stamps passw
   assert.equal(stored.passwordChangedAt, undefined);
 });
 
-test("fix1: a users.passwords holder setting another user's password stamps passwordChangedAt", async () => {
+test("fix1: an administrator setting another user's password stamps passwordChangedAt", async () => {
   const ctx = loadController({ users: [GUIDE, KEY_ADMIN] });
-  // users.passwords is an IT key: a stored grant is ignored.
-  const ignored = await putU(ctx, KEY_ADMIN, GUIDE.tz, { password: "another-pass-9" });
-  assert.equal(ignored.statusCode, 200);
-  assert.equal(ctx.find(GUIDE.tz).password, "enc:guide-pass-1");
-  // An actor whose set holds the key (as only the IT actor's will).
-  const holder = actorFor(KEY_ADMIN);
-  holder.permissions = new Set([...holder.permissions, "users.passwords"]);
   const before = Date.now();
-  const res = makeRes();
-  await ctx.controller.putU({ params: { tz: GUIDE.tz }, body: { password: "another-pass-9" }, actor: holder, ip: "127.0.0.1", user: { tz: KEY_ADMIN.tz } }, res);
+  const res = await putU(ctx, KEY_ADMIN, GUIDE.tz, { password: "another-pass-9" });
   assert.equal(res.statusCode, 200);
   const stored = ctx.find(GUIDE.tz);
   assert.equal(stored.password, "another-pass-9");
@@ -772,13 +764,6 @@ test("minor: a second recovery within 10 minutes answers 429", async () => {
   assert.equal(ctx.calls.emails.length, 1);
   ctx.find(SYSTEM_TZ).recoveredAt = new Date(Date.now() - 11 * 60 * 1000);
   assert.equal((await recover(ctx)).statusCode, 200);
-});
-
-test("minor: /system/recover is rate-limited", () => {
-  const source = fs.readFileSync(path.join(__dirname, "../Entities/User/User.route.js"), "utf8");
-  // The permission check runs first: non-holders never use up the budget.
-  assert.match(source, /router\.post\('\/system\/recover',\s*requirePermission\('systemRecovery\.reset'\),\s*recoverRateLimit,\s*recoverSystem\)/);
-  assert.match(source, /recoverRateLimit = rateLimit\(/);
 });
 
 test("minor: reset-password (emailed code) applies the new-password rule", async () => {

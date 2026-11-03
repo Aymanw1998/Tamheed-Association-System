@@ -935,41 +935,38 @@ test("postU: a guide with users.create may create a helper (role below his own, 
 
 /* ================= Phase 4 final-review fixes ================= */
 
-// 1. Passwords of other users: only the system or a users.passwords holder.
+// 1. Passwords of other users: users.resetPassword on a user of lower rank.
 const PW_GUIDE = { ...GUIDE_USER, password: "enc:old-placeholder" };
 const pwSeed = (actor) => createUsers({
   active: [SYS, actor, PW_GUIDE].filter((u, i, all) => all.findIndex((x) => x.tz === u.tz) === i),
 });
 
-test("putU: an admin without users.passwords cannot set another user's password; the rest applies", async () => {
-  const { res: out, users } = await call("putU", ADMIN_USER, {
+test("putU: an admin without users.resetPassword cannot set another user's password; the rest applies", async () => {
+  const withoutReset = { ...ADMIN_USER, permissionRevokes: ["users.resetPassword"] };
+  const { res: out, users } = await call("putU", withoutReset, {
     params: { tz: PW_GUIDE.tz }, body: { firstname: "Renamed", password: "new-placeholder" },
-  }, pwSeed(ADMIN_USER));
+  }, pwSeed(withoutReset));
   assert.equal(out.statusCode, 200);
   const saved = stored(users, PW_GUIDE.tz);
   assert.equal(saved.password, "enc:old-placeholder");
   assert.equal(saved.firstname, "Renamed");
 });
 
-test("putU: only an actor holding users.passwords sets another user's password", async () => {
-  // users.passwords is an IT key: a stored grant, and the everyday system
-  // account, no longer carry it.
-  const pwAdmin = { ...ADMIN_USER, permissionGrants: ["users.passwords"] };
-  for (const actor of [pwAdmin, SYS]) {
+test("putU: users.resetPassword on a lower rank sets the password; users.passwords (IT key) adds nothing", async () => {
+  // An administrator, the system account (the everyday app keeps every non-IT key).
+  for (const actor of [ADMIN_USER, SYS]) {
     const { res: out, users } = await call("putU", actor, {
       params: { tz: PW_GUIDE.tz }, body: { password: "new-placeholder" },
     }, pwSeed(actor));
     assert.equal(out.statusCode, 200, actor.tz);
-    assert.equal(stored(users, PW_GUIDE.tz).password, "enc:old-placeholder", actor.tz);
+    assert.equal(stored(users, PW_GUIDE.tz).password, "new-placeholder", actor.tz);
   }
-  // An actor whose set holds the key (as only the IT actor's will).
-  const holder = actorOf(SYS);
-  holder.permissions = new Set([...holder.permissions, "users.passwords"]);
-  const { res: out, users } = await call("putU", SYS, {
-    actor: holder, params: { tz: PW_GUIDE.tz }, body: { password: "new-placeholder" },
-  }, pwSeed(SYS));
-  assert.equal(out.statusCode, 200);
-  assert.equal(stored(users, PW_GUIDE.tz).password, "new-placeholder");
+  // A guide with a stored users.passwords grant (ignored) and no reset right.
+  const stray = { ...HELPER_USER, permissionGrants: ["users.passwords"] };
+  const { users } = await call("putU", stray, {
+    params: { tz: PW_GUIDE.tz }, body: { password: "new-placeholder" },
+  }, pwSeed(stray));
+  assert.equal(stored(users, PW_GUIDE.tz).password, "enc:old-placeholder");
 });
 
 // One's own password changes only through POST /api/auth/change-password

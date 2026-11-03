@@ -39,8 +39,6 @@ const IT_KEYS = new Set([
   "permissions.manage", "users.passwords", "users.unlock",
   "audit.view", "storage.drive", "systemRecovery.reset",
 ]);
-// The old name, until its last users move to IT_KEYS.
-const DANGEROUS_KEYS = IT_KEYS;
 
 // What an IT user may do on the IT site.
 const IT_SET = [...IT_KEYS, "users.view", "users.changeRole", "users.resetPassword", "users.approve"];
@@ -163,7 +161,6 @@ module.exports = {
   ROLE_RANK,
   ROLE_DEFAULTS,
   IT_KEYS,
-  DANGEROUS_KEYS,
   GRANT_ONLY_MODULES,
   ALL_KEYS,
   normalizeRole,

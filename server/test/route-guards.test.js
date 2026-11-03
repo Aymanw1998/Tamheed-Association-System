@@ -149,16 +149,11 @@ test("every listed exception still exists (the exclusion lists are not stale)", 
 // requirePermission must be this string literal).
 const EXACT_GUARDS = {
   "User/User.route.js": {
-    "GET /viewPassword/:tz": "users.passwords",
     "PATCH /:tz/storage-permissions": "files.manageAll",
-    "GET /:tz/permissions": "permissions.manage",
-    "PUT /:tz/permissions": "permissions.manage",
     "PUT /:tz/role": "users.changeRole",
-    "POST /:tz/unlock": "users.unlock",
     "POST /changeStatus/:tz": "users.approve",
     "DELETE /:tz/:from": "users.delete",
     "POST /": "users.create",
-    "POST /system/recover": "systemRecovery.reset",
   },
   "Vehicle/Vehicle.route.js": { "DELETE /:id": "vehicles.delete" },
   "Lock/Lock.route.js": { "POST /force-release": "permissions.manage" },

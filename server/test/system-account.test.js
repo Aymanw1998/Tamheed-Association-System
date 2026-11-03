@@ -198,8 +198,10 @@ test("with SYSTEM_ADMIN_TZ blank nobody is hidden, blank tz included, and nothin
 
 /* ================= pre-fix A: another user's email ================= */
 
-test("changing another user's email needs users.passwords; the rest of the edit still applies", async () => {
-  const plainAdmin = await call("putU", ADMIN_USER, {
+test("changing another user's email needs users.resetPassword on a lower rank; the rest of the edit still applies", async () => {
+  // Without the reset right the email is dropped and the rest applies.
+  const noReset = { ...ADMIN_USER, permissionRevokes: ["users.resetPassword"] };
+  const plainAdmin = await call("putU", noReset, {
     params: { tz: GUIDE_USER.tz }, body: { email: "attacker@example.test", firstname: "Renamed" },
   });
   assert.equal(plainAdmin.res.statusCode, 200);
@@ -207,19 +209,12 @@ test("changing another user's email needs users.passwords; the rest of the edit 
   assert.equal(saved.email, GUIDE_USER.email);
   assert.equal(saved.firstname, "Renamed");
 
-  // users.passwords is an IT key: a stored grant of it, and the system
-  // account in the everyday app, no longer carry it.
-  for (const actor of [KEY_ADMIN, SYS]) {
-    const refused = await call("putU", actor, { params: { tz: GUIDE_USER.tz }, body: { email: "new@example.test" } });
-    assert.equal(refused.res.statusCode, 200);
-    assert.equal(refused.users.rooms.active.find((u) => u.tz === GUIDE_USER.tz).email, GUIDE_USER.email);
+  // An administrator and the everyday system account (every non-IT key) change it.
+  for (const actor of [ADMIN_USER, SYS]) {
+    const allowed = await call("putU", actor, { params: { tz: GUIDE_USER.tz }, body: { email: "new@example.test" } });
+    assert.equal(allowed.res.statusCode, 200);
+    assert.equal(allowed.users.rooms.active.find((u) => u.tz === GUIDE_USER.tz).email, "new@example.test");
   }
-  // An actor whose set holds the key (as only the IT actor's will) changes it.
-  const holder = actorOf(SYS);
-  holder.permissions = new Set([...holder.permissions, "users.passwords"]);
-  const allowed = await call("putU", SYS, { actor: holder, params: { tz: GUIDE_USER.tz }, body: { email: "new@example.test" } });
-  assert.equal(allowed.res.statusCode, 200);
-  assert.equal(allowed.users.rooms.active.find((u) => u.tz === GUIDE_USER.tz).email, "new@example.test");
 
   // One's own email stays editable without the key.
   const self = await call("putU", GUIDE_USER, { params: { tz: GUIDE_USER.tz }, body: { email: "mine@example.test" } });

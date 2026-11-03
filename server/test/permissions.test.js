@@ -6,7 +6,6 @@ const {
   ROLE_RANK,
   ROLE_DEFAULTS,
   IT_KEYS,
-  DANGEROUS_KEYS,
   GRANT_ONLY_MODULES,
   ALL_KEYS,
   normalizeRole,
@@ -40,8 +39,6 @@ test("constants have the expected shape", () => {
     [...IT_KEYS].sort(),
     ["audit.view", "permissions.manage", "storage.drive", "systemRecovery.reset", "users.passwords", "users.unlock"],
   );
-  // Kept as an alias until its last users move to IT_KEYS.
-  assert.equal(DANGEROUS_KEYS, IT_KEYS);
   assert.deepEqual(PERMISSION_TREE.users,
     ["view", "create", "edit", "approve", "delete", "changeRole", "passwords", "unlock", "resetPassword"]);
   // The Drive account is an IT action (IT-site design, 2026-11-03).
