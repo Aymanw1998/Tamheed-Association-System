@@ -3,6 +3,7 @@ import { getMe, logout, setSignedOutHandler, systemPass } from "./api";
 import { usePath } from "./router.jsx";
 import { goTo, systemUrlWithPass, takePassFromAddress } from "./siteLink";
 import Header from "./ui/Header.jsx";
+import PasskeyOffer from "./ui/PasskeyOffer.jsx";
 import { Toaster, toast } from "./ui/toast.jsx";
 import SignIn from "./screens/SignIn.jsx";
 import Users from "./screens/Users.jsx";
@@ -84,6 +85,7 @@ export default function App() {
     <div className="shell">
       <Header links={links} path={path} me={me} onOpenSystem={hasSystem ? openSystem : null} onSignOut={signOut} />
       <main className="page">
+        <PasskeyOffer />
         <Screen path={path} me={me} />
       </main>
       <Toaster />

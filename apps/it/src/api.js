@@ -43,6 +43,11 @@ export const loginPass = (pass) => send("POST", "/login-pass", { pass });
 export const verify = (tz, code) => send("POST", "/verify", { tz, code });
 export const logout = () => send("POST", "/logout");
 export const getMe = () => call("/me");
+// Passkeys: sign in with a fingerprint or face instead of the password and the code.
+export const passkeyLoginOptions = () => send("POST", "/passkey/login-options");
+export const passkeyLogin = (response) => send("POST", "/passkey/login", { response });
+export const passkeyRegisterOptions = () => send("POST", "/passkey/register-options");
+export const passkeyRegister = (response) => send("POST", "/passkey/register", { response });
 export const systemPass = () => send("POST", "/system-pass");
 
 // Users
@@ -64,6 +69,9 @@ export const deleteUser = (tz, from) => send("DELETE", `/users/${enc(tz)}?from=$
 export const getRoleDefaults = () => call("/role-defaults");
 export const saveRoleDefaults = (role, keys) => send("PUT", `/role-defaults/${enc(role)}`, { keys });
 export const resetRoleDefaults = (role) => send("DELETE", `/role-defaults/${enc(role)}`);
+
+// A brand-new IT user (any IT user): { firstname, lastname, tz, email, phone, role }
+export const createItUser = (data) => send("POST", "/members", data);
 
 // IT users (the system account only)
 export const getMembers = () => call("/members");

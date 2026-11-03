@@ -90,6 +90,24 @@ export const roleDefaultsText = {
   },
 };
 
+// «مستخدم IT جديد»
+export const newItUserText = {
+  open: "مستخدم IT جديد",
+  title: "إضافة مستخدم IT جديد",
+  intro: "مستخدم جديد غير موجود في النظام، يكون من قسم IT منذ البداية. تصل إلى بريده كلمة مرور مؤقتة.",
+  firstname: "الاسم الشخصي", lastname: "اسم العائلة", tz: "رقم الهوية", email: "البريد الإلكتروني",
+  phone: "الهاتف", role: "الدور في النظام (اختياري)", noRole: "بدون دور",
+  create: "إضافة", cancel: "إلغاء",
+  created: "تمت إضافة المستخدم، وأُرسلت كلمة مرور مؤقتة إلى بريده",
+  errors: {
+    TZ_EXISTS: "يوجد مستخدم بهذا الرقم. لجعله من قسم IT يجب أن يضيفه حساب النظام.",
+    INVALID_TZ: "رقم الهوية غير صالح",
+    NO_REAL_EMAIL: "يجب إدخال بريد إلكتروني حقيقي، فإليه يصل رمز الدخول",
+    NAME_REQUIRED: "الاسم الشخصي واسم العائلة مطلوبان",
+    UNKNOWN_ROLE: "دور غير معروف",
+  },
+};
+
 // Account state on the user page
 export const accountText = {
   title: "حالة الحساب",

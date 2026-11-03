@@ -37,6 +37,7 @@ const {
   expandKeys,
   normalizeRole,
   resolveRole,
+  hasRealEmail,
 } = require("../../utils/permissions");
 const {
   canManageTarget,
@@ -58,6 +59,7 @@ const {
   isUsableSystemEmail,
   lockoutAlertEmail,
   resetSystemPassword,
+  generateTempPassword,
 } = require("../../utils/systemPassword");
 const {
   sessionMatches, startSession, rotateSession, endSession, endOtherSessions, endAllSessions,
@@ -322,6 +324,8 @@ function sanitize(u) {
   delete o.tours;
   delete o.knownKeys;
   delete o.seenReleases;
+  // IT-site passkeys (Entities/It/It.passkey.js) never leave the server.
+  delete o.itPasskeys;
   return o;
 }
 
@@ -662,6 +666,75 @@ const postU = async (req, res) => {
       ok: false,
       message: err.message,
     });
+  }
+};
+
+// The first sign-in details of an IT user made on the IT site. No ID number in it.
+function newItUserEmail({ name, password, itHost, mainHost }) {
+  const subject = "حسابك في قسم IT - جمعية تمهيد";
+  const text = [
+    `مرحبًا ${name}،`,
+    "",
+    "أُنشئ لك حساب في موقع قسم IT في جمعية تمهيد.",
+    `كلمة المرور المؤقتة: ${password}`,
+    "",
+    `الدخول: ${itHost ? `https://${itHost}` : "موقع قسم IT"} برقم هويتك وكلمة المرور هذه، ثم الرمز الذي يصل إلى هذا البريد.`,
+    `لتغيير كلمة المرور: «نسيت كلمة المرور» في ${mainHost ? `https://${mainHost}` : "الموقع الرئيسي"}.`,
+    "",
+    "إن لم تطلب هذا الحساب، تجاهل هذه الرسالة.",
+  ].join("\n");
+  return { subject, text, html: `<pre style="font-family:Arial" dir="rtl">${text}</pre>` };
+}
+
+// POST /api/it/members (any IT user, owner 2026-11-03): a brand-new user who
+// is IT from the start, in the active room, with an everyday role or none.
+// The password is a temporary one sent only to the user's own (real) email;
+// it is never shown on any screen. Once made, he is an IT user like any
+// other: only the system account manages him (canManageTarget).
+const createItUser = async (req, res) => {
+  try {
+    const body = req.body || {};
+    const tz = body.tz == null ? "" : String(body.tz).trim();
+    const firstname = typeof body.firstname === "string" ? body.firstname.trim() : "";
+    const lastname = typeof body.lastname === "string" ? body.lastname.trim() : "";
+    const email = typeof body.email === "string" ? body.email.trim() : "";
+    if (newTzProblem(tz)) return invalid(res, "INVALID_TZ");
+    if (!firstname || !lastname) return invalid(res, "NAME_REQUIRED");
+    if (!hasRealEmail({ email })) return invalid(res, "NO_REAL_EMAIL");
+    const wanted = body.role == null || (typeof body.role === "string" && body.role.trim() === "") ? null : body.role;
+    const role = wanted == null ? null : normalizeRole(wanted);
+    if (wanted != null && !role) return invalid(res, "UNKNOWN_ROLE");
+    if (await roomHoldingTz(tz)) return res.status(409).json({ ok: false, code: "TZ_EXISTS", message: "المستخدم مسجّل مسبقًا" });
+
+    const password = generateTempPassword();
+    const model = deriveServerFields({
+      tz, firstname, lastname, email,
+      phone: typeof body.phone === "string" ? body.phone.trim() : "",
+      password,
+      role, roles: role ? [role] : [],
+      permissionGrants: [], permissionRevokes: [],
+      isIT: true, itSince: new Date(), itBlockedAt: null,
+      updatedAt: new Date(),
+      ...editorStamp(req),
+    });
+    const created = await UserModelDef.create(model, "active");
+    const { password: _secret, ...shown } = model;
+    await recordUser(req, "create", null, { ...(created?.result || shown), password: undefined, room: "active" });
+    notifyChange("user", created?.result?._id);
+    await safeEnsureStorageFolder(model);
+
+    // Not awaited: SMTP must not delay or change the answer.
+    Promise.resolve()
+      .then(() => sendEmail.sendAccountEmail(email, newItUserEmail({
+        name: `${firstname} ${lastname}`, password, itHost: process.env.IT_HOST, mainHost: process.env.MAIN_HOST,
+      })))
+      .catch((e) => logWithSource("User.createItUser.email", e));
+
+    return res.status(201).json({ ok: true, member: { tz, firstname, lastname, role } });
+  } catch (err) {
+    if (isDuplicateKey(err)) return res.status(409).json({ ok: false, code: "TZ_EXISTS", message: "المستخدم مسجّل مسبقًا" });
+    logWithSource("User.createItUser", err);
+    return res.status(500).json({ ok: false, message: "حدث خطأ غير متوقع، حاول مرة أخرى" });
   }
 };
 
@@ -2020,6 +2093,7 @@ const deletePhoto = async (req, res) => {
 };
 
 module.exports = {
+  createItUser,
   viewPassword,
   uploadPhoto,
   deletePhoto,

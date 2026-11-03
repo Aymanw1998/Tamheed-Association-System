@@ -57,7 +57,7 @@ const PUBLIC_ROUTES = {
   "SportPortal/SportPortal.route.js": ["POST /request-code", "POST /verify", "POST /card", "POST /passkey/login-options", "POST /passkey/login", "POST /passkey/register-options", "POST /passkey/register", "POST /logout", "GET /me", "GET /photo", "GET /id", "GET /notices", "GET /live", "POST /push/subscribe", "DELETE /push/subscribe"],
   // IT site sign-in: IT_HOST only (router.use(requireItHost)), its own cookie, never staff auth.
   // login-pass: a one-time pass replaces the password step.
-  "It/It.route.js": ["POST /login", "POST /verify", "POST /login-pass", "POST /logout"],
+  "It/It.route.js": ["POST /login", "POST /verify", "POST /login-pass", "POST /logout", "POST /passkey/login-options", "POST /passkey/login"],
   // The VAPID public key the browser needs before it can subscribe; nothing private.
   "Push/Push.route.js": ["GET /key"],
   // An <img> cannot send the Authorization header; the passport version is as
@@ -82,8 +82,8 @@ const ANY_ACTOR_ROUTES = {
   "Lock/Lock.route.js": ["POST /acquire", "POST /heartbeat", "POST /release", "GET /:key"],
   // One's own tour state: every write targets the caller's own record.
   "routes/tours.routes.js": ["GET /", "POST /item/:id", "POST /known-keys", "POST /releases/seen"],
-  // The IT actor (requireIt) about himself: who he is, and his pass to the everyday app (the handler checks the role).
-  "It/It.route.js": ["GET /me", "POST /system-pass"],
+  // The IT actor (requireIt) about himself: who he is, his pass to the everyday app (the handler checks the role), his own passkey.
+  "It/It.route.js": ["GET /me", "POST /system-pass", "POST /passkey/register-options", "POST /passkey/register"],
 };
 
 // requireIt loads the IT site's actor (middleware/requireIt.js), as loadActor does the everyday one.

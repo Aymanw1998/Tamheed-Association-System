@@ -75,6 +75,8 @@ The owner's words, summarised:
 | Audit log | no | yes | — |
 | Connect / change the Google Drive account | no | yes | yes |
 | Add / remove / block IT users | no | no | yes |
+| Create a brand-new user who is IT from the start (owner, 2026-11-03; temporary password to his own email) | no | yes | yes |
+| Sign in to the IT site with a passkey instead of the password and the code (owner, 2026-11-03) | — | yes | yes |
 | Set each role's default permissions («صلاحيات الأدوار», owner 2026-11-03; never an IT key or a grant-only module) | no | yes | yes |
 | Disable / re-enable / approve / delete an everyday user (owner, 2026-11-03) | yes (as today, lower rank) | any everyday user | — |
 

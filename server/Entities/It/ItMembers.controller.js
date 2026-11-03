@@ -137,7 +137,7 @@ function createItMembers(deps = {}) {
     const user = await target(req, res);
     if (!user) return undefined;
     if (!isItUser(user)) return res.status(409).json(NOT_IT);
-    await write(req, user, "member_remove", { isIT: false, itBlockedAt: null, itSignedOutAt: now() });
+    await write(req, user, "member_remove", { isIT: false, itBlockedAt: null, itSignedOutAt: now(), itPasskeys: [] });
     return res.status(200).json({ ok: true });
   });
 
@@ -148,7 +148,7 @@ function createItMembers(deps = {}) {
     if (!user) return undefined;
     if (!isItUser(user)) return res.status(409).json(NOT_IT);
     const at = now();
-    const after = await write(req, user, "member_block", { itBlockedAt: user.itBlockedAt || at, itSignedOutAt: at });
+    const after = await write(req, user, "member_block", { itBlockedAt: user.itBlockedAt || at, itSignedOutAt: at, itPasskeys: [] });
     return res.status(200).json({ ok: true, member: memberRow(after) });
   });
 

@@ -1,8 +1,8 @@
 import Users from "./Users.jsx";
 import * as api from "../api";
-import { mount, unmountAll, ok, button, click, type, byText } from "../testUtils";
+import { mount, unmountAll, ok, fail, button, click, type, byText, submit, toastText } from "../testUtils";
 
-jest.mock("../api", () => ({ ...jest.requireActual("../api"), getUsers: jest.fn() }));
+jest.mock("../api", () => ({ ...jest.requireActual("../api"), getUsers: jest.fn(), createItUser: jest.fn() }));
 
 const ROWS = [
   { tz: "100000001", firstname: "سامر", lastname: "الأول", role: "ادارة", isIT: false, photo: "https://example.org/a.jpg", lockedAt: null, room: "active" },
@@ -57,4 +57,31 @@ test("Users: search by name or ID number", async () => {
 test("Users: each row opens the user page", async () => {
   const c = await mount(<Users />);
   expect(c.querySelector('li[data-user="100000001"] a').getAttribute("href")).toBe("/users/100000001");
+});
+
+test("Users: any IT user adds a brand-new IT user; the list is read again", async () => {
+  api.createItUser.mockImplementation(() => ok({ member: { tz: "600000004" } }));
+  const c = await mount(<Users />);
+  await click(button(c, "مستخدم IT جديد"));
+  const dialog = c.querySelector("[role=dialog]");
+  await type(dialog.querySelector('input[name="firstname"]'), "جديد");
+  await type(dialog.querySelector('input[name="lastname"]'), "تجريبي");
+  await type(dialog.querySelector('input[name="tz"]'), "600000004");
+  await type(dialog.querySelector('input[name="email"]'), "new@example.org");
+  await type(dialog.querySelector('select[name="role"]'), "مرشد");
+  await submit(dialog);
+  expect(api.createItUser).toHaveBeenCalledWith({ firstname: "جديد", lastname: "تجريبي", tz: "600000004", email: "new@example.org", phone: "", role: "مرشد" });
+  expect(toastText()).toContain("أُرسلت كلمة مرور مؤقتة");
+  expect(c.querySelector("[role=dialog]")).toBeNull();
+  expect(api.getUsers).toHaveBeenCalledTimes(2);
+});
+
+test("Users: a refused new IT user keeps the form open and says why", async () => {
+  api.createItUser.mockImplementation(() => fail(409, { code: "TZ_EXISTS" }));
+  const c = await mount(<Users />);
+  await click(button(c, "مستخدم IT جديد"));
+  await submit(c.querySelector("[role=dialog]"));
+  expect(api.createItUser.mock.calls[0][0].role).toBeNull();
+  expect(toastText()).toContain("يوجد مستخدم بهذا الرقم");
+  expect(c.querySelector("[role=dialog]")).not.toBeNull();
 });

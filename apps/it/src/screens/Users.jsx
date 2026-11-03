@@ -5,6 +5,8 @@ import { ROLES, ROOMS, roleLabel } from "../strings";
 import Avatar from "../ui/Avatar.jsx";
 import FilterDialog from "../ui/FilterDialog.jsx";
 import { passportSrc } from "../ui/passportPhoto";
+import NewItUserDialog from "../ui/NewItUserDialog.jsx";
+import { newItUserText } from "../strings";
 
 const NO_FILTER = { room: "", role: "" };
 
@@ -14,6 +16,8 @@ export default function Users() {
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState(NO_FILTER);
+  const [adding, setAdding] = useState(false);
+  const [version, setVersion] = useState(0); // a new user: read the list again
 
   useEffect(() => {
     let live = true;
@@ -23,7 +27,7 @@ export default function Users() {
       else setError(errorText(res));
     });
     return () => { live = false; };
-  }, []);
+  }, [version]);
 
   const shown = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -43,7 +47,11 @@ export default function Users() {
 
   return (
     <section>
-      <h1>المستخدمون</h1>
+      <div className="page-head">
+        <h1>المستخدمون</h1>
+        <button type="button" className="primary" onClick={() => setAdding(true)}>{newItUserText.open}</button>
+      </div>
+      {adding && <NewItUserDialog onClose={() => setAdding(false)} onCreated={() => setVersion((v) => v + 1)} />}
       <div className="toolbar">
         <input type="search" placeholder="بحث بالاسم أو رقم الهوية" aria-label="بحث" value={query} onChange={(e) => setQuery(e.target.value)} />
         <FilterDialog count={count} onClear={() => setFilter(NO_FILTER)}>

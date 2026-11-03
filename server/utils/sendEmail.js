@@ -78,7 +78,15 @@ const sendSystemAdminEmail = async (to, { subject, html, text }) => {
     await transporter.sendMail({ from: process.env.SMTP_FROM, to, subject, html, text });
 };
 
+// A new account's first sign-in details (an IT user created on the IT site).
+// Callers never log the message body.
+const sendAccountEmail = async (to, { subject, html, text }) => {
+    const transporter = createTransporter();
+    await transporter.sendMail({ from: process.env.SMTP_FROM, to, subject, html, text });
+};
+
 module.exports = {
+    sendAccountEmail,
     sendResetPasswordEmail,
     sendSportLoginCodeEmail,
     sendItLoginCodeEmail,

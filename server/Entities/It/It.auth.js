@@ -163,6 +163,32 @@ function createItAuth(deps = {}) {
     if (found) await sendCodeAfterPassword(found.user, found.isSystem);
   };
 
+  // The last step of every IT sign-in (the email code, a passkey): the user
+  // read again must still be IT, not blocked and not locked (an expired system
+  // password is changed on the everyday site first). Sets the IT cookie and,
+  // for the system account, sends the alert and writes the audit row. False
+  // when the sign-in may not finish.
+  const completeSignIn = async (req, res, tz, { needsFreshPassword = false } = {}) => {
+    const key = itSecret();
+    const user = await findActiveUser(String(tz ?? "").trim());
+    const isSystem = Boolean(user) && isSystemTz(String(user.tz || ""), systemTz());
+    if (!user || !mayUseIt(user, isSystem) || isLocked(user, { isSystem })) return false;
+    if (needsFreshPassword && mustChangePassword(user, { isSystem, now: new Date(now()) })) return false;
+
+    startSession(res, user.tz, key);
+    if (isSystem) {
+      // Not awaited: a failed alert must not fail the sign-in.
+      const to = mailboxOf(user, true);
+      Promise.resolve()
+        .then(() => (to ? sendAlert(to, systemSignInEmail({ at: now(), ip: req.ip })) : null))
+        .catch((e) => log("It.systemSignInAlert", e));
+      await audit.record({ actor: { isSystem: true }, ip: req.ip }, {
+        module: "it", action: "sign_in", targetType: "user", targetId: user.tz,
+      });
+    }
+    return true;
+  };
+
   // POST /api/it/verify { tz, code }: the code is single-use and ends after
   // five wrong tries; the right one sets the IT cookie.
   const verify = async (req, res) => {
@@ -194,21 +220,7 @@ function createItAuth(deps = {}) {
       if (Number(used?.result?.deletedCount) !== 1) return bad();
 
       // Read again: a block or removal since the code was sent wins.
-      const user = await findActiveUser(tz);
-      const isSystem = Boolean(user) && isSystemTz(String(user.tz || ""), systemTz());
-      if (!user || !mayUseIt(user, isSystem) || isLocked(user, { isSystem })) return bad();
-
-      startSession(res, user.tz, key);
-      if (isSystem) {
-        // Not awaited: a failed alert must not fail the sign-in.
-        const to = mailboxOf(user, true);
-        Promise.resolve()
-          .then(() => (to ? sendAlert(to, systemSignInEmail({ at: now(), ip: req.ip })) : null))
-          .catch((e) => log("It.systemSignInAlert", e));
-        await audit.record({ actor: { isSystem: true }, ip: req.ip }, {
-          module: "it", action: "sign_in", targetType: "user", targetId: user.tz,
-        });
-      }
+      if (!(await completeSignIn(req, res, tz))) return bad();
       return res.json({ ok: true });
     } catch (err) {
       log("It.verify", err);
@@ -228,7 +240,7 @@ function createItAuth(deps = {}) {
     return res.json({ ok: true, tz, name, isSystem, photo: user?.photo || null, hasEverydayRole: Boolean(resolveRole(user)) });
   };
 
-  return { login, verify, logout, me, sendCodeWithoutPassword };
+  return { login, verify, logout, me, sendCodeWithoutPassword, completeSignIn };
 }
 
 module.exports = {

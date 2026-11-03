@@ -83,7 +83,7 @@ test("stored IT-key grants are ignored", () => {
 });
 
 test("an IT user gets the IT set only from itPermissions, and nothing when blocked", () => {
-  const expected = [...IT_KEYS, "users.view", "users.changeRole", "users.resetPassword", "users.approve", "users.delete"].sort();
+  const expected = [...IT_KEYS, "users.view", "users.changeRole", "users.resetPassword", "users.approve", "users.delete", "users.create"].sort();
   assert.deepEqual([...itPermissions(itDoc)].sort(), expected);
   assert.deepEqual([...itPermissions({ ...itDoc, itBlockedAt: new Date() })], []);
   assert.deepEqual([...itPermissions(guide)], []);

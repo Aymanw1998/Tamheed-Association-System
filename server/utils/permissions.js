@@ -41,8 +41,9 @@ const IT_KEYS = new Set([
 ]);
 
 // What an IT user may do on the IT site. users.approve also disables and
-// re-enables an account; users.delete deletes one (owner, 2026-11-03).
-const IT_SET = [...IT_KEYS, "users.view", "users.changeRole", "users.resetPassword", "users.approve", "users.delete"];
+// re-enables an account; users.delete deletes one; users.create makes a new
+// IT user (owner, 2026-11-03).
+const IT_SET = [...IT_KEYS, "users.view", "users.changeRole", "users.resetPassword", "users.approve", "users.delete", "users.create"];
 
 const GRANT_ONLY_MODULES = new Set(["sports", "finance"]);
 

@@ -145,9 +145,36 @@ label.check { display: flex; align-items: center; gap: 8px; font-weight: 500; co
 .signin-logo { display: block; width: 150px; height: 150px; margin: 0 auto 10px; object-fit: contain; }
 .signin button { width: 100%; }
 
+/* Passkey sign-in and its offer. */
+.btn-passkey { min-height: 48px; font-size: var(--fs-base); }
+.signin-or { text-align: center; color: var(--color-text-secondary); margin: 10px 0; font-size: var(--fs-sm); }
+.passkey-offer { border-color: var(--color-primary-300); background: var(--color-primary-50); }
+.passkey-offer p { margin-bottom: 6px; }
+
+/* Show / hide the password (the everyday app's login). */
+.password-wrap { position: relative; display: flex; }
+.password-wrap input { flex: 1; padding-inline-end: 44px; }
+.signin .toggle-password {
+  position: absolute; inset-inline-end: 4px; top: 50%; transform: translateY(-50%);
+  width: 34px; min-height: 34px; height: 34px; padding: 0;
+  border: none; background: transparent; color: var(--color-text-secondary);
+  border-radius: var(--radius-sm);
+}
+.signin .toggle-password:hover:not(:disabled) { filter: none; color: var(--color-primary-600); background: var(--color-primary-50); }
+
 /* Page */
 .page { max-width: 1000px; margin: 0 auto; padding: var(--space-4); }
 .page > section > h1 { color: var(--color-primary-700); }
+
+/* A page title with its main action beside it. */
+.page-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2); margin-bottom: var(--space-3); }
+.page-head h1 { margin: 0; }
+
+/* «مستخدم IT جديد» */
+.new-it-user .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.new-it-user .c-actions button { min-width: 96px; }
+@media (max-width: 520px) { .new-it-user .form-grid { grid-template-columns: 1fr; } }
+.new-it-user { max-height: 92vh; overflow-y: auto; }
 
 /* Lists: the everyday app's person cards */
 .toolbar { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-3); }

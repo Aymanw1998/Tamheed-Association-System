@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { errorText, login, loginPass, verify } from "../api";
 import logo from "../logo.png";
+import EyeIcon from "../ui/EyeIcon.jsx";
+import { passkeySupported, signInWithPasskey } from "../passkey";
 
 const PASS_FAILED = "انتهت صلاحية الانتقال، سجّل الدخول من جديد";
 
@@ -11,6 +13,8 @@ export default function SignIn({ pass = "", onSignedIn }) {
   const [step, setStep] = useState(pass ? "pass" : "password"); // pass | password | code
   const [tz, setTz] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [canPasskey] = useState(passkeySupported);
   const [code, setCode] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -55,6 +59,20 @@ export default function SignIn({ pass = "", onSignedIn }) {
     onSignedIn();
   };
 
+  // A passkey saved on this device: a fingerprint or face, no ID number,
+  // password or code.
+  const withPasskey = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      const r = await signInWithPasskey();
+      if (r.ok) return onSignedIn();
+      if (!r.cancelled) setError(r.message || "تعذّر الدخول بالبصمة. ادخل بكلمة المرور والرمز");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const back = () => {
     setStep("password");
     setCode("");
@@ -68,6 +86,13 @@ export default function SignIn({ pass = "", onSignedIn }) {
       <h1>قسم تكنولوجيا المعلومات</h1>
       {step === "pass" && <p role="status">جارٍ الانتقال…</p>}
 
+      {step === "password" && canPasskey && (
+        <>
+          <button type="button" className="primary btn-passkey" onClick={withPasskey} disabled={busy}>الدخول بالبصمة أو بالوجه</button>
+          <p className="signin-or">أو بكلمة المرور</p>
+        </>
+      )}
+
       {step === "password" && (
         <form onSubmit={sendPassword}>
           <label>
@@ -76,7 +101,18 @@ export default function SignIn({ pass = "", onSignedIn }) {
           </label>
           <label>
             كلمة المرور
-            <input name="password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <span className="password-wrap">
+              <input name="password" type={showPassword ? "text" : "password"} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+              <button
+                type="button"
+                className="toggle-password"
+                onClick={() => setShowPassword((value) => !value)}
+                aria-label={showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
+                aria-pressed={showPassword}
+              >
+                <EyeIcon open={showPassword} />
+              </button>
+            </span>
           </label>
           {error && <p role="alert" className="error">{error}</p>}
           <button type="submit" className="primary" disabled={busy}>متابعة</button>

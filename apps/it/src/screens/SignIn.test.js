@@ -1,5 +1,6 @@
 import SignIn from "./SignIn.jsx";
 import * as api from "../api";
+import * as passkey from "../passkey";
 import { mount, unmountAll, ok, fail, button, click, type, submit } from "../testUtils";
 
 jest.mock("../api", () => ({
@@ -8,6 +9,8 @@ jest.mock("../api", () => ({
   loginPass: jest.fn(),
   verify: jest.fn(),
 }));
+
+jest.mock("../passkey", () => ({ passkeySupported: jest.fn(() => false), signInWithPasskey: jest.fn() }));
 
 afterEach(async () => { await unmountAll(); jest.clearAllMocks(); });
 
@@ -78,4 +81,42 @@ test("SignIn: a pass that did not work falls back to the password step", async (
   const c = await mount(<SignIn pass="spent" onSignedIn={() => {}} />);
   expect(field(c, "password")).not.toBeNull();
   expect(c.textContent).toContain("سجّل الدخول من جديد");
+});
+
+test("SignIn: the eye shows and hides the password", async () => {
+  const c = await mount(<SignIn onSignedIn={jest.fn()} />);
+  const eye = c.querySelector("button[aria-label='إظهار كلمة المرور']");
+  expect(field(c, "password").type).toBe("password");
+  await click(eye);
+  expect(field(c, "password").type).toBe("text");
+  expect(eye.getAttribute("aria-label")).toBe("إخفاء كلمة المرور");
+  await click(eye);
+  expect(field(c, "password").type).toBe("password");
+});
+
+test("SignIn: with a passkey on this device, a fingerprint or face signs in without the password or the code", async () => {
+  passkey.passkeySupported.mockReturnValue(true);
+  passkey.signInWithPasskey.mockResolvedValue({ ok: true });
+  const onSignedIn = jest.fn();
+  const c = await mount(<SignIn onSignedIn={onSignedIn} />);
+  await click(button(c, "الدخول بالبصمة أو بالوجه"));
+  expect(onSignedIn).toHaveBeenCalledTimes(1);
+  expect(api.login).not.toHaveBeenCalled();
+});
+
+test("SignIn: a refused passkey shows a message; a closed prompt shows nothing", async () => {
+  passkey.passkeySupported.mockReturnValue(true);
+  passkey.signInWithPasskey.mockResolvedValue({ ok: false, cancelled: true });
+  const c = await mount(<SignIn onSignedIn={jest.fn()} />);
+  await click(button(c, "الدخول بالبصمة أو بالوجه"));
+  expect(c.querySelector("[role=alert]")).toBeNull();
+  passkey.signInWithPasskey.mockResolvedValue({ ok: false, message: "تعذّر الدخول بالبصمة. ادخل بكلمة المرور والرمز" });
+  await click(button(c, "الدخول بالبصمة أو بالوجه"));
+  expect(c.querySelector("[role=alert]").textContent).toContain("تعذّر الدخول بالبصمة");
+});
+
+test("SignIn: no passkey button where the device has no passkeys", async () => {
+  passkey.passkeySupported.mockReturnValue(false);
+  const c = await mount(<SignIn onSignedIn={jest.fn()} />);
+  expect(button(c, "الدخول بالبصمة أو بالوجه")).toBeUndefined();
 });

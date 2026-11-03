@@ -36,6 +36,7 @@ function createItRouter(deps = {}) {
   const users = deps.users || lazyHandlers(() => require("../User/User.controller"));
   const members = deps.members || itMembers;
   const roleDefaults = deps.roleDefaults || lazyHandlers(() => require("./RoleDefaults.controller").roleDefaults());
+  const passkey = deps.passkey || lazyHandlers(() => require("./It.passkey").itPasskeys());
   // Refuses a change while the user is open in an everyday tab (423).
   const lockedUser = deps.lockedUser || ((req, res, next) => require("../User/User.route").lockedUser(req, res, next));
 
@@ -74,6 +75,11 @@ function createItRouter(deps = {}) {
   // Everyday app → IT site: a one-time pass replaces the password step only.
   router.post("/login-pass", loginLimit, sitePass.loginToIt);
   router.post("/logout", auth.logout);
+  // Passkeys: saved once signed in (password + code), then they replace both.
+  router.post("/passkey/login-options", loginLimit, passkey.loginOptions);
+  router.post("/passkey/login", loginLimit, passkey.login);
+  router.post("/passkey/register-options", requireIt, passkey.registerOptions);
+  router.post("/passkey/register", requireIt, passkey.register);
   router.get("/me", requireIt, auth.me);
   // IT site → everyday app: a one-time pass for a user with an everyday role.
   router.post("/system-pass", requireIt, sitePass.systemPass);
@@ -108,7 +114,10 @@ function createItRouter(deps = {}) {
   router.use("/locks", lockRouter);
   router.use("/push", pushRouter);
 
-  // IT users: the system account only.
+  // A brand-new IT user: any IT user (owner, 2026-11-03).
+  router.post("/members", requireIt, requirePermission("users.create"), users.createItUser);
+
+  // IT users (existing ones): the system account only.
   router.get("/members", requireIt, requireSystemIt, members.list);
   router.post("/members/:tz", requireIt, requireSystemIt, members.add);
   router.delete("/members/:tz", requireIt, requireSystemIt, members.remove);

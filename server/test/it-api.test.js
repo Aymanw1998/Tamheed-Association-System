@@ -53,7 +53,13 @@ const WAITING = { _id: "w1", tz: "500000004", firstname: "Wa", lastname: "Iting"
 // Room-aware in-memory UserModelDef (as in user-it-protection.test.js).
 function createUsers(seed) {
   const rooms = { active: [], waiting: [], noActive: [], ...structuredClone(seed) };
-  const matches = (doc, filter) => Object.keys(filter).every((k) => (filter[k] == null ? doc[k] == null : String(doc[k]) === String(filter[k])));
+  // Equality, null, and the $regex the tz-uniqueness check uses.
+  const matches = (doc, filter) => Object.keys(filter).every((k) => {
+    const want = filter[k];
+    if (want == null) return doc[k] == null;
+    if (typeof want === "object" && "$regex" in want) return new RegExp(want.$regex).test(String(doc[k] ?? ""));
+    return String(doc[k]) === String(want);
+  });
   return {
     collections: { active: "Users" },
     async get(filter = {}, room = "active") {
@@ -89,6 +95,9 @@ function createUsers(seed) {
   };
 }
 
+// Emails the user controller sent (new accounts).
+const sentMail = [];
+
 function loadUserController(users, audit) {
   const dependencies = {
     bcryptjs: {},
@@ -96,7 +105,7 @@ function loadUserController(users, audit) {
     path,
     "./User.model": { UserModelDef: users },
     "../../utils/otp": require("../utils/otp"),
-    "../../utils/sendEmail": { sendSystemAdminEmail: async () => {} },
+    "../../utils/sendEmail": { sendSystemAdminEmail: async () => {}, sendAccountEmail: async (to, mail) => { sentMail.push({ to, ...mail }); } },
     "../../utils/jwt": {},
     "../../utils/textEncoding": require("../utils/textEncoding"),
     "../../utils/permissions": require("../utils/permissions"),
@@ -212,6 +221,7 @@ test("every IT route needs the IT session, and only IT_HOST serves them", withAp
     ["GET", "/storage/google/status"], ["POST", "/storage/google/connect-url"], ["POST", "/locks/force-release"],
     ["GET", "/push/settings"], ["PUT", "/push/settings"], ["GET", "/members"], ["POST", `/members/${GUIDE.tz}`],
     ["POST", `/users/${GUIDE.tz}/room`], ["DELETE", `/users/${GUIDE.tz}?from=active`],
+    ["POST", "/members"],
     ["GET", "/role-defaults"], ["PUT", `/role-defaults/${encodeURIComponent("مرشد")}`], ["DELETE", `/role-defaults/${encodeURIComponent("مرشد")}`],
   ]) {
     assert.equal((await call(method, url, { body: {} })).status, 401, `${method} ${url} without the IT cookie`);
@@ -501,4 +511,63 @@ test("account state: IT disables and re-enables an everyday user, and deletes on
   assert.equal((await call("POST", `/users/${IT_B.tz}/room`, { as: IT_A.tz, body: { from: "active", to: "noActive" } })).status, 403);
   assert.equal((await call("DELETE", `/users/${IT_B.tz}?from=active`, { as: IT_A.tz })).status, 403);
   assert.ok(users.find(IT_B.tz, "active"));
+}));
+
+test("blocking or removing an IT user deletes his IT passkeys, and none leaves the server", withApp(async ({ call, users }) => {
+  const key = { id: "cred-x", publicKey: "AQID", counter: 0, transports: [] };
+  users.find(IT_A.tz).itPasskeys = [key];
+  users.find(IT_B.tz).itPasskeys = [key];
+  const page = await call("GET", `/users/${IT_B.tz}`, { as: SYSTEM_TZ });
+  assert.equal(JSON.stringify(page.body).includes("itPasskeys"), false);
+  assert.equal((await call("POST", `/members/${IT_A.tz}/block`, { as: SYSTEM_TZ })).status, 200);
+  assert.deepEqual(users.find(IT_A.tz).itPasskeys, []);
+  assert.equal((await call("DELETE", `/members/${IT_B.tz}`, { as: SYSTEM_TZ })).status, 200);
+  assert.deepEqual(users.find(IT_B.tz).itPasskeys, []);
+}));
+
+test("passkey sign-in routes are open, saving one needs the IT session", withApp(async ({ call }) => {
+  assert.equal((await call("POST", "/passkey/register-options", { body: {} })).status, 401);
+  assert.equal((await call("POST", "/passkey/register", { body: {} })).status, 401);
+  assert.equal((await call("POST", "/passkey/login-options", { body: {}, host: "tamheed.example.test" })).status, 404);
+}));
+
+test("any IT user creates a brand-new IT user; a temporary password goes to his email only", withApp(async ({ call, users, audit }) => {
+  sentMail.length = 0;
+  const body = { tz: "600000004", firstname: "New", lastname: "Person", email: "new.person@example.test", phone: "0500000000", role: "مرشد" };
+  const made = await call("POST", "/members", { as: IT_A.tz, body });
+  assert.equal(made.status, 201);
+  assert.equal(JSON.stringify(made.body).includes("password"), false);
+  const stored = users.find("600000004", "active");
+  assert.ok(stored);
+  assert.equal(stored.isIT, true);
+  assert.equal(stored.role, "مرشد");
+  assert.ok(stored.itSince);
+  assert.equal(stored.itBlockedAt, null);
+  assert.ok(stored.password && stored.password.length >= 10);
+  assert.equal(sentMail.length, 1);
+  assert.equal(sentMail[0].to, "new.person@example.test");
+  assert.ok(sentMail[0].text.includes(stored.password));
+  assert.equal(audit.find({ action: "create", targetId: "600000004" }).length, 1);
+
+  // The new IT user is now out of the creator's reach, like every IT user.
+  assert.equal((await call("PUT", `/users/600000004/role`, { as: IT_A.tz, body: { role: "ادارة" } })).status, 403);
+
+  // No role at all is fine.
+  assert.equal((await call("POST", "/members", { as: IT_A.tz, body: { ...body, tz: "600000012", role: "" } })).status, 201);
+  assert.equal(users.find("600000012", "active").role, null);
+}));
+
+test("creating an IT user: a taken or invalid ID number, a fake email, a missing name or an unknown role are refused", withApp(async ({ call, users }) => {
+  const body = { tz: "600000020", firstname: "New", lastname: "Person", email: "new.person@example.test" };
+  const code = async (b) => (await call("POST", "/members", { as: IT_A.tz, body: { ...body, ...b } })).body.code;
+  assert.equal(await code({ tz: GUIDE.tz }), "TZ_EXISTS");
+  users.rooms.waiting.push({ tz: "600000038", firstname: "Wa", lastname: "It" });
+  assert.equal(await code({ tz: "600000038" }), "TZ_EXISTS", "waiting room too");
+  assert.equal(await code({ tz: "123" }), "INVALID_TZ");
+  assert.equal(await code({ tz: SYSTEM_TZ }), "INVALID_TZ");
+  assert.equal(await code({ email: "test@test.com" }), "NO_REAL_EMAIL");
+  assert.equal(await code({ email: "" }), "NO_REAL_EMAIL");
+  assert.equal(await code({ firstname: " " }), "NAME_REQUIRED");
+  assert.equal(await code({ role: "مدير" }), "UNKNOWN_ROLE");
+  assert.equal(users.find("600000020", "active"), undefined);
 }));
