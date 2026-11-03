@@ -3788,3 +3788,31 @@ defaults), seen failing first. `user-audit.test.js` asserts a PUT body carrying
 **Verification:** server 1176/1176.
 
 **Codex review:** pending (until 2026-11-06). **Status:** committed.
+
+### Follow-up: IT sign-in and the IT actor (2026-11-03)
+
+**Change:** `POST /api/it/login { tz, password }` always answers the same
+generic message; only an active, unlocked IT user (not blocked) with the right
+password and a real email (`hasRealEmail` in `utils/permissions.js`: has "@",
+not `test@test.com`) gets a 6-digit code, stored hashed in `ItLoginCodes`
+(unique `userTz`, TTL on `expiresAt`), 10 minutes, ended after 5 wrong tries.
+The system account's code goes to `SYSTEM_ADMIN_EMAIL`; while its password has
+expired it gets no code. A wrong password counts in the everyday lockout
+(`countFailedSignIn`, now exported with `verifyPasswordAndMaybeUpgrade`).
+`POST /api/it/verify` uses the code once and sets `it_session` (httpOnly,
+sameSite Strict, path `/api/it`, 12 h, secure in production), a JWT
+`{ sub: tz, typ: "it" }` signed with `IT_SESSION_SECRET` (fails closed when
+missing). A system sign-in emails `SYSTEM_ADMIN_EMAIL` and writes the audit
+row `it / sign_in`. `middleware/requireIt.js`: 404 off `IT_HOST` (also on the
+whole router), then re-reads the user every request and refuses (401
+`IT_SIGNED_OUT`) a blocked, removed, locked or inactive user or a token older
+than a password change, sign-out, `itSince` or `itBlockedAt`; builds the IT
+actor with `itPermissions`. `/logout`, `/me`. `IT_HOST`, `IT_SESSION_SECRET`
+in `.env.example`.
+
+**Test:** `it-auth.test.js` (new, 19), seen failing first;
+`route-guards.test.js` lists the four IT routes with their own guard.
+
+**Verification:** server 1195/1195.
+
+**Codex review:** pending (until 2026-11-06). **Status:** committed.

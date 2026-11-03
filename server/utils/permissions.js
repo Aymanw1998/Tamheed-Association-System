@@ -121,6 +121,15 @@ function itPermissions(user, { isSystem = false } = {}) {
   return new Set(IT_SET);
 }
 
+// The user model's email default, which reaches nobody.
+const PLACEHOLDER_EMAIL = "test@test.com";
+
+// A mailbox an IT code can be sent to: not empty, has "@", not the placeholder.
+function hasRealEmail(user) {
+  const email = String(user?.email ?? "").trim();
+  return email.includes("@") && email.toLowerCase() !== PLACEHOLDER_EMAIL;
+}
+
 // actorOrSet is a Set of keys or an actor (user) object. A module key means
 // every one of its leaves.
 function can(actorOrSet, key) {
@@ -169,6 +178,7 @@ module.exports = {
   effectivePermissions,
   isItUser,
   itPermissions,
+  hasRealEmail,
   can,
   isSystemTz,
 };

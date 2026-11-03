@@ -106,6 +106,8 @@ app.use('/api/sports', require('./Entities/Sport/Sport.route'));
 app.use('/api/push', require('./Entities/Push/Push.route'));
 app.use('/api/photos', require('./Entities/Photo/Photo.route'));
 app.use('/api/sport-portal', require('./Entities/SportPortal/SportPortal.route'));
+// The IT site's API: only on IT_HOST, with its own session (middleware/requireIt).
+app.use('/api/it', require('./Entities/It/It.route'));
 app.use('/api/inviteToken', require('./Entities/InviteToken/InviteToken.route'))
 app.use('/api/report', require('./Entities/Report/Report.route'));
 app.use('/api/vehicle', require('./Entities/Vehicle/Vehicle.route'));
@@ -219,6 +221,8 @@ const StartServer = async () => {
       .catch((err) => console.error('SportPlayers index:', err.message));
     await require('./Entities/Sport/SportLoginCode.model').ensureSportLoginCodeIndexes()
       .catch((err) => console.error('SportLoginCodes index:', err.message));
+    await require('./Entities/It/ItLoginCode.model').ensureItLoginCodeIndexes()
+      .catch((err) => console.error('ItLoginCodes index:', err.message));
     await require('./Entities/Lock/Lock.model').ensureLockIndexes()
       .catch((err) => console.error('Locks index:', err.message));
     await require('./Entities/Push/PushSubscription.model').ensurePushSubscriptionIndexes()

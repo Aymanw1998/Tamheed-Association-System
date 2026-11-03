@@ -1965,6 +1965,10 @@ module.exports = {
   resetPassword,
   changePassword,
   recoverSystem,
+  // The IT site's sign-in (Entities/It/It.auth.js) checks the same password
+  // and counts a wrong one in the same lockout.
+  verifyPasswordAndMaybeUpgrade,
+  countFailedSignIn,
 };
 
 // OLD CODE - DO NOT SUGGEST

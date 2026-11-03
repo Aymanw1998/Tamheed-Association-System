@@ -54,6 +54,8 @@ const PUBLIC_ROUTES = {
   "Live/Live.route.js": ["GET /stream"],
   // Student sport site (sign-in, me, photo): its own cookie and requireSportStudent, never staff auth.
   "SportPortal/SportPortal.route.js": ["POST /request-code", "POST /verify", "POST /card", "POST /passkey/login-options", "POST /passkey/login", "POST /passkey/register-options", "POST /passkey/register", "POST /logout", "GET /me", "GET /photo", "GET /id", "GET /notices", "GET /live", "POST /push/subscribe", "DELETE /push/subscribe"],
+  // IT site sign-in and me: IT_HOST only (router.use(requireItHost)), its own cookie and requireIt, never staff auth.
+  "It/It.route.js": ["POST /login", "POST /verify", "POST /logout", "GET /me"],
   // The VAPID public key the browser needs before it can subscribe; nothing private.
   "Push/Push.route.js": ["GET /key"],
   // An <img> cannot send the Authorization header; the passport version is as
