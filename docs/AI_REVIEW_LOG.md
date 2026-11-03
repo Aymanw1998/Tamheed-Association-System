@@ -3997,3 +3997,21 @@ pass on click, refusal), `LoginPage.pass.test.js`, `ViewAllUser.test.js`,
 build` compiles.
 
 **Codex review:** pending (until 2026-11-06). **Status:** committed.
+
+### Follow-up: migration of stored IT-key grants (2026-11-03)
+
+**Change:** `server/scripts/migrateItGrants.js` (`findItGrants`, `clearItGrants`;
+pattern of `unlockUser.js`). Without a flag it lists, per room, users whose
+`permissionGrants` / `permissionRevokes` hold an IT key (leaf keys, and module
+keys that expand to IT leaves); `--apply` removes only those, in every room,
+skips the system account, and writes one `users` / `it_grants_cleared` audit
+row per changed user (actor: the system). A module key that also holds
+everyday leaves (`users`) is replaced by those leaves, so nothing else changes.
+The one-time run is step 7 of the IT-site section in `deploy/DEPLOY.md`.
+
+**Test:** `server/test/migrate-it-grants.test.js` (list, apply with a fake
+model and audit, dry run writes nothing, system account skipped).
+
+**Verification:** server suite 1235/1235.
+
+**Codex review:** pending (until 2026-11-06). **Status:** committed.
