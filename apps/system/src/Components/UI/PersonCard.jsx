@@ -1,5 +1,6 @@
 import React from "react";
 import styles from "./PersonCard.module.css";
+import Avatar from "./Avatar.jsx";
 
 // Compact card for people lists on phones (students, users). With `onOpen`,
 // tapping the main area opens the person; `actions` stay as separate buttons.
@@ -9,11 +10,15 @@ export function PersonCardList({ emptyText, children }) {
   return <ul className={styles.list}>{items}</ul>;
 }
 
+// photo: a profile photo link (an empty one shows the first letter); leave it
+// out for a card without photos.
 // tour: a journey anchor (data-tour) on the open button.
-export default function PersonCard({ initial, name, summary, note, tags, badge, onOpen, actions, tour }) {
+export default function PersonCard({ initial, photo, name, summary, note, tags, badge, onOpen, actions, tour }) {
   const content = (
     <>
-      <span className={styles.avatar} aria-hidden="true">{initial}</span>
+      {photo === undefined
+        ? <span className={styles.avatar} aria-hidden="true">{initial}</span>
+        : <Avatar src={photo} name={name} size={40} />}
       <span className={styles.text}>
         <span className={styles.name}>{name}</span>
         {summary && <span className={styles.summary}>{summary}</span>}

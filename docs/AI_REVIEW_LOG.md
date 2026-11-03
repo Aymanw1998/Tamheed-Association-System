@@ -3703,3 +3703,20 @@ compile. On the server, `update.sh` builds the new folders; the ignored
 leftovers in the old `client/` and `sport/` folders there are unused.
 
 **Codex review:** pending (until 2026-11-06). **Status:** committed.
+
+### Follow-up: profile photos in the everyday lists (2026-11-03)
+
+**Owner's request:** a small round profile photo beside the name in every
+student and user list, on desktop and phone; first-letter circle without one.
+
+**Change:** new `UI/Avatar` (component + CSS module, no app imports: lazy `img`,
+falls back to the letter when empty or on `onError`); `PersonCard` takes an
+optional `photo`; the student and user tables and phone cards pass
+`passportSrc(record.photo)`, the same value the record pages show.
+
+**Test:** `Avatar.test.js` (new, 3), `ViewAllStudent.test.js` and
+`ViewAllUser.test.js` (+1 each): seen failing first.
+
+**Verification:** apps/system 932/932.
+
+**Codex review:** pending (until 2026-11-06). **Status:** committed.

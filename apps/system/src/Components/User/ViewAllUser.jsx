@@ -15,6 +15,8 @@ import StatusBadge from "../UI/StatusBadge.jsx";
 import { useI18n } from "../../i18n/I18nContext";
 import { resolveRole, roleLabel } from "../../utils/roles";
 import { ask } from "../Provides/confirmBus";
+import Avatar from "../UI/Avatar.jsx";
+import { passportSrc } from "../../utils/passportPhoto";
 
 const ViewAllUser = () => {
   const { t } = useI18n();
@@ -302,7 +304,10 @@ const ViewAllUser = () => {
                 >
                   <td data-label="رقم الهوية">{user.tz}</td>
                   <td data-label="اسم المستخدم">
-                    <Link to={`/users/${user.tz}`} className={styles.nameLink} data-tour="users-edit">{`${user.firstname || ""} ${user.lastname || ""}`.trim()}</Link>
+                    <span className={styles.nameCell}>
+                      <Avatar src={passportSrc(user.photo) || ""} name={`${user.firstname || ""} ${user.lastname || ""}`.trim()} />
+                      <Link to={`/users/${user.tz}`} className={styles.nameLink} data-tour="users-edit">{`${user.firstname || ""} ${user.lastname || ""}`.trim()}</Link>
+                    </span>
                   </td>
                   <td data-label="العمر">
                     {user.birth_date ? new Date().getFullYear() - new Date(user.birth_date).getFullYear() : "-"}

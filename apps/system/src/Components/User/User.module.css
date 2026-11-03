@@ -228,6 +228,13 @@
 }
 
 /* A name in the list that opens the record's page. */
+/* The profile photo beside a name in a list row. */
+.nameCell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .nameLink {
   color: var(--color-primary-600);
   font-weight: 600;

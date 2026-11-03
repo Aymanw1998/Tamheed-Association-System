@@ -87,3 +87,12 @@ test("a waiting request has no «قبول» or «رفض» in the list; its row o
   await act(async () => row.querySelector("td").click());
   expect(container.querySelector('[data-testid="opened"]')).not.toBeNull();
 });
+
+test("each row shows the person's photo", async () => {
+  mockPerms = ["students.view"];
+  getAll.mockResolvedValue({ ok: true, students: [{ ...STUDENT, photo: "https://example.test/s1.jpg" }] });
+  await mount();
+  const imgs = [...container.querySelectorAll('tbody img[loading="lazy"]')];
+  expect(imgs.map((i) => i.getAttribute("src"))).toEqual(["https://example.test/s1.jpg"]);
+  expect(container.querySelectorAll('ul img[loading="lazy"]').length).toBe(1);
+});

@@ -86,3 +86,11 @@ test("a waiting or suspended account has no buttons in the list; its row opens t
   }
   await mount();
 });
+
+test("each row shows the person's photo", async () => {
+  getAll.mockResolvedValue({ ok: true, users: [{ ...GUIDE, photo: "https://example.test/g1.jpg" }] });
+  await mount();
+  const imgs = [...container.querySelectorAll('tbody img[loading="lazy"]')];
+  expect(imgs.map((i) => i.getAttribute("src"))).toEqual(["https://example.test/g1.jpg"]);
+  expect(container.querySelectorAll('ul img[loading="lazy"]').length).toBe(1);
+});

@@ -1,6 +1,7 @@
 import React from "react";
 import StatusBadge from "../UI/StatusBadge.jsx";
 import PersonCard, { PersonCardList } from "../UI/PersonCard.jsx";
+import { passportSrc } from "../../utils/passportPhoto";
 import { personInitial, userSummary } from "../../utils/personCard";
 import { useI18n } from "../../i18n/I18nContext";
 
@@ -23,6 +24,7 @@ export default function MobileUserList({ users, onOpen }) {
           <PersonCard
             key={user._id}
             initial={personInitial(user)}
+            photo={passportSrc(user.photo) || ""}
             name={`${user.firstname || ""} ${user.lastname || ""}`.trim()}
             summary={userSummary(user)}
             badge={badge ? <StatusBadge tone={badge.tone}>{badge.label}</StatusBadge> : locked && <StatusBadge tone="danger">{t("perms.locked")}</StatusBadge>}

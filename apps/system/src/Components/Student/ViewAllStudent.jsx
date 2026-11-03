@@ -11,6 +11,8 @@ import FilterDialog from "../UI/FilterDialog.jsx";
 import StatusBadge from "../UI/StatusBadge.jsx";
 import { ParentLinkDialog } from "./ParentLinkPanel.jsx";
 import MobileStudentList from "./MobileStudentList.jsx";
+import Avatar from "../UI/Avatar.jsx";
+import { passportSrc } from "../../utils/passportPhoto";
 
 const ACTIVE_STATUS = "عادي";
 const PENDING_STATUS = "ينتظر";
@@ -250,9 +252,12 @@ const ViewAllStudent = () => {
                 >
                   <td data-label="رقم الهوية">{student.tz}</td>
                   <td data-label="اسم الطالب">
-                    <Link to={`/students/${student.tz}`} className={styles.nameLink} data-tour="students-open">
-                      {`${student.firstname || ""} ${student.lastname || ""}`.trim()}
-                    </Link>
+                    <span className={styles.nameCell}>
+                      <Avatar src={passportSrc(student.photo) || ""} name={`${student.firstname || ""} ${student.lastname || ""}`.trim()} />
+                      <Link to={`/students/${student.tz}`} className={styles.nameLink} data-tour="students-open">
+                        {`${student.firstname || ""} ${student.lastname || ""}`.trim()}
+                      </Link>
+                    </span>
                   </td>
                   <td data-label="اسم الأب">{student.father_name || "-"}</td>
                   <td data-label="العمر">{getAge(student.birth_date)}</td>

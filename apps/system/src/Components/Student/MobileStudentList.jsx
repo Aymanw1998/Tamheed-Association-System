@@ -1,6 +1,7 @@
 import React from "react";
 import StatusBadge from "../UI/StatusBadge.jsx";
 import PersonCard, { PersonCardList } from "../UI/PersonCard.jsx";
+import { passportSrc } from "../../utils/passportPhoto";
 import { healthNote, personInitial, studentSummary } from "../../utils/personCard";
 
 // Phone layout for the students list: one compact card per student. Tapping the
@@ -20,6 +21,7 @@ export default function MobileStudentList({
           <PersonCard
             key={student._id || student.tz}
             initial={personInitial(student)}
+            photo={passportSrc(student.photo) || ""}
             name={`${student.firstname || ""} ${student.lastname || ""}`.trim()}
             summary={studentSummary(student)}
             note={healthNote(student)}
