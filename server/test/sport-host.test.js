@@ -5,7 +5,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { once } = require("node:events");
 const express = require("express");
-const { isSportHost, sportStatic } = require("../utils/sportHost");
+const { isSportHost, sportStatic, hostStatic } = require("../utils/sportHost");
 
 const SPORT = "sport.tamheed-ramla.org";
 
@@ -89,4 +89,47 @@ test("sportStatic serves the sport app by host and passes other hosts on", async
     await new Promise((resolve) => server.close(resolve));
     fs.rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test("hostStatic serves the IT build only for IT_HOST", async () => {
+  const itDir = fs.mkdtempSync(path.join(os.tmpdir(), "it-host-"));
+  const sportDir = fs.mkdtempSync(path.join(os.tmpdir(), "sport-host-"));
+  const IT = "it.tamheed-ramla.org";
+  const app = express();
+  app.set("trust proxy", 1);
+  app.use(sportStatic(sportDir, SPORT));
+  app.use(hostStatic(itDir, IT));
+  app.use((req, res) => res.status(418).send("system app"));
+  const server = app.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const base = `http://127.0.0.1:${server.address().port}`;
+  try {
+    fs.writeFileSync(path.join(itDir, "index.html"), "<!doctype html><p>it shell</p>");
+    fs.writeFileSync(path.join(sportDir, "index.html"), "<!doctype html><p>sport shell</p>");
+    const get = (host, p = "/users/123") => fetch(`${base}${p}`, { headers: { "X-Forwarded-Host": host, Accept: "text/html" } });
+
+    const it = await get(IT);
+    assert.equal(it.status, 200);
+    assert.match(await it.text(), /it shell/);
+    assert.equal(it.headers.get("x-frame-options"), "DENY");
+    assert.equal(it.headers.get("x-content-type-options"), "nosniff");
+
+    // The sport host keeps its own build; any other host reaches the system app.
+    assert.match(await (await get(SPORT)).text(), /sport shell/);
+    assert.equal((await get("system.tamheed-ramla.org")).status, 418);
+    // API paths on the IT host pass through to the routes.
+    assert.equal((await get(IT, "/api/it/me")).status, 418);
+  } finally {
+    server.closeAllConnections();
+    await new Promise((resolve) => server.close(resolve));
+    fs.rmSync(itDir, { recursive: true, force: true });
+    fs.rmSync(sportDir, { recursive: true, force: true });
+  }
+});
+
+test("hostStatic serves nothing when its host is not set", () => {
+  const mw = hostStatic(os.tmpdir(), "");
+  let called = false;
+  mw(fakeReq("it.tamheed-ramla.org"), {}, () => { called = true; });
+  assert.equal(called, true);
 });

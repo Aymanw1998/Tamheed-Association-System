@@ -1,4 +1,4 @@
-// Serves the sport site from the same server, chosen by host name (SPORT_HOST).
+// Serves a site build (sport: SPORT_HOST, IT: IT_HOST) from the same server, chosen by host name.
 const express = require("express");
 const path = require("path");
 
@@ -10,13 +10,13 @@ function isSportHost(req, sportHost) {
   return String(req.hostname || "").toLowerCase() === String(sportHost).trim().toLowerCase();
 }
 
-// Sport-host requests never reach the system app's index.html: assets come from
-// distDir, any other GET that accepts HTML gets the sport shell, and API paths
+// Requests for the site's host never reach the system app's index.html: assets come from
+// distDir, any other GET that accepts HTML gets the site's shell, and API paths
 // and other hosts pass through.
-function sportStatic(distDir, sportHost) {
+function hostStatic(distDir, host) {
   const serveFiles = express.static(distDir);
   return (req, res, next) => {
-    if (!isSportHost(req, sportHost) || API_PATH_RE.test(req.path)) return next();
+    if (!isSportHost(req, host) || API_PATH_RE.test(req.path)) return next();
     res.set("X-Content-Type-Options", "nosniff");
     res.set("X-Frame-Options", "DENY");
     return serveFiles(req, res, (err) => {
@@ -31,4 +31,7 @@ function sportStatic(distDir, sportHost) {
   };
 }
 
-module.exports = { isSportHost, sportStatic };
+// The sport site's name for it.
+const sportStatic = hostStatic;
+
+module.exports = { isSportHost, hostStatic, sportStatic };

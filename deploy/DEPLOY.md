@@ -143,6 +143,42 @@ sudo certbot --nginx -d הדומיין-שלך
    מצפים לתשובה `200` (או `302`) עם כותרות HTTPS. תשובת `502` פירושה שהשרת לא עלה, ואז בודקים `pm2 logs tamheed`.
 6. **נתוני הדגמה (אופציונלי):** `cd server && node scripts/seedSportDemo.js --email=you@example.com` מוסיף תלמידים, שיעורי כדורגל ונוכחות לדוגמה כדי לנסות את האתר, ו-`node scripts/seedSportDemo.js --remove` מסיר רק אותם (כדורגל עצמו נשאר).
 
+## אתר ה-IT
+
+אתר ה-IT יושב על אותו שרת ומזוהה לפי שם המארח (`it.<domain>`). רק משתמשי IT נכנסים אליו (מספר זהות וסיסמה, ואחר כך קוד שנשלח למייל).
+
+1. **DNS:** מוסיפים רשומת `A` בשם `it` שמצביעה על כתובת ה-IP של השרת (כמו הדומיין הראשי).
+2. **nginx:** בהתקנה חדשה, הבלוק השלישי בקובץ `deploy/nginx-tamheed.conf` כבר נכלל בסעיף 6, וה-`sed` שם מחליף גם את `it.example.org` לשם הדומיין שלך. בשרת שכבר פועל לא מעתיקים את הקובץ מחדש: מוסיפים לסוף `/etc/nginx/sites-available/tamheed` רק את בלוק ה-`server` של ה-IT (עם שם הדומיין שלך), ואז מריצים `sudo nginx -t && sudo systemctl reload nginx`. אחר כך מפיקים תעודה:
+   ```bash
+   sudo certbot --nginx -d it.<domain>
+   ```
+3. **קובץ ההגדרות** (`server/config/.env`): מוסיפים (או משנים) את המשתנים האלה:
+
+   | משתנה | ערך בשרת |
+   | --- | --- |
+   | `SERVE_CLIENT` | `true` (חובה: בלי זה השרת לא מגיש את אתר ה-IT) |
+   | `IT_HOST` | `it.<domain>` |
+   | `IT_SESSION_SECRET` | מחרוזת ארוכה ואקראית, שנוצרת בפקודה הבאה (בלי הסוד אף אחד לא יכול להיכנס לאתר, וזה מכוון) |
+   | `SYSTEM_ADMIN_EMAIL` | המייל שמקבל את קוד הכניסה וההתראות של חשבון המערכת |
+
+   ```bash
+   node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+   ```
+
+   הערך שמודפס הוא הסוד. מעתיקים אותו ל-`.env`, ולא שומרים אותו בשום מקום אחר. הוא שונה מ-`SPORT_SESSION_SECRET`.
+4. **כפתור המעבר בין האתרים:** הכפתור «النظام» באתר ה-IT פותח את האפליקציה היומיומית. כתובתה נקבעת בזמן הבנייה במשתנה `REACT_APP_SYSTEM_URL` (למשל `https://<domain>`). אם הוא ריק, האתר משתמש בכתובת של עצמו בלי התחילית `it.`. מגדירים אותו לפני `bash deploy/update.sh` (למשל `export REACT_APP_SYSTEM_URL=https://<domain>`), כי `update.sh` בונה גם את `apps/it`.
+5. **הפעלה מחדש עם הערכים החדשים:**
+   ```bash
+   bash deploy/update.sh
+   pm2 restart tamheed --update-env
+   ```
+6. **בדיקה:**
+   ```bash
+   curl -sI https://it.<domain>
+   ```
+   מצפים לתשובה `200` עם כותרות HTTPS. תשובת `502` פירושה שהשרת לא עלה, ואז בודקים `pm2 logs tamheed`. הכתובת `/api/it/me` בדומיין הראשי חייבת להחזיר `404`.
+7. **פיתוח מקומי:** מריצים את השרת עם `IT_HOST=it.localhost` ו-`IT_SESSION_SECRET` כלשהו, ובתיקיית `apps/it` מריצים `npm start` (או `npm run it` מהשורש). פותחים `http://it.localhost:3002` (הדפדפן פותר את `*.localhost` למחשב המקומי). שרת הפיתוח מעביר את `/api` אל `http://localhost:5000` ומוסיף את שם המארח; לשם אחר קובעים `IT_DEV_HOST` (אותו ערך כמו `IT_HOST`), ולשרת אחר `IT_DEV_SERVER`.
+
 ## 7. בדיקה אחרי ההעלאה
 
 1. נכנסים ל-`https://הדומיין-שלך` עם חשבון מערכת, ומחליפים סיסמה.

@@ -39,3 +39,7 @@ rs-start.out.log
 # sport site
 apps/sport/build
 apps/sport/node_modules
+
+# IT site
+apps/it/build
+apps/it/node_modules

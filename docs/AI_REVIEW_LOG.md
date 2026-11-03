@@ -3915,3 +3915,36 @@ and `requireSystemIt` and pins the IT keys; `audit`, `locks`, `push`,
 **Verification:** server 1231/1231.
 
 **Codex review:** pending (until 2026-11-06). **Status:** committed.
+
+### Follow-up: the IT site, apps/it (2026-11-03)
+
+**Change:** New CRA app `apps/it` (React 18.3.1, RTL Arabic, no router
+library): sign-in (ID number + password, then the email code; no sign-up),
+Users (every room, search, «فلتر» window, round lazy photos), the user page
+(role, the permissions editor copied from the everyday app, reset and view
+password, unlock, signed-in devices), IT users (`/members`, only when
+`/me` says `isSystem`), audit log, storage (Drive card), settings (lock
+force-release, push settings, system recovery). Copied, not imported:
+Avatar, FilterDialog, the permission tree and labels, the Drive card.
+Moving between the sites: «النظام» shows only when `POST /system-pass`
+answers 200 and opens the everyday site (`REACT_APP_SYSTEM_URL`) with
+`#pass=<pass>`; on load the sign-in reads `#pass=`, removes it with
+`history.replaceState` before anything else, calls `/login-pass` and goes to
+the code step. The password value is never shown (only «يوجد/لا توجد كلمة
+مرور»), and the system account's ID number is never displayed. Server:
+`hostStatic(distDir, host)` in `utils/sportHost.js` (`sportStatic` kept as
+the same function), `server.js` serves `apps/it/build` for `IT_HOST`.
+Deploy: `update.sh` builds `apps/it`, nginx block `it.example.org`,
+DEPLOY.md section (DNS, nginx, certbot, `IT_HOST`, `IT_SESSION_SECRET`,
+`REACT_APP_SYSTEM_URL`, local development with `IT_HOST=it.localhost`),
+root `package.json`, `.gitignore`, CI job for `apps/it`.
+
+**Test:** `apps/it` 34 tests in 8 suites (SignIn, App, Users, UserPage,
+Members, Audit, Storage, Settings), written first and seen failing (modules
+missing); `sport-host.test.js` gains `hostStatic serves the IT build only for
+IT_HOST` and the empty-host case (seen failing first).
+
+**Verification:** `apps/it` tests 34/34 and `CI=false npm run build`
+compiles; server 1233/1233.
+
+**Codex review:** pending (until 2026-11-06). **Status:** committed.

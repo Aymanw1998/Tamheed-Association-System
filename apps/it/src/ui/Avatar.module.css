@@ -1,0 +1,15 @@
+.avatar {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  object-fit: cover;
+  vertical-align: middle;
+}
+
+.letter {
+  background: var(--color-primary-50, #eef2ff);
+  color: var(--color-primary-700, #3730a3);
+  font-weight: 600;
+}

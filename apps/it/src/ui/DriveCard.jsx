@@ -1,0 +1,101 @@
+import { useEffect, useState } from "react";
+import { errorText, getDriveConnectUrl, getDriveStatus } from "../api";
+import { goTo } from "../siteLink";
+import ConfirmDialog from "./ConfirmDialog.jsx";
+import styles from "./DriveCard.module.css";
+
+// Google Drive's mark, used here only to identify the connected service.
+const DriveIcon = () => (
+  <svg viewBox="0 0 87.3 78" aria-hidden="true" focusable="false">
+    <path d="M6.6 66.85l3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3L27.5 53H0c0 1.55.4 3.1 1.2 4.5z" fill="#0066da" />
+    <path d="M43.65 25L29.9 1.2c-1.35.8-2.5 1.9-3.3 3.3L1.2 48.5A9.06 9.06 0 000 53h27.5z" fill="#00ac47" />
+    <path d="M73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5H59.8l5.85 11.5z" fill="#ea4335" />
+    <path d="M43.65 25L57.4 1.2C56.05.4 54.5 0 52.9 0H34.4c-1.6 0-3.15.45-4.5 1.2z" fill="#00832d" />
+    <path d="M59.8 53H27.5L13.75 76.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z" fill="#2684fc" />
+    <path d="M73.4 26.5L60.7 4.5c-.8-1.4-1.95-2.5-3.3-3.3L43.65 25 59.8 53h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00" />
+  </svg>
+);
+
+const RESULTS = {
+  connected: { text: "تم ربط حساب Google Drive", bad: false },
+  denied: { text: "لم يتم السماح بالوصول إلى حساب Google", bad: true },
+  error: { text: "تعذّر ربط حساب Google Drive", bad: true },
+};
+
+// Which Google account the whole app stores files in, and «تغيير الحساب».
+// The server reports canConnect and issues the consent URL; without canConnect
+// there is no button. Google's callback returns to /storage?drive=<result>.
+export default function DriveCard() {
+  const [status, setStatus] = useState(null);
+  const [error, setError] = useState("");
+  const [result, setResult] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [asking, setAsking] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const found = RESULTS[params.get("drive")];
+    if (found) {
+      setResult(found);
+      params.delete("drive");
+      const query = params.toString();
+      window.history.replaceState(null, "", `${window.location.pathname}${query ? `?${query}` : ""}`);
+    }
+    let live = true;
+    getDriveStatus().then((res) => {
+      if (!live) return;
+      if (!res.ok) return setError(errorText(res));
+      setStatus({ connected: Boolean(res.data.connected), email: res.data.email || "", canConnect: Boolean(res.data.canConnect) });
+    });
+    return () => { live = false; };
+  }, []);
+
+  const connect = async () => {
+    setAsking(false);
+    setBusy(true);
+    setError("");
+    const res = await getDriveConnectUrl();
+    if (!res.ok || !res.data.url) {
+      setBusy(false);
+      return setError("تعذّر بدء الربط، حاول مرة أخرى.");
+    }
+    goTo(res.data.url);
+  };
+
+  if (error && !status) return <p role="alert" className="error">{error}</p>;
+  if (!status) return <p role="status">…</p>;
+
+  return (
+    <>
+      {result && <p role={result.bad ? "alert" : "status"} className={result.bad ? "error" : "ok"}>{result.text}</p>}
+      <section className={styles.card} aria-label="Google Drive">
+        <span className={styles.icon}><DriveIcon /></span>
+        <div className={styles.body}>
+          <div className={styles.titleRow}>
+            <span className={styles.title}>Google Drive</span>
+            <span className={`badge ${status.connected ? "success" : "warning"}`}>{status.connected ? "مرتبط" : "غير مرتبط"}</span>
+          </div>
+          {status.connected
+            ? <span className={styles.email} title={status.email}>{status.email}</span>
+            : <span className={styles.hint}>لا يوجد حساب مرتبط. الملفات لا تُحفظ قبل الربط.</span>}
+        </div>
+        {status.canConnect && (
+          <div className={styles.action}>
+            <button type="button" className={status.connected ? "" : "primary"} disabled={busy} onClick={status.connected ? () => setAsking(true) : connect}>
+              {status.connected ? "تغيير الحساب" : "ربط الحساب"}
+            </button>
+          </div>
+        )}
+      </section>
+      {error && <p role="alert" className="error">{error}</p>}
+      {asking && (
+        <ConfirmDialog
+          title="تغيير حساب Google Drive"
+          message="ستُحفظ الملفات الجديدة في الحساب الذي تختاره. هل تريد المتابعة؟"
+          onCancel={() => setAsking(false)}
+          onConfirm={connect}
+        />
+      )}
+    </>
+  );
+}

@@ -32,6 +32,10 @@ echo "==> Installing and building the sport site"
 npm ci --prefix apps/sport
 npm run build --prefix apps/sport
 
+echo "==> Installing and building the IT site"
+npm ci --prefix apps/it
+npm run build --prefix apps/it
+
 echo "==> Restarting the server"
 if pm2 describe tamheed >/dev/null 2>&1; then
   pm2 reload deploy/ecosystem.config.js

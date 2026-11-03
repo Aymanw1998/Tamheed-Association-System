@@ -24,7 +24,7 @@ const crypto = require("crypto")
 dotenv.config({path: './config/.env'});
 const { ensureSystemAdmin } = require('./scripts/ensureSystemAdmin');
 const { createFatalShutdown } = require('./utils/fatalShutdown');
-const { sportStatic } = require('./utils/sportHost');
+const { sportStatic, hostStatic } = require('./utils/sportHost');
 //Craete app
 const app = express();
 app.use(logger);
@@ -76,6 +76,8 @@ if (process.env.SERVE_CLIENT === 'true') {
   const clientBuild = path.join(__dirname, '..', 'apps', 'system', 'build');
   // The sport site on its own host name; must come before the system client.
   app.use(sportStatic(path.join(__dirname, '..', 'apps', 'sport', 'build'), process.env.SPORT_HOST));
+  // The IT site on its own host name (IT_HOST).
+  app.use(hostStatic(path.join(__dirname, '..', 'apps', 'it', 'build'), process.env.IT_HOST));
   app.use(express.static(clientBuild));
   app.get(/^\/(?!api(\/|$)).*/, (req, res, next) =>
     req.accepts('html') ? res.sendFile(path.join(clientBuild, 'index.html')) : next()
