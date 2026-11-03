@@ -66,7 +66,13 @@ async function ensureSystemAdmin() {
       city: SYSTEM_ADMIN_CITY,
       street: SYSTEM_ADMIN_STREET,
       gender: SYSTEM_ADMIN_GENDER,
-      roles: ["ادارة"],
+      // The system account belongs to the IT layer and holds no everyday role;
+      // it still works in the everyday app through its system identity.
+      role: null,
+      roles: [],
+      isIT: true,
+      itBlockedAt: null,
+      ...(activeUser.itSince ? {} : { itSince: new Date() }),
       storageFolder: activeUser.storageFolder || SYSTEM_ADMIN_STORAGE_FOLDER,
       // An account without a valid date must change its password at the
       // next sign-in; a valid date is kept.
@@ -96,7 +102,11 @@ async function ensureSystemAdmin() {
     city: SYSTEM_ADMIN_CITY,
     street: SYSTEM_ADMIN_STREET,
     gender: SYSTEM_ADMIN_GENDER,
-    roles: ["ادارة"],
+    role: null,
+    roles: [],
+    isIT: true,
+    itBlockedAt: null,
+    itSince: new Date(),
     storageFolder: SYSTEM_ADMIN_STORAGE_FOLDER,
     passwordChangedAt: FORCE_CHANGE(),
   };

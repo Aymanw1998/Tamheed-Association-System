@@ -277,3 +277,71 @@ test("a report created by the system stores createdBy \"system\"; others keep th
   assert.equal(reports[1].createdBy, GUIDE_USER._id);
   assert.ok(!JSON.stringify(reports).includes(SYSTEM_TZ));
 });
+
+/* ================= the system account is IT, with no everyday role ================= */
+
+function loadEnsureSystemAdmin(users = []) {
+  const calls = { creates: [], updates: [] };
+  const model = {
+    async get(filter, room) { return { success: true, result: room === "active" ? users.filter((u) => u.tz === filter.tz) : [] }; },
+    async update(filter, data, room) { calls.updates.push({ filter, data, room }); return { success: true }; },
+    async create(data, room) { calls.creates.push({ data, room }); return { success: true }; },
+  };
+  const dependencies = {
+    "../Entities/User/User.model": { UserModelDef: model },
+    "../Entities/Storage/Storage.controller": { ensureUserStorageFolder: async () => {} },
+    "../utils/systemPassword": require("../utils/systemPassword"),
+    "../utils/sendEmail": { smtpConfigured: () => true },
+  };
+  const filename = path.join(__dirname, "../scripts/ensureSystemAdmin.js");
+  const module = { exports: {} };
+  vm.runInNewContext(fs.readFileSync(filename, "utf8"), {
+    module, Date, Promise,
+    console: { log() {}, error() {}, warn() {} },
+    process: { env: { SYSTEM_ADMIN_TZ: SYSTEM_TZ, SYSTEM_ADMIN_PASSWORD: "test-only-pass-1", SYSTEM_ADMIN_EMAIL: "owner@example.test" } },
+    require(name) {
+      assert.ok(Object.hasOwn(dependencies, name), `Unexpected dependency: ${name}`);
+      return dependencies[name];
+    },
+  }, { filename });
+  return { ensureSystemAdmin: module.exports.ensureSystemAdmin, calls };
+}
+
+test("a new system account is IT with no everyday role", async () => {
+  const { ensureSystemAdmin, calls } = loadEnsureSystemAdmin();
+  await ensureSystemAdmin();
+  const data = calls.creates[0].data;
+  assert.equal(data.role, null);
+  assert.deepEqual(plain(data.roles), []);
+  assert.equal(data.isIT, true);
+  assert.equal(data.itBlockedAt, null);
+  assert.ok(!Number.isNaN(new Date(data.itSince).getTime()) && data.itSince);
+});
+
+test("an existing system account stored as ادارة becomes IT on start, keeping its password", async () => {
+  const since = new Date("2026-01-01T00:00:00.000Z");
+  const stored = { tz: SYSTEM_TZ, role: ADMIN, roles: [ADMIN], password: "stored-hash", itBlockedAt: new Date() };
+  const first = loadEnsureSystemAdmin([stored]);
+  await first.ensureSystemAdmin();
+  const patch = first.calls.updates[0].data;
+  assert.equal(patch.role, null);
+  assert.deepEqual(plain(patch.roles), []);
+  assert.equal(patch.isIT, true);
+  assert.equal(patch.itBlockedAt, null);
+  assert.ok(patch.itSince && !Number.isNaN(new Date(patch.itSince).getTime()), "itSince is set when it first becomes IT");
+  assert.equal(Object.hasOwn(patch, "password"), false);
+
+  // Already IT: itSince is kept.
+  const again = loadEnsureSystemAdmin([{ ...stored, isIT: true, itSince: since }]);
+  await again.ensureSystemAdmin();
+  assert.equal(Object.hasOwn(again.calls.updates[0].data, "itSince"), false);
+});
+
+test("the user model carries the IT fields with safe defaults", () => {
+  process.env.PASSWORD_ENC_KEY_HEX = process.env.PASSWORD_ENC_KEY_HEX || "00".repeat(32);
+  const { UserModelDef } = require("../Entities/User/User.model");
+  assert.deepEqual(
+    ["isIT", "itBlockedAt", "itSince"].map((f) => [UserModelDef.fields[f].type, UserModelDef.fields[f].default]),
+    [["boolean", false], ["date", null], ["date", null]],
+  );
+});

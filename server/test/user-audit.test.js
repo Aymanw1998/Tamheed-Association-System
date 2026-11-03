@@ -167,8 +167,9 @@ test("a password change is recorded, and the stored diff hides both values", asy
 test("putU no longer changes roles or grants; the role endpoint records role_change", async () => {
   const users = createUsers({ active: [{ _id: "u5", tz: "500000004", firstname: "G", lastname: "U", role: "مرشد", roles: ["مرشد"] }] });
   const { controller, audit } = loadController(users);
-  await controller.putU(req({ params: { tz: "500000004" }, body: { roles: ["مساعد"], vehiclePermissions: ["view"] } }), res());
+  await controller.putU(req({ params: { tz: "500000004" }, body: { roles: ["مساعد"], vehiclePermissions: ["view"], isIT: true, itSince: new Date() } }), res());
   assert.equal(users.rooms.active[0].role, "مرشد");
+  assert.ok(!users.rooms.active[0].isIT && !users.rooms.active[0].itSince, "a PUT body never sets IT fields");
   assert.equal(audit.find({ action: "role_change" }).length, 0);
   assert.equal(audit.find({ action: "permission_change" }).length, 0);
 

@@ -44,6 +44,10 @@ const UserModelDef = {
     role: { type: 'string', required: false, default: null },
     permissionGrants: { type: 'array', required: false, default: [] },
     permissionRevokes: { type: 'array', required: false, default: [] },
+    // IT layer: membership, a block by the system account, and when it began.
+    isIT: { type: 'boolean', required: false, default: false },
+    itBlockedAt: { type: 'date', required: false, default: null },
+    itSince: { type: 'date', required: false, default: null },
     permissionsUpdatedAt: { type: 'date', required: false },
     permissionsUpdatedBy: { type: 'string', required: false },
     passwordChangedAt: { type: 'date', required: false, default: null },

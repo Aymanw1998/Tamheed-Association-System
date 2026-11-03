@@ -3771,3 +3771,20 @@ student's responsible guide).
 **Verification:** server 1173/1173.
 
 **Codex review:** pending (until 2026-11-06). **Status:** committed.
+
+### Follow-up: the system account is IT (2026-11-03)
+
+**Change:** the user model gains `isIT` (false), `itBlockedAt` (null) and
+`itSince` (null). `ensureSystemAdmin` creates or normalizes the system account
+as `role: null, roles: [], isIT: true, itBlockedAt: null`, setting `itSince`
+when it first becomes IT; its password and other details are kept. The three
+fields join `SERVER_OWNED_FIELDS`, so an everyday edit never sets them.
+
+**Test:** `system-account.test.js` +3 (new account is IT with no role; an
+existing `ادارة` account becomes IT keeping its password and `itSince`; model
+defaults), seen failing first. `user-audit.test.js` asserts a PUT body carrying
+`isIT` stores nothing.
+
+**Verification:** server 1176/1176.
+
+**Codex review:** pending (until 2026-11-06). **Status:** committed.

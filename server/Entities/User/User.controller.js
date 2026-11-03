@@ -162,6 +162,8 @@ const permissionEditor = (actor) => actorRef(actor, String(actor?.tz || ""));
 const SERVER_OWNED_FIELDS = [
   "role", "roles", "permissionGrants", "permissionRevokes", "vehiclePermissions",
   "permissionsUpdatedAt", "permissionsUpdatedBy",
+  // IT membership is managed only on the IT site, never by an everyday edit.
+  "isIT", "itBlockedAt", "itSince",
   // A user is never renamed, and the folder and Drive link are server-derived.
   "tz", "storageFolder", "googleDrive",
   "failedLoginCount", "lockedAt", "passwordChangedAt", "recoveredAt", "signedOutAt",
