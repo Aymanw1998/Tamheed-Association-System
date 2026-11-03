@@ -70,7 +70,7 @@ The owner's words, summarised:
 | Change the role of a user of lower rank (مرشد ↔ مساعد) | yes, by default | any everyday user | — |
 | Reset (set a new) password of a user of lower rank | yes, by default | any everyday user | — |
 | Change permissions (grants / revokes) | no, never | any everyday user | — |
-| See a user's current password | no | yes | — |
+| See whether a user has a password (never its value; owner, 2026-11-03: «להשאיר ככה») | no | yes | — |
 | Unlock a locked user | no | yes | — |
 | Audit log | no | yes | — |
 | Connect / change the Google Drive account | no | yes | yes |
