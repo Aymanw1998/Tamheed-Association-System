@@ -35,6 +35,7 @@ export default function App() {
   const [me, setMe] = useState(null);
   // A pass from the everyday app is taken off the address before anything else.
   const [pass] = useState(takePassFromAddress);
+  // «النظام» only for a user who has an everyday role too (/me says).
   const [hasSystem, setHasSystem] = useState(false);
   const path = usePath();
 
@@ -43,6 +44,7 @@ export default function App() {
     if (res.status === 401) return setState("out");
     if (!res.ok) return setState("error");
     setMe(res.data);
+    setHasSystem(res.data.hasEverydayRole === true);
     setState("in");
   }, []);
 
@@ -52,15 +54,8 @@ export default function App() {
     return () => setSignedOutHandler(null);
   }, [loadMe]);
 
-  // «النظام» only for a user who has an everyday role too: the server says (403 = no).
-  useEffect(() => {
-    if (state !== "in") { setHasSystem(false); return undefined; }
-    let live = true;
-    systemPass().then((res) => { if (live) setHasSystem(res.ok); });
-    return () => { live = false; };
-  }, [state]);
-
   const openSystem = async () => {
+    // The pass is asked for only now, when the button is clicked.
     const res = await systemPass();
     if (!res.ok || !res.data.pass) return setHasSystem(false);
     goTo(systemUrlWithPass(res.data.pass));

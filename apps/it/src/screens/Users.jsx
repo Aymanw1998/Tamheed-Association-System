@@ -29,7 +29,7 @@ export default function Users() {
     const needle = query.trim().toLowerCase();
     return (users || []).filter((user) => {
       if (filter.room && user.room !== filter.room) return false;
-      if (filter.role === "none" ? user.role : filter.role && user.role !== filter.role) return false;
+      if (filter.role === "none" ? user.role : (filter.role && user.role !== filter.role)) return false;
       if (!needle) return true;
       return `${user.firstname} ${user.lastname} ${user.tz}`.toLowerCase().includes(needle);
     });

@@ -5,7 +5,7 @@ const { ItLoginCodeModelDef } = require("./ItLoginCode.model");
 const { sha256 } = require("../../utils/jwt");
 const { generateOtp6 } = require("../../utils/otp");
 const sendEmail = require("../../utils/sendEmail");
-const { isSystemTz, hasRealEmail } = require("../../utils/permissions");
+const { isSystemTz, hasRealEmail, resolveRole } = require("../../utils/permissions");
 const { isLocked, afterSuccess } = require("../../utils/loginLockout");
 const { mustChangePassword, isUsableSystemEmail } = require("../../utils/systemPassword");
 const { audit: defaultAudit } = require("../../utils/audit");
@@ -224,7 +224,8 @@ function createItAuth(deps = {}) {
   // GET /api/it/me (after requireIt).
   const me = (req, res) => {
     const { tz, name, isSystem, user } = req.actor;
-    return res.json({ ok: true, tz, name, isSystem, photo: user?.photo || null });
+    // hasEverydayRole: the pass routes' condition, so the site can show «النظام» without asking for a pass.
+    return res.json({ ok: true, tz, name, isSystem, photo: user?.photo || null, hasEverydayRole: Boolean(resolveRole(user)) });
   };
 
   return { login, verify, logout, me, sendCodeWithoutPassword };

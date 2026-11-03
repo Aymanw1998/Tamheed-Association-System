@@ -25,22 +25,38 @@ beforeEach(() => {
 afterEach(async () => { await unmountAll(); jest.clearAllMocks(); });
 
 test("the button shows only for a user with both sides", async () => {
-  api.getMe.mockImplementation(() => ok(ME));
-  api.systemPass.mockImplementation(() => ok({ pass: "p1" }));
+  api.getMe.mockImplementation(() => ok({ ...ME, hasEverydayRole: true }));
   let c = await mount(<App />);
   expect(button(c, "النظام")).toBeDefined();
   await unmountAll();
 
-  api.systemPass.mockImplementation(() => fail(403, { code: "FORBIDDEN" }));
+  api.getMe.mockImplementation(() => ok({ ...ME, hasEverydayRole: false }));
   c = await mount(<App />);
   expect(button(c, "النظام")).toBeUndefined();
 });
 
+test("no /system-pass request is made on load, only when the button is clicked", async () => {
+  api.getMe.mockImplementation(() => ok({ ...ME, hasEverydayRole: true }));
+  api.systemPass.mockImplementation(() => ok({ pass: "p1" }));
+  const c = await mount(<App />);
+  expect(api.systemPass).not.toHaveBeenCalled();
+  await click(button(c, "النظام"));
+  expect(api.systemPass).toHaveBeenCalledTimes(1);
+});
+
+test("a refused pass on click hides the button", async () => {
+  api.getMe.mockImplementation(() => ok({ ...ME, hasEverydayRole: true }));
+  api.systemPass.mockImplementation(() => fail(403, { code: "FORBIDDEN" }));
+  const c = await mount(<App />);
+  await click(button(c, "النظام"));
+  expect(nav.goTo).not.toHaveBeenCalled();
+  expect(button(c, "النظام")).toBeUndefined();
+});
+
 test("the button opens the everyday site with a fresh pass in the fragment", async () => {
-  api.getMe.mockImplementation(() => ok(ME));
+  api.getMe.mockImplementation(() => ok({ ...ME, hasEverydayRole: true }));
   api.systemPass.mockImplementation(() => ok({ pass: "fresh-pass" }));
   const c = await mount(<App />);
-  api.systemPass.mockClear();
   await click(button(c, "النظام"));
   expect(api.systemPass).toHaveBeenCalledTimes(1);
   expect(nav.goTo).toHaveBeenCalledTimes(1);

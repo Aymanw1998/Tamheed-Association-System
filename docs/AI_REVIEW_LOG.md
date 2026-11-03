@@ -3948,3 +3948,17 @@ IT_HOST` and the empty-host case (seen failing first).
 compiles; server 1233/1233.
 
 **Codex review:** pending (until 2026-11-06). **Status:** committed.
+
+### Follow-up: IT site «النظام» from /me, a pass only on click (2026-11-03)
+
+**Change:** `GET /api/it/me` also returns `hasEverydayRole` (the pass routes'
+condition, `resolveRole`). The IT site shows «النظام» from it and asks
+`/system-pass` only when the button is clicked (a refusal hides the button).
+Users role filter expression parenthesised.
+
+**Test:** `it-auth.test.js` me answer (with and without a role); `App.test.js`
+button from /me, no /system-pass on load, refused pass hides the button.
+
+**Verification:** apps/it 36/36 and build compiles; server full suite passes.
+
+**Codex review:** pending (until 2026-11-06). **Status:** committed.

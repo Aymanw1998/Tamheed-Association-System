@@ -338,7 +338,12 @@ test("requireIt builds the IT actor, and me answers from it", async () => {
 
   const me = res();
   await ctx.auth.me(req, me);
-  assert.deepEqual(me.body, { ok: true, tz: "100000009", name: "It One", isSystem: false, photo: "https://example.com/p.jpg" });
+  assert.deepEqual(me.body, { ok: true, tz: "100000009", name: "It One", isSystem: false, photo: "https://example.com/p.jpg", hasEverydayRole: false });
+
+  // An IT user who also has an everyday role: the same condition the pass routes use.
+  const both = res();
+  await ctx.auth.me({ actor: { ...req.actor, user: { ...req.actor.user, role: "مرشد" } } }, both);
+  assert.equal(both.body.hasEverydayRole, true);
 
   const sys = await runRequireIt(ctx.requireIt, { cookie: await signIn(ctx, SYSTEM_TZ) });
   assert.equal(sys.nexted, true);
