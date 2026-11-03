@@ -3,7 +3,7 @@ import { useId } from "react";
 // The player card's artwork: a full shield with soft curves, green into
 // soft blue, ribbons of arrows in orange, white and sky blue. Drawn in a
 // 560×800 box and stretched over the 264×384 card. The same file lives in
-// client/src/Components/Sport/CardArt.jsx; keep the two copies equal.
+// apps/sport/src/CardArt.jsx; keep the two copies equal.
 
 export const CARD_W = 264;
 export const CARD_H = 384;

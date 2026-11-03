@@ -67,7 +67,7 @@ function newPasswordProblem(newPassword, currentPassword) {
 }
 
 // Readable Arabic text for newPasswordProblem codes, worded like the client's
-// passwordChange.errors (client/src/i18n/accessStrings.js).
+// passwordChange.errors (apps/system/src/i18n/accessStrings.js).
 const PASSWORD_PROBLEM_MESSAGES = {
   PASSWORD_TOO_SHORT: `كلمة المرور الجديدة قصيرة جدًا (${MIN_PASSWORD_LENGTH} أحرف على الأقل).`,
   PASSWORD_TOO_LONG: `كلمة المرور الجديدة طويلة جدًا (${MAX_PASSWORD_LENGTH} حرفًا على الأكثر).`,

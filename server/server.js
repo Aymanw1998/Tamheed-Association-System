@@ -73,9 +73,9 @@ app.set('trust proxy', 1); // ملاحظة عربية
 // so opening http://<server-ip>:<port> loads the app and /api on one origin.
 // Mounted before helmet so the CRA bundle isn't subject to helmet's default CSP.
 if (process.env.SERVE_CLIENT === 'true') {
-  const clientBuild = path.join(__dirname, '..', 'client', 'build');
+  const clientBuild = path.join(__dirname, '..', 'apps', 'system', 'build');
   // The sport site on its own host name; must come before the system client.
-  app.use(sportStatic(path.join(__dirname, '..', 'sport', 'build'), process.env.SPORT_HOST));
+  app.use(sportStatic(path.join(__dirname, '..', 'apps', 'sport', 'build'), process.env.SPORT_HOST));
   app.use(express.static(clientBuild));
   app.get(/^\/(?!api(\/|$)).*/, (req, res, next) =>
     req.accepts('html') ? res.sendFile(path.join(clientBuild, 'index.html')) : next()

@@ -1,4 +1,4 @@
-/* The player card of the sport site (sport/src/styles.css), scoped for the staff modal. */
+/* The player card of the sport site (apps/sport/src/styles.css), scoped for the staff modal. */
 .backdrop { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(7, 27, 39, 0.72); overflow: auto; }
 .modal {
   --night: #071b27; --navy: #0b2a3a; --pitch: #0d4a3a; --grass: #1d7a3e;

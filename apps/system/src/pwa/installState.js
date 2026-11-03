@@ -1,7 +1,7 @@
 // Installing the web app on a phone (owner, 2026-11-01: a button for people
 // who do not know how). The browser's install prompt (Android, Chrome) is
 // caught here once for the whole app, and any button can open the guide.
-// The same file is in client/src/pwa.
+// The same file is in apps/sport/src/pwa.
 
 let deferred = null;
 const listeners = new Set();

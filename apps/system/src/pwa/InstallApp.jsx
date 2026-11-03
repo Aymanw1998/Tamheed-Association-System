@@ -5,7 +5,7 @@ import {
 
 // "Install the app" on a phone, for people who do not know how (owner,
 // 2026-11-01): one tap where the browser can install (Android), otherwise a
-// guide with the steps for this phone. The same file is in client/src/pwa.
+// guide with the steps for this phone. The same file is in apps/sport/src/pwa.
 
 const ShareIcon = () => (
   <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" style={{ verticalAlign: "middle" }}>
@@ -72,7 +72,7 @@ const sheet = {
 };
 const primary = {
   font: "inherit", fontWeight: 700, width: "100%", border: 0, borderRadius: 10, padding: "10px 12px",
-  background: "#0b2a3a", color: "#fff", cursor: "pointer", marginBottom: 8,
+  background: "#1e6580", color: "#fff", cursor: "pointer", marginBottom: 8,
 };
 const secondary = { ...primary, background: "#eef2f7", color: "#0f172a", marginBottom: 0 };
 

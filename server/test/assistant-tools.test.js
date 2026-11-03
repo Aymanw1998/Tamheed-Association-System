@@ -487,7 +487,7 @@ test("navigate never builds a path from a blank ID number", async () => {
 test("the chat's Markdown links allow exactly the first path segments of the navigate screens", () => {
   const { SCREENS } = require("../services/assistant/tools/navigate");
   const segments = [...new Set(Object.values(SCREENS).map((s) => s.path.split("/")[1]))].sort();
-  const file = require("node:path").join(__dirname, "..", "..", "client", "src", "utils", "safeMarkdown.js");
+  const file = require("node:path").join(__dirname, "..", "..", "apps", "system", "src", "utils", "safeMarkdown.js");
   const source = require("node:fs").readFileSync(file, "utf8");
   const list = /APP_SCREENS = \[([^\]]*)\]/.exec(source);
   assert.ok(list, "safeMarkdown.js declares APP_SCREENS");

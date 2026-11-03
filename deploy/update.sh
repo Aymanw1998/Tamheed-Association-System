@@ -25,12 +25,12 @@ echo "==> Fetching the portrait model for player photos (once, ~26MB)"
 node server/scripts/fetchPortraitModel.js || echo "!! Portrait model not fetched: player photos stay plain. Run it again later."
 
 echo "==> Installing and building the web app"
-npm ci --prefix client
-CI=false npm run build --prefix client
+npm ci --prefix apps/system
+CI=false npm run build --prefix apps/system
 
 echo "==> Installing and building the sport site"
-npm ci --prefix sport
-npm run build --prefix sport
+npm ci --prefix apps/sport
+npm run build --prefix apps/sport
 
 echo "==> Restarting the server"
 if pm2 describe tamheed >/dev/null 2>&1; then

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// One-command project setup: installs dependencies in root/client/server
+// One-command project setup: installs dependencies in root/apps/system/server
 // and creates local .env files from their .env.example templates.
 
 const { spawnSync } = require("child_process");
@@ -38,14 +38,14 @@ function ensureEnvFile(dir, exampleName, envName) {
 console.log("== Tamheed setup ==");
 
 run("npm", ["install"], ROOT);
-run("npm", ["install"], path.join(ROOT, "client"));
+run("npm", ["install"], path.join(ROOT, "apps", "system"));
 run("npm", ["install"], path.join(ROOT, "server"));
 
 console.log("\n== Environment files ==");
 ensureEnvFile(path.join(ROOT, "server", "config"), ".env.example", ".env");
-ensureEnvFile(path.join(ROOT, "client"), ".env.example", ".env");
+ensureEnvFile(path.join(ROOT, "apps", "system"), ".env.example", ".env");
 
 console.log("\nSetup complete.");
 console.log("Next steps:");
-console.log("  1. Fill in real values in server/config/.env and client/.env");
-console.log("  2. Run \"npm start\" from the repo root to launch client + server together");
+console.log("  1. Fill in real values in server/config/.env and apps/system/.env");
+console.log("  2. Run \"npm start\" from the repo root to launch the sites and the server together");

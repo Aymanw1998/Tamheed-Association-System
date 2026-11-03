@@ -4,14 +4,14 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "npm run test --prefix server && npm run test --prefix client",
-    "verify": "npm test && npm run build --prefix client",
+    "test": "npm run test --prefix server && npm run test --prefix apps/system",
+    "verify": "npm test && npm run build --prefix apps/system",
     "setup": "node scripts/setup.js",
     "start": "concurrently \"npm run server\" \"npm run client\" \"npm run sport\"",
     "server": "cd server && npm start",
-    "client": "cd client && npm start",
-    "sport": "cd sport && npm run dev",
-    "build": "npm run build --prefix client && npm run build --prefix sport"
+    "client": "cd apps/system && npm start",
+    "sport": "cd apps/sport && npm run dev",
+    "build": "npm run build --prefix apps/system && npm run build --prefix apps/sport"
   },
   "author": "",
   "license": "ISC",

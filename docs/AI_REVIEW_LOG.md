@@ -3685,3 +3685,21 @@ both when the saves are not simultaneous).
 server, run `node scripts/findDuplicateTz.js` and check the startup log.
 
 **Codex review:** pending (until 2026-11-06). **Status:** committed.
+
+### Follow-up: the sites move into apps/ (2026-11-03)
+
+**Owner's request:** separate the systems by folder: `client` -> `apps/system`,
+`sport` -> `apps/sport`, and later `apps/it`.
+
+**Change:** `git mv` only, plus the paths that name the folders:
+`server/server.js` (the built sites it serves), `deploy/update.sh`, root
+`package.json`, `scripts/setup.js`, `.github/workflows/ci.yml`, `.gitignore`,
+one server test that reads a client file, and comments that pointed at the
+old paths. Older plans, specs and this log keep the old names.
+
+**Verification:** server 1156/1156, apps/system 927/927, apps/sport 92/92 (one journey test
+timed out once under load, passed alone and on the rerun), both builds
+compile. On the server, `update.sh` builds the new folders; the ignored
+leftovers in the old `client/` and `sport/` folders there are unused.
+
+**Codex review:** pending (until 2026-11-06). **Status:** committed.

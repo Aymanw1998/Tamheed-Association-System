@@ -1,6 +1,6 @@
 const { FORBIDDEN, NOT_FOUND, invalid, OBJECT_ID_RE, rows } = require("./_shared");
 
-// The fixed list of screens (client/src/Components/Routes/Routes.jsx).
+// The fixed list of screens (apps/system/src/Components/Routes/Routes.jsx).
 // `needs`: the permission the screen's data needs; `id`: what the :id in
 // the path is. Students and users are opened by their ID number in the URL,
 // so the tool looks the record up (in the user's scope) to build the path;
