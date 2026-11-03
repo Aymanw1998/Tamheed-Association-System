@@ -680,3 +680,24 @@ test("a staff student update tells that student's own sport screen (name or phot
   assert.equal(saved.statusCode, 200);
   assert.deepEqual(live.students, [[[S[0]._id], "me"]]);
 });
+
+// Owner, 2026-11-03: one record per ID number. Two saves of the same ID at the
+// same moment both pass the existence check; the database's unique index then
+// refuses the second, and the reply is the usual 409, not a 500.
+const duplicateKey = () => Object.assign(new Error("E11000 duplicate key error collection: Students index: tz_1"), { code: 11000 });
+
+test("a new student whose ID number was taken a moment ago gets 409 TZ_EXISTS", async () => {
+  const w = world();
+  w.students.create = async () => { throw duplicateKey(); };
+  const res = await call(w.student.postS, reqAs(ADMIN, { body: { tz: "800000020", firstname: "N", lastname: "Ew" } }));
+  assert.equal(res.statusCode, 409);
+  assert.equal(res.body.code, "TZ_EXISTS");
+});
+
+test("changing a student's ID number to one taken a moment ago gets 409 TZ_EXISTS", async () => {
+  const w = world();
+  w.students.updateExisting = async () => { throw duplicateKey(); };
+  const res = await call(w.student.putS, reqAs(ADMIN, { params: { tz: S[0].tz }, body: { tz: "800000021" } }));
+  assert.equal(res.statusCode, 409);
+  assert.equal(res.body.code, "TZ_EXISTS");
+});

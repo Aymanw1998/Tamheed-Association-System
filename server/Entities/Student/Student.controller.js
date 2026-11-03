@@ -13,6 +13,7 @@ const { AttendanceModelDef } = require("../Attendance/Attendance.model");
 const LAST_DATE_KEY = 99991231;
 const ATTENDANCE_ROWS = 200;
 const { checkVersion, editorStamp, sameVersion, raceLost } = require("../../middleware/lockGuard");
+const { isDuplicateKey } = require("../../utils/tzUnique");
 const { notifyChange, liveHub } = require("../../services/liveHub");
 const { playerPhotoJob } = require("../../services/playerPhotoJob");
 const { passportPhotoJob } = require("../../services/passportPhotoJob");
@@ -285,6 +286,8 @@ const postS = async (req, res) => {
       created,
     });
   } catch (err) {
+    // The unique tz index refused a save of the same moment (utils/tzUnique).
+    if (isDuplicateKey(err)) return res.status(409).json({ ok: false, code: "TZ_EXISTS", message: "الطالب مسجّل مسبقًا" });
     logWithSource("Student.postS", err);
     return res.status(500).json({
       ok: false,
@@ -369,6 +372,7 @@ const putS = async (req, res) => {
       updated,
     });
   } catch (err) {
+    if (isDuplicateKey(err)) return res.status(409).json({ ok: false, code: "TZ_EXISTS", message: "الطالب مسجّل مسبقًا" });
     logWithSource("Student.putS", err);
     return res.status(500).json({
       ok: false,

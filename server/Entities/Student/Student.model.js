@@ -1,4 +1,6 @@
 const api = require("../api");
+const { ensureIndexes, collectionOf } = require("../../utils/ensureIndexes");
+const { TZ_UNIQUE_INDEX } = require("../../utils/tzUnique");
 
 // ملاحظة عربية
 const StudentModelDef = {
@@ -119,7 +121,13 @@ StudentModelDef.delete = async function (filter) {
     });
 };
 
-module.exports = { StudentModelDef };
+const STUDENT_INDEXES = [TZ_UNIQUE_INDEX];
+const ensureStudentIndexes = (collection) => ensureIndexes(
+    collection || collectionOf({ dbName: StudentModelDef.dbName, collection: StudentModelDef.collections.active }),
+    STUDENT_INDEXES,
+);
+
+module.exports = { StudentModelDef, STUDENT_INDEXES, ensureStudentIndexes };
 
 // OLD CODE - DO NOT SUGGEST
 // const mongoose = require('mongoose');

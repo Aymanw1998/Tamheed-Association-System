@@ -4,6 +4,7 @@ const path = require("path");
 
 const { UserModelDef } = require("./User.model");
 const { checkVersion, editorStamp, sameVersion, raceLost } = require("../../middleware/lockGuard");
+const { isDuplicateKey } = require("../../utils/tzUnique");
 const { notifyChange } = require("../../services/liveHub");
 
 const { generateOtp6 } = require("../../utils/otp");
@@ -651,6 +652,8 @@ const postU = async (req, res) => {
       created,
     });
   } catch (err) {
+    // The unique tz index refused a save of the same moment (utils/tzUnique).
+    if (isDuplicateKey(err)) return res.status(409).json({ ok: false, code: "TZ_EXISTS", message: "المستخدم مسجّل مسبقًا" });
     logWithSource("User.postU", err);
     return res.status(500).json({
       ok: false,
@@ -882,6 +885,7 @@ const register = async (req, res) => {
       created,
     });
   } catch (error) {
+    if (isDuplicateKey(error)) return res.status(400).json({ message: "المستخدم موجود" });
     logWithSource("User.register", error);
     return res.status(400).json({ message: error.message });
   }
@@ -1445,6 +1449,8 @@ const changeRoom = async (req, res) => {
       user: sanitize(raw),
     });
   } catch (error) {
+    // The destination room got this ID number a moment ago; the user stays where he was.
+    if (isDuplicateKey(error)) return res.status(409).json({ ok: false, code: "TZ_EXISTS", message: "المستخدم مسجّل مسبقًا" });
     logWithSource("User.changeRoom", error);
     return res.status(500).json({
       ok: false,

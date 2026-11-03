@@ -193,3 +193,29 @@ test("two edits of a user on the same version at once: one is written, the other
   assert.equal(lost.body.current.password, undefined, "the 409 never carries the password");
   assert.equal(users.rooms.active.find((u) => u.tz === "600000002").firstname, a.statusCode === 200 ? "Aa" : "Bb");
 });
+
+// Owner, 2026-11-03: one record per ID number; a duplicate refused by the
+// database's unique index is the usual 409, and nothing is recorded.
+const duplicateKey = () => Object.assign(new Error("E11000 duplicate key error collection: Users index: tz_1"), { code: 11000 });
+
+test("a new user whose ID number was taken a moment ago gets 409 TZ_EXISTS", async () => {
+  const users = createUsers();
+  users.create = async () => { throw duplicateKey(); };
+  const { controller, audit } = loadController(users);
+  const created = res();
+  await controller.postU(req({ body: { tz: "200000016", password: "placeholder", firstname: "Sam", lastname: "Example" } }), created);
+  assert.equal(created.statusCode, 409);
+  assert.equal(created.body.code, "TZ_EXISTS");
+  assert.equal(audit.calls.length, 0);
+});
+
+test("a room move into a room that got the same ID number a moment ago gets 409 and keeps the user", async () => {
+  const users = createUsers({ waiting: [{ _id: "w2", tz: "300000015", firstname: "New", lastname: "Comer" }] });
+  users.create = async () => { throw duplicateKey(); };
+  const { controller } = loadController(users);
+  const moved = res();
+  await controller.changeRoom(req({ params: { tz: "300000015" }, body: { from: "waiting", to: "active", role: "مرشد" } }), moved);
+  assert.equal(moved.statusCode, 409);
+  assert.equal(moved.body.code, "TZ_EXISTS");
+  assert.equal(users.rooms.waiting.length, 1, "the user stays where he was");
+});

@@ -1,4 +1,6 @@
 const api = require("../api");
+const { ensureIndexes, collectionOf } = require("../../utils/ensureIndexes");
+const { TZ_UNIQUE_INDEX } = require("../../utils/tzUnique");
 const { encryptPassword, isEncrypted } = require('./passwordCrypto');
 const { sanitizeVehiclePermissions } = require('../../utils/vehicleRules');
 const isBcryptHash = (val) =>
@@ -271,7 +273,14 @@ for (const name of ["create", "update", "updateExisting", "incrementFailedLogin"
   };
 }
 
-module.exports = { UserModelDef};
+// The same index in each room (active, noActive, waiting). A move between
+// rooms writes the destination first, so it is refused there too.
+const USER_INDEXES = [TZ_UNIQUE_INDEX];
+const ensureUserIndexes = async (collectionFor = (name) => collectionOf({ dbName: UserModelDef.dbName, collection: name })) => {
+  for (const name of Object.values(UserModelDef.collections)) await ensureIndexes(collectionFor(name), USER_INDEXES);
+};
+
+module.exports = { UserModelDef, USER_INDEXES, ensureUserIndexes };
 
 // OLD CODE - DO NOT SUGGEST
 // const mongoose = require('mongoose');

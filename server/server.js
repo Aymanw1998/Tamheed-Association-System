@@ -227,6 +227,12 @@ const StartServer = async () => {
       .catch((err) => console.error('SportAttendance index:', err.message));
     await require('./Entities/Sport/SportLesson.model').ensureSportLessonIndexes()
       .catch((err) => console.error('SportLessons index:', err.message));
+    // Fails while two records share an ID number: find them with
+    // `node scripts/findDuplicateTz.js`, fix them, and restart.
+    await require('./Entities/Student/Student.model').ensureStudentIndexes()
+      .catch((err) => console.error('Students tz index:', err.message));
+    await require('./Entities/User/User.model').ensureUserIndexes()
+      .catch((err) => console.error('Users tz index:', err.message));
     catchUpVehicleExpiryCheck().catch((err) => console.error('Vehicle expiry catch-up:', err.message));
 
     // Ends the open live streams, drops every connection and exits; a hard

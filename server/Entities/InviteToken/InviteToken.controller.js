@@ -7,6 +7,7 @@ const { passportPhotoJob } = require("../../services/passportPhotoJob");
 const { logWithSource } = require("../../middleware/logger");
 const { isValidIsraeliId } = require("../../utils/israeliId");
 const { notifyChange } = require("../../services/liveHub");
+const { isDuplicateKey } = require("../../utils/tzUnique");
 
 // One fixed parent-registration link. Its secret changes only when an admin
 // rotates it. Parents' requests join the waiting list (status "ينتظر") and
@@ -264,6 +265,8 @@ const submitRegistration = async (req, res) => {
       await savePhoto(fields.tz, req.file, createdId);
     }
   } catch (err) {
+    // The same ID was sent twice at once: the second gets the known-ID reply.
+    if (isDuplicateKey(err) && !res.headersSent) return res.status(200).json({ ok: true, message: RECEIVED_MESSAGE });
     logWithSource("InviteToken.submitRegistration", err);
     if (!res.headersSent) {
       return res.status(500).json({ ok: false, message: "تعذّر إرسال الطلب. يُرجى المحاولة لاحقًا." });

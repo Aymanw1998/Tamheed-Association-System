@@ -3655,3 +3655,33 @@ account's, and it may give them to whom it wants.
 Not checked live; reconnecting Drive with a granted user not tried.
 
 **Codex review:** pending (until 2026-11-06). **Status:** committed.
+
+### Follow-up: one record per ID number (unique tz index) (2026-11-03)
+
+**Owner's request:** close the gap found while answering about concurrent
+requests: the ID-number check before a save cannot stop two saves of the
+same moment.
+
+**Change:**
+- `server/utils/tzUnique.js` (new): `TZ_UNIQUE_INDEX` (`{ tz: 1 }`, unique,
+  partial on `tz > ""`) and `isDuplicateKey` (E11000).
+- `Student.model.js` `ensureStudentIndexes`; `User.model.js`
+  `ensureUserIndexes` (each room: Users, UsersNoActive, UsersWaitingRoom);
+  both created at startup in `server.js`, logged and skipped on failure.
+- A duplicate refused by the index answers like the existing check:
+  `postS`/`putS` and `postU`/`changeRoom` 409 `TZ_EXISTS`, `register` 400
+  «المستخدم موجود», the parents' form its usual received reply.
+- `server/scripts/findDuplicateTz.js` (new, read-only): lists ID numbers held
+  twice in one collection; the index is not created while any exist.
+
+**Not covered:** the same ID in two different user rooms at the same moment,
+and spellings that differ only by leading zeros (the pre-save check handles
+both when the saves are not simultaneous).
+
+**Test:** `tz-unique.test.js` (new, 5), `student-scope-routes.test.js` (+2),
+`user-audit.test.js` (+2): seen failing first.
+
+**Verification:** server 1156/1156. Not run against a real MongoDB; on the
+server, run `node scripts/findDuplicateTz.js` and check the startup log.
+
+**Codex review:** pending (until 2026-11-06). **Status:** committed.
