@@ -12,7 +12,8 @@ const ItLoginCodeModelDef = {
 
     fields: {
         userTz: { type: "string", required: true },
-        codeHash: { type: "string", required: true },
+        // null once five wrong tries ended the code.
+        codeHash: { type: "string", required: false, default: null },
         expiresAt: { type: "date", required: true },
         attempts: { type: "number", required: false, default: 0 },
     },
@@ -28,6 +29,10 @@ ItLoginCodeModelDef.update = async function (filter, newData) {
 
 ItLoginCodeModelDef.increment = async function (filter, field, by = 1) {
     return await api.increment({ dbName: this.dbName, collection: this.collections.active, filter, field, by });
+};
+
+ItLoginCodeModelDef.updateExisting = async function (filter, newData) {
+    return await api.updateExisting({ dbName: this.dbName, collection: this.collections.active, filter, newData });
 };
 
 ItLoginCodeModelDef.delete = async function (filter) {

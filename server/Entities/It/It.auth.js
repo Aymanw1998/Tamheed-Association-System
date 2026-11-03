@@ -115,12 +115,20 @@ function createItAuth(deps = {}) {
       const to = mailboxOf(user, isSystem);
       if (!to) return generic();
 
+      // Wrong tries live as long as the row: a new code keeps them, and after
+      // five no code is sent until the row expires. At most five guesses per
+      // account per ten minutes.
+      const existing = rows(await codes.get({ userTz: user.tz }))[0];
+      const live = existing && new Date(existing.expiresAt).getTime() > now();
+      const attempts = live ? Number(existing.attempts) || 0 : 0;
+      if (attempts >= MAX_ATTEMPTS) return generic();
+
       const code = makeCode();
       await codes.update({ userTz: user.tz }, {
         userTz: user.tz,
         codeHash: sha256(code),
         expiresAt: new Date(now() + CODE_TTL_MS),
-        attempts: 0,
+        attempts,
       });
       // Not awaited: SMTP must not delay or change the answer.
       Promise.resolve()
@@ -152,7 +160,11 @@ function createItAuth(deps = {}) {
       if (sha256(code) !== stored.codeHash) {
         // Atomic $inc: concurrent guesses each count.
         const after = await codes.increment({ userTz: tz }, "attempts", 1);
-        if (Number(after?.result?.attempts) >= MAX_ATTEMPTS) await codes.delete({ userTz: tz });
+        // Ended, not deleted: the row (and its count) stays until it expires.
+        if (Number(after?.result?.attempts) >= MAX_ATTEMPTS) await codes.updateExisting({ userTz: tz }, { codeHash: null });
+        // A wrong code counts as a failed sign-in, like a wrong password.
+        const user = await findActiveUser(tz);
+        if (user) await countFailure(req, user, "active", isSystemTz(String(user.tz || ""), systemTz()));
         return bad();
       }
       // Only the request that removes the code may use it.

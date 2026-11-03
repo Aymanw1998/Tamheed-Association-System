@@ -3816,3 +3816,21 @@ in `.env.example`.
 **Verification:** server 1195/1195.
 
 **Codex review:** pending (until 2026-11-06). **Status:** committed.
+
+### Follow-up: IT code guesses limited per account (2026-11-03)
+
+**Change:** review finding on the IT sign-in: `/login` reset the code's wrong
+tries, so the code could be guessed without a per-account limit once the
+password was known. Now five wrong tries end the code (`codeHash: null`, the
+row stays until it expires); `/login` sends no code while an unexpired row has
+five tries, and a new code keeps the tries of the unexpired one it replaces:
+at most five guesses per account per ten minutes. A wrong code also counts as
+a failed sign-in (`countFailedSignIn`: lock for ordinary users, the existing
+alert for the system account).
+
+**Test:** `it-auth.test.js` +3 (22), the new and changed ones seen failing
+against the previous code.
+
+**Verification:** server 1198/1198.
+
+**Codex review:** pending (until 2026-11-06). **Status:** committed.

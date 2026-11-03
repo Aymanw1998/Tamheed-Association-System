@@ -39,6 +39,11 @@ function store(seed = []) {
       if (hit) hit[field] = (Number(hit[field]) || 0) + by;
       return { success: true, result: hit ? { ...hit } : null };
     },
+    async updateExisting(f, patch) {
+      const hit = docs.find((d) => matches(d, f));
+      if (hit) Object.assign(hit, patch);
+      return { success: true, result: hit ? { ...hit } : null };
+    },
     async delete(f) {
       const before = docs.length;
       docs = docs.filter((d) => !matches(d, f));
@@ -93,7 +98,7 @@ function setup({ users } = {}) {
   };
   const auth = createItAuth(deps);
   const requireIt = createRequireIt({ users: stores.users, systemTz: () => SYSTEM_TZ, log: () => {} });
-  return { auth, requireIt, stores, sent, alerts, audits, failures, checked, clock };
+  return { auth, deps, requireIt, stores, sent, alerts, audits, failures, checked, clock };
 }
 
 const flush = () => new Promise((r) => setImmediate(r));
@@ -191,10 +196,62 @@ test("a wrong code five times ends the code", async () => {
     assert.equal(r.statusCode, 400);
     assert.equal(r.cookies.length, 0);
   }
-  assert.equal(ctx.stores.codes.docs().length, 0);
+  // Ended, but the row and its count stay until it expires.
+  const [row] = ctx.stores.codes.docs();
+  assert.equal(row.codeHash, null);
+  assert.equal(row.attempts, 5);
   const right = await verify(ctx.auth, "100000009", "123456");
   assert.equal(right.statusCode, 400);
   assert.equal(right.cookies.length, 0);
+});
+
+test("after five wrong codes a new login sends nothing and no code works for ten minutes", async () => {
+  let n = 0;
+  const ctx = setup();
+  ctx.auth = createItAuth({ ...ctx.deps, makeCode: () => ["111111", "222222", "333333"][n++] });
+  await login(ctx.auth, "100000009", PASSWORD);
+  for (let i = 0; i < 5; i++) await verify(ctx.auth, "100000009", "000000");
+  ctx.clock.t += 60 * 1000;
+  const again = await login(ctx.auth, "100000009", PASSWORD);
+  assert.deepEqual(again.body, GENERIC);
+  assert.equal(ctx.sent.length, 1);
+  for (const code of ["111111", "222222"]) {
+    const r = await verify(ctx.auth, "100000009", code);
+    assert.equal(r.statusCode, 400, code);
+    assert.equal(r.cookies.length, 0, code);
+  }
+  // Once the row has expired, a new login sends a fresh code that works.
+  ctx.clock.t += 10 * 60 * 1000;
+  await login(ctx.auth, "100000009", PASSWORD);
+  assert.equal(ctx.sent.length, 2);
+  assert.equal((await verify(ctx.auth, "100000009", ctx.sent[1].code)).statusCode, 200);
+});
+
+test("a new code keeps the wrong tries of the one it replaces", async () => {
+  const ctx = setup();
+  await login(ctx.auth, "100000009", PASSWORD);
+  for (let i = 0; i < 4; i++) await verify(ctx.auth, "100000009", "000000");
+  await login(ctx.auth, "100000009", PASSWORD);
+  assert.equal(ctx.sent.length, 2);
+  assert.equal(ctx.stores.codes.docs()[0].attempts, 4);
+  // One more wrong try ends the new code too.
+  await verify(ctx.auth, "100000009", "000000");
+  assert.equal((await verify(ctx.auth, "100000009", "123456")).statusCode, 400);
+});
+
+test("a wrong code counts as a failed sign-in", async () => {
+  const ctx = setup();
+  await login(ctx.auth, "100000009", PASSWORD);
+  await login(ctx.auth, SYSTEM_TZ, PASSWORD);
+  await verify(ctx.auth, "100000009", "000000");
+  await verify(ctx.auth, SYSTEM_TZ, "000000");
+  assert.deepEqual(ctx.failures, [
+    { tz: "100000009", room: "active", isSystem: false },
+    { tz: SYSTEM_TZ, room: "active", isSystem: true },
+  ]);
+  // The right code counts nothing.
+  await verify(ctx.auth, "100000009", "123456");
+  assert.equal(ctx.failures.length, 2);
 });
 
 test("an expired code is refused", async () => {
