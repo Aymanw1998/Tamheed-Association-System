@@ -5,13 +5,14 @@ import styles from "./LoginPage.module.css"
 import LogoIMG from "./../../../images/logo.png"
 import { useLocation, useNavigate } from 'react-router-dom'
 
-import { login } from '../../../WebServer/services/auth/fuctionsAuth';
+import { login, loginWithPass } from '../../../WebServer/services/auth/fuctionsAuth';
 import { toast } from '../../../ALERT/SystemToasts';
 import ForgotPassword from '../ForgotPassword/ForgotPassword';
 import EyeIcon from '../../UI/EyeIcon';
 import ForcedPasswordChange from '../ForcedPasswordChange/ForcedPasswordChange';
 import { useI18n } from '../../../i18n/I18nContext';
 import { InstallAppButton } from '../../../pwa/InstallApp';
+import { takePassFromAddress } from '../../../utils/siteLink';
 
 export default function LoginPage() {
     const navigate = useNavigate();
@@ -26,6 +27,32 @@ export default function LoginPage() {
     // Held in memory only; until the change succeeds only that form is shown.
     const [forced, setForced] = useState(null);
     const { t } = useI18n();
+
+    // The IT site's «النظام» button opens this page with #pass=<pass>: the
+    // fragment is removed from the address at once and the pass replaces the
+    // password step. Once per page load (a re-render must not spend it twice).
+    const passTried = useRef(false);
+    useEffect(() => {
+        if (passTried.current) return;
+        passTried.current = true;
+        const pass = takePassFromAddress();
+        if (!pass) return;
+        (async () => {
+            setLoading(true);
+            try {
+                const me = await loginWithPass(pass);
+                if (me?.mustChangePassword) {
+                    toast.warn("سجّل الدخول بكلمة المرور لتغييرها.");
+                    return;
+                }
+                finishLogin(me);
+            } catch (err) {
+                toast.error(err?.response?.data?.message || err.message || "تعذّر تسجيل الدخول. يُرجى المحاولة مرة أخرى.");
+            } finally {
+                setLoading(false);
+            }
+        })();
+    }, []);
 
     const tzRef = useRef(null);
     const passwordRef = useRef(null);

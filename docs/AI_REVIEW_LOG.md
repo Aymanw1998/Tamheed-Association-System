@@ -3962,3 +3962,38 @@ button from /me, no /system-pass on load, refused pass hides the button.
 **Verification:** apps/it 36/36 and build compiles; server full suite passes.
 
 **Codex review:** pending (until 2026-11-06). **Status:** committed.
+
+### Follow-up: the everyday app loses the IT screens (2026-11-03)
+
+**Change:** `apps/system` no longer calls what the server stopped serving to it:
+lock force-release (`forceRelease.js`, the lock screen's button), the push
+system switch (`getPushSettings`/`setPushSettings`), the audit screen, route
+and `audit.view` rule (`Components/Audit/*`, `functionsAudit`, `auditDisplay`),
+the Drive card (`DriveConnection*`, `getDriveStatus`/`getDriveConnectUrl`; the
+«معلومات التخزين» window keeps the storage space), view-password, the
+permissions tab (`PermissionsTab.jsx`), unlock, and the system-account
+recovery button. Users keep role change and password reset for lower rank
+(`users.resetPassword`), hidden on IT users: `canManageTargetClient` refuses
+`isIT` targets, the system viewer included. «قسم الIT» in the name menu (IT,
+not blocked, an everyday role, not the system account): `POST /auth/it-pass`
+on click (403 hides the button), then the IT site (`REACT_APP_IT_URL`, default
+`it.<host>`) in a new tab with `#pass=` in the fragment. The sign-in screen
+reads `#pass=`, removes it with `history.replaceState`, and calls
+`POST /auth/login-pass` (`loginWithPass`, same success handling as `login`).
+Alert links to the IT site (`https://<IT host>/users/:tz`) open in a new tab
+(`alertTarget`, only the IT site's own origin); other absolute links stay
+refused. Journey: `journey-audit` dropped, the users chapter ends after the
+role save; guide and tours sections follow; demo routes for the removed
+endpoints removed.
+
+**Test:** `UserView.test.js` (role change and password reset, not permissions,
+view-password or unlock; no account actions on an IT user), `FilesPage.test.js`
+(no Drive card), `EditUser.account.test.js`, `roles.test.js`, `siteLink.test.js`,
+`alertDisplay.test.js` (`alertTarget`), `Header.test.js` (button conditions,
+pass on click, refusal), `LoginPage.pass.test.js`, `ViewAllUser.test.js`,
+`PhoneNotifications.test.js`, `chapters.test.js` (twelve chapters).
+
+**Verification:** `apps/system` 941/941 tests in 102 suites; `CI=false npm run
+build` compiles.
+
+**Codex review:** pending (until 2026-11-06). **Status:** committed.

@@ -60,34 +60,6 @@ export const accessStrings = {
       // Module-specific leaf names; they win over the shared `leaves`.
       leavesByModule: { sports: { coach: "تدريب الفرق", manage: "إدارة الرياضة" }, storage: { drive: "حساب Google Drive" } },
     },
-    audit: {
-      navTitle: "سجل التغييرات", title: "سجل التغييرات", recent: "آخر التغييرات", openAll: "عرض السجل الكامل",
-      filters: {
-        from: "من تاريخ", to: "إلى تاريخ", module: "القسم", actor: "المنفّذ (رقم الهوية)", action: "العملية",
-        targetId: "معرّف العنصر", q: "بحث نصي", all: "الكل", apply: "بحث", clear: "مسح الفلتر",
-      },
-      cols: { at: "الوقت", actor: "المنفّذ", module: "القسم", action: "العملية", target: "العنصر", changes: "التغييرات" },
-      actions: {
-        create: "إنشاء", update: "تعديل", delete: "حذف", approve: "قبول", permission_change: "تغيير صلاحيات",
-        role_change: "تغيير دور", unlock: "رفع حظر", lock: "حظر", upload: "رفع", rename: "إعادة تسمية",
-        share: "مشاركة", unshare: "إلغاء مشاركة", drive_connect: "ربط Drive",
-        system_recovery: "استعادة حساب النظام",
-      },
-      field: "الحقل", before: "قبل", after: "بعد", fields: "عدد الحقول: {n}",
-      empty: "لا توجد سجلات", total: "المجموع: {n}", page: "صفحة {page} من {pages}",
-      prev: "السابق", next: "التالي", badDate: "تاريخ غير صالح", loadFailed: "تعذّر تحميل السجل",
-      system: "النظام",
-    },
-    systemRecovery: {
-      button: "استعادة حساب النظام",
-      confirm: "ستُرسل كلمة مرور مؤقتة إلى بريد حساب النظام فقط، وسيُطلب تغييرها عند الدخول. هل تريد المتابعة؟",
-      sent: "تم إرسال كلمة مرور مؤقتة إلى بريد حساب النظام.",
-      notEnough: "لا يمكن الاستعادة بعد: يجب أن تكون هناك 3 محاولات دخول فاشلة على الأقل لحساب النظام.",
-      cooldown: "تمت استعادة الحساب قبل قليل. حاول مرة أخرى بعد 10 دقائق.",
-      notConfigured: "بريد حساب النظام أو خادم البريد غير مُهيّأ على الخادم. تواصل مع قسم تكنولوجيا المعلومات.",
-      emailFailed: "تعذّر إرسال البريد، ولم يتغيّر شيء.",
-      generic: "تعذّرت استعادة الحساب.",
-    },
     passwordChange: {
       title: "يجب تغيير كلمة المرور",
       ownTitle: "تغيير كلمة المرور", current: "كلمة المرور الحالية",
@@ -107,6 +79,3 @@ export const accessStrings = {
     },
   },
 };
-
-export const AUDIT_ACTIONS = Object.keys(accessStrings.ar.audit.actions);
-export const AUDIT_MODULES = ["users", "students", "lessons", "attendance", "reports", "vehicles", "files", "notices"];

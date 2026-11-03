@@ -16,7 +16,6 @@ const RESTRICTED = [
   { pattern: /^\/lessons\/new$/, key: "lessons.create" },
   { pattern: /^\/vehicles(\/|$)/, key: "vehicles.view" },
   { pattern: /^\/sports(\/|$)/, any: ["sports.view", "sports.coach", "sports.manage"] },
-  { pattern: /^\/audit(\/|$)/, key: "audit.view" },
   // A section taken away closes too (owner, 2026-11-03), as on the server.
   { pattern: /^\/calendar(\/|$)/, key: "attendance.view" },
   { pattern: /^\/lessons(\/|$)/, key: "lessons.view" },

@@ -31,6 +31,9 @@ const translations = {
       logout: "تسجيل الخروج",
       account: "حسابي",
       openMenu: "فتح القائمة",
+      itSite: "قسم الIT",
+      itBlocked: "اسمح بالنوافذ المنبثقة ثم أعد المحاولة.",
+      itFailed: "تعذّر فتح قسم الIT.",
     },
     common: {
       new: "جديد",
@@ -103,10 +106,7 @@ dictionary.record = recordStrings.ar;
 dictionary.assistant = assistantStrings.ar;
 dictionary.tour = tourStrings.ar;
 dictionary.perms = accessStrings.ar.perms;
-dictionary.audit = accessStrings.ar.audit;
 dictionary.passwordChange = accessStrings.ar.passwordChange;
-dictionary.systemRecovery = accessStrings.ar.systemRecovery;
-dictionary.nav.audit = accessStrings.ar.audit.navTitle;
 
 const I18nContext = createContext(null);
 

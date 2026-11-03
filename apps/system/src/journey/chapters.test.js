@@ -55,7 +55,7 @@ const validOne = (key) => Object.hasOwn(PERMISSION_TREE, key) || ALL_KEYS.includ
 const validKey = (key) => key === null || key === undefined
   || (Array.isArray(key) ? key.length > 0 && key.every(validOne) : validOne(key));
 
-test("the journey has all thirteen chapters in order", () => {
+test("the journey has all twelve chapters in order", () => {
   expect(CHAPTERS.map((c) => c.id)).toEqual([
     "journey-intro",
     "journey-dashboard",
@@ -67,7 +67,6 @@ test("the journey has all thirteen chapters in order", () => {
     "journey-vehicles",
     "journey-notices",
     "journey-users",
-    "journey-audit",
     "journey-assistant",
     "journey-profile",
   ]);

@@ -28,7 +28,6 @@ jest.mock("../../WebServer/services/storage/functionsStorage", () => ({
 }));
 jest.mock("../../WebServer/services/live/liveStream", () => ({ openLiveStream: () => () => {} }));
 jest.mock("../../WebServer/services/user/functionsUser", () => ({ getAll: jest.fn() }));
-jest.mock("./DriveConnection", () => () => null);
 jest.mock("../../ALERT/SystemToasts.jsx", () => ({ toast: { success: jest.fn(), warn: jest.fn(), error: jest.fn(), info: jest.fn() } }));
 
 global.IS_REACT_ACT_ENVIRONMENT = true;
@@ -125,4 +124,32 @@ test("the storage space shows only in the «معلومات التخزين» wind
   const dialog = document.querySelector('[role="dialog"]');
   expect(dialog.querySelector("h3").textContent).toBe("معلومات التخزين");
   expect(dialog.textContent).toContain("إجمالي المساحة");
+});
+
+// Owner, 2026-11-03: connecting the Google Drive account is an IT action, on
+// the IT site. The window keeps only the storage space.
+test("the storage window has no Drive card, even for a holder of storage.drive", async () => {
+  localStorage.setItem("permissions", JSON.stringify(["files.use", "storage.drive"]));
+  try {
+    const openButton = () => [...container.querySelectorAll("button")].find((b) => b.textContent.trim() === "معلومات التخزين");
+    await act(async () => root.unmount());
+    root = createRoot(container);
+    await act(async () => {
+      root.render(<I18nProvider><FilesPage /></I18nProvider>);
+    });
+    // No storage numbers: nothing to open.
+    expect(openButton()).toBeUndefined();
+    Storage.getStorageStats.mockResolvedValue({ displayTotalBytes: 1024, displayAvailableBytes: 1024, displayUsedBytes: 0 });
+    await act(async () => root.unmount());
+    root = createRoot(container);
+    await act(async () => {
+      root.render(<I18nProvider><FilesPage /></I18nProvider>);
+    });
+    await act(async () => openButton().click());
+    const dialog = document.querySelector('[role="dialog"]');
+    expect(dialog.textContent).toContain("إجمالي المساحة");
+    expect(dialog.textContent).not.toMatch(/Google|Drive|درايف|جوجل|غوغل/i);
+  } finally {
+    localStorage.removeItem("permissions");
+  }
 });

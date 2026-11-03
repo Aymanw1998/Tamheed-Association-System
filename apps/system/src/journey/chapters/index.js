@@ -8,7 +8,6 @@ import files from "./files";
 import vehicles from "./vehicles";
 import notices from "./notices";
 import users from "./users";
-import audit from "./audit";
 import assistant from "./assistant";
 import profile from "./profile";
 
@@ -40,5 +39,5 @@ import profile from "./profile";
 // clearly fake (for example ending in «(تجريبي)»).
 export const CHAPTERS = [
   intro, dashboard, students, lessons, attendance, reports,
-  files, vehicles, notices, users, audit, assistant, profile,
+  files, vehicles, notices, users, assistant, profile,
 ];

@@ -1,17 +1,15 @@
-// Chapter 10: users and permissions. A waiting account is approved through
-// the role picker, an account is opened, its role changed, and on the
-// permissions tab one operation is granted, saved, then revoked and saved:
-// every save lands in the demo store.
+// Chapter 10: users. A waiting account is approved through the role picker,
+// an account is opened and its role changed: every save lands in the demo
+// store. Permissions are an IT matter, on the IT site.
 //
 // The demo store holds two waiting accounts, so one is left here even after
 // the dashboard chapter approved the other. The users list hides the
 // signed-in user and sorts by name; the first account the viewer manages is
 // «ريم التجريبية» (an assistant), so «مرشد» is a promotion with no demotion
-// warning. «إضافة» in the students module is not in the assistant's or the
-// guide's defaults, so ticking it is a grant.
+// warning.
 const users = {
   id: "journey-users",
-  title: "المستخدمون والصلاحيات",
+  title: "المستخدمون",
   route: "/users",
   requires: "users.view",
   steps: [
@@ -129,85 +127,6 @@ const users = {
       title: "حفظ الدور",
       body: "سأضغط «حفظ الدور»، فتظهر رسالة نجاح.",
       action: { type: "click", target: "user-role-save" },
-    },
-    {
-      target: "confirm-ok",
-      requires: ["users.changeRole", "permissions.manage"],
-      mood: "point",
-      title: "إضافة صلاحيات",
-      body: "سأضغط «الآن» لإضافة صلاحيات خاصة.",
-      action: { type: "click", target: "confirm-ok" },
-    },
-    {
-      target: "user-tab-permissions",
-      requires: "permissions.manage",
-      mood: "point",
-      title: "تبويب الصلاحيات",
-      body: "سأفتح تبويب الصلاحيات.",
-      action: { type: "click", target: "user-tab-permissions" },
-    },
-    {
-      target: "user-permissions",
-      requires: "permissions.manage",
-      mood: "explain",
-      title: "صلاحيات الحساب",
-      body: "لكل قسم عملياته، ومصدر كل عملية بجانبها.",
-    },
-    {
-      target: "perms-expand-students",
-      requires: "permissions.manage",
-      mood: "point",
-      title: "عمليات القسم",
-      body: "سأفتح عمليات قسم الطلاب.",
-      action: { type: "click", target: "perms-expand-students" },
-    },
-    {
-      target: "perms-grant-example",
-      requires: "permissions.manage",
-      mood: "explain",
-      title: "منح صلاحية",
-      body: "سأمنح عملية «إضافة» لصاحب الحساب.",
-      action: { type: "click", target: "perms-grant-example" },
-    },
-    {
-      target: "perms-save",
-      requires: "permissions.manage",
-      mood: "point",
-      title: "حفظ الصلاحيات",
-      body: "سأضغط «حفظ»، ويطلب النظام التأكيد.",
-      action: { type: "click", target: "perms-save" },
-    },
-    {
-      target: "confirm-ok",
-      requires: "permissions.manage",
-      mood: "point",
-      title: "تأكيد المنح",
-      body: "سأؤكد، فتُعلَّم العملية «ممنوح».",
-      action: { type: "click", target: "confirm-ok" },
-    },
-    {
-      target: "perms-grant-example",
-      requires: "permissions.manage",
-      mood: "explain",
-      title: "سحب الصلاحية",
-      body: "والسحب بالطريقة نفسها: سأزيل العلامة عن «إضافة».",
-      action: { type: "click", target: "perms-grant-example" },
-    },
-    {
-      target: "perms-save",
-      requires: "permissions.manage",
-      mood: "point",
-      title: "حفظ السحب",
-      body: "سأضغط «حفظ» مرة أخرى.",
-      action: { type: "click", target: "perms-save" },
-    },
-    {
-      target: "confirm-ok",
-      requires: "permissions.manage",
-      mood: "point",
-      title: "تأكيد السحب",
-      body: "سأؤكد، فيعود الحساب إلى صلاحيات دوره.",
-      action: { type: "click", target: "confirm-ok" },
     },
   ],
 };

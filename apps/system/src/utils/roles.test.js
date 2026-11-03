@@ -61,6 +61,11 @@ describe("canManageTargetClient mirrors canManageTarget for hiding actions", () 
     expect(canManageTargetClient({ id: "h", role: "مساعد" }, { _id: "w", role: "nonsense" })).toBe(true);
     expect(canManageTargetClient({ id: "n", role: null }, { _id: "w" })).toBe(false);
   });
+  test("nobody manages an IT user in the everyday app, the system viewer included", () => {
+    expect(canManageTargetClient(admin, { _id: "i", roles: ["مساعد"], isIT: true })).toBe(false);
+    expect(canManageTargetClient({ isSystem: true }, { _id: "i", roles: ["مساعد"], isIT: true })).toBe(false);
+    expect(canManageTargetClient(admin, { _id: "i", roles: ["مساعد"], isIT: false })).toBe(true);
+  });
   test("no viewer or no target manages nothing", () => {
     expect(canManageTargetClient(null, { _id: "w" })).toBe(false);
     expect(canManageTargetClient(admin, null)).toBe(false);

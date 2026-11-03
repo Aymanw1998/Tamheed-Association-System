@@ -5,8 +5,6 @@
 // (the adapter then answers an empty GET or blocks the write).
 
 import { demoId } from "./demoData";
-import { ALL_KEYS, IT_KEYS } from "../utils/permissionKeys";
-import { effectiveOf, expandKeys } from "../utils/permissionTree";
 
 // Requests that still go to the real server during training, matched exactly
 // against "METHOD /path" (case-insensitive): the journey's own progress (never
@@ -259,41 +257,9 @@ const withFolderSize = (store, entry) =>
     : entry;
 
 // ------------------------------------------------------------------ permissions
-// A copy of ROLE_DEFAULTS and ROLE_RANK in server/utils/permissions.js (IT_KEYS
-// comes from utils/permissionKeys) and of grantableBy in server/utils/permissionRules.js.
+// A copy of ROLE_RANK in server/utils/permissions.js.
 
-const ROLE_DEFAULTS = {
-  "ادارة": ["dashboard", "calendar", "students", "lessons", "attendance", "reports", "vehicles",
-    "files", "notices", "users.view", "users.create", "users.edit", "users.approve",
-    "users.delete", "users.changeRole", "users.resetPassword", "ai"],
-  // Only an admin edits students, lessons and users (owner, 2026-11-01); an
-  // admin may still grant one guide an edit key in the permissions screen.
-  "مرشد": ["dashboard", "calendar", "students.view",
-    "lessons.view",
-    "attendance", "reports.create", "reports.editOwn", "reports.exportPdf",
-    "files.use", "ai"],
-  "مساعد": ["dashboard", "calendar", "students.view", "lessons.view", "attendance.view",
-    "reports.create", "reports.editOwn", "reports.exportPdf", "files.use", "ai"],
-};
 const ROLE_RANK = { "ادارة": 3, "مرشد": 2, "مساعد": 1 };
-
-const roleDefaults = (role) => expandKeys(ROLE_DEFAULTS[role] || []);
-
-const isMe = (store, user) => same(user._id, store.me?.id) || same(user.tz, store.me?.tz);
-
-// What the signed-in user may grant to this user: only the IT site's actor
-// (`me.it`) grants, never to oneself, and never an IT key.
-const grantableFor = (store, user) => {
-  if (isMe(store, user) || store.me?.it !== true) return [];
-  return ALL_KEYS.filter((key) => !IT_KEYS.has(key));
-};
-
-const permissionView = (user) => {
-  const defaults = roleDefaults(user.role);
-  const grants = user.permissionGrants || [];
-  const revokes = user.permissionRevokes || [];
-  return { defaults, grants, revokes, effective: effectiveOf({ defaults, grants, revokes }) };
-};
 
 // ------------------------------------------------------------------ routes
 
@@ -518,32 +484,6 @@ const userView = (u) => ({ ...u });
 const findUser = (s, key) =>
   byIdOrTz(s.users, key) || ((same(key, s.me?.tz) || same(key, s.me?.id)) ? actorOf(s) : null);
 route("get", /^\/user$/, (s) => ok({ users: s.users.map(userView) }));
-route("get", /^\/user\/viewPassword\/([^/]+)$/, () => blocked());
-route("get", /^\/user\/([^/]+)\/permissions$/, (s, [key]) => {
-  const user = findUser(s, key);
-  if (!user) return notFound();
-  return ok({
-    role: user.role,
-    ...permissionView(user),
-    grantable: grantableFor(s, user),
-    updatedAt: user.permissionsUpdatedAt || null,
-    updatedBy: user.permissionsUpdatedBy || null,
-  });
-});
-route("put", /^\/user\/([^/]+)\/permissions$/, (s, [key], { body }) => {
-  const user = findUser(s, key);
-  if (!user) return notFound();
-  const list = (value) => (Array.isArray(value) ? [...new Set(value.map(String))] : []);
-  Object.assign(user, {
-    permissionGrants: list(body.grants),
-    permissionRevokes: list(body.revokes),
-    permissionsUpdatedAt: nowIso(),
-    permissionsUpdatedBy: fullName(actorOf(s)),
-  });
-  recordAudit(s, { module: "users", action: "permission_change", targetType: "user", targetId: user.tz, targetLabel: fullName(user) });
-  const { grants, revokes, effective } = permissionView(user);
-  return ok({ grants, revokes, effective, updatedAt: user.permissionsUpdatedAt, updatedBy: user.permissionsUpdatedBy });
-});
 // A demotion clears the user's special permissions, as on the server.
 route("put", /^\/user\/([^/]+)\/role$/, (s, [key], { body }) => {
   const user = findUser(s, key);
@@ -555,7 +495,6 @@ route("put", /^\/user\/([^/]+)\/role$/, (s, [key], { body }) => {
   recordAudit(s, { module: "users", action: "role_change", targetType: "user", targetId: user.tz, targetLabel: fullName(user) });
   return ok({ role: body.role, demoted });
 });
-route("post", /^\/user\/([^/]+)\/unlock$/, (s, [key]) => (findUser(s, key) ? ok({}) : notFound()));
 route("get", /^\/user\/([^/]+)$/, (s, [key]) => {
   const user = findUser(s, key);
   return user ? ok({ user: userView(user) }) : notFound();
@@ -746,20 +685,6 @@ route("post", /^\/notices\/([^/]+)\/archive$/, (s, [id]) => {
   return ok({});
 });
 
-// --- audit
-const PAGE_SIZE = 50;
-route("get", /^\/audit$/, (s, _, { params }) => {
-  const q = String(params.q || "").trim().toLowerCase();
-  const rows = s.audit
-    .filter((r) => ["module", "actor", "action", "targetId"].every((key) => !params[key] || same(r[key], params[key])))
-    .filter((r) => !params.from || String(r.at).slice(0, 10) >= params.from)
-    .filter((r) => !params.to || String(r.at).slice(0, 10) <= params.to)
-    .filter((r) => !q || [r.targetLabel, r.actorName, r.actor].some((v) => String(v || "").toLowerCase().includes(q)))
-    .sort((a, b) => String(b.at).localeCompare(String(a.at)));
-  const page = Math.max(1, parseInt(params.page, 10) || 1);
-  return ok({ items: rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), total: rows.length });
-});
-
 // --- alerts (the signed-in user's inbox)
 route("get", /^\/alerts$/, (s, _, { params }) => {
   const unreadOnly = params.unread === "1" || params.unread === "true";
@@ -835,7 +760,6 @@ route("post", /^\/storage\/unshare$/, (s, _, { body }) => {
   recordAudit(s, { module: "storage", action: "unshare", targetType: "file", targetId: path, targetLabel: path });
   return ok({ success: true });
 });
-route("get", /^\/storage\/google\/status$/, () => ok({ connected: false, email: "", canConnect: false }));
 route("post", /^\/storage\/folder$/, (s, _, { body }) => {
   const name = trim(body.name);
   if (!name || name.includes("/")) return fail(400, "Folder name is required");

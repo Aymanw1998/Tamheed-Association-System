@@ -1,8 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { getAll, recoverSystemAccount } from "../../WebServer/services/user/functionsUser.jsx";
+import { getAll } from "../../WebServer/services/user/functionsUser.jsx";
 import useLiveRefresh from "../../locks/useLiveRefresh";
-import { recoveryResultKey } from "../../utils/passwordChange";
 import styles from "./User.module.css";
 import Fabtn from "../Global/Fabtn/Fabtn.jsx";
 import { toast } from "../../ALERT/SystemToasts.jsx";
@@ -21,8 +20,6 @@ import { passportSrc } from "../../utils/passportPhoto";
 const ViewAllUser = () => {
   const { t } = useI18n();
   const canCreateUsers = canStored("users.create");
-  const canRecoverSystem = canStored("systemRecovery.reset");
-  const [recovering, setRecovering] = useState(false);
   const viewer = getStoredViewer();
   const userId = viewer.id;
   const userTZ = viewer.tz;
@@ -167,37 +164,12 @@ const ViewAllUser = () => {
     navigate("/users/new");
   };
 
-  // A row opens the user's page, where print, edit, unlock, suspend and
+  // A row opens the user's page, where print, edit, suspend and
   // delete are, and approve/activate for a waiting or suspended account
   // (owner, 2026-11-02); a click on the name link is left to it.
   const openUser = (event, user) => {
     if (event.target.closest("a, button")) return;
     navigate(`/users/${user.tz}`);
-  };
-
-  // Emails a temporary password to the system mailbox; the server allows it
-  // only after 3 failed system sign-ins and never returns the password.
-  const onRecoverSystem = async () => {
-    let ok = false;
-    try {
-      ok = await ask("change", {
-        title: t("systemRecovery.button"), message: t("systemRecovery.confirm"),
-        confirmText: t("systemRecovery.button"), cancelText: t("perms.cancel"),
-      });
-    } catch {
-      ok = false;
-    }
-    if (!ok) return;
-    setRecovering(true);
-    try {
-      const res = await recoverSystemAccount();
-      const key = recoveryResultKey(res);
-      const message = t(`systemRecovery.${key}`);
-      if (key === "sent") toast.success(message);
-      else toast.warn(message);
-    } finally {
-      setRecovering(false);
-    }
   };
 
   return (
@@ -223,12 +195,6 @@ const ViewAllUser = () => {
           <Button variant="secondary" data-tour="users-refresh" onClick={loadUsers} loading={loading}>
             {loading ? "جارٍ التحديث…" : "تحديث القائمة"}
           </Button>
-
-          {canRecoverSystem && String(userTZ) !== "000000000" &&(
-            <Button variant="secondary" data-tour="users-recover" onClick={onRecoverSystem} loading={recovering}>
-              {t("systemRecovery.button")}
-            </Button>
-          )}
         </div>
 
         <div style={{ marginTop: 12, marginBottom: 12 }}>

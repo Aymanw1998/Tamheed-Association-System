@@ -13,7 +13,6 @@ import useItemLock from "../../locks/useItemLock";
 import LockedScreen from "../../locks/LockedScreen";
 import ReadOnlyArea from "../../locks/ReadOnlyArea";
 import SaveNotice from "../../locks/SaveNotice";
-import forceRelease from "../../locks/forceRelease";
 import useReloadOnUnblock from "../../locks/useReloadOnUnblock";
 import { handleSaveError, withBaseVersion } from "../../locks/staleSave";
 import { useLockRecovery } from "../../locks/LockLostBanner";
@@ -390,7 +389,7 @@ const EditReport = ({parent = false}) => {
   if (loading) return <div className={styles.formContainer}>جارٍ تحميل البيانات…</div>;
   if (err)      return <div className={styles.formContainer} style={{color:"#b91c1c"}}>{err}</div>;
   if (lock.status === "blocked") {
-    return <LockedScreen holder={lock.holder} onForceRelease={forceRelease(lockKey)} />;
+    return <LockedScreen holder={lock.holder} />;
   }
   // Nothing is editable until the lock is resolved.
   if (lock.status === "loading") return <div className={styles.formContainer} role="status">جارٍ تحميل البيانات…{recovery.element}</div>;

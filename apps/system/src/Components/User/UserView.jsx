@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { getUserById, signOutEverywhere, deleteU, changeStatus, unlockUser } from "../../WebServer/services/user/functionsUser.jsx";
+import { getUserById, signOutEverywhere, deleteU, changeStatus } from "../../WebServer/services/user/functionsUser.jsx";
 import { exportUserPdf } from "../ExportPDF/ExportPDF.jsx";
 import { ask } from "../Provides/confirmBus";
 import { toast } from "../../ALERT/SystemToasts";
@@ -13,7 +13,6 @@ import { useI18n } from "../../i18n/I18nContext";
 import RecordPage from "../UI/RecordPage";
 import { DetailGroup, LinkList } from "../UI/RecordParts";
 import { useRolePicker, permissionError } from "./RolePickerDialog.jsx";
-import PermissionsTab from "./PermissionsTab.jsx";
 
 const nameOf = (p) => `${p?.firstname || ""} ${p?.lastname || ""}`.trim();
 const dateOf = (v) => {
@@ -77,18 +76,10 @@ export default function UserView() {
 
   if (!user) return <RecordPage loading={!error} error={error} />;
 
-  // A user's permissions are here, not in the edit form (owner, 2026-11-02);
-  // like the form, for active accounts only. The tab disables what the
-  // viewer may not grant, and the server checks every change again.
+  // Permissions are an IT matter, on the IT site (owner, 2026-11-03).
   const tabs = [
     { id: "personal", label: t("record.personal"), content: <DetailGroup rows={userDetails(user)} /> },
     ...guideTabs({ ...theirs, studentsLabel: t("record.theirStudents"), lessonsLabel: t("record.theirLessons") }),
-    canStored("permissions.manage") && (user.room || "active") === "active" && {
-      id: "permissions",
-      label: t("perms.tab"),
-      tour: "user-tab-permissions",
-      content: <div data-tour="user-permissions"><PermissionsTab tz={user.tz} onSaved={() => {}} /></div>,
-    },
   ].filter(Boolean);
   // Like the users list: only an active account the viewer may manage (lower
   // rank, not themself); the form edits active accounts only.
@@ -105,20 +96,13 @@ export default function UserView() {
     if (!res.ok) return toast.warn(res.message || t("record.signOutAllFailed"));
     toast.success(t("record.signedOutAll"));
   };
-  // Print, unlock, suspend and delete are here, not in the list or the form,
+  // Print, suspend and delete are here, not in the list or the form,
   // and so are approving a waiting account and reactivating a suspended one
   // (owner, 2026-11-02). The server checks every one again.
   const manageable = canManageTargetClient(getStoredViewer(), user);
   const room = user.room || "active";
   const canApprove = manageable && canStored("users.approve");
   const confirm = (title, message) => ask("change", { title, message, confirmText: title }).catch(() => false);
-  const unlock = async () => {
-    if (!(await confirm(t("perms.unlock"), t("perms.unlockConfirm")))) return;
-    const res = await unlockUser(user.tz);
-    if (!res.ok) return toast.warn(res.message);
-    toast.success(t("perms.unlocked"));
-    setUser({ ...user, lockedAt: null });
-  };
   const suspend = async () => {
     if (!(await confirm(t("record.suspend"), t("record.suspendConfirm")))) return;
     const res = await changeStatus(user.tz, "active", "noActive");
@@ -152,7 +136,6 @@ export default function UserView() {
     room === "noActive" && canApprove && { label: t("record.activate"), onClick: activate, variant: "success" },
     editable && { label: t("record.edit"), onClick: () => navigate(`/users/${user.tz}/edit`), tour: "user-view-edit" },
     { label: t("record.print"), onClick: () => exportUserPdf(user), tour: "users-pdf" },
-    user.lockedAt && manageable && canStored("users.unlock") && { label: t("perms.unlock"), onClick: unlock },
     editable && { label: t("record.signOutAll"), onClick: signOut, variant: "danger" },
     editable && canStored("users.approve") && { label: t("record.suspend"), onClick: suspend, variant: "danger" },
     manageable && canStored("users.delete") && { label: t("record.deleteAccount"), onClick: remove, variant: "danger" },

@@ -47,10 +47,12 @@ export const assignableRoles = ({ role, isSystem = false } = {}) => {
 
 // Mirrors canManageTarget (server/utils/permissionRules.js) to hide actions
 // the server would refuse; the server decides. viewer: { id?, tz?, role,
-// isSystem? }; target: a user record (role / roles, _id, tz). A target with no
-// known role ranks 0.
+// isSystem? }; target: a user record (role / roles, _id, tz, isIT). A target
+// with no known role ranks 0. An IT user is never managed in the everyday app,
+// not even by the system account (that is done on the IT site).
 export const canManageTargetClient = (viewer, target) => {
   if (!viewer || !target) return false;
+  if (target.isIT === true) return false;
   if (viewer.isSystem === true) return true;
   const sameId = Boolean(viewer.id) && Boolean(target._id) && String(viewer.id) === String(target._id);
   const sameTz = Boolean(viewer.tz) && Boolean(target.tz) && String(viewer.tz) === String(target.tz);

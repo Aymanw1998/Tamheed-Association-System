@@ -1,3 +1,4 @@
+import { isItLink } from "./siteLink";
 // Pure helpers for the assistant's alerts tab.
 // An alert: { id, type, severity, text: { ar, ... }, link, at, read }.
 
@@ -89,6 +90,14 @@ export const safeLink = (link) => {
   } catch {
     return "";
   }
+};
+
+// Where an alert's link goes: { path } inside the app, { external } for the
+// IT site (opened in a new tab), or null for anything else.
+export const alertTarget = (link) => {
+  const path = safeLink(link);
+  if (path) return { path };
+  return isItLink(link) ? { external: link } : null;
 };
 
 // throttle(fn) runs fn unless it already ran less than `ms` ago; returns

@@ -9,7 +9,6 @@ import styles from "./Sport.module.css";
 import useItemLock from "../../locks/useItemLock";
 import LockedScreen from "../../locks/LockedScreen";
 import SaveNotice from "../../locks/SaveNotice";
-import forceRelease from "../../locks/forceRelease";
 import { handleSaveError } from "../../locks/staleSave";
 import { useLockRecovery } from "../../locks/LockLostBanner";
 
@@ -85,7 +84,7 @@ export default function LessonRosterDialog({ lesson, canEdit, onClose, reload })
         {recovery.element}
         {lock.status === "blocked" ? (
           <>
-            <LockedScreen holder={lock.holder} onForceRelease={forceRelease(lockKey)} />
+            <LockedScreen holder={lock.holder} />
             <div className={styles.dialogActions}>
               <Button variant="secondary" onClick={onClose}>{t("sport.close")}</Button>
             </div>

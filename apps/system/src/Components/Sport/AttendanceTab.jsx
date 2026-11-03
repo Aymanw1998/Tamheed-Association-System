@@ -12,7 +12,6 @@ import styles from "./Sport.module.css";
 import useItemLock from "../../locks/useItemLock";
 import LockedScreen from "../../locks/LockedScreen";
 import SaveNotice from "../../locks/SaveNotice";
-import forceRelease from "../../locks/forceRelease";
 import useReloadOnUnblock from "../../locks/useReloadOnUnblock";
 import useLiveRefresh from "../../locks/useLiveRefresh";
 import { handleSaveError } from "../../locks/staleSave";
@@ -181,7 +180,7 @@ export default function AttendanceTab({ lessons, canCoach, reload }) {
 
       {error && <div className={styles.formError} role="alert">{error}</div>}
       {(loadingSheet || lockLoading) && <div className={styles.emptyState}>{t("sport.attendance.loading")}</div>}
-      {blocked && lockKey && <LockedScreen holder={lock.holder} onForceRelease={forceRelease(lockKey)} />}
+      {blocked && lockKey && <LockedScreen holder={lock.holder} />}
       {!blocked && <SaveNotice notice={notice} />}
       {!blocked && recovery.element}
 

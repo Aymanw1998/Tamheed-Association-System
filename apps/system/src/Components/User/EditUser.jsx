@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 // ملاحظة عربية
-import { create, update, getUserById as getOne, uploadPhoto, deletePhoto, viewPassword, changeUserRole, unlockUser } from "../../WebServer/services/user/functionsUser.jsx";
+import { create, update, getUserById as getOne, uploadPhoto, deletePhoto, changeUserRole } from "../../WebServer/services/user/functionsUser.jsx";
 import styles from "./User.module.css";
 import sectionStyles from "../UI/FormSection.module.css";
 import { toast } from "../../ALERT/SystemToasts.jsx";
@@ -16,7 +16,6 @@ import { ask } from "../Provides/confirmBus";
 import StatusBadge from "../UI/StatusBadge.jsx";
 import { fillText } from "../../utils/vehicleDisplay";
 import { permissionError, viewerAssignableRoles } from "./RolePickerDialog.jsx";
-import RecentChanges from "../Audit/RecentChanges.jsx";
 import tabStyles from "./PermissionsTab.module.css";
 import ChangeOwnPassword from "../Profile/ChangeOwnPassword.jsx";
 import { isValidIsraeliId } from "../../utils/israeliId";
@@ -25,7 +24,6 @@ import useItemLock from "../../locks/useItemLock";
 import LockedScreen from "../../locks/LockedScreen";
 import ReadOnlyArea from "../../locks/ReadOnlyArea";
 import SaveNotice from "../../locks/SaveNotice";
-import forceRelease from "../../locks/forceRelease";
 import useReloadOnUnblock from "../../locks/useReloadOnUnblock";
 import { handleSaveError, withBaseVersion } from "../../locks/staleSave";
 import { useLockRecovery } from "../../locks/LockLostBanner";
@@ -79,14 +77,12 @@ const EditUser = () => {
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving]   = useState(false);
   const [err, setErr]         = useState(null);
-  const [fetchingPassword, setFetchingPassword] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [passwordTouched, setPasswordTouched] = useState(false);
-  // Role and permissions change through their own endpoints, not the form.
+  // The role changes through its own endpoint, not the form.
   const [currentRole, setCurrentRole] = useState(null);
   const [roleChoice, setRoleChoice] = useState("");
   const [savingRole, setSavingRole] = useState(false);
-  const [unlocking, setUnlocking] = useState(false);
   const [resettingTours, setResettingTours] = useState(false);
   // The user as opened: its updatedAt is the baseVersion of the save. Users
   // are opened by ID number, but the lock is on the stored _id.
@@ -95,17 +91,17 @@ const EditUser = () => {
 
   const isSelf = isEdit && Boolean(form._id) && String(form._id) === String(getStoredUserId());
   const canChangeRole = canStored("users.changeRole");
-  const canManagePermissions = canStored("permissions.manage");
   // Actions on another user need authority over him (never oneself); hides UI
   // only, the server decides.
   const canManage = isEdit && canManageTargetClient(getStoredViewer(), form);
-  // Another user's password: only the system or a users.passwords holder.
-  // One's own password changes only through ChangeOwnPassword (current
-  // password required); the server ignores it in a self edit.
-  const showPasswordField = isNew || (!isSelf && canStored("users.passwords"));
+  // Another user's password: only a users.resetPassword holder, for a user he
+  // manages (lower rank, never an IT user). The value is never shown, only
+  // typed. One's own password changes only through ChangeOwnPassword
+  // (current password required); the server ignores it in a self edit.
+  const showPasswordField = isNew || (!isSelf && canManage && canStored("users.resetPassword"));
   // Another user's email (where a password reset is sent) follows the same
   // rule; the server drops it otherwise.
-  const canEditEmail = isNew || isSelf || canStored("users.passwords");
+  const canEditEmail = isNew || isSelf || (canManage && canStored("users.resetPassword"));
   // Editing someone one may not manage is refused; the page is then read-only.
   const canSubmit = !isEdit || isSelf || canManage;
   const lockKey = isEdit && opened?._id ? `user:${opened._id}` : null;
@@ -152,7 +148,7 @@ const EditUser = () => {
   useReloadOnUnblock(lock.status, load);
   const recovery = useLockRecovery(lock, { reload: load, draft: [form.firstname, form.lastname].filter(Boolean).join(" ") });
 
-  // Role, unlock and permission changes bump the user's version. The form's
+  // A role change bumps the user's version. The form's
   // next save builds on the new one (else it would be refused as stale and
   // name the user himself); the typed fields are left as they are.
   const refreshBase = async () => {
@@ -295,36 +291,6 @@ const EditUser = () => {
     setForm((prev) => ({ ...prev, [tag]: intl }));
   };
 
-    const handleFetchPassword = async () => {
-  if (isNew) return;
-
-  try {
-    setFetchingPassword(true);
-
-    // ملاحظة عربية
-    const tzToFetch = String(form.tz || id).trim();
-    if (!tzToFetch) return;
-
-    const res = await viewPassword(tzToFetch);
-
-    // bcrypt / cannot view
-    if (!res?.ok) {
-      toast.warn(res?.message || 'لا يمكن عرض كلمة المرور لهذا المستخدم.');
-      return;
-    }
-
-    // The server only reports whether a password is set, never its value.
-    setShowPassword(false);
-    setForm((prev) => ({ ...prev, password: '' }));
-    toast.info(res.hasPassword ? 'كلمة المرور محددة ولا يمكن عرضها. أدخل كلمة مرور جديدة لتغييرها.' : 'لم تُحدَّد كلمة مرور لهذا المستخدم.');
-  } catch (e) {
-    console.error(e);
-    toast.error('تعذّر جلب حالة كلمة المرور.');
-  } finally {
-    setFetchingPassword(false);
-  }
-};
-
   const handleSubmit = async (e) => {
     if (photoPick.busy) { toast.warn(PHOTO_NOT_READY); return; }
     let b = await validate();
@@ -361,8 +327,7 @@ const EditUser = () => {
       // The photo only changes through its own endpoints, which keep the
       // stored link and the Drive file in sync.
       delete payload.photo;
-      // Role and permissions have their own endpoints (PUT /:tz/role and
-      // PUT /:tz/permissions); the server ignores them here. A new account
+      // The role has its own endpoint (PUT /:tz/role); the server ignores it here. A new account
       // gets its role on creation only when the creator may assign roles.
       for (const field of ["role", "vehiclePermissions", "permissionGrants", "permissionRevokes", "permissions", "lockedAt", "failedLoginCount"]) {
         delete payload[field];
@@ -409,7 +374,7 @@ const EditUser = () => {
 
 
   // PUT /:tz/role. A demotion clears the user's grants and revokes, so it is
-  // confirmed first; afterwards the manager may go straight to the tab.
+  // confirmed first.
   const handleSaveRole = async () => {
     if (!roleChoice || roleChoice === currentRole) return toast.info(t("perms.roleUnchanged"));
     if (isDemotion(currentRole, roleChoice)) {
@@ -424,27 +389,7 @@ const EditUser = () => {
     setCurrentRole(roleChoice);
     setForm((prev) => ({ ...prev, role: roleChoice, roles: [roleChoice] }));
     toast.success(t("perms.roleSaved"));
-    if (!canManagePermissions) return;
-    const now = await safeAsk({ title: t("perms.addNowTitle"), message: t("perms.addNowMessage"), confirmText: t("perms.addNow"), cancelText: t("perms.later") });
-    // The permissions are on the user's page (owner, 2026-11-02).
-    if (now) {
-      navigate(`/users/${form.tz}?tab=permissions`);
-    } else {
-      navigate(-1);
-    }
-  };
-
-  // POST /:tz/unlock
-  const handleUnlock = async () => {
-    const ok = await safeAsk({ title: t("perms.unlock"), message: t("perms.unlockConfirm"), confirmText: t("perms.unlock"), cancelText: t("perms.cancel") });
-    if (!ok) return;
-    setUnlocking(true);
-    const res = await unlockUser(form.tz);
-    setUnlocking(false);
-    if (!res.ok) return toast.warn(permissionError(t, res));
-    await refreshBase();
-    setForm((prev) => ({ ...prev, lockedAt: null, failedLoginCount: 0 }));
-    toast.success(t("perms.unlocked"));
+    navigate(-1);
   };
 
   // POST /tours/reset/:tz: clears every tour id, so the guided journey is offered again at the next sign-in.
@@ -460,7 +405,7 @@ const EditUser = () => {
   if (loading) return <div className={styles.formContainer}>جارٍ تحميل البيانات…</div>;
   if (err)      return <div className={styles.formContainer} style={{color:"#b91c1c"}}>{err}</div>;
   if (lock.status === "blocked") {
-    return <LockedScreen holder={lock.holder} onForceRelease={forceRelease(lockKey)} />;
+    return <LockedScreen holder={lock.holder} />;
   }
   // Nothing is editable until the lock is resolved.
   if (lock.status === "loading") return <div className={styles.formContainer} role="status">جارٍ تحميل البيانات…{recovery.element}</div>;
@@ -491,27 +436,7 @@ const EditUser = () => {
           <button
             type="button"
             className={styles.togglePassword}
-            disabled={fetchingPassword}
-            onClick={async () => {
-              // ملاحظة عربية
-              if (!showPassword) {
-                // ملاحظة عربية
-                if (!form.password?.trim() || !passwordTouched) {
-                  await handleFetchPassword();
-                }
-                setShowPassword(true);
-                return;
-              }
-
-              // ملاحظة عربية
-              setShowPassword(false);
-
-              // ملاحظة عربية
-              // ملاحظة عربية
-              if (!passwordTouched) {
-                setForm((prev) => ({ ...prev, password: '' }));
-              }
-            }}
+            onClick={() => setShowPassword((value) => !value)}
             title={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
             aria-label={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
             aria-pressed={showPassword}
@@ -566,9 +491,6 @@ const EditUser = () => {
           <div className={tabStyles.lockRow}>
             <StatusBadge tone="danger">{t("perms.locked")}</StatusBadge>
             <small>{fillText(t("perms.lockedSince"), { when: new Date(form.lockedAt).toLocaleString("ar", { timeZone: "Asia/Jerusalem" }) })}</small>
-            {canStored("users.unlock") && canManage && (
-              <button type="button" onClick={handleUnlock} disabled={unlocking}>{t("perms.unlock")}</button>
-            )}
           </div>
         )}
       </fieldset>
@@ -677,7 +599,6 @@ const EditUser = () => {
         </button>)}
       </div>
 
-      {/* {isEdit && canStored("audit.view") && form.tz && <RecentChanges key={tabKey} targetIds={[form.tz]} />} */}
     </div>
   );
 };

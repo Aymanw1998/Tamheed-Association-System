@@ -13,7 +13,6 @@ import useItemLock from "../../locks/useItemLock";
 import LockedScreen from "../../locks/LockedScreen";
 import ReadOnlyArea from "../../locks/ReadOnlyArea";
 import SaveNotice from "../../locks/SaveNotice";
-import forceRelease from "../../locks/forceRelease";
 import useLiveRefresh from "../../locks/useLiveRefresh";
 import { handleSaveError, withBaseVersion } from "../../locks/staleSave";
 import { useLockRecovery } from "../../locks/LockLostBanner";
@@ -73,7 +72,7 @@ function LessonForm({ lesson, onClose, onSaved }) {
         </div>
         {recovery.element}
         {lock.status === "blocked" ? (
-          <LockedScreen holder={lock.holder} onForceRelease={forceRelease(lockKey)} />
+          <LockedScreen holder={lock.holder} />
         ) : lock.status === "loading" ? (
           <div role="status">جارٍ تحميل البيانات…</div>
         ) : (

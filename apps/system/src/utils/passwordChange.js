@@ -35,13 +35,3 @@ export function resetPasswordError({ newPassword, confirmPassword } = {}) {
 // change-password accepts.
 export const isForcedChange = (data) =>
   Boolean(data && data.mustChangePassword === true && data.accessToken);
-
-// Which systemRecovery.* message to show for POST /user/system/recover.
-export function recoveryResultKey(result = {}) {
-  if (result.ok) return "sent";
-  if (result.status === 409 || result.code === "RECOVERY_NOT_ALLOWED") return "notEnough";
-  if (result.status === 429) return "cooldown";
-  if (result.code === "EMAIL_NOT_CONFIGURED") return "notConfigured";
-  if (result.code === "EMAIL_FAILED") return "emailFailed";
-  return "generic";
-}

@@ -10,6 +10,7 @@ import FilterDialog from "../UI/FilterDialog.jsx";
 import StatusBadge from "../UI/StatusBadge.jsx";
 import { ask } from "../Provides/confirmBus";
 import { fillText } from "../../utils/vehicleDisplay";
+import { alertTarget } from "../../utils/alertDisplay";
 import styles from "./Notice.module.css";
 
 const TONE = { critical: "danger", important: "warning", info: "neutral" };

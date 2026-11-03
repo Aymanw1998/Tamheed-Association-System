@@ -1,4 +1,4 @@
-import { createThrottle, normalizeAlert, mergeAlerts, safeLink, sortAlerts, unreadCount, alertText, mergeAlert, markReadLocal, alertTime, severityClass } from "./alertDisplay";
+import { alertTarget, createThrottle, normalizeAlert, mergeAlerts, safeLink, sortAlerts, unreadCount, alertText, mergeAlert, markReadLocal, alertTime, severityClass } from "./alertDisplay";
 
 const a = (id, at, extra = {}) => ({ id, at, severity: "info", read: false, text: { ar: `ar${id}` }, ...extra });
 
@@ -102,4 +102,26 @@ test("createThrottle runs at most once per window", () => {
   now += 1;
   expect(throttle(fn)).toBe(true);
   expect(fn).toHaveBeenCalledTimes(2);
+});
+
+// Alerts about a locked account or changed access link to the IT site
+// (https://<IT host>/users/<tz>): opened in a new tab, never navigated to
+// inside the app. Any other absolute link is refused.
+describe("alertTarget", () => {
+  beforeEach(() => { process.env.REACT_APP_IT_URL = "https://it.example.test"; });
+  afterEach(() => { delete process.env.REACT_APP_IT_URL; });
+
+  test("an in-app path is navigated to", () => {
+    expect(alertTarget("/vehicles")).toEqual({ path: "/vehicles" });
+  });
+  test("a link into the IT site opens in a new tab", () => {
+    expect(alertTarget("https://it.example.test/users/900000002")).toEqual({ external: "https://it.example.test/users/900000002" });
+  });
+  test("any other absolute or unsafe link is refused", () => {
+    expect(alertTarget("https://evil.test/users/900000002")).toBeNull();
+    expect(alertTarget("//it.example.test/users/1")).toBeNull();
+    expect(alertTarget("javascript:alert(1)")).toBeNull();
+    expect(alertTarget("")).toBeNull();
+    expect(alertTarget(undefined)).toBeNull();
+  });
 });

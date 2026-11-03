@@ -35,7 +35,6 @@ import * as Reports from "../WebServer/services/report/functionsReport";
 import * as Users from "../WebServer/services/user/functionsUser";
 import * as Vehicles from "../WebServer/services/vehicle/functionsVehicle";
 import * as Notices from "../WebServer/services/notice/functionsNotice";
-import * as Audit from "../WebServer/services/audit/functionsAudit";
 import * as Alerts from "../WebServer/services/alerts/functionsAlerts";
 import * as Storage from "../WebServer/services/storage/functionsStorage";
 import * as AI from "../WebServer/services/ai/functionsAI";
@@ -126,12 +125,11 @@ describe("one read and one write per entity", () => {
     expect(call("get", `/user/${users[1].tz}`).data.user.city).toBe("مدينة تجريبية");
   });
 
-  test("audit: a write elsewhere adds a row", () => {
-    const before = call("get", "/audit").data.total;
+  test("audit: a write elsewhere adds a row to the demo log", () => {
+    const before = store.audit.length;
     call("delete", `/student/${store.students[0].tz}`);
-    const after = call("get", "/audit").data;
-    expect(after.total).toBe(before + 1);
-    expect(after.items[0].module).toBe("students");
+    expect(store.audit.length).toBe(before + 1);
+    expect(store.audit[0].module).toBe("students");
   });
 
   test("alerts", () => {
@@ -227,13 +225,9 @@ describe("demo responses match service shapes", () => {
     defined(users);
     const tz = users[2].tz;
     defined(ok(await Users.getUserById(tz)).user);
-    defined(ok(await Users.getUserPermissions(tz)).effective);
     defined(ok(await Users.create({ tz: "13", firstname: "أ", lastname: "ب" }, { confirm: false })).user);
     defined(ok(await Users.update(tz, { city: "x" }, { confirm: false })).user);
     ok(await Users.changeStatus(tz, "active", "noActive"));
-    ok(await Users.saveUserPermissions(tz, { grants: [], revokes: [] }));
-    ok(await Users.unlockUser(tz));
-    expect((await Users.viewPassword(tz)).ok).toBe(false);
   });
 
   test("vehicles", async () => {
@@ -269,12 +263,6 @@ describe("demo responses match service shapes", () => {
     ok(await Notices.markAllNoticesRead());
   });
 
-  test("audit", async () => {
-    const res = ok(await Audit.getAudit({ module: "students", page: 1 }));
-    defined(res.items);
-    defined(res.total);
-  });
-
   test("alerts", async () => {
     const alerts = await Alerts.listAlerts();
     expect(alerts.length).toBeGreaterThan(0);
@@ -294,17 +282,12 @@ describe("demo responses match service shapes", () => {
     expect((await Storage.renameStorageFile(file.path, "اسم-جديد.pdf")).ok).toBe(true);
     expect((await Storage.deleteStorageFile("اسم-جديد.pdf")).ok).toBe(true);
     defined((await Storage.getStorageShareStatus(folder)).sharedWith);
-    expect((await Storage.getDriveStatus()).connected).toBe(false);
   });
 
   test("assistant is off in training", async () => {
     expect(await AI.getAiStatus()).toBe(false);
     expect(await AI.listConversations()).toEqual([]);
   });
-});
-
-test("Drive shows as not connected in training", () => {
-  expect(call("get", "/storage/google/status").data.connected).toBe(false);
 });
 
 test("approving the waiting account gives it a role and makes it active", () => {
@@ -364,44 +347,6 @@ describe("chapters 7-13: every save the guide makes succeeds in the demo store",
 
   test("files: sharing something that does not exist is refused", () => {
     expect(call("post", "/storage/share", { data: { relativePath: "لا-يوجد", targetTz: store.users[1].tz, role: "read" } }).status).toBe(404);
-  });
-
-  test("users: the permissions tab gets the role defaults and what the IT actor may grant", async () => {
-    store = createDemoStore({ meId: "me-1", meTz: "me-tz", role: "ادارة", permissions: [...ADMIN_KEYS, "permissions.manage"] });
-    store.me.it = true;
-    const target = store.users.find((u) => u.role === "مساعد");
-    const res = ok(await Users.getUserPermissions(target.tz));
-    expect(res.defaults).toEqual(expect.arrayContaining(["students.view", "files.use"]));
-    expect(res.defaults).not.toContain("students.create");
-    expect(res.effective).toEqual(res.defaults);
-    expect(res.grantable).toContain("students.create");
-    expect(res.grantable).not.toContain("permissions.manage");
-    expect(res.grantable).not.toContain("users.passwords");
-    expect(res.grantable).toContain("users.changeRole");
-  });
-
-  test("users: a grant then a revoke are saved and change the effective permissions", async () => {
-    store = createDemoStore({ meId: "me-1", meTz: "me-tz", role: "ادارة", permissions: [...ADMIN_KEYS, "permissions.manage"] });
-    store.me.it = true;
-    const target = store.users.find((u) => u.role === "مساعد");
-    const granted = ok(await Users.saveUserPermissions(target.tz, { grants: ["students.create"], revokes: [] }));
-    expect(granted.effective).toContain("students.create");
-    expect(granted.updatedAt).toBeTruthy();
-    expect(ok(await Users.getUserPermissions(target.tz)).grants).toEqual(["students.create"]);
-    const revoked = ok(await Users.saveUserPermissions(target.tz, { grants: [], revokes: [] }));
-    expect(revoked.effective).not.toContain("students.create");
-  });
-
-  test("users: nobody grants their own permissions, and nobody but the IT actor grants anything", async () => {
-    store = createDemoStore({ meId: "me-1", meTz: "me-tz", role: "ادارة", permissions: [...ADMIN_KEYS, "permissions.manage"] });
-    const me = store.users.find((u) => u._id === "me-1");
-    const someone = store.users.find((u) => u.role === "مساعد");
-    expect(ok(await Users.getUserPermissions(someone.tz)).grantable).toEqual([]);
-    store.me.it = true;
-    expect(ok(await Users.getUserPermissions(me.tz)).grantable).toEqual([]);
-    store = createDemoStore({ meId: "me-2", role: "مرشد", permissions: ["students.view"] });
-    const other = store.users.find((u) => u.role === "مساعد");
-    expect(ok(await Users.getUserPermissions(other.tz)).grantable).toEqual([]);
   });
 
   test("users: a role change is saved; a demotion clears grants and revokes", async () => {

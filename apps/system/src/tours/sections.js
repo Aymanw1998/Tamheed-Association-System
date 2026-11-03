@@ -10,7 +10,6 @@ export const SECTIONS = {
   files: { path: "/files", chapterId: "journey-files" },
   notices: { path: "/notices", chapterId: "journey-notices" },
   users: { path: "/users", chapterId: "journey-users" },
-  audit: { path: "/audit", chapterId: "journey-audit" },
   sports: { path: "/sports", chapterId: null },
 };
 
@@ -26,7 +25,6 @@ export const SECTION_OF = {
   notices: "notices",
   users: "users",
   permissions: "users",
-  audit: "audit",
   ai: null,
   systemRecovery: null,
   storage: "files",

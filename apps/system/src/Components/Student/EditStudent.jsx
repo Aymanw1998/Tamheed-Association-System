@@ -12,14 +12,12 @@ import { photoAction } from "../../utils/photoChange";
 import { passportSrc, PASSPORT_PREVIEW } from "../../utils/passportPhoto";
 import { usePhotoPick, PHOTO_NOT_READY } from "../../utils/photoPick";
 import { isRequiredStudentField, responsibleGuideOptions } from "../../utils/studentForm";
-import RecentChanges from "../Audit/RecentChanges.jsx";
 import { useI18n } from "../../i18n/I18nContext";
 import { isValidIsraeliId } from "../../utils/israeliId";
 import useItemLock from "../../locks/useItemLock";
 import LockedScreen from "../../locks/LockedScreen";
 import ReadOnlyArea from "../../locks/ReadOnlyArea";
 import SaveNotice from "../../locks/SaveNotice";
-import forceRelease from "../../locks/forceRelease";
 import useReloadOnUnblock from "../../locks/useReloadOnUnblock";
 import { handleSaveError, withBaseVersion } from "../../locks/staleSave";
 import { useLockRecovery } from "../../locks/LockLostBanner";
@@ -422,7 +420,7 @@ const EditStudent = ({parent = false}) => {
   if (loading) return <div className={styles.formContainer}>جارٍ تحميل البيانات…</div>;
   if (err)      return <div className={styles.formContainer} style={{color:"#b91c1c"}}>{err}</div>;
   if (lock.status === "blocked") {
-    return <LockedScreen holder={lock.holder} onForceRelease={forceRelease(lockKey)} />;
+    return <LockedScreen holder={lock.holder} />;
   }
   // Nothing is editable until the lock is resolved.
   if (lock.status === "loading") return <div className={styles.formContainer} role="status">جارٍ تحميل البيانات…{recovery.element}</div>;
@@ -597,8 +595,6 @@ const EditStudent = ({parent = false}) => {
           العودة إلى القائمة
         </button>)}
       </div>
-      {/* Students are audited by _id (older rows by tz). */}
-      {/* {isEdit && !parent && canStored("audit.view") && <RecentChanges targetIds={[form._id, form.tz]} />} */}
     </div>
   );
 };

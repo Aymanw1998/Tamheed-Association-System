@@ -11,7 +11,7 @@ jest.mock("react-router-dom", () => {
 });
 jest.mock("../../WebServer/services/api", () => ({ __esModule: true, default: { get: jest.fn(), post: jest.fn() }, API_BASE_URL: "/api" }));
 jest.mock("../../WebServer/services/user/functionsUser.jsx", () => ({
-  getUserById: jest.fn(), signOutEverywhere: jest.fn(), deleteU: jest.fn(), changeStatus: jest.fn(), unlockUser: jest.fn(),
+  getUserById: jest.fn(), signOutEverywhere: jest.fn(), deleteU: jest.fn(), changeStatus: jest.fn(),
 }));
 jest.mock("../ExportPDF/ExportPDF.jsx", () => ({ exportUserPdf: jest.fn() }));
 let mockConfirm = true;
@@ -19,7 +19,6 @@ jest.mock("../Provides/confirmBus", () => ({ ask: () => Promise.resolve(mockConf
 jest.mock("../../ALERT/SystemToasts", () => ({ toast: { success() {}, warn() {}, error() {} } }));
 jest.mock("../../WebServer/services/student/functionsStudent.jsx", () => ({ getAll: jest.fn() }));
 jest.mock("../../WebServer/services/lesson/functionsLesson.jsx", () => ({ getAllLesson: jest.fn() }));
-jest.mock("./PermissionsTab.jsx", () => ({ __esModule: true, default: ({ tz }) => <p data-testid="perms-tab">{tz}</p> }));
 let mockRole = "مرشد";
 jest.mock("./RolePickerDialog.jsx", () => ({
   useRolePicker: () => ({ pickRole: () => Promise.resolve(mockRole), roleDialog: null }),
@@ -33,7 +32,7 @@ jest.mock("../../utils/session", () => ({
   getStoredViewer: () => mockViewer,
 }));
 
-import { getUserById, signOutEverywhere, deleteU, changeStatus, unlockUser } from "../../WebServer/services/user/functionsUser.jsx";
+import { getUserById, signOutEverywhere, deleteU, changeStatus } from "../../WebServer/services/user/functionsUser.jsx";
 import { exportUserPdf } from "../ExportPDF/ExportPDF.jsx";
 import { getAll as getStudents } from "../../WebServer/services/student/functionsStudent.jsx";
 import { getAllLesson } from "../../WebServer/services/lesson/functionsLesson.jsx";
@@ -162,7 +161,7 @@ test("no sign-out button without users.edit", async () => {
   expect(signOutButton()).toBeUndefined();
 });
 
-// Owner, 2026-11-02: printing, unlocking, suspending and deleting a user are
+// Owner, 2026-11-02: printing, suspending and deleting a user are
 // done on their page (the last two apart, in the danger zone), no longer in
 // the list or the edit form.
 const button = (label) => [...container.querySelectorAll("button")].find((b) => b.textContent === label);
@@ -208,16 +207,6 @@ test("no delete or suspend for a user the viewer may not manage, or without the 
   await mount();
   expect(button("حذف الحساب")).toBeUndefined();
   expect(button("إيقاف الحساب")).toBeUndefined();
-});
-
-test("a locked account can be unlocked here with users.unlock", async () => {
-  mockPerms = ["users.view", "users.unlock"];
-  mockConfirm = true;
-  getUserById.mockResolvedValue({ ok: true, user: { ...USER, lockedAt: "2026-11-01T10:00:00Z" } });
-  unlockUser.mockResolvedValue({ ok: true });
-  await mount();
-  await act(async () => button("رفع الحظر").click());
-  expect(unlockUser).toHaveBeenCalledWith("900000002");
 });
 
 // Owner, 2026-11-02: a waiting or suspended account is opened from the list
@@ -287,24 +276,27 @@ test("an active account offers neither «قبول» nor «تفعيل»", async (
 });
 
 
-// Owner, 2026-11-02: a user's permissions are on the user's page, not in the
-// edit form.
-test("with permissions.manage the page has a permissions tab for an active user", async () => {
-  mockPerms = ["users.view", "permissions.manage"];
+// Owner, 2026-11-03: permissions, the password state and unlocking are IT
+// actions, on the IT site. An administrator keeps the role and the password
+// reset, which sit in the edit form behind «تعديل».
+test("an administrator sees role change and password reset, not permissions, view-password or unlock", async () => {
+  mockPerms = ["users.view", "users.edit", "users.changeRole", "users.resetPassword", "users.passwords", "users.unlock", "permissions.manage"];
+  getUserById.mockResolvedValue({ ok: true, user: { ...USER, lockedAt: "2026-11-01T10:00:00Z" } });
   await mount();
-  expect(tabLabels()).toContain("الصلاحيات");
-  const tab = [...container.querySelectorAll('[role="tab"]')].find((el) => el.textContent === "الصلاحيات");
-  expect(tab.getAttribute("data-tour")).toBe("user-tab-permissions");
-  await act(async () => tab.click());
-  expect(container.querySelector('[data-tour="user-permissions"] [data-testid="perms-tab"]').textContent).toBe("900000002");
+  expect(editShown()).toBe(true);
+  expect(tabLabels()).not.toContain("الصلاحيات");
+  const labels = [...container.querySelectorAll("button")].map((b) => b.textContent);
+  expect(labels).not.toContain("رفع الحظر");
+  expect(labels.join(" ")).not.toMatch(/عرض كلمة المرور|الصلاحيات/);
+  expect(container.querySelector('[data-tour="user-permissions"]')).toBeNull();
 });
 
-test("no permissions tab without permissions.manage, or for a waiting or inactive account", async () => {
+test("no account actions on an IT user", async () => {
+  mockPerms = ["users.view", "users.edit", "users.approve", "users.delete", "users.changeRole", "users.passwords"];
+  getUserById.mockResolvedValue({ ok: true, user: { ...USER, isIT: true } });
   await mount();
-  expect(tabLabels()).not.toContain("الصلاحيات");
-  await act(async () => root.unmount()); container.remove();
-  mockPerms = ["users.view", "permissions.manage"];
-  getUserById.mockResolvedValue({ ok: true, user: { ...USER, room: "waiting" } });
-  await mount();
-  expect(tabLabels()).not.toContain("الصلاحيات");
+  const labels = [...container.querySelectorAll("button")].map((b) => b.textContent);
+  for (const label of ["تعديل", "تسجيل الخروج من كل الأجهزة", "إيقاف الحساب", "حذف الحساب"]) expect(labels).not.toContain(label);
+  // Reading the page and printing stay.
+  expect(labels).toContain("طباعة الملف");
 });

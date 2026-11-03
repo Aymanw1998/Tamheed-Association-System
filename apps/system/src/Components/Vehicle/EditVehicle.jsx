@@ -27,7 +27,6 @@ import styles from "./Vehicle.module.css";
 import useItemLock from "../../locks/useItemLock";
 import LockedScreen from "../../locks/LockedScreen";
 import SaveNotice from "../../locks/SaveNotice";
-import forceRelease from "../../locks/forceRelease";
 import useReloadOnUnblock from "../../locks/useReloadOnUnblock";
 import { handleSaveError, withBaseVersion } from "../../locks/staleSave";
 import { useLockRecovery } from "../../locks/LockLostBanner";
@@ -280,7 +279,7 @@ export default function EditVehicle() {
   if (lock.status === "blocked") {
     return (
       <div className={styles.page} dir={dir}>
-        <LockedScreen holder={lock.holder} onForceRelease={forceRelease(lockKey)} />
+        <LockedScreen holder={lock.holder} />
         <Button variant="secondary" onClick={() => navigate("/vehicles")}>{t("vehicles.back")}</Button>
       </div>
     );

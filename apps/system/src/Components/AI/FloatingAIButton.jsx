@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { approveAction, cancelAction, deleteConversation, getAiStatus, getConversation, listConversations, streamChat } from "../../WebServer/services/ai/functionsAI";
 import { listAlerts, markAlertRead, markAllAlertsRead } from "../../WebServer/services/alerts/functionsAlerts";
 import { openLiveStream } from "../../WebServer/services/live/liveStream";
-import { alertText, alertTime, createThrottle, markReadLocal, mergeAlert, mergeAlerts, normalizeAlert, safeLink, severityClass, unreadCount } from "../../utils/alertDisplay";
+import { alertText, alertTime, createThrottle, markReadLocal, mergeAlert, mergeAlerts, normalizeAlert, alertTarget, safeLink, severityClass, unreadCount } from "../../utils/alertDisplay";
 import { applyStreamEvent, createSendGate, errorKey, finishTurn, mergeFinal, newStreamingMessage, settleTurn, suggestionKeys, toDisplayMessages, toolKey, visibleTabs } from "../../utils/assistantChat";
 import { applyOutcome, canAct, initialActionState, needsConfirm, outcomeOf, startAction, upsertCards } from "../../utils/actionCard";
 import ActionCard from "./ActionCard";
@@ -113,10 +113,12 @@ export default function FloatingAIButton() {
   }, [loadAlerts]);
 
   const goTo = (path) => {
-    const link = safeLink(path);
-    if (!link) return;
+    const target = alertTarget(path);
+    if (!target) return;
     setOpen(false);
-    navigate(link);
+    // The IT site is another address: a new tab, not a route of this app.
+    if (target.external) window.open(target.external, "_blank", "noopener,noreferrer");
+    else navigate(target.path);
   };
 
   const openAlert = (alert) => {

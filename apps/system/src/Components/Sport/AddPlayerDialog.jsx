@@ -10,7 +10,6 @@ import useItemLock from "../../locks/useItemLock";
 import LockedScreen from "../../locks/LockedScreen";
 import ReadOnlyArea from "../../locks/ReadOnlyArea";
 import SaveNotice from "../../locks/SaveNotice";
-import forceRelease from "../../locks/forceRelease";
 import { handleSaveError } from "../../locks/staleSave";
 import { useLockRecovery } from "../../locks/LockLostBanner";
 
@@ -82,7 +81,7 @@ export default function AddPlayerDialog({ lessons, player, onClose, onSaved }) {
 
         {recovery.element}
         {lock.status === "blocked" ? (
-          <LockedScreen holder={lock.holder} onForceRelease={forceRelease(lockKey)} />
+          <LockedScreen holder={lock.holder} />
         ) : lock.status === "loading" ? (
           <div role="status">جارٍ تحميل البيانات…</div>
         ) : (

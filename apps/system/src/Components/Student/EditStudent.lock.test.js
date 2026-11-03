@@ -24,7 +24,6 @@ jest.mock("../../WebServer/services/student/functionsStudent.jsx", () => ({
 jest.mock("../../WebServer/services/user/functionsUser.jsx", () => ({ getAll: jest.fn(async () => ({ ok: true, users: [] })) }));
 jest.mock("../../WebServer/services/inviteToken/functionInviteToken.jsx", () => ({ validate: jest.fn(), submit: jest.fn() }));
 jest.mock("../../ALERT/SystemToasts", () => ({ toast: { success: jest.fn(), warn: jest.fn(), error: jest.fn(), info: jest.fn() } }));
-jest.mock("../Audit/RecentChanges.jsx", () => ({ __esModule: true, default: () => null }));
 jest.mock("../../utils/session", () => ({ ...jest.requireActual("../../utils/session"), canStored: () => true }));
 
 import api from "../../WebServer/services/api";

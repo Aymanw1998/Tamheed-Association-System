@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import styles from "./Header.module.css";
 import LOGO from "../../images/logo.png";
-import { getMe, logout } from "../../WebServer/services/auth/fuctionsAuth";
+import { getMe, logout, requestItPass } from "../../WebServer/services/auth/fuctionsAuth";
 import { getMyPermissions } from "../../WebServer/services/vehicle/functionsVehicle";
 import { confirmLeave } from "../../utils/unsavedChanges";
 import { useI18n } from "../../i18n/I18nContext";
@@ -11,13 +11,16 @@ import { ADMIN_ROLES, GUIDE_ROLES, canStored, getStoredPermissions, normalizeRol
 import { canAccessPath } from "../../utils/routeAccess";
 import NewBadge from "../../tours/NewBadge";
 import { InstallAppButton } from "../../pwa/InstallApp";
+import { toast } from "../../ALERT/SystemToasts";
+import { itUrlWithPass } from "../../utils/siteLink";
+import { resolveRole } from "../../utils/roles";
 
 const hasAnyRole = (roles, allowedRoles) => allowedRoles.some((role) => roles.includes(role));
 
 // The user's name opens a small menu: profile, installing the app (phones
 // only) and signing out (owner, 2026-11-02: they left the main menu). It is
 // there before the user's details load, so signing out is always reachable.
-function AccountMenu({ label, onNav, onLogout, t }) {
+function AccountMenu({ label, onNav, onLogout, t, showIt, onItRefused }) {
   const [open, setOpen] = useState(false);
   const boxRef = useRef(null);
 
@@ -29,6 +32,29 @@ function AccountMenu({ label, onNav, onLogout, t }) {
     document.addEventListener("click", onDocClick);
     return () => document.removeEventListener("click", onDocClick);
   }, [open]);
+
+  // «قسم الIT»: a one-time pass from the server, then the IT site in a new tab,
+  // signed in without typing the password. The tab is opened first (on the
+  // click, so a pop-up blocker allows it) and sent to the address when the
+  // pass arrives. A 403 means this user has no IT side: no button.
+  const openIt = async () => {
+    setOpen(false);
+    const tab = window.open("", "_blank");
+    if (!tab) return toast.warn(t("nav.itBlocked"));
+    tab.opener = null;
+    try {
+      const pass = await requestItPass();
+      if (!pass) {
+        tab.close();
+        onItRefused();
+        return;
+      }
+      tab.location.href = itUrlWithPass(pass);
+    } catch {
+      tab.close();
+      toast.error(t("nav.itFailed"));
+    }
+  };
 
   return (
     <div className={styles.account} ref={boxRef} onKeyDown={(event) => event.key === "Escape" && setOpen(false)}>
@@ -46,6 +72,9 @@ function AccountMenu({ label, onNav, onLogout, t }) {
       {open && (
         <div id="account-menu" role="menu" className={styles.accountMenu} data-testid="account-menu">
           <a href="/profile" role="menuitem" data-tour="menu-profile" onClick={(event) => { setOpen(false); onNav(event, "/profile"); }}>{t("nav.profile")}</a>
+          {showIt && (
+            <button type="button" role="menuitem" data-testid="it-site-button" onClick={openIt}>{t("nav.itSite")}</button>
+          )}
           {/* Phones only, until the app is installed. */}
           <InstallAppButton className={styles.installButton} />
           <button type="button" role="menuitem" onClick={onLogout} className={styles.logoutButton}>{t("nav.logout")}</button>
@@ -61,6 +90,7 @@ export default function Header() {
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [menuOpen, setMenuOpen] = useState(false);
   const [canViewVehicles, setCanViewVehicles] = useState(false);
+  const [itRefused, setItRefused] = useState(false);
   const navigate = useNavigate();
   const headerRef = useRef(null);
   const navRef = useRef(null);
@@ -72,7 +102,6 @@ export default function Header() {
   const canViewStudents = canStored("students.view");
   const canViewUsers = canStored("users.view");
   const canViewNotices = canStored("notices.view");
-  const canViewAudit = canStored("audit.view");
   // The page links follow the same rules as the pages (utils/routeAccess).
   const opens = (path) => canAccessPath(path, getStoredPermissions());
   const displayRole = isAdmin ? t("roles.admin") : isGuide ? t("roles.guide") : t("roles.assistantGuide");
@@ -146,8 +175,13 @@ export default function Header() {
     navigate(to);
   };
 
+  // Only an IT user who is not blocked and has an everyday role (the system
+  // account has none); the server decides when the button is pressed.
+  const showIt = !itRefused && user?.isIT === true && !user.itBlockedAt && user.isSystem !== true && Boolean(resolveRole(user));
   const accountMenu = (
     <AccountMenu
+      showIt={showIt}
+      onItRefused={() => setItRefused(true)}
       label={user ? `${user.firstname || ""} ${user.lastname || ""} - ${displayRole}` : t("nav.account")}
       onNav={onNavClick}
       onLogout={handleLogout}
@@ -230,9 +264,6 @@ export default function Header() {
         {(canStored("sports.view") || canStored("sports.coach") || canStored("sports.manage")) && (
           <a href="/sports" data-tour="menu-sports" onClick={(event) => onNavClick(event, "/sports")}>{t("nav.sports")}</a>
         )}
-        {/* {canViewAudit && (
-          <a href="/audit" data-tour="menu-audit" onClick={(event) => onNavClick(event, "/audit")}>{t("nav.audit")}<NewBadge section="audit" /></a>
-        )} */}
       </nav>
     </header>
   );

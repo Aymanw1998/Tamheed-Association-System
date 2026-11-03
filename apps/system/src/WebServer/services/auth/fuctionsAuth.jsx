@@ -185,3 +185,32 @@ export async function resetPassword(tz, otp, newPassword, confirmPassword) {
     return { ok: false, message: err.response?.data?.message || err.message || "تعذّر إتمام العملية." };
   }
 }
+
+// POST /auth/login-pass: the IT site's «النظام» button hands over a one-time
+// pass instead of the password. The answer is a password login's, so the
+// session starts the same way. A bad, spent or expired pass throws (401).
+export async function loginWithPass(pass) {
+  const { data, status } = await api.post("/auth/login-pass", { pass }, { withCredentials: true });
+  if (![200, 201].includes(status) || !data?.ok) {
+    throw new Error(data?.message || "تعذّر تسجيل الدخول");
+  }
+  if (isForcedChange(data)) {
+    return { mustChangePassword: true, accessToken: data.accessToken };
+  }
+
+  const { accessToken, expirationTime, user } = data;
+  markSignedIn(user, accessToken, expirationTime);
+  return user;
+}
+
+// POST /auth/it-pass: a one-time pass for the IT site, or null when the server
+// refuses (403: not IT, blocked, or no everyday role). Other failures throw.
+export async function requestItPass() {
+  try {
+    const { data } = await api.post("/auth/it-pass", {}, { withCredentials: true });
+    return data?.ok && typeof data.pass === "string" && data.pass ? data.pass : null;
+  } catch (err) {
+    if (err?.response?.status === 403) return null;
+    throw err;
+  }
+}

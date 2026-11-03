@@ -15,14 +15,12 @@ jest.mock("../../WebServer/services/api", () => ({
 jest.mock("../../journey/demoMode", () => ({ __esModule: true, isDemo: jest.fn(() => false) }));
 jest.mock("../../WebServer/services/user/functionsUser.jsx", () => ({
   create: jest.fn(), update: jest.fn(), getUserById: jest.fn(), deleteU: jest.fn(), uploadPhoto: jest.fn(),
-  deletePhoto: jest.fn(), changeStatus: jest.fn(), viewPassword: jest.fn(), changeUserRole: jest.fn(), unlockUser: jest.fn(),
+  deletePhoto: jest.fn(), changeStatus: jest.fn(), changeUserRole: jest.fn(),
 }));
 jest.mock("../../WebServer/services/tours/functionsTours.jsx", () => ({ resetUserTours: jest.fn() }));
 jest.mock("../Provides/confirmBus", () => ({ ask: jest.fn() }));
 jest.mock("../../ALERT/SystemToasts.jsx", () => ({ toast: { success: jest.fn(), warn: jest.fn(), error: jest.fn(), info: jest.fn() } }));
-jest.mock("../Audit/RecentChanges.jsx", () => ({ __esModule: true, default: () => null }));
 jest.mock("../Profile/ChangeOwnPassword.jsx", () => ({ __esModule: true, default: () => null }));
-jest.mock("./PermissionsTab.jsx", () => ({ __esModule: true, default: () => null }));
 jest.mock("./RolePickerDialog.jsx", () => ({ viewerAssignableRoles: () => ["مرشد", "مساعد"], permissionError: () => "error" }));
 jest.mock("../../utils/roles", () => ({ ...jest.requireActual("../../utils/roles"), canManageTargetClient: () => true }));
 jest.mock("../../utils/session", () => ({ ...jest.requireActual("../../utils/session"), canStored: () => true, getStoredUserId: () => "viewer" }));

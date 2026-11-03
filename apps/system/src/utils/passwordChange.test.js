@@ -1,4 +1,4 @@
-import { newPasswordError, resetPasswordError, MIN_PASSWORD_LENGTH, MAX_PASSWORD_LENGTH, isForcedChange, recoveryResultKey } from "./passwordChange";
+import { newPasswordError, resetPasswordError, MIN_PASSWORD_LENGTH, MAX_PASSWORD_LENGTH, isForcedChange } from "./passwordChange";
 import { accessStrings } from "../i18n/accessStrings";
 
 test("the new password mirrors the server rule: 8+ characters, different, confirmed", () => {
@@ -21,20 +21,6 @@ test("only a login answer flagged mustChangePassword with a token is a forced ch
 test("the forced change screen has its strings", () => {
   const keys = Object.keys(accessStrings.ar.passwordChange).sort();
   expect(keys.length).toBeGreaterThan(5);
-  expect(accessStrings.ar.audit.actions.system_recovery).toBeTruthy();
-});
-
-test("the recovery button maps each server answer to a message", () => {
-  expect(recoveryResultKey({ ok: true })).toBe("sent");
-  expect(recoveryResultKey({ ok: false, status: 409, code: "RECOVERY_NOT_ALLOWED" })).toBe("notEnough");
-  expect(recoveryResultKey({ ok: false, status: 429, code: "RECOVERY_COOLDOWN" })).toBe("cooldown");
-  expect(recoveryResultKey({ ok: false, status: 429, code: "RATE_LIMITED" })).toBe("cooldown");
-  expect(recoveryResultKey({ ok: false, status: 503, code: "EMAIL_NOT_CONFIGURED" })).toBe("notConfigured");
-  expect(recoveryResultKey({ ok: false, status: 502, code: "EMAIL_FAILED" })).toBe("emailFailed");
-  expect(recoveryResultKey({ ok: false, status: 500 })).toBe("generic");
-  for (const key of ["sent", "notEnough", "cooldown", "notConfigured", "emailFailed", "generic", "button", "confirm"]) {
-    expect(accessStrings.ar.systemRecovery[key]).toBeTruthy();
-  }
 });
 
 test("the own-password form has its strings", () => {

@@ -122,7 +122,7 @@ test("the first visit marks nothing new", async () => {
 test("an administrator sees every screen; sports has no «أرني»", async () => {
   const { ALL_KEYS } = require("../utils/permissionKeys");
   await mount(ALL_KEYS);
-  expect(cards()).toEqual(["dashboard", "lessons", "calendar", "students", "reports", "vehicles", "files", "notices", "users", "audit", "sports"]);
+  expect(cards()).toEqual(["dashboard", "lessons", "calendar", "students", "reports", "vehicles", "files", "notices", "users", "sports"]);
   expect(button(card("sports"), "أرني")).toBeUndefined();
   expect(button(card("users"), "أرني")).toBeDefined();
 });

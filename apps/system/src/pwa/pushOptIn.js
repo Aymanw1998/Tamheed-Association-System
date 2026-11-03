@@ -129,5 +129,3 @@ export function needsHomeScreen() {
   }
 }
 
-export const getPushSettings = () => api.get("/push/settings").then((r) => r.data);
-export const setPushSettings = (enabled) => api.put("/push/settings", { enabled }).then((r) => r.data);

@@ -160,17 +160,6 @@ export const removeSub = async (_userId) => {
     return {ok: false, status: err.response?.status, data: err.response?.data, message: err.response?.data?.message || err.message || 'تعذّر إتمام العملية.'};
   }
 };
-export const viewPassword = async (tz) => {
-  try {
-    const {status, data} = await api.get(`/user/viewPassword/${tz}`);
-    if (![200,201].includes(status) || !data?.ok) throw new Error('لا يمكن عرض كلمة المرور');
-    return data;
-  }
-  catch (err) {
-    return err.response.data;
-  }
-};
-
 // Same contract as functionsNotice: never throws; failures carry the server's code.
 const call = async (request) => {
   try {
@@ -183,21 +172,11 @@ const call = async (request) => {
 };
 const userPath = (tz) => `/user/${encodeURIComponent(tz)}`;
 
-// permissions.manage: { role, grants, revokes, effective, defaults, grantable, updatedAt, updatedBy }
-export const getUserPermissions = (tz) => call(() => api.get(`${userPath(tz)}/permissions`));
-// Full lists; 400 codes FORBIDDEN / NOT_GRANTABLE / SELF / UNKNOWN_KEY.
-export const saveUserPermissions = (tz, { grants, revokes }) =>
-  call(() => api.put(`${userPath(tz)}/permissions`, { grants, revokes }));
 // users.changeRole: { ok, role, demoted }; 400 UNKNOWN_ROLE.
 export const changeUserRole = (tz, role) => call(() => api.put(`${userPath(tz)}/role`, { role }));
-// users.unlock: clears the failed sign-in counter and the lock.
-export const unlockUser = (tz) => call(() => api.post(`${userPath(tz)}/unlock`, {}));
 // users.edit: ends the user's sessions on every device.
 export const signOutEverywhere = (tz) => call(() => api.post(`${userPath(tz)}/sign-out-all`, {}));
 // My own devices (profile page): list, sign out one, sign out all but this one.
 export const listMyDevices = () => call(() => api.get("/auth/sessions"));
 export const signOutMyDevice = (sid) => call(() => api.delete(`/auth/sessions/${encodeURIComponent(sid)}`));
 export const signOutOtherDevices = () => call(() => api.post("/auth/sessions/sign-out-others", {}));
-// systemRecovery.reset: emails a temporary password to the system mailbox.
-// 409 RECOVERY_NOT_ALLOWED (under 3 failed sign-ins), 429 cooldown/rate limit.
-export const recoverSystemAccount = () => call(() => api.post("/user/system/recover", {}));

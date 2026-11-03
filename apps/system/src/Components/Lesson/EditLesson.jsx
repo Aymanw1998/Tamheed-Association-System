@@ -23,7 +23,6 @@ import Button from '../UI/Button';
 import useItemLock from '../../locks/useItemLock';
 import LockedScreen from '../../locks/LockedScreen';
 import SaveNotice from '../../locks/SaveNotice';
-import forceRelease from '../../locks/forceRelease';
 import useReloadOnUnblock from '../../locks/useReloadOnUnblock';
 import { handleSaveError, withBaseVersion } from '../../locks/staleSave';
 import { useLockRecovery } from '../../locks/LockLostBanner';
@@ -267,7 +266,7 @@ const EditLesson = () => {
 
 
   if (lock.status === 'blocked') {
-    return <LockedScreen holder={lock.holder} onForceRelease={forceRelease(lockKey)} />;
+    return <LockedScreen holder={lock.holder} />;
   }
   // Nothing is editable until the lock is resolved.
   if (lock.status === 'loading') {

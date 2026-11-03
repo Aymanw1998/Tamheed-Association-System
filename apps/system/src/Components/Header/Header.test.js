@@ -8,7 +8,8 @@ jest.mock("react-router-dom", () => {
   if (!global.TextDecoder) global.TextDecoder = TextDecoder;
   return jest.requireActual("react-router");
 });
-jest.mock("../../WebServer/services/auth/fuctionsAuth", () => ({ getMe: jest.fn(), logout: jest.fn() }));
+jest.mock("../../WebServer/services/auth/fuctionsAuth", () => ({ getMe: jest.fn(), logout: jest.fn(), requestItPass: jest.fn() }));
+jest.mock("../../ALERT/SystemToasts", () => ({ toast: { success: jest.fn(), warn: jest.fn(), error: jest.fn(), info: jest.fn() } }));
 jest.mock("../../WebServer/services/vehicle/functionsVehicle", () => ({ getMyPermissions: jest.fn() }));
 jest.mock("../../utils/unsavedChanges", () => ({ confirmLeave: () => Promise.resolve(true) }));
 jest.mock("../Notice/NoticeBell", () => () => null);
@@ -21,7 +22,7 @@ jest.mock("../../utils/session", () => ({
   getStoredPermissions: () => mockPerms,
 }));
 
-import { getMe, logout } from "../../WebServer/services/auth/fuctionsAuth";
+import { getMe, logout, requestItPass } from "../../WebServer/services/auth/fuctionsAuth";
 import { getMyPermissions } from "../../WebServer/services/vehicle/functionsVehicle";
 import Header from "./Header";
 import { I18nProvider } from "../../i18n/I18nContext";
@@ -122,4 +123,65 @@ test("each page link follows its permission", async () => {
   mockPerms = ["students.view", "lessons.view"];
   await mount();
   expect(navText()).toEqual(["الطلاب", "الدروس"]);
+});
+
+// Owner, 2026-11-03: «قسم الIT» opens the IT site already signed in, for a user
+// who is IT, not blocked, with an everyday role.
+const IT_USER = { firstname: "أيمن", lastname: "و", roles: ["ادارة"], role: "ادارة", isIT: true };
+const itButton = () => item("قسم الIT");
+const openMenu = async () => act(async () => accountButton().click());
+
+test("«قسم الIT» is in the name menu for an IT user with an everyday role", async () => {
+  getMe.mockResolvedValue(IT_USER);
+  await mount();
+  await openMenu();
+  expect(itButton()).toBeDefined();
+});
+
+test.each([
+  ["not IT", { ...IT_USER, isIT: false }],
+  ["IT but blocked", { ...IT_USER, itBlockedAt: "2026-11-01T10:00:00Z" }],
+  ["IT with no everyday role", { ...IT_USER, roles: [], role: undefined }],
+  ["the system account", { ...IT_USER, isSystem: true }],
+])("no «قسم الIT» for %s", async (_, user) => {
+  getMe.mockResolvedValue(user);
+  await mount();
+  await openMenu();
+  expect(itButton()).toBeUndefined();
+});
+
+describe("opening the IT site", () => {
+  let tab;
+  beforeEach(() => {
+    process.env.REACT_APP_IT_URL = "https://it.example.test";
+    tab = { location: { href: "" }, close: jest.fn(), opener: {} };
+    jest.spyOn(window, "open").mockImplementation(() => tab);
+    requestItPass.mockReset();
+    getMe.mockResolvedValue(IT_USER);
+  });
+  afterEach(() => { delete process.env.REACT_APP_IT_URL; jest.restoreAllMocks(); });
+
+  test("the pass is asked for only on click, and the new tab gets it in the fragment", async () => {
+    requestItPass.mockResolvedValue("one-time_pass");
+    await mount();
+    await openMenu();
+    expect(requestItPass).not.toHaveBeenCalled();
+    await act(async () => itButton().click());
+    expect(requestItPass).toHaveBeenCalledTimes(1);
+    expect(tab.location.href).toBe("https://it.example.test/#pass=one-time_pass");
+    expect(tab.location.href).not.toContain("?");
+    expect(tab.opener).toBeNull();
+    expect(tab.close).not.toHaveBeenCalled();
+  });
+
+  test("a refused pass (403) opens nothing and takes the button away", async () => {
+    requestItPass.mockResolvedValue(null);
+    await mount();
+    await openMenu();
+    await act(async () => itButton().click());
+    expect(tab.location.href).toBe("");
+    expect(tab.close).toHaveBeenCalled();
+    await openMenu();
+    expect(itButton()).toBeUndefined();
+  });
 });

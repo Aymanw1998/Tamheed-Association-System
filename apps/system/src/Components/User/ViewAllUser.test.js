@@ -11,7 +11,7 @@ jest.mock("react-router-dom", () => {
 });
 jest.mock("../../WebServer/services/api", () => ({ __esModule: true, default: { get: jest.fn(), post: jest.fn() }, API_BASE_URL: "/api" }));
 jest.mock("../../WebServer/services/user/functionsUser.jsx", () => ({
-  getAll: jest.fn(), changeStatus: jest.fn(), deleteU: jest.fn(), unlockUser: jest.fn(), recoverSystemAccount: jest.fn(),
+  getAll: jest.fn(), changeStatus: jest.fn(), deleteU: jest.fn(),
 }));
 jest.mock("../../locks/useLiveRefresh", () => ({ __esModule: true, default: () => {} }));
 jest.mock("../ExportPDF/ExportPDF.jsx", () => ({ exportUserPdf: jest.fn() }));
@@ -30,7 +30,7 @@ import { I18nProvider } from "../../i18n/I18nContext";
 global.IS_REACT_ACT_ENVIRONMENT = true;
 global.IntersectionObserver = class { observe() {} unobserve() {} disconnect() {} };
 
-// Owner, 2026-11-02: a row opens the user's page, where print, edit, unlock,
+// Owner, 2026-11-02: a row opens the user's page, where print, edit,
 // suspend and delete are, and approve/activate for a waiting or suspended
 // account; the list offers none of them.
 const GUIDE = { _id: "g1", tz: "900000002", firstname: "سامي", lastname: "علي", roles: ["مرشد"], room: "active", lockedAt: "2026-11-01T10:00:00Z" };
@@ -57,6 +57,14 @@ test("an active user's row offers no «تعديل», file or unlock", async () =
   await mount();
   expect(container.textContent).toContain("سامي");
   expect(rowButtons()).toEqual([]);
+});
+
+// Owner, 2026-11-03: restoring the system account is an IT action.
+test("the list has no system-account recovery button, even with systemRecovery.reset", async () => {
+  mockPerms = [...mockPerms, "systemRecovery.reset"];
+  await mount();
+  expect(container.textContent).not.toContain("استعادة حساب النظام");
+  expect(container.querySelector('[data-tour="users-recover"]')).toBeNull();
 });
 
 test("clicking anywhere on the row opens the user's page", async () => {

@@ -13,7 +13,6 @@ import { OVERWRITTEN_MESSAGE, SAVED_OFFLINE_MESSAGE } from "../../pwa/attendance
 import useItemLock from "../../locks/useItemLock";
 import LockedScreen from "../../locks/LockedScreen";
 import SaveNotice from "../../locks/SaveNotice";
-import forceRelease from "../../locks/forceRelease";
 import useReloadOnUnblock from "../../locks/useReloadOnUnblock";
 import useLiveRefresh from "../../locks/useLiveRefresh";
 import { handleSaveError } from "../../locks/staleSave";
@@ -474,7 +473,7 @@ export default function AttendancePage() {
             )}
 
             {blocked && lockKey && (
-                <LockedScreen holder={lock.holder} onForceRelease={forceRelease(lockKey)} />
+                <LockedScreen holder={lock.holder} />
             )}
 
             {!blocked && <SaveNotice notice={notice} />}

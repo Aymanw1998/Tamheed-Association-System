@@ -21,10 +21,9 @@ import {
   uploadStorageFileAuto,
 } from "../../WebServer/services/storage/functionsStorage";
 import { getAll as getAllUsers } from "../../WebServer/services/user/functionsUser";
-import { canStored, getStoredUserId } from "../../utils/session";
+import { getStoredUserId } from "../../utils/session";
 import { useI18n } from "../../i18n/I18nContext";
 import { ask } from "../Provides/confirmBus";
-import DriveConnection from "./DriveConnection";
 import FilterDialog from "../UI/FilterDialog.jsx";
 import { isDemo } from "../../journey/demoMode";
 import { demoUploadFile } from "../../journey/demoData";
@@ -237,10 +236,6 @@ export default function FilesPage() {
   const shareToken = useMemo(() => readShareToken(), []);
   const currentUserId = useMemo(() => String(getStoredUserId() || "").trim(), []);
   const isSharedView = Boolean(shareToken);
-  // The linked Drive account sits in the «معلومات التخزين» window (owner,
-  // 2026-11-03); Google's return (/files?drive=…) opens it to show the result.
-  const canDrive = canStored("storage.drive");
-  const driveResult = canDrive && new URLSearchParams(window.location.search).has("drive");
 
   const [items, setItems] = useState([]);
   const [currentPath, setCurrentPath] = useState("");
@@ -909,10 +904,9 @@ export default function FilesPage() {
               ))}
             </div>
             <h2>{isSharedView ? t("files.sharedTitle") : t("files.title")}</h2>
-            {!isSharedView && (storageStats || canDrive) && (
+            {!isSharedView && storageStats && (
               <div className={styles.storageInfo}>
-              <FilterDialog label={t("files.storageInfo")} tour="files-storage" defaultOpen={driveResult}>
-              <DriveConnection />
+              <FilterDialog label={t("files.storageInfo")} tour="files-storage">
               {storageStats && (
               <div className={styles.storageStats}>
                 <div className={styles.storageStatsTop}>
