@@ -24,7 +24,7 @@ test("stored IT-key grants are listed, and --apply removes only those keys", asy
 
   const updates = [];
   const rows = [];
-  const model = { async update(filter, data, room) { updates.push({ filter, data, room }); return { success: true }; } };
+  const model = { async updateExisting(filter, data, room) { updates.push({ filter, data, room }); return { success: true, result: { tz: filter.tz } }; } };
   const audit = { async record(req, row) { rows.push({ req, row }); } };
 
   const result = await clearItGrants(users(), { model, audit, apply: true });
@@ -54,10 +54,23 @@ test("stored IT-key grants are listed, and --apply removes only those keys", asy
 });
 
 test("a dry run changes nothing and a clean set needs no write", async () => {
-  const model = { async update() { throw new Error("must not write"); } };
+  const model = { async updateExisting() { throw new Error("must not write"); } };
   const audit = { async record() { throw new Error("must not audit"); } };
   const result = await clearItGrants(users(), { model, audit });
   assert.equal(result.changed, 0);
   assert.equal(result.found.length, 3);
   assert.deepEqual(findItGrants([users()[3]]), []);
+});
+
+test("a user who no longer exists is skipped: reported, no audit row, never created", async () => {
+  const rows = [];
+  const model = {
+    update() { throw new Error("must not upsert"); },
+    async updateExisting(filter) { return { success: true, result: filter.tz === "111111111" ? null : { tz: filter.tz } }; },
+  };
+  const audit = { async record(req, row) { rows.push(row); } };
+  const result = await clearItGrants(users(), { model, audit, apply: true });
+  assert.equal(result.changed, 2);
+  assert.deepEqual(result.skipped, [{ tz: "111111111", room: "noActive" }]);
+  assert.deepEqual(rows.map((r) => r.targetId).sort(), ["111111110", "111111112"]);
 });

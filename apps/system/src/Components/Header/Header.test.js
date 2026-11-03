@@ -125,6 +125,14 @@ test("each page link follows its permission", async () => {
   expect(navText()).toEqual(["الطلاب", "الدروس"]);
 });
 
+// The system account has no everyday role: its label is «النظام», not an assistant's.
+test("the system account's label is «النظام»", async () => {
+  getMe.mockResolvedValue({ firstname: "أيمن", lastname: "و", roles: [], isSystem: true });
+  await mount();
+  expect(accountButton().outerHTML).toContain("النظام");
+  expect(accountButton().outerHTML).not.toContain("مساعد مرشد");
+});
+
 // Owner, 2026-11-03: «قسم الIT» opens the IT site already signed in, for a user
 // who is IT, not blocked, with an everyday role.
 const IT_USER = { firstname: "أيمن", lastname: "و", roles: ["ادارة"], role: "ادارة", isIT: true };

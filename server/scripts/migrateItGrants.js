@@ -53,18 +53,24 @@ function findItGrants(users) {
   return planItGrants(users).map(({ tz, room, keys }) => ({ tz, room, keys }));
 }
 
-// Read-only unless apply is true. -> { found, changed }
+// Read-only unless apply is true. -> { found, changed, skipped }
+// Writes never create a user: one that no longer exists is skipped (no audit row).
 async function clearItGrants(users, { model, audit, apply = false } = {}) {
   const plan = planItGrants(users);
   const found = plan.map(({ tz, room, keys }) => ({ tz, room, keys }));
-  if (!apply) return { found, changed: 0 };
+  if (!apply) return { found, changed: 0, skipped: [] };
 
   const byTz = new Map(users.map((u) => [`${u.room}:${u.tz}`, u]));
   let changed = 0;
+  const skipped = [];
   for (const { tz, room, patch } of plan) {
     const user = byTz.get(`${room}:${tz}`);
-    const response = await model.update({ tz }, patch, room);
+    const response = await model.updateExisting({ tz }, patch, room);
     if (response && response.success === false) throw new Error(`Update failed for ${tz} (${room})`);
+    if (!response?.result) {
+      skipped.push({ tz, room });
+      continue;
+    }
     changed += 1;
     await audit.record(
       { actor: { isSystem: true } },
@@ -79,7 +85,7 @@ async function clearItGrants(users, { model, audit, apply = false } = {}) {
       },
     );
   }
-  return { found, changed };
+  return { found, changed, skipped };
 }
 
 async function main() {
@@ -94,12 +100,13 @@ async function main() {
     for (const doc of docs) users.push({ ...doc, room });
   }
 
-  const { found, changed } = await clearItGrants(users, { model: UserModelDef, audit, apply });
+  const { found, changed, skipped } = await clearItGrants(users, { model: UserModelDef, audit, apply });
   if (!found.length) {
     console.log("No stored IT-key grants. Nothing to do.");
     return 0;
   }
   for (const { tz, room, keys } of found) console.log(`${room}: ${tz} ${keys.join(", ")}`);
+  for (const { tz, room } of skipped) console.log(`Skipped (no longer exists): ${room}: ${tz}`);
   console.log(apply ? `Cleared IT keys for ${changed} user(s).` : "Dry run. Run again with --apply to remove them.");
   return 0;
 }

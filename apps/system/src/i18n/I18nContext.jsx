@@ -17,6 +17,7 @@ const translations = {
       admin: "إدارة",
       guide: "مرشد",
       assistantGuide: "مساعد مرشد",
+      system: "النظام",
     },
     nav: {
       dashboard: "لوحة التحكم",

@@ -4015,3 +4015,22 @@ model and audit, dry run writes nothing, system account skipped).
 **Verification:** server suite 1235/1235.
 
 **Codex review:** pending (until 2026-11-06). **Status:** committed.
+
+### Follow-up: final review fixes of the it-site branch (2026-11-03)
+
+**Change:** `deploy/nginx-tamheed.conf` sets `X-Forwarded-Host $host` in every
+proxying `location` (a client-sent value no longer reaches the IT/sport host
+checks); `deploy/DEPLOY.md` gets the step for running servers (add the line by
+hand, reload, `curl` check must print 404), the Drive pointer now says the IT
+site's «التخزين», the first-sign-in note (change the system password on the
+main domain first) and the deactivate/delete order for IT users. The everyday
+header shows «النظام» for the system account (`roles.system`). The
+`migrateItGrants.js` apply uses `updateExisting`; a user that no longer exists
+is reported as skipped, with no audit row.
+
+**Test:** `Header.test.js` (system account label), `migrate-it-grants.test.js`
+(skipped user). nginx and DEPLOY changes: docs only.
+
+**Verification:** see the commit; server and `apps/system` suites run once each.
+
+**Codex review:** pending (until 2026-11-06). **Status:** committed.

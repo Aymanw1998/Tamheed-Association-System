@@ -104,7 +104,7 @@ export default function Header() {
   const canViewNotices = canStored("notices.view");
   // The page links follow the same rules as the pages (utils/routeAccess).
   const opens = (path) => canAccessPath(path, getStoredPermissions());
-  const displayRole = isAdmin ? t("roles.admin") : isGuide ? t("roles.guide") : t("roles.assistantGuide");
+  const displayRole = user?.isSystem === true ? t("roles.system") : isAdmin ? t("roles.admin") : isGuide ? t("roles.guide") : t("roles.assistantGuide");
 
   const loadData = useCallback(async () => {
     try {
