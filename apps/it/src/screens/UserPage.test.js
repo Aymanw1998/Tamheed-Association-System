@@ -1,6 +1,6 @@
 import UserPage from "./UserPage.jsx";
 import * as api from "../api";
-import { mount, unmountAll, ok, fail, button, click, type, flush } from "../testUtils";
+import { mount, unmountAll, ok, fail, button, click, type, flush, toastText } from "../testUtils";
 
 jest.mock("../api", () => ({
   ...jest.requireActual("../api"),
@@ -93,7 +93,7 @@ test("UserPage: a refusal shows the server's text, the page stays", async () => 
   await type(c.querySelector('select[name="role"]'), "ادارة");
   await click(button(c, "حفظ الدور"));
   await flush();
-  expect(c.textContent).toContain("غير مسموح.");
+  expect(toastText()).toContain("غير مسموح.");
 });
 
 test("UserPage: a user that is not found", async () => {

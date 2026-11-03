@@ -3,6 +3,7 @@ import { errorText, getDriveConnectUrl, getDriveStatus } from "../api";
 import { goTo } from "../siteLink";
 import ConfirmDialog from "./ConfirmDialog.jsx";
 import styles from "./DriveCard.module.css";
+import { toast } from "./toast.jsx";
 
 // Google Drive's mark, used here only to identify the connected service.
 const DriveIcon = () => (
@@ -28,7 +29,6 @@ const RESULTS = {
 export default function DriveCard() {
   const [status, setStatus] = useState(null);
   const [error, setError] = useState("");
-  const [result, setResult] = useState(null);
   const [busy, setBusy] = useState(false);
   const [asking, setAsking] = useState(false);
 
@@ -36,7 +36,7 @@ export default function DriveCard() {
     const params = new URLSearchParams(window.location.search);
     const found = RESULTS[params.get("drive")];
     if (found) {
-      setResult(found);
+      if (found.bad) toast.error(found.text); else toast.success(found.text);
       params.delete("drive");
       const query = params.toString();
       window.history.replaceState(null, "", `${window.location.pathname}${query ? `?${query}` : ""}`);
@@ -57,7 +57,7 @@ export default function DriveCard() {
     const res = await getDriveConnectUrl();
     if (!res.ok || !res.data.url) {
       setBusy(false);
-      return setError("تعذّر بدء الربط، حاول مرة أخرى.");
+      return toast.error("تعذّر بدء الربط، حاول مرة أخرى.");
     }
     goTo(res.data.url);
   };
@@ -67,7 +67,6 @@ export default function DriveCard() {
 
   return (
     <>
-      {result && <p role={result.bad ? "alert" : "status"} className={result.bad ? "error" : "ok"}>{result.text}</p>}
       <section className={styles.card} aria-label="Google Drive">
         <span className={styles.icon}><DriveIcon /></span>
         <div className={styles.body}>
@@ -87,7 +86,6 @@ export default function DriveCard() {
           </div>
         )}
       </section>
-      {error && <p role="alert" className="error">{error}</p>}
       {asking && (
         <ConfirmDialog
           title="تغيير حساب Google Drive"

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { errorText, forceReleaseLock, getPushSettings, recoverSystem, setPushEnabled } from "../api";
 import ConfirmDialog from "../ui/ConfirmDialog.jsx";
+import { toast } from "../ui/toast.jsx";
 
 const LOCK_ERRORS = { BAD_KEY: "مفتاح القفل غير صالح" };
 const RECOVER_ERRORS = {
@@ -14,8 +15,6 @@ export default function Settings() {
   const [push, setPush] = useState(null);
   const [pushError, setPushError] = useState("");
   const [lockKey, setLockKey] = useState("");
-  const [lockNotice, setLockNotice] = useState({ text: "", bad: false });
-  const [recoverNotice, setRecoverNotice] = useState({ text: "", bad: false });
   const [asking, setAsking] = useState(false);
 
   useEffect(() => {
@@ -31,24 +30,24 @@ export default function Settings() {
     const enabled = event.target.checked;
     setPushError("");
     const res = await setPushEnabled(enabled);
-    if (res.ok) setPush(Boolean(res.data.enabled)); else setPushError(errorText(res));
+    if (!res.ok) return toast.error(errorText(res));
+    setPush(Boolean(res.data.enabled));
+    toast.success(res.data.enabled ? "تم تفعيل الإشعارات الفورية" : "تم إيقاف الإشعارات الفورية");
   };
 
   const release = async (event) => {
     event.preventDefault();
-    setLockNotice({ text: "", bad: false });
     const res = await forceReleaseLock(lockKey.trim());
-    if (!res.ok) return setLockNotice({ text: errorText(res, LOCK_ERRORS), bad: true });
+    if (!res.ok) return toast.error(errorText(res, LOCK_ERRORS));
     setLockKey("");
-    setLockNotice({ text: "تم تحرير القفل", bad: false });
+    toast.success("تم تحرير القفل");
   };
 
   const recover = async () => {
     setAsking(false);
     const res = await recoverSystem();
-    setRecoverNotice(res.ok
-      ? { text: "تم إرسال كلمة مرور مؤقتة إلى بريد حساب النظام.", bad: false }
-      : { text: errorText(res, RECOVER_ERRORS), bad: true });
+    if (res.ok) toast.success("تم إرسال كلمة مرور مؤقتة إلى بريد حساب النظام.");
+    else toast.error(errorText(res, RECOVER_ERRORS));
   };
 
   return (
@@ -70,16 +69,14 @@ export default function Settings() {
         <h2>تحرير قفل عالق</h2>
         <form data-form="lock" className="row" onSubmit={release}>
           <input name="lockKey" placeholder="مفتاح القفل" aria-label="مفتاح القفل" value={lockKey} onChange={(e) => setLockKey(e.target.value)} required />
-          <button type="submit">تحرير القفل</button>
+          <button type="submit" className="primary">تحرير القفل</button>
         </form>
-        {lockNotice.text && <p role={lockNotice.bad ? "alert" : "status"} className={lockNotice.bad ? "error" : "ok"}>{lockNotice.text}</p>}
       </div>
 
       <div className="card">
         <h2>حساب النظام</h2>
         <p className="muted">تُرسل كلمة مرور مؤقتة إلى بريد حساب النظام فقط.</p>
         <button type="button" onClick={() => setAsking(true)}>استعادة حساب النظام</button>
-        {recoverNotice.text && <p role={recoverNotice.bad ? "alert" : "status"} className={recoverNotice.bad ? "error" : "ok"}>{recoverNotice.text}</p>}
       </div>
 
       {asking && (

@@ -7,6 +7,7 @@ import { ROLES, ROOMS, roleLabel } from "../strings";
 import Avatar from "../ui/Avatar.jsx";
 import PermissionsEditor from "../ui/PermissionsEditor.jsx";
 import { passportSrc } from "../ui/passportPhoto";
+import { toast } from "../ui/toast.jsx";
 
 const RANK = { "ادارة": 3, "مرشد": 2, "مساعد": 1 };
 // The highest everyday role among the record's `role` and `roles`.
@@ -23,12 +24,9 @@ export default function UserPage({ tz }) {
   const [record, setRecord] = useState(null);
   const [error, setError] = useState("");
   const [role, setRoleValue] = useState("");
-  const [notice, setNotice] = useState({ text: "", bad: false });
   const [hasPassword, setHasPassword] = useState(null);
   const [newPassword, setNewPassword] = useState("");
   const [devices, setDevices] = useState(null);
-
-  const say = (text, bad = false) => setNotice({ text, bad });
 
   const loadUser = useCallback(async () => {
     const res = await getUser(tz);
@@ -53,10 +51,9 @@ export default function UserPage({ tz }) {
   const current = roleOf(user);
 
   const run = async (call, okText, after) => {
-    say("");
     const res = await call();
-    if (!res.ok) { say(errorText(res), true); return res; }
-    if (okText) say(okText);
+    if (!res.ok) { toast.error(errorText(res)); return res; }
+    if (okText) toast.success(okText);
     if (after) await after(res);
     return res;
   };
@@ -89,8 +86,6 @@ export default function UserPage({ tz }) {
           </div>
         </div>
       </header>
-
-      {notice.text && <p role={notice.bad ? "alert" : "status"} className={notice.bad ? "error" : "ok"}>{notice.text}</p>}
 
       <div className="card">
         <h2>الدور</h2>

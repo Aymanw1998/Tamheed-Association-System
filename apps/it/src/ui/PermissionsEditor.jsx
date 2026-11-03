@@ -6,6 +6,7 @@ import {
 } from "./permissionTree";
 import ConfirmDialog from "./ConfirmDialog.jsx";
 import styles from "./PermissionsEditor.module.css";
+import { toast } from "./toast.jsx";
 
 const SOURCE_TONE = { role: "info", granted: "success", revoked: "danger" };
 
@@ -28,7 +29,6 @@ export default function PermissionsEditor({ tz, onSaved }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState("");
   const [confirm, setConfirm] = useState(null); // { title, message, run }
 
   const load = useCallback(async () => {
@@ -57,11 +57,10 @@ export default function PermissionsEditor({ tz, onSaved }) {
 
   const persist = async (next) => {
     setSaving(true);
-    setMessage("");
     const res = await savePermissions(tz, next);
     setSaving(false);
-    if (!res.ok) return setMessage(permissionError(res));
-    setMessage(perms.saved);
+    if (!res.ok) return toast.error(permissionError(res));
+    toast.success(perms.saved);
     setData((prev) => ({ ...prev, grants: res.data.grants, revokes: res.data.revokes, effective: res.data.effective, updatedAt: res.data.updatedAt, updatedBy: res.data.updatedBy }));
     setDraft({ grants: res.data.grants || [], revokes: res.data.revokes || [] });
     onSaved?.();
@@ -72,7 +71,7 @@ export default function PermissionsEditor({ tz, onSaved }) {
     if (added.length === 0 && removed.length === 0) {
       // Grants that only repeat role defaults change nothing visible; still save them.
       const same = JSON.stringify(draft) === JSON.stringify({ grants: data.grants || [], revokes: data.revokes || [] });
-      if (same) return setMessage(perms.noChanges);
+      if (same) return toast.info(perms.noChanges);
     }
     setConfirm({
       title: perms.saveTitle,
@@ -172,7 +171,6 @@ export default function PermissionsEditor({ tz, onSaved }) {
         })}
       </ul>
 
-      {message && <p role="status">{message}</p>}
       {editable && (
         <div className={styles.actions}>
           <button type="button" className="primary" onClick={onSave} disabled={saving}>{perms.save}</button>

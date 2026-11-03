@@ -1,0 +1,328 @@
+/* Copied from the everyday app's header (apps/system/src/Components/Header/Header.module.css); keep the two alike. */
+.header {
+  background: var(--background-header, var(--color-primary-600));
+  box-shadow: var(--shadow-md);
+  padding: 0.5rem calc(1rem + env(safe-area-inset-right, 0px)) 0.5rem calc(1rem + env(safe-area-inset-left, 0px));
+  direction: rtl;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  overflow: visible;
+}
+
+.headerContent {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* The association logo in a white circle with the orange ring, as on the sport site. */
+.logo {
+  width: 50px;
+  height: 50px;
+  box-sizing: border-box;
+  padding: 6px; /* 12% of the circle: the text fits inside it */
+  object-fit: contain;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 3px var(--color-accent-500), 0 4px 12px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.title {
+  color: var(--color-text-on-primary);
+  font-weight: 600;
+  font-size: 1.5rem;
+  margin: 0.5rem;
+  flex: 1 1 auto;
+  text-align: center;
+}
+
+.userBadge {
+  flex: 0 0 auto;
+  font-size: 0.95rem;
+  color: var(--color-text-on-primary);
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+  margin-inline-start: auto;
+}
+
+.menuToggle {
+  width: 44px;
+  height: 44px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.95);
+  cursor: pointer;
+  border-radius: var(--radius-md);
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0;
+  box-shadow: var(--shadow-sm);
+}
+
+.menuToggle:focus-visible {
+  outline: 2px solid var(--color-accent-500);
+  outline-offset: 2px;
+}
+
+.menuToggle span {
+  display: block;
+  width: 20px;
+  height: 2px;
+  margin: 0;
+  background: var(--color-text-primary);
+  border-radius: 2px;
+}
+
+.navbarV {
+  background-color: var(--background-navbar, var(--color-primary-700));
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  /* Between the phone menu and a wide screen the links take a second row
+     instead of pushing the last ones (and logout) out of sight. */
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 20px;
+}
+
+.navbarV a {
+  color: var(--color-text-on-primary);
+  padding: 15px clamp(12px, 1.8vw, 30px);
+  text-decoration: none;
+  display: block;
+  font-weight: 500;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.navbarV a:hover {
+  border-radius: var(--radius-full);
+  background-color: var(--color-surface);
+  color: var(--color-primary-700);
+}
+
+.logoutButton {
+  background-color: var(--color-danger-500);
+  color: var(--color-text-on-primary);
+  border: none;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  margin-right: auto;
+  margin-left: 0;
+  padding: 8px 12px;
+  transition: background-color 0.2s;
+  border-radius: var(--radius-md);
+}
+
+.logoutButton:hover {
+  border-radius: var(--radius-full);
+  background-color: var(--color-danger-700);
+}
+
+.navbarV a:focus-visible,
+.logoutButton:focus-visible {
+  outline: 2px solid var(--color-accent-500);
+  outline-offset: 2px;
+}
+
+@media (max-width: 768px) {
+  .headerContent {
+    justify-content: space-between;
+    position: relative;
+    z-index: 1302;
+  }
+
+  .title {
+    font-size: 1.2rem;
+    margin: 0.35rem 0;
+    text-align: center;
+  }
+
+  .userBadge {
+    font-size: 0.85rem;
+    white-space: normal;
+    text-align: left;
+    line-height: 1.3;
+    max-width: calc(100% - 72px);
+  }
+
+  .menuToggle {
+    /* z-index: 1303; */
+  }
+
+  .mobileNav {
+    position: absolute;
+    inset-inline: 12px;
+    top: calc(100% + 8px);
+    border-radius: 18px;
+    display: flex;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    gap: 0;
+    padding: 8px 12px 12px;
+    box-shadow: 0 18px 35px rgba(15, 23, 42, 0.18);
+    max-height: calc(100dvh - 120px);
+    overflow-y: auto;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateY(-8px);
+    transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s ease;
+    z-index: 1300;
+  }
+
+  .mobileNav[data-open="true"] {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: translateY(0);
+  }
+
+  .mobileNav a {
+    width: 100%;
+    padding: 14px 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 12px;
+  }
+
+  .mobileNav .logoutButton {
+    width: 100%;
+    margin: 10px 0 4px;
+    display: block;
+    text-align: center;
+    border-radius: 12px;
+  }
+
+  .backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(3, 3, 3, 0.35);
+    z-index: 1200;
+    backdrop-filter: blur(4px);
+  }
+}
+
+/* "Install the app" in the phone menu (pwa/InstallApp.jsx). */
+.installButton {
+  background-color: var(--color-success-100);
+  color: var(--color-success-700);
+  border: 1px solid var(--color-success-500);
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+}
+
+/* The user's name and its small menu: profile, install the app, sign out. */
+.account {
+  position: relative;
+  margin-inline-start: auto;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.account .userBadge {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: var(--radius-full);
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 0.95rem;
+  cursor: pointer;
+  gap: 6px;
+  margin: 0;
+  max-width: 100%;
+}
+
+.account .userBadge:hover,
+.account .userBadge[aria-expanded="true"] {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.account .userBadge:focus-visible {
+  outline: 2px solid var(--color-accent-500);
+  outline-offset: 2px;
+}
+
+.accountMenu {
+  position: absolute;
+  top: calc(100% + 6px);
+  inset-inline-end: 0;
+  min-width: 200px;
+  background: var(--color-surface, #fff);
+  border-radius: 14px;
+  box-shadow: 0 18px 35px rgba(15, 23, 42, 0.18);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 1400;
+}
+
+.accountMenu a {
+  color: var(--color-text-primary);
+  text-decoration: none;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-weight: 500;
+}
+
+.accountMenu a:hover,
+.accountMenu a:focus-visible {
+  background: var(--color-primary-50, rgba(0, 0, 0, 0.05));
+}
+
+.accountMenu .logoutButton {
+  margin: 0;
+  width: 100%;
+  text-align: center;
+}
+
+@media (max-width: 768px) {
+  .account .userBadge {
+    font-size: 0.85rem;
+    white-space: normal;
+    text-align: start;
+    line-height: 1.3;
+  }
+
+  .account {
+    max-width: calc(100% - 72px);
+  }
+}
+
+/* IT site additions: the open page's link, and «النظام» beside the name. */
+.navbarV a.active {
+  border-radius: var(--radius-full);
+  background-color: var(--color-surface);
+  color: var(--color-primary-700);
+}
+
+.systemButton {
+  flex: none;
+  min-height: 36px;
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--color-primary-700);
+  font-weight: 600;
+}
+
+.systemButton:hover:not(:disabled) {
+  background: #fff;
+}
+
+.headerContent + .navbarV {
+  margin-top: 0.5rem;
+}

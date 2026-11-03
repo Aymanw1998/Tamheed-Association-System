@@ -1,7 +1,7 @@
 import Storage from "./Storage.jsx";
 import * as api from "../api";
 import * as siteLink from "../siteLink";
-import { mount, unmountAll, ok, fail, button, click } from "../testUtils";
+import { mount, unmountAll, ok, fail, button, click, toastText } from "../testUtils";
 
 jest.mock("../api", () => ({
   ...jest.requireActual("../api"),
@@ -42,7 +42,7 @@ test("Storage: Google's answer in the address is reported once and removed", asy
   window.history.replaceState(null, "", "/storage?drive=connected");
   api.getDriveStatus.mockImplementation(() => ok({ connected: true, email: "files@example.org", canConnect: true }));
   const c = await mount(<Storage />);
-  expect(c.textContent).toContain("تم ربط حساب Google Drive");
+  expect(toastText()).toContain("تم ربط حساب Google Drive");
   expect(window.location.search).toBe("");
 });
 

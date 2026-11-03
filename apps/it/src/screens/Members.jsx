@@ -4,6 +4,7 @@ import { roleLabel } from "../strings";
 import Avatar from "../ui/Avatar.jsx";
 import ConfirmDialog from "../ui/ConfirmDialog.jsx";
 import { passportSrc } from "../ui/passportPhoto";
+import { toast } from "../ui/toast.jsx";
 
 const ADD_ERRORS = {
   NO_REAL_EMAIL: "لا يمكن جعل المستخدم من قسم IT: ليس لديه بريد إلكتروني حقيقي.",
@@ -17,7 +18,6 @@ const ADD_ERRORS = {
 export default function Members() {
   const [members, setMembers] = useState(null);
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState({ text: "", bad: false });
   const [tz, setTz] = useState("");
   const [confirm, setConfirm] = useState(null);
 
@@ -29,10 +29,9 @@ export default function Members() {
   useEffect(() => { load(); }, [load]);
 
   const act = async (call, okText) => {
-    setNotice({ text: "", bad: false });
     const res = await call();
-    if (!res.ok) { setNotice({ text: errorText(res, ADD_ERRORS), bad: true }); return false; }
-    setNotice({ text: okText, bad: false });
+    if (!res.ok) { toast.error(errorText(res, ADD_ERRORS)); return false; }
+    toast.success(okText);
     await load();
     return true;
   };
@@ -52,7 +51,6 @@ export default function Members() {
         <input name="tz" inputMode="numeric" placeholder="رقم هوية مستخدم موجود" aria-label="رقم الهوية" value={tz} onChange={(e) => setTz(e.target.value)} required />
         <button type="submit" className="primary">إضافة مستخدم IT</button>
       </form>
-      {notice.text && <p role={notice.bad ? "alert" : "status"} className={notice.bad ? "error" : "ok"}>{notice.text}</p>}
       {members.length === 0 ? <p>لا يوجد مستخدمو IT بعد.</p> : (
         <ul className="list">
           {members.map((member) => {
@@ -71,7 +69,7 @@ export default function Members() {
                 ) : (
                   <button type="button" onClick={() => act(() => blockMember(member.tz), "تم الحظر")}>حظر</button>
                 )}
-                <button type="button" onClick={() => setConfirm(member)}>إزالة</button>
+                <button type="button" className="danger" onClick={() => setConfirm(member)}>إزالة</button>
               </li>
             );
           })}

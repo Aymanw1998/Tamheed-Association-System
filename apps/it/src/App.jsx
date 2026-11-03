@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { getMe, logout, setSignedOutHandler, systemPass } from "./api";
-import { Link, usePath } from "./router.jsx";
+import { usePath } from "./router.jsx";
 import { goTo, systemUrlWithPass, takePassFromAddress } from "./siteLink";
-import logo from "./logo.png";
-import Avatar from "./ui/Avatar.jsx";
-import { passportSrc } from "./ui/passportPhoto";
+import Header from "./ui/Header.jsx";
+import { Toaster, toast } from "./ui/toast.jsx";
 import SignIn from "./screens/SignIn.jsx";
 import Users from "./screens/Users.jsx";
 import UserPage from "./screens/UserPage.jsx";
@@ -58,7 +57,10 @@ export default function App() {
   const openSystem = async () => {
     // The pass is asked for only now, when the button is clicked.
     const res = await systemPass();
-    if (!res.ok || !res.data.pass) return setHasSystem(false);
+    if (!res.ok || !res.data.pass) {
+      toast.error("تعذّر فتح النظام");
+      return setHasSystem(false);
+    }
     goTo(systemUrlWithPass(res.data.pass));
   };
 
@@ -71,32 +73,17 @@ export default function App() {
 
   if (state === "loading") return <p className="center" role="status">…</p>;
   if (state === "error") return <p className="center" role="alert">تعذّر الاتصال بالخادم. <button type="button" onClick={loadMe}>إعادة المحاولة</button></p>;
-  if (state === "out") return <SignIn pass={pass} onSignedIn={loadMe} />;
+  if (state === "out") return <><SignIn pass={pass} onSignedIn={loadMe} /><Toaster /></>;
 
   // The system account is shown by its name only, never by its ID number.
   const links = me.isSystem ? [...NAV, { to: "/members", label: "مستخدمو IT" }] : NAV;
   return (
     <div className="shell">
-      <header className="top">
-        <strong className="brand">
-          <span className="brand-logo"><img src={logo} alt="" /></span>
-          قسم IT
-        </strong>
-        <nav aria-label="القائمة">
-          {links.map((link) => (
-            <Link key={link.to} to={link.to} className={path === link.to || (link.to === "/" && path.startsWith("/users")) ? "active" : ""}>{link.label}</Link>
-          ))}
-        </nav>
-        <span className="me">
-          <Avatar src={passportSrc(me.photo) || ""} name={me.name} size={28} />
-          <span>{me.name}</span>
-        </span>
-        {hasSystem && <button type="button" onClick={openSystem}>النظام</button>}
-        <button type="button" onClick={signOut}>تسجيل الخروج</button>
-      </header>
+      <Header links={links} path={path} me={me} onOpenSystem={hasSystem ? openSystem : null} onSignOut={signOut} />
       <main className="page">
         <Screen path={path} me={me} />
       </main>
+      <Toaster />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import Members from "./Members.jsx";
 import * as api from "../api";
-import { mount, unmountAll, ok, fail, button, click, type, submit } from "../testUtils";
+import { mount, unmountAll, ok, fail, button, click, type, submit, toastText } from "../testUtils";
 
 jest.mock("../api", () => ({
   ...jest.requireActual("../api"),
@@ -43,7 +43,7 @@ test("Members: no real email gets its own message", async () => {
   const c = await mount(<Members />);
   await type(c.querySelector('input[name="tz"]'), "100000020");
   await submit(c.querySelector("form"));
-  expect(c.textContent).toContain("بريد إلكتروني حقيقي");
+  expect(toastText()).toContain("بريد إلكتروني حقيقي");
 });
 
 test("Members: block, unblock and remove (remove asks first)", async () => {

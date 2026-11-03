@@ -1,6 +1,7 @@
 // Small helpers for the component tests (no testing-library in this app).
 import { createRoot } from "react-dom/client";
 import { act } from "react";
+import { Toaster, clearToasts } from "./ui/toast.jsx";
 
 global.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -11,7 +12,8 @@ export async function mount(element) {
   document.body.appendChild(container);
   const root = createRoot(container);
   mounted.push({ root, container });
-  await act(async () => root.render(element));
+  // The screens report results as toasts; every mount shows them (toastText()).
+  await act(async () => root.render(<>{element}<Toaster /></>));
   return container;
 }
 
@@ -21,7 +23,11 @@ export async function unmountAll() {
     await act(async () => root.unmount());
     container.remove();
   }
+  await act(async () => clearToasts());
 }
+
+// The text of the toasts on screen (they render outside the container).
+export const toastText = () => [...document.body.querySelectorAll("[role=status], [role=alert]")].map((el) => el.textContent).join(" ");
 
 // A response the way api.js shapes it.
 export const ok = (data = {}) => Promise.resolve({ status: 200, ok: true, data: { ok: true, ...data } });

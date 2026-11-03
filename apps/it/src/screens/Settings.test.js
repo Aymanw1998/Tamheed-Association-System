@@ -1,6 +1,6 @@
 import Settings from "./Settings.jsx";
 import * as api from "../api";
-import { mount, unmountAll, ok, fail, button, click, type, submit } from "../testUtils";
+import { mount, unmountAll, ok, fail, button, click, type, submit, toastText } from "../testUtils";
 
 jest.mock("../api", () => ({
   ...jest.requireActual("../api"),
@@ -29,7 +29,7 @@ test("Settings: force-release a stuck lock", async () => {
   await type(c.querySelector('input[name="lockKey"]'), "student:123");
   await submit(c.querySelector('form[data-form="lock"]'));
   expect(api.forceReleaseLock).toHaveBeenCalledWith("student:123");
-  expect(c.textContent).toContain("تم تحرير القفل");
+  expect(toastText()).toContain("تم تحرير القفل");
 });
 
 test("Settings: a bad lock key shows an Arabic message", async () => {
@@ -37,7 +37,7 @@ test("Settings: a bad lock key shows an Arabic message", async () => {
   const c = await mount(<Settings />);
   await type(c.querySelector('input[name="lockKey"]'), "x");
   await submit(c.querySelector('form[data-form="lock"]'));
-  expect(c.querySelector("[role=alert]").textContent).toContain("مفتاح القفل غير صالح");
+  expect(document.body.querySelector("[role=alert]").textContent).toContain("مفتاح القفل غير صالح");
 });
 
 test("Settings: system recovery asks first", async () => {
@@ -47,5 +47,5 @@ test("Settings: system recovery asks first", async () => {
   expect(api.recoverSystem).not.toHaveBeenCalled();
   await click(button(c.querySelector("[role=dialog]"), "تأكيد"));
   expect(api.recoverSystem).toHaveBeenCalledTimes(1);
-  expect(c.textContent).toContain("تم إرسال كلمة مرور مؤقتة");
+  expect(toastText()).toContain("تم إرسال كلمة مرور مؤقتة");
 });
