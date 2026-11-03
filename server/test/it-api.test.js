@@ -18,6 +18,7 @@ process.env.IT_HOST = "it.example.test";
 const live = require("./helpers/liveStubs");
 const { auditStub } = require("./helpers/auditStub");
 const { createItRouter } = require("../Entities/It/It.route");
+const { createItAuth } = require("../Entities/It/It.auth");
 const { createItMembers } = require("../Entities/It/ItMembers.controller");
 const { createRequireIt, IT_COOKIE } = require("../middleware/requireIt");
 const { createDriveConnectState } = require("../utils/driveConnectState");
@@ -157,6 +158,7 @@ async function startApp() {
     users: loadUserController(users, audit),
     members: createItMembers({ users, audit: audit.deps["../../utils/audit"].audit, systemTz: () => SYSTEM_TZ, notify: () => {} }),
     lockedUser: (req, res, next) => next(),
+    auth: createItAuth({ users, audit: audit.deps["../../utils/audit"].audit, encryptPassword: (plain) => `enc:${plain}`, log: () => {} }),
     roleDefaults: createRoleDefaults({
       model: { readAll: async () => [], write: async () => {}, remove: async () => {} },
       users: async () => users.rooms.active,
@@ -195,7 +197,7 @@ async function startApp() {
       r.on("end", () => {
         let parsed = text;
         try { parsed = JSON.parse(text); } catch { /* not JSON */ }
-        resolve({ status: r.statusCode, body: parsed, location: r.headers.location });
+        resolve({ status: r.statusCode, body: parsed, location: r.headers.location, setCookie: r.headers["set-cookie"] || [] });
       });
     });
     req.on("error", reject);
@@ -543,7 +545,8 @@ test("any IT user creates a brand-new IT user; a temporary password goes to his 
   assert.equal(stored.role, "مرشد");
   assert.ok(stored.itSince);
   assert.equal(stored.itBlockedAt, null);
-  assert.ok(stored.password && stored.password.length >= 10);
+  assert.match(stored.password, /^[0-9]{8}$/, "an 8-digit first password");
+  assert.equal(stored.mustChangePassword, true);
   assert.equal(sentMail.length, 1);
   assert.equal(sentMail[0].to, "new.person@example.test");
   assert.ok(sentMail[0].text.includes(stored.password));
@@ -570,4 +573,31 @@ test("creating an IT user: a taken or invalid ID number, a fake email, a missing
   assert.equal(await code({ firstname: " " }), "NAME_REQUIRED");
   assert.equal(await code({ role: "مدير" }), "UNKNOWN_ROLE");
   assert.equal(users.find("600000020", "active"), undefined);
+}));
+
+test("a temporary password: only /me and the change work until it is changed; then the session goes on", withApp(async ({ call, users, audit }) => {
+  users.find(IT_B.tz).mustChangePassword = true;
+  const me = await call("GET", "/me", { as: IT_B.tz });
+  assert.equal(me.status, 200);
+  assert.equal(me.body.mustChangePassword, true);
+  const blocked = await call("GET", "/users", { as: IT_B.tz });
+  assert.equal(blocked.status, 403);
+  assert.equal(blocked.body.code, "PASSWORD_CHANGE_REQUIRED");
+  assert.equal((await call("GET", "/role-defaults", { as: IT_B.tz })).status, 403);
+  assert.equal((await call("GET", "/audit", { as: IT_B.tz })).status, 403);
+
+  assert.equal((await call("POST", "/change-password", { as: IT_B.tz, body: { newPassword: "short" } })).body.code, "PASSWORD_TOO_SHORT");
+  const changed = await call("POST", "/change-password", { as: IT_B.tz, body: { newPassword: "a-new-long-placeholder" } });
+  assert.equal(changed.status, 200);
+  const after = users.find(IT_B.tz);
+  assert.equal(after.mustChangePassword, false);
+  assert.ok(after.passwordChangedAt);
+  assert.notEqual(after.password, "a-new-long-placeholder", "stored encrypted");
+  assert.equal(audit.find({ action: "password_change", targetId: IT_B.tz }).length, 1);
+  // The answer carries a new IT cookie; one signed before the change is refused.
+  assert.equal(changed.setCookie.some((c) => c.startsWith(`${IT_COOKIE}=`)), true);
+  assert.equal((await call("GET", "/users", { as: IT_B.tz })).status, 401);
+
+  // Without a temporary password there is nothing to change here.
+  assert.equal((await call("POST", "/change-password", { as: IT_A.tz, body: { newPassword: "a-new-long-placeholder" } })).status, 403);
 }));

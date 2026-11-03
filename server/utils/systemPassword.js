@@ -1,11 +1,10 @@
-// The system account's password rules (spec الجزء 6): a change every 30 days,
+// The system account's password rules (spec الجزء 6; no periodic change since
+// the owner's decision of 2026-11-03),
 // a temporary password that only ever travels to SYSTEM_ADMIN_EMAIL, and the
 // emails sent to that mailbox. Pure functions except resetSystemPassword,
 // which takes every side effect as an argument.
 const crypto = require("crypto");
 
-const PASSWORD_MAX_AGE_DAYS = 30;
-const DAY_MS = 24 * 60 * 60 * 1000;
 const PASSWORD_CHANGE_SCOPE = "password-change";
 const PASSWORD_CHANGE_TOKEN_TTL_SEC = 15 * 60;
 const RECOVERY_MIN_FAILURES = 3;
@@ -13,6 +12,8 @@ const RECOVERY_COOLDOWN_MS = 10 * 60 * 1000;
 const MIN_PASSWORD_LENGTH = 8;
 const MAX_PASSWORD_LENGTH = 128;
 const TEMP_PASSWORD_LENGTH = 16;
+// A new IT user's first password: digits only, changed at the first sign-in.
+const TEMP_DIGITS_LENGTH = 8;
 // No < > & " ': the password is placed in an HTML email body as is.
 const TEMP_PASSWORD_CHARSET =
   "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^*-_=+?";
@@ -23,12 +24,15 @@ const toTime = (value) => {
   return Number.isFinite(time) ? time : NaN;
 };
 
-// System account only. A missing or unreadable date counts as expired.
+// A temporary password is changed at the next sign-in: a user flagged
+// mustChangePassword (a new IT user, owner 2026-11-03), and the system account
+// while it has no valid change date (its first password, or a recovery, which
+// sets it to 0). No periodic change (owner, 2026-11-03).
 function mustChangePassword(user, { isSystem, now = new Date() } = {}) {
+  if (user?.mustChangePassword === true) return true;
   if (!isSystem) return false;
   const changed = toTime(user?.passwordChangedAt);
-  if (Number.isNaN(changed) || changed <= 0) return true;
-  return new Date(now).getTime() - changed >= PASSWORD_MAX_AGE_DAYS * DAY_MS;
+  return Number.isNaN(changed) || changed <= 0;
 }
 
 // Sessions end when the password changes, the account is recovered or an
@@ -48,6 +52,12 @@ function tokenIsStale(iat, user) {
 function recoveryCoolingDown(user, now = new Date()) {
   const last = toTime(user?.recoveredAt);
   return !Number.isNaN(last) && new Date(now).getTime() - last < RECOVERY_COOLDOWN_MS;
+}
+
+function generateTempDigits(randomInt = crypto.randomInt) {
+  let out = "";
+  for (let i = 0; i < TEMP_DIGITS_LENGTH; i += 1) out += String(randomInt(10));
+  return out;
 }
 
 function generateTempPassword(randomInt = crypto.randomInt) {
@@ -169,7 +179,6 @@ async function resetSystemPassword({ user, model, room = "active", email, send, 
 }
 
 module.exports = {
-  PASSWORD_MAX_AGE_DAYS,
   PASSWORD_CHANGE_SCOPE,
   PASSWORD_CHANGE_TOKEN_TTL_SEC,
   RECOVERY_MIN_FAILURES,
@@ -180,6 +189,8 @@ module.exports = {
   tokenIsStale,
   recoveryCoolingDown,
   generateTempPassword,
+  generateTempDigits,
+  TEMP_DIGITS_LENGTH,
   newPasswordProblem,
   passwordProblemMessage,
   isUsableSystemEmail,

@@ -61,11 +61,12 @@ test("an administrator editing a lower-rank user can change the role and set a n
   expect(container.querySelector('input[name="password"]')).not.toBeNull();
 });
 
-test("no account actions on an IT user: no role change, no password", async () => {
+test("an IT user below the viewer: details can be saved, but no role change, no password, no email (owner, 2026-11-03)", async () => {
   await mount(target({ isIT: true }));
   expect(container.querySelector('[data-tour="user-role-save"]')).toBeNull();
   expect(container.querySelector('input[name="password"]')).toBeNull();
-  expect(container.querySelector('[data-tour="user-save"]')).toBeNull();
+  expect(container.querySelector('[data-tour="user-save"]')).not.toBeNull();
+  expect(container.textContent).toContain("يمكن تعديل بياناته الشخصية فقط");
 });
 
 test("a locked user shows the state but the form has no unlock button", async () => {

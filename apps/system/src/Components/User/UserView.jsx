@@ -8,7 +8,7 @@ import { getAll as getStudents } from "../../WebServer/services/student/function
 import { getAllLesson } from "../../WebServer/services/lesson/functionsLesson.jsx";
 import { canStored, getStoredViewer } from "../../utils/session";
 import { guideStudents, guideLessons, lessonWhen } from "../../utils/recordLinks";
-import { canManageTargetClient, resolveRole, roleLabel } from "../../utils/roles";
+import { canEditDetailsClient, canManageTargetClient, resolveRole, roleLabel } from "../../utils/roles";
 import { useI18n } from "../../i18n/I18nContext";
 import RecordPage from "../UI/RecordPage";
 import { DetailGroup, LinkList } from "../UI/RecordParts";
@@ -83,8 +83,10 @@ export default function UserView() {
   ].filter(Boolean);
   // Like the users list: only an active account the viewer may manage (lower
   // rank, not themself); the form edits active accounts only.
+  // An IT user below the viewer: his details only (canEditDetailsClient), not
+  // his account (sign out, suspend, delete stay with canManageTargetClient).
   const editable = canStored("users.edit") && user.room !== "waiting" && user.room !== "noActive"
-    && canManageTargetClient(getStoredViewer(), user);
+    && canEditDetailsClient(getStoredViewer(), user);
   // A user stays signed in until he signs out or is signed out here (owner,
   // 2026-11-01): every device at once.
   const signOut = async () => {
@@ -136,13 +138,16 @@ export default function UserView() {
     room === "noActive" && canApprove && { label: t("record.activate"), onClick: activate, variant: "success" },
     editable && { label: t("record.edit"), onClick: () => navigate(`/users/${user.tz}/edit`), tour: "user-view-edit" },
     { label: t("record.print"), onClick: () => exportUserPdf(user), tour: "users-pdf" },
-    editable && { label: t("record.signOutAll"), onClick: signOut, variant: "danger" },
-    editable && canStored("users.approve") && { label: t("record.suspend"), onClick: suspend, variant: "danger" },
+    editable && manageable && { label: t("record.signOutAll"), onClick: signOut, variant: "danger" },
+    editable && manageable && canStored("users.approve") && { label: t("record.suspend"), onClick: suspend, variant: "danger" },
     manageable && canStored("users.delete") && { label: t("record.deleteAccount"), onClick: remove, variant: "danger" },
   ].filter(Boolean);
 
-  const facts = room === "waiting" ? [[t("record.status"), t("record.waiting")]]
-    : room === "noActive" ? [[t("record.status"), t("record.suspendedState")]] : undefined;
+  const statusFacts = room === "waiting" ? [[t("record.status"), t("record.waiting")]]
+    : room === "noActive" ? [[t("record.status"), t("record.suspendedState")]] : [];
+  // Also in the IT department: shown, and why the account actions are missing.
+  const itFacts = user.isIT === true ? [[t("record.itDepartment"), t("record.itDepartmentNote")]] : [];
+  const facts = [...statusFacts, ...itFacts];
 
   return (
     <>

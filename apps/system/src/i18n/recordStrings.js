@@ -45,5 +45,9 @@ export const recordStrings = {
     activateFailed: "تعذّر التفعيل",
     waiting: "بانتظار الموافقة",
     suspendedState: "موقوف",
+    // A user who is also in the IT department (owner, 2026-11-03).
+    itDepartment: "قسم IT",
+    itDepartmentNote: "من قسم IT أيضًا: لا يمكن إيقافه أو حذفه هنا، ويمكن تعديل بياناته الشخصية وطلابه فقط.",
+    itDetailsOnly: "هذا المستخدم من قسم IT: يمكن تعديل بياناته الشخصية فقط، بدون كلمة المرور والبريد الإلكتروني والدور.",
   },
 };

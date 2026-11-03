@@ -291,12 +291,15 @@ test("an administrator sees role change and password reset, not permissions, vie
   expect(container.querySelector('[data-tour="user-permissions"]')).toBeNull();
 });
 
-test("no account actions on an IT user", async () => {
+test("an IT user below the viewer: edit his details, no account actions, and he shows as IT (owner, 2026-11-03)", async () => {
   mockPerms = ["users.view", "users.edit", "users.approve", "users.delete", "users.changeRole", "users.passwords"];
   getUserById.mockResolvedValue({ ok: true, user: { ...USER, isIT: true } });
   await mount();
   const labels = [...container.querySelectorAll("button")].map((b) => b.textContent);
-  for (const label of ["تعديل", "تسجيل الخروج من كل الأجهزة", "إيقاف الحساب", "حذف الحساب"]) expect(labels).not.toContain(label);
-  // Reading the page and printing stay.
+  expect(labels).toContain("تعديل");
+  for (const label of ["تسجيل الخروج من كل الأجهزة", "إيقاف الحساب", "حذف الحساب"]) expect(labels).not.toContain(label);
   expect(labels).toContain("طباعة الملف");
+  const facts = container.querySelector('[data-testid="record-facts"]').textContent;
+  expect(facts).toContain("قسم IT");
+  expect(facts).toContain("لا يمكن إيقافه أو حذفه");
 });

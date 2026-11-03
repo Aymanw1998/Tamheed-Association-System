@@ -80,3 +80,14 @@ test("roleLabel shows the proper Arabic name for any stored spelling", () => {
   expect(roleLabel("شيء آخر")).toBe("شيء آخر");
   expect(roleLabel(null)).toBe("");
 });
+
+test("canEditDetailsClient: an IT user below the viewer's rank, details only; never oneself or an equal", () => {
+  const { canEditDetailsClient, canManageTargetClient } = require("./roles");
+  const admin = { id: "a1", tz: "1", role: "ادارة" };
+  const itGuide = { _id: "g1", tz: "2", role: "مرشد", isIT: true };
+  expect(canManageTargetClient(admin, itGuide)).toBe(false);
+  expect(canEditDetailsClient(admin, itGuide)).toBe(true);
+  expect(canEditDetailsClient(admin, { _id: "a2", tz: "3", role: "ادارة", isIT: true })).toBe(false);
+  expect(canEditDetailsClient({ id: "g1", tz: "2", role: "مرشد" }, itGuide)).toBe(false);
+  expect(canEditDetailsClient(admin, { _id: "g2", tz: "4", role: "مرشد" })).toBe(true);
+});

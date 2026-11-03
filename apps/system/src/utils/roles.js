@@ -62,6 +62,20 @@ export const canManageTargetClient = (viewer, target) => {
   return theirs < own;
 };
 
+// Mirrors canEditDetails (server/utils/permissionRules.js): besides whoever
+// canManageTargetClient allows, the personal details of an IT user ranked
+// below the viewer (a guide who is also IT). Never his password, email,
+// role, room or account state. Hides UI only; the server decides.
+export const canEditDetailsClient = (viewer, target) => {
+  if (canManageTargetClient(viewer, target)) return true;
+  if (!viewer || !target || target.isIT !== true) return false;
+  const sameId = Boolean(viewer.id) && Boolean(target._id) && String(viewer.id) === String(target._id);
+  const sameTz = Boolean(viewer.tz) && Boolean(target.tz) && String(viewer.tz) === String(target.tz);
+  if (sameId || sameTz) return false;
+  if (viewer.isSystem === true) return true;
+  return (ROLE_RANK[resolveRole(target)] || 0) < (ROLE_RANK[normalizeRole(viewer.role)] || 0);
+};
+
 export const isDemotion =(from, to) => {
   const a = ROLE_RANK[normalizeRole(from)];
   const b = ROLE_RANK[normalizeRole(to)];

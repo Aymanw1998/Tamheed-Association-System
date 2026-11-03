@@ -120,3 +120,14 @@ test("SignIn: no passkey button where the device has no passkeys", async () => {
   const c = await mount(<SignIn onSignedIn={jest.fn()} />);
   expect(button(c, "الدخول بالبصمة أو بالوجه")).toBeUndefined();
 });
+
+test("SignIn: a wrong ID number or password stays on the password step with the server's message", async () => {
+  api.login.mockImplementation(() => fail(401, { code: "BAD_LOGIN", message: "رقم الهوية أو كلمة المرور غير صحيحة" }));
+  const c = await mount(<SignIn onSignedIn={jest.fn()} />);
+  await type(field(c, "tz"), TZ);
+  await type(field(c, "password"), "not-a-real-password");
+  await submit(c.querySelector("form"));
+  expect(field(c, "code")).toBeNull();
+  expect(field(c, "password")).not.toBeNull();
+  expect(c.querySelector("[role=alert]").textContent).toContain("غير صحيحة");
+});

@@ -1,5 +1,5 @@
 const express = require("express");
-const auth = require("./It.auth");
+const defaultAuth = require("./It.auth");
 const sitePass = require("./sitePass");
 const { requireIt: defaultRequireIt, requireItHost } = require("../../middleware/requireIt");
 const { requirePermission } = require("../../middleware/permissionMiddleware");
@@ -30,10 +30,11 @@ const recoverRateLimit = rateLimit({ windowMs: 60 * 60 * 1000, max: 3, scope: "s
 // system account), on IT_HOST. The user handlers are the everyday ones,
 // judged with the IT actor by the same rules (utils/permissionRules.js).
 // deps (tests): requireIt, users (User.controller), members
-// (createItMembers), lockedUser, auditModel, drive, driveState, locks, push.
+// (createItMembers), auth (createItAuth), lockedUser, auditModel, drive, driveState, locks, push.
 function createItRouter(deps = {}) {
   const requireIt = deps.requireIt || defaultRequireIt;
   const users = deps.users || lazyHandlers(() => require("../User/User.controller"));
+  const auth = deps.auth || defaultAuth;
   const members = deps.members || itMembers;
   const roleDefaults = deps.roleDefaults || lazyHandlers(() => require("./RoleDefaults.controller").roleDefaults());
   const passkey = deps.passkey || lazyHandlers(() => require("./It.passkey").itPasskeys());
@@ -81,6 +82,8 @@ function createItRouter(deps = {}) {
   router.post("/passkey/register-options", requireIt, passkey.registerOptions);
   router.post("/passkey/register", requireIt, passkey.register);
   router.get("/me", requireIt, auth.me);
+  // A new IT user's temporary password, changed right after the first sign-in.
+  router.post("/change-password", requireIt, auth.changePassword);
   // IT site → everyday app: a one-time pass for a user with an everyday role.
   router.post("/system-pass", requireIt, sitePass.systemPass);
 

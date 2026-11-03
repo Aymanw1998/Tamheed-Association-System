@@ -11,7 +11,7 @@ import { passportSrc, PASSPORT_PREVIEW } from "../../utils/passportPhoto";
 import { usePhotoPick, PHOTO_NOT_READY } from "../../utils/photoPick";
 import { useI18n } from "../../i18n/I18nContext";
 import { canStored, getStoredUserId, getStoredViewer } from "../../utils/session";
-import { ROLE_LABEL_KEY, canManageTargetClient, isDemotion, resolveRole } from "../../utils/roles";
+import { ROLE_LABEL_KEY, canEditDetailsClient, canManageTargetClient, isDemotion, resolveRole } from "../../utils/roles";
 import { ask } from "../Provides/confirmBus";
 import StatusBadge from "../UI/StatusBadge.jsx";
 import { fillText } from "../../utils/vehicleDisplay";
@@ -103,7 +103,10 @@ const EditUser = () => {
   // rule; the server drops it otherwise.
   const canEditEmail = isNew || isSelf || (canManage && canStored("users.resetPassword"));
   // Editing someone one may not manage is refused; the page is then read-only.
-  const canSubmit = !isEdit || isSelf || canManage;
+  // An IT user below the viewer: his personal details only (no password,
+  // email or role: those follow canManage above).
+  const detailsOnly = isEdit && !isSelf && !canManage && canEditDetailsClient(getStoredViewer(), form);
+  const canSubmit = !isEdit || isSelf || canManage || detailsOnly;
   const lockKey = isEdit && opened?._id ? `user:${opened._id}` : null;
   const lock = useItemLock(lockKey, { enabled: canSubmit });
   const readonly = lock.status === "readonly";
@@ -414,6 +417,7 @@ const EditUser = () => {
     <div className={styles.formContainer}>
       <center><h1>{isEdit ? "تعديل بيانات المستخدم" : "إضافة مستخدم جديد"}</h1></center>
       <SaveNotice notice={notice} />
+      {detailsOnly && <p className="alert alert-info" role="note">{t("record.itDetailsOnly")}</p>}
       {recovery.element}
 
       <ReadOnlyArea readonly={readonly} style={{ display: "flex", flexDirection: "column", gap: 16 }}>

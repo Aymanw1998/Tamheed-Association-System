@@ -83,7 +83,7 @@ const ANY_ACTOR_ROUTES = {
   // One's own tour state: every write targets the caller's own record.
   "routes/tours.routes.js": ["GET /", "POST /item/:id", "POST /known-keys", "POST /releases/seen"],
   // The IT actor (requireIt) about himself: who he is, his pass to the everyday app (the handler checks the role), his own passkey.
-  "It/It.route.js": ["GET /me", "POST /system-pass", "POST /passkey/register-options", "POST /passkey/register"],
+  "It/It.route.js": ["GET /me", "POST /system-pass", "POST /passkey/register-options", "POST /passkey/register", "POST /change-password"],
 };
 
 // requireIt loads the IT site's actor (middleware/requireIt.js), as loadActor does the everyday one.

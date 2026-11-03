@@ -9,7 +9,7 @@ process.env.JWT_ACCESS_SECRET = "test-access-secret";
 process.env.JWT_REFRESH_SECRET = "test-refresh-secret";
 process.env.IT_HOST = "it.example.test";
 
-const { createItAuth, GENERIC_LOGIN_MESSAGE } = require("../Entities/It/It.auth");
+const { createItAuth, CODE_SENT_MESSAGE, LOGIN_REFUSALS } = require("../Entities/It/It.auth");
 const { createRequireIt, requireItHost, IT_COOKIE } = require("../middleware/requireIt");
 const { hasRealEmail } = require("../utils/permissions");
 const { sha256 } = require("../utils/jwt");
@@ -104,7 +104,8 @@ function setup({ users } = {}) {
 const flush = () => new Promise((r) => setImmediate(r));
 const login = async (auth, tz, password) => { const r = res(); await auth.login({ body: { tz, password }, ip: "203.0.113.5" }, r); await flush(); return r; };
 const verify = async (auth, tz, code) => { const r = res(); await auth.verify({ body: { tz, code }, ip: "203.0.113.5" }, r); await flush(); return r; };
-const GENERIC = { ok: true, message: GENERIC_LOGIN_MESSAGE };
+const SENT = { ok: true, message: CODE_SENT_MESSAGE };
+const refused = (code) => ({ ok: false, code, message: LOGIN_REFUSALS[code].message });
 
 const runRequireIt = async (requireIt, { cookie, hostname = "it.example.test", headers = {} } = {}) => {
   const r = res();
@@ -129,23 +130,26 @@ test("hasRealEmail: empty, without @, and test@test.com are not real", () => {
   assert.equal(hasRealEmail(null), false);
 });
 
-test("login sends a code only to an IT user with a real email", async () => {
+test("login goes on to the code only after a right ID number and password, to an IT user with a real email", async () => {
   const ctx = setup();
-  // Not IT, blocked, placeholder email, empty email, unknown, wrong password, missing input.
-  const cases = [
-    ["100000025", PASSWORD], ["100000033", PASSWORD], ["100000017", PASSWORD],
-    ["100000041", PASSWORD], ["199999999", PASSWORD], ["100000009", "wrong-pass"], ["", ""],
-  ];
-  for (const [tz, password] of cases) {
+  // Unknown, wrong password and missing input: one answer, the same for all.
+  for (const [tz, password] of [["199999999", PASSWORD], ["100000009", "wrong-pass"], ["", ""]]) {
     const r = await login(ctx.auth, tz, password);
-    assert.equal(r.statusCode, 200, tz);
-    assert.deepEqual(r.body, GENERIC, tz);
+    assert.equal(r.statusCode, 401, tz);
+    assert.deepEqual(r.body, refused("BAD_LOGIN"), tz);
+  }
+  // A right pair: the answer says why no code (not IT, blocked, placeholder or empty email).
+  for (const [tz, code] of [["100000025", "NO_IT_ACCESS"], ["100000033", "NO_IT_ACCESS"], ["100000017", "NO_EMAIL"], ["100000041", "NO_EMAIL"]]) {
+    const r = await login(ctx.auth, tz, PASSWORD);
+    assert.equal(r.statusCode, 403, tz);
+    assert.deepEqual(r.body, refused(code), tz);
   }
   assert.equal(ctx.sent.length, 0);
   assert.equal(ctx.stores.codes.docs().length, 0);
 
   const r = await login(ctx.auth, "100000009", PASSWORD);
-  assert.deepEqual(r.body, GENERIC);
+  assert.equal(r.statusCode, 200);
+  assert.deepEqual(r.body, SENT);
   assert.deepEqual(ctx.sent, [{ to: "it.one@example.com", code: "123456" }]);
   const [row] = ctx.stores.codes.docs();
   assert.equal(row.userTz, "100000009");
@@ -164,10 +168,11 @@ test("a wrong password counts in the lockout, as on the everyday login", async (
   ]);
 });
 
-test("a locked account gets the generic answer and no code, without a password check", async () => {
+test("a locked account is told so and gets no code, without a password check", async () => {
   const ctx = setup();
   const r = await login(ctx.auth, "100000058", PASSWORD);
-  assert.deepEqual(r.body, GENERIC);
+  assert.equal(r.statusCode, 423);
+  assert.deepEqual(r.body, refused("LOCKED"));
   assert.equal(ctx.sent.length, 0);
   assert.deepEqual(ctx.checked, []);
 });
@@ -175,15 +180,15 @@ test("a locked account gets the generic answer and no code, without a password c
 test("the system account's code goes to SYSTEM_ADMIN_EMAIL", async () => {
   const ctx = setup();
   const r = await login(ctx.auth, SYSTEM_TZ, PASSWORD);
-  assert.deepEqual(r.body, GENERIC);
+  assert.deepEqual(r.body, SENT);
   assert.deepEqual(ctx.sent, [{ to: SYSTEM_EMAIL, code: "123456" }]);
 });
 
-test("the system account with an expired password gets no code", async () => {
-  const users = seedUsers().map((u) => (u.tz === SYSTEM_TZ ? { ...u, passwordChangedAt: new Date(NOW - 31 * DAY) } : u));
+test("the system account with its first (or a recovered) password gets no code: it changes it on the main site first", async () => {
+  const users = seedUsers().map((u) => (u.tz === SYSTEM_TZ ? { ...u, passwordChangedAt: new Date(0) } : u));
   const ctx = setup({ users });
   const r = await login(ctx.auth, SYSTEM_TZ, PASSWORD);
-  assert.deepEqual(r.body, GENERIC);
+  assert.deepEqual(r.body, refused("SYSTEM_PASSWORD_CHANGE"));
   assert.equal(ctx.sent.length, 0);
   assert.equal(ctx.stores.codes.docs().length, 0);
 });
@@ -213,7 +218,7 @@ test("after five wrong codes a new login sends nothing and no code works for ten
   for (let i = 0; i < 5; i++) await verify(ctx.auth, "100000009", "000000");
   ctx.clock.t += 60 * 1000;
   const again = await login(ctx.auth, "100000009", PASSWORD);
-  assert.deepEqual(again.body, GENERIC);
+  assert.deepEqual(again.body, refused("TOO_MANY_CODES"));
   assert.equal(ctx.sent.length, 1);
   for (const code of ["111111", "222222"]) {
     const r = await verify(ctx.auth, "100000009", code);
@@ -338,7 +343,7 @@ test("requireIt builds the IT actor, and me answers from it", async () => {
 
   const me = res();
   await ctx.auth.me(req, me);
-  assert.deepEqual(me.body, { ok: true, tz: "100000009", name: "It One", isSystem: false, photo: "https://example.com/p.jpg", hasEverydayRole: false });
+  assert.deepEqual(me.body, { ok: true, tz: "100000009", name: "It One", isSystem: false, photo: "https://example.com/p.jpg", hasEverydayRole: false, mustChangePassword: false });
 
   // An IT user who also has an everyday role: the same condition the pass routes use.
   const both = res();
@@ -453,7 +458,7 @@ test("missing IT_SESSION_SECRET fails closed", async () => {
   try {
     const before = ctx.sent.length;
     const r = await login(ctx.auth, "100000009", PASSWORD);
-    assert.deepEqual(r.body, GENERIC);
+    assert.equal(r.statusCode, 500);
     assert.equal(ctx.sent.length, before);
     const v = await verify(ctx.auth, "100000009", "123456");
     assert.notEqual(v.statusCode, 200);
@@ -462,4 +467,12 @@ test("missing IT_SESSION_SECRET fails closed", async () => {
     assert.equal(nexted, false);
     assert.equal(guarded.statusCode, 500);
   } finally { process.env.IT_SESSION_SECRET = saved; }
+});
+
+test("a new IT user with a temporary password still gets the code (he changes it right after)", async () => {
+  const ctx = setup();
+  const user = ctx.stores.users.docs().find((d) => d.tz === "100000009");
+  user.mustChangePassword = true;
+  await login(ctx.auth, "100000009", PASSWORD);
+  assert.deepEqual(ctx.sent, [{ to: "it.one@example.com", code: "123456" }]);
 });

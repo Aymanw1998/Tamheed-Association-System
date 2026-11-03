@@ -7,7 +7,7 @@ const { generateOtp6 } = require("../../utils/otp");
 const sendEmail = require("../../utils/sendEmail");
 const { isSystemTz, hasRealEmail, resolveRole } = require("../../utils/permissions");
 const { isLocked, afterSuccess } = require("../../utils/loginLockout");
-const { mustChangePassword, isUsableSystemEmail } = require("../../utils/systemPassword");
+const { mustChangePassword, isUsableSystemEmail, newPasswordProblem } = require("../../utils/systemPassword");
 const { audit: defaultAudit } = require("../../utils/audit");
 const { logWithSource } = require("../../middleware/logger");
 const {
@@ -18,6 +18,17 @@ const CODE_TTL_MS = 10 * 60 * 1000;
 const MAX_ATTEMPTS = 5;
 
 const GENERIC_LOGIN_MESSAGE = "إذا كانت البيانات صحيحة، سيصلك رمز دخول إلى بريدك الإلكتروني.";
+const CODE_SENT_MESSAGE = "أُرسل رمز الدخول إلى بريدك الإلكتروني.";
+
+// Why the password step did not lead to a code (POST /api/it/login).
+const LOGIN_REFUSALS = {
+  BAD_LOGIN: { status: 401, message: "رقم الهوية أو كلمة المرور غير صحيحة" },
+  LOCKED: { status: 423, message: "الحساب مقفل بعد محاولات دخول فاشلة. توجّه إلى قسم IT لفتحه." },
+  NO_IT_ACCESS: { status: 403, message: "ليس لديك وصول إلى موقع قسم IT" },
+  NO_EMAIL: { status: 403, message: "لا يوجد بريد إلكتروني صالح في حسابك لإرسال الرمز. توجّه إلى حساب النظام." },
+  SYSTEM_PASSWORD_CHANGE: { status: 403, message: "يجب أولًا تغيير كلمة مرور حساب النظام في الموقع الرئيسي" },
+  TOO_MANY_CODES: { status: 429, message: "محاولات كثيرة للرمز. حاول مرة أخرى بعد 10 دقائق." },
+};
 const BAD_CODE_MESSAGE = "الرمز غير صحيح أو انتهت صلاحيته";
 const SERVER_ERROR = "حدث خطأ غير متوقع، حاول مرة أخرى";
 
@@ -56,6 +67,7 @@ function createItAuth(deps = {}) {
     sendAlert = sendEmail.sendSystemAdminEmail,
     audit = defaultAudit,
     makeCode = generateOtp6,
+    encryptPassword = (plain) => require("../User/passwordCrypto").encryptPassword(plain),
     systemTz = () => process.env.SYSTEM_ADMIN_TZ,
     systemEmail = () => process.env.SYSTEM_ADMIN_EMAIL,
     log = logWithSource,
@@ -96,13 +108,16 @@ function createItAuth(deps = {}) {
 
   // Everything after the password step, shared by the password login and the
   // one-time pass from the everyday app (sitePass.js): sends a code only when
-  // every gate allows, and never says which one did not.
+  // every gate allows. Returns "sent", or the reason no code was sent (a key
+  // of LOGIN_REFUSALS).
   const sendCodeAfterPassword = async (user, isSystem) => {
-    // An expired system password is changed through the everyday sign-in first.
-    if (mustChangePassword(user, { isSystem, now: new Date(now()) })) return;
-    if (!mayUseIt(user, isSystem)) return;
+    // The system account's first (or recovered) password is changed through
+    // the everyday sign-in first. A new IT user's temporary password is
+    // changed on the IT site, right after this code (changePassword below).
+    if (isSystem && mustChangePassword(user, { isSystem, now: new Date(now()) })) return "SYSTEM_PASSWORD_CHANGE";
+    if (!mayUseIt(user, isSystem)) return "NO_IT_ACCESS";
     const to = mailboxOf(user, isSystem);
-    if (!to) return;
+    if (!to) return "NO_EMAIL";
 
     // Wrong tries live as long as the row: a new code keeps them, and after
     // five no code is sent until the row expires. At most five guesses per
@@ -110,7 +125,7 @@ function createItAuth(deps = {}) {
     const existing = rows(await codes.get({ userTz: user.tz }))[0];
     const live = existing && new Date(existing.expiresAt).getTime() > now();
     const attempts = live ? Number(existing.attempts) || 0 : 0;
-    if (attempts >= MAX_ATTEMPTS) return;
+    if (attempts >= MAX_ATTEMPTS) return "TOO_MANY_CODES";
 
     const code = makeCode();
     await codes.update({ userTz: user.tz }, {
@@ -123,35 +138,40 @@ function createItAuth(deps = {}) {
     Promise.resolve()
       .then(() => sendCode(to, code))
       .catch((e) => log("It.login", e));
+    return "sent";
   };
 
-  // POST /api/it/login { tz, password }: always the same answer, so it never
-  // tells whether the account exists, is IT, or why no code came.
+  // POST /api/it/login { tz, password }: the code step comes only after a
+  // right ID number and password (owner, 2026-11-03). A wrong pair, an
+  // unknown ID number and a missing one get the same answer; with the right
+  // pair the answer says why no code was sent.
   const login = async (req, res) => {
-    const generic = () => res.json({ ok: true, message: GENERIC_LOGIN_MESSAGE });
+    const refuse = (code) => res.status(LOGIN_REFUSALS[code].status).json({ ok: false, code, message: LOGIN_REFUSALS[code].message });
     try {
       const tz = String(req.body?.tz ?? "").trim();
       const password = typeof req.body?.password === "string" ? req.body.password : "";
-      if (!tz || !password) return generic();
+      if (!tz || !password) return refuse("BAD_LOGIN");
       itSecret(); // fails closed before any code is created or sent
 
+      const user = await findActiveUser(tz);
+      if (!user) return refuse("BAD_LOGIN");
+      const isSystem = isSystemTz(String(user.tz || ""), systemTz());
       // A locked account is refused before the password is even checked.
-      const found = await signInUser(tz);
-      if (!found) return generic();
-      const { user, isSystem } = found;
+      if (isLocked(user, { isSystem })) return refuse("LOCKED");
 
       const { ok } = await verifyPassword(user, "active", password);
       if (!ok) {
         await countFailure(req, user, "active", isSystem);
-        return generic();
+        return refuse("BAD_LOGIN");
       }
       if (Number(user.failedLoginCount) > 0) await clearFailures(user);
 
-      await sendCodeAfterPassword(user, isSystem);
-      return generic();
+      const outcome = await sendCodeAfterPassword(user, isSystem);
+      if (outcome !== "sent") return refuse(outcome);
+      return res.json({ ok: true, message: CODE_SENT_MESSAGE });
     } catch (err) {
       log("It.login", err);
-      return generic();
+      return res.status(500).json({ ok: false, message: SERVER_ERROR });
     }
   };
 
@@ -228,6 +248,32 @@ function createItAuth(deps = {}) {
     }
   };
 
+  // POST /api/it/change-password { newPassword } (requireIt): only while the
+  // user must change his temporary password; signing in with it and the
+  // email code is the proof, so the old one is not asked again. The IT
+  // session goes on with a new cookie.
+  const changePassword = async (req, res) => {
+    try {
+      const user = req.actor?.user;
+      if (!req.actor?.mustChangePassword || !user?.tz) return res.status(403).json({ ok: false, code: "FORBIDDEN" });
+      const newPassword = req.body?.newPassword;
+      const problem = newPasswordProblem(newPassword);
+      if (problem) return res.status(400).json({ ok: false, code: problem });
+      const key = itSecret();
+      await (users || defaultUsers()).update({ tz: user.tz }, {
+        password: encryptPassword(newPassword),
+        passwordChangedAt: new Date(now()),
+        mustChangePassword: false,
+      }, "active");
+      await audit.record(req, { module: "users", action: "password_change", targetType: "user", targetId: user.tz });
+      startSession(res, user.tz, key);
+      return res.json({ ok: true });
+    } catch (err) {
+      log("It.changePassword", err);
+      return res.status(500).json({ ok: false, message: SERVER_ERROR });
+    }
+  };
+
   const logout = (req, res) => {
     res.clearCookie(IT_COOKIE, itCookieOptions());
     return res.json({ ok: true });
@@ -237,10 +283,14 @@ function createItAuth(deps = {}) {
   const me = (req, res) => {
     const { tz, name, isSystem, user } = req.actor;
     // hasEverydayRole: the pass routes' condition, so the site can show «النظام» without asking for a pass.
-    return res.json({ ok: true, tz, name, isSystem, photo: user?.photo || null, hasEverydayRole: Boolean(resolveRole(user)) });
+    return res.json({
+      ok: true, tz, name, isSystem, photo: user?.photo || null, hasEverydayRole: Boolean(resolveRole(user)),
+      // The site shows only «تغيير كلمة المرور» until it is changed (requireIt refuses the rest).
+      mustChangePassword: Boolean(req.actor.mustChangePassword),
+    });
   };
 
-  return { login, verify, logout, me, sendCodeWithoutPassword, completeSignIn };
+  return { login, verify, logout, me, changePassword, sendCodeWithoutPassword, completeSignIn };
 }
 
 module.exports = {
@@ -248,5 +298,7 @@ module.exports = {
   createItAuth,
   systemSignInEmail,
   GENERIC_LOGIN_MESSAGE,
+  CODE_SENT_MESSAGE,
+  LOGIN_REFUSALS,
   BAD_CODE_MESSAGE,
 };

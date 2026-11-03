@@ -61,6 +61,10 @@ const mayUseIt = (user, isSystem) => isSystem || isUnblockedItUser(user);
 // Loaded lazily so requiring this file does not pull in the database layer.
 const defaultUsers = () => require("../Entities/User/User.model").UserModelDef;
 
+// The only IT routes open while the password must be changed.
+const PASSWORD_CHANGE_PATHS = new Set(["/me", "/change-password"]);
+const PASSWORD_CHANGE_REQUIRED = { ok: false, code: "PASSWORD_CHANGE_REQUIRED", message: "يجب تغيير كلمة المرور أولًا" };
+
 function createRequireIt(deps = {}) {
   const {
     users,
@@ -104,7 +108,10 @@ function createRequireIt(deps = {}) {
         it: true,
         permissions: itPermissions(user, { isSystem }),
         user,
+        mustChangePassword: !isSystem && user.mustChangePassword === true,
       };
+      // A temporary password (a new IT user): nothing but «تغيير كلمة المرور» until changed.
+      if (req.actor.mustChangePassword && !PASSWORD_CHANGE_PATHS.has(req.path)) return res.status(403).json(PASSWORD_CHANGE_REQUIRED);
       return next();
     } catch (err) {
       log("requireIt", err);

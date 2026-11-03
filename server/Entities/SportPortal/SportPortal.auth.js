@@ -25,6 +25,9 @@ const MAX_ATTEMPTS = 5;
 const NO_SECRET = "SPORT_SESSION_SECRET is not set";
 
 const GENERIC_CODE_MESSAGE = "إذا كان الرقم مسجّلًا ولديه بريد، سيصله رمز. لم يصلك؟ توجّه إلى المرشد";
+// A number with no player in the sport department, or no email (owner, 2026-11-03).
+const NOT_IN_SPORT_MESSAGE = "الطالب غير مسجّل في قسم الرياضة. توجّه إلى المرشد";
+const NO_EMAIL_MESSAGE = "لا يوجد بريد إلكتروني مسجّل لهذا الطالب لإرسال الرمز. توجّه إلى المرشد";
 const BAD_CODE_MESSAGE = "الرمز غير صحيح أو انتهت صلاحيته";
 const SERVER_ERROR = "حدث خطأ غير متوقع، حاول مرة أخرى";
 const BAD_CARD_MESSAGE = "البطاقة غير صالحة. اطلب بطاقة جديدة من المرشد";
@@ -93,7 +96,10 @@ function createSportAuth(deps = {}) {
     const generic = () => res.json({ ok: true, message: GENERIC_CODE_MESSAGE });
     try {
       const tz = String(req.body?.tz ?? "").trim();
-      if (!tz) return generic();
+      // The code step comes only for a player of the sport department with an
+      // email; otherwise the page says why (owner, 2026-11-03).
+      const notInSport = () => res.status(404).json({ ok: false, code: "NOT_IN_SPORT", message: NOT_IN_SPORT_MESSAGE });
+      if (!tz) return notInSport();
       secret(); // fails closed before any code is created or sent
 
       const found = rows(await students.get({ tz }));
@@ -103,9 +109,10 @@ function createSportAuth(deps = {}) {
         return generic();
       }
       const student = found[0];
-      if (!student || !String(student.email || "").trim()) return generic();
+      if (!student) return notInSport();
       const studentId = String(student._id);
-      if (!(await hasSportRow(studentId))) return generic();
+      if (!(await hasSportRow(studentId))) return notInSport();
+      if (!String(student.email || "").trim()) return res.status(404).json({ ok: false, code: "NO_EMAIL", message: NO_EMAIL_MESSAGE });
 
       const existing = rows(await codes.get({ studentId }))[0];
       let attempts = 0;
@@ -283,6 +290,8 @@ module.exports = {
   createSportAuth,
   COOKIE_NAME,
   GENERIC_CODE_MESSAGE,
+  NOT_IN_SPORT_MESSAGE,
+  NO_EMAIL_MESSAGE,
   BAD_CODE_MESSAGE,
   BAD_CARD_MESSAGE,
 };

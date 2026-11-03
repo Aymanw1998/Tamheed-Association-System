@@ -14,6 +14,7 @@ const {
   canAssignRole,
   validatePermissionChange,
   canResetPassword,
+  canEditDetails,
 } = require("../utils/permissionRules");
 
 const ADMIN = "ادارة";
@@ -177,4 +178,22 @@ test("a missing it flag is false", () => {
   assert.equal(it, true);
   assert.equal(canManageTarget({ ...plain, permissions: effectivePermissions(itDoc) }, otherAdmin, CTX), false);
   assert.deepEqual(validatePermissionChange(plain, guide, { grants: ["ai"] }, CTX), { ok: false, code: "FORBIDDEN" });
+});
+
+test("canEditDetails: an administrator edits the details of an IT user below him, not one of equal rank, not his account", () => {
+  // A guide who is also IT: details yes, the account no.
+  assert.equal(canEditDetails(admin, itDoc, CTX), true);
+  assert.equal(canManageTarget(admin, itDoc, CTX), false);
+  // An IT administrator: equal rank, nothing.
+  assert.equal(canEditDetails(admin, userDoc("it3", ADMIN, { isIT: true }), CTX), false);
+  // A guide does not edit an IT assistant (no users.edit is checked here, only rank).
+  assert.equal(canEditDetails(actorOf(guide), otherItDoc, CTX), true);
+  assert.equal(canEditDetails(actorOf(assistant), otherItDoc, CTX), false);
+  // Never oneself, never the system account; an ordinary user follows canManageTarget.
+  assert.equal(canEditDetails(actorOf(itDoc), itDoc, CTX), false);
+  assert.equal(canEditDetails(admin, itDoc, { isSystemTarget: true }), false);
+  assert.equal(canEditDetails(admin, guide, CTX), true);
+  assert.equal(canEditDetails(admin, otherAdmin, CTX), false);
+  // The IT actor still never reaches another IT user.
+  assert.equal(canEditDetails(itActor, otherItDoc, CTX), false);
 });

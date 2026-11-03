@@ -13,6 +13,7 @@ import Audit from "./screens/Audit.jsx";
 import Storage from "./screens/Storage.jsx";
 import Settings from "./screens/Settings.jsx";
 import RoleDefaults from "./screens/RoleDefaults.jsx";
+import ChangePassword from "./screens/ChangePassword.jsx";
 
 const NAV = [
   { to: "/", label: "المستخدمون" },
@@ -78,6 +79,8 @@ export default function App() {
   if (state === "loading") return <p className="center" role="status">…</p>;
   if (state === "error") return <p className="center" role="alert">تعذّر الاتصال بالخادم. <button type="button" onClick={loadMe}>إعادة المحاولة</button></p>;
   if (state === "out") return <><SignIn pass={pass} onSignedIn={loadMe} /><Toaster /></>;
+  // A temporary password: only «تغيير كلمة المرور» until it is changed (the server refuses the rest).
+  if (me.mustChangePassword) return <><ChangePassword onDone={loadMe} onSignOut={signOut} /><Toaster /></>;
 
   // The system account is shown by its name only, never by its ID number.
   const links = me.isSystem ? [...NAV, { to: "/members", label: "مستخدمو IT" }] : NAV;

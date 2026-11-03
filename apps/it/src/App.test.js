@@ -119,3 +119,11 @@ test("a signed-out answer shows the sign-in screen", async () => {
   const c = await mount(<App />);
   expect(c.querySelector('input[name="tz"]')).not.toBeNull();
 });
+
+test("a temporary password: only «تغيير كلمة المرور» shows until it is changed", async () => {
+  api.getMe.mockImplementation(() => ok({ ...ME, mustChangePassword: true }));
+  const c = await mount(<App />);
+  expect(c.textContent).toContain("تغيير كلمة المرور");
+  expect(c.querySelector("nav")).toBeNull();
+  expect(api.getUsers).not.toHaveBeenCalled();
+});

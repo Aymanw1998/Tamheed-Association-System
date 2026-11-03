@@ -26,10 +26,11 @@ const sp = require("../utils/systemPassword");
 
 /* ================= pure rules ================= */
 
-test("PASSWORD_MAX_AGE_DAYS is 30 and applies to the system account only", () => {
-  assert.equal(sp.PASSWORD_MAX_AGE_DAYS, 30);
+test("no periodic change (owner, 2026-11-03): only the system account's first or recovered password is changed", () => {
+  assert.equal(sp.PASSWORD_MAX_AGE_DAYS, undefined);
   assert.equal(sp.mustChangePassword({ passwordChangedAt: daysAgo(29) }, { isSystem: true, now: NOW }), false);
-  assert.equal(sp.mustChangePassword({ passwordChangedAt: daysAgo(31) }, { isSystem: true, now: NOW }), true);
+  assert.equal(sp.mustChangePassword({ passwordChangedAt: daysAgo(31) }, { isSystem: true, now: NOW }), false);
+  assert.equal(sp.mustChangePassword({ passwordChangedAt: daysAgo(900) }, { isSystem: true, now: NOW }), false);
   assert.equal(sp.mustChangePassword({}, { isSystem: true, now: NOW }), true, "missing date forces a change");
   assert.equal(sp.mustChangePassword({ passwordChangedAt: null }, { isSystem: true, now: NOW }), true);
   assert.equal(sp.mustChangePassword({ passwordChangedAt: "garbage" }, { isSystem: true, now: NOW }), true);
@@ -344,8 +345,8 @@ async function login(ctx, tz, password) {
   return res;
 }
 
-test("system login within 30 days is a normal login with a refresh cookie", async () => {
-  const ctx = loadController({ users: [systemUser({ passwordChangedAt: new Date(Date.now() - 29 * DAY) })] });
+test("system login with a changed password is a normal login with a refresh cookie, however old", async () => {
+  const ctx = loadController({ users: [systemUser({ passwordChangedAt: new Date(Date.now() - 400 * DAY) })] });
   const res = await login(ctx, SYSTEM_TZ, "current-pass-1");
   assert.equal(res.statusCode, 200);
   assert.equal(res.body.mustChangePassword, undefined);
@@ -353,8 +354,8 @@ test("system login within 30 days is a normal login with a refresh cookie", asyn
   assert.equal(ctx.calls.tokens[0].payload.scope, undefined);
 });
 
-test("system login after 31 days gets only a password-change token and no refresh cookie", async () => {
-  const ctx = loadController({ users: [systemUser({ passwordChangedAt: new Date(Date.now() - 31 * DAY), refreshHash: "old" })] });
+test("system login with its first (or a recovered) password gets only a password-change token and no refresh cookie", async () => {
+  const ctx = loadController({ users: [systemUser({ passwordChangedAt: new Date(0), refreshHash: "old" })] });
   const res = await login(ctx, SYSTEM_TZ, "current-pass-1");
   assert.equal(res.statusCode, 200);
   assert.deepEqual(Object.keys(res.body).sort(), ["accessToken", "mustChangePassword", "ok"]);
@@ -376,7 +377,7 @@ test("an ordinary account is never forced to change, whatever its age", async ()
   assert.equal(ctx.calls.cookies, 1);
 });
 
-test("refresh is refused for the system account once its password has expired", async () => {
+test("refresh is refused for the system account while its password must be changed", async () => {
   const ctx = loadController({
     users: [systemUser({ passwordChangedAt: new Date(0), refreshHash: "sha:tok" })],
     refreshPayload: { tz: SYSTEM_TZ },
@@ -944,4 +945,18 @@ test("final4: startup warns when SMTP is not configured, and not when it is", as
   const on = loadEnsureSystemAdmin({ smtp: true });
   await on.ensureSystemAdmin();
   assert.deepEqual(on.calls.warnings, []);
+});
+
+test("mustChangePassword: a flagged user (a new IT user's temporary password) must change it, system or not", () => {
+  const { mustChangePassword: must } = require("../utils/systemPassword");
+  assert.equal(must({ mustChangePassword: true }, { isSystem: false }), true);
+  assert.equal(must({ mustChangePassword: false }, { isSystem: false }), false);
+  assert.equal(must({}, { isSystem: false }), false);
+});
+
+test("generateTempDigits: eight digits", () => {
+  const { generateTempDigits, TEMP_DIGITS_LENGTH } = require("../utils/systemPassword");
+  assert.equal(TEMP_DIGITS_LENGTH, 8);
+  for (let i = 0; i < 20; i += 1) assert.match(generateTempDigits(), /^[0-9]{8}$/);
+  assert.equal(generateTempDigits(() => 7), "77777777");
 });

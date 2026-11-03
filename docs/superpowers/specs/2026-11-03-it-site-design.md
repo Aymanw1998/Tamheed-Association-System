@@ -106,9 +106,12 @@ Notes:
 - An IT user is protected from administrators too (owner, 2026-11-03): in
   the everyday app an administrator may still work with him through students,
   lessons and reports (make him a student's responsible guide, put him on a
-  lesson, edit a report of his), but never touch his account: no edit of his
-  details or email, no password reset, no role change, no room move, no
-  delete. Only 000000000 does those, on the IT site.
+  lesson, edit a report of his), but never touch his account: no email
+  change, no password reset, no role change, no room move, no delete. Only
+  000000000 does those, on the IT site. Changed by the owner later the same
+  day: an administrator (or any everyday user with `users.edit`) of a higher
+  rank may edit his personal details (name, phone, address, birth date,
+  gender, photo), and the everyday app shows him as «قسم IT» with that note.
 - Rank rules for administrators stay as today: never oneself, never another
   administrator, never upward to ادارة.
 - Today's dangerous keys (`server/utils/permissions.js` `DANGEROUS_KEYS`) are

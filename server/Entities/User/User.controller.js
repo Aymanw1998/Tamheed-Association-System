@@ -41,6 +41,7 @@ const {
 } = require("../../utils/permissions");
 const {
   canManageTarget,
+  canEditDetails,
   grantableBy,
   validatePermissionChange,
   canAssignRole,
@@ -60,6 +61,7 @@ const {
   lockoutAlertEmail,
   resetSystemPassword,
   generateTempPassword,
+  generateTempDigits,
 } = require("../../utils/systemPassword");
 const {
   sessionMatches, startSession, rotateSession, endSession, endOtherSessions, endAllSessions,
@@ -211,7 +213,7 @@ const isSelfTz = (req, tz) => {
 // Oneself, or (with users.edit) a user the actor may manage.
 const canManageUserMedia = (req, user) =>
   isSelfTz(req, user?.tz)
-  || (can(req.actor?.permissions, "users.edit") && canManageTarget(req.actor, user));
+  || (can(req.actor?.permissions, "users.edit") && canEditDetails(req.actor, user));
 
 const buildUserPhotoName = (user = {}, file = {}) => {
   const parts = [
@@ -306,6 +308,9 @@ const SELF_EDIT_FIELDS = new Set([
   "firstname", "lastname", "birth_date", "gender", "phone", "email",
   "city", "street", "photo",
 ]);
+// What an administrator may change on an IT user below him (canEditDetails):
+// the profile fields without the email (where his codes and resets go).
+const DETAIL_FIELDS = new Set([...SELF_EDIT_FIELDS].filter((field) => field !== "email"));
 const MAX_ATTEMPTS = 5;
 const LOCK_MIN = 10;
 
@@ -670,7 +675,7 @@ const postU = async (req, res) => {
 };
 
 // The first sign-in details of an IT user made on the IT site. No ID number in it.
-function newItUserEmail({ name, password, itHost, mainHost }) {
+function newItUserEmail({ name, password, itHost }) {
   const subject = "حسابك في قسم IT - جمعية تمهيد";
   const text = [
     `مرحبًا ${name}،`,
@@ -679,7 +684,7 @@ function newItUserEmail({ name, password, itHost, mainHost }) {
     `كلمة المرور المؤقتة: ${password}`,
     "",
     `الدخول: ${itHost ? `https://${itHost}` : "موقع قسم IT"} برقم هويتك وكلمة المرور هذه، ثم الرمز الذي يصل إلى هذا البريد.`,
-    `لتغيير كلمة المرور: «نسيت كلمة المرور» في ${mainHost ? `https://${mainHost}` : "الموقع الرئيسي"}.`,
+    "بعد الدخول الأول يُطلب منك اختيار كلمة مرور جديدة.",
     "",
     "إن لم تطلب هذا الحساب، تجاهل هذه الرسالة.",
   ].join("\n");
@@ -706,7 +711,8 @@ const createItUser = async (req, res) => {
     if (wanted != null && !role) return invalid(res, "UNKNOWN_ROLE");
     if (await roomHoldingTz(tz)) return res.status(409).json({ ok: false, code: "TZ_EXISTS", message: "المستخدم مسجّل مسبقًا" });
 
-    const password = generateTempPassword();
+    // Digits only, for the first sign-in; changed right after it (mustChangePassword).
+    const password = generateTempDigits();
     const model = deriveServerFields({
       tz, firstname, lastname, email,
       phone: typeof body.phone === "string" ? body.phone.trim() : "",
@@ -714,6 +720,7 @@ const createItUser = async (req, res) => {
       role, roles: role ? [role] : [],
       permissionGrants: [], permissionRevokes: [],
       isIT: true, itSince: new Date(), itBlockedAt: null,
+      mustChangePassword: true,
       updatedAt: new Date(),
       ...editorStamp(req),
     });
@@ -726,7 +733,7 @@ const createItUser = async (req, res) => {
     // Not awaited: SMTP must not delay or change the answer.
     Promise.resolve()
       .then(() => sendEmail.sendAccountEmail(email, newItUserEmail({
-        name: `${firstname} ${lastname}`, password, itHost: process.env.IT_HOST, mainHost: process.env.MAIN_HOST,
+        name: `${firstname} ${lastname}`, password, itHost: process.env.IT_HOST,
       })))
       .catch((e) => logWithSource("User.createItUser.email", e));
 
@@ -771,7 +778,13 @@ const putU = async (req, res) => {
       dropStorageUnlessAllowed(req, newData);
       existing = await getUserInRoomByTz(tz, room);
       if (!existing || isSystemUser(existing)) return notFound(res);
-      if (!canManageTarget(req.actor, existing)) return forbidden(res);
+      if (!canEditDetails(req.actor, existing)) return forbidden(res);
+      // An IT user below the actor: his personal details only.
+      if (!canManageTarget(req.actor, existing)) {
+        for (const field of Object.keys(newData)) {
+          if (!DETAIL_FIELDS.has(field)) delete newData[field];
+        }
+      }
       // Another user's password, or the email a password reset is sent to:
       // only where the actor may reset that user's password (lower rank, not IT).
       if (!canResetPassword(req.actor, existing)) {
@@ -1870,7 +1883,7 @@ const changePassword = async (req, res) => {
     const passwordChangedAt = new Date();
     await UserModelDef.update(
       { tz: user.tz },
-      { password: encryptPassword(newPassword), passwordChangedAt, ...afterSuccess() },
+      { password: encryptPassword(newPassword), passwordChangedAt, mustChangePassword: false, ...afterSuccess() },
       "active"
     );
     const who = { tz: user.tz, firstname: user.firstname, lastname: user.lastname };

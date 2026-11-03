@@ -62,6 +62,17 @@ function canManageTarget(actor, target, ctx = {}) {
   return rankOf(actor) > rankOf(target);
 }
 
+// Personal details only (owner, 2026-11-03): besides whoever canManageTarget,
+// an everyday actor edits the details of an IT user ranked below him (a
+// guide who is also IT). Never his password, email, role, room or account
+// state: those stay with canManageTarget (User.controller.js DETAIL_FIELDS).
+function canEditDetails(actor, target, ctx = {}) {
+  if (canManageTarget(actor, target, ctx)) return true;
+  if (!actor || !target || isSystemTarget(target, ctx) || isSelf(actor, target)) return false;
+  if (!isItUser(target) || isItActor(actor)) return false;
+  return isSystemActor(actor) || rankOf(actor) > rankOf(target);
+}
+
 // Only the IT actor changes permissions, and never grants an IT key.
 function grantableBy(actor) {
   if (!isItActor(actor)) return new Set();
@@ -140,6 +151,7 @@ function applyRoleChange(target, newRole) {
 module.exports = {
   isItActor,
   canManageTarget,
+  canEditDetails,
   grantableBy,
   validatePermissionChange,
   canAssignRole,

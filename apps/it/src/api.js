@@ -43,6 +43,8 @@ export const loginPass = (pass) => send("POST", "/login-pass", { pass });
 export const verify = (tz, code) => send("POST", "/verify", { tz, code });
 export const logout = () => send("POST", "/logout");
 export const getMe = () => call("/me");
+// A new IT user's temporary password, changed right after the first sign-in.
+export const changeOwnPassword = (newPassword) => send("POST", "/change-password", { newPassword });
 // Passkeys: sign in with a fingerprint or face instead of the password and the code.
 export const passkeyLoginOptions = () => send("POST", "/passkey/login-options");
 export const passkeyLogin = (response) => send("POST", "/passkey/login", { response });

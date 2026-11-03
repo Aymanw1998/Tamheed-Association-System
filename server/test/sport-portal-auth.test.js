@@ -7,7 +7,7 @@ process.env.SPORT_SESSION_SECRET = "test-sport-session-secret";
 process.env.JWT_ACCESS_SECRET = "test-access-secret";
 process.env.JWT_REFRESH_SECRET = "test-refresh-secret";
 
-const { createSportAuth, GENERIC_CODE_MESSAGE } = require("../Entities/SportPortal/SportPortal.auth");
+const { createSportAuth, GENERIC_CODE_MESSAGE, NOT_IN_SPORT_MESSAGE, NO_EMAIL_MESSAGE } = require("../Entities/SportPortal/SportPortal.auth");
 const { sha256 } = require("../utils/jwt");
 const { requireAuth } = require("../middleware/authMiddleware");
 
@@ -80,13 +80,18 @@ const ask = async (auth, tz) => { const r = res(); await auth.requestCode({ body
 const verify = async (auth, tz, code) => { const r = res(); await auth.verify({ body: { tz, code } }, r); return r; };
 const GENERIC = { ok: true, message: GENERIC_CODE_MESSAGE };
 
-test("unknown, duplicated, email-less and non-sport IDs all get the generic message and no email", async () => {
+test("a number with no player in the sport department, or no email, is told so and gets no email (owner, 2026-11-03)", async () => {
   const { auth, sent } = setup();
-  for (const tz of ["999999999", "100000033", "100000017", "100000025", ""]) {
+  for (const tz of ["999999999", "100000025", ""]) {
     const r = await ask(auth, tz);
-    assert.equal(r.statusCode, 200);
-    assert.deepEqual(r.body, GENERIC);
+    assert.equal(r.statusCode, 404, tz);
+    assert.deepEqual(r.body, { ok: false, code: "NOT_IN_SPORT", message: NOT_IN_SPORT_MESSAGE }, tz);
   }
+  const noMail = await ask(auth, "100000017");
+  assert.equal(noMail.statusCode, 404);
+  assert.deepEqual(noMail.body, { ok: false, code: "NO_EMAIL", message: NO_EMAIL_MESSAGE });
+  // Two students with one number: a data fault, the generic answer.
+  assert.deepEqual((await ask(auth, "100000033")).body, GENERIC);
   assert.equal(sent.length, 0);
 });
 
@@ -376,7 +381,7 @@ test("a student whose only player row belongs to another sport cannot sign in", 
     players: [{ studentId: "s9", sportId: "old" }],
   });
   const r = await ask(auth, "100000041");
-  assert.deepEqual(r.body, GENERIC);
+  assert.equal(r.body.code, "NOT_IN_SPORT");
   assert.equal(sent.length, 0);
   assert.equal(stores.codes.docs().length, 0);
 

@@ -129,14 +129,11 @@ test("without users.resetPassword the password and email of a guide are ignored"
   assert.equal(stored.email, "guide@example.test");
 });
 
-test("an administrator cannot touch an IT user's account", async () => {
+test("an administrator cannot touch an IT user's account (role, room, delete, sessions, storage)", async () => {
   const users = createUsers(seed());
   const { controller, audit } = loadController(users);
   const before = structuredClone(users.rooms.active);
   const attempts = [
-    ["putU", { params: { tz: IT_GUIDE.tz }, body: { firstname: "Changed" } }],
-    ["putU", { params: { tz: IT_GUIDE.tz }, body: { email: "attacker@example.test" } }],
-    ["putU", { params: { tz: IT_GUIDE.tz }, body: { password: "new-placeholder" } }],
     ["putRole", { params: { tz: IT_GUIDE.tz }, body: { role: "مساعد" } }],
     ["changeRoom", { params: { tz: IT_GUIDE.tz }, body: { from: "active", to: "noActive" } }],
     ["deleteU", { params: { tz: IT_GUIDE.tz, from: "active" } }],
@@ -185,4 +182,32 @@ test("viewPassword is refused to everyday actors: no everyday actor holds users.
   for (const name of ["viewPassword", "getPermissions", "putPermissions", "unlockUser", "recoverSystem"]) {
     assert.equal(typeof controller[name], "function", name);
   }
+});
+
+test("an administrator edits an IT guide's personal details, never his password, email, role or room (owner, 2026-11-03)", async () => {
+  const users = createUsers(seed());
+  const { controller, audit } = loadController(users);
+  const out = res();
+  await controller.putU(req({ params: { tz: IT_GUIDE.tz }, body: {
+    firstname: "Changed", phone: "0500000001", city: "Lod",
+    email: "attacker@example.test", password: "new-placeholder", role: "ادارة", roles: ["ادارة"], isIT: false,
+  } }), out);
+  assert.equal(out.statusCode, 200);
+  const after = users.rooms.active.find((u) => u.tz === IT_GUIDE.tz);
+  assert.equal(after.firstname, "Changed");
+  assert.equal(after.phone, "0500000001");
+  assert.equal(after.city, "Lod");
+  assert.equal(after.email, IT_GUIDE.email);
+  assert.equal(after.password, IT_GUIDE.password);
+  assert.deepEqual(after.roles, IT_GUIDE.roles);
+  assert.equal(after.isIT, true);
+  assert.equal(audit.calls.length, 1);
+});
+
+test("an IT user of equal or higher rank: an administrator does not edit his details either", async () => {
+  const users = createUsers({ active: [{ ...structuredClone(ADMIN_2), isIT: true }] });
+  const { controller } = loadController(users);
+  const out = res();
+  await controller.putU(req({ params: { tz: ADMIN_2.tz }, body: { firstname: "Changed" } }), out);
+  assert.equal(out.statusCode, 403);
 });

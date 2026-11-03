@@ -4114,3 +4114,61 @@ unknown role refused), `it-rules.test.js`; `apps/it` `Users.test.js`.
 locally with made-up data.
 
 **Codex review:** pending (until 2026-11-06). **Status:** committed.
+
+### Follow-up: first password, clear sign-in answers, no periodic change (2026-11-03)
+
+**Change:** Owner, four requests.
+1. A new IT user's first password is 8 digits (`generateTempDigits`) and the
+   user is flagged `mustChangePassword`. `mustChangePassword()` now honours
+   the flag for any user. On the IT site `requireIt` lets a flagged user reach
+   only `/me` and `POST /change-password` (403 `PASSWORD_CHANGE_REQUIRED`
+   elsewhere); `It.auth.changePassword` (flagged users only, new password
+   rules of `newPasswordProblem`) stores it encrypted, clears the flag, audits
+   `users` / `password_change` and issues a new IT cookie. The everyday
+   change also clears the flag. `apps/it`: `screens/ChangePassword.jsx`.
+2. `POST /api/it/login` goes to the code step only after a right ID number
+   and password: 401 `BAD_LOGIN` for an unknown number, a wrong password or
+   missing input (one answer for all); with the right pair 423 `LOCKED`,
+   403 `NO_IT_ACCESS` / `NO_EMAIL` / `SYSTEM_PASSWORD_CHANGE`, 429
+   `TOO_MANY_CODES`. This reveals a right pair whose user has no IT access,
+   at the owner's request. The everyday → IT pass keeps its generic answer.
+3. Sport `request-code`: 404 `NOT_IN_SPORT` for a number with no player in
+   the department (unknown included), 404 `NO_EMAIL` for a player without an
+   email; a duplicated number keeps the generic answer.
+4. No periodic password change: `PASSWORD_MAX_AGE_DAYS` removed; the system
+   account changes only its first or recovered password (date missing or 0).
+
+**Test:** `system-password.test.js`, `it-auth.test.js`, `it-api.test.js`,
+`sport-portal-auth.test.js`, `route-guards.test.js`; `apps/it`
+`ChangePassword.test.js`, `SignIn.test.js`, `App.test.js`.
+
+**Verification:** server 1258/1258, `apps/it` 62/62, `apps/sport` 92/92,
+`apps/it` build; change screen checked locally.
+
+**Codex review:** pending (until 2026-11-06). **Status:** committed.
+
+### Follow-up: administrators edit an IT user's personal details (2026-11-03)
+
+**Change:** Owner: an administrator updates the personal details of a user
+below him even when that user is also IT; never his password, and he can't
+suspend or delete him; the everyday app shows him as IT.
+`utils/permissionRules.js` `canEditDetails(actor, target)`:
+`canManageTarget`, or an everyday actor ranked above an IT target (never
+oneself, the system target, or the IT actor on another IT user).
+`User.controller.js`: `putU` and the photo upload/delete
+(`canManageUserMedia`) use it; for an IT target only `DETAIL_FIELDS`
+(`SELF_EDIT_FIELDS` without `email`) are kept. Ruling: the email stays out,
+since an IT user's sign-in codes go to it. Account actions (role, room,
+delete, sign-out everywhere, storage) still need `canManageTarget`.
+`apps/system`: `canEditDetailsClient` (`utils/roles.js`), the user page's
+«تعديل» for such a user without sign-out/suspend/delete, an «قسم IT» fact,
+the form's note and save button (no role, password or email).
+
+**Test:** `server/test/user-it-protection.test.js`, `it-rules.test.js`;
+`apps/system` `UserView.test.js`, `EditUser.account.test.js`,
+`roles.test.js`.
+
+**Verification:** server 1261/1261, `apps/system`
+943/943, build. Not checked in a browser (needs the database).
+
+**Codex review:** pending (until 2026-11-06). **Status:** committed.
