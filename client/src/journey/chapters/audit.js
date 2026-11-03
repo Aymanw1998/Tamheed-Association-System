@@ -1,6 +1,6 @@
 // Chapter 11: the change log. The guide filters by the lessons section (the
-// demo log always holds a lesson change with a field diff), opens the field
-// changes of a row, and clears the filter.
+// demo log always holds a lesson change with a field diff) in the «فلتر»
+// window, opens the field changes of a row, and clears the filter.
 const audit = {
   id: "journey-audit",
   title: "سجل التغييرات",
@@ -16,8 +16,9 @@ const audit = {
     {
       target: "audit-filters",
       mood: "point",
-      title: "التصفية",
-      body: "صفِّ حسب التاريخ أو القسم أو العملية أو المنفّذ.",
+      title: "الفلتر",
+      body: "سأفتح «فلتر»: التاريخ والقسم والعملية والمنفّذ.",
+      action: { type: "click", target: "audit-filters" },
     },
     {
       target: "audit-module",
@@ -29,8 +30,8 @@ const audit = {
     {
       target: "audit-apply",
       mood: "point",
-      title: "تطبيق التصفية",
-      body: "سأضغط «بحث»، فتبقى تغييرات الدروس وحدها.",
+      title: "تطبيق الفلتر",
+      body: "سأضغط «تطبيق»، فتبقى تغييرات الدروس وحدها.",
       action: { type: "click", target: "audit-apply" },
     },
     {
@@ -49,8 +50,8 @@ const audit = {
     {
       target: "audit-clear",
       mood: "point",
-      title: "مسح التصفية",
-      body: "سأمسح التصفية لنعود إلى السجل كاملًا.",
+      title: "مسح الفلتر",
+      body: "سأمسح الفلتر لنعود إلى السجل كاملًا.",
       action: { type: "click", target: "audit-clear" },
     },
   ],

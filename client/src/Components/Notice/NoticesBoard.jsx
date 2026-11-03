@@ -6,6 +6,7 @@ import {
 import { useI18n } from "../../i18n/I18nContext";
 import { toast } from "../../ALERT/SystemToasts";
 import Button from "../UI/Button.jsx";
+import FilterDialog from "../UI/FilterDialog.jsx";
 import StatusBadge from "../UI/StatusBadge.jsx";
 import { ask } from "../Provides/confirmBus";
 import { fillText } from "../../utils/vehicleDisplay";
@@ -87,18 +88,29 @@ export default function NoticesBoard() {
       </header>
 
       <div className={styles.filters} data-tour="notices-filters">
-        <select value={filters.status} onChange={setFilter("status")} aria-label={t("notices.filters.status")}>
-          <option value="all">{t("notices.filters.all")}</option>
-          <option value="unread">{t("notices.filters.unread")}</option>
-        </select>
-        <select value={filters.category} onChange={setFilter("category")} aria-label={t("notices.filters.category")}>
-          <option value="">{t("notices.filters.category")}</option>
-          {["vehicle", "system", "manual"].map((c) => <option key={c} value={c}>{t(`notices.category.${c}`)}</option>)}
-        </select>
-        <select value={filters.severity} onChange={setFilter("severity")} aria-label={t("notices.filters.severity")}>
-          <option value="">{t("notices.filters.severity")}</option>
-          {["critical", "important", "info"].map((s) => <option key={s} value={s}>{t(`notices.severity.${s}`)}</option>)}
-        </select>
+        <FilterDialog
+          count={(filters.status !== "all") + Boolean(filters.category) + Boolean(filters.severity)}
+          onClear={() => setFilters({ status: "all", category: "", severity: "" })}
+        >
+          <label>{t("notices.filters.status")}
+            <select value={filters.status} onChange={setFilter("status")}>
+              <option value="all">{t("notices.filters.all")}</option>
+              <option value="unread">{t("notices.filters.unread")}</option>
+            </select>
+          </label>
+          <label>{t("notices.filters.category")}
+            <select value={filters.category} onChange={setFilter("category")}>
+              <option value="">{t("notices.filters.all")}</option>
+              {["vehicle", "system", "manual"].map((c) => <option key={c} value={c}>{t(`notices.category.${c}`)}</option>)}
+            </select>
+          </label>
+          <label>{t("notices.filters.severity")}
+            <select value={filters.severity} onChange={setFilter("severity")}>
+              <option value="">{t("notices.filters.all")}</option>
+              {["critical", "important", "info"].map((s) => <option key={s} value={s}>{t(`notices.severity.${s}`)}</option>)}
+            </select>
+          </label>
+        </FilterDialog>
       </div>
 
       {state.error && <p role="alert">{state.error}</p>}

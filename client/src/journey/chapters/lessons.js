@@ -18,8 +18,8 @@ const lessons = {
     {
       target: "lessons-filters",
       mood: "point",
-      title: "التصفية والعرض",
-      body: "صفِّ الدروس حسب اليوم أو المكان أو المرشد.",
+      title: "الفلتر والعرض",
+      body: "اضغط «فلتر» لاختيار اليوم أو المكان أو المرشد.",
     },
     {
       target: "lessons-calendar",

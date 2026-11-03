@@ -9,6 +9,7 @@ import { toast } from "../../ALERT/SystemToasts.jsx";
 import UserStatusFilter from "./UserStatusFilter.jsx";
 import { canStored, getStoredViewer } from "../../utils/session";
 import Button from "../UI/Button.jsx";
+import FilterDialog from "../UI/FilterDialog.jsx";
 import MobileUserList from "./MobileUserList.jsx";
 import StatusBadge from "../UI/StatusBadge.jsx";
 import { useI18n } from "../../i18n/I18nContext";
@@ -228,17 +229,22 @@ const ViewAllUser = () => {
           )}
         </div>
 
-        <div data-tour="users-status-filter" style={{ marginTop: 12, marginBottom: 12 }}>
+        <div style={{ marginTop: 12, marginBottom: 12 }}>
+        <FilterDialog
+          count={(status !== "active") + (roleFilter !== "all")}
+          onClear={() => { setStatus("active"); setRoleFilter("all"); }}
+          tour="users-status-filter"
+          closeTour="users-filter-close"
+        >
           <UserStatusFilter
             value={status}
             onChange={setStatus}
             counts={counts}
             compact={false}
           />
-        </div>
 
         <div className={styles.filterRow} data-tour="users-role-filter">
-          <label htmlFor="role-filter" style={{ fontWeight: 600 }}>التصفية حسب الدور</label>
+          <label htmlFor="role-filter" style={{ fontWeight: 600 }}>الدور</label>
           <select
             id="role-filter"
             value={roleFilter}
@@ -252,6 +258,8 @@ const ViewAllUser = () => {
               </option>
             ))}
           </select>
+        </div>
+        </FilterDialog>
         </div>
 
         <div className={styles.summary}>

@@ -3,6 +3,7 @@ import { useI18n } from "../../i18n/I18nContext";
 import { toast } from "../../ALERT/SystemToasts";
 import { ask } from "../Provides/confirmBus";
 import Button from "../UI/Button.jsx";
+import FilterDialog from "../UI/FilterDialog.jsx";
 import { bumpStat, deletePlayer, issueLoginCard, signOutPlayer } from "../../WebServer/services/sport/functionsSport";
 import AddPlayerDialog from "./AddPlayerDialog";
 import PlayerCardModal, { Silhouette } from "./PlayerCardModal";
@@ -121,19 +122,30 @@ export default function PlayersTab({ sport, players, lessons, canCoach, canManag
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        <select className={styles.filter} aria-label={label("lessonFilter")} value={lessonId} onChange={(e) => setLessonId(e.target.value)}>
-          <option value="">{label("allLessons")}</option>
-          {lessons.map((l) => <option key={l._id} value={l._id}>{l.name}</option>)}
-        </select>
-        <select className={styles.filter} aria-label={label("ageFilter")} value={age} onChange={(e) => setAge(e.target.value)}>
-          <option value="">{label("allAges")}</option>
-          {ages.map((a) => <option key={a} value={String(a)}>{a}</option>)}
-        </select>
-        <select className={styles.filter} aria-label={label("gender")} value={gender} onChange={(e) => setGender(e.target.value)}>
-          <option value="">{label("allGenders")}</option>
-          <option value="ذكر">{label("male")}</option>
-          <option value="انثى">{label("female")}</option>
-        </select>
+        <FilterDialog
+          count={Boolean(lessonId) + Boolean(age) + Boolean(gender)}
+          onClear={() => { setLessonId(""); setAge(""); setGender(""); }}
+        >
+          <label>{label("lessonFilter")}
+            <select value={lessonId} onChange={(e) => setLessonId(e.target.value)}>
+              <option value="">{label("allLessons")}</option>
+              {lessons.map((l) => <option key={l._id} value={l._id}>{l.name}</option>)}
+            </select>
+          </label>
+          <label>{label("ageFilter")}
+            <select value={age} onChange={(e) => setAge(e.target.value)}>
+              <option value="">{label("allAges")}</option>
+              {ages.map((a) => <option key={a} value={String(a)}>{a}</option>)}
+            </select>
+          </label>
+          <label>{label("gender")}
+            <select value={gender} onChange={(e) => setGender(e.target.value)}>
+              <option value="">{label("allGenders")}</option>
+              <option value="ذكر">{label("male")}</option>
+              <option value="انثى">{label("female")}</option>
+            </select>
+          </label>
+        </FilterDialog>
         {canCoach && <Button onClick={() => setDialog({})}>{label("add")}</Button>}
       </div>
 

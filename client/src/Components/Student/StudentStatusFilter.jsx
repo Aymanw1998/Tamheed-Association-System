@@ -64,7 +64,7 @@ export default function StudentStatusFilter({
       <div
         ref={rootRef}
         role="tablist"
-        aria-label="تصفية الطلاب حسب الحالة"
+        aria-label="فلتر الطلاب حسب الحالة"
         className={styles.group}
       >
         {buttons.map(({ key, label, badge, color }) => {

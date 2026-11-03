@@ -351,7 +351,7 @@ const ViewAllReport = () => {
 
               <th>
                 <input
-                  placeholder="تصفية بالعنوان…"
+                  placeholder="فلتر بالعنوان…"
                   value={filters.stitle}
                   onChange={(event) => setFilters((current) => ({ ...current, stitle: event.target.value }))}
                   style={{ width: "100%" }}
@@ -360,7 +360,7 @@ const ViewAllReport = () => {
 
               <th>
                 <input
-                  placeholder="تصفية بالعنوان الثانوي…"
+                  placeholder="فلتر بالعنوان الثانوي…"
                   value={filters.title}
                   onChange={(event) => setFilters((current) => ({ ...current, title: event.target.value }))}
                   style={{ width: "100%" }}
@@ -369,7 +369,7 @@ const ViewAllReport = () => {
 
               <th>
                 <input
-                  placeholder="تصفية بكاتب التقرير…"
+                  placeholder="فلتر بكاتب التقرير…"
                   value={filters.createBy}
                   onChange={(event) => setFilters((current) => ({ ...current, createBy: event.target.value }))}
                   style={{ width: "100%" }}
@@ -378,7 +378,7 @@ const ViewAllReport = () => {
 
               <th>
                 <Button size="sm" variant="secondary" onClick={() => setFilters(resetFilters)}>
-                  مسح التصفية
+                  مسح الفلتر
                 </Button>
               </th>
             </tr> */}

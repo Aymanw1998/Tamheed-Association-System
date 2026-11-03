@@ -12,6 +12,7 @@ import { lessonDayOf } from "../../utils/lessonSchedule";
 import { SYSTEM_TEACHER, lessonLabel, mergeSchedule } from "../../utils/sportSchedule";
 import MobileLessonList from "./MobileLessonList";
 import { ask } from "../Provides/confirmBus";
+import FilterDialog from "../UI/FilterDialog.jsx";
 import Button from "../UI/Button";
 
 /* =======================
@@ -573,9 +574,14 @@ export default function ViewAllLesson() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const [showFilters, setShowFilters] = useState(false);
+  // The day filter counts only where it shows (the week view on a desktop).
   const activeFilterCount =
-    (filterRoom !== "all") + (filterTeacher !== "all") + (query.trim() !== "");
+    (filterRoom !== "all") + (filterTeacher !== "all") + (viewMode !== "dayRooms" && !isMobile && filterDay !== 0);
+  const clearFilters = () => {
+    setFilterRoom("all");
+    setFilterTeacher("all");
+    setFilterDay(0);
+  };
   const [mobileDay, setMobileDay] = useState(() => lessonDayOf());
 
   const newLessonDay = isMobile
@@ -598,18 +604,7 @@ export default function ViewAllLesson() {
 
       {/* ===== Filters + Controls ===== */}
       <div className={styles.controlsBar} data-tour="lessons-filters">
-        {isMobile && (
-          <button
-            type="button"
-            className={styles.filterToggle}
-            aria-expanded={showFilters}
-            onClick={() => setShowFilters((open) => !open)}
-          >
-            {showFilters ? "إخفاء التصفية" : "التصفية"}
-            {activeFilterCount > 0 && <span className={styles.filterCount}>{activeFilterCount}</span>}
-          </button>
-        )}
-        {(!isMobile || showFilters) && <div className={styles.controlsCenter}>
+        <div className={styles.controlsCenter}>
           {!isMobile && <div className={styles.filterGroup}>
             <label>نوع الجدول</label>
             <select data-tour="lessons-view-mode" value={viewMode} onChange={(e) => setViewMode(e.target.value)}>
@@ -629,35 +624,6 @@ export default function ViewAllLesson() {
             </div>
           )}
 
-          {viewMode !== "dayRooms" && !isMobile && <div className={styles.filterGroup}>
-            <label>اليوم</label>
-            <select value={filterDay} onChange={(e)=>setFilterDay(Number(e.target.value))}>
-              <option value={0}>الكل</option>
-              {dayNames.map((d, i)=>(
-                <option key={i+1} value={i+1}>{d}</option>
-              ))}
-            </select>
-          </div>}
-
-          <div className={styles.filterGroup}>
-            <label>المكان</label>
-            <select value={filterRoom} onChange={(e)=>setFilterRoom(e.target.value)}>
-              <option value="all">الكل</option>
-              {roomOptions.map(r=>(
-                <option key={r} value={r}>{roomLabel(r)}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className={styles.filterGroup}>
-            <label>المرشد</label>
-            <select value={filterTeacher} onChange={(e)=>setFilterTeacher(e.target.value)}>
-              <option value="all">الكل</option>
-              {(teachers || []).map(t => (
-                <option key={t._id} value={t._id}>{t.name}</option>
-              ))}
-            </select>
-          </div>
           <div className={styles.filterGroup}>
             <label htmlFor="lesson-search">بحث</label>
             <input
@@ -669,8 +635,37 @@ export default function ViewAllLesson() {
               onChange={(e) => setQuery(e.target.value)}
             />
           </div>
+
+          <FilterDialog count={activeFilterCount} onClear={clearFilters}>
+            {viewMode !== "dayRooms" && !isMobile && <label>اليوم
+              <select value={filterDay} onChange={(e)=>setFilterDay(Number(e.target.value))}>
+                <option value={0}>الكل</option>
+                {dayNames.map((d, i)=>(
+                  <option key={i+1} value={i+1}>{d}</option>
+                ))}
+              </select>
+            </label>}
+
+            <label>المكان
+              <select value={filterRoom} onChange={(e)=>setFilterRoom(e.target.value)}>
+                <option value="all">الكل</option>
+                {roomOptions.map(r=>(
+                  <option key={r} value={r}>{roomLabel(r)}</option>
+                ))}
+              </select>
+            </label>
+
+            <label>المرشد
+              <select value={filterTeacher} onChange={(e)=>setFilterTeacher(e.target.value)}>
+                <option value="all">الكل</option>
+                {(teachers || []).map(t => (
+                  <option key={t._id} value={t._id}>{t.name}</option>
+                ))}
+              </select>
+            </label>
+          </FilterDialog>
           {!isMobile && addButton}
-        </div>}
+        </div>
         {isMobile && addButton}
       </div>
 

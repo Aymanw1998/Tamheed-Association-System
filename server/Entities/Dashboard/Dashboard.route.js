@@ -10,14 +10,15 @@ const { can } = require("../../utils/permissions");
 // permission as its own route (PARTS); without it the part is null and its
 // handler never runs:
 //   { ok, users: { ok, users } | null, students: { ok, students } | null,
-//     lessons: { ok, lessons } | null, reports: { ok, count } }
+//     lessons: { ok, lessons } | null, reports: { ok, count } | null }
 // (the dashboard shows only the report count). A part that failed answers
 // { ok: false }; the others still arrive.
 const PARTS = {
   users: "users.view", // GET /api/user
   students: "students.view", // GET /api/student
   lessons: "lessons.view", // GET /api/lesson
-  reports: null, // GET /api/report: any signed-in user, scoped in the controller
+  // GET /api/report: any reports key, then scoped in the controller.
+  reports: ["reports.create", "reports.editOwn", "reports.viewAll", "reports.editAll", "reports.delete", "reports.exportPdf"],
 };
 
 // Runs one handler with this request and keeps its answer. The request keeps
@@ -49,7 +50,7 @@ function createDashboardRouter({ requireAuth, loadActor, handlers }) {
   router.get("/summary", requireAuth, loadActor, async (req, res) => {
     try {
       const h = handlers();
-      const allowed = (part) => PARTS[part] === null || can(req.actor?.permissions, PARTS[part]);
+      const allowed = (part) => [].concat(PARTS[part]).some((key) => can(req.actor?.permissions, key));
       const run = (part) => (allowed(part) ? invoke(h[part], req) : Promise.resolve(null));
       const [users, students, lessons, reports] = await Promise.all([run("users"), run("students"), run("lessons"), run("reports")]);
       const list = (part, key) => (part ? (answered(part) ? { ok: true, [key]: part.body[key] || [] } : { ok: false }) : null);
@@ -58,7 +59,7 @@ function createDashboardRouter({ requireAuth, loadActor, handlers }) {
         users: list(users, "users"),
         students: list(students, "students"),
         lessons: list(lessons, "lessons"),
-        reports: answered(reports) ? { ok: true, count: (reports.body.reports || []).length } : { ok: false },
+        reports: reports ? (answered(reports) ? { ok: true, count: (reports.body.reports || []).length } : { ok: false }) : null,
       });
     } catch (error) {
       logWithSource("Dashboard.summary", error);

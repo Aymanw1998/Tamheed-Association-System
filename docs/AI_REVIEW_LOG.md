@@ -3593,3 +3593,37 @@ dashboard only).
 sport builds compile. Not checked on a phone or live.
 
 **Codex review:** pending (until 2026-11-06). **Status:** not committed.
+
+### Follow-up: dashboard follows the sections; filters in a «فلتر» window (2026-11-03)
+
+**Owner's report:** after «التقارير» was taken from a guide, the dashboard
+still showed the reports shortcut and card. On every screen the filters
+should sit in a window opened by a «فلتر» button, and «تصفية» becomes
+«فلتر».
+
+**Change:**
+- Client `Dashboard.jsx`: the lessons, reports and attendance parts follow
+  `canAccessPath` (as the menu): shortcuts, stat cards, the lessons panel
+  and its «دخول» button. The students card follows students.view.
+- Server `Dashboard.route.js`: the report count needs some reports key, as
+  `GET /api/report` does (it ran the controller directly and skipped the
+  route guard); without one the part is null.
+- Client `UI/FilterDialog.jsx` (new): «فلتر» button with the active count,
+  «مسح الفلتر» beside it, the window (`c-overlay`), Escape/«إغلاق» close;
+  with `onApply` it is a form with «تطبيق». Used by users (status, role),
+  students (status), lessons (day, place, guide), vehicles (type, status,
+  documents), notices, the audit log (its whole form) and the sport players
+  tab. Search fields stay on the page; lesson/date pickers in attendance
+  are choices, not filters, and stay.
+- Wording: «تصفية» → «فلتر» in labels, the help page, the journey and
+  `audit.filters.clear`. The users and audit journey chapters open and
+  close the window; `chapters.test.js` also reads FilterDialog's tour props.
+
+**Test:** `Dashboard.test.js` (new, 4), `FilterDialog.test.js` (new, 4),
+`dashboard-summary.test.js` (+1, 2 updated): seen failing first.
+`ViewAllUser`, `ViewAllStudent`, `ViewAllLesson` tests open the window.
+
+**Verification:** client 922/922, server 1146/1146, client build compiles.
+The journey's users and audit chapters not run in the browser.
+
+**Codex review:** pending (until 2026-11-06).

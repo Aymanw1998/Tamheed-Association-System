@@ -48,7 +48,11 @@ test("the page does not ask for the user list", () => {
   expect(getAllUsers).not.toHaveBeenCalled();
 });
 
-test("the guide filter is filled from the names that come with the lessons", () => {
+test("the guide filter is filled from the names that come with the lessons", async () => {
+  // The filters sit in the «فلتر» window (owner, 2026-11-03).
+  expect([...container.querySelectorAll("select")].some((s) => [...s.options].some((o) => o.text === "Gu Ide"))).toBe(false);
+  const open = [...container.querySelectorAll("button")].find((b) => b.textContent.trim() === "فلتر");
+  await act(async () => open.click());
   const filter = [...container.querySelectorAll("select")].find((s) => [...s.options].some((o) => o.text === "Gu Ide"));
   expect(filter).toBeTruthy();
 });

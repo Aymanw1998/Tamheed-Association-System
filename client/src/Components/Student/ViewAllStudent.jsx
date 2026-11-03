@@ -7,6 +7,7 @@ import Fabtn from "../Global/Fabtn/Fabtn";
 import { canStored } from "../../utils/session.js";
 import StudentStatusFilter from "./StudentStatusFilter.jsx";
 import Button from "../UI/Button.jsx";
+import FilterDialog from "../UI/FilterDialog.jsx";
 import StatusBadge from "../UI/StatusBadge.jsx";
 import { ParentLinkDialog } from "./ParentLinkPanel.jsx";
 import MobileStudentList from "./MobileStudentList.jsx";
@@ -189,13 +190,19 @@ const ViewAllStudent = () => {
           </Button>
         </div>
 
-        { isAdmin && <div data-tour="students-status-filter" style={{ marginTop: 12, marginBottom: 12 }}>
-          <StudentStatusFilter
-            value={statusFilter}
-            onChange={setStatusFilter}
-            counts={counts}
-            compact={false}
-          />
+        { isAdmin && <div style={{ marginTop: 12, marginBottom: 12 }}>
+          <FilterDialog
+            count={statusFilter !== "active" ? 1 : 0}
+            onClear={() => setStatusFilter("active")}
+            tour="students-status-filter"
+          >
+            <StudentStatusFilter
+              value={statusFilter}
+              onChange={setStatusFilter}
+              counts={counts}
+              compact={false}
+            />
+          </FilterDialog>
         </div>}
 
         <div className={styles.summary}>

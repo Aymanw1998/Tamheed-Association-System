@@ -17,7 +17,7 @@ const notices = {
     {
       target: "notices-filters",
       mood: "point",
-      title: "التصفية",
+      title: "الفلتر",
       body: "اعرض غير المقروءة فقط، أو حسب الفئة أو الأهمية.",
     },
     {

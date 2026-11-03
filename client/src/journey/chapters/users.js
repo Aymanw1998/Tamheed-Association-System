@@ -25,7 +25,8 @@ const users = {
       target: "users-status-filter",
       mood: "point",
       title: "حالة الحساب",
-      body: "الحسابات ثلاث فئات: فعّال، وبانتظار الموافقة، وموقوف.",
+      body: "سأفتح «فلتر»: الحسابات ثلاث فئات، فعّال وبانتظار الموافقة وموقوف.",
+      action: { type: "click", target: "users-status-filter" },
     },
     {
       target: "users-tab-waiting",
@@ -33,6 +34,13 @@ const users = {
       title: "بانتظار الموافقة",
       body: "سأعرض الحسابات التي تنتظر الموافقة.",
       action: { type: "click", target: "users-tab-waiting" },
+    },
+    {
+      target: "users-filter-close",
+      mood: "point",
+      title: "إغلاق الفلتر",
+      body: "سأغلق النافذة لنرى الحسابات التي تنتظر.",
+      action: { type: "click", target: "users-filter-close" },
     },
     {
       target: "users-approve",
@@ -58,11 +66,25 @@ const users = {
       action: { type: "click", target: "role-picker-approve" },
     },
     {
+      target: "users-status-filter",
+      mood: "point",
+      title: "فلتر",
+      body: "سأفتح «فلتر» من جديد.",
+      action: { type: "click", target: "users-status-filter" },
+    },
+    {
       target: "users-tab-active",
       mood: "point",
       title: "الحسابات الفعّالة",
       body: "سأعود إلى الحسابات الفعّالة.",
       action: { type: "click", target: "users-tab-active" },
+    },
+    {
+      target: "users-filter-close",
+      mood: "point",
+      title: "إغلاق الفلتر",
+      body: "سأغلق النافذة لنرى الحسابات الفعّالة.",
+      action: { type: "click", target: "users-filter-close" },
     },
     {
       target: "users-table",

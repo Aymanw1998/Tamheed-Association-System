@@ -26,7 +26,7 @@ const ok = (key, rows) => (req, res) => res.status(200).json({ ok: true, [key]: 
 
 test("one request answers all four parts, through the existing handlers with the caller's request", async () => {
   const { server, get, seen } = await start({
-    permissions: ["users.view", "students.view", "lessons.view"],
+    permissions: ["users.view", "students.view", "lessons.view", "reports.viewAll"],
     handlers: {
       users: ok("users", [{ tz: "u1", room: "waiting" }]),
       students: ok("students", [{ tz: "s1" }, { tz: "s2" }]),
@@ -51,7 +51,7 @@ test("one request answers all four parts, through the existing handlers with the
 
 test("each part needs its route's permission (or its handler never runs); a failed part does not stop the others", async () => {
   const { server, get, seen } = await start({
-    permissions: ["students.view", "lessons.view"],
+    permissions: ["students.view", "lessons.view", "reports.editOwn"],
     handlers: {
       users: ok("users", [{ tz: "secret" }]),
       students: (req, res) => res.status(403).json({ ok: false, code: "FORBIDDEN" }),
@@ -70,7 +70,7 @@ test("each part needs its route's permission (or its handler never runs); a fail
   } finally { server.close(); }
 });
 
-test("without students.view and lessons.view those lists never leave the server", async () => {
+test("without students.view, lessons.view and a reports key those parts never leave the server", async () => {
   const { server, get, seen } = await start({
     permissions: [],
     handlers: {
@@ -85,8 +85,18 @@ test("without students.view and lessons.view those lists never leave the server"
     assert.equal(body.users, null);
     assert.equal(body.students, null);
     assert.equal(body.lessons, null);
-    assert.deepEqual(body.reports, { ok: true, count: 1 });
-    assert.deepEqual(seen.map(([name]) => name), ["reports"]);
+    assert.equal(body.reports, null);
+    assert.deepEqual(seen, []);
     assert.ok(!JSON.stringify(body).includes("secret"));
   } finally { server.close(); }
+});
+
+test("the report count needs some reports key, as GET /api/report does", async () => {
+  for (const key of ["reports.create", "reports.editOwn", "reports.viewAll", "reports.editAll", "reports.delete", "reports.exportPdf"]) {
+    const { server, get } = await start({ permissions: [key], handlers: { users: ok("users", []), students: ok("students", []), lessons: ok("lessons", []), reports: ok("reports", [{ _id: "r1" }]) } });
+    try {
+      const { body } = await get();
+      assert.deepEqual(body.reports, { ok: true, count: 1 }, key);
+    } finally { server.close(); }
+  }
 });

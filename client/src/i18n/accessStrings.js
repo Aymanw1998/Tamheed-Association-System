@@ -63,7 +63,7 @@ export const accessStrings = {
       navTitle: "سجل التغييرات", title: "سجل التغييرات", recent: "آخر التغييرات", openAll: "عرض السجل الكامل",
       filters: {
         from: "من تاريخ", to: "إلى تاريخ", module: "القسم", actor: "المنفّذ (رقم الهوية)", action: "العملية",
-        targetId: "معرّف العنصر", q: "بحث نصي", all: "الكل", apply: "بحث", clear: "مسح التصفية",
+        targetId: "معرّف العنصر", q: "بحث نصي", all: "الكل", apply: "بحث", clear: "مسح الفلتر",
       },
       cols: { at: "الوقت", actor: "المنفّذ", module: "القسم", action: "العملية", target: "العنصر", changes: "التغييرات" },
       actions: {

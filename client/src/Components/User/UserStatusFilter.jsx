@@ -72,7 +72,7 @@ export default function UserStatusFilter({
         <div className={`${styles.wrapper} ${compact ? styles.compact : ""} ${disabled ? styles.disabled : ""} ${className}`}>
         <div ref={rootRef}
             role="tablist"
-            aria-label="تصفية المستخدمين حسب الحالة"
+            aria-label="فلتر المستخدمين حسب الحالة"
             className={styles.group}
         >
             {buttons.map(({key, label, badge, color})=>{

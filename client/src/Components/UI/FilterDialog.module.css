@@ -1,0 +1,60 @@
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.open,
+.clear {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 1px solid #d0d7de;
+  background: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.open:hover,
+.clear:hover {
+  background: #f6f8fa;
+}
+
+.clear {
+  font-weight: 400;
+  color: #b91c1c;
+}
+
+.count {
+  min-width: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #2563eb;
+  color: #fff;
+  font-size: 12px;
+  line-height: 20px;
+  text-align: center;
+}
+
+.fields {
+  display: grid;
+  gap: 12px;
+  max-height: 65vh;
+  overflow-y: auto;
+}
+
+.fields label {
+  display: grid;
+  gap: 4px;
+}
+
+.fields select,
+.fields input {
+  width: 100%;
+  box-sizing: border-box;
+}

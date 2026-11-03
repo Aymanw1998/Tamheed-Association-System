@@ -6,7 +6,8 @@ import { deleteS as deleteStudent, getAll as getAllStudents, update as updateStu
 import { getAllLesson } from "../../WebServer/services/lesson/functionsLesson.jsx";
 import { getAll as getAllReports } from "../../WebServer/services/report/functionsReport.jsx";
 import { toast } from "../../ALERT/SystemToasts.jsx";
-import { canStored, getStoredUserId } from "../../utils/session";
+import { canStored, getStoredPermissions, getStoredUserId } from "../../utils/session";
+import { canAccessPath } from "../../utils/routeAccess";
 import ParentLinkPanel from "../Student/ParentLinkPanel.jsx";
 import VehicleAlerts from "../Vehicle/VehicleAlerts.jsx";
 import { useI18n } from "../../i18n/I18nContext";
@@ -36,6 +37,11 @@ export default function Dashboard() {
   const canSeeAllLessons = useMemo(() => canStored("lessons.viewAll"), []);
   const canParentLink = useMemo(() => canStored("students.parentLink"), []);
   const canViewStudents = useMemo(() => canStored("students.view"), []);
+  // A section taken away leaves the dashboard as it leaves the menu: its
+  // shortcut, card and panel follow the same rule as its page.
+  const canOpenLessons = useMemo(() => canAccessPath("/lessons", getStoredPermissions()), []);
+  const canOpenReports = useMemo(() => canAccessPath("/reports", getStoredPermissions()), []);
+  const canOpenAttendance = useMemo(() => canAccessPath("/calendar", getStoredPermissions()), []);
   // Approving and rejecting pending students/users each follow their own
   // permission; the server checks every request.
   const canApproveStudents = useMemo(() => canStored("students.edit"), []);
@@ -153,14 +159,12 @@ export default function Dashboard() {
       );
     }
 
-    cards.push(
-      { label: "الطلاب", value: data.students.length, failed: loadFailed.students },
-      { label: "دروس اليوم", value: lessonPanel.today.length, failed: loadFailed.lessons },
-      { label: "التقارير", value: data.reportsCount, failed: loadFailed.reports }
-    );
+    if (canViewStudents) cards.push({ label: "الطلاب", value: data.students.length, failed: loadFailed.students });
+    if (canOpenLessons) cards.push({ label: "دروس اليوم", value: lessonPanel.today.length, failed: loadFailed.lessons });
+    if (canOpenReports) cards.push({ label: "التقارير", value: data.reportsCount, failed: loadFailed.reports });
 
     return cards;
-  }, [data, loadFailed, canViewUsers, lessonPanel]);
+  }, [data, loadFailed, canViewUsers, canViewStudents, canOpenLessons, canOpenReports, lessonPanel]);
 
   const waitingUsers = useMemo(
     () => data.users.filter((user) => user.room === "waiting").slice(0, 5),
@@ -280,8 +284,8 @@ export default function Dashboard() {
         <div className={styles.links} data-tour="dashboard-links">
           {canViewUsers && <Link to="/users">المستخدمون</Link>}
           {canViewStudents && <Link to="/students">الطلاب</Link>}
-          <Link to="/lessons">الدروس</Link>
-          <Link to="/reports">التقارير</Link>
+          {canOpenLessons && <Link to="/lessons">الدروس</Link>}
+          {canOpenReports && <Link to="/reports">التقارير</Link>}
         </div>
       </div>
 
@@ -392,6 +396,7 @@ export default function Dashboard() {
           </section>
         )}
 
+        {canOpenLessons && (
         <section className={styles.panel} data-tour="dashboard-lessons">
           <div className={styles.panelHeader}>
             <h2>{canSeeAllLessons ? "دروس اليوم" : "دروسي اليوم"}</h2>
@@ -421,6 +426,7 @@ export default function Dashboard() {
                   </div>
                   <div className={styles.actions}>
                     <em>{formatLessonTime(lesson)}</em>
+                    {canOpenAttendance && (
                     <button
                       type="button"
                       data-tour="dashboard-lesson-enter"
@@ -429,6 +435,7 @@ export default function Dashboard() {
                     >
                       دخول
                     </button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -460,6 +467,7 @@ export default function Dashboard() {
             </>
           )}
         </section>
+        )}
       </div>
     </section>
   );

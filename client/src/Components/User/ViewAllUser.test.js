@@ -70,8 +70,13 @@ test("a waiting or suspended account has no buttons in the list; its row opens t
   for (const [room, filter] of [["waiting", /بانتظار|ينتظر/], ["noActive", /موقوف/]]) {
     getAll.mockResolvedValue({ ok: true, users: [{ ...GUIDE, room, lockedAt: null }] });
     await mount();
+    // The status sits in the «فلتر» window.
+    const open = [...container.querySelectorAll("button")].find((b) => b.textContent.trim() === "فلتر");
+    await act(async () => open.click());
     const tab = [...container.querySelectorAll("button")].find((b) => filter.test(b.textContent));
     await act(async () => tab.click());
+    const close = [...container.querySelectorAll("button")].find((b) => b.textContent.trim() === "إغلاق");
+    await act(async () => close.click());
     expect([room, rowButtons()]).toEqual([room, []]);
     const row = [...container.querySelectorAll("tbody tr")].find((tr) => tr.textContent.includes("900000002"));
     await act(async () => row.querySelector("td").click());

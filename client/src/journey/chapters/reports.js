@@ -12,7 +12,7 @@ const reports = {
       target: "reports-search",
       mood: "point",
       title: "البحث",
-      body: "لاحظ حقل البحث: يصفّي التقارير بالعنوان أو بالكاتب.",
+      body: "لاحظ حقل البحث: يفلتر التقارير بالعنوان أو بالكاتب.",
     },
     {
       target: "reports-table",

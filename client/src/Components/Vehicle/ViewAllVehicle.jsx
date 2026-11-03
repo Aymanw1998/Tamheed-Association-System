@@ -6,6 +6,7 @@ import { useI18n } from "../../i18n/I18nContext";
 import { toast } from "../../ALERT/SystemToasts";
 import { ask } from "../Provides/confirmBus";
 import Button from "../UI/Button.jsx";
+import FilterDialog from "../UI/FilterDialog.jsx";
 import StatusBadge from "../UI/StatusBadge.jsx";
 import Field from "./Field.jsx";
 import useVehiclePermissions from "./useVehiclePermissions";
@@ -191,6 +192,10 @@ export default function ViewAllVehicle() {
           onChange={setFilter("search")}
           placeholder={t("vehicles.searchPlaceholder")}
         />
+        <FilterDialog
+          count={(filters.type !== "all") + (filters.status !== "all") + (filters.docs !== "all")}
+          onClear={() => setFilters((prev) => ({ ...prev, type: "all", status: "all", docs: "all" }))}
+        >
         <Field
           id="vehicle-filter-type"
           label={t("vehicles.filterType")}
@@ -221,6 +226,7 @@ export default function ViewAllVehicle() {
             { value: "unknown", label: t("vehicles.docsUnknown") },
           ]}
         />
+        </FilterDialog>
       </div>
 
       {loading && <div className={styles.state} role="status">{t("vehicles.loading")}</div>}

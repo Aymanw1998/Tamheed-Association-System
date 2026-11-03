@@ -6,6 +6,7 @@ import { useI18n } from "../../i18n/I18nContext";
 import { AUDIT_ACTIONS, AUDIT_MODULES } from "../../i18n/accessStrings";
 import { toast } from "../../ALERT/SystemToasts.jsx";
 import Button from "../UI/Button.jsx";
+import FilterDialog from "../UI/FilterDialog.jsx";
 import { canStored } from "../../utils/session";
 import { auditQuery } from "../../utils/auditDisplay";
 import { fillText } from "../../utils/vehicleDisplay";
@@ -72,7 +73,16 @@ export default function AuditPage() {
     <section className={styles.page}>
       <h1>{t("audit.title")}</h1>
 
-      <form className={styles.filters} data-tour="audit-filters" onSubmit={apply}>
+      <div className={styles.filters}>
+      <FilterDialog
+        count={Object.values(applied).filter(Boolean).length}
+        onClear={clear}
+        onApply={apply}
+        applying={state.loading}
+        tour="audit-filters"
+        clearTour="audit-clear"
+        applyTour="audit-apply"
+      >
         <label>{t("audit.filters.from")}<input type="date" value={draft.from} onChange={set("from")} /></label>
         <label>{t("audit.filters.to")}<input type="date" value={draft.to} onChange={set("to")} /></label>
         <label>{t("audit.filters.module")}
@@ -92,9 +102,8 @@ export default function AuditPage() {
           <label>{t("audit.filters.targetId")}<input value={draft.targetId} onChange={set("targetId")} /></label>
         )}
         <label data-tour="audit-search">{t("audit.filters.q")}<input type="search" value={draft.q} maxLength={100} onChange={set("q")} /></label>
-        <Button type="submit" data-tour="audit-apply" loading={state.loading}>{t("audit.filters.apply")}</Button>
-        <Button variant="secondary" data-tour="audit-clear" onClick={clear}>{t("audit.filters.clear")}</Button>
-      </form>
+      </FilterDialog>
+      </div>
 
       {state.error && <p role="alert">{state.error}</p>}
       {!state.loading && !state.error && state.items.length === 0 && <p>{t("audit.empty")}</p>}

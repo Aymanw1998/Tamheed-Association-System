@@ -15,14 +15,14 @@ const students = {
       target: "students-search",
       mood: "point",
       title: "البحث",
-      body: "اكتب اسم الطالب أو هويته لتصفية القائمة.",
+      body: "اكتب اسم الطالب أو هويته لفلترة القائمة.",
     },
     {
       target: "students-status-filter",
       requires: "students.viewAll",
       mood: "point",
       title: "حالة الطالب",
-      body: "من هنا تبدّل بين الطلاب الفعّالين، وبانتظار الموافقة، وغير الفعّالين.",
+      body: "في «فلتر» تبدّل بين الطلاب الفعّالين، وبانتظار الموافقة، وغير الفعّالين.",
     },
     {
       target: "students-table",
