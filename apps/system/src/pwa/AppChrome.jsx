@@ -125,11 +125,11 @@ export default function AppChrome() {
         </div>
       )}
       {installEvt && (
-        <div style={bar}>
-          {/* <button type="button" style={btn} onClick={install}>
-            تثبيت التطبيق
-          </button> */}
-        </div>
+        // <div style={bar}>
+        //   <button type="button" style={btn} onClick={install}>
+        //     تثبيت التطبيق
+        //   </button>
+        // </div>
       )}
       {iosHint && (
         <div role="status" style={bar}>
