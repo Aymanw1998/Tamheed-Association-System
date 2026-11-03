@@ -20,8 +20,8 @@ const files = {
     {
       target: "files-storage",
       mood: "point",
-      title: "مساحة التخزين",
-      body: "هنا ترى المساحة المستعملة والمتبقية.",
+      title: "معلومات التخزين",
+      body: "اضغط «معلومات التخزين» لترى المساحة المستعملة والمتبقية.",
     },
     {
       target: "files-upload",

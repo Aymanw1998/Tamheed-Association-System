@@ -3627,3 +3627,31 @@ should sit in a window opened by a «فلتر» button, and «تصفية» becom
 The journey's users and audit chapters not run in the browser.
 
 **Codex review:** pending (until 2026-11-06).
+
+### Follow-up: «معلومات التخزين» window; the Drive account by permission (2026-11-03)
+
+**Owner's report:** on the files screen the Google Drive card and the
+storage space should sit in a window opened by a button, like «فلتر», named
+«معلومات التخزين». The linked account and «تغيير الحساب» are the system
+account's, and it may give them to whom it wants.
+
+**Change:**
+- New permission `storage.drive` («حساب Google Drive»), server and client
+  trees; dangerous (only the system account grants it), in no role default.
+- Server `GoogleDrive.route.js`: connect-url and `canConnect` accept the
+  system account or `storage.drive`; the audit actor's isSystem now follows
+  who started the flow.
+- Client `DriveConnection.jsx`: shown only with `storage.drive` and the
+  server's `canConnect` (administrators no longer see the read-only card).
+- Client `FilesPage.jsx`: «معلومات التخزين» (FilterDialog with a `label`)
+  holds the card and the storage space; Google's return (`?drive=`) opens
+  it so the result toast shows.
+
+**Test:** `drive-connect.test.js` (+1), `permissions.test.js` (shape),
+`DriveConnection.test.js` (new, 3), `FilesPage.test.js` (+1),
+`FilterDialog.test.js` (+1): seen failing first.
+
+**Verification:** client 927/927, server 1147/1147, client build compiles.
+Not checked live; reconnecting Drive with a granted user not tried.
+
+**Codex review:** pending (until 2026-11-06). **Status:** committed.

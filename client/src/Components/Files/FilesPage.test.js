@@ -108,3 +108,21 @@ test("a new folder is named in an in-page window (no browser prompt)", async () 
   expect(Storage.createStorageFolder).toHaveBeenCalledWith({ path: "", name: "أنشطة الصيف" });
   expect(byTour("files-folder-dialog")).toBeNull();
 });
+
+// Owner, 2026-11-03: the storage space sits in a window opened by
+// «معلومات التخزين», like the filters.
+test("the storage space shows only in the «معلومات التخزين» window", async () => {
+  Storage.getStorageStats.mockResolvedValue({ displayTotalBytes: 1024, displayAvailableBytes: 1024, displayUsedBytes: 0 });
+  await act(async () => root.unmount());
+  root = createRoot(container);
+  await act(async () => {
+    root.render(<I18nProvider><FilesPage /></I18nProvider>);
+  });
+  expect(container.textContent).not.toContain("إجمالي المساحة");
+  const open = [...container.querySelectorAll("button")].find((b) => b.textContent.trim() === "معلومات التخزين");
+  expect(open).toBeTruthy();
+  await act(async () => open.click());
+  const dialog = document.querySelector('[role="dialog"]');
+  expect(dialog.querySelector("h3").textContent).toBe("معلومات التخزين");
+  expect(dialog.textContent).toContain("إجمالي المساحة");
+});

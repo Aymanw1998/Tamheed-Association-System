@@ -61,7 +61,7 @@ const translations = {
     },
     files: {
       title: "الملفات",
-      drive: { title: "Google Drive", statusOn: "متصل", statusOff: "غير متصل", notConnected: "غير متصل؛ لن تُحفظ الملفات والصور", connect: "ربط حساب Google Drive", replace: "تغيير الحساب", replaceConfirm: "هل تريد تغيير حساب Google Drive للنظام كله؟ ستُحفظ الملفات الجديدة في الحساب الجديد.", done: "تم ربط Google Drive بنجاح", denied: "رابط الربط غير صالح أو منتهي الصلاحية. حاول مرة أخرى من داخل النظام.", error: "تعذّر ربط Google Drive، حاول مرة أخرى.", startFailed: "تعذّر بدء الربط.", systemOnly: "ربط الحساب أو تغييره متاح لحساب النظام فقط" },
+      drive: { title: "Google Drive", statusOn: "متصل", statusOff: "غير متصل", notConnected: "غير متصل؛ لن تُحفظ الملفات والصور", connect: "ربط حساب Google Drive", replace: "تغيير الحساب", replaceConfirm: "هل تريد تغيير حساب Google Drive للنظام كله؟ ستُحفظ الملفات الجديدة في الحساب الجديد.", done: "تم ربط Google Drive بنجاح", denied: "رابط الربط غير صالح أو منتهي الصلاحية. حاول مرة أخرى من داخل النظام.", error: "تعذّر ربط Google Drive، حاول مرة أخرى.", startFailed: "تعذّر بدء الربط." },
       sharedTitle: "عرض مشترك",
       refresh: "تحديث",
       newFolder: "مجلد جديد",
@@ -73,6 +73,7 @@ const translations = {
       refreshing: "جارٍ تحديث الملفات…",
       dropHere: "اسحب الملف وأفلته هنا",
       storage: "مساحة التخزين",
+      storageInfo: "معلومات التخزين",
       used: "مستخدَمة",
       available: "متاح",
       total: "إجمالي المساحة",

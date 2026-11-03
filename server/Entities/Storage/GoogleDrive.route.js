@@ -1,11 +1,12 @@
 // Links the whole app to a single Google Drive account. Only the system
-// account (SYSTEM_ADMIN_TZ, created by scripts/ensureSystemAdmin.js) may start
-// the flow - not every administrator: the app asks for a connect URL (POST,
+// account (SYSTEM_ADMIN_TZ, created by scripts/ensureSystemAdmin.js), or a
+// user it gave storage.drive (owner, 2026-11-03), may start the flow - not
+// every administrator: the app asks for a connect URL (POST,
 // with the usual Bearer token) and gets back Google's consent URL carrying a
 // one-time state. Google's callback is a plain browser redirect, so it is
 // accepted only with a state this server issued, once, within 10 minutes.
 const express = require("express");
-const { isSystemTz } = require("../../utils/permissions");
+const { can, isSystemTz } = require("../../utils/permissions");
 
 const DONE_PATH = "/files?drive=";
 
@@ -21,17 +22,18 @@ const noAudit = { record: async () => {} };
 function createGoogleDriveRouter({ drive, state, requireAuth, isSystemAccount: isSystem = isSystemAccount, audit = noAudit }) {
   const router = express.Router();
 
-  const requireSystemAccount = (req, res, next) =>
-    isSystem(req.user)
+  const mayConnect = (req) => isSystem(req.user) || can(req.actor?.permissions, "storage.drive");
+  const requireDriveAccess = (req, res, next) =>
+    mayConnect(req)
       ? next()
-      : res.status(403).json({ code: "FORBIDDEN", message: "ربط Google Drive متاح لحساب النظام فقط" });
+      : res.status(403).json({ code: "FORBIDDEN", message: "ربط Google Drive متاح لحساب النظام ولمن منحه الصلاحية" });
 
-  router.post("/connect-url", requireAuth, requireSystemAccount, (req, res) => {
+  router.post("/connect-url", requireAuth, requireDriveAccess, (req, res) => {
     try {
       // The callback is a public redirect with no signed-in user, so the state
-      // carries who started the flow (always the system account) for the audit log.
+      // carries who started the flow for the audit log.
       const tz = String(req.user?.tz || "");
-      const token = state.issue(req.user?.id, Date.now(), { tz, name: req.user?.name || tz, isSystem: true });
+      const token = state.issue(req.user?.id, Date.now(), { tz, name: req.user?.name || tz, isSystem: isSystem(req.user) });
       return res.json({ ok: true, url: drive.getAuthUrl(token) });
     } catch (err) {
       return res.status(500).json({ ok: false, message: err.message });
@@ -60,7 +62,7 @@ function createGoogleDriveRouter({ drive, state, requireAuth, isSystemAccount: i
   router.get("/status", requireAuth, async (req, res) => {
     try {
       const status = await drive.getStatus();
-      return res.json({ ok: true, ...status, canConnect: isSystem(req.user) });
+      return res.json({ ok: true, ...status, canConnect: mayConnect(req) });
     } catch (err) {
       return res.status(500).json({ ok: false, message: err.message });
     }

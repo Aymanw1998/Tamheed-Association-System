@@ -57,7 +57,7 @@ export const accessStrings = {
       accessApplyNow: "حدّث الآن", accessClose: "إغلاق",
       modules: modules.ar, leaves: leaves.ar,
       // Module-specific leaf names; they win over the shared `leaves`.
-      leavesByModule: { sports: { coach: "تدريب الفرق", manage: "إدارة الرياضة" } },
+      leavesByModule: { sports: { coach: "تدريب الفرق", manage: "إدارة الرياضة" }, storage: { drive: "حساب Google Drive" } },
     },
     audit: {
       navTitle: "سجل التغييرات", title: "سجل التغييرات", recent: "آخر التغييرات", openAll: "عرض السجل الكامل",

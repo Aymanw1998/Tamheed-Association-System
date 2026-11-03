@@ -278,7 +278,7 @@ const ROLE_DEFAULTS = {
 const ROLE_RANK = { "ادارة": 3, "مرشد": 2, "مساعد": 1 };
 const DANGEROUS_KEYS = new Set([
   "users.changeRole", "users.passwords", "users.unlock",
-  "permissions.manage", "audit.view", "systemRecovery.reset",
+  "permissions.manage", "audit.view", "systemRecovery.reset", "storage.drive",
 ]);
 
 const roleDefaults = (role) => expandKeys(ROLE_DEFAULTS[role] || []);

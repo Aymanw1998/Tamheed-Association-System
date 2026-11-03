@@ -23,14 +23,15 @@ const DriveIcon = () => (
 const RESULT_TOASTS = { connected: "success", denied: "warn", error: "warn" };
 const RESULT_KEYS = { connected: "files.drive.done", denied: "files.drive.denied", error: "files.drive.error" };
 
-// Administrators see which Google account the whole app stores files in.
-// Only the system account (the server reports it as canConnect) gets the
-// connect button; the server issues the consent URL with a one-time state.
+// Which Google account the whole app stores files in, and «تغيير الحساب»:
+// the system account's, and whom it gave storage.drive (owner, 2026-11-03).
+// The server reports canConnect and issues the consent URL with a one-time
+// state; without it the card is not shown.
 export default function DriveConnection() {
   const { t } = useI18n();
   const [status, setStatus] = useState(null);
   const [busy, setBusy] = useState(false);
-  const isAdmin = canStored("files.manageAll"); // the server still reports canConnect for the system account
+  const isAdmin = canStored("storage.drive"); // the server still decides (canConnect)
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -50,7 +51,7 @@ export default function DriveConnection() {
       .catch(() => setStatus({ connected: false, email: "", canConnect: false }));
   }, [isAdmin, t]);
 
-  if (!isAdmin || !status) return null;
+  if (!isAdmin || !status?.canConnect) return null;
 
   const connect = async () => {
     if (status.connected) {
@@ -91,21 +92,18 @@ export default function DriveConnection() {
         ) : (
           <span className={styles.hint}>{t("files.drive.notConnected")}</span>
         )}
-        {!status.canConnect && <span className={styles.hint}>{t("files.drive.systemOnly")}</span>}
       </div>
 
-      {status.canConnect && (
-        <div className={styles.action}>
-          <Button
-            variant={status.connected ? "secondary" : "primary"}
-            size="sm"
-            loading={busy}
-            onClick={connect}
-          >
-            {status.connected ? t("files.drive.replace") : t("files.drive.connect")}
-          </Button>
-        </div>
-      )}
+      <div className={styles.action}>
+        <Button
+          variant={status.connected ? "secondary" : "primary"}
+          size="sm"
+          loading={busy}
+          onClick={connect}
+        >
+          {status.connected ? t("files.drive.replace") : t("files.drive.connect")}
+        </Button>
+      </div>
     </section>
   );
 }

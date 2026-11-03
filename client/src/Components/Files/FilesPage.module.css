@@ -81,6 +81,10 @@
   font-weight: 700;
 }
 
+.storageInfo {
+  margin-top: 8px;
+}
+
 .storageStats {
   display: grid;
   gap: 9px;

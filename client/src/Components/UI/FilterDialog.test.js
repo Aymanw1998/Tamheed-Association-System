@@ -76,3 +76,9 @@ test("with onApply the window is a form: «تطبيق» applies and closes", asy
   expect(onApply).toHaveBeenCalledTimes(1);
   expect(dialog()).toBeNull();
 });
+
+test("label names the button and the window (the same window, for other uses)", async () => {
+  await render(<FilterDialog label="معلومات التخزين"><p>x</p></FilterDialog>);
+  await click(button("معلومات التخزين"));
+  expect(dialog().querySelector("h3").textContent).toBe("معلومات التخزين");
+});

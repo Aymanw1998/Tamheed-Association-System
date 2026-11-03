@@ -37,8 +37,11 @@ test("constants have the expected shape", () => {
   assert.deepEqual([...GRANT_ONLY_MODULES].sort(), ["finance", "sports"]);
   assert.deepEqual(
     [...DANGEROUS_KEYS].sort(),
-    ["audit.view", "permissions.manage", "systemRecovery.reset", "users.changeRole", "users.passwords", "users.unlock"],
+    ["audit.view", "permissions.manage", "storage.drive", "systemRecovery.reset", "users.changeRole", "users.passwords", "users.unlock"],
   );
+  // The Drive account is the system account's; it may grant it (owner, 2026-11-03).
+  assert.deepEqual(PERMISSION_TREE.storage, ["drive"]);
+  for (const role of [ADMIN, GUIDE, ASSISTANT]) assert.ok(!effectivePermissions({ role }).has("storage.drive"), role);
   assert.equal(ALL_KEYS.length, Object.values(PERMISSION_TREE).flat().length);
   assert.ok(ALL_KEYS.includes("students.viewAll"));
 });

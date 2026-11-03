@@ -26,7 +26,7 @@ test("a connect state expires after 10 minutes and unknown states are rejected",
 
 // ---- route wiring (stubbed auth and Drive; no Google calls) ----
 
-function startApp({ tz = "000000000" } = {}) {
+function startApp({ tz = "000000000", permissions = [] } = {}) {
   const calls = { authUrlState: null, callbackCode: null };
   const audit = auditStub();
   const drive = {
@@ -37,6 +37,7 @@ function startApp({ tz = "000000000" } = {}) {
   const requireAuth = (req, res, next) => {
     if (req.headers.authorization !== "Bearer ok") return res.status(401).json({ code: "NO_TOKEN" });
     req.user = { id: "admin-1", tz, roles: ["ادارة"] };
+    req.actor = { id: "admin-1", tz, permissions: new Set(permissions) };
     return next();
   };
   const isSystemAccount = (user) => user?.tz === "000000000";
@@ -147,5 +148,27 @@ test("a successful Drive connection is recorded once, by the account that starte
     assert.equal(audit.calls.length, 1);
   } finally {
     server.close();
+  }
+});
+
+// Owner, 2026-11-03: the linked account and «تغيير الحساب» are the system
+// account's, and it may give them to anyone with storage.drive.
+test("storage.drive lets another user change the Drive account; without it they may not", async () => {
+  const granted = await startApp({ tz: "123456789", permissions: ["storage.drive"] });
+  try {
+    const status = await (await request(`${granted.base}/status`, { headers: { authorization: "Bearer ok" } })).json();
+    assert.equal(status.canConnect, true);
+    const res = await request(`${granted.base}/connect-url`, { method: "POST", headers: { authorization: "Bearer ok" } });
+    assert.equal(res.status, 200);
+    assert.ok((await res.json()).url.startsWith("https://accounts.google.test/"));
+  } finally {
+    granted.server.close();
+  }
+  const plain = await startApp({ tz: "123456789", permissions: ["files.manageAll"] });
+  try {
+    const status = await (await request(`${plain.base}/status`, { headers: { authorization: "Bearer ok" } })).json();
+    assert.equal(status.canConnect, false);
+  } finally {
+    plain.server.close();
   }
 });

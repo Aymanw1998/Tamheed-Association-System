@@ -29,6 +29,7 @@ export const SECTION_OF = {
   audit: "audit",
   ai: null,
   systemRecovery: null,
+  storage: "files",
   sports: "sports",
   finance: null,
 };
