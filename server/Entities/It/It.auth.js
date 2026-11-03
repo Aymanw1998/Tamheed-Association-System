@@ -86,6 +86,45 @@ function createItAuth(deps = {}) {
     res.cookie(IT_COOKIE, token, { ...itCookieOptions(), maxAge: IT_SESSION_MS });
   };
 
+  // The account a sign-in may go on with: one in the active room, not locked.
+  const signInUser = async (tz) => {
+    const user = await findActiveUser(tz);
+    if (!user) return null;
+    const isSystem = isSystemTz(String(user.tz || ""), systemTz());
+    return isLocked(user, { isSystem }) ? null : { user, isSystem };
+  };
+
+  // Everything after the password step, shared by the password login and the
+  // one-time pass from the everyday app (sitePass.js): sends a code only when
+  // every gate allows, and never says which one did not.
+  const sendCodeAfterPassword = async (user, isSystem) => {
+    // An expired system password is changed through the everyday sign-in first.
+    if (mustChangePassword(user, { isSystem, now: new Date(now()) })) return;
+    if (!mayUseIt(user, isSystem)) return;
+    const to = mailboxOf(user, isSystem);
+    if (!to) return;
+
+    // Wrong tries live as long as the row: a new code keeps them, and after
+    // five no code is sent until the row expires. At most five guesses per
+    // account per ten minutes.
+    const existing = rows(await codes.get({ userTz: user.tz }))[0];
+    const live = existing && new Date(existing.expiresAt).getTime() > now();
+    const attempts = live ? Number(existing.attempts) || 0 : 0;
+    if (attempts >= MAX_ATTEMPTS) return;
+
+    const code = makeCode();
+    await codes.update({ userTz: user.tz }, {
+      userTz: user.tz,
+      codeHash: sha256(code),
+      expiresAt: new Date(now() + CODE_TTL_MS),
+      attempts,
+    });
+    // Not awaited: SMTP must not delay or change the answer.
+    Promise.resolve()
+      .then(() => sendCode(to, code))
+      .catch((e) => log("It.login", e));
+  };
+
   // POST /api/it/login { tz, password }: always the same answer, so it never
   // tells whether the account exists, is IT, or why no code came.
   const login = async (req, res) => {
@@ -96,11 +135,10 @@ function createItAuth(deps = {}) {
       if (!tz || !password) return generic();
       itSecret(); // fails closed before any code is created or sent
 
-      const user = await findActiveUser(tz);
-      if (!user) return generic();
-      const isSystem = isSystemTz(String(user.tz || ""), systemTz());
       // A locked account is refused before the password is even checked.
-      if (isLocked(user, { isSystem })) return generic();
+      const found = await signInUser(tz);
+      if (!found) return generic();
+      const { user, isSystem } = found;
 
       const { ok } = await verifyPassword(user, "active", password);
       if (!ok) {
@@ -109,36 +147,20 @@ function createItAuth(deps = {}) {
       }
       if (Number(user.failedLoginCount) > 0) await clearFailures(user);
 
-      // An expired system password is changed through the everyday sign-in first.
-      if (mustChangePassword(user, { isSystem, now: new Date(now()) })) return generic();
-      if (!mayUseIt(user, isSystem)) return generic();
-      const to = mailboxOf(user, isSystem);
-      if (!to) return generic();
-
-      // Wrong tries live as long as the row: a new code keeps them, and after
-      // five no code is sent until the row expires. At most five guesses per
-      // account per ten minutes.
-      const existing = rows(await codes.get({ userTz: user.tz }))[0];
-      const live = existing && new Date(existing.expiresAt).getTime() > now();
-      const attempts = live ? Number(existing.attempts) || 0 : 0;
-      if (attempts >= MAX_ATTEMPTS) return generic();
-
-      const code = makeCode();
-      await codes.update({ userTz: user.tz }, {
-        userTz: user.tz,
-        codeHash: sha256(code),
-        expiresAt: new Date(now() + CODE_TTL_MS),
-        attempts,
-      });
-      // Not awaited: SMTP must not delay or change the answer.
-      Promise.resolve()
-        .then(() => sendCode(to, code))
-        .catch((e) => log("It.login", e));
+      await sendCodeAfterPassword(user, isSystem);
       return generic();
     } catch (err) {
       log("It.login", err);
       return generic();
     }
+  };
+
+  // The password step done another way (a one-time pass): the same gates and
+  // the same code as login. Throws when IT_SESSION_SECRET is missing.
+  const sendCodeWithoutPassword = async (tz) => {
+    itSecret();
+    const found = await signInUser(String(tz ?? "").trim());
+    if (found) await sendCodeAfterPassword(found.user, found.isSystem);
   };
 
   // POST /api/it/verify { tz, code }: the code is single-use and ends after
@@ -205,7 +227,7 @@ function createItAuth(deps = {}) {
     return res.json({ ok: true, tz, name, isSystem, photo: user?.photo || null });
   };
 
-  return { login, verify, logout, me };
+  return { login, verify, logout, me, sendCodeWithoutPassword };
 }
 
 module.exports = {

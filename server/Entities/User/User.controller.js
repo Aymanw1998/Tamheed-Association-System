@@ -894,6 +894,83 @@ const register = async (req, res) => {
   }
 };
 
+/* ================= finishSignIn ================= */
+// The everyday sign-in answer once the password step is done: by the password
+// (login) or by a one-time pass from the IT site (signInWithoutPassword).
+const finishSignIn = async (req, res, user, room, isSystem) => {
+  // Expired system password: a short token that only change-password
+  // accepts, no refresh cookie, and any older refresh token is revoked.
+  if (mustChangePassword(user, { isSystem, now: new Date() })) {
+    const scopedToken = signAccessToken({
+      id: user._id?.toString?.() || String(user._id || ""),
+      tz: user.tz,
+      roles: user.roles || [],
+      room,
+      scope: PASSWORD_CHANGE_SCOPE,
+    }, { expiresInSec: PASSWORD_CHANGE_TOKEN_TTL_SEC });
+    await UserModelDef.update({ tz: user.tz }, { ...endAllSessions(), ...afterSuccess() }, "active");
+    return res.status(200).json({ ok: true, mustChangePassword: true, accessToken: scopedToken });
+  }
+
+  // This device's session id, kept across its refreshes ("my devices").
+  const sid = newSessionId();
+  const accessToken = signAccessToken({
+    id: user._id?.toString?.() || String(user._id || ""),
+    tz: user.tz,
+    roles: user.roles || [],
+    room,
+    sid,
+  });
+
+  const refreshToken = signRefreshToken({
+    id: user._id?.toString?.() || String(user._id || ""),
+    tz: user.tz,
+    roles: user.roles || [],
+    room,
+    sid,
+  });
+  
+  const normalizedStorageFolder = user.storageFolder || buildUserStorageFolder(user);
+
+  await UserModelDef.update(
+    { tz: user.tz },
+    {
+      ...afterSuccess(),
+      ...(user.storageFolder ? {} : { storageFolder: normalizedStorageFolder }),
+    },
+    "active"
+  );
+  // One more signed-in device; the account's other sessions keep working.
+  await startSession(UserModelDef, user.tz, sha256(refreshToken), { sid, label: deviceLabel(req.headers?.["user-agent"]) });
+
+  setRefreshCookie(res, refreshToken);
+  // The file storage service is a separate server: signing in does not wait
+  // for it (owner, 2026-11-02: a slow storage service made every sign-in
+  // slow). The folder and the shared-file permissions follow right after.
+  const stored = { ...user, storageFolder: normalizedStorageFolder };
+  safeEnsureStorageFolder(stored).then(() => safeSyncStoragePermissions(stored));
+
+  return res.status(200).json({
+    ok: true,
+    accessToken,
+    expirationTime: computeAccessExpMsFromNow(),
+    user: isSystem ? { ...sanitize(user), isSystem: true } : sanitize(user),
+  });
+};
+
+// A one-time pass from the IT site (Entities/It/sitePass.js) stands in for the
+// password; the lockout still applies. user is from the active room.
+const signInWithoutPassword = async (req, res, user, room = "active") => {
+  try {
+    const isSystem = isSystemTz(user.tz, process.env.SYSTEM_ADMIN_TZ);
+    if (isLocked(user, { isSystem })) return lockedResponse(res);
+    return await finishSignIn(req, res, user, room, isSystem);
+  } catch (error) {
+    logWithSource("User.signInWithoutPassword", error);
+    return res.status(500).json({ code: "SERVER_ERROR", message: error.message });
+  }
+};
+
 /* ================= login ================= */
 const login = async (req, res) => {
   const { tz, password } = req.body || {};
@@ -956,64 +1033,7 @@ const login = async (req, res) => {
       });
     }
 
-    // Expired system password: a short token that only change-password
-    // accepts, no refresh cookie, and any older refresh token is revoked.
-    if (mustChangePassword(user, { isSystem, now: new Date() })) {
-      const scopedToken = signAccessToken({
-        id: user._id?.toString?.() || String(user._id || ""),
-        tz: user.tz,
-        roles: user.roles || [],
-        room,
-        scope: PASSWORD_CHANGE_SCOPE,
-      }, { expiresInSec: PASSWORD_CHANGE_TOKEN_TTL_SEC });
-      await UserModelDef.update({ tz: user.tz }, { ...endAllSessions(), ...afterSuccess() }, "active");
-      return res.status(200).json({ ok: true, mustChangePassword: true, accessToken: scopedToken });
-    }
-
-    // This device's session id, kept across its refreshes ("my devices").
-    const sid = newSessionId();
-    const accessToken = signAccessToken({
-      id: user._id?.toString?.() || String(user._id || ""),
-      tz: user.tz,
-      roles: user.roles || [],
-      room,
-      sid,
-    });
-
-    const refreshToken = signRefreshToken({
-      id: user._id?.toString?.() || String(user._id || ""),
-      tz: user.tz,
-      roles: user.roles || [],
-      room,
-      sid,
-    });
-    
-    const normalizedStorageFolder = user.storageFolder || buildUserStorageFolder(user);
-
-    await UserModelDef.update(
-      { tz: user.tz },
-      {
-        ...afterSuccess(),
-        ...(user.storageFolder ? {} : { storageFolder: normalizedStorageFolder }),
-      },
-      "active"
-    );
-    // One more signed-in device; the account's other sessions keep working.
-    await startSession(UserModelDef, user.tz, sha256(refreshToken), { sid, label: deviceLabel(req.headers?.["user-agent"]) });
-
-    setRefreshCookie(res, refreshToken);
-    // The file storage service is a separate server: signing in does not wait
-    // for it (owner, 2026-11-02: a slow storage service made every sign-in
-    // slow). The folder and the shared-file permissions follow right after.
-    const stored = { ...user, storageFolder: normalizedStorageFolder };
-    safeEnsureStorageFolder(stored).then(() => safeSyncStoragePermissions(stored));
-
-    return res.status(200).json({
-      ok: true,
-      accessToken,
-      expirationTime: computeAccessExpMsFromNow(),
-      user: isSystem ? { ...sanitize(user), isSystem: true } : sanitize(user),
-    });
+    return await finishSignIn(req, res, user, room, isSystem);
   } catch (error) {
     logWithSource("User.login", error);
     return res.status(500).json({
@@ -1969,6 +1989,8 @@ module.exports = {
   // and counts a wrong one in the same lockout.
   verifyPasswordAndMaybeUpgrade,
   countFailedSignIn,
+  // The everyday sign-in answer for a one-time pass from the IT site.
+  signInWithoutPassword,
 };
 
 // OLD CODE - DO NOT SUGGEST

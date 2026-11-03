@@ -19,6 +19,7 @@ const {
 const { requireAuth, requireAuthAllowingPasswordChange } = require('../../middleware/authMiddleware'); // عربيالأحد authMiddleware
 const { loadActor, loadActorAllowingPasswordChange, requirePermission } = require('../../middleware/permissionMiddleware');
 const { rateLimit } = require('../../middleware/rateLimit');
+const sitePass = require('../It/sitePass');
 const { setEngine } = require('crypto');
 
 const authRateLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 20, scope: "auth" });
@@ -30,8 +31,16 @@ router.post('/register/', register);
 // ملاحظة عربية
 router.post('/login', authRateLimit, login);
 
+// IT site → everyday app: a one-time pass from POST /api/it/system-pass
+// (Entities/It/sitePass.js) instead of the password; the everyday sign-in answer.
+router.post('/login-pass', authRateLimit, sitePass.loginToSystem);
+
 // ملاحظة عربية
 router.post('/logout', requireAuth, logout);
+
+// Everyday app → IT site: a one-time pass for an IT user who is not blocked;
+// the IT site still asks the email code.
+router.post('/it-pass', requireAuth, loadActor, sitePass.itPass);
 
 // ---------- Protected ----------
 // ملاحظة عربية

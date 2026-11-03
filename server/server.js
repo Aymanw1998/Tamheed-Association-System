@@ -223,6 +223,8 @@ const StartServer = async () => {
       .catch((err) => console.error('SportLoginCodes index:', err.message));
     await require('./Entities/It/ItLoginCode.model').ensureItLoginCodeIndexes()
       .catch((err) => console.error('ItLoginCodes index:', err.message));
+    await require('./Entities/It/SitePass.model').ensureSitePassIndexes()
+      .catch((err) => console.error('SitePasses index:', err.message));
     await require('./Entities/Lock/Lock.model').ensureLockIndexes()
       .catch((err) => console.error('Locks index:', err.message));
     await require('./Entities/Push/PushSubscription.model').ensurePushSubscriptionIndexes()

@@ -3834,3 +3834,29 @@ against the previous code.
 **Verification:** server 1198/1198.
 
 **Codex review:** pending (until 2026-11-06). **Status:** committed.
+
+### Follow-up: one-time pass between the sites (2026-11-03)
+
+**Change:** `Entities/It/sitePass.js` + `SitePass.model.js` (`SitePasses`:
+unique `hash`, TTL on `expiresAt`, index ensured in `server.js`). A pass is 32
+random bytes base64url, stored as its sha256 with `{ tz, to, expiresAt: now +
+60 s }`; any use deletes it (only the request whose delete reports
+`deletedCount === 1` goes on), also one shown to the wrong site.
+`POST /api/auth/it-pass` (requireAuth + loadActor; 403 unless IT and not
+blocked) and `POST /api/it/system-pass` (requireIt; 403 without an everyday
+role) issue it. `POST /api/it/login-pass` replaces only the password step:
+`It.auth.js` login is split so the password login and the pass share
+`signInUser` (active, not locked) and `sendCodeAfterPassword` (expired system
+password, IT, mailbox, five tries); the answer is login's generic one plus the
+`tz` the code step needs when the pass was good. `POST /api/auth/login-pass`
+gives the everyday sign-in answer: `User.controller.js` login's tail is now
+`finishSignIn`, shared with `signInWithoutPassword` (lockout first). Both
+login-pass routes use their neighbours' rate limits; a pass use is audited
+(`it` / `pass_to_it`, `pass_to_system`).
+
+**Test:** `site-pass.test.js` (new, 12), seen failing first;
+`route-guards.test.js` lists the four routes.
+
+**Verification:** server 1210/1210.
+
+**Codex review:** pending (until 2026-11-06). **Status:** committed.
