@@ -4381,3 +4381,13 @@ between installed apps need a phone and the server. Needs `SYSTEM_HOST` on deplo
 **Verification:** System 983 and Sport 98 tests passed; both built. On real System pages with the bar showing, phone and desktop sizes, at the end of 11 pages nothing is under the bar or the report button; the only hits are rows clipped inside their own scrolling boxes. Sport measured on its real CSS with a page of the same structure. Not checked on a real iPhone, where the cause of the floating is inferred from one screenshot.
 
 **Codex review:** pending; no live connection from this session. **Status:** uncommitted.
+
+### Fix: player sign-in card, scanning, printing, sending (2026-11-04)
+
+**Change:** Owner: the QR could not be scanned and «طباعة» did nothing on an iPhone. The QR the owner showed was valid and decoded, so the content was not the fault. It is now 260px on screen (150 before), 40mm in print. `window.print()` is replaced by the share sheet in an installed app, with a saved picture as the last resort. New «إرسال»: the card as a picture with the link (`Components/Sport/cardShare.js`); with no sharing the link is copied and the picture saved. `issueCard` also returns the QR as a PNG.
+
+**Test:** `cardShare.test.js`, additions in `PlayersTab.card.test.js`, `sport-portal-auth.test.js`.
+
+**Verification:** see the owner's report. On the local stack with made-up data, in headless Chrome with the share function stubbed: the on-screen QR and the shared picture both decode, and the link signs a phone in and leaves the address. Not checked: a real iPhone camera, a real share sheet, a real printer.
+
+**Codex review:** pending; no live connection from this session. **Status:** uncommitted.

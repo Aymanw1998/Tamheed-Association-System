@@ -495,6 +495,7 @@ test("a sign-in card is a QR of the sport site link with the token; only its has
   const token = `card-token-1-${"x".repeat(30)}`;
   assert.equal(r.body.url, `https://sport.test/#card=${token}`);
   assert.match(r.body.svg, /^<svg/);
+  assert.match(r.body.png, /^data:image\/png;base64,/);
   const student = stores.students.docs().find((d) => d._id === "s2");
   assert.equal(student.sportCardHash, sha256(token));
   assert.equal(JSON.stringify(student).includes(token), false);

@@ -59,3 +59,15 @@ test("a coach without sports.manage has no card button", async () => {
   await mount({ canCoach: true, canManage: false });
   expect(button()).toBeUndefined();
 });
+
+test("the card offers printing and sending, and sending works without file sharing", async () => {
+  const share = jest.fn(async () => {});
+  Object.defineProperty(window.navigator, "share", { value: share, configurable: true });
+  await mount({ canCoach: true, canManage: true });
+  await act(async () => button().click());
+  const send = [...container.querySelectorAll("button")].find((b) => b.textContent === "إرسال");
+  expect([...container.querySelectorAll("button")].some((b) => b.textContent === "طباعة")).toBe(true);
+  await act(async () => send.click());
+  expect(share).toHaveBeenCalledTimes(1);
+  delete window.navigator.share;
+});

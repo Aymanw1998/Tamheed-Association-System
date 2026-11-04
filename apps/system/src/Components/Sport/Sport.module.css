@@ -104,7 +104,8 @@
 }
 .loginCardSheet {
   display: flex; flex-direction: column; gap: 12px; align-items: center;
-  max-width: 100%; padding: 16px; border-radius: 16px; background: var(--color-surface, #fff);
+  max-width: 100%; max-height: 100%; overflow: auto; box-sizing: border-box;
+  padding: 16px; border-radius: 16px; background: var(--color-surface, #fff);
 }
 .loginCard {
   width: 85.6mm; max-width: calc(100vw - 64px); /* a bank card's size */
@@ -114,7 +115,8 @@
 }
 .loginCardTitle { font-size: 15px; color: #166534; }
 .loginCardName { font-size: 18px; font-weight: 800; }
-.loginCardQr { width: 150px; height: 150px; }
+/* Large enough for a camera to read off a screen; printed at its real size below. */
+.loginCardQr { width: min(260px, 100%); aspect-ratio: 1; background: #fff; }
 .loginCardQr svg { width: 100%; height: 100%; display: block; }
 .loginCardHow { margin: 0; font-size: 12px; }
 .loginCardKeep { margin: 0; font-size: 11px; color: #b91c1c; font-weight: 600; }
@@ -126,4 +128,5 @@
   .loginCard, .loginCard * { visibility: visible !important; }
   .cardBackdrop { position: static; background: none; padding: 0; }
   .loginCard { position: absolute; top: 10mm; left: 10mm; max-width: none; }
+  .loginCardQr { width: 40mm; }
 }

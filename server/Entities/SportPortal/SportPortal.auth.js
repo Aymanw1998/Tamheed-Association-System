@@ -252,7 +252,9 @@ function createSportAuth(deps = {}) {
       });
       const url = `${sportUrl()}/#card=${token}`;
       const svg = await QRCode.toString(url, { type: "svg", margin: 1, errorCorrectionLevel: "M" });
-      return res.json({ ok: true, url, svg });
+      // The same QR as a picture, for the card the browser makes to share or save.
+      const png = await QRCode.toDataURL(url, { margin: 1, width: 700, errorCorrectionLevel: "M" });
+      return res.json({ ok: true, url, svg, png });
     } catch (err) {
       log("SportPortal.issueCard", err);
       return res.status(500).json({ ok: false, message: SERVER_ERROR });
