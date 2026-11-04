@@ -83,6 +83,8 @@ const ANY_ACTOR_ROUTES = {
   // Item locks: any signed-in user; the holder is their browser tab. The
   // force-release route is the only one with a permission (EXACT_GUARDS).
   "Lock/Lock.route.js": ["POST /acquire", "POST /heartbeat", "POST /release", "GET /:key"],
+  // «الإبلاغ عن مشكلة»: anyone signed in may report; it is rate limited and reads nothing back.
+  "BugReport/BugReport.route.js": ["POST /"],
   // One's own tour state: every write targets the caller's own record.
   "routes/tours.routes.js": ["GET /", "POST /item/:id", "POST /known-keys", "POST /releases/seen"],
   // The IT actor (requireIt) about himself: who he is, his pass to the everyday app (the handler checks the role), his own passkey.

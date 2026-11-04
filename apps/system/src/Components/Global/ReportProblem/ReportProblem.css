@@ -1,0 +1,70 @@
+/* «الإبلاغ عن مشكلة»: the corner opposite the page's green add button. */
+.report-problem {
+  position: fixed;
+  inset-inline-start: clamp(8px, 1.5vw, 16px);
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  z-index: 890;
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: #164d63;
+  background: #fff;
+  border: 1px solid #cfe6f0;
+  border-radius: 999px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .15);
+  cursor: pointer;
+}
+.report-problem.has-problem {
+  padding: 10px 16px;
+  font-size: 15px;
+  color: #fff;
+  background: #dc2626;
+  border-color: #dc2626;
+}
+.report-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, .45);
+}
+.report-dialog {
+  width: min(460px, 100%);
+  max-height: 100%;
+  overflow: auto;
+  padding: 20px;
+  background: #fff;
+  border-radius: 12px;
+}
+.report-dialog h3 { margin: 0 0 12px; }
+.report-dialog form { display: flex; flex-direction: column; gap: 6px; }
+.report-dialog label { margin-top: 8px; font-weight: 600; }
+.report-dialog select,
+.report-dialog textarea,
+.report-dialog input[type="file"] {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px;
+  font: inherit;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+}
+.report-error { margin: 8px 0 0; color: #991b1b; }
+.report-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+.report-actions button {
+  padding: 8px 16px;
+  font: inherit;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.report-actions .report-send { color: #fff; background: #1e6580; border-color: #1e6580; }
+.report-actions .report-send:disabled { opacity: .6; cursor: default; }
+@media print {
+  .report-problem, .report-overlay { display: none; }
+}

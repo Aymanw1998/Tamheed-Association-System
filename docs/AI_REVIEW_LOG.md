@@ -4361,3 +4361,13 @@ between installed apps need a phone and the server. Needs `SYSTEM_HOST` on deplo
 **Verification:** see the owner's report. Not run on a real server.
 
 **Codex review:** pending. **Status:** uncommitted.
+
+### Feature: «الإبلاغ عن مشكلة» in System (2026-11-04)
+
+**Change:** Owner's design. One button in System (`Components/Global/ReportProblem`). A server error (5xx), a server that does not answer, or a crashed screen from the last 2 minutes: one press sends it. With none, or when the server finds it too old: a window with a kind (عطل, اقتراح تحسين, مشكلة ملموسة), text and a picture. Each request gets an id (`utils/recentErrors.js`, `X-Request-Id`); the exact error is caught in `logWithSource` and `errorPublisher`, kept in memory for 2 minutes, reported once, only by its own user. Long numbers keep their last 4 digits (`utils/reportRedact.js`). Stored in `BugReports`, the picture apart in `BugReportImages`. Email goes to every unblocked IT user with a real mailbox and to `SYSTEM_ADMIN_EMAIL`, without the picture. IT site page `/bug-reports`: «تم الحل» and «حذف» both delete the report and its picture for good; the audit row keeps no text.
+
+**Test:** `server/test/bug-reports.test.js`, `route-guards.test.js` (allow-list), `problemLog.test.js`, `ReportProblem.test.js`, `apps/it/.../BugReports.test.js`.
+
+**Verification:** `npm run verify` passed (server 1397, System 980, build); IT site 75 passed and built. A local run with a throwaway database and a mail catcher walked the whole flow in a browser. Not run on the server. Real SMTP delivery not checked. An error handled only by console.error has status but no exact message. Errors are in memory, so a server restart forgets them.
+
+**Codex review:** pending; no live connection from this session. **Status:** uncommitted.

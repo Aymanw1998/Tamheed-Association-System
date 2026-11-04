@@ -37,6 +37,7 @@ function createItRouter(deps = {}) {
   const auth = deps.auth || defaultAuth;
   const members = deps.members || itMembers;
   const roleDefaults = deps.roleDefaults || lazyHandlers(() => require("./RoleDefaults.controller").roleDefaults());
+  const bugReports = deps.bugReports || lazyHandlers(() => require("../BugReport/BugReport.controller").bugReports);
   const adminPowers = deps.adminPowers || lazyHandlers(() => require("./AdminPowers.controller").adminPowers());
   const passkey = deps.passkey || lazyHandlers(() => require("./It.passkey").itPasskeys());
   // Refuses a change while the user is open in an everyday tab (423).
@@ -122,6 +123,11 @@ function createItRouter(deps = {}) {
   router.use("/storage/google", driveRouter);
   router.use("/locks", lockRouter);
   router.use("/push", pushRouter);
+
+  // «البلاغات» from System: any IT user. Deleting is also «تم الحل».
+  router.get("/bug-reports", requireIt, requirePermission("permissions.manage"), bugReports.list);
+  router.get("/bug-reports/:id/image", requireIt, requirePermission("permissions.manage"), bugReports.image);
+  router.delete("/bug-reports/:id", requireIt, requirePermission("permissions.manage"), bugReports.remove);
 
   // A brand-new IT user: any IT user (owner, 2026-11-03).
   router.post("/members", requireIt, requirePermission("users.create"), users.createItUser);

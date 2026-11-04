@@ -7,6 +7,7 @@ import { clearApiCache } from '../../pwa/clearApiCache';
 import { dropDevicePush } from '../../pwa/pushOptIn';
 import { getClientId } from '../../locks/clientId';
 import { clearTraffic, wrapTraffic } from './traffic';
+import { noteFailure } from './problemLog';
 
 // The API is always reached on the same origin as the page: in development the
 // CRA dev server proxies /api to the local server (see "proxy" in package.json),
@@ -117,6 +118,7 @@ function flushQueue(err) {
 api.interceptors.response.use(
   (res) => res,
   async (error) => {
+    noteFailure(error);
     const original = error?.config || {};
     const status = error?.response?.status;
     const code = error?.response?.data?.code || '';

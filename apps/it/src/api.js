@@ -57,6 +57,11 @@ export const passkeyRegisterOptions = () => send("POST", "/passkey/register-opti
 export const passkeyRegister = (response) => send("POST", "/passkey/register", { response });
 export const systemPass = () => send("POST", "/system-pass");
 
+// Reports from System («البلاغات»). Deleting is also «تم الحل».
+export const getBugReports = () => call("/bug-reports");
+export const deleteBugReport = (id) => call(`/bug-reports/${enc(id)}`, { method: "DELETE" });
+export const bugReportImage = (id) => `${BASE}/bug-reports/${enc(id)}/image`;
+
 // Users
 export const getUsers = (room) => call(room ? `/users?room=${enc(room)}` : "/users");
 export const getUser = (tz) => call(`/users/${enc(tz)}`);

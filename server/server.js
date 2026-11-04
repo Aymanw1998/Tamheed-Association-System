@@ -6,6 +6,7 @@ const colors = require('colors');
 const cookieParser = require('cookie-parser');
 
 const errorHandler = require('./middleware/err');
+const { recentErrors } = require('./utils/recentErrors');
 const connectDB = require('./config/db');
 const mongoSanitize = require('express-mongo-sanitize');
 const helmet = require('helmet');
@@ -101,7 +102,11 @@ app.use(mongoSanitize()); // Sanitize data for privent NoSql injection attack
 // model and stored as typed, and only ever rendered as text (routes/ai.routes.js).
 app.use(skipFor(["/api/ai/chat"], xss()));
 
+// Names each request and keeps its error for two minutes («الإبلاغ عن مشكلة»).
+app.use('/api', recentErrors.middleware);
+
 // Routes
+app.use('/api/bug-reports', require('./Entities/BugReport/BugReport.route'));
 app.use('/api/lesson', require('./Entities/Lesson/Lesson.route'));
 app.use('/api/user', require('./Entities/User/User.route'));
 app.use('/api/auth', require('./Entities/User/Auth.route'))
