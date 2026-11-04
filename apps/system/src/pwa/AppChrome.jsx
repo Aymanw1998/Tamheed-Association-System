@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { onUpdate } from "../serviceWorkerRegistration";
-import { canPromptInstall, openInstallGuide, promptInstall, subscribeInstall } from "./installState";
+import { canPromptInstall, openInstallGuide, subscribeInstall } from "./installState";
 import { InstallGuide } from "./InstallApp";
 
 const HINT_KEY = "pwa_ios_hint_dismissed";
@@ -99,8 +99,6 @@ export default function AppChrome() {
     setTimeout(go, 3000);
   };
 
-  const install = () => promptInstall();
-
   const dismissHint = () => { writeFlag(); setHintDismissed(true); };
 
   const iosHint = showIosHint && !hintDismissed && !installEvt;
@@ -123,13 +121,6 @@ export default function AppChrome() {
             يوجد تحديث – إعادة التحميل
           </button>
         </div>
-      )}
-      {installEvt && (
-        // <div style={bar}>
-        //   <button type="button" style={btn} onClick={install}>
-        //     تثبيت التطبيق
-        //   </button>
-        // </div>
       )}
       {iosHint && (
         <div role="status" style={bar}>

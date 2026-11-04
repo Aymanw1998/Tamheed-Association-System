@@ -4295,3 +4295,26 @@ builds. Moving between installed apps is up to the phone; not checked on a
 phone.
 
 **Codex review:** pending (until 2026-11-06). **Status:** committed.
+
+### Fix: System site down after a failed build (2026-11-04)
+
+**Symptom:** Owner: the site switch from the IT app opened
+`system.tamheed-ramla.org`, which answered 404 ENOENT for
+`apps/system/build/index.html`. A public probe confirmed it: the page 404,
+`/manifest.json` 200, the IT and sport sites 200.
+
+**Cause:** Commit 062999a turned the JSX inside `{installEvt && ( ... )}` into
+`//` comments in both `AppChrome.jsx` files, leaving empty parentheses: a syntax
+error at the local build (`AppChrome.jsx` 133:6). `react-scripts build` empties
+`build/` and copies `public/` before compiling, so the failed build left the
+manifest and no `index.html`, and `set -e` stopped `update.sh` before the other
+sites. The state on the server itself was inferred from this, not inspected.
+
+**Change:** `apps/system` and `apps/sport` `AppChrome.jsx`: removed the empty
+block, the unused `install` handler and the `promptInstall` import. The install
+button stays hidden, as the owner's commits intended.
+
+**Verification:** `apps/system` build with `CI=true` and `apps/sport` build pass;
+`AppChrome.test.js` 2/2 in each. Full `npm run verify` not run. Not deployed.
+
+**Codex review:** pending. **Status:** uncommitted.
