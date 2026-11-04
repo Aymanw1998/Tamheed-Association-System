@@ -175,21 +175,25 @@ export default function App() {
   const chrome = <AppChrome aboveTabs={state === "in"} />;
   if (state === "loading") {
     return (
-      <div className="center-note">
-        <Ball className="loading-ball" />
-        <p>جارٍ التحميل…</p>
+      <>
+        <div className="center-note">
+          <Ball className="loading-ball" />
+          <p>جارٍ التحميل…</p>
+        </div>
         {chrome}
-      </div>
+      </>
     );
   }
   if (state === "out") return (<><LoginPage onSignedIn={load} notice={cardError} />{chrome}</>);
   if (state === "error") {
     return (
-      <div className="center-note">
-        <p>حدث خطأ، حاول مرة أخرى</p>
-        <button className="btn" onClick={load}>إعادة المحاولة</button>
+      <>
+        <div className="center-note">
+          <p>حدث خطأ، حاول مرة أخرى</p>
+          <button className="btn" onClick={load}>إعادة المحاولة</button>
+        </div>
         {chrome}
-      </div>
+      </>
     );
   }
 
@@ -201,8 +205,8 @@ export default function App() {
         {tab === "home" && <InstallAppButton className="btn btn-ghost install-app" />}
         {tab === "home" ? <HomePage me={me} /> : <NoticesPage notices={notices} seenBefore={seenBefore} failed={noticesFailed} />}
       </main>
-      <BottomTabs tab={tab} onChange={openTab} badges={{ notices: tab === "notices" ? 0 : unseenCount(notices, readSeen(studentKey)) }} />
       {chrome}
+      <BottomTabs tab={tab} onChange={openTab} badges={{ notices: tab === "notices" ? 0 : unseenCount(notices, readSeen(studentKey)) }} />
       {guideOpen && <FirstVisitGuide firstname={me.student.firstname} gender={me.student.gender} onClose={closeGuide} />}
     </div>
   );

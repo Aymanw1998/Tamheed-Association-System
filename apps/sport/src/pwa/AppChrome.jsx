@@ -31,9 +31,11 @@ function isIosSafari() {
 // The bottom tab bar is 60px tall plus the device inset; the bars sit above it.
 const TABS_OFFSET = "calc(60px + env(safe-area-inset-bottom))";
 
+// In the page's flow, not fixed (owner, 2026-11-04): a fixed bar covers the buttons
+// at the end of the page. Stuck to the bottom while scrolling; at the end of the
+// page it sits after them.
 const wrap = {
-  position: "fixed",
-  insetInline: 0,
+  position: "sticky",
   bottom: 0,
   zIndex: 9500,
   display: "flex",

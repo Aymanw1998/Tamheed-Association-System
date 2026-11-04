@@ -4371,3 +4371,13 @@ between installed apps need a phone and the server. Needs `SYSTEM_HOST` on deplo
 **Verification:** `npm run verify` passed (server 1397, System 980, build); IT site 75 passed and built. A local run with a throwaway database and a mail catcher walked the whole flow in a browser. Not run on the server. Real SMTP delivery not checked. An error handled only by console.error has status but no exact message. Errors are in memory, so a server restart forgets them.
 
 **Codex review:** pending; no live connection from this session. **Status:** uncommitted.
+
+### Fix: bottom bars cover the page (2026-11-04)
+
+**Change:** Owner: on an iPhone the Sport tab bar floated over the page, and in System the update and install bars covered the buttons at the end of a page. Sport tabs and the bars of both sites (`pwa/AppChrome.jsx`) are now `position: sticky` in the page's flow. System's layout had a fixed height (`height: 100vh`, `#root` 100%), so what followed the page sat over it: now `minHeight` and `min-height`. The report button leaves room at the end of the page and rises above the bars (`--app-chrome-height`). The IT site has no such bar.
+
+**Test:** `apps/sport/src/styles.layout.test.js`, `pwa/AppChrome.layout.test.js` in System and Sport, all failed before the fix.
+
+**Verification:** System 983 and Sport 98 tests passed; both built. On real System pages with the bar showing, phone and desktop sizes, at the end of 11 pages nothing is under the bar or the report button; the only hits are rows clipped inside their own scrolling boxes. Sport measured on its real CSS with a page of the same structure. Not checked on a real iPhone, where the cause of the floating is inferred from one screenshot.
+
+**Codex review:** pending; no live connection from this session. **Status:** uncommitted.

@@ -63,7 +63,7 @@ function ProtectedLayout() {
   const access = usePermissionsVersion();
   const { applied, notice } = useAccessUpdates();
   return (
-    <div style={{ height: "100vh", width: "100vw" }}>
+    <div style={{ minHeight: "100vh", width: "100vw" }}>
       <LiveEventsProvider />
       <GuidanceProviders>
         <TrainingBanner />

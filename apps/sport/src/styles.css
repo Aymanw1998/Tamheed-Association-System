@@ -35,8 +35,11 @@ h1, h2, p { margin: 0; }
   min-height: 100vh;
   background: var(--bg);
   position: relative;
-  padding-bottom: calc(80px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  /* clip, not hidden: hidden makes the page its own scroller and the bottom bar stops sticking. */
   overflow-x: hidden;
+  overflow-x: clip;
   box-shadow: 0 0 40px rgba(7, 27, 39, .08);
 }
 
@@ -116,7 +119,7 @@ h1, h2, p { margin: 0; }
 .stadium-hello h1 { font-size: 23px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .stadium-hello p { margin-top: 3px; font-size: 13px; font-weight: 600; color: var(--gold); }
 
-.content { padding: 4px 16px 8px; }
+.content { flex: 1 0 auto; padding: 4px 16px 16px; }
 
 /* ---------- The flip card ---------- */
 .flip-wrap {
@@ -327,8 +330,10 @@ svg.id-img { height: 86%; }
 
 /* ---------- Bottom tabs ---------- */
 .tabs {
-  position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); z-index: 10;
-  width: 100%; max-width: 480px; display: flex;
+  /* In the page's flow, not fixed: fixed follows Safari's layout viewport, which an
+     iPhone can leave shorter than the screen, and the bar then floats over the content. */
+  position: sticky; bottom: 0; z-index: 10;
+  width: 100%; display: flex;
   background: linear-gradient(180deg, #0d2f40, var(--night));
   border-top: 1px solid rgba(255, 255, 255, .08);
   box-shadow: 0 -6px 20px rgba(7, 27, 39, .18);

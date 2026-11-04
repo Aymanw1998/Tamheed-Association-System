@@ -142,6 +142,8 @@ export default function ReportProblem() {
 
   return (
     <>
+      {/* Room at the end of the page, so the button never covers what is last there. */}
+      <div className="report-room" aria-hidden="true" />
       <button type="button" className={`report-problem${hasProblem ? " has-problem" : ""}`} onClick={press} disabled={busy}>
         {hasProblem ? "حدث خطأ · أرسل بلاغًا" : "إبلاغ عن مشكلة"}
       </button>

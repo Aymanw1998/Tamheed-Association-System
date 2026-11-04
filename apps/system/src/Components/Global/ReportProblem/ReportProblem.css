@@ -1,8 +1,9 @@
 /* «الإبلاغ عن مشكلة»: the corner opposite the page's green add button. */
+.report-room { height: 52px; }
 .report-problem {
   position: fixed;
   inset-inline-start: clamp(8px, 1.5vw, 16px);
-  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(12px + var(--app-chrome-height, 0px) + env(safe-area-inset-bottom, 0px));
   z-index: 890;
   padding: 6px 12px;
   font: inherit;

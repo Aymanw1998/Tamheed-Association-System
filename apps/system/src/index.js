@@ -74,8 +74,8 @@ root.render(
 
       <DevToastPing />
 
-      <AppChrome />
       <ReportProblem />
+      <AppChrome />
       <QueueStatus />
     </ToastProvider>
   </ConfirmProvider>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { onUpdate } from "../serviceWorkerRegistration";
 import { canPromptInstall, openInstallGuide, subscribeInstall } from "./installState";
 import { InstallGuide } from "./InstallApp";
@@ -28,9 +28,11 @@ function isIosSafari() {
   return ios && /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS|OPiOS/.test(ua);
 }
 
+// In the page's flow, not fixed (owner, 2026-11-04): a fixed bar covers the buttons
+// at the end of the page. Stuck to the bottom while scrolling; at the end of the
+// page it sits after them.
 const wrap = {
-  position: "fixed",
-  insetInline: 0,
+  position: "sticky",
   bottom: 0,
   zIndex: 9500,
   display: "flex",
@@ -103,13 +105,21 @@ export default function AppChrome() {
 
   const iosHint = showIosHint && !hintDismissed && !installEvt;
 
+  // What else sits in that corner (the report button) stays above the bars.
+  const bars = useRef(null);
+  useLayoutEffect(() => {
+    const root = document.documentElement.style;
+    root.setProperty("--app-chrome-height", `${bars.current?.offsetHeight || 0}px`);
+    return () => root.removeProperty("--app-chrome-height");
+  }, [online, worker, iosHint, installEvt]);
+
   if (online && !worker && !installEvt && !iosHint) return <InstallGuide />;
 
   // The guide sits outside the wrapper: the wrapper lets clicks through
   // (pointer-events: none), which would make the guide unclickable.
   return (
     <>
-    <div dir="rtl" style={wrap} data-testid="app-chrome">
+    <div dir="rtl" ref={bars} style={wrap} data-testid="app-chrome">
       {!online && (
         <div role="status" style={{ ...bar, background: "#7a4b00" }}>
           لا يوجد اتصال – البيانات من آخر تحديث

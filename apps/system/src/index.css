@@ -95,9 +95,14 @@
 }
 
 html,
-body,
-#root {
+body {
   height: 100%;
+  margin: 0;
+}
+
+/* Grows with the page, so what follows the page (the update bar) comes after it. */
+#root {
+  min-height: 100%;
   margin: 0;
 }
 
