@@ -5,7 +5,7 @@
 //     based on an older `updatedAt` than the stored one.
 //   assertFree(key): for callers without a tab (the assistant): throws an
 //     Error with status 423 and `holder` when anyone holds the key.
-const { actorRef, SYSTEM_ACTOR_NAME } = require("../utils/permissions");
+const { actorRef, lockOwner, SYSTEM_ACTOR, SYSTEM_ACTOR_NAME } = require("../utils/permissions");
 const LOCKED_MESSAGE = "هذا العنصر مفتوح الآن لدى مستخدم آخر";
 
 // «هذا العنصر مفتوح الآن لدى <الاسم الكامل> (<رقم الهوية>)», without «()» when tz is empty.
@@ -57,7 +57,7 @@ function editorStamp(req) {
   if (!actor) return {};
   const stamp = {};
   const id = actorRef(actor, String(actor.id ?? ""));
-  const name = actor.isSystem ? SYSTEM_ACTOR_NAME : String(actor.name ?? "");
+  const name = id === SYSTEM_ACTOR ? SYSTEM_ACTOR_NAME : String(actor.name ?? "");
   if (id) stamp.updatedBy = id;
   if (name) stamp.updatedByName = name;
   return stamp;
@@ -127,4 +127,4 @@ const guard = createLockGuard({
 const holderOf = (key, clientId) => lazyLocks().holderOf(key, clientId ?? null);
 const lockedAnswer = (holder) => ({ ok: false, code: "LOCKED", holder, message: lockedMessage(holder) });
 
-module.exports = { ...guard, holderOf, lockedAnswer, checkVersion, sameVersion, nextStamp, raceLost, staleAnswer, editorStamp, createLockGuard, LOCKED_MESSAGE, lockedMessage, staleMessage };
+module.exports = { ...guard, lockOwner, holderOf, lockedAnswer, checkVersion, sameVersion, nextStamp, raceLost, staleAnswer, editorStamp, createLockGuard, LOCKED_MESSAGE, lockedMessage, staleMessage };

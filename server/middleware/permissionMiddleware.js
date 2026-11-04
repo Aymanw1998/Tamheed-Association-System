@@ -1,5 +1,6 @@
 const {
-  effectivePermissions, can, isSystemTz, resolveRole, SYSTEM_ACTOR, SYSTEM_ACTOR_NAME,
+  effectivePermissions, can, isSystemTz,
+  isHiddenIt, isItUser, resolveRole, SYSTEM_ACTOR, SYSTEM_ACTOR_NAME,
 } = require("../utils/permissions");
 const { logWithSource } = require("./logger");
 const { LOCKED_MESSAGE, isLocked } = require("../utils/loginLockout");
@@ -39,8 +40,18 @@ function createLoadActor({ findActiveUserByTz, systemTz, allowPasswordChange = f
       }
 
       const actorTz = String(user.tz || "");
-      const isSystem = isSystemTz(actorTz, systemTz === undefined ? process.env.SYSTEM_ADMIN_TZ : systemTz);
-      if (isLocked(user, { isSystem })) {
+      const realSystemTz = systemTz === undefined ? process.env.SYSTEM_ADMIN_TZ : systemTz;
+      const isRealSystem = isSystemTz(actorTz, realSystemTz);
+      // An IT user with no role acts as the system; only 000000000 skips the lock.
+      const hidden = !isRealSystem && isHiddenIt(user, { systemTz: realSystemTz });
+      const isSystem = isRealSystem || hidden;
+      // Signed in before the code and passkey step, or before he became one of
+      // these: only a session from that step counts (req.user.strong).
+      const needsStrong = isRealSystem || (isItUser(user) && !resolveRole(user));
+      if (needsStrong && !req.user?.scope && req.user?.strong !== true) {
+        return res.status(401).json({ code: "TOKEN_STALE", message: "انتهت الجلسة، سجّل الدخول من جديد" });
+      }
+      if (isLocked(user, { isSystem: isRealSystem })) {
         return res.status(423).json({ code: "ACCOUNT_LOCKED", message: LOCKED_MESSAGE });
       }
 
@@ -54,6 +65,7 @@ function createLoadActor({ findActiveUserByTz, systemTz, allowPasswordChange = f
         revokes: Array.isArray(user.permissionRevokes) ? user.permissionRevokes : [],
         permissions: effectivePermissions(user, { isSystem }),
         isSystem,
+        ...(hidden && { hidden: true }),
         user,
       };
       return next();
@@ -105,4 +117,11 @@ function actorLabel(actor) {
   return { actor: tz, actorName: actor?.name || tz };
 }
 
-module.exports = { createLoadActor, loadActor, loadActorAllowingPasswordChange, requirePermission, requireSelfOr, isSelf, actorLabel };
+// An administrator's own permissions route, open while IT's switch is on.
+// Required here on use: permissionRules needs nothing from this file.
+const adminPowersGate = (req, res, next) => (
+  req.actor?.hidden === true || require("../utils/permissionRules").isAdminWithPowers(req.actor)
+    ? next() : res.status(403).json(FORBIDDEN_BODY)
+);
+
+module.exports = { createLoadActor, loadActor, loadActorAllowingPasswordChange, requirePermission, requireSelfOr, adminPowersGate, isSelf, actorLabel };

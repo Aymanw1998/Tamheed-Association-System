@@ -1,5 +1,7 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
+// These tests hold the rules with IT's switch off; admin-powers.test.js holds it on.
+require("../utils/permissionRules").setAdminPowers(false);
 
 const { IT_KEYS, effectivePermissions, itPermissions } = require("../utils/permissions");
 const {

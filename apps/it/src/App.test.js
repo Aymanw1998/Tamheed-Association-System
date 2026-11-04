@@ -40,7 +40,7 @@ test("the button shows only for a user with both sides", async () => {
 
   api.getMe.mockImplementation(() => ok({ ...ME, hasEverydayRole: false }));
   c = await mount(<App />);
-  expect((await systemButton(c))).toBeUndefined();
+  expect((await systemButton(c))).toBeDefined();
 });
 
 test("no /system-pass request is made on load, only when the button is clicked", async () => {

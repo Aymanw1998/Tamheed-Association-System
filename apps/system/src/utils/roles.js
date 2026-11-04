@@ -37,10 +37,12 @@ export const resolveRole = (user) => {
 };
 
 // Roles the signed-in user may give (approve, create, change): only roles
-// ranked strictly below his own, all of them for the system account. Hides
-// UI only; the server decides.
-export const assignableRoles = ({ role, isSystem = false } = {}) => {
+// ranked strictly below his own, all of them for the system account and for
+// an administrator with the powers IT's switch gives. Hides UI only; the
+// server decides.
+export const assignableRoles = ({ role, isSystem = false, adminPowers = false } = {}) => {
   if (isSystem === true) return [...ROLES];
+  if (adminPowers === true && normalizeRole(role) === "ادارة") return [...ROLES];
   const own = ROLE_RANK[normalizeRole(role)] || 0;
   return ROLES.filter((r) => ROLE_RANK[r] < own);
 };

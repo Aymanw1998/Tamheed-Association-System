@@ -292,19 +292,17 @@ test("a pass made for one site does not open the other direction", async () => {
   assert.equal((await toSystem(ctx, systemPass)).statusCode, 401);
 });
 
-test("no pass for a user who is not IT, or IT without an everyday role", async () => {
+test("a pass for every IT user who is not blocked, with or without a role", async () => {
   const ctx = setup();
-  // Everyday → IT: only an IT user who is not blocked and has an everyday role.
+  // Not IT, or blocked: no pass.
   assert.equal((await askItPass(ctx, "100000025")).statusCode, 403);
   assert.equal((await askItPass(ctx, "100000033")).statusCode, 403);
-  // IT with no everyday role, holding an everyday session: no pass.
-  assert.equal((await askItPass(ctx, "100000017")).statusCode, 403);
-  // The system account is IT with no everyday role: no pass either.
-  assert.equal((await askItPass(ctx, SYSTEM_TZ)).statusCode, 403);
-  // IT → everyday: only a user with an everyday role.
-  assert.equal((await askSystemPass(ctx, "100000017")).statusCode, 403);
-  assert.equal((await askSystemPass(ctx, SYSTEM_TZ)).statusCode, 403);
   assert.equal(ctx.stores.passes.docs().length, 0);
+  // IT with no everyday role (owner, 2026-11-04), and the system account.
+  assert.equal((await askItPass(ctx, "100000017")).statusCode, 200);
+  assert.equal((await askItPass(ctx, SYSTEM_TZ)).statusCode, 200);
+  assert.equal((await askSystemPass(ctx, "100000017")).statusCode, 200);
+  assert.equal((await askSystemPass(ctx, SYSTEM_TZ)).statusCode, 200);
 
   // Both sides: both passes.
   assert.equal((await askItPass(ctx, "100000009")).statusCode, 200);

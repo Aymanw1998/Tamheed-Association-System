@@ -87,7 +87,7 @@ export default function Audit() {
               {data.items.map((item, index) => (
                 <tr key={item._id || index}>
                   <td>{when(item.at)}</td>
-                  <td>{item.actor === "system" ? "النظام" : item.actorName || item.actor || "—"}</td>
+                  <td>{item.actor === "system" ? (item.realActorName ? `النظام (${item.realActorName})` : "النظام") : item.actorName || item.actor || "—"}</td>
                   <td>{auditModules[item.module] || item.module}</td>
                   <td>{auditActions[item.action] || item.action}</td>
                   <td>{item.targetLabel || (item.targetId === "system" ? "النظام" : item.targetId) || "—"}</td>

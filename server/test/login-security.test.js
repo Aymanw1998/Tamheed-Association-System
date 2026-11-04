@@ -162,7 +162,7 @@ function startPhotoApp(userTz) {
       getAllU: noop(), uploadPhoto: handler("upload"), deletePhoto: handler("delete"), getOneU: noop(),
       putU: noop(), deleteU: noop(), postU: noop(), changeRoom: noop(),
       updateStoragePermissions: noop(),
-      putRole: noop(), signOutEverywhere: noop(),
+      putRole: noop(), signOutEverywhere: noop(), getPermissions: noop(), putPermissions: noop(),
     },
   };
   // The lock guard would look the user up in the database; locks have their own tests.
@@ -257,7 +257,7 @@ test("getme gives the system account every permission but the IT keys", async ()
   try {
     const { getme } = loadController(FAKE_HASH, { role: "ادارة" });
     const res = makeRes();
-    await getme({ user: { tz: "1" } }, res);
+    await getme({ user: { tz: "1", strong: true } }, res);
     const { ALL_KEYS, IT_KEYS } = require("../utils/permissions");
     assert.deepEqual([...res.body.permissions].sort(), ALL_KEYS.filter((key) => !IT_KEYS.has(key)).sort());
     assert.equal(res.body.isSystem, true);

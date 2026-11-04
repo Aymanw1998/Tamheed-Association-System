@@ -4,16 +4,17 @@ const multer = require('multer');
 
 const {
   getAllU, uploadPhoto, deletePhoto, getOneU, putU, deleteU, postU, changeRoom, updateStoragePermissions,
-  putRole, signOutEverywhere,
+  putRole, signOutEverywhere, getPermissions, putPermissions,
 } = require('./User.controller');
 
 // alias
 const { requireAuth: protect } = require('../../middleware/authMiddleware');
-const { loadActor, requirePermission, requireSelfOr } = require('../../middleware/permissionMiddleware');
+const { loadActor, requirePermission, requireSelfOr, adminPowersGate } = require('../../middleware/permissionMiddleware');
 
 const mongoose = require('mongoose');
 const { requireFreeOrMine } = require('../../middleware/lockGuard');
 const { UserModelDef } = require('./User.model');
+const { isHiddenUser } = require('../../utils/permissions');
 
 // The lock is on the user's _id; the routes name the user by tz (or _id), in any room.
 const userKey = async (req) => {
@@ -23,7 +24,10 @@ const userKey = async (req) => {
     let found = await UserModelDef.get({ tz: ref }, room);
     if (!found?.result?.length) found = await UserModelDef.get({ _id: ref }, room).catch(() => null);
     const user = found?.result?.[0];
-    if (user) return `user:${user._id}`;
+    if (!user) continue;
+    // Who works unseen: no lock holder to report; the controller answers 404.
+    if (req.actor?.it !== true && isHiddenUser(user) && String(user.tz) !== String(req.actor?.tz)) return null;
+    return `user:${user._id}`;
   }
   return null;
 };
@@ -45,6 +49,11 @@ router.post('/:tz/sign-out-all', requirePermission('users.edit'), signOutEverywh
 router.post('/upload-photo/:tz', requireSelfOr('tz', 'users.edit'), lockedUser, upload.single('file'), uploadPhoto);
 
 router.patch('/:tz/storage-permissions', requirePermission('files.manageAll'), lockedUser, updateStoragePermissions);
+
+// An administrator changes the permissions of those below him while IT's switch
+// is on (validatePermissionChange checks each change).
+router.get('/:tz/permissions', requirePermission('users.view'), adminPowersGate, getPermissions);
+router.put('/:tz/permissions', requirePermission('users.view'), adminPowersGate, lockedUser, putPermissions);
 
 router.put('/:tz/role', requirePermission('users.changeRole'), lockedUser, putRole);
 router.put('/:tz', requireSelfOr('tz', 'users.edit'), lockedUser, putU);

@@ -16,7 +16,7 @@ async function startApp(users, routeKeys = ["students.edit"]) {
   });
   const app = express();
   app.use((req, res, next) => {
-    req.user = { id: "id-" + req.headers["x-tz"], tz: req.headers["x-tz"], roles: ["ادارة"] };
+    req.user = { id: "id-" + req.headers["x-tz"], tz: req.headers["x-tz"], roles: ["ادارة"], strong: true };
     next();
   });
   app.use(loadActor);

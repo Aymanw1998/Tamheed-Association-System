@@ -25,7 +25,7 @@ const createRequireAuth = ({ allowPasswordChange = false } = {}) => (req, res, n
     // ملاحظة عربية
     // iat lets loadActor and getme refuse a token older than the password;
     // sid, a token of a device signed out from "my devices".
-    req.user = { id: payload.id, tz: payload.tz, roles: payload.roles, iat: payload.iat, ...(payload.sid ? { sid: payload.sid } : {}), ...(payload.scope ? { scope: payload.scope } : {}) };
+    req.user = { id: payload.id, tz: payload.tz, roles: payload.roles, iat: payload.iat, ...(payload.sid ? { sid: payload.sid } : {}), ...(payload.strong === true ? { strong: true } : {}), ...(payload.scope ? { scope: payload.scope } : {}) };
     next();                                          // ملاحظة عربية
   } catch (err) {
     if (err.name === 'TokenExpiredError') {

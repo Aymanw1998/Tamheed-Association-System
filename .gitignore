@@ -43,3 +43,7 @@ apps/sport/node_modules
 # IT site
 apps/it/build
 apps/it/node_modules
+
+# deploy/update.sh builds aside before swapping
+apps/*/build.new
+apps/*/build.old

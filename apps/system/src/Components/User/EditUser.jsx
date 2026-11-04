@@ -12,6 +12,7 @@ import { usePhotoPick, PHOTO_NOT_READY } from "../../utils/photoPick";
 import { useI18n } from "../../i18n/I18nContext";
 import { canStored, getStoredUserId, getStoredViewer } from "../../utils/session";
 import { ROLE_LABEL_KEY, canEditDetailsClient, canManageTargetClient, isDemotion, resolveRole } from "../../utils/roles";
+import { requiredUserFields } from "../../utils/userFormFields";
 import { ask } from "../Provides/confirmBus";
 import StatusBadge from "../UI/StatusBadge.jsx";
 import { fillText } from "../../utils/vehicleDisplay";
@@ -300,8 +301,7 @@ const EditUser = () => {
     if (b) { toast.warn(b); return; }
     b = true
     // A read-only email (no users.passwords) is not sent, so it is not required.
-    const ff = ['tz', 'firstname', 'lastname', 'birth_date', 'gender', 'phone', 'email', 'city', 'street']
-      .filter((name) => name !== 'email' || canEditEmail);
+    const ff = requiredUserFields();
     for(const nameTag in ff){
       const tag = document.getElementsByName(ff[nameTag])[0];
       //console.log('Tag', tag, ff[nameTag]);
@@ -313,6 +313,8 @@ const EditUser = () => {
         b = false;
       }
     }
+    // A new user needs a role and a first password.
+    if (isNew && (!form.roles?.[0] || !form.password?.trim())) b = false;
     if(!b) return toast.warn("يُرجى تعبئة الحقول المطلوبة");
     e.preventDefault();
     try {
@@ -462,7 +464,7 @@ const EditUser = () => {
               value={form.roles?.[0] || ""}
               onChange={(e) => setForm((prev) => ({ ...prev, roles: e.target.value ? [e.target.value] : [] }))}
             >
-              <option value="">{t("perms.noRole")}</option>
+              <option value="" disabled>{t("perms.role")}</option>
               {newUserRoles.map((r) => <option key={r} value={r}>{t(ROLE_LABEL_KEY[r], r)}</option>)}
             </select>
           </>
@@ -549,6 +551,7 @@ const EditUser = () => {
         <label>البريد الإلكتروني:<span style={{color: "red"}}>*</span></label>
         <input name="email" value={form.email} onChange={onField} readOnly={!canEditEmail} />
         <label style={{color: "red"}}>{error.email}</label>
+        {isNew && <small>بدون بريد إلكتروني لن يصل رمز «نسيت كلمة المرور»، ويعيّنها المدير.</small>}
       </fieldset>
 
       {/* Sent by the server only to a users.edit holder who manages this user. */}

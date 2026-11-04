@@ -44,11 +44,25 @@ function createAlertEvents({ engine, now = () => new Date() } = {}) {
   });
 
   // A self-registered user entered the waiting room.
-  const userWaiting = (user = {}) => send("user_waiting", {
+  // To the users IT marked, among those who may approve; with none, to everyone
+  // who may approve, so no request is lost.
+  const userWaiting = async (user = {}) => {
+    const marked = { permission: "users.approve", requestAlerts: true };
+    const anyMarked = (await getEngine().recipientsFor(marked)).length > 0;
+    return send("user_waiting", {
+      params: { name: fullName(user) },
+      rule: anyMarked ? marked : { permission: "users.approve" },
+      link: "/users",
+      dedupKey: `user_waiting:${user.tz}:${day()}`,
+    });
+  };
+
+  // An administrator added or promoted one: IT should know.
+  const adminAdded = (user = {}) => send("admin_added", {
     params: { name: fullName(user) },
-    rule: { permission: "users.approve" },
-    link: "/users",
-    dedupKey: `user_waiting:${user.tz}:${day()}`,
+    rule: { it: true },
+    link: itUserLink(user.tz),
+    dedupKey: `admin_added:${user.tz}:${day()}`,
   });
 
   // The automatic lock after repeated failed sign-ins.
@@ -106,7 +120,7 @@ function createAlertEvents({ engine, now = () => new Date() } = {}) {
     });
   }
 
-  return { parentRegistered, userWaiting, accountLocked, accessChanged, systemLoginFailures, vehicleStage };
+  return { parentRegistered, userWaiting, adminAdded, accountLocked, accessChanged, systemLoginFailures, vehicleStage };
 }
 
 const events = createAlertEvents();

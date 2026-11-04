@@ -4,7 +4,7 @@ const { UserModelDef } = require("../User/User.model.js");
 const googleDrive = require("../../services/googleDrive.service.js");
 const { logWithSource } = require("../../middleware/logger.js");
 const rules = require("../../utils/vehicleRules.js");
-const { can, isSystemTz, actorRef, actorDisplayName, SYSTEM_ACTOR_NAME } = require("../../utils/permissions.js");
+const { can, isSystemTz, actorRef, actorDisplayName, SYSTEM_ACTOR_NAME, isHiddenUser } = require("../../utils/permissions.js");
 const { inspectDocument, buildDocumentName } = require("../../utils/vehicleFiles.js");
 const { lookupByPlate } = require("../../services/vehicleLookup.service.js");
 const { audit: auditLog } = require("../../utils/audit.js");
@@ -92,7 +92,7 @@ const syncAlerts = (vehicle) => Promise.resolve()
   .catch((err) => logWithSource("Vehicle.syncAlerts", err));
 
 async function saveVehicle(vehicle, patch, actor, { guarded = false } = {}) {
-  const data = { ...patch, updatedBy: actorId(actor), updatedByName: actor?.isSystem ? SYSTEM_ACTOR_NAME : String(actor?.name ?? ""), updatedAt: new Date().toISOString() };
+  const data = { ...patch, updatedBy: actorId(actor), updatedByName: actorId(actor) === "system" ? SYSTEM_ACTOR_NAME : String(actor?.name ?? ""), updatedAt: new Date().toISOString() };
   if (guarded) {
     const written = await VehicleModelDef.updateExisting(sameVersion({ _id: String(vehicle._id) }, vehicle), data);
     if (!written?.result) return null;
@@ -151,7 +151,7 @@ async function loadUserNames() {
   const found = await UserModelDef.get({}).catch(() => null);
   const names = new Map();
   for (const user of found?.result || []) {
-    names.set(String(user._id), isSystemTz(user.tz) ? actorDisplayName({ isSystem: true }) : personName(user));
+    names.set(String(user._id), isHiddenUser(user) ? actorDisplayName({ isSystem: true }) : personName(user));
   }
   return names;
 }
@@ -217,7 +217,7 @@ async function checkResponsible(responsibleId) {
   if (!responsibleId) return "";
   const found = await UserModelDef.get({ _id: responsibleId }).catch(() => null);
   // The system account is never a responsible.
-  const user = (found?.result || []).find((u) => !isSystemTz(u.tz));
+  const user = (found?.result || []).find((u) => !isHiddenUser(u));
   return user ? "" : "المسؤول المختار غير موجود";
 }
 
@@ -242,7 +242,7 @@ const listResponsibles = async (req, res) => {
   try {
     const found = await UserModelDef.get({});
     const users = (found?.result || [])
-      .filter((user) => !isSystemTz(user.tz))
+      .filter((user) => !isHiddenUser(user))
       .map((user) => ({
         id: String(user._id),
         name: personName(user),

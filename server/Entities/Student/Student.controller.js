@@ -4,7 +4,7 @@ const { handleUpload, handleDeleteByUrl } = require("../UploadFile/file");
 const { audit } = require("../../utils/audit");
 const { LessonModelDef } = require("../Lesson/Lesson.model");
 const { UserModelDef } = require("../User/User.model");
-const { isSystemTz, can } = require("../../utils/permissions");
+const { isSystemTz, can, isHiddenUser } = require("../../utils/permissions");
 const { createStudentScope } = require("../../utils/studentScope");
 const { contactById } = require("../../utils/guideContact");
 const { isResponsible, ownLessons, seesAllLessons } = require("../../utils/lessonAccess");
@@ -31,7 +31,7 @@ async function isValidInstructor(id) {
   if (typeof id !== "string" || !OBJECT_ID.test(id)) return false;
   const found = await UserModelDef.get({ _id: id }, "active");
   const user = found?.result?.[0];
-  return Boolean(user) && !isSystemTz(user.tz);
+  return Boolean(user) && !isHiddenUser(user);
 }
 const INVALID_INSTRUCTOR = { ok: false, code: "INVALID_INSTRUCTOR", message: "المرشد المسؤول غير موجود" };
 const hasValue = (v) => v !== undefined && v !== null && v !== "";

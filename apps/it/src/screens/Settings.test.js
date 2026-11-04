@@ -6,11 +6,16 @@ jest.mock("../api", () => ({
   ...jest.requireActual("../api"),
   getPushSettings: jest.fn(),
   setPushEnabled: jest.fn(),
+  getAdminPowers: jest.fn(),
+  setAdminPowers: jest.fn(),
   forceReleaseLock: jest.fn(),
   recoverSystem: jest.fn(),
 }));
 
-beforeEach(() => { api.getPushSettings.mockImplementation(() => ok({ enabled: true, keysFrom: "env" })); });
+beforeEach(() => {
+  api.getPushSettings.mockImplementation(() => ok({ enabled: true, keysFrom: "env" }));
+  api.getAdminPowers.mockImplementation(() => ok({ enabled: true }));
+});
 afterEach(async () => { await unmountAll(); jest.clearAllMocks(); });
 
 test("Settings: push notifications on/off", async () => {
@@ -48,4 +53,15 @@ test("Settings: system recovery asks first", async () => {
   await click(button(c.querySelector("[role=dialog]"), "تأكيد"));
   expect(api.recoverSystem).toHaveBeenCalledTimes(1);
   expect(toastText()).toContain("تم إرسال كلمة مرور مؤقتة");
+});
+
+test("Settings: the administrators' powers on/off", async () => {
+  api.setAdminPowers.mockImplementation(() => ok({ enabled: false }));
+  const c = await mount(<Settings />);
+  const box = c.querySelector('input[name="adminPowers"]');
+  expect(box.checked).toBe(true);
+  await click(box);
+  expect(api.setAdminPowers).toHaveBeenCalledWith(false);
+  expect(c.querySelector('input[name="adminPowers"]').checked).toBe(false);
+  expect(toastText()).toContain("صلاحيات المديرين");
 });

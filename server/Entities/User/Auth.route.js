@@ -5,6 +5,7 @@ const cookieParser = require("cookie-parser")
 const {
   register,
   login,
+  loginWithCode,
   refreshAccessToken,
   logout,
   getme,
@@ -30,6 +31,16 @@ router.post('/register/', register);
 
 // ملاحظة عربية
 router.post('/login', authRateLimit, login);
+// The second step for an IT user with no role and for the system account.
+router.post('/login-code', authRateLimit, loginWithCode);
+
+// A passkey in System (Entities/User/User.passkey.js): a fingerprint or face
+// signs in with no ID number; saved while signed in.
+const passkey = (name) => (req, res, next) => require('./User.passkey').userPasskeys()[name](req, res, next);
+router.post('/passkey/login-options', authRateLimit, passkey('loginOptions'));
+router.post('/passkey/login', authRateLimit, passkey('login'));
+router.post('/passkey/register-options', requireAuth, loadActor, passkey('registerOptions'));
+router.post('/passkey/register', requireAuth, loadActor, passkey('register'));
 
 // IT site → everyday app: a one-time pass from POST /api/it/system-pass
 // (Entities/It/sitePass.js) instead of the password; the everyday sign-in answer.

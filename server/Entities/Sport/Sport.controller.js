@@ -1,3 +1,4 @@
+const { actorRef, actorDisplayName, isHiddenUser, SYSTEM_ACTOR_NAME } = require("../../utils/permissions");
 const crypto = require("crypto");
 const { SportModelDef } = require("./Sport.model");
 const { SportPlayerModelDef } = require("./SportPlayer.model");
@@ -166,7 +167,7 @@ const setStats = handle("setStats", async (req, res) => {
 
 const studentMap = async () => new Map(rows(await StudentModelDef.get({})).map((s) => [String(s._id), s]));
 // Staff names by user id, for the student's mentor (main_teacher) on the card.
-const staffNames = async () => new Map(rows(await UserModelDef.get({})).map((u) => [String(u._id), fullName(u)]));
+const staffNames = async () => new Map(rows(await UserModelDef.get({})).map((u) => [String(u._id), isHiddenUser(u) ? SYSTEM_ACTOR_NAME : fullName(u)]));
 const inLesson = (lesson, studentId) => (lesson.players || []).some((p) => String(p.studentId) === String(studentId));
 
 // Puts one student on (want) or off a lesson's roster without losing a roster
@@ -645,7 +646,7 @@ const createNotice = handle("createNotice", async (req, res) => {
   if (lessonId && !lessons.some((l) => String(l._id) === lessonId)) return fail(res, 400, NOT_FOUND.lesson);
   const created = await SportNoticeModelDef.create({
     sportId, title, body, lessonId, expiresOn,
-    createdBy: { id: req.actor?.id || null, name: req.actor?.name || "" }, createdAt: new Date(),
+    createdBy: { id: actorRef(req.actor, req.actor?.id || null), name: req.actor ? actorDisplayName(req.actor) : "" }, createdAt: new Date(),
   });
   const notice = created?.result;
   await record(req, "create", "notice", notice, title);

@@ -1,11 +1,11 @@
-const { can, isSystemTz } = require("./permissions");
+const { can, isSystemTz, isHiddenUser } = require("./permissions");
 
 // A guide as shown with a student (its responsible guide) or a lesson (its
 // teacher or helper): full name and phone to anyone who can see the record
 // (owner's decision, 2026-10-31). The tz, which opens the guide's page, goes
 // only to users.view holders. Nothing else of the user record goes out.
 function guideContact(user, actor) {
-  if (!user || isSystemTz(user.tz)) return null;
+  if (!user || isHiddenUser(user)) return null;
   const contact = {
     name: `${user.firstname || ""} ${user.lastname || ""}`.trim(),
     phone: String(user.phone || ""),

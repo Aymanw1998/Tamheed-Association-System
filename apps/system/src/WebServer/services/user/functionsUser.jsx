@@ -180,3 +180,8 @@ export const signOutEverywhere = (tz) => call(() => api.post(`${userPath(tz)}/si
 export const listMyDevices = () => call(() => api.get("/auth/sessions"));
 export const signOutMyDevice = (sid) => call(() => api.delete(`/auth/sessions/${encodeURIComponent(sid)}`));
 export const signOutOtherDevices = () => call(() => api.post("/auth/sessions/sign-out-others", {}));
+
+// An administrator with the powers, on those below him (the server decides).
+export const getUserPermissions = (tz) => call(() => api.get(`${userPath(tz)}/permissions`));
+export const saveUserPermissions = (tz, { grants, revokes }) =>
+  call(() => api.put(`${userPath(tz)}/permissions`, { grants, revokes }));

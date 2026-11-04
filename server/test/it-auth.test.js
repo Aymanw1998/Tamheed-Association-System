@@ -18,7 +18,8 @@ const { sha256 } = require("../utils/jwt");
 const SYSTEM_TZ = "900000001";
 const SYSTEM_EMAIL = "owner@example.org";
 const PASSWORD = "synthetic-pass-1";
-const NOW = Date.parse("2026-11-03T10:00:00Z");
+// Today: the session tokens are signed with the real clock and expire.
+const NOW = Date.now();
 const DAY = 24 * 60 * 60 * 1000;
 
 // In-memory stand-in for a model: equality filters, upserting update.

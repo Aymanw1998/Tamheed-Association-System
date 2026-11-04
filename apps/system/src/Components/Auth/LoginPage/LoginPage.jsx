@@ -1,3 +1,4 @@
+import { passkeySupported } from "../../../utils/passkey";
 import React, { useEffect, useRef, useState } from 'react'
 import styles from "./LoginPage.module.css"
 
@@ -5,7 +6,7 @@ import styles from "./LoginPage.module.css"
 import LogoIMG from "./../../../images/logo.png"
 import { useLocation, useNavigate } from 'react-router-dom'
 
-import { login, loginWithPass } from '../../../WebServer/services/auth/fuctionsAuth';
+import { login, loginWithPass, loginWithCode, loginWithPasskey } from '../../../WebServer/services/auth/fuctionsAuth';
 import { toast } from '../../../ALERT/SystemToasts';
 import ForgotPassword from '../ForgotPassword/ForgotPassword';
 import EyeIcon from '../../UI/EyeIcon';
@@ -21,6 +22,11 @@ export default function LoginPage() {
     const [showPopup, setShowPopup] = useState(false);
     const [tz, setTz] = useState('');
     const [password, setPassword] = useState('');
+    // The ID number waiting for its email code, and the code typed.
+    const [canPasskey] = useState(passkeySupported);
+    const [codeFor, setCodeFor] = useState(null);
+    const [codeTicket, setCodeTicket] = useState('');
+    const [code, setCode] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [loading,  setLoading]  = useState(false);
     // Set when the login answered mustChangePassword: { token, currentPassword }.
@@ -73,6 +79,11 @@ export default function LoginPage() {
         setLoading(true);
         try {
             const me = await login(tz, password);
+            if (me?.codeRequired) {
+                setCodeFor(me.tz);
+                setCodeTicket(me.ticket);
+                return;
+            }
             if (me?.mustChangePassword) {
                 setForced({ token: me.accessToken, currentPassword: password });
                 return;
@@ -83,6 +94,37 @@ export default function LoginPage() {
             toast.error(err?.response?.data?.message || err.message || 'تعذّر تسجيل الدخول. يُرجى المحاولة مرة أخرى.');
         } finally {
         setLoading(false);
+        }
+    };
+
+    const handlePasskey = async () => {
+        setLoading(true);
+        try {
+            const r = await loginWithPasskey();
+            if (r.mustChangePassword) {
+                toast.warn("يجب تغيير كلمة المرور أولًا. ادخل برقم الهوية وكلمة المرور.");
+                return undefined;
+            }
+            if (r.ok) return finishLogin(r.user);
+            if (!r.cancelled) toast.error(r.message || "تعذّر الدخول بالبصمة. ادخل بكلمة المرور.");
+        } finally {
+            setLoading(false);
+        }
+        return undefined;
+    };
+
+    const handleCode = async () => {
+        if (!code.trim()) {
+            toast.warn("يُرجى إدخال الرمز.");
+            return;
+        }
+        setLoading(true);
+        try {
+            finishLogin(await loginWithCode(codeFor, code.trim(), codeTicket));
+        } catch (err) {
+            toast.error(err?.response?.data?.message || err.message || 'تعذّر تسجيل الدخول. يُرجى المحاولة مرة أخرى.');
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -100,7 +142,13 @@ export default function LoginPage() {
         setForced(null);
         setPassword('');
         try {
-            finishLogin(await login(tz, newPassword));
+            const me = await login(tz, newPassword);
+            if (me?.codeRequired) {
+                setCodeFor(me.tz);
+                setCodeTicket(me.ticket);
+                return;
+            }
+            finishLogin(me);
         } catch (err) {
             // The password did change; the user can sign in with it by hand.
             toast.error(err?.response?.data?.message || err.message || 'تعذّر تسجيل الدخول. يُرجى المحاولة مرة أخرى.');
@@ -127,6 +175,25 @@ export default function LoginPage() {
                         onChanged={afterForcedChange}
                         onCancel={cancelForcedChange}
                     />
+                ) : codeFor ? (
+                <div className={styles.loginForm}>
+                    <h2>رمز الدخول</h2>
+                    <p>أرسلنا رمزًا إلى بريدك الإلكتروني. الرمز صالح لمدة 10 دقائق.</p>
+                    <label className={styles.fieldLabel} htmlFor="login-code">الرمز</label>
+                    <input
+                        id="login-code"
+                        name="code"
+                        type="text"
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        value={code}
+                        onChange={(e) => setCode(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") handleCode(); }}
+                        autoFocus
+                    />
+                    <button type="submit" onClick={handleCode} disabled={loading}>{loading ? '…' : 'تأكيد'}</button>
+                    <button type="button" className={styles.secondaryButton} onClick={() => { setCodeFor(null); setCode(''); }}>رجوع</button>
+                </div>
                 ) : (
                 <div className={styles.loginForm}>
                     <div className={`${styles.logo} ${styles.logoDisNone}`}><img src={LogoIMG}/></div>
@@ -159,6 +226,9 @@ export default function LoginPage() {
                         </button>
                     </div>
 
+                    {canPasskey && (
+                        <button type="button" className={styles.secondaryButton} onClick={handlePasskey} disabled={loading}>الدخول بالبصمة أو بالوجه</button>
+                    )}
                     <button type="button" className={styles.forgotLink} onClick={() => setShowPopup(true)}>نسيت كلمة المرور؟</button>
                     <button type="submit" onClick={handleLogin} disabled={loading}>{loading ? '…' : 'دخول'}</button>
                     <hr />

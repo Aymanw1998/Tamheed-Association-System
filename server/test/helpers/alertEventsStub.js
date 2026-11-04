@@ -6,6 +6,7 @@ const noop = async () => ({ created: [] });
 const alertEvents = {
   parentRegistered: noop,
   userWaiting: noop,
+  adminAdded: noop,
   accountLocked: noop,
   accessChanged: noop,
   systemLoginFailures: noop,

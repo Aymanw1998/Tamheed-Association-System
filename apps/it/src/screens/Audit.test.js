@@ -39,3 +39,9 @@ test("Audit: filters apply from the «فلتر» window and paging asks the serv
   await click(button(c, "التالي"));
   expect(api.getAudit).toHaveBeenLastCalledWith({ module: "users", q: "ليلى" }, 2);
 });
+
+test("the real person behind «النظام» shows only here", async () => {
+  api.getAudit.mockImplementation(() => ok({ items: [{ ...ITEMS[1], realActor: "100000009", realActorName: "اسم حقيقي" }], total: 1 }));
+  const c = await mount(<Audit />);
+  expect(c.textContent).toContain("النظام (اسم حقيقي)");
+});

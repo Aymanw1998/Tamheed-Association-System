@@ -88,6 +88,8 @@ function createAudit({ model, now = () => new Date() }) {
         await model.create({
           at: now(),
           ...actorLabel(req?.actor),
+          // Everyone sees «النظام»; the IT site's log also keeps who it was.
+          ...(req?.actor?.hidden === true ? { realActor: String(req.actor.tz || ""), realActorName: req.actor.name || "" } : {}),
           module,
           action,
           targetType,

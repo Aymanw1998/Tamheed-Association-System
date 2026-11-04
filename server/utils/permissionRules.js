@@ -30,6 +30,17 @@ function isSystemTarget(target, ctx) {
 }
 
 const isItActor = (actor) => actor?.it === true;
+// loadActor's flag: an IT user with no role, in System.
+const isHiddenActor = (actor) => actor?.hidden === true;
+
+// Administrators run the staff while IT's switch is on (owner, 2026-11-04):
+// they give ادارة and change the permissions of those below them. Off, the
+// rules from before return; permissions already given stay.
+let adminPowers = true;
+const setAdminPowers = (on) => { adminPowers = on === true; };
+const adminPowersOn = () => adminPowers;
+const isAdminWithPowers = (actor) =>
+  adminPowers && Boolean(actor) && !isItActor(actor) && !isSystemActor(actor) && resolveRole(actor) === "ادارة";
 
 function permissionSet(user) {
   if (!user) return new Set();
@@ -70,13 +81,18 @@ function canEditDetails(actor, target, ctx = {}) {
   if (canManageTarget(actor, target, ctx)) return true;
   if (!actor || !target || isSystemTarget(target, ctx) || isSelf(actor, target)) return false;
   if (!isItUser(target) || isItActor(actor)) return false;
+  // An IT user with no role never reaches another IT user.
+  if (isHiddenActor(actor)) return false;
   return isSystemActor(actor) || rankOf(actor) > rankOf(target);
 }
 
-// Only the IT actor changes permissions, and never grants an IT key.
+// The IT actor grants anything but an IT key; an administrator with the powers
+// grants what he holds himself, and sports, which no role holds by default.
 function grantableBy(actor) {
-  if (!isItActor(actor)) return new Set();
-  return new Set(ALL_KEYS.filter((key) => !IT_KEYS.has(key)));
+  if (isItActor(actor) || isHiddenActor(actor)) return new Set(ALL_KEYS.filter((key) => !IT_KEYS.has(key)));
+  if (!isAdminWithPowers(actor)) return new Set();
+  const held = permissionSet(actor);
+  return new Set(ALL_KEYS.filter((key) => !IT_KEYS.has(key) && (held.has(key) || key.startsWith("sports."))));
 }
 
 function validatePermissionChange(actor, target, changes, ctx = {}) {
@@ -86,7 +102,7 @@ function validatePermissionChange(actor, target, changes, ctx = {}) {
   // the system account's are not stored.
   const self = isSelf(actor, target);
   if (self && (!isItActor(actor) || isSystemTarget(target, ctx))) return { ok: false, code: "SELF" };
-  if (!isItActor(actor)) return { ok: false, code: "FORBIDDEN" };
+  if (!isItActor(actor) && !isHiddenActor(actor) && !isAdminWithPowers(actor)) return { ok: false, code: "FORBIDDEN" };
   if (!self && !canManageTarget(actor, target, ctx)) return { ok: false, code: "FORBIDDEN" };
 
   if ((grants != null && !Array.isArray(grants)) || (revokes != null && !Array.isArray(revokes))) {
@@ -112,8 +128,10 @@ function canAssignRole(actor, target, newRole, ctx = {}) {
   if (isSelf(actor, target)) return isItActor(actor);
   if (!canManageTarget(actor, target, ctx)) return false;
   if (isItActor(actor) || isSystemActor(actor)) return true;
-  // Only a role strictly below one's own.
-  if (!(ROLE_RANK[role] < rankOf(actor))) return false;
+  // Only a role strictly below one's own; an administrator with the powers
+  // also gives his own.
+  const sameAllowed = role === "ادارة" && isAdminWithPowers(actor);
+  if (!sameAllowed && !(ROLE_RANK[role] < rankOf(actor))) return false;
   const held = permissionSet(actor);
   if (!can(held, "users.changeRole")) return false;
   for (const leaf of roleDefaults(role)) if (!held.has(leaf)) return false;
@@ -154,6 +172,9 @@ function applyRoleChange(target, newRole) {
 
 module.exports = {
   isItActor,
+  setAdminPowers,
+  adminPowersOn,
+  isAdminWithPowers,
   canManageTarget,
   canEditDetails,
   grantableBy,

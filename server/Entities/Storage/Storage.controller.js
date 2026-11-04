@@ -8,7 +8,7 @@ const { StorageModelDef } = require("./Storage.model");
 const liveBus = require("../../services/liveBus");
 const { createStorageRecipients } = require("../../services/storageRecipients");
 const { repairMisencodedText } = require("../../utils/textEncoding");
-const { can, isSystemTz, SYSTEM_ACTOR_NAME } = require("../../utils/permissions");
+const { can, isSystemTz, SYSTEM_ACTOR_NAME, isHiddenUser } = require("../../utils/permissions");
 const { audit } = require("../../utils/audit");
 
 const STORAGE_DB_NAME = process.env.DB_NAME || "tamheed_db";
@@ -191,7 +191,7 @@ const getActiveUserByTz = async (tz) => {
 // A user one may share with: never the system account, which answers as missing.
 const getShareTargetByTz = async (tz) => {
   const user = await getActiveUserByTz(tz);
-  return user && !isSystemTz(user.tz) ? user : null;
+  return user && !isHiddenUser(user) ? user : null;
 };
 
 const getActiveUserByIdentifier = async (identifier) => {
@@ -213,7 +213,7 @@ const getActiveUserByIdentifier = async (identifier) => {
 
 const buildUserDisplayName = (user = {}) => {
   // Owner names shown in the file browser: the system account is "النظام".
-  if (isSystemTz(user.tz)) return SYSTEM_ACTOR_NAME;
+  if (isHiddenUser(user)) return SYSTEM_ACTOR_NAME;
   const fullName = [user.firstname, user.lastname]
     .map((value) => String(value || "").trim())
     .filter(Boolean)
@@ -231,6 +231,17 @@ const buildUserStorageFolder = (user = {}) => {
 
   const identityFolder = normalizeRelativePath(user.tz || user._id || "user");
   return normalizeRelativePath(path.posix.join("users", identityFolder));
+};
+
+const hiddenFolders = () => require("../../utils/hiddenFolders");
+const hiddenStorageFolders = async () => {
+  const result = await UserModelDef.get({}, "active").catch(() => null);
+  const users = result?.success && Array.isArray(result.result) ? result.result : [];
+  return hiddenFolders().hiddenFolderSet(users, (user) => {
+    const folders = [...buildUserFolderCandidates(user), buildUserStorageFolder({ ...user, storageFolder: "" })]
+      .map((folder) => normalizeRelativePath(folder)).filter(Boolean);
+    return [...folders, ...folders.map((folder) => getStorageRelativePath(folder))];
+  });
 };
 
 const buildStorageFolderDisplayMap = async () => {
@@ -1234,10 +1245,12 @@ const listStorage = async (req, res) => {
       ownerId: scope.isAdmin ? "" : String(scope.user?._id || scope.user?.tz || "").trim(),
     });
 
+    // Administrators browse everyone's folders, but not those of who works unseen.
+    const unseenFolders = scope.isAdmin ? await hiddenStorageFolders() : new Set();
     const items = (data?.items || []).map((item) => mapStorageItem(item, {
       userRoot: scope.isAdmin ? "" : scope.userRoot,
       folderDisplayMap,
-    }));
+    })).filter((item) => !hiddenFolders().inHiddenFolder(item.path, unseenFolders) && !hiddenFolders().inHiddenFolder(getStorageRelativePath(item.filename), unseenFolders));
     const merged = new Map(
       items.map((item) => [normalizeRelativePath(item.path || item.filename || item.name), item])
     );
@@ -2180,7 +2193,7 @@ const getShareStatus = async (req, res) => {
     for (const entry of sharedWith) {
       const user = await getActiveUserByIdentifier(entry.userId);
       // The system account is never listed.
-      if (user && !isSystemTz(user.tz)) {
+      if (user && !isHiddenUser(user)) {
         users.push({
           userId: String(user._id || entry.userId || "").trim(),
           tz: user.tz,

@@ -40,6 +40,9 @@ const PUBLIC_ROUTES = {
     "POST /forgot-password",
     "POST /reset-password",
     "POST /login-pass", // a one-time pass from the IT site stands in for the password (Entities/It/sitePass.js)
+    "POST /login-code", // the email code after the password (Entities/User/SystemCode.auth.js)
+    "POST /passkey/login-options", // System passkey sign-in
+    "POST /passkey/login",
   ],
   "InviteToken/InviteToken.route.js": [
     "GET /validate/:token",
@@ -71,7 +74,7 @@ const ANY_ACTOR_ROUTES = {
   // The dashboard summary checks, per part, the permission of that part's own route.
   "Dashboard/Dashboard.route.js": ["GET /summary"],
   "Vehicle/Vehicle.route.js": ["GET /me/permissions", "GET /alerts"], // own permissions / assigned vehicles
-  "User/Auth.route.js": ["POST /change-password", "GET /sessions", "POST /sessions/sign-out-others", "DELETE /sessions/:sid", "POST /it-pass"], // one's own password (checks the current one), one's own devices, one's own pass to the IT site (the handler checks IT)
+  "User/Auth.route.js": ["POST /change-password", "GET /sessions", "POST /sessions/sign-out-others", "DELETE /sessions/:sid", "POST /it-pass", "POST /passkey/register-options", "POST /passkey/register"], // one's own password (checks the current one), one's own devices, one's own pass to the IT site (the handler checks IT)
   "Live/Live.route.js": ["POST /ticket"], // a ticket for one's own live channel
   // One's own alert inbox: every query is filtered by the caller's tz.
   "Alert/Alert.route.js": ["GET /", "POST /read-all", "POST /:id/read"],

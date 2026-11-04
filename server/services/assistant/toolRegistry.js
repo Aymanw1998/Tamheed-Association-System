@@ -16,7 +16,7 @@
 // only when the user approves it (actionRunner.js); they need the chat's
 // conversationId. There are no tools to delete anything, change permissions
 // or an existing role, or touch passwords (spec, part 2).
-const { can, isSystemTz, SYSTEM_ACTOR_NAME } = require("../../utils/permissions");
+const { can, isSystemTz, SYSTEM_ACTOR_NAME, isHiddenUser } = require("../../utils/permissions");
 const { createStudentScope } = require("../../utils/studentScope");
 const { check, apiSchema } = require("./validateInput");
 const { fullName, rows } = require("./tools/_shared");
@@ -54,21 +54,22 @@ const SECRET_KEYS = new Set([
 // Last line of defence on every result: no secret fields, and nothing that
 // names the system account (objects carrying its tz are dropped, the tz
 // itself is blanked).
-function scrub(value, systemTz) {
+function scrub(value, systemTz, hiddenTzs = new Set()) {
   if (Array.isArray(value)) {
     return value
-      .filter((item) => !(item && typeof item === "object" && isSystemTz(item.tz, systemTz)))
-      .map((item) => scrub(item, systemTz));
+      .filter((item) => !(item && typeof item === "object" && (isSystemTz(item.tz, systemTz) || isHiddenUser(item))))
+      .filter((item) => !(item && typeof item === "object" && hiddenTzs.has(String(item.tz))))
+      .map((item) => scrub(item, systemTz, hiddenTzs));
   }
   if (value && typeof value === "object" && !(value instanceof Date)) {
     const out = {};
     for (const [key, v] of Object.entries(value)) {
       if (SECRET_KEYS.has(key)) continue;
-      out[key] = scrub(v, systemTz);
+      out[key] = scrub(v, systemTz, hiddenTzs);
     }
     return out;
   }
-  if (typeof value === "string" && isSystemTz(value, systemTz)) return "";
+  if (typeof value === "string" && (isSystemTz(value, systemTz) || hiddenTzs.has(value))) return "";
   return value;
 }
 
@@ -126,13 +127,14 @@ function createToolRegistry({ deps } = {}) {
       now: d.now ? d.now() : new Date(),
       can: (key) => can(actor, key),
       isSystemTz: (tz) => isSystemTz(tz, systemTz),
+      isHiddenUser,
       visible: once(() => scope.visibleStudentIds(actor)),
       // Active users by _id (and .byTz), for names; the system account is left out.
       users: once(async () => {
         const map = new Map();
         map.byTz = new Map();
         for (const u of rows(await d.models.User.get({}, "active"))) {
-          if (isSystemTz(u.tz, systemTz)) continue;
+          if (isSystemTz(u.tz, systemTz) || isHiddenUser(u)) continue;
           const entry = { name: fullName(u) };
           map.set(String(u._id), entry);
           if (u.tz) map.byTz.set(String(u.tz), entry);
@@ -159,7 +161,8 @@ function createToolRegistry({ deps } = {}) {
     // the values (a child's name or ID number) and never the result.
     d.log?.("call", { actor: actor.isSystem ? SYSTEM_ACTOR_NAME : String(actor.id ?? ""), tool: name, inputKeys: Object.keys(input) });
     try {
-      return scrub(await tool.run(input, ctx), ctx.systemTz);
+      const hiddenTzs = new Set(rows(await d.models?.User?.get?.({}, "active")).filter(isHiddenUser).map((u) => String(u.tz)));
+      return scrub(await tool.run(input, ctx), ctx.systemTz, hiddenTzs);
     } catch (error) {
       // The error name only: a message can quote the values that failed.
       d.log?.("failed", { tool: name, error: String(error?.name || "Error") });
@@ -173,6 +176,7 @@ function createToolRegistry({ deps } = {}) {
 const defaultRegistry = createToolRegistry();
 
 module.exports = {
+  scrub,
   definitions,
   run: (name, input, actor, options) => defaultRegistry.run(name, input, actor, options),
   forModel,

@@ -193,6 +193,9 @@ const StartServer = async () => {
     // the first request; without them every role keeps the code's set.
     await require('./Entities/It/RoleDefaults.controller').roleDefaults().load()
       .catch((err) => console.error('Role defaults:', err.message));
+    // IT's switch for the administrators' powers; on when nothing is stored.
+    await require('./Entities/It/AdminPowers.controller').adminPowers().load()
+      .catch((err) => console.error('Admin powers:', err.message));
     // **********************************END - ALERTS POPUP***************************
     const httpServer = http.createServer(app)
     const PORT = process.env.PORT || 5000;
@@ -232,6 +235,8 @@ const StartServer = async () => {
       .catch((err) => console.error('SportLoginCodes index:', err.message));
     await require('./Entities/It/ItLoginCode.model').ensureItLoginCodeIndexes()
       .catch((err) => console.error('ItLoginCodes index:', err.message));
+    await require('./Entities/User/SystemLoginCode.model').ensureSystemLoginCodeIndexes()
+      .catch((err) => console.error('SystemLoginCodes index:', err.message));
     await require('./Entities/It/SitePass.model').ensureSitePassIndexes()
       .catch((err) => console.error('SitePasses index:', err.message));
     await require('./Entities/Lock/Lock.model').ensureLockIndexes()

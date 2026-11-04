@@ -1,6 +1,8 @@
 // The IT layer (IT-site design, "Who may do what", 2026-11-03).
 const assert = require("node:assert/strict");
 const test = require("node:test");
+// These tests hold the rules with IT's switch off; admin-powers.test.js holds it on.
+require("../utils/permissionRules").setAdminPowers(false);
 
 const {
   ALL_KEYS,

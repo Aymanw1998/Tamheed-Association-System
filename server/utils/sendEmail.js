@@ -64,6 +64,22 @@ const sendItLoginCodeEmail = async (to, code) => {
         html,
     });
 }
+// System's sign-in code (Entities/User/SystemCode.auth.js).
+const sendSystemLoginCodeEmail = async (to, code) => {
+    const transporter = createTransporter();
+    const html = `<div dir="rtl" style="font-family:Arial;line-height:1.6;">
+                    <h2>الدخول إلى نظام تمهيد</h2>
+                    <p>رمز الدخول الخاص بك:</p>
+                    <div style="font-size:28px;font-weight:700;letter-spacing:4px">${code}</div>
+                    <p>الرمز صالح لمدة 10 دقائق ولمرة واحدة. إذا لم تحاول الدخول، فغيّر كلمة المرور فورًا.</p>
+                </div>`;
+    await transporter.sendMail({
+        from: process.env.SMTP_FROM,
+        to,
+        subject: "رمز الدخول إلى نظام تمهيد",
+        html,
+    });
+}
 const smtpConfigured = () => Boolean(process.env.SMTP_SERVER && process.env.SMTP_PORT && process.env.SMTP_FROM);
 
 const sendNoticeDigestEmail = async (to, { subject, html, text }) => {
@@ -90,6 +106,7 @@ module.exports = {
     sendResetPasswordEmail,
     sendSportLoginCodeEmail,
     sendItLoginCodeEmail,
+    sendSystemLoginCodeEmail,
     sendNoticeDigestEmail,
     sendSystemAdminEmail,
     smtpConfigured,

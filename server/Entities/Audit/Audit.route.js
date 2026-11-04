@@ -60,7 +60,7 @@ function buildFilter(query = {}) {
   const q = str(query.q).slice(0, 100);
   if (q) {
     const $regex = escapeRegex(q);
-    filter.$or = ["targetLabel", "actorName", "actor"].map((f) => ({ [f]: { $regex, $options: "i" } }));
+    filter.$or = ["targetLabel", "actorName", "actor", "realActor", "realActorName"].map((f) => ({ [f]: { $regex, $options: "i" } }));
   }
   return filter;
 }

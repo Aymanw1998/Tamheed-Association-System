@@ -61,6 +61,8 @@ export const auditActions = {
   role_change: "تغيير دور", unlock: "رفع حظر", lock: "حظر", upload: "رفع", rename: "إعادة تسمية",
   share: "مشاركة", unshare: "إلغاء مشاركة", drive_connect: "ربط Drive", system_recovery: "استعادة حساب النظام",
   sign_in: "دخول", pass_to_it: "انتقال إلى موقع IT", pass_to_system: "انتقال إلى النظام",
+  passkey_add: "حفظ دخول بالبصمة",
+  admin_powers_change: "تغيير صلاحيات المديرين", request_alerts_change: "تغيير تنبيهات الطلبات",
   role_defaults_change: "تغيير صلاحيات دور", role_defaults_reset: "إرجاع صلاحيات دور إلى الأصل",
 };
 export const auditModules = {

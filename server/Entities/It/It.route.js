@@ -37,6 +37,7 @@ function createItRouter(deps = {}) {
   const auth = deps.auth || defaultAuth;
   const members = deps.members || itMembers;
   const roleDefaults = deps.roleDefaults || lazyHandlers(() => require("./RoleDefaults.controller").roleDefaults());
+  const adminPowers = deps.adminPowers || lazyHandlers(() => require("./AdminPowers.controller").adminPowers());
   const passkey = deps.passkey || lazyHandlers(() => require("./It.passkey").itPasskeys());
   // Refuses a change while the user is open in an everyday tab (423).
   const lockedUser = deps.lockedUser || ((req, res, next) => require("../User/User.route").lockedUser(req, res, next));
@@ -98,6 +99,7 @@ function createItRouter(deps = {}) {
   router.get("/users/:tz/permissions", requireIt, requirePermission("permissions.manage"), users.getPermissions);
   router.put("/users/:tz/permissions", requireIt, requirePermission("permissions.manage"), lockedUser, users.putPermissions);
   router.get("/users/:tz/password", requireIt, requirePermission("users.passwords"), users.viewPassword);
+  router.put("/users/:tz/request-alerts", requireIt, requirePermission("permissions.manage"), lockedUser, users.putRequestAlerts);
   router.put("/users/:tz/password", requireIt, requirePermission("users.resetPassword"), lockedUser, users.resetUserPassword);
   router.post("/users/:tz/unlock", requireIt, requirePermission("users.unlock"), lockedUser, users.unlockUser);
   router.get("/users/:tz/sessions", requireIt, requirePermission("users.unlock"), users.listUserDevices);
@@ -107,6 +109,10 @@ function createItRouter(deps = {}) {
   router.get("/role-defaults", requireIt, requirePermission("permissions.manage"), roleDefaults.list);
   router.put("/role-defaults/:role", requireIt, requirePermission("permissions.manage"), roleDefaults.save);
   router.delete("/role-defaults/:role", requireIt, requirePermission("permissions.manage"), roleDefaults.reset);
+
+  // What administrators may do with the staff: IT's switch.
+  router.get("/admin-powers", requireIt, requirePermission("permissions.manage"), adminPowers.get);
+  router.put("/admin-powers", requireIt, requirePermission("permissions.manage"), adminPowers.put);
 
   // The session and permission checks run first: others never use up the budget.
   router.post("/system/recover", requireIt, requirePermission("systemRecovery.reset"), recoverRateLimit, users.recoverSystem);

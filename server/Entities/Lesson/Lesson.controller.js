@@ -2,7 +2,7 @@ const { LessonModelDef } = require("./Lesson.model");
 const { logWithSource } = require("../../middleware/logger");
 const { audit } = require("../../utils/audit");
 const { UserModelDef } = require("../User/User.model");
-const { isSystemTz } = require("../../utils/permissions");
+const { isSystemTz, isHiddenUser } = require("../../utils/permissions");
 const { StudentModelDef } = require("../Student/Student.model");
 const { SportLessonModelDef } = require("../Sport/SportLesson.model");
 const { conflictsInRoom9 } = require("../../utils/lessonConflict");
@@ -97,7 +97,7 @@ const OBJECT_ID = /^[0-9a-fA-F]{24}$/;
 async function namesSystemAccount(ids) {
   for (const id of ids.filter((value) => value && OBJECT_ID.test(String(value)))) {
     const found = await UserModelDef.get({ _id: String(id) }, "active");
-    if ((found?.result || []).some((user) => isSystemTz(user.tz))) return true;
+    if ((found?.result || []).some((user) => isHiddenUser(user))) return true;
   }
   return false;
 }

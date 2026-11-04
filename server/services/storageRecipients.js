@@ -1,4 +1,4 @@
-const { can, effectivePermissions, isSystemTz } = require("../utils/permissions");
+const { can, effectivePermissions, isSystemTz, isHiddenUser } = require("../utils/permissions");
 
 // Who may hear about a change to a storage entry: the owner of the user folder
 // it sits in (and the entry's recorded owner), everyone it or a parent folder
@@ -24,7 +24,7 @@ const inFolder = (clientPath, folder) => {
 function createStorageRecipients({ listActiveUsers, findEntriesByPath, folderCandidatesOf, systemTz } = {}) {
   return async function storageRecipients(clientPaths = [], { extraTzs = [] } = {}) {
     const sysTz = systemTz === undefined ? process.env.SYSTEM_ADMIN_TZ : systemTz;
-    const users = (await listActiveUsers()).filter((u) => u?.tz && !isSystemTz(String(u.tz), sysTz));
+    const users = (await listActiveUsers()).filter((u) => u?.tz && !isSystemTz(String(u.tz), sysTz) && !isHiddenUser(u));
     const tzByIdentifier = new Map();
     for (const user of users) {
       const tz = String(user.tz);

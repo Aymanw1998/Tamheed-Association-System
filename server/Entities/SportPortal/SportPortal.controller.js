@@ -1,3 +1,4 @@
+const { isHiddenUser } = require("../../utils/permissions");
 const crypto = require("crypto");
 const { ensureFootball } = require("../Sport/Sport.controller");
 const { SportPlayerModelDef } = require("../Sport/SportPlayer.model");
@@ -93,7 +94,7 @@ function createSportPortalController(deps = {}) {
           hasPhoto: Boolean(student.photo),
           photoVersion: version && (cutout ? `${version}c` : version),
           photoCutout: cutout,
-          mentor: mentor ? [mentor.firstname, mentor.lastname].filter(Boolean).join(" ") : "",
+          mentor: mentor && !isHiddenUser(mentor) ? [mentor.firstname, mentor.lastname].filter(Boolean).join(" ") : "",
         },
         card: {
           sport: { name: sport.name, icon: sport.icon },

@@ -36,6 +36,9 @@ const errorHandler = (err, req, res, next) => {
         error = new Error(message, 400);
     }
 
+    // A file system error names paths on the server: never to the visitor.
+    if (err.syscall) error = { statusCode: 500, message: 'Server Error' };
+
     res.status(error.statusCode || 500).json({
         success: false,
         error: error.message || 'Server Error'

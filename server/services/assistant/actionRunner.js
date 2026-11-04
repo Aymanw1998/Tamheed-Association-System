@@ -43,7 +43,7 @@
 // date/severity/role; never a name a registrant typed), never text
 // the model wrote (a title, a body, a note), so the model cannot plant
 // "system" text through its own proposal.
-const { can, isSystemTz, normalizeRole } = require("../../utils/permissions");
+const { can, isSystemTz, normalizeRole, isHiddenUser } = require("../../utils/permissions");
 const { createStudentScope } = require("../../utils/studentScope");
 const { OBJECT_ID_RE, jerusalemDate, fullName, rows, clip } = require("./tools/_shared");
 const { sheetVersion } = require("../../utils/attendanceMarks");
@@ -262,7 +262,7 @@ const TYPES = {
       if (!role) return err("INVALID_INPUT", "unknown role");
       const user = await env.controllers.user.getUserInRoomByTz(p.tz, "waiting");
       // Exact ID number only (the lookup also matches _id); never the system account.
-      if (!user || String(user.tz) !== p.tz || isSystemTz(user.tz, env.systemTz)) return NOT_FOUND;
+      if (!user || String(user.tz) !== p.tz || isSystemTz(user.tz, env.systemTz) || isHiddenUser(user)) return NOT_FOUND;
       // The approval rule (changeRoom): a first role below the approver's own.
       if (!env.controllers.user.canApproveAs(actor, user, role)) return FORBIDDEN;
       const name = fullName(user) || "?";

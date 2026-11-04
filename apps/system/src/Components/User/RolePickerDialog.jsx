@@ -1,14 +1,14 @@
 import React, { useCallback, useState } from "react";
 import "../Provides/ConfirmContext.css";
 import { useI18n } from "../../i18n/I18nContext";
-import { getStoredRole, isStoredSystem } from "../../utils/session";
+import { getStoredRole, isStoredAdminPowers, isStoredSystem } from "../../utils/session";
 import { assignableRoles, ROLE_LABEL_KEY } from "../../utils/roles";
 import { fillText } from "../../utils/vehicleDisplay";
 
 // Roles the signed-in user may give: strictly below his own role, every role
-// for the system account. Hides UI only; the server decides.
+// for the system account and an administrator with the powers. Hides UI only; the server decides.
 export const viewerAssignableRoles = () =>
-  assignableRoles({ role: getStoredRole(), isSystem: isStoredSystem() });
+  assignableRoles({ role: getStoredRole(), isSystem: isStoredSystem(), adminPowers: isStoredAdminPowers() });
 
 // Asks which role a user gets on approval (see viewerAssignableRoles).
 function RolePickerDialog({ user, onClose }) {

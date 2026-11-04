@@ -174,8 +174,12 @@ test("viewPassword is refused to everyday actors: no everyday actor holds users.
   assert.equal(can(actorFor({ tz: "000000026", roles: [] }, { isSystem: true }), "users.passwords"), false);
   const source = fs.readFileSync(path.join(__dirname, "../Entities/User/User.route.js"), "utf8")
     .split("\n").filter((line) => !line.trim().startsWith("//")).join("\n");
-  for (const gone of ["viewPassword", "/permissions", "/unlock", "/system/recover"]) {
+  for (const gone of ["viewPassword", "/unlock", "/system/recover"]) {
     assert.ok(!source.includes(gone), `${gone} is not mounted in the everyday router`);
+  }
+  // Permissions in the everyday router only behind IT's switch (owner, 2026-11-04).
+  for (const line of source.split(String.fromCharCode(10)).filter((l) => l.includes("/permissions") && l.includes("router."))) {
+    assert.ok(line.includes("adminPowersGate"), line);
   }
   // The handlers stay exported for the IT router.
   const { controller } = loadController(createUsers());

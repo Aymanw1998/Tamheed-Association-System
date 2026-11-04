@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import {
-  deleteUser, endSession, errorText, getPassword, getSessions, getUser, moveUser, resetPassword, setRole, unlockUser,
-} from "../api";
+  deleteUser, endSession, errorText, getPassword, getSessions, getUser, moveUser, resetPassword, setRole, unlockUser, setRequestAlerts } from "../api";
 import { Link, navigate } from "../router.jsx";
 import { ROLES, ROOMS, accountText, fillText, roleLabel } from "../strings";
 import Avatar from "../ui/Avatar.jsx";
@@ -63,6 +62,8 @@ export default function UserPage({ tz }) {
     return res;
   };
 
+  const toggleRequestAlerts = (event) => run(() => setRequestAlerts(tz, event.target.checked), "تم الحفظ", loadUser);
+
   const saveRole = () => run(() => setRole(tz, role), "تم تغيير الدور", loadUser);
   const viewPassword = async () => {
     const res = await run(() => getPassword(tz));
@@ -117,6 +118,14 @@ export default function UserPage({ tz }) {
           </select>
           <button type="button" className="primary" onClick={saveRole} disabled={!role || role === current}>حفظ الدور</button>
         </div>
+      </div>
+
+      <div className="card">
+        <h2>طلبات الانضمام</h2>
+        <label className="check">
+          <input name="requestAlerts" type="checkbox" checked={user.receivesRequestAlerts === true} onChange={toggleRequestAlerts} />
+          يتلقى تنبيهات طلبات الانضمام الجديدة (لمن يملك صلاحية الموافقة)
+        </label>
       </div>
 
       <div className="card">

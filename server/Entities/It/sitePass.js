@@ -5,7 +5,7 @@
 const crypto = require("crypto");
 const { SitePassModelDef } = require("./SitePass.model");
 const { sha256 } = require("../../utils/jwt");
-const { isSystemTz, resolveRole } = require("../../utils/permissions");
+const { isSystemTz } = require("../../utils/permissions");
 const { mayUseIt, itSecret } = require("../../middleware/requireIt");
 const { audit: defaultAudit } = require("../../utils/audit");
 const { logWithSource } = require("../../middleware/logger");
@@ -70,9 +70,9 @@ function createSitePasses(deps = {}) {
     { module: "it", action, targetType: "user", targetId: tz },
   );
 
-  // Both sides (IT-site design): IT, not blocked, and an everyday role. The
-  // system account holds no everyday role, so it gets no pass either way.
-  const hasBothSides = (user, isSystem) => mayUseIt(user, isSystem) && Boolean(resolveRole(user));
+  // IT and not blocked: System is open to him with or without an everyday role
+  // (owner, 2026-11-04), the system account included.
+  const hasBothSides = (user, isSystem) => mayUseIt(user, isSystem);
 
   // POST /api/auth/it-pass (everyday requireAuth + loadActor): only a user
   // with both sides.

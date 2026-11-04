@@ -4318,3 +4318,46 @@ button stays hidden, as the owner's commits intended.
 `AppChrome.test.js` 2/2 in each. Full `npm run verify` not run. Not deployed.
 
 **Codex review:** pending. **Status:** uncommitted.
+
+### Feature: administrator powers, hidden IT users, System passkeys (2026-11-04)
+
+**Change:** Owner's design, `docs/superpowers/specs/2026-11-04-admin-powers-hidden-it-design.md`,
+plan `docs/superpowers/plans/2026-11-04-admin-powers-hidden-it.md`. (1) While IT's
+switch is on, administrators add administrators and change permissions of those below
+them (`permissionRules.js`, `AdminPowers.controller.js`, `PermissionsTab.jsx` restored).
+(2) An IT user with no role acts in System as «النظام» and is missing from everyday
+lists (`isHiddenIt`, `isHiddenUser`, `hiddenFrom`); the audit row keeps `realActor`.
+(3) System sign-in: passkey for everyone (`User.passkey.js`), email code after the
+password for hidden IT users and the system account (`SystemCode.auth.js`). Also
+fixed `it-auth.test.js`, whose fixed clock had started failing on master.
+
+**Test:** new `admin-powers`, `admin-powers-route`, `request-alerts`, `hidden-it`,
+`hidden-it-sweep`, `system-code`, `system-passkey`; additions across
+`user-permissions-api`, `site-pass`, client suites.
+
+**Verification:** see the owner's report. A real passkey, email delivery and moving
+between installed apps need a phone and the server. Needs `SYSTEM_HOST` on deploy.
+
+**Codex review:** pending. **Status:** uncommitted.
+
+**Independent review (Claude subagent, not Codex), 2026-11-04:** 3 critical and 6 important findings fixed with failing tests first: a forced password change no longer yields a session for hidden IT users or the system account; a session counts for them only with the `strong` claim from the code, passkey or IT pass (older ones get 401 TOKEN_STALE, so they sign in once after deploy); locks and stamps name «النظام»; Sport and IT-site edits no longer show the real name; System passkeys end on sign-out-everywhere, password reset, recovery, IT block and removal; forgot-password with no email answers generically; the form asks only for the short field list when editing. Open: a storage folder from a role once held still carries the ID number in its path.
+
+### Follow-up: items left open after that review (2026-11-04)
+
+**Change:** Owner asked to finish them. A hidden person's folder is left out of an administrator's storage listing (`utils/hiddenFolders.js`); a user route's lock check reports no holder for him; notices reach the browser without `readBy`/`readTimes`; the assistant blanks his ID number in any string; an administrator cannot read a peer's permissions; `login-code` needs a signed ticket from the password step, so nobody without the password can use up the tries or lock the account; the admin-powers switch is off if it cannot be read at start. `deploy/update.sh` builds aside and swaps only after all three succeeded; `middleware/err.js` keeps file system paths from visitors. Left as is: creating a user with a hidden person's ID number still answers "exists", since the same ID number cannot be registered twice.
+
+**Test:** `server/test/open-items.test.js`, additions in `user-permissions-api.test.js`, `LoginPage.code.test.js`.
+
+**Verification:** see the owner's report. `deploy/update.sh` passed `bash -n` and one aside build of `apps/system`; it has not run on a server.
+
+**Codex review:** pending. **Status:** uncommitted.
+
+### Follow-up: update.sh stops and says where (2026-11-04)
+
+**Change:** Owner: any failure in any step stops the update completely and reports where. `deploy/update.sh`: an `ERR` trap reports the server, part (Code, Server, System, Sport, IT), in English,, step, command, exit code and the sites' state. After the restart it checks the process, `/api/health` and each site. A failed portrait-model download now also stops the update (it used to continue).
+
+**Test:** `server/test/deploy-update.test.js` runs the real script with stand-in commands and fails each step in turn.
+
+**Verification:** see the owner's report. Not run on a real server.
+
+**Codex review:** pending. **Status:** uncommitted.

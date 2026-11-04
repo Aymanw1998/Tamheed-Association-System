@@ -94,7 +94,7 @@ test("creating, editing and deleting a user are recorded with before/after", asy
   const { controller, audit } = loadController(users);
 
   const created = res();
-  await controller.postU(req({ body: { tz: "200000008", password: "placeholder", firstname: "Sam", lastname: "Example" } }), created);
+  await controller.postU(req({ body: { tz: "200000008", password: "placeholder", firstname: "Sam", lastname: "Example", phone: "050", role: "مرشد" } }), created);
   assert.equal(created.statusCode, 201);
   const id = "200000008"; // users are tracked by ID number: their _id changes when they move rooms
   const [made] = audit.find({ module: "users", action: "create", targetId: id });
@@ -206,7 +206,7 @@ test("a new user whose ID number was taken a moment ago gets 409 TZ_EXISTS", asy
   users.create = async () => { throw duplicateKey(); };
   const { controller, audit } = loadController(users);
   const created = res();
-  await controller.postU(req({ body: { tz: "200000016", password: "placeholder", firstname: "Sam", lastname: "Example" } }), created);
+  await controller.postU(req({ body: { tz: "200000016", password: "placeholder", firstname: "Sam", lastname: "Example", phone: "050", role: "مرشد" } }), created);
   assert.equal(created.statusCode, 409);
   assert.equal(created.body.code, "TZ_EXISTS");
   assert.equal(audit.calls.length, 0);

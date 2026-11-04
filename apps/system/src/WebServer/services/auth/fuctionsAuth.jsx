@@ -1,3 +1,4 @@
+import { requestPasskeySignIn } from "../../../utils/passkey";
 // AUTH services
 import axios from "axios";
 import api, { API_BASE_URL, publicApi, refreshSession, setAuthTokens } from "../api";
@@ -42,6 +43,7 @@ export async function login(tz, password) {
   if (![200, 201].includes(status) || !data?.ok) {
     throw new Error(data?.message || "تعذّر تسجيل الدخول");
   }
+  if (data.codeRequired === true) return { codeRequired: true, tz: data.tz, ticket: data.ticket };
   if (isForcedChange(data)) {
     return { mustChangePassword: true, accessToken: data.accessToken };
   }
@@ -83,7 +85,7 @@ export async function getMe() {
     // Keep what the server granted next to the user so the app can hide UI.
     // isSystem is sent only for the system account.
     return data.user
-      ? { ...data.user, role: data.role, permissions: data.permissions, isSystem: data.isSystem === true }
+      ? { ...data.user, role: data.role, permissions: data.permissions, isSystem: data.isSystem === true, adminPowers: data.adminPowers === true }
       : data.user;
   } catch (err) {
     return null;
@@ -189,6 +191,31 @@ export async function resetPassword(tz, otp, newPassword, confirmPassword) {
 // POST /auth/login-pass: the IT site's «النظام» button hands over a one-time
 // pass instead of the password. The answer is a password login's, so the
 // session starts the same way. A bad, spent or expired pass throws (401).
+// A fingerprint or face instead of the ID number and password.
+export async function loginWithPasskey() {
+  const r = await requestPasskeySignIn();
+  if (!r.ok) return r;
+  if (isForcedChange(r.data)) return { ok: true, mustChangePassword: true, accessToken: r.data.accessToken };
+  const { accessToken, expirationTime, user } = r.data;
+  markSignedIn(user, accessToken, expirationTime);
+  return { ok: true, user };
+}
+
+// The second step: the code from the email.
+export async function loginWithCode(tz, code, ticket) {
+  const { data, status } = await api.post("/auth/login-code", { tz, code, ticket }, { withCredentials: true });
+  if (![200, 201].includes(status) || !data?.ok) {
+    throw new Error(data?.message || "تعذّر تسجيل الدخول");
+  }
+  if (isForcedChange(data)) {
+    return { mustChangePassword: true, accessToken: data.accessToken };
+  }
+
+  const { accessToken, expirationTime, user } = data;
+  markSignedIn(user, accessToken, expirationTime);
+  return user;
+}
+
 export async function loginWithPass(pass) {
   const { data, status } = await api.post("/auth/login-pass", { pass }, { withCredentials: true });
   if (![200, 201].includes(status) || !data?.ok) {

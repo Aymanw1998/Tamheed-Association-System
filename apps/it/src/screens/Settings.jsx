@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { errorText, forceReleaseLock, getPushSettings, recoverSystem, setPushEnabled } from "../api";
+import { errorText, forceReleaseLock, getAdminPowers, getPushSettings, recoverSystem, setAdminPowers, setPushEnabled } from "../api";
 import ConfirmDialog from "../ui/ConfirmDialog.jsx";
 import { toast } from "../ui/toast.jsx";
 
@@ -14,6 +14,8 @@ const RECOVER_ERRORS = {
 export default function Settings() {
   const [push, setPush] = useState(null);
   const [pushError, setPushError] = useState("");
+  const [powers, setPowers] = useState(null);
+  const [powersError, setPowersError] = useState("");
   const [lockKey, setLockKey] = useState("");
   const [asking, setAsking] = useState(false);
 
@@ -23,8 +25,21 @@ export default function Settings() {
       if (!live) return;
       if (res.ok) setPush(Boolean(res.data.enabled)); else setPushError(errorText(res));
     });
+    getAdminPowers().then((res) => {
+      if (!live) return;
+      if (res.ok) setPowers(Boolean(res.data.enabled)); else setPowersError(errorText(res));
+    });
     return () => { live = false; };
   }, []);
+
+  const togglePowers = async (event) => {
+    setPowersError("");
+    const res = await setAdminPowers(event.target.checked);
+    if (!res.ok) return setPowersError(errorText(res));
+    setPowers(Boolean(res.data.enabled));
+    toast.success(res.data.enabled ? "تم تفعيل صلاحيات المديرين" : "تم إيقاف صلاحيات المديرين");
+    return undefined;
+  };
 
   const togglePush = async (event) => {
     const enabled = event.target.checked;
@@ -63,6 +78,17 @@ export default function Settings() {
           </label>
         )}
         {pushError && <p role="alert" className="error">{pushError}</p>}
+      </div>
+
+      <div className="card">
+        <h2>صلاحيات المديرين</h2>
+        {powers === null && !powersError ? <p>…</p> : (
+          <label className="check">
+            <input name="adminPowers" type="checkbox" checked={Boolean(powers)} disabled={powers === null} onChange={togglePowers} />
+            يضيف المديرون مديرين آخرين ويغيّرون صلاحيات من هم دونهم
+          </label>
+        )}
+        {powersError && <p role="alert" className="error">{powersError}</p>}
       </div>
 
       <div className="card">

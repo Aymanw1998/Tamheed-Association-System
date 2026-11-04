@@ -54,6 +54,12 @@ const ALERT_TEMPLATES = {
     he: (p) => `משתמש חדש ממתין לאישור: ${nameOf(p)}`,
     en: (p) => `New user waiting for approval: ${nameOf(p)}`,
   },
+  admin_added: {
+    severity: "important",
+    ar: (p) => `تمت إضافة مدير جديد: ${nameOf(p)}`,
+    he: (p) => `נוסף מנהל חדש: ${nameOf(p)}`,
+    en: (p) => `New administrator added: ${nameOf(p)}`,
+  },
   account_locked: {
     severity: "critical",
     ar: (p) => `تم حظر حساب ${nameOf(p)} بعد محاولات دخول فاشلة`,

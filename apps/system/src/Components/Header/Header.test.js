@@ -149,8 +149,6 @@ test("«قسم الIT» is in the name menu for an IT user with an everyday role
 test.each([
   ["not IT", { ...IT_USER, isIT: false }],
   ["IT but blocked", { ...IT_USER, itBlockedAt: "2026-11-01T10:00:00Z" }],
-  ["IT with no everyday role", { ...IT_USER, roles: [], role: undefined }],
-  ["the system account", { ...IT_USER, isSystem: true }],
 ])("no «قسم الIT» for %s", async (_, user) => {
   getMe.mockResolvedValue(user);
   await mount();
@@ -192,4 +190,14 @@ describe("opening the IT site", () => {
     await openMenu();
     expect(itButton()).toBeUndefined();
   });
+});
+
+test.each([
+  ["IT with no everyday role", { ...IT_USER, roles: [], role: undefined }],
+  ["the system account", { firstname: "ا", lastname: "ن", isSystem: true }],
+])("«قسم الIT» is offered to %s", async (_, user) => {
+  getMe.mockResolvedValue(user);
+  await mount();
+  await openMenu();
+  expect(itButton()).toBeDefined();
 });

@@ -13,7 +13,6 @@ import NewBadge from "../../tours/NewBadge";
 import { InstallAppButton } from "../../pwa/InstallApp";
 import { toast } from "../../ALERT/SystemToasts";
 import { itUrlWithPass, openSite } from "../../utils/siteLink";
-import { resolveRole } from "../../utils/roles";
 
 const hasAnyRole = (roles, allowedRoles) => allowedRoles.some((role) => roles.includes(role));
 
@@ -176,9 +175,9 @@ export default function Header() {
     navigate(to);
   };
 
-  // Only an IT user who is not blocked and has an everyday role (the system
-  // account has none); the server decides when the button is pressed.
-  const showIt = !itRefused && user?.isIT === true && !user.itBlockedAt && user.isSystem !== true && Boolean(resolveRole(user));
+  // An IT user who is not blocked, the system account included; the server
+  // decides when the button is pressed.
+  const showIt = !itRefused && (user?.isSystem === true || (user?.isIT === true && !user.itBlockedAt));
   const accountMenu = (
     <AccountMenu
       showIt={showIt}

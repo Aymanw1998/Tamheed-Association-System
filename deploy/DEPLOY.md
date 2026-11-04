@@ -115,6 +115,7 @@ sudo certbot --nginx -d הדומיין-שלך
 אתר הספורט יושב על אותו שרת, ומזוהה לפי שם המארח (`sport.<domain>`).
 
 1. **DNS:** מוסיפים רשומת `A` בשם `sport` שמצביעה על כתובת ה-IP של השרת (כמו הדומיין הראשי).
+2. **System (passkeys):** add `SYSTEM_HOST=system.<domain>` to `server/config/.env`, or fingerprint and face sign-in does not work on the main site.
 2. **nginx:** בהתקנה חדשה, הבלוק השני בקובץ `deploy/nginx-tamheed.conf` כבר נכלל בסעיף 6, וה-`sed` שם מחליף גם את `sport.example.org` לשם הדומיין שלך. בשרת שכבר פועל, certbot כבר שינה את הקובץ `/etc/nginx/sites-available/tamheed`, ולכן אין להעתיק אותו מחדש. מוסיפים לסוף הקובץ רק את בלוק ה-`server` של הספורט (עם שם הדומיין שלך), ואז מריצים `sudo nginx -t && sudo systemctl reload nginx`. אחר כך מפיקים תעודה:
    ```bash
    sudo certbot --nginx -d sport.<domain>
@@ -234,6 +235,7 @@ cd /var/www/tamheed && bash deploy/update.sh
 - **ההורדה:** `deploy/update.sh` מוריד את המודל פעם אחת ל-`server/models/modnet.onnx` ובודק את טביעת ה-SHA-256 שלו. בעדכונים הבאים הוא רואה שהקובץ קיים ולא מוריד שוב.
 - **שחקנים קיימים:** שחקנים שנוספו לפני העדכון מקבלים תמונת שחקן ברקע, בפעם הראשונה שפותחים את רשימת השחקנים או שהתלמיד נכנס לאתר הספורט.
 - **בלי המודל:** אם ההורדה נכשלה, האתר ממשיך לעבוד ומציג את התמונה הרגילה, וב-`pm2 logs tamheed` מופיעה פעם אחת השורה `portrait model missing`. אפשר להוריד שוב:
+- **בעדכון:** אם ההורדה נכשלת, `deploy/update.sh` נעצר ומודיע על כך, כמו בכל שלב אחר. כשהמודל כבר קיים, אין הורדה.
 
 ```bash
 cd /var/www/tamheed && node server/scripts/fetchPortraitModel.js && pm2 reload tamheed

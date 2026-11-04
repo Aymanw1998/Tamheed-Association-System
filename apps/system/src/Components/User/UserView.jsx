@@ -6,9 +6,10 @@ import { ask } from "../Provides/confirmBus";
 import { toast } from "../../ALERT/SystemToasts";
 import { getAll as getStudents } from "../../WebServer/services/student/functionsStudent.jsx";
 import { getAllLesson } from "../../WebServer/services/lesson/functionsLesson.jsx";
-import { canStored, getStoredViewer } from "../../utils/session";
+import { canStored, getStoredViewer, isStoredAdminPowers } from "../../utils/session";
 import { guideStudents, guideLessons, lessonWhen } from "../../utils/recordLinks";
 import { canEditDetailsClient, canManageTargetClient, resolveRole, roleLabel } from "../../utils/roles";
+import PermissionsTab from "./PermissionsTab.jsx";
 import { useI18n } from "../../i18n/I18nContext";
 import RecordPage from "../UI/RecordPage";
 import { DetailGroup, LinkList } from "../UI/RecordParts";
@@ -76,10 +77,19 @@ export default function UserView() {
 
   if (!user) return <RecordPage loading={!error} error={error} />;
 
-  // Permissions are an IT matter, on the IT site (owner, 2026-11-03).
+  // An administrator with the powers changes those below him (owner,
+  // 2026-11-04); active accounts only. The tab disables what he may not grant,
+  // and the server checks every change again.
+  const permissionsEditable = isStoredAdminPowers() && (user.room || "active") === "active"
+    && canManageTargetClient(getStoredViewer(), user);
   const tabs = [
     { id: "personal", label: t("record.personal"), content: <DetailGroup rows={userDetails(user)} /> },
     ...guideTabs({ ...theirs, studentsLabel: t("record.theirStudents"), lessonsLabel: t("record.theirLessons") }),
+    permissionsEditable && {
+      id: "permissions",
+      label: t("perms.tab"),
+      content: <div data-tour="user-permissions"><PermissionsTab tz={user.tz} onSaved={() => {}} /></div>,
+    },
   ].filter(Boolean);
   // Like the users list: only an active account the viewer may manage (lower
   // rank, not themself); the form edits active accounts only.

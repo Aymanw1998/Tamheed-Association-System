@@ -82,7 +82,7 @@ function createToursRouter({ requireAuth, loadActor, requirePermission, users, a
     if (!tz || isSystemTz(tz)) return res.status(404).json(NOT_FOUND);
     const found = await users.get({ tz }, "active");
     const target = found?.success && Array.isArray(found.result) ? found.result[0] : null;
-    if (!target || isSystemTz(target.tz)) return res.status(404).json(NOT_FOUND);
+    if (!target || require("../utils/permissions").isHiddenUser(target)) return res.status(404).json(NOT_FOUND);
     if (!canManageTarget(req.actor, target)) return res.status(403).json(FORBIDDEN);
 
     if (!(await save(target.tz, { tours: {} }))) return res.status(404).json(NOT_FOUND);

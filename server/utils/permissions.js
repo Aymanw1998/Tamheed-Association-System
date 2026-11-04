@@ -151,6 +151,14 @@ const isItUser = (user) => user?.isIT === true;
 // An IT user the system account has not blocked.
 const isUnblockedItUser = (user) => isItUser(user) && !user.itBlockedAt;
 
+// An IT user with no everyday role works in System unseen, as «النظام» (owner,
+// 2026-11-04). Computed from the record each time: a role or a block ends it.
+function isHiddenIt(user, { systemTz } = {}) {
+  return isUnblockedItUser(user) && !resolveRole(user) && !isSystemTz(user?.tz, systemTz);
+}
+// Whoever everyday lists and pickers leave out.
+const isHiddenUser = (user) => Boolean(user) && (isSystemTz(user.tz) || (isItUser(user) && !resolveRole(user)));
+
 // The IT set: empty unless the user is IT and not blocked. The system
 // account always has it and is never blocked.
 function itPermissions(user, { isSystem = false } = {}) {
@@ -195,15 +203,23 @@ function isSystemTz(tz, systemTz = process.env.SYSTEM_ADMIN_TZ) {
 // "system" / "النظام", never its tz, id or personal name.
 const SYSTEM_ACTOR = "system";
 const SYSTEM_ACTOR_NAME = "النظام";
-const actorRef = (actor, ref) => (actor?.isSystem ? SYSTEM_ACTOR : ref);
+// On the IT site isSystem stays false for an IT user with no role, who is still
+// unseen in everything System shows.
+const isUnseenActor = (actor) => Boolean(actor?.isSystem) || (actor?.it === true && isItUser(actor.user) && !resolveRole(actor.user));
+const actorRef = (actor, ref) => (isUnseenActor(actor) ? SYSTEM_ACTOR : ref);
 const actorDisplayName = (actor) =>
-  (actor?.isSystem ? SYSTEM_ACTOR_NAME : actor?.name || String(actor?.tz || ""));
+  (isUnseenActor(actor) ? SYSTEM_ACTOR_NAME : actor?.name || String(actor?.tz || ""));
+// Who a lock names to others.
+const lockOwner = (actor) => (isUnseenActor(actor)
+  ? { name: SYSTEM_ACTOR_NAME, tz: "" }
+  : { name: actor?.name, tz: actor?.tz });
 
 module.exports = {
   SYSTEM_ACTOR,
   SYSTEM_ACTOR_NAME,
   actorRef,
   actorDisplayName,
+  lockOwner,
   PERMISSION_TREE,
   ROLE_RANK,
   ROLE_DEFAULTS,
@@ -220,6 +236,8 @@ module.exports = {
   effectivePermissions,
   isItUser,
   isUnblockedItUser,
+  isHiddenIt,
+  isHiddenUser,
   itPermissions,
   hasRealEmail,
   can,

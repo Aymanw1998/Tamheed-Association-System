@@ -25,7 +25,7 @@ module.exports = {
     };
     if (!Object.values(kinds).some(Boolean)) return FORBIDDEN;
     const out = {};
-    const notSystem = (u) => !ctx.isSystemTz(u.tz);
+    const notSystem = (u) => !ctx.isSystemTz(u.tz) && !ctx.isHiddenUser?.(u);
 
     if (kinds.parentRegistrations) {
       const found = rows(await ctx.models.Student.get({ source: PARENT_SOURCE, status: WAITING }));

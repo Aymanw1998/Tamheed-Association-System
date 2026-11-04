@@ -14,7 +14,9 @@ const ALERT_ACCESS = {
   parent_registration: has("students.viewAll", "students.edit"),
   user_waiting: has("users.approve"),
   account_locked: itOrSystem,
-  system_login_failures: isSystem,
+  admin_added: itOrSystem,
+  // 000000000's own alert: not an IT user with no role, who also acts as the system.
+  system_login_failures: (actor) => isSystem(actor) && actor.hidden !== true,
   vehicle_license: has("vehicles.view"),
   vehicle_test: has("vehicles.view"),
   vehicle_insurance: has("vehicles.view"),

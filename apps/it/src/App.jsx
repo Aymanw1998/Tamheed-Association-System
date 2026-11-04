@@ -40,7 +40,7 @@ export default function App() {
   const [me, setMe] = useState(null);
   // A pass from the everyday app is taken off the address before anything else.
   const [pass] = useState(takePassFromAddress);
-  // «النظام» only for a user who has an everyday role too (/me says).
+  // «النظام» for every IT user: with no everyday role he works there unseen.
   const [hasSystem, setHasSystem] = useState(false);
   const path = usePath();
 
@@ -49,7 +49,7 @@ export default function App() {
     if (res.status === 401) return setState("out");
     if (!res.ok) return setState("error");
     setMe(res.data);
-    setHasSystem(res.data.hasEverydayRole === true);
+    setHasSystem(true);
     setState("in");
   }, []);
 

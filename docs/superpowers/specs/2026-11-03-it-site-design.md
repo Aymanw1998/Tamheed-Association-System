@@ -2,6 +2,11 @@
 
 Status: draft for the owner's approval, 2026-11-03.
 
+> **Changed by `2026-11-04-admin-powers-hidden-it-design.md`:** while IT's switch
+> is on, administrators add administrators and change the permissions of those
+> below them; an IT user with no role works in System unseen as «النظام»; System
+> has passkeys and an email code. Where this document says otherwise, that one wins.
+
 ## Intent
 
 Today one hidden account, the system account (`SYSTEM_ADMIN_TZ`, 000000000),

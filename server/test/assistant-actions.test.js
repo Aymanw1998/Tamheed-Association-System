@@ -10,6 +10,8 @@ const fs = require("node:fs");
 const http = require("node:http");
 const path = require("node:path");
 const test = require("node:test");
+// These tests hold the rules with IT's switch off; admin-powers.test.js holds it on.
+require("../utils/permissionRules").setAdminPowers(false);
 const vm = require("node:vm");
 const express = require("express");
 

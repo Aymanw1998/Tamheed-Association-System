@@ -1,3 +1,4 @@
+import PasskeyOffer from "../Auth/PasskeyOffer.jsx";
 // src/Components/Routes/CRoutes.jsx
 import React from 'react';
 import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
@@ -67,6 +68,7 @@ function ProtectedLayout() {
       <GuidanceProviders>
         <TrainingBanner />
         <Header key={`header-${epoch}-${access}`} />
+        <PasskeyOffer />
         {notice}
         <Outlet key={`outlet-${epoch}-${applied}`} />
         {/* {canStored("ai.use") && <FloatingAIButton key={`ai-${epoch}`} />} */}

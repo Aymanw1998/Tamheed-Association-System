@@ -91,3 +91,9 @@ test("canEditDetailsClient: an IT user below the viewer's rank, details only; ne
   expect(canEditDetailsClient({ id: "g1", tz: "2", role: "مرشد" }, itGuide)).toBe(false);
   expect(canEditDetailsClient(admin, { _id: "g2", tz: "4", role: "مرشد" })).toBe(true);
 });
+
+test("assignableRoles: an administrator with the powers also gives ادارة; nobody else does", () => {
+  expect(assignableRoles({ role: "ادارة", adminPowers: true })).toEqual(ROLES);
+  expect(assignableRoles({ role: "ادارة", adminPowers: false })).toEqual(["مرشد", "مساعد"]);
+  expect(assignableRoles({ role: "مرشد", adminPowers: true })).toEqual(["مساعد"]);
+});

@@ -38,6 +38,7 @@ function load(file, dependencies) {
     module, Date, Set, Map, Number, String, Array, console: { log() {}, warn() {}, error() {} },
     require(name) {
       if (!Object.hasOwn(dependencies, name) && Object.hasOwn(live.deps, name)) return live.deps[name];
+      if (name === "../../utils/permissions" && !Object.hasOwn(dependencies, name)) return require("../utils/permissions");
       assert.ok(Object.hasOwn(dependencies, name), `Unexpected dependency: ${name}`);
       return dependencies[name];
     },

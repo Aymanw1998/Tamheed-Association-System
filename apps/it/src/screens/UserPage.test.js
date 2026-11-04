@@ -16,6 +16,7 @@ jest.mock("../api", () => ({
   endSession: jest.fn(),
   moveUser: jest.fn(),
   deleteUser: jest.fn(),
+  setRequestAlerts: jest.fn(),
 }));
 
 jest.mock("../router.jsx", () => ({ ...jest.requireActual("../router.jsx"), navigate: jest.fn() }));
@@ -152,4 +153,16 @@ test("UserPage: deleting asks first, then goes back to the list", async () => {
   expect(api.deleteUser).toHaveBeenCalledWith(TZ, "active");
   expect(router.navigate).toHaveBeenCalledWith("/");
   expect(toastText()).toContain("تم حذف المستخدم");
+});
+
+test("UserPage: marks who hears about new requests", async () => {
+  api.setRequestAlerts.mockImplementation(() => ok({ enabled: true }));
+  const c = await mount(<UserPage tz={TZ} />);
+  const box = c.querySelector('input[name="requestAlerts"]');
+  expect(box.checked).toBe(false);
+  api.getUser.mockImplementation(() => ok({ user: { ...USER, receivesRequestAlerts: true }, room: "active" }));
+  await click(box);
+  await flush();
+  expect(api.setRequestAlerts).toHaveBeenCalledWith(TZ, true);
+  expect(c.querySelector('input[name="requestAlerts"]').checked).toBe(true);
 });

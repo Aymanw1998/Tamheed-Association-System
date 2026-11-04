@@ -1,6 +1,6 @@
 const { NoticeModelDef } = require("./Notice.model.js");
 const { UserModelDef } = require("../User/User.model.js");
-const { can, effectivePermissions, isSystemTz, actorRef } = require("../../utils/permissions.js");
+const { can, effectivePermissions, isSystemTz, actorRef, isHiddenUser } = require("../../utils/permissions.js");
 
 const OBJECT_ID = /^[a-f0-9]{24}$/i;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -41,7 +41,8 @@ async function existingDedupKeys(prefix = "vehicle:") {
   return new Set((found?.result || []).map((row) => row.dedupKey));
 }
 
-const withRead = (row, userId) => ({ ...row, read: (row.readBy || []).includes(String(userId)) });
+// Who read a notice stays here: the browser needs only "did I".
+const withRead = ({ readBy, readTimes, ...row }, userId) => ({ ...row, read: (readBy || []).includes(String(userId)) });
 
 // Past its end date a notice is gone at once, before the TTL index deletes it.
 async function activeNotices(now = new Date()) {
@@ -113,7 +114,7 @@ async function listNoticeRecipients() {
   const found = await UserModelDef.get({}, "active");
   return (found?.result || [])
     // The system account is never a recipient.
-    .filter((user) => !isSystemTz(user.tz))
+    .filter((user) => !isHiddenUser(user))
     .filter((user) => can(effectivePermissions(user), "notices.view"))
     .map((user) => ({
       id: String(user._id),

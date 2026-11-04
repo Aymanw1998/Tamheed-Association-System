@@ -175,7 +175,7 @@ test("a password-change token is refused on GET /api/students and accepted on ch
     uploadPhoto: ok("up"), deletePhoto: ok("dp"),
   });
   const authRouter = mountRouter("../Entities/User/Auth.route", "../Entities/User/User.controller", {
-    register: ok("register"), login: ok("login"), refreshAccessToken: ok("refresh"), logout: ok("logout"),
+    register: ok("register"), login: ok("login"), loginWithCode: ok("loginWithCode"), refreshAccessToken: ok("refresh"), logout: ok("logout"),
     getme: ok("me"), forgotPassword: ok("forgot"), resetPassword: ok("reset"), changePassword: ok("change"),
     listMyDevices: ok("devices"), signOutDevice: ok("device-out"), signOutOtherDevices: ok("others-out"),
   });
@@ -202,7 +202,7 @@ test("a password-change token is refused on GET /api/students and accepted on ch
     assert.deepEqual(hits, ["change"]);
 
     // A normal token still reaches the students route.
-    const normal = signAccessToken({ id: "sys-id", tz: SYSTEM_TZ, roles: [] });
+    const normal = signAccessToken({ id: "sys-id", tz: SYSTEM_TZ, roles: [], strong: true });
     const res = await fetch(`${base}/api/students`, { headers: { authorization: `Bearer ${normal}` } });
     assert.equal(res.status, 200);
   } finally {
@@ -219,6 +219,7 @@ function loadController({ users = [], env = {}, sendThrows = false, sendHangs = 
   const store = users.map((u) => ({ ...u }));
   const find = (tz) => store.find((u) => String(u.tz) === String(tz));
   const dependencies = {
+    "./SystemCode.auth": { systemCode: () => ({ send: async () => "sent", check: async () => "ok", ticketFor: () => "t", ticketOk: () => true }) },
     bcryptjs: require("bcryptjs"),
     jsonwebtoken: { verify: () => refreshPayload },
     path,
@@ -345,13 +346,13 @@ async function login(ctx, tz, password) {
   return res;
 }
 
-test("system login with a changed password is a normal login with a refresh cookie, however old", async () => {
+test("system login with a changed password goes on to the email code, however old", async () => {
   const ctx = loadController({ users: [systemUser({ passwordChangedAt: new Date(Date.now() - 400 * DAY) })] });
   const res = await login(ctx, SYSTEM_TZ, "current-pass-1");
   assert.equal(res.statusCode, 200);
   assert.equal(res.body.mustChangePassword, undefined);
-  assert.equal(ctx.calls.cookies, 1);
-  assert.equal(ctx.calls.tokens[0].payload.scope, undefined);
+  assert.equal(res.body.codeRequired, true);
+  assert.equal(ctx.calls.cookies, 0);
 });
 
 test("system login with its first (or a recovered) password gets only a password-change token and no refresh cookie", async () => {

@@ -6,6 +6,8 @@ const live = require("./helpers/liveStubs");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
+// These tests hold the rules with IT's switch off; admin-powers.test.js holds it on.
+require("../utils/permissionRules").setAdminPowers(false);
 const vm = require("node:vm");
 const { actorFor } = require("./helpers/actors");
 const { auditStub } = require("./helpers/auditStub");
@@ -180,7 +182,9 @@ test("GET permissions returns role, grants, revokes, effective, defaults and gra
 });
 
 test("GET permissions answers grantable [] when the actor cannot change this target", async () => {
-  const { res: out, body } = await call("getPermissions", MANAGER, { params: { tz: MANAGER_2.tz } });
+  const otherIt = { ...GUIDE_USER, _id: "t2", tz: "it-2", isIT: true };
+  const users = createUsers({ active: [...seed().active, otherIt] });
+  const { res: out, body } = await call("getPermissions", IT_USER, { params: { tz: otherIt.tz } }, users);
   assert.equal(out.statusCode, 200);
   assert.deepEqual(body.grantable, []);
   // Outside the IT site nobody changes permissions, however high his rank.
@@ -487,7 +491,7 @@ test("putU of a missing user writes nothing", async () => {
 
 test("postU: a default admin (users.create) may create a user with a role below his own", async () => {
   const { res: out, users } = await call("postU", ADMIN_USER, {
-    body: { tz: NEW_TZ, password: "placeholder", roles: [GUIDE] },
+    body: { tz: NEW_TZ, password: "placeholder", firstname: "N", lastname: "S", phone: "050", roles: [GUIDE] },
   });
   assert.equal(out.statusCode, 201);
   const saved = stored(users, NEW_TZ);
@@ -497,7 +501,7 @@ test("postU: a default admin (users.create) may create a user with a role below 
 
 test("postU: a default admin may not create another admin (403)", async () => {
   const { res: out, users } = await call("postU", ADMIN_USER, {
-    body: { tz: NEW_TZ, password: "placeholder", roles: [ADMIN] },
+    body: { tz: NEW_TZ, password: "placeholder", firstname: "N", lastname: "S", phone: "050", roles: [ADMIN] },
   });
   assert.equal(out.statusCode, 403);
   assert.equal(stored(users, NEW_TZ), undefined);
@@ -506,7 +510,7 @@ test("postU: a default admin may not create another admin (403)", async () => {
 test("postU: a creator must hold every default leaf of the role he gives", async () => {
   const guideCreator = { ...GUIDE_USER, permissionGrants: ["users.create"] };
   const { res: out } = await call("postU", guideCreator, {
-    body: { tz: NEW_TZ, password: "placeholder", roles: [HELPER] },
+    body: { tz: NEW_TZ, password: "placeholder", firstname: "N", lastname: "S", phone: "050", roles: [HELPER] },
   }, createUsers({ active: [SYS, guideCreator] }));
   // GUIDE_USER has ai.use revoked, and ai.use is a helper default.
   assert.equal(out.statusCode, 403);
@@ -514,7 +518,7 @@ test("postU: a creator must hold every default leaf of the role he gives", async
 
 test("postU by a role manager stores the single role and no grants", async () => {
   const { res: out, users } = await call("postU", MANAGER, {
-    body: { tz: NEW_TZ, password: "placeholder", role: GUIDE,
+    body: { tz: NEW_TZ, password: "placeholder", firstname: "N", lastname: "S", phone: "050", role: GUIDE,
       permissionGrants: ["ai"], permissionRevokes: ["ai"], vehiclePermissions: ["view"] },
   });
   assert.equal(out.statusCode, 201);
@@ -528,18 +532,17 @@ test("postU by a role manager stores the single role and no grants", async () =>
 
 test("postU with an unknown role is 400 UNKNOWN_ROLE", async () => {
   const { res: out, body } = await call("postU", MANAGER, {
-    body: { tz: NEW_TZ, password: "placeholder", role: "nonsense" },
+    body: { tz: NEW_TZ, password: "placeholder", firstname: "N", lastname: "S", phone: "050", role: "nonsense" },
   });
   assert.equal(out.statusCode, 400);
   assert.deepEqual(body, { ok: false, code: "UNKNOWN_ROLE" });
 });
 
-test("postU without a role creates a user with no role", async () => {
-  const { res: out, users } = await call("postU", ADMIN_USER, { body: { tz: NEW_TZ, password: "placeholder" } });
-  assert.equal(out.statusCode, 201);
-  const saved = stored(users, NEW_TZ);
-  assert.equal(saved.role, null);
-  assert.deepEqual(saved.roles, []);
+test("postU without a role is refused", async () => {
+  const { res: out, body, users } = await call("postU", ADMIN_USER, { body: { tz: NEW_TZ, password: "placeholder", firstname: "N", lastname: "S", phone: "050" } });
+  assert.equal(out.statusCode, 400);
+  assert.equal(body.code, "MISSING_FIELDS");
+  assert.equal(stored(users, NEW_TZ), undefined);
 });
 
 /* ================= register ================= */
@@ -586,7 +589,7 @@ test("register ignores storageFolder and googleDrive from the body", async () =>
 
 test("postU ignores storageFolder and googleDrive from the body", async () => {
   const { res: out, users } = await call("postU", ADMIN_USER, { body: {
-    tz: NEW_TZ, password: "placeholder", storageFolder: "someone-elses-folder", googleDrive: { refreshToken: "x" },
+    tz: NEW_TZ, password: "placeholder", firstname: "N", lastname: "S", phone: "050", role: GUIDE, storageFolder: "someone-elses-folder", googleDrive: { refreshToken: "x" },
   } });
   assert.equal(out.statusCode, 201);
   const saved = stored(users, NEW_TZ);
@@ -744,7 +747,7 @@ test("postU refuses a padded system tz, and the stored tz is never padded", asyn
   assert.equal(users.rooms.active.length, 1);
   assert.equal(users.rooms.waiting.length, 0);
 
-  const ok = await call("postU", ADMIN_USER, { body: { tz: ` ${NEW_TZ} `, password: "placeholder" } });
+  const ok = await call("postU", ADMIN_USER, { body: { tz: ` ${NEW_TZ} `, password: "placeholder", firstname: "N", lastname: "S", phone: "050", role: GUIDE } });
   assert.equal(ok.res.statusCode, 201);
   assert.ok(stored(ok.users, NEW_TZ), "stored under the trimmed tz");
 });
@@ -927,7 +930,7 @@ test("records written by PUT role, PUT permissions and register need no migratio
 test("postU: a guide with users.create may create a helper (role below his own, defaults held)", async () => {
   const guideCreator = { ...GUIDE_USER, permissionGrants: ["users.create"], permissionRevokes: [] };
   const { res: out, users } = await call("postU", guideCreator, {
-    body: { tz: NEW_TZ, password: "placeholder", roles: [HELPER] },
+    body: { tz: NEW_TZ, password: "placeholder", firstname: "N", lastname: "S", phone: "050", roles: [HELPER] },
   }, createUsers({ active: [SYS, guideCreator] }));
   assert.equal(out.statusCode, 201);
   assert.equal(stored(users, NEW_TZ).role, HELPER);
@@ -1187,4 +1190,314 @@ test("putU stamps updatedAt, announces the change, and refuses a stale baseVersi
   assert.equal(ok.res.statusCode, 200);
   assert.ok(new Date(stored(users, GUIDE_USER.tz).updatedAt).getTime() > Date.parse("2026-10-25T10:00:00.000Z"));
   assert.deepEqual(live.changes, [["user", GUIDE_USER._id]]);
+});
+
+/* ================= Administrators with IT's switch on (owner, 2026-11-04) ================= */
+const { setAdminPowers } = require("../utils/permissionRules");
+const withPowers = (name, fn) => test(name, async () => {
+  setAdminPowers(true);
+  try { await fn(); } finally { setAdminPowers(false); }
+});
+const NEW_STAFF = { tz: NEW_TZ, password: "placeholder", firstname: "New", lastname: "Staff", phone: "0500000000" };
+
+withPowers("postU: an administrator adds an administrator, who must change the password", async () => {
+  const { res: out, users } = await call("postU", ADMIN_USER, { body: { ...NEW_STAFF, role: ADMIN } });
+  assert.equal(out.statusCode, 201);
+  const saved = stored(users, NEW_TZ);
+  assert.equal(saved.role, ADMIN);
+  assert.equal(saved.mustChangePassword, true);
+});
+
+withPowers("postU: a missing name, phone or role is 400 MISSING_FIELDS, and email is optional", async () => {
+  for (const missing of ["firstname", "lastname", "phone", "role"]) {
+    const body = { ...NEW_STAFF, role: GUIDE };
+    delete body[missing];
+    const { res: out, body: answer, users } = await call("postU", ADMIN_USER, { body });
+    assert.equal(out.statusCode, 400, missing);
+    assert.equal(answer.code, "MISSING_FIELDS");
+    assert.equal(stored(users, NEW_TZ), undefined);
+  }
+  const { res: out } = await call("postU", ADMIN_USER, { body: { ...NEW_STAFF, role: GUIDE, email: "" } });
+  assert.equal(out.statusCode, 201);
+});
+
+withPowers("changeRoom: an administrator approves a waiting user as an administrator", async () => {
+  const users = createUsers({ ...seed(), waiting: [{ _id: "w1", tz: NEW_TZ, firstname: "W", lastname: "Aiting" }] });
+  const { res: out } = await call("changeRoom", ADMIN_USER, {
+    params: { tz: NEW_TZ }, body: { from: "waiting", to: "active", role: ADMIN },
+  }, users);
+  assert.equal(out.statusCode, 200);
+  assert.equal(stored(users, NEW_TZ).role, ADMIN);
+});
+
+withPowers("a rejected request is deleted, and the same person may register again", async () => {
+  const users = createUsers({ ...seed(), waiting: [{ _id: "w1", tz: NEW_TZ, firstname: "W", lastname: "Aiting" }] });
+  const { res: out } = await call("deleteU", ADMIN_USER, { params: { tz: NEW_TZ, from: "waiting" } }, users);
+  assert.equal(out.statusCode, 200);
+  assert.equal(stored(users, NEW_TZ, "waiting"), undefined);
+  const again = await call("register", ADMIN_USER, { body: { ...NEW_STAFF } }, users);
+  assert.equal(again.res.statusCode, 200);
+  assert.ok(stored(users, NEW_TZ, "waiting"));
+});
+
+withPowers("permissions: an administrator reads and changes those below him, not his peers", async () => {
+  const read = await call("getPermissions", ADMIN_USER, { params: { tz: GUIDE_USER.tz } });
+  assert.ok(read.body.grantable.includes("students.edit"));
+  assert.ok(read.body.grantable.includes("sports.coach"));
+  assert.ok(!read.body.grantable.includes("audit.view"));
+  const saved = await call("putPermissions", ADMIN_USER, {
+    params: { tz: GUIDE_USER.tz }, body: { grants: ["vehicles.view", "students.edit"], revokes: ["ai.use"] },
+  });
+  assert.equal(saved.res.statusCode, 200);
+  const peer = await call("putPermissions", ADMIN_USER, { params: { tz: ADMIN_2.tz }, body: { grants: ["students.edit"] } });
+  assert.equal(peer.res.statusCode, 403);
+  const it = await call("getPermissions", ADMIN_USER, { params: { tz: ADMIN_2.tz } });
+  assert.equal(it.res.statusCode, 403);
+});
+
+/* ================= Alerts about staff (owner, 2026-11-04) ================= */
+const alertsCalls = () => {
+  const calls = [];
+  const adminAdded = async (user) => { calls.push(user.tz); return { created: [] }; };
+  return { calls, adminAdded };
+};
+const withAlerts = (alerts) => {
+  const { noopAlertDeps } = require("./helpers/alertEventsStub");
+  const key = Object.keys(noopAlertDeps).find((k) => k.endsWith("alertEvents"));
+  return { [key]: { ...noopAlertDeps[key], adminAdded: alerts.adminAdded } };
+};
+
+const settle = () => new Promise((resolve) => setImmediate(resolve));
+
+withPowers("adding an administrator alerts IT; adding a guide does not", async () => {
+  const alerts = alertsCalls();
+  await call("postU", ADMIN_USER, { body: { ...NEW_STAFF, role: GUIDE } }, createUsers(seed()), withAlerts(alerts));
+  await settle();
+  assert.deepEqual(alerts.calls, []);
+  await call("postU", ADMIN_USER, { body: { ...NEW_STAFF, role: ADMIN } }, createUsers(seed()), withAlerts(alerts));
+  await settle();
+  assert.deepEqual(alerts.calls, [NEW_TZ]);
+});
+
+withPowers("approving or promoting to ادارة alerts IT", async () => {
+  const alerts = alertsCalls();
+  const users = createUsers({ ...seed(), waiting: [{ _id: "w1", tz: NEW_TZ, firstname: "W", lastname: "A" }] });
+  await call("changeRoom", ADMIN_USER, { params: { tz: NEW_TZ }, body: { from: "waiting", to: "active", role: ADMIN } }, users, withAlerts(alerts));
+  await call("putRole", ADMIN_USER, { params: { tz: GUIDE_USER.tz }, body: { role: ADMIN } }, createUsers(seed()), withAlerts(alerts));
+  await settle();
+  assert.deepEqual(alerts.calls, [NEW_TZ, GUIDE_USER.tz]);
+});
+
+test("PUT /:tz never stores receivesRequestAlerts; the IT route does", async () => {
+  const everyday = await call("putU", ADMIN_USER, { params: { tz: GUIDE_USER.tz }, body: { firstname: "X", receivesRequestAlerts: true } });
+  assert.equal(stored(everyday.users, GUIDE_USER.tz).receivesRequestAlerts, undefined);
+  const { res: out, users } = await call("putRequestAlerts", IT_USER, { params: { tz: ADMIN_USER.tz }, body: { enabled: true } });
+  assert.equal(out.statusCode, 200);
+  assert.equal(stored(users, ADMIN_USER.tz).receivesRequestAlerts, true);
+  const bad = await call("putRequestAlerts", IT_USER, { params: { tz: ADMIN_USER.tz }, body: { enabled: "x" } });
+  assert.equal(bad.res.statusCode, 400);
+});
+
+/* ================= Hidden IT users (owner, 2026-11-04) ================= */
+const HIDDEN_IT = { _id: "x1", tz: "100000009", firstname: "Real", lastname: "Person", isIT: true };
+const withHidden = () => createUsers({ active: [...seed().active, HIDDEN_IT] });
+
+test("an administrator never finds a hidden IT user", async () => {
+  const users = withHidden();
+  const list = await call("getAllU", ADMIN_USER, { query: {} }, users);
+  assert.ok(!JSON.stringify(list.body).includes(HIDDEN_IT.tz));
+  for (const [handler, extra] of [
+    ["getOneU", { params: { tz: HIDDEN_IT.tz } }],
+    ["putU", { params: { tz: HIDDEN_IT.tz }, body: { firstname: "X" } }],
+    ["deleteU", { params: { tz: HIDDEN_IT.tz, from: "active" } }],
+    ["putRole", { params: { tz: HIDDEN_IT.tz }, body: { role: GUIDE } }],
+    ["getPermissions", { params: { tz: HIDDEN_IT.tz } }],
+    ["changeRoom", { params: { tz: HIDDEN_IT.tz }, body: { from: "active", to: "noActive" } }],
+  ]) {
+    const { res: out } = await call(handler, ADMIN_USER, extra, users);
+    assert.equal(out.statusCode, 404, handler);
+  }
+  assert.ok(stored(users, HIDDEN_IT.tz));
+});
+
+test("the IT site still finds him, and he finds himself", async () => {
+  const users = withHidden();
+  const it = await call("getOneU", IT_USER, { params: { tz: HIDDEN_IT.tz } }, users);
+  assert.equal(it.res.statusCode, 200);
+  const self = await call("getOneU", HIDDEN_IT, { user: { tz: HIDDEN_IT.tz }, actor: { id: "x1", tz: HIDDEN_IT.tz, isSystem: true, hidden: true, permissions: new Set(["users.view"]), user: HIDDEN_IT }, params: { tz: HIDDEN_IT.tz } }, users);
+  assert.equal(self.res.statusCode, 200);
+});
+
+/* ================= The email code in System's sign-in (owner, 2026-11-04) ================= */
+const codeStub = (result = {}) => {
+  const calls = { sent: [], checked: [] };
+  return {
+    calls,
+    deps: { "./SystemCode.auth": { systemCode: () => ({
+      send: async (user) => { calls.sent.push(user.tz); return result.send || "sent"; },
+      check: async (tz, code) => { calls.checked.push([tz, code]); return result.check || "ok"; },
+      ticketFor: (tz) => `ticket-${tz}`,
+      ticketOk: (tz, ticket) => ticket === `ticket-${tz}`,
+    }) } },
+  };
+};
+const IT_NO_ROLE = { ...HIDDEN_IT, password: "enc:right", email: "it@example.com" };
+const signInDeps = {
+  "../../utils/jwt": { signAccessToken: () => "access", signRefreshToken: () => "refresh", computeAccessExpMsFromNow: () => 1 },
+};
+
+test("a wrong password answers the same for an IT user and anyone else, and sends no code", async () => {
+  const stub = codeStub();
+  const users = createUsers({ active: [IT_NO_ROLE, { ...GUIDE_USER, password: "enc:right" }] });
+  const it = await call("login", ADMIN_USER, { body: { tz: IT_NO_ROLE.tz, password: "wrong" } }, users, stub.deps);
+  const guide = await call("login", ADMIN_USER, { body: { tz: GUIDE_USER.tz, password: "wrong" } }, users, stub.deps);
+  assert.equal(it.res.statusCode, guide.res.statusCode);
+  assert.deepEqual(it.body, guide.body);
+  assert.deepEqual(stub.calls.sent, []);
+});
+
+test("the right password of a hidden IT user asks for the code, with no session", async () => {
+  const stub = codeStub();
+  const users = createUsers({ active: [IT_NO_ROLE] });
+  const { res: out, body } = await call("login", ADMIN_USER, { body: { tz: IT_NO_ROLE.tz, password: "right" } }, users, stub.deps);
+  assert.equal(out.statusCode, 200);
+  assert.deepEqual(body, { ok: true, codeRequired: true, tz: IT_NO_ROLE.tz, ticket: `ticket-${IT_NO_ROLE.tz}` });
+  assert.deepEqual(stub.calls.sent, [IT_NO_ROLE.tz]);
+});
+
+test("no real email: told to use a passkey, no session and no lock", async () => {
+  const stub = codeStub({ send: "NO_EMAIL" });
+  const users = createUsers({ active: [IT_NO_ROLE] });
+  const { res: out, body } = await call("login", ADMIN_USER, { body: { tz: IT_NO_ROLE.tz, password: "right" } }, users, stub.deps);
+  assert.equal(out.statusCode, 403);
+  assert.equal(body.code, "USE_PASSKEY");
+  assert.ok(body.message);
+  assert.ok(!stored(users, IT_NO_ROLE.tz).lockedAt);
+});
+
+test("a blocked IT user with no role is refused only after the right password", async () => {
+  const stub = codeStub();
+  const users = createUsers({ active: [{ ...IT_NO_ROLE, itBlockedAt: new Date() }] });
+  const wrong = await call("login", ADMIN_USER, { body: { tz: IT_NO_ROLE.tz, password: "wrong" } }, users, stub.deps);
+  assert.equal(wrong.body.code, "INVALID_CREDENTIALS");
+  const right = await call("login", ADMIN_USER, { body: { tz: IT_NO_ROLE.tz, password: "right" } }, users, stub.deps);
+  assert.equal(right.res.statusCode, 403);
+  assert.equal(right.body.code, "IT_BLOCKED");
+  assert.deepEqual(stub.calls.sent, []);
+});
+
+test("the system account also needs the code; a forced password change comes first", async () => {
+  const stub = codeStub();
+  const sys = { ...SYS, password: "enc:right", passwordChangedAt: new Date() };
+  const asked = await call("login", ADMIN_USER, { body: { tz: SYSTEM_TZ, password: "right" } }, createUsers({ active: [sys] }), stub.deps);
+  assert.equal(asked.body.codeRequired, true);
+  stub.calls.sent.length = 0;
+  const forced = await call("login", ADMIN_USER, { body: { tz: IT_NO_ROLE.tz, password: "right" } },
+    createUsers({ active: [{ ...IT_NO_ROLE, mustChangePassword: true }] }), { ...stub.deps, ...signInDeps });
+  assert.equal(forced.body.mustChangePassword, true);
+  assert.deepEqual(stub.calls.sent, []);
+});
+
+test("an ordinary user never gets a code step", async () => {
+  const stub = codeStub();
+  const users = createUsers({ active: [{ ...GUIDE_USER, password: "enc:right" }] });
+  const { body } = await call("login", ADMIN_USER, { body: { tz: GUIDE_USER.tz, password: "right" } }, users, { ...stub.deps, ...signInDeps });
+  assert.notEqual(body.codeRequired, true);
+  assert.deepEqual(stub.calls.sent, []);
+});
+
+test("login-code: a bad or wrong code is refused, a wrong one counts as a failed sign-in", async () => {
+  const users = createUsers({ active: [IT_NO_ROLE] });
+  const bad = await call("loginWithCode", ADMIN_USER, { body: { tz: IT_NO_ROLE.tz, code: "1", ticket: `ticket-${IT_NO_ROLE.tz}` } }, users, codeStub({ check: "bad" }).deps);
+  assert.equal(bad.res.statusCode, 400);
+  assert.equal(bad.body.code, "BAD_CODE");
+  const wrong = await call("loginWithCode", ADMIN_USER, { body: { tz: IT_NO_ROLE.tz, code: "000000", ticket: `ticket-${IT_NO_ROLE.tz}` } }, users, codeStub({ check: "wrong" }).deps);
+  assert.equal(wrong.res.statusCode, 400);
+  assert.equal(stored(users, IT_NO_ROLE.tz).failedLoginCount, 1);
+});
+
+test("login-code refuses an account that has since been blocked or locked", async () => {
+  const stub = codeStub();
+  const blocked = await call("loginWithCode", ADMIN_USER, { body: { tz: IT_NO_ROLE.tz, code: "123456", ticket: `ticket-${IT_NO_ROLE.tz}` } },
+    createUsers({ active: [{ ...IT_NO_ROLE, itBlockedAt: new Date() }] }), stub.deps);
+  assert.equal(blocked.res.statusCode, 400);
+  const locked = await call("loginWithCode", ADMIN_USER, { body: { tz: IT_NO_ROLE.tz, code: "123456", ticket: `ticket-${IT_NO_ROLE.tz}` } },
+    createUsers({ active: [{ ...IT_NO_ROLE, lockedAt: new Date() }] }), stub.deps);
+  assert.equal(locked.res.statusCode, 400);
+});
+
+/* ================= From the review (2026-11-04) ================= */
+test("a forced password change ends without a session for a hidden IT user, who then needs the code", async () => {
+  const users = createUsers({ active: [{ ...IT_NO_ROLE, mustChangePassword: true }] });
+  const actor = { id: "x1", tz: IT_NO_ROLE.tz, name: "Real Person", isSystem: true, hidden: true, permissions: new Set(), user: users.rooms.active[0] };
+  const { res: out, body } = await call("changePassword", IT_NO_ROLE, {
+    user: { tz: IT_NO_ROLE.tz, scope: "password-change" }, actor, body: { currentPassword: "right", newPassword: "another-pass-1" },
+  }, users, signInDeps);
+  assert.equal(out.statusCode, 200);
+  assert.deepEqual(body, { ok: true, signInAgain: true });
+  assert.equal(stored(users, IT_NO_ROLE.tz).mustChangePassword, false);
+});
+
+test("forgot-password on an account with no real email answers like any other and sends nothing", async () => {
+  let sent = 0;
+  const email = { sendResetPasswordEmail: async () => { sent += 1; throw new Error("No recipients defined"); } };
+  for (const address of ["", "test@test.com"]) {
+    const users = createUsers({ active: [{ ...GUIDE_USER, email: address }] });
+    const { res: out, body } = await call("forgotPassword", ADMIN_USER, { body: { tz: GUIDE_USER.tz } }, users, { "../../utils/sendEmail": email });
+    assert.equal(out.statusCode, 200);
+    assert.equal(body.ok, true);
+  }
+  assert.equal(sent, 0);
+});
+
+test("login-code answers a locked hidden user like anyone else, so it reveals nothing", async () => {
+  const stub = codeStub();
+  const hidden = await call("loginWithCode", ADMIN_USER, { body: { tz: IT_NO_ROLE.tz, code: "123456", ticket: `ticket-${IT_NO_ROLE.tz}` } },
+    createUsers({ active: [{ ...IT_NO_ROLE, lockedAt: new Date() }] }), stub.deps);
+  const ordinary = await call("loginWithCode", ADMIN_USER, { body: { tz: GUIDE_USER.tz, code: "123456" } },
+    createUsers({ active: [{ ...GUIDE_USER, lockedAt: new Date() }] }), stub.deps);
+  assert.equal(hidden.res.statusCode, ordinary.res.statusCode);
+  assert.deepEqual(hidden.body, ordinary.body);
+});
+
+test("a new IT user with no role gets no storage folder; a password reset and sign-out end System passkeys", async () => {
+  let folders = 0;
+  const storage = { "../Storage/Storage.controller": {
+    buildUserStorageFolder: (u = {}) => `users/${u.tz}`,
+    ensureUserStorageFolder: async () => { folders += 1; },
+    syncStorageViewPermissionsForUser: async () => {},
+  } };
+  await call("createItUser", IT_USER, { body: { tz: NEW_TZ, firstname: "N", lastname: "S", email: "n@example.com" } }, createUsers(seed()), storage);
+  assert.equal(folders, 0);
+
+  const users = createUsers({ active: [...seed().active, { ...GUIDE_USER, _id: "g9", tz: "guide-9", systemPasskeys: [{ id: "c" }] }] });
+  await call("signOutEverywhere", ADMIN_USER, { params: { tz: "guide-9" } }, users);
+  assert.deepEqual(stored(users, "guide-9").systemPasskeys, []);
+  const reset = createUsers({ active: [...seed().active, { ...GUIDE_USER, _id: "g9", tz: "guide-9", systemPasskeys: [{ id: "c" }] }] });
+  await call("resetUserPassword", ADMIN_USER, { params: { tz: "guide-9" }, body: { password: "new-pass-123" } }, reset);
+  assert.deepEqual(stored(reset, "guide-9").systemPasskeys, []);
+});
+
+/* ================= The items left open (2026-11-04) ================= */
+test("login-code without the password step's ticket checks nothing and counts nothing", async () => {
+  const stub = codeStub({ check: "wrong" });
+  const users = createUsers({ active: [IT_NO_ROLE] });
+  for (const ticket of [undefined, "forged", "ticket-100000017"]) {
+    const { res: out, body } = await call("loginWithCode", ADMIN_USER, { body: { tz: IT_NO_ROLE.tz, code: "000000", ticket } }, users, stub.deps);
+    assert.equal(out.statusCode, 400);
+    assert.equal(body.code, "BAD_CODE");
+  }
+  assert.deepEqual(stub.calls.checked, []);
+  assert.ok(!stored(users, IT_NO_ROLE.tz).failedLoginCount);
+});
+
+withPowers("an administrator cannot read the permissions of another administrator or an IT user", async () => {
+  const peer = await call("getPermissions", ADMIN_USER, { params: { tz: ADMIN_2.tz } });
+  assert.equal(peer.res.statusCode, 403);
+  assert.deepEqual(peer.body, FORBIDDEN);
+  const itGuide = { ...GUIDE_USER, _id: "t9", tz: "it-9", isIT: true };
+  const it = await call("getPermissions", ADMIN_USER, { params: { tz: itGuide.tz } }, createUsers({ active: [...seed().active, itGuide] }));
+  assert.equal(it.res.statusCode, 403);
+  const below = await call("getPermissions", ADMIN_USER, { params: { tz: GUIDE_USER.tz } });
+  assert.equal(below.res.statusCode, 200);
 });

@@ -56,6 +56,17 @@ export const rememberSessionUser = (user) => {
   // The server flags only the system account; anyone else clears the flag.
   if (user.isSystem === true) localStorage.setItem("isSystem", "1");
   else localStorage.removeItem("isSystem");
+  // Only /me sends it: a stored value survives the sign-in answer.
+  if (typeof user.adminPowers === "boolean") {
+    if (user.adminPowers) localStorage.setItem("adminPowers", "1");
+    else localStorage.removeItem("adminPowers");
+  }
+};
+
+// May this user add administrators and change permissions? Hides UI only.
+export const isStoredAdminPowers = () => {
+  if (typeof window === "undefined") return false;
+  return localStorage.getItem("adminPowers") === "1";
 };
 
 // Hides UI only (e.g. which roles to offer); the server checks every request.

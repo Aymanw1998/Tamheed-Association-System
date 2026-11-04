@@ -38,6 +38,8 @@ const {
   normalizeRole,
   resolveRole,
   hasRealEmail,
+  isHiddenIt,
+  isHiddenUser,
 } = require("../../utils/permissions");
 const {
   canManageTarget,
@@ -45,6 +47,7 @@ const {
   grantableBy,
   validatePermissionChange,
   canAssignRole,
+  isAdminWithPowers,
   canResetPassword,
   applyRoleChange,
 } = require("../../utils/permissionRules");
@@ -157,6 +160,10 @@ const invalid = (res, code) => res.status(400).json({ ok: false, code });
 
 // The system account is invisible to these endpoints: it answers as missing.
 const isSystemUser = (user) => Boolean(user) && isSystemTz(user.tz);
+// Who answers as missing here: the system account always; an IT user with no
+// role except on the IT site, and except to himself.
+const hiddenFrom = (req, user) => isSystemUser(user)
+  || (req.actor?.it !== true && isHiddenUser(user) && !isSelfTz(req, user.tz));
 
 // Who changed permissions last; the system account's tz is never stored.
 const permissionEditor = (actor) => actorRef(actor, String(actor?.tz || ""));
@@ -167,7 +174,7 @@ const SERVER_OWNED_FIELDS = [
   "role", "roles", "permissionGrants", "permissionRevokes", "vehiclePermissions",
   "permissionsUpdatedAt", "permissionsUpdatedBy",
   // IT membership is managed only on the IT site, never by an everyday edit.
-  "isIT", "itBlockedAt", "itSince", "itSignedOutAt",
+  "isIT", "itBlockedAt", "itSince", "itSignedOutAt", "receivesRequestAlerts", "systemPasskeys",
   // A user is never renamed, and the folder and Drive link are server-derived.
   "tz", "storageFolder", "googleDrive",
   "failedLoginCount", "lockedAt", "passwordChangedAt", "recoveredAt", "signedOutAt",
@@ -292,7 +299,7 @@ const staleResponse = (res) =>
 // A full session (access token + refresh cookie) for a user in the active room.
 async function issueSession(res, user, req) {
   const sid = newSessionId();
-  const claims = { id: user._id?.toString?.() || String(user._id || ""), tz: user.tz, roles: user.roles || [], room: "active", sid };
+  const claims = { id: user._id?.toString?.() || String(user._id || ""), tz: user.tz, roles: user.roles || [], room: "active", sid , ...(isHiddenUser(user) && { strong: true }) };
   const accessToken = signAccessToken(claims);
   const refreshToken = signRefreshToken(claims);
   await startSession(UserModelDef, user.tz, sha256(refreshToken), { sid, label: deviceLabel(req?.headers?.["user-agent"]) });
@@ -331,6 +338,7 @@ function sanitize(u) {
   delete o.seenReleases;
   // IT-site passkeys (Entities/It/It.passkey.js) never leave the server.
   delete o.itPasskeys;
+  delete o.systemPasskeys;
   return o;
 }
 
@@ -532,7 +540,7 @@ const getAllU = async (req, res) => {
       if (result?.success && Array.isArray(result.result)) {
         users = users.concat(
           // The system account is never listed.
-          result.result.filter((u) => !isSystemUser(u)).map((u) => ({
+          result.result.filter((u) => !hiddenFrom(req, u)).map((u) => ({
             ...sanitize(u),
             room,
           }))
@@ -569,7 +577,7 @@ const getOneU = async (req, res) => {
         .find(Boolean);
       if (found) {
         // The system account answers as missing to everyone but itself.
-        if (isSystemUser(found) && !isSelfTz(req, found.tz)) break;
+        if (hiddenFrom(req, found) && !isSelfTz(req, found.tz)) break;
         const user = sanitize(found);
         // Tours can only be reset on an active account, so only it gets the summary.
         if (
@@ -630,7 +638,7 @@ const postU = async (req, res) => {
     if (submitted.some((r) => !normalizeRole(r))) return invalid(res, "UNKNOWN_ROLE");
     const role = resolveRole({ roles: submitted });
     if (role && !canGiveFirstRole(req.actor, {}, role, "users.create")) return forbidden(res);
-    Object.assign(model, { role: role || null, roles: role ? [role] : [], permissionGrants: [], permissionRevokes: [] });
+    Object.assign(model, { role: role || null, roles: role ? [role] : [], permissionGrants: [], permissionRevokes: [], mustChangePassword: true });
 
     const room = req.body?.room && ROOMS.includes(req.body.room)
       ? req.body.room
@@ -652,8 +660,15 @@ const postU = async (req, res) => {
       });
     }
 
+    // What the form asks for. Email stays optional: without one, "forgot
+    // password" cannot reach the person and an administrator resets it.
+    if (!role || !String(model.firstname || "").trim() || !String(model.lastname || "").trim() || !String(model.phone || "").trim()) {
+      return invalid(res, "MISSING_FIELDS");
+    }
+
     const created = await UserModelDef.create(model, room);
     await recordUser(req, "create", null, { ...(created?.result || model), room });
+    if (role === "ادارة") raiseAlert("adminAdded", alertPerson(model));
     notifyChange("user", created?.result?._id);
     if (room === "active") {
       await safeEnsureStorageFolder(model);
@@ -728,7 +743,8 @@ const createItUser = async (req, res) => {
     const { password: _secret, ...shown } = model;
     await recordUser(req, "create", null, { ...(created?.result || shown), password: undefined, room: "active" });
     notifyChange("user", created?.result?._id);
-    await safeEnsureStorageFolder(model);
+    // No folder for one with no role: its name is his ID number.
+    if (resolveRole(model)) await safeEnsureStorageFolder(model);
 
     // Not awaited: SMTP must not delay or change the answer.
     Promise.resolve()
@@ -772,12 +788,12 @@ const putU = async (req, res) => {
       }
       // The system account's mail goes to SYSTEM_ADMIN_EMAIL only; its stored
       // email is not editable.
-      if (req.actor?.isSystem || isSystemTz(tz)) delete newData.email;
+      if ((req.actor?.isSystem && req.actor.hidden !== true) || isSystemTz(tz)) delete newData.email;
       existing = await getUserInRoomByTz(tz, room);
     } else {
       dropStorageUnlessAllowed(req, newData);
       existing = await getUserInRoomByTz(tz, room);
-      if (!existing || isSystemUser(existing)) return notFound(res);
+      if (!existing || hiddenFrom(req, existing)) return notFound(res);
       if (!canEditDetails(req.actor, existing)) return forbidden(res);
       // An IT user below the actor: his personal details only.
       if (!canManageTarget(req.actor, existing)) {
@@ -837,7 +853,7 @@ const updateStoragePermissions = async (req, res) => {
     };
 
     const existing = await getUserInRoomByTz(tz, "active");
-    if (!existing || isSystemUser(existing) || isSystemTz(tz)) return notFound(res);
+    if (!existing || hiddenFrom(req, existing) || isSystemTz(tz)) return notFound(res);
     if (!canManageTarget(req.actor, existing)) return forbidden(res);
 
     const stale = checkVersion(existing, req, sanitize);
@@ -886,7 +902,7 @@ const deleteU = async (req, res) => {
     }
 
     const existing = await getUserInRoomByTz(tz, room);
-    if (!existing || isSystemUser(existing)) return notFound(res);
+    if (!existing || hiddenFrom(req, existing)) return notFound(res);
     if (!canManageTarget(req.actor, existing)) return forbidden(res);
 
     const stale = checkVersion(existing, req, sanitize);
@@ -1006,6 +1022,7 @@ const finishSignIn = async (req, res, user, room, isSystem) => {
     roles: user.roles || [],
     room,
     sid,
+    ...(isHiddenUser(user) && { strong: true }),
   });
 
   const refreshToken = signRefreshToken({
@@ -1014,6 +1031,7 @@ const finishSignIn = async (req, res, user, room, isSystem) => {
     roles: user.roles || [],
     room,
     sid,
+    ...(isHiddenUser(user) && { strong: true }),
   });
   
   const normalizedStorageFolder = user.storageFolder || buildUserStorageFolder(user);
@@ -1034,13 +1052,14 @@ const finishSignIn = async (req, res, user, room, isSystem) => {
   // for it (owner, 2026-11-02: a slow storage service made every sign-in
   // slow). The folder and the shared-file permissions follow right after.
   const stored = { ...user, storageFolder: normalizedStorageFolder };
-  safeEnsureStorageFolder(stored).then(() => safeSyncStoragePermissions(stored));
+  // No folder for a hidden IT user: it would show his name.
+  if (!isHiddenIt(user)) safeEnsureStorageFolder(stored).then(() => safeSyncStoragePermissions(stored));
 
   return res.status(200).json({
     ok: true,
     accessToken,
     expirationTime: computeAccessExpMsFromNow(),
-    user: isSystem ? { ...sanitize(user), isSystem: true } : sanitize(user),
+    user: isHiddenUser(user) ? { ...sanitize(user), isSystem: true } : sanitize(user),
   });
 };
 
@@ -1054,6 +1073,45 @@ const signInWithoutPassword = async (req, res, user, room = "active") => {
   } catch (error) {
     logWithSource("User.signInWithoutPassword", error);
     return res.status(500).json({ code: "SERVER_ERROR", message: error.message });
+  }
+};
+
+/* ================= the email code (hidden IT users, the system account) ================= */
+const IT_BLOCKED_BODY = { code: "IT_BLOCKED", message: "حساب IT هذا محظور. للتفاصيل، تواصل مع مسؤول النظام." };
+const USE_PASSKEY_BODY = { code: "USE_PASSKEY", message: "لا يوجد بريد إلكتروني صالح لهذا الحساب. سجّل الدخول بالبصمة أو الوجه." };
+const TOO_MANY_CODES_BODY = { code: "TOO_MANY_CODES", message: "محاولات كثيرة. حاول مرة أخرى بعد قليل." };
+const BAD_CODE_BODY = { code: "BAD_CODE", message: "الرمز غير صحيح أو انتهت صلاحيته" };
+// Loaded on use: a sign-in without a code step never needs it.
+const signInCode = () => require("./SystemCode.auth").systemCode();
+const isBlockedHidden = (user) => !isSystemUser(user) && !isHiddenIt(user);
+
+const askSignInCode = async (res, user, isSystem) => {
+  if (!isSystem && isBlockedHidden(user)) return res.status(403).json(IT_BLOCKED_BODY);
+  const outcome = await signInCode().send(user);
+  if (outcome === "NO_EMAIL") return res.status(403).json(USE_PASSKEY_BODY);
+  if (outcome !== "sent") return res.status(429).json(TOO_MANY_CODES_BODY);
+  // The ticket proves the password step: without it nobody can use up the tries.
+  return res.status(200).json({ ok: true, codeRequired: true, tz: user.tz, ticket: signInCode().ticketFor(user.tz) });
+};
+
+// POST /api/auth/login-code { tz, code }: the second step, then the sign-in answer.
+const loginWithCode = async (req, res) => {
+  try {
+    const tz = String(req.body?.tz ?? "").trim();
+    if (!tz || !signInCode().ticketOk(tz, req.body?.ticket)) return res.status(400).json(BAD_CODE_BODY);
+    const user = await getUserInRoomByTz(tz, "active");
+    if (!user || !isHiddenUser(user)) return res.status(400).json(BAD_CODE_BODY);
+    const isSystem = isSystemTz(user.tz, process.env.SYSTEM_ADMIN_TZ);
+    // The same answer as for anyone else: this route reveals nothing.
+    if (isLocked(user, { isSystem }) || (!isSystem && isBlockedHidden(user))) return res.status(400).json(BAD_CODE_BODY);
+
+    const outcome = await signInCode().check(tz, req.body?.code);
+    if (outcome === "wrong") await countFailedSignIn(req, user, "active", isSystem);
+    if (outcome !== "ok") return res.status(400).json(BAD_CODE_BODY);
+    return await finishSignIn(req, res, user, "active", isSystem);
+  } catch (error) {
+    logWithSource("User.loginWithCode", error);
+    return res.status(500).json({ code: "SERVER_ERROR", message: "حدث خطأ في الخادم." });
   }
 };
 
@@ -1119,6 +1177,11 @@ const login = async (req, res) => {
       });
     }
 
+    // A password alone does not open System for those who work there unseen.
+    if ((isSystem || isHiddenUser(user)) && !mustChangePassword(user, { isSystem, now: new Date() })) {
+      return await askSignInCode(res, user, isSystem);
+    }
+
     return await finishSignIn(req, res, user, room, isSystem);
   } catch (error) {
     logWithSource("User.login", error);
@@ -1181,6 +1244,7 @@ const refreshAccessToken = async (req, res) => {
       roles: user.roles || [],
       room: "active",
       sid,
+      ...(payload.strong === true && { strong: true }),
     });
 
     // Only this device's token is replaced.
@@ -1194,6 +1258,7 @@ const refreshAccessToken = async (req, res) => {
       roles: user.roles || [],
       room: "active",
       sid,
+      ...(payload.strong === true && { strong: true }),
     });
 
     return res.status(200).json({
@@ -1255,9 +1320,13 @@ const getme = async (req, res) => {
     }
     if (tokenIsStale(req.user?.iat, user) || sessionEnded(req.user?.sid, user)) return staleResponse(res);
 
+    // A session from a password alone does not count for those who work unseen.
+    if (isHiddenUser(user) && !req.user?.scope && req.user?.strong !== true) return staleResponse(res);
+
     // The app shows and hides features from these; the server still checks
     // every request.
-    const isSystem = isSystemTz(user.tz);
+    const hidden = isHiddenIt(user);
+    const isSystem = isSystemTz(user.tz) || hidden;
     const permissions = effectivePermissions(user, { isSystem });
     return res.status(200).json({
       ok: true,
@@ -1266,6 +1335,7 @@ const getme = async (req, res) => {
       permissions: [...permissions],
       // Present only for the system account, so the app can offer every role.
       ...(isSystem && { isSystem: true }),
+      adminPowers: hidden || isAdminWithPowers(user),
     });
   } catch (err) {
     logWithSource("User.getme", err);
@@ -1308,6 +1378,7 @@ const forgotPassword = async (req, res) => {
         return res.json({ ok: true, message: genericMsg });
       }
     }
+    if (!to || (!isSystemTz(user.tz, process.env.SYSTEM_ADMIN_TZ) && !hasRealEmail(user))) return res.json({ ok: true, message: genericMsg });
 
     const otp = generateOtp6();
 
@@ -1487,7 +1558,7 @@ const changeRoom = async (req, res) => {
     }
 
     const user = await getUserInRoomByTz(String(tz).trim(), from);
-    if (!user || isSystemUser(user)) {
+    if (!user || hiddenFrom(req, user)) {
       return res.status(404).json({
         ok: false,
         message: `User not found in ${from} room`,
@@ -1539,6 +1610,7 @@ const changeRoom = async (req, res) => {
     notifyChange("user", moved?.result?._id);
     // Moving a user into the active room is the approval.
     await recordUser(req, to === "active" ? "approve" : "update", before, { ...raw, room: to });
+    if (roleChange && resolveRole(raw) === "ادارة") raiseAlert("adminAdded", alertPerson(raw));
     if (to === "active") {
       await safeEnsureStorageFolder(raw);
     }
@@ -1574,7 +1646,7 @@ async function loadTarget(req) {
   const tz = String(req.params?.tz ?? "").trim();
   if (!tz || isSystemTz(tz)) return { user: null, room: null };
   const found = await findUserAcrossRooms(tz);
-  return isSystemUser(found.user) ? { user: null, room: null } : found;
+  return hiddenFrom(req, found.user) ? { user: null, room: null } : found;
 }
 
 const listOf = (value) => (Array.isArray(value) ? value : []);
@@ -1585,6 +1657,9 @@ const getPermissions = async (req, res) => {
   try {
     const { user } = await loadTarget(req);
     if (!user) return notFound(res);
+
+    // In System only those below the reader; the IT site reads anyone it lists.
+    if (req.actor?.it !== true && !canManageTarget(req.actor, user)) return forbidden(res);
 
     const role = resolveRole(user);
     const editable = validatePermissionChange(req.actor, user, { grants: [], revokes: [] }).ok;
@@ -1692,10 +1767,31 @@ const putRole = async (req, res) => {
     await recordUser(req, "role_change", user, { ...user, ...patch });
     notifyChange("user", user._id);
     raiseAlert("accessChanged", alertPerson(user), { change: "role", actorTz: req.actor?.tz });
+    if (role === "ادارة" && resolveRole(user) !== "ادارة") raiseAlert("adminAdded", alertPerson(user));
 
     return res.status(200).json({ ok: true, role, demoted });
   } catch (err) {
     logWithSource("User.putRole", err);
+    return res.status(500).json({ ok: false, message: err.message });
+  }
+};
+
+// PUT /:tz/request-alerts { enabled } (IT): who hears about new requests.
+// Grants nothing: approving still needs users.approve.
+const putRequestAlerts = async (req, res) => {
+  try {
+    const { user, room } = await loadTarget(req);
+    if (!user) return notFound(res);
+    const enabled = req.body?.enabled;
+    if (typeof enabled !== "boolean") return invalid(res, "BAD_SETTING");
+    const patch = { receivesRequestAlerts: enabled, updatedAt: new Date(), ...editorStamp(req) };
+    const written = await UserModelDef.updateExisting({ tz: user.tz }, patch, room);
+    if (!written?.result) return notFound(res);
+    await recordUser(req, "request_alerts_change", user, { ...user, ...patch });
+    notifyChange("user", user._id);
+    return res.status(200).json({ ok: true, enabled });
+  } catch (err) {
+    logWithSource("User.putRequestAlerts", err);
     return res.status(500).json({ ok: false, message: err.message });
   }
 };
@@ -1729,7 +1825,8 @@ const signOutEverywhere = async (req, res) => {
     if (!user) return notFound(res);
     if (!canManageTarget(req.actor, user)) return forbidden(res);
 
-    const patch = { ...endAllSessions(), signedOutAt: new Date(), updatedAt: new Date() };
+    // A lost phone: its passkey goes with its sessions.
+    const patch = { ...endAllSessions(), signedOutAt: new Date(), updatedAt: new Date(), systemPasskeys: [] };
     await UserModelDef.update({ tz: user.tz }, patch, room);
     await recordUser(req, "sign_out_all", user, { ...user, ...patch });
     notifyChange("user", user._id);
@@ -1754,12 +1851,12 @@ const resetUserPassword = async (req, res) => {
     if (problem) return res.status(400).json({ ok: false, code: problem, message: passwordProblemMessage(problem) });
 
     const existing = tz ? await getUserInRoomByTz(tz, "active") : null;
-    if (!existing || isSystemUser(existing)) return notFound(res);
+    if (!existing || hiddenFrom(req, existing)) return notFound(res);
     if (!canResetPassword(req.actor, existing)) return forbidden(res);
 
     const stale = checkVersion(existing, req, sanitize);
     if (stale) return res.status(409).json(stale);
-    const patch = { password, passwordChangedAt: new Date(), updatedAt: new Date(), ...editorStamp(req) };
+    const patch = { password, passwordChangedAt: new Date(), updatedAt: new Date(), systemPasskeys: [], ...editorStamp(req) };
     const updated = await UserModelDef.updateExisting(sameVersion({ tz: existing.tz }, existing), patch, "active");
     if (!updated?.result) return res.status(409).json(await raceLost(() => UserModelDef.get({ tz: existing.tz }, "active"), sanitize));
     await recordUser(req, "update", existing, { ...existing, ...patch });
@@ -1870,7 +1967,7 @@ const changePassword = async (req, res) => {
 
     const user = req.actor?.user;
     if (!user?.tz) return res.status(401).json({ code: "NO_ACTIVE" });
-    const isSystem = Boolean(req.actor?.isSystem);
+    const isSystem = Boolean(req.actor?.isSystem) && req.actor.hidden !== true;
     if (isLocked(user, { isSystem })) return lockedResponse(res);
 
     const { ok } = await verifyPasswordAndMaybeUpgrade(user, "active", currentPassword);
@@ -1890,6 +1987,10 @@ const changePassword = async (req, res) => {
     await recordUser(req, "update",
       { ...who, passwordChangedAt: user.passwordChangedAt ?? null },
       { ...who, passwordChangedAt, password: "***" });
+
+    // A forced change proved only the password: those who work unseen still
+    // sign in with the code (or a passkey).
+    if (req.user?.scope && isHiddenUser(user)) return res.status(200).json({ ok: true, signInAgain: true });
 
     // Every older token is now stale; this session continues on new ones.
     const session = await issueSession(res, user, req);
@@ -1934,6 +2035,7 @@ const recoverSystem = async (req, res) => {
       return res.status(502).json({ ok: false, code: "EMAIL_FAILED" });
     }
 
+    await UserModelDef.update({ tz: system.tz }, { systemPasskeys: [] }, "active");
     await recordUser(req, "system_recovery", outcome.before, outcome.after);
     return res.status(200).json({ ok: true });
   } catch (err) {
@@ -1954,7 +2056,7 @@ const viewPassword = async (req, res) => {
     }
 
     const user = await getUserInRoomByTz(tz, "active");
-    if (!user || isSystemUser(user)) {
+    if (!user || hiddenFrom(req, user)) {
       return res.status(404).json({
         ok: false,
         message: "User not found",
@@ -1983,7 +2085,7 @@ const   uploadPhoto = async (req, res) => {
     }
 
     const user = await getUserInRoomByTz(tz, "active");
-    if (!user || isSystemUser(user)) {
+    if (!user || hiddenFrom(req, user)) {
       return res.status(404).json({ ok: false, message: "User not found" });
     }
 
@@ -2058,7 +2160,7 @@ const deletePhoto = async (req, res) => {
     }
 
     const user = await getUserInRoomByTz(tz, "active");
-    if (!user || isSystemUser(user)) {
+    if (!user || hiddenFrom(req, user)) {
       return res.status(404).json({ ok: false, message: "User not found" });
     }
 
@@ -2127,6 +2229,7 @@ module.exports = {
   getUserInRoomByTz,
   getPermissions,
   putPermissions,
+  putRequestAlerts,
   putRole,
   unlockUser,
   signOutEverywhere,
@@ -2146,6 +2249,7 @@ module.exports = {
   countFailedSignIn,
   // The everyday sign-in answer for a one-time pass from the IT site.
   signInWithoutPassword,
+  loginWithCode,
 };
 
 // OLD CODE - DO NOT SUGGEST

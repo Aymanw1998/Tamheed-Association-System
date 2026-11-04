@@ -1,3 +1,4 @@
+const { lockOwner } = require("../../utils/permissions");
 const express = require("express");
 const { requireAuth } = require("../../middleware/authMiddleware");
 const { loadActor } = require("../../middleware/permissionMiddleware");
@@ -111,8 +112,7 @@ function createLockRouter({ requireAuth, loadActor, locks, reports = lazyReports
     const result = await locks.acquire(req.lockKey, {
       clientId: req.clientId,
       userId: req.actor.id,
-      tz: req.actor.tz,
-      name: req.actor.name,
+      ...lockOwner(req.actor),
     });
     if (result.ok) return res.status(200).json({ ok: true, lock: result.lock, created: result.created !== false });
     return res.status(423).json({ ok: false, code: "LOCKED", holder: result.holder, message: lockedMessage(result.holder) });

@@ -100,4 +100,7 @@ export const getDriveConnectUrl = () => send("POST", "/storage/google/connect-ur
 export const forceReleaseLock = (key) => send("POST", "/locks/force-release", { key });
 export const getPushSettings = () => call("/push/settings");
 export const setPushEnabled = (enabled) => send("PUT", "/push/settings", { enabled });
+export const getAdminPowers = () => call("/admin-powers");
+export const setAdminPowers = (enabled) => send("PUT", "/admin-powers", { enabled });
+export const setRequestAlerts = (tz, enabled) => send("PUT", `/users/${encodeURIComponent(tz)}/request-alerts`, { enabled });
 export const recoverSystem = () => send("POST", "/system/recover");

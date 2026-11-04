@@ -10,6 +10,7 @@ jest.mock("react-router-dom", () => {
   return jest.requireActual("react-router");
 });
 jest.mock("../../WebServer/services/api", () => ({ __esModule: true, default: { get: jest.fn(), post: jest.fn() }, API_BASE_URL: "/api" }));
+jest.mock("./PermissionsTab.jsx", () => ({ __esModule: true, default: () => require("react").createElement("div", { "data-testid": "permissions-tab" }) }));
 jest.mock("../../WebServer/services/user/functionsUser.jsx", () => ({
   getUserById: jest.fn(), signOutEverywhere: jest.fn(), deleteU: jest.fn(), changeStatus: jest.fn(),
 }));
@@ -25,11 +26,13 @@ jest.mock("./RolePickerDialog.jsx", () => ({
   permissionError: (t, res) => res?.message || "error",
 }));
 let mockPerms = [];
+let mockAdminPowers = false;
 let mockViewer = { id: "admin-1", tz: "900000001", role: "ادارة", isSystem: false };
 jest.mock("../../utils/session", () => ({
   ...jest.requireActual("../../utils/session"),
   canStored: (k) => mockPerms.includes(k),
   getStoredViewer: () => mockViewer,
+  isStoredAdminPowers: () => mockAdminPowers,
 }));
 
 import { getUserById, signOutEverywhere, deleteU, changeStatus } from "../../WebServer/services/user/functionsUser.jsx";
@@ -302,4 +305,28 @@ test("an IT user below the viewer: edit his details, no account actions, and he 
   const facts = container.querySelector('[data-testid="record-facts"]').textContent;
   expect(facts).toContain("قسم IT");
   expect(facts).toContain("لا يمكن إيقافه أو حذفه");
+});
+
+test("an administrator with the powers gets the permissions tab on an active user below him", async () => {
+  mockAdminPowers = true;
+  await mount();
+  expect(tabLabels()).toContain("الصلاحيات");
+  await act(async () => [...container.querySelectorAll('[role="tab"]')].find((t) => t.textContent === "الصلاحيات").click());
+  expect(container.querySelector('[data-testid="permissions-tab"]')).not.toBeNull();
+  mockAdminPowers = false;
+});
+
+test("no permissions tab with the powers off, on a peer, or on a waiting user", async () => {
+  await mount();
+  expect(tabLabels()).not.toContain("الصلاحيات");
+  await act(async () => root.unmount()); container.remove();
+  mockAdminPowers = true;
+  getUserById.mockResolvedValue({ ok: true, user: { ...USER, roles: ["ادارة"] } });
+  await mount();
+  expect(tabLabels()).not.toContain("الصلاحيات");
+  await act(async () => root.unmount()); container.remove();
+  getUserById.mockResolvedValue({ ok: true, user: { ...USER, room: "waiting" } });
+  await mount();
+  expect(tabLabels()).not.toContain("الصلاحيات");
+  mockAdminPowers = false;
 });

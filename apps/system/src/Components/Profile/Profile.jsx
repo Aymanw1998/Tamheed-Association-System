@@ -14,6 +14,8 @@ import { usePhotoPick, PHOTO_NOT_READY } from "../../utils/photoPick";
 import { getStoredPermissions } from "../../utils/session";
 import MyPermissions from "./MyPermissions.jsx";
 import ChangeOwnPassword from "./ChangeOwnPassword.jsx";
+import PasskeyOffer from "../Auth/PasskeyOffer.jsx";
+import { passkeySupported } from "../../utils/passkey";
 import PhoneNotifications from "./PhoneNotifications.jsx";
 import MyDevices from "./MyDevices.jsx";
 
@@ -314,6 +316,7 @@ const Profile = ({parent = false}) => {
         </fieldset>
 
         <ChangeOwnPassword />
+        {passkeySupported() && <PasskeyOffer always />}
 
         <PhoneNotifications />
 

@@ -52,7 +52,7 @@ const RESOLVE = {
   async user(id, ctx) {
     for (const room of USER_ROOMS) {
       const user = rows(await ctx.models.User.get({ _id: id }, room))[0];
-      if (user) return ctx.isSystemTz(user.tz) ? null : blankToNull(user.tz);
+      if (user) return ctx.isSystemTz(user.tz) || ctx.isHiddenUser?.(user) ? null : blankToNull(user.tz);
     }
     return null;
   },
