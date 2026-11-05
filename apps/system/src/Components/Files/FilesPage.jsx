@@ -1,3 +1,4 @@
+import RequiredMark from "../UI/RequiredMark";
 import { useEffect, useMemo, useRef, useState } from "react";
 import styles from "./FilesPage.module.css";
 import { toast } from "../../ALERT/SystemToasts.jsx";
@@ -1205,7 +1206,7 @@ export default function FilesPage() {
               <h3 id="files-folder-title">{t("files.newFolder")}</h3>
               <button type="button" className={styles.modalClose} aria-label="إغلاق" onClick={() => setFolderName(null)}>×</button>
             </div>
-            <label className={styles.modalHint} htmlFor="files-folder-name">اسم المجلد الجديد</label>
+            <label className={styles.modalHint} htmlFor="files-folder-name">اسم المجلد الجديد<RequiredMark /></label>
             <input
               id="files-folder-name"
               className={styles.searchInput}

@@ -51,7 +51,7 @@ export default function Members({ me = {} }) {
     <section>
       <h1>مستخدمو IT</h1>
       <form className="row card" onSubmit={add}>
-        <input name="tz" inputMode="numeric" placeholder="رقم هوية مستخدم موجود" aria-label="رقم الهوية" value={tz} onChange={(e) => setTz(e.target.value)} required />
+        <input name="tz" inputMode="numeric" placeholder="رقم هوية مستخدم موجود *" aria-label="رقم الهوية" value={tz} onChange={(e) => setTz(e.target.value)} required />
         <button type="submit" className="primary">إضافة مستخدم IT</button>
       </form>
       {members.length === 0 ? <p>لا يوجد مستخدمو IT بعد.</p> : (

@@ -265,3 +265,12 @@ test("getme gives the system account every permission but the IT keys", async ()
     if (saved === undefined) delete process.env.SYSTEM_ADMIN_TZ; else process.env.SYSTEM_ADMIN_TZ = saved;
   }
 });
+
+test("signing in has no limit per address; guessing stops per account", () => {
+  const source = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "Entities", "User", "Auth.route.js"), "utf8");
+  for (const route of ["/login", "/login-code", "/passkey/login-options", "/passkey/login", "/login-pass", "/refresh"]) {
+    const line = source.split(/\r?\n/).find((text) => text.includes(`router.post('${route}'`));
+    assert.ok(line, route);
+    assert.doesNotMatch(line, /[rR]ateLimit/, route);
+  }
+});

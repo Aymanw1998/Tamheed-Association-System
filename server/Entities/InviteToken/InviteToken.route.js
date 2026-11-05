@@ -6,11 +6,10 @@ const {
   getLink,
   rotateLink,
   validateToken,
-  submitRegistration,
+  submitRegistration, getRules, publishRules, getConsent
 } = require("./InviteToken.controller");
 const { requireAuth: protect } = require("../../middleware/authMiddleware");
 const { loadActor, requirePermission } = require("../../middleware/permissionMiddleware");
-const { rateLimit } = require("../../middleware/rateLimit");
 
 const PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const photoUpload = multer({
@@ -39,16 +38,17 @@ const acceptPhoto = (req, res, next) => {
 
 router.get("/link", protect, loadActor, requirePermission("students.parentLink"), getLink);
 router.post("/link/rotate", protect, loadActor, requirePermission("students.parentLink"), rotateLink);
+router.get("/rules", protect, loadActor, requirePermission("students.parentLink"), getRules);
+router.post("/rules", protect, loadActor, requirePermission("students.parentLink"), publishRules);
+router.get("/consent/:studentId", protect, loadActor, requirePermission("students.parentLink"), getConsent);
 
 // Public: parents open these from the shared link without logging in.
 router.get(
   "/validate/:token",
-  rateLimit({ windowMs: 15 * 60 * 1000, max: 60, scope: "registration-validate" }),
   validateToken
 );
 router.post(
   "/submit/:token",
-  rateLimit({ windowMs: 60 * 60 * 1000, max: 3, scope: "registration-submit" }),
   acceptPhoto,
   submitRegistration
 );

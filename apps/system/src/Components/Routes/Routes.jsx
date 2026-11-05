@@ -1,52 +1,55 @@
 import PasskeyOffer from "../Auth/PasskeyOffer.jsx";
 // src/Components/Routes/CRoutes.jsx
-import React from 'react';
+import React, { Suspense } from 'react';
 import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 
 import LoginPage from '../Auth/LoginPage/LoginPage';
-import RegisterPage from '../Auth/RegisterPage/RegisterPage';
 
 import Header from '../Header/Header';
 
 import RequireAuth from './RequireAuth';
 import PublicOnly from './PublicOnly';
 import RoleGuard from './RoleGuard';
-import NoticesBoard from '../Notice/NoticesBoard';
 
-import ViewAllStudent from '../Student/ViewAllStudent';
-import EditStudent from '../Student/EditStudent';
-import StudentView from '../Student/StudentView';
 import RecordRoute from './RecordRoute';
 
-import ViewAllUser from '../User/ViewAllUser';
-import EditUser from '../User/EditUser';
-import UserView from '../User/UserView';
 
-import ViewAllLesson from '../Lesson/ViewAllLesson';
-import EditLesson from '../Lesson/EditLesson';
-import LessonView from '../Lesson/LessonView';
 
 import { setAuthTokens } from '../../WebServer/services/api';
-import Dashboard from '../Dashboard/Dashboard';
-import ViewAllReport from '../Report/ViewAllReport';
-import EditReport from '../Report/EditReport';
-import ProfilePage from '../Profile/ProfilePage';
 
-import AttendancePage from '../Attendance/AttendancePage';
-import FilesPage from '../Files/FilesPage';
-import ViewAllVehicle from '../Vehicle/ViewAllVehicle';
-import EditVehicle from '../Vehicle/EditVehicle';
-import SportPage from '../Sport/SportPage';
-import FloatingAIButton from '../AI/FloatingAIButton';
 import { canStored } from '../../utils/session';
-import PrivacyPage from '../Privacy/PrivacyPage';
-import GuidePage from '../../guide/GuidePage';
 import TrainingBanner from '../../journey/TrainingBanner';
 import { useDemo } from '../../journey/demoMode';
 import useOwnAccessLive, { usePermissionsVersion } from './useOwnAccessLive';
 import useAccessUpdates from './AccessChangeNotice';
 import GuidanceProviders from './GuidanceProviders';
 import LiveEventsProvider from '../../locks/LiveEventsProvider';
+import { lazyPage } from '../../utils/lazyPage';
+
+const RegisterPage = lazyPage(() => import('../Auth/RegisterPage/RegisterPage'));
+const NoticesBoard = lazyPage(() => import('../Notice/NoticesBoard'));
+const ViewAllStudent = lazyPage(() => import('../Student/ViewAllStudent'));
+const EditStudent = lazyPage(() => import('../Student/EditStudent'));
+const StudentView = lazyPage(() => import('../Student/StudentView'));
+const ViewAllUser = lazyPage(() => import('../User/ViewAllUser'));
+const EditUser = lazyPage(() => import('../User/EditUser'));
+const UserView = lazyPage(() => import('../User/UserView'));
+const ViewAllLesson = lazyPage(() => import('../Lesson/ViewAllLesson'));
+const EditLesson = lazyPage(() => import('../Lesson/EditLesson'));
+const LessonView = lazyPage(() => import('../Lesson/LessonView'));
+const Dashboard = lazyPage(() => import('../Dashboard/Dashboard'));
+const ViewAllReport = lazyPage(() => import('../Report/ViewAllReport'));
+const EditReport = lazyPage(() => import('../Report/EditReport'));
+const ProfilePage = lazyPage(() => import('../Profile/ProfilePage'));
+const AttendancePage = lazyPage(() => import('../Attendance/AttendancePage'));
+const FilesPage = lazyPage(() => import('../Files/FilesPage'));
+const ViewAllVehicle = lazyPage(() => import('../Vehicle/ViewAllVehicle'));
+const EditVehicle = lazyPage(() => import('../Vehicle/EditVehicle'));
+const SportPage = lazyPage(() => import('../Sport/SportPage'));
+const PrivacyPage = lazyPage(() => import('../Privacy/PrivacyPage'));
+const GuidePage = lazyPage(() => import('../../guide/GuidePage'));
+
+const PageLoading = () => <div role="status" style={{ padding: 24, textAlign: "center" }}>جارٍ التحميل…</div>;
 
 // The assistant (alerts now, chat later) shows for accounts with ai.use.
 
@@ -70,7 +73,7 @@ function ProtectedLayout() {
         <Header key={`header-${epoch}-${access}`} />
         <PasskeyOffer />
         {notice}
-        <Outlet key={`outlet-${epoch}-${applied}`} />
+        <Suspense fallback={<PageLoading />}><Outlet key={`outlet-${epoch}-${applied}`} /></Suspense>
         {/* {canStored("ai.use") && <FloatingAIButton key={`ai-${epoch}`} />} */}
       </GuidanceProviders>
     </div>
@@ -81,6 +84,7 @@ export default function CRoutes() {
   const token = localStorage.getItem("accessToken");
   token && setAuthTokens(token);
   return (
+    <Suspense fallback={<PageLoading />}>
     <Routes>
       {/* ملاحظة عربية */}
       <Route path="/" element={<PublicOnly/>} />
@@ -128,5 +132,6 @@ export default function CRoutes() {
         </Route>
       </Route>
     </Routes>
+    </Suspense>
   );
 }

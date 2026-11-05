@@ -1,5 +1,5 @@
 // Failed-login lockout rules. Pure functions: the caller persists the result.
-const LOCK_THRESHOLD = 5;
+const LOCK_THRESHOLD = 10;
 const SYSTEM_ALERT_EVERY = 5;
 const LOCKED_MESSAGE =
   "تم حظر الحساب بسبب محاولات دخول فاشلة متكررة. يرجى التوجه إلى قسم تكنولوجيا المعلومات في الجمعية.";
@@ -36,6 +36,12 @@ function afterFailure(user, { isSystem, now = new Date() } = {}) {
   return { failedLoginCount, lockedAt, alertSystem };
 }
 
+// What a failed password answers: how many tries are left before the lock.
+function attemptsLeftMessage(left) {
+  const tries = left === 1 ? "محاولة واحدة" : left === 2 ? "محاولتان" : `${left} محاولات`;
+  return `رقم الهوية أو كلمة المرور غير صحيحة. تبقّى لك ${tries} قبل الحظر.`;
+}
+
 function afterSuccess() {
   return { failedLoginCount: 0, lockedAt: null };
 }
@@ -48,4 +54,5 @@ module.exports = {
   afterFailure,
   afterFailureCount,
   afterSuccess,
+  attemptsLeftMessage,
 };

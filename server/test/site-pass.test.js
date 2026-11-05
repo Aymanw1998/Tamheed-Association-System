@@ -431,7 +431,7 @@ const read = (p) => fs.readFileSync(path.join(__dirname, "..", p), "utf8");
 
 test("the pass routes are mounted behind the right guards and rate limits", () => {
   const authRoute = read("Entities/User/Auth.route.js");
-  assert.match(authRoute, /router\.post\(\s*['"]\/login-pass['"]\s*,\s*authRateLimit\s*,/);
+  assert.match(authRoute, /router\.post\(\s*['"]\/login-pass['"]\s*,\s*sitePass\.loginToSystem/);
   assert.match(authRoute, /router\.post\(\s*['"]\/it-pass['"]\s*,\s*requireAuth\s*,\s*loadActor\s*,/);
   const itRoute = read("Entities/It/It.route.js");
   assert.match(itRoute, /router\.post\(\s*"\/login-pass"\s*,\s*loginLimit\s*,/);

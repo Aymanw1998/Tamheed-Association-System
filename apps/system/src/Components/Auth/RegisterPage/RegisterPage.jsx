@@ -1,3 +1,4 @@
+import RequiredMark from "../../UI/RequiredMark";
 import React, { useState } from 'react';
 import { isValidIsraeliId } from "../../../utils/israeliId";
 import { useNavigate } from 'react-router-dom';
@@ -25,7 +26,7 @@ export default function RegisterPage() {
       gender: "",
       phone: "",
       email: "",
-      city: "",
+      city: "الرملة",
       street: "",
     });
     const isNew = true;
@@ -74,6 +75,10 @@ export default function RegisterPage() {
           return ""
         }
 
+        else if (name === "password") {
+          return value ? "" : "هذا الحقل مطلوب";
+        }
+
         //fisrtname, lastname
         else if(['firstname', 'lastname', 'father_name', 'mother_name'].includes(name)){
           if (value === "") {
@@ -101,7 +106,7 @@ export default function RegisterPage() {
         }
 
         //phone, email, city, street
-        else if (['father_phone', 'mother_phone', 'phone', 'email', 'city', 'street'].includes(name)){
+        else if (['father_phone', 'mother_phone', 'phone', 'city', 'street'].includes(name)){
           if (value === "") {
             return "هذا الحقل مطلوب";
           }
@@ -147,7 +152,7 @@ export default function RegisterPage() {
       let b = await validate();
       if (b) { toast.warn(b); return; }
       b = true
-      const requiredFields = ['tz', 'firstname', 'lastname', 'birth_date', 'gender', 'phone', 'email', 'city', 'street'];
+      const requiredFields = ['tz', 'password', 'firstname', 'lastname', 'birth_date', 'gender', 'phone', 'city', 'street'];
       for (const fieldName of requiredFields) {
         const msg = await validate(fieldName, form[fieldName]);
         setError((prev) => ({ ...prev, [fieldName]: msg }));
@@ -189,11 +194,11 @@ export default function RegisterPage() {
       <div className={styles.formContainer}>
         <h2>تسجيل مستخدم جديد</h2>
   
-        <label htmlFor="reg-tz">رقم الهوية:</label>
+        <label htmlFor="reg-tz">رقم الهوية:<RequiredMark /></label>
         <input id="reg-tz" name="tz" value={form.tz} onChange={onField} readOnly={!isNew} />
         <span className={styles.fieldError}>{error.tz}</span>
   
-        <label htmlFor="reg-password">كلمة المرور:</label>
+        <label htmlFor="reg-password">كلمة المرور:<RequiredMark /></label>
         <div className={styles.passwordWrapper}>
           <input
             id="reg-password"
@@ -215,7 +220,7 @@ export default function RegisterPage() {
         <span className={styles.fieldError}>{error.password}</span>
 
         {/* No role here: the role is chosen when an administrator approves the account. */}
-        <label htmlFor="reg-firstname">الاسم الشخصي:</label>
+        <label htmlFor="reg-firstname">الاسم الشخصي:<RequiredMark /></label>
         <input
           id="reg-firstname"
           name="firstname"
@@ -225,7 +230,7 @@ export default function RegisterPage() {
         />
         <span className={styles.fieldError}>{error.firstname}</span>
 
-        <label htmlFor="reg-lastname">اسم العائلة:</label>
+        <label htmlFor="reg-lastname">اسم العائلة:<RequiredMark /></label>
         <input
           id="reg-lastname"
           name="lastname"
@@ -235,7 +240,7 @@ export default function RegisterPage() {
         />
         <span className={styles.fieldError}>{error.lastname}</span>
 
-        <label htmlFor="reg-birth_date">تاريخ الميلاد:</label>
+        <label htmlFor="reg-birth_date">تاريخ الميلاد:<RequiredMark /></label>
         <input
           id="reg-birth_date"
           name="birth_date"
@@ -245,7 +250,7 @@ export default function RegisterPage() {
         />
         <span className={styles.fieldError}>{error.birth_date}</span>
 
-        <label htmlFor="reg-gender">الجنس:</label>
+        <label htmlFor="reg-gender">الجنس:<RequiredMark /></label>
         <select id="reg-gender" name="gender" value={form.gender} onChange={onField}>
           <option value="">اختر الجنس</option>
           <option value="ذكر">ذكر</option>
@@ -253,7 +258,7 @@ export default function RegisterPage() {
         </select>
         <span className={styles.fieldError}>{error.gender}</span>
 
-        <label htmlFor="reg-phone">الهاتف:</label>
+        <label htmlFor="reg-phone">الهاتف:<RequiredMark /></label>
         <input
           id="reg-phone"
           name="phone"
@@ -266,13 +271,14 @@ export default function RegisterPage() {
 
         <label htmlFor="reg-email">البريد الإلكتروني:</label>
         <input id="reg-email" name="email" type="email" value={form.email} onChange={onField} />
+        <small>اختياري. بدون بريد إلكتروني لن يصل رمز «نسيت كلمة المرور»، وتعيّن الإدارة كلمة مرور جديدة.</small>
         <span className={styles.fieldError}>{error.email}</span>
 
-        <label htmlFor="reg-city">مدينة السكن:</label>
+        <label htmlFor="reg-city">مدينة السكن:<RequiredMark /></label>
         <input id="reg-city" name="city" value={form.city} onChange={onField} />
         <span className={styles.fieldError}>{error.city}</span>
 
-        <label htmlFor="reg-street">شارع السكن:</label>
+        <label htmlFor="reg-street">شارع السكن:<RequiredMark /></label>
         <input id="reg-street" name="street" value={form.street} onChange={onField} />
         <span className={styles.fieldError}>{error.street}</span>
 

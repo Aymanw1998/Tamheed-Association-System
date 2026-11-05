@@ -1,3 +1,4 @@
+import RequiredMark from "../ui/RequiredMark";
 import { useState } from "react";
 import { changeOwnPassword, errorText } from "../api";
 import logo from "../logo.png";
@@ -39,7 +40,7 @@ export default function ChangePassword({ onDone, onSignOut }) {
       <p className="muted">دخلت بكلمة مرور مؤقتة. اختر كلمة مرور جديدة لتتابع.</p>
       <form onSubmit={submit}>
         <label>
-          كلمة المرور الجديدة
+          <span>كلمة المرور الجديدة<RequiredMark /></span>
           <span className="password-wrap">
             <input name="newPassword" type={show ? "text" : "password"} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
             <button
@@ -54,7 +55,7 @@ export default function ChangePassword({ onDone, onSignOut }) {
           </span>
         </label>
         <label>
-          تأكيد كلمة المرور
+          <span>تأكيد كلمة المرور<RequiredMark /></span>
           <input name="confirmPassword" type={show ? "text" : "password"} autoComplete="new-password" value={again} onChange={(e) => setAgain(e.target.value)} required />
         </label>
         {error && <p role="alert" className="error">{error}</p>}

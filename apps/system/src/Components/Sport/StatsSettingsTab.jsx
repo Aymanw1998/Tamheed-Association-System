@@ -56,7 +56,7 @@ export default function StatsSettingsTab({ sport, reload }) {
             <input
               value={s.label}
               maxLength={40}
-              placeholder={label("label")}
+              placeholder={`${label("label")} *`}
               aria-label={label("label")}
               onChange={(e) => rename(i, e.target.value)}
             />

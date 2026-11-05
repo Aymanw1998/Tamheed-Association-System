@@ -710,12 +710,12 @@ test("deleteU needs canManageTarget; the system account is 404", async () => {
 
 /* ================= login: automatic lock ================= */
 
-test("the fifth failed sign-in records a lock by the system", async () => {
-  const users = createUsers({ active: [{ ...GUIDE_USER, password: "enc:right", failedLoginCount: 4, lockedAt: null }] });
+test("the tenth failed sign-in records a lock by the system", async () => {
+  const users = createUsers({ active: [{ ...GUIDE_USER, password: "enc:right", failedLoginCount: 9, lockedAt: null }] });
   const { controller, audit } = loadController(users);
   const out = res();
   await controller.login({ body: { tz: GUIDE_USER.tz, password: "wrong" }, headers: {}, cookies: {}, ip: "127.0.0.1" }, out);
-  assert.equal(out.statusCode, 401);
+  assert.equal(out.statusCode, 423);
   const rows = audit.find({ module: "users", action: "lock", targetId: GUIDE_USER.tz });
   assert.equal(rows.length, 1);
   assert.equal(rows[0].req.actor.isSystem, true);
@@ -1129,12 +1129,12 @@ test("register raises user_waiting for the new waiting user", async () => {
 test("the automatic lock raises account_locked once; a failing alert does not change the answer", async () => {
   for (const fail of [false, true]) {
     const spy = alertSpy({ fail });
-    const users = createUsers({ active: [{ ...GUIDE_USER, password: "enc:right", failedLoginCount: 4, lockedAt: null }] });
+    const users = createUsers({ active: [{ ...GUIDE_USER, password: "enc:right", failedLoginCount: 9, lockedAt: null }] });
     const { controller } = loadController(users, spy.deps);
     const out = res();
     await controller.login({ body: { tz: GUIDE_USER.tz, password: "wrong" }, headers: {}, cookies: {}, ip: "127.0.0.1" }, out);
     await flush();
-    assert.equal(out.statusCode, 401);
+    assert.equal(out.statusCode, 423);
     assert.deepEqual(spy.calls.map((c) => c.name), ["accountLocked"]);
     assert.equal(spy.calls[0].args[0].tz, GUIDE_USER.tz);
     assert.ok(stored(users, GUIDE_USER.tz).lockedAt, "the lock itself is kept");

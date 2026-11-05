@@ -21,8 +21,8 @@ const students = {
       target: "students-status-filter",
       requires: "students.viewAll",
       mood: "point",
-      title: "حالة الطالب",
-      body: "في «فلتر» تبدّل بين الطلاب الفعّالين، وبانتظار الموافقة، وغير الفعّالين.",
+      title: "الطلاب والطلبات",
+      body: "بدّل هنا بين «الطلاب» و«الطلبات» التي تنتظر الموافقة.",
     },
     {
       target: "students-table",
@@ -100,7 +100,7 @@ const students = {
       mood: "explain",
       title: "الصف",
       body: "ثم صفّه الدراسي، وبقية البيانات اختيارية.",
-      action: { type: "type", target: "student-layer", value: "السادس" },
+      action: { type: "select", target: "student-layer", value: "سادس" },
     },
     {
       target: "student-save",

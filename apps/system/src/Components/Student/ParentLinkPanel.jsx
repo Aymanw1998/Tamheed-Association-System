@@ -4,6 +4,7 @@ import { toast } from "../../ALERT/SystemToasts.jsx";
 import { ask } from "../Provides/confirmBus.js";
 import { getLink, rotateLink } from "../../WebServer/services/inviteToken/functionInviteToken.jsx";
 import styles from "./ParentLinkPanel.module.css";
+import RulesEditor from "./RulesEditor.jsx";
 
 const REASON_LABEL = { exists: "مسجّل مسبقًا", pending: "يوجد طلب سابق قيد الانتظار" };
 
@@ -74,7 +75,7 @@ export default function ParentLinkPanel() {
   if (error) return <p className={styles.error}>{error}</p>;
   if (!info) return <p className={styles.muted}>جارٍ التحميل…</p>;
 
-  const full = info.usedThisWeek >= info.weeklyLimit;
+  const full = info.usedThisMonth >= info.monthlyLimit;
 
   return (
     <div className={styles.panel} dir="rtl">
@@ -95,10 +96,12 @@ export default function ParentLinkPanel() {
       </div>
 
       <div className={styles.usage} data-tour="parent-link-usage">
-        <span>الطلبات في آخر 7 أيام</span>
-        <strong className={full ? styles.full : ""}>{info.usedThisWeek} من {info.weeklyLimit}</strong>
+        <span>الطلبات في آخر 30 يومًا</span>
+        <strong className={full ? styles.full : ""}>{info.usedThisMonth} من {info.monthlyLimit}</strong>
         {full && <small>لن يستقبل الرابط طلبات جديدة حتى ينخفض العدد.</small>}
       </div>
+
+      <RulesEditor />
 
       <h3 className={styles.subTitle}>طلبات رُفضت تلقائيًا</h3>
       {info.attempts.length ? (

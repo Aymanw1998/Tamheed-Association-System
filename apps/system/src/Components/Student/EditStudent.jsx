@@ -1,3 +1,6 @@
+import { gradeOptions } from "../../utils/grades";
+import SignaturePad from "./SignaturePad.jsx";
+import RequiredMark from "../UI/RequiredMark";
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 // ملاحظة عربية
@@ -51,7 +54,7 @@ const EditStudent = ({parent = false}) => {
     mother_work: "",
     school: "",
     layer: "",
-    health_status: "",
+    health_status: "سليم",
     notes: "",
     main_teacher: null,
     photo: null,
@@ -104,6 +107,7 @@ const EditStudent = ({parent = false}) => {
     open: true,
   });
   const [submitted, setSubmitted] = useState(false);
+  const [consent, setConsent] = useState({ accepted: false, signerName: "", signature: "" });
 
   
   const [instructors, setInstructors] = useState([]);
@@ -165,7 +169,7 @@ const EditStudent = ({parent = false}) => {
     }
     (async () => {
       const res = await validateINV(registrationToken);
-      setInviteStatus({ checking: false, valid: res.valid, open: res.open });
+      setInviteStatus({ checking: false, valid: res.valid, open: res.open, rules: res.rules });
     })();
   }, [parent, registrationToken]);
 
@@ -313,6 +317,10 @@ const EditStudent = ({parent = false}) => {
       }
     }
     if(!b) return toast.warn("يُرجى تعبئة الحقول المطلوبة");
+    const rules = parent ? inviteStatus.rules : null;
+    if (rules && (!consent.accepted || !consent.signerName.trim() || !consent.signature)) {
+      return toast.warn("يُرجى قراءة نظام الجمعية والموافقة عليه وكتابة الاسم والتوقيع");
+    }
     e.preventDefault();
     try {
       setSaving(true);
@@ -320,13 +328,19 @@ const EditStudent = ({parent = false}) => {
 
       const payload = { ...form };
       if (parent) {
-        const res = await submitFromParent(registrationToken, payload, photo);
+        const signed = rules ? { rulesVersion: rules.version, rulesAccepted: "true", signerName: consent.signerName.trim(), signature: consent.signature } : {};
+        const res = await submitFromParent(registrationToken, { ...payload, ...signed }, photo);
         if (!res.ok) {
+          if (res.code === "RULES_CHANGED") {
+            const fresh = await validateINV(registrationToken);
+            setInviteStatus({ checking: false, valid: fresh.valid, open: fresh.open, rules: fresh.rules });
+            setConsent({ accepted: false, signerName: consent.signerName, signature: "" });
+          }
           if (res.code === "INTAKE_CLOSED") {
             setInviteStatus({ checking: false, valid: true, open: false });
             return;
           }
-          throw new Error(res.code === "RATE_LIMITED" ? "تجاوزتم عدد الطلبات المسموح به. يُرجى المحاولة بعد ساعة." : res.message);
+          throw new Error(res.message);
         }
         setSubmitted(true);
         return;
@@ -491,12 +505,15 @@ const EditStudent = ({parent = false}) => {
 
       <fieldset className={sectionStyles.formSection} data-tour="student-study">
         <legend>الدراسة</legend>
-        <label>المدرسة: <span style={{color: "red"}}>*</span></label>
-        <input name="school" data-tour="student-school" value={form.school} onChange={handleChange} required />
+        <label>المدرسة:</label>
+        <input name="school" data-tour="student-school" value={form.school} onChange={handleChange} />
         {error.school != "" && <label style={{color: "red"}}>{error.school}</label>}
 
-        <label>الصف: <span style={{color: "red"}}>*</span></label>
-        <input name="layer" data-tour="student-layer" value={form.layer} onChange={handleChange} required />
+        <label>الصف:</label>
+        <select name="layer" data-tour="student-layer" value={form.layer || ""} onChange={handleChange}>
+          <option value="">اختر الصف</option>
+          {gradeOptions(form.layer).map((grade) => <option key={grade} value={grade}>{grade}</option>)}
+        </select>
         {error.layer != "" && <label style={{color: "red"}}>{error.layer}</label>}
 
         {/* Shown even before any staff account exists: the list then holds only «بدون مرشد مسؤول». */}
@@ -549,8 +566,8 @@ const EditStudent = ({parent = false}) => {
 
       <fieldset className={sectionStyles.formSection} data-tour="student-health">
         <legend>الصحة والملاحظات</legend>
-        <label>الحالة الصحية: <span style={{color: "red"}}>*</span></label>
-        <textarea name="health_status" rows={4} value={form.health_status || ""} onChange={handleChange} required />
+        <label>الحالة الصحية:</label>
+        <textarea name="health_status" rows={4} value={form.health_status || ""} onChange={handleChange} />
         {error.health_status != "" && <label style={{color: "red"}}>{error.health_status}</label>}
 
         <label>ملاحظات:</label>
@@ -583,6 +600,23 @@ const EditStudent = ({parent = false}) => {
         )}
       </div>
       </ReadOnlyArea>
+
+      {parent && inviteStatus.rules && (
+        <fieldset className={sectionStyles.formSection} key={inviteStatus.rules.version}>
+          <legend>نظام الجمعية</legend>
+          <div dir="auto" tabIndex={0} style={{ maxHeight: 240, overflowY: "auto", whiteSpace: "pre-wrap", padding: 8, border: "1px solid #d1d5db", borderRadius: 8 }}>
+            {inviteStatus.rules.text}
+          </div>
+          <label style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+            <input type="checkbox" name="rulesAccepted" style={{ width: "auto" }} checked={consent.accepted} onChange={(event) => setConsent((prev) => ({ ...prev, accepted: event.target.checked }))} />
+            <span>قرأت نظام الجمعية وأوافق عليه<RequiredMark /></span>
+          </label>
+          <label htmlFor="signer-name">اسم ولي الأمر:<RequiredMark /></label>
+          <input id="signer-name" name="signerName" maxLength={100} value={consent.signerName} onChange={(event) => setConsent((prev) => ({ ...prev, signerName: event.target.value }))} />
+          <label>التوقيع:<RequiredMark /></label>
+          <SignaturePad onChange={(signature) => setConsent((prev) => ({ ...prev, signature }))} />
+        </fieldset>
+      )}
 
       <div className={styles.buttonRow} style={{ gap: 8, flexWrap: "wrap" }}>
         <button type="submit" data-tour="student-save" onClick={handleSubmit} disabled={readonly} style={{width:"100%"}}>

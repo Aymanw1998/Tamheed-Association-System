@@ -1,3 +1,4 @@
+import RequiredMark from "./RequiredMark";
 import { useState } from "react";
 import { requestCode, verifyCode, GENERIC_ERROR_MESSAGE } from "./api.js";
 import { clearApiCache } from "./pwa/clearApiCache";
@@ -101,7 +102,7 @@ export default function LoginPage({ onSignedIn, notice = "" }) {
           )}
           {step === "tz" ? (
             <form onSubmit={send} className="login-form">
-              <label htmlFor="tz">رقم الهوية</label>
+              <label htmlFor="tz">رقم الهوية<RequiredMark /></label>
               <input
                 id="tz"
                 inputMode="numeric"
@@ -115,7 +116,7 @@ export default function LoginPage({ onSignedIn, notice = "" }) {
           ) : (
             <form onSubmit={verify} className="login-form">
               {message && <p className="note">{message}</p>}
-              <label htmlFor="code">الرمز</label>
+              <label htmlFor="code">الرمز<RequiredMark /></label>
               <input
                 id="code"
                 inputMode="numeric"

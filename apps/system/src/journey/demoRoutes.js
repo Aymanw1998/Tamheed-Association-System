@@ -849,7 +849,10 @@ route("get", /^\/ai\/status$/, () => ok({ enabled: false }));
 route("get", /^\/ai\/conversations$/, () => ok({ result: [] }));
 
 // --- parent registration link (administrators)
-route("get", /^\/inviteToken\/link$/, () => ok({ token: "demo", usedThisWeek: 0, weeklyLimit: 20, attempts: [] }));
+route("get", /^\/inviteToken\/rules$/, () => ok({ rules: null }));
+route("post", /^\/inviteToken\/rules$/, () => ok({ rules: { version: 1, text: "" } }));
+route("get", /^\/inviteToken\/consent\//, () => ok({ consent: null }));
+route("get", /^\/inviteToken\/link$/, () => ok({ token: "demo", usedThisMonth: 0, monthlyLimit: 20, attempts: [] }));
 
 /**
  * @returns {{status:number, data:any} | null}

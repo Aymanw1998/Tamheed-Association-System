@@ -658,14 +658,14 @@ test("fix1: an administrator setting another user's password stamps passwordChan
   assert.ok(new Date(stored.passwordChangedAt).getTime() >= before);
 });
 
-test("fix2: a wrong current password counts as a failed sign-in and locks at 5", async () => {
-  const ctx = loadController({ users: [{ ...GUIDE, failedLoginCount: 4 }] });
+test("fix2: a wrong current password counts as a failed sign-in and locks at 10", async () => {
+  const ctx = loadController({ users: [{ ...GUIDE, failedLoginCount: 9 }] });
   const wrong = await changePassword(ctx, GUIDE, { currentPassword: "nope-nope", newPassword: "brand-new-pass-9" });
   assert.equal(wrong.statusCode, 400);
   assert.equal(wrong.body.code, "WRONG_PASSWORD");
   const stored = ctx.find(GUIDE.tz);
-  assert.equal(stored.failedLoginCount, 5);
-  assert.ok(stored.lockedAt, "locked at the fifth failure");
+  assert.equal(stored.failedLoginCount, 10);
+  assert.ok(stored.lockedAt, "locked at the tenth failure");
   assert.equal(ctx.audit.find({ action: "lock" }).length, 1);
 
   const locked = await changePassword(ctx, GUIDE, { currentPassword: "guide-pass-1", newPassword: "brand-new-pass-9" });

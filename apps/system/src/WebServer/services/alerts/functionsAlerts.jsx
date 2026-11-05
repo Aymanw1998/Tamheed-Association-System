@@ -2,9 +2,15 @@ import api from "../api";
 
 // The signed-in user's own alert inbox (server/Entities/Alert/Alert.route.js).
 
-export async function listAlerts() {
-  const { data } = await api.get("/alerts");
+export async function listAlerts({ unread = false } = {}) {
+  const { data } = await api.get("/alerts", unread ? { params: { unread: 1 } } : undefined);
   return Array.isArray(data?.alerts) ? data.alerts : [];
+}
+
+// The server's own count: it sees past the 50 a list returns.
+export async function countUnreadAlerts() {
+  const { data } = await api.get("/alerts", { params: { unread: 1 } });
+  return Number(data?.total) || 0;
 }
 
 export async function markAlertRead(id) {

@@ -1,3 +1,4 @@
+import RequiredMark from "../../UI/RequiredMark";
 import React, { useEffect, useState } from "react";
 import api, { getAuthToken } from "../../../WebServer/services/api";
 import { clearProblem, recentProblem, sectionOf, subscribeProblem } from "../../../WebServer/services/problemLog";
@@ -95,7 +96,7 @@ function ReportWindow({ onClose }) {
           <select id="report-type" value={type} onChange={(event) => setType(event.target.value)}>
             {TYPES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
           </select>
-          <label htmlFor="report-text">الوصف</label>
+          <label htmlFor="report-text">الوصف<RequiredMark /></label>
           <textarea id="report-text" rows={4} maxLength={2000} value={text} onChange={(event) => setText(event.target.value)} />
           <label htmlFor="report-image">صورة (اختياري)</label>
           <input id="report-image" type="file" accept="image/png,image/jpeg,image/webp" onChange={choose} />

@@ -1,3 +1,4 @@
+import RequiredMark from "../../UI/RequiredMark";
 import React, { useState } from "react";
 import styles from "../LoginPage/LoginPage.module.css";
 import EyeIcon from "../../UI/EyeIcon";
@@ -40,7 +41,7 @@ export default function ForcedPasswordChange({ token, currentPassword, onChanged
       <h2>{t("passwordChange.title")}</h2>
       <p className={styles.formHint}>{t("passwordChange.intro")}</p>
 
-      <label className={styles.fieldLabel} htmlFor="forced-new-password">{t("passwordChange.newPassword")}</label>
+      <label className={styles.fieldLabel} htmlFor="forced-new-password">{t("passwordChange.newPassword")}<RequiredMark /></label>
       <div className={styles.passwordWrapper}>
         <input
           id="forced-new-password"
@@ -62,7 +63,7 @@ export default function ForcedPasswordChange({ token, currentPassword, onChanged
         </button>
       </div>
 
-      <label className={styles.fieldLabel} htmlFor="forced-confirm-password">{t("passwordChange.confirm")}</label>
+      <label className={styles.fieldLabel} htmlFor="forced-confirm-password">{t("passwordChange.confirm")}<RequiredMark /></label>
       <input
         id="forced-confirm-password"
         type={show ? "text" : "password"}

@@ -14,6 +14,7 @@ export default function LiveEventsProvider({ children = null }) {
         onChange: (payload) => { clearTraffic(); liveEvents.emit("change", payload); },
         onLock: (payload) => liveEvents.emit("lock", payload),
         onOpen: () => { clearTraffic(); liveEvents.emit("open", {}); },
+        onAlert: (payload) => liveEvents.emit("alert", payload),
       }),
     []
   );

@@ -1,6 +1,8 @@
 const crypto = require("crypto");
 const { InviteTokenModelDef } = require("./InviteToken.model");
 const { RegistrationAttemptModelDef } = require("./RegistrationAttempt.model");
+const { RulesModelDef, ConsentModelDef } = require("./Rules.model");
+const { canonicalGrade } = require("../../utils/grades");
 const { StudentModelDef } = require("../Student/Student.model");
 const { handleUpload } = require("../UploadFile/file");
 const { passportPhotoJob } = require("../../services/passportPhotoJob");
@@ -13,7 +15,7 @@ const { isDuplicateKey } = require("../../utils/tzUnique");
 // rotates it. Parents' requests join the waiting list (status "ينتظر") and
 // never become students without staff approval.
 const LINK_KEY = "parent-registration";
-const WEEKLY_LIMIT = 30;
+const MONTHLY_LIMIT = 30;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const ATTEMPTS_KEPT = 100;
 const PARENT_SOURCE = "اهل";
@@ -71,10 +73,10 @@ async function isCurrentToken(candidate) {
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
-// Parent requests created in the last 7 days, whatever their status now.
+// Parent requests created in the last 30 days, from any address, whatever their status now.
 // Rejected (deleted) requests no longer count, so removing spam frees room.
 async function countRecentParentRequests() {
-  const since = Date.now() - 7 * DAY_MS;
+  const since = Date.now() - 30 * DAY_MS;
   return resultsOf(await StudentModelDef.get({ source: PARENT_SOURCE }))
     .filter((student) => new Date(student.createdAt).getTime() >= since).length;
 }
@@ -94,6 +96,81 @@ const toPublicAttempt = (attempt) => ({
   createdAt: attempt.createdAt,
 });
 
+/* ================= the rules and the parent's signature ================= */
+
+const SIGNATURE = /^data:image\/png;base64,[A-Za-z0-9+/]+=*$/;
+const MAX_SIGNATURE = 300 * 1024;
+const PNG_START = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+const MIN_PNG_BYTES = 67;
+const isPng = (dataAddress) => {
+  const bytes = Buffer.from(dataAddress.slice(dataAddress.indexOf(",") + 1), "base64");
+  return bytes.length >= MIN_PNG_BYTES && bytes.subarray(0, PNG_START.length).equals(PNG_START);
+};
+const MAX_RULES = 20000;
+
+async function currentRules() {
+  const rows = resultsOf(await RulesModelDef.get({}));
+  return rows.reduce((latest, row) => (!latest || row.version > latest.version ? row : latest), null);
+}
+
+// What the form sent about the rules; "" when all is in order.
+function consentProblem(body, rules) {
+  if (String(body.rulesVersion ?? "") !== String(rules.version)) return { status: 409, code: "RULES_CHANGED", message: "تم تحديث نظام الجمعية. يُرجى قراءته والتوقيع عليه من جديد." };
+  const signature = String(body.signature ?? "");
+  if (body.rulesAccepted !== "true" || !cleanText(body.signerName, 100) || signature.length > MAX_SIGNATURE || !SIGNATURE.test(signature) || !isPng(signature)) {
+    return { status: 400, code: "CONSENT_REQUIRED", message: "يجب الموافقة على نظام الجمعية وكتابة اسم ولي الأمر والتوقيع." };
+  }
+  return null;
+}
+
+const getRules = async (req, res) => {
+  try {
+    const rules = await currentRules();
+    return res.status(200).json({ ok: true, rules: rules ? { version: rules.version, text: rules.text } : null });
+  } catch (err) {
+    logWithSource("InviteToken.getRules", err);
+    return res.status(500).json({ ok: false, message: "تعذّر تحميل نظام الجمعية" });
+  }
+};
+
+const publishRules = async (req, res) => {
+  try {
+    const text = String(req.body?.text ?? "").trim();
+    if (text.length > MAX_RULES) return res.status(400).json({ ok: false, message: "النص طويل جدًا" });
+    const latest = await currentRules();
+    const version = (latest?.version || 0) + 1;
+    const createdByName = [req.actor?.firstname, req.actor?.lastname].filter(Boolean).join(" ");
+    await RulesModelDef.create({ version, text, createdAt: new Date(), createdByName });
+    return res.status(200).json({ ok: true, rules: { version, text } });
+  } catch (err) {
+    if (isDuplicateKey(err)) return res.status(409).json({ ok: false, message: "نشر شخص آخر النظام الآن. حدّث الصفحة وحاول مرة أخرى." });
+    logWithSource("InviteToken.publishRules", err);
+    return res.status(500).json({ ok: false, message: "تعذّر نشر نظام الجمعية" });
+  }
+};
+
+const getConsent = async (req, res) => {
+  try {
+    const [consent] = resultsOf(await ConsentModelDef.get({ studentId: String(req.params.studentId) }));
+    if (!consent) return res.status(200).json({ ok: true, consent: null });
+    if (!resultsOf(await StudentModelDef.get({ _id: String(req.params.studentId) })).length) return res.status(200).json({ ok: true, consent: null });
+    const rows = resultsOf(await RulesModelDef.get({ version: consent.rulesVersion }));
+    return res.status(200).json({
+      ok: true,
+      consent: {
+        signerName: consent.signerName,
+        signature: consent.signature,
+        signedAt: consent.signedAt,
+        rulesVersion: consent.rulesVersion,
+        rulesText: rows[0]?.text || "",
+      },
+    });
+  } catch (err) {
+    logWithSource("InviteToken.getConsent", err);
+    return res.status(500).json({ ok: false, message: "تعذّر تحميل التوقيع" });
+  }
+};
+
 /* ================= admin: the link ================= */
 
 const getLink = async (req, res) => {
@@ -107,8 +184,8 @@ const getLink = async (req, res) => {
     return res.status(200).json({
       ok: true,
       token,
-      usedThisWeek: await countRecentParentRequests(),
-      weeklyLimit: WEEKLY_LIMIT,
+      usedThisMonth: await countRecentParentRequests(),
+      monthlyLimit: MONTHLY_LIMIT,
       attempts,
     });
   } catch (err) {
@@ -133,9 +210,11 @@ const validateToken = async (req, res) => {
     if (!(await isCurrentToken(req.params.token))) {
       return res.status(404).json({ valid: false });
     }
+    const rules = await currentRules();
     return res.status(200).json({
       valid: true,
-      open: (await countRecentParentRequests()) < WEEKLY_LIMIT,
+      open: (await countRecentParentRequests()) < MONTHLY_LIMIT,
+      ...(rules?.text ? { rules: { version: rules.version, text: rules.text } } : {}),
     });
   } catch (err) {
     logWithSource("InviteToken.validateToken", err);
@@ -159,6 +238,8 @@ function readRegistration(body = {}) {
   for (const name of SHORT_FIELDS) fields[name] = cleanText(body[name], 100);
   for (const name of LONG_FIELDS) fields[name] = cleanText(body[name], 1000);
   fields.birth_date = toDate(cleanText(body.birth_date, 40));
+  if (!fields.health_status) fields.health_status = "سليم";
+  fields.layer = canonicalGrade(fields.layer);
   return fields;
 }
 
@@ -213,7 +294,7 @@ const submitRegistration = async (req, res) => {
       });
     }
 
-    if ((await countRecentParentRequests()) >= WEEKLY_LIMIT) {
+    if ((await countRecentParentRequests()) >= MONTHLY_LIMIT) {
       return res.status(429).json({
         ok: false,
         code: "INTAKE_CLOSED",
@@ -225,6 +306,13 @@ const submitRegistration = async (req, res) => {
     const error = registrationError(fields);
     if (error) {
       return res.status(400).json({ ok: false, message: error });
+    }
+
+    // Checked before the ID, so the answer says nothing about who is registered.
+    const rules = await currentRules();
+    if (rules?.text) {
+      const problem = consentProblem(req.body, rules);
+      if (problem) return res.status(problem.status).json({ ok: false, code: problem.code, message: problem.message });
     }
 
     // A known ID gets exactly the same reply as a new one, so the public form
@@ -245,6 +333,23 @@ const submitRegistration = async (req, res) => {
       createdAt: now,
       updatedAt: now,
     });
+    // Saved before the parent is told it worked: a request never stands without its
+    // signature. The time is the server's, and a known ID never reaches this point.
+    if (rules?.text) {
+      try {
+        await ConsentModelDef.create({
+          studentId: String(created?.result?._id),
+          tz: fields.tz,
+          rulesVersion: rules.version,
+          signerName: cleanText(req.body.signerName, 100),
+          signature: String(req.body.signature),
+          signedAt: now,
+        });
+      } catch (consentError) {
+        await StudentModelDef.delete({ _id: String(created?.result?._id) });
+        throw consentError;
+      }
+    }
     res.status(200).json({ ok: true, message: RECEIVED_MESSAGE });
     // Announced after replying, like the alert below: open staff lists reload.
     const createdId = created?.result?._id ? String(created.result._id) : null;
@@ -279,4 +384,7 @@ module.exports = {
   rotateLink,
   validateToken,
   submitRegistration,
+  getRules,
+  publishRules,
+  getConsent,
 };

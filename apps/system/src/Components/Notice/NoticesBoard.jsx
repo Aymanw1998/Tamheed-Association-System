@@ -1,3 +1,4 @@
+import RequiredMark from "../UI/RequiredMark";
 import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -152,7 +153,7 @@ export default function NoticesBoard() {
 
       <form className={styles.form} data-tour="notices-publish" onSubmit={publish} noValidate>
         <h2>{t("notices.newTitle")}</h2>
-        <label>{t("notices.f.title")}
+        <label><span>{t("notices.f.title")}<RequiredMark /></span>
           <input data-tour="notices-title" value={draft.title} maxLength={120} required onChange={(e) => setDraft({ ...draft, title: e.target.value })} />
           {errors.title && <span role="alert">{errors.title}</span>}
         </label>

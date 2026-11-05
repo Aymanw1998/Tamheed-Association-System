@@ -9,8 +9,8 @@ export const getLink = async () => {
         return {
             ok: true,
             token: data.token,
-            usedThisWeek: data.usedThisWeek,
-            weeklyLimit: data.weeklyLimit,
+            usedThisMonth: data.usedThisMonth,
+            monthlyLimit: data.monthlyLimit,
             attempts: data.attempts || [],
         };
     } catch (err) {
@@ -27,12 +27,39 @@ export const rotateLink = async () => {
     }
 };
 
+export const getRules = async () => {
+    try {
+        const { data } = await api.get("/inviteToken/rules");
+        return { ok: true, rules: data.rules };
+    } catch (err) {
+        return { ok: false, message: errorMessage(err, "تعذّر تحميل نظام الجمعية") };
+    }
+};
+
+export const publishRules = async (text) => {
+    try {
+        const { data } = await api.post("/inviteToken/rules", { text });
+        return { ok: true, rules: data.rules };
+    } catch (err) {
+        return { ok: false, message: errorMessage(err, "تعذّر نشر نظام الجمعية") };
+    }
+};
+
+export const getConsent = async (studentId) => {
+    try {
+        const { data } = await api.get(`/inviteToken/consent/${encodeURIComponent(studentId)}`);
+        return { ok: true, consent: data.consent };
+    } catch (err) {
+        return { ok: false, message: errorMessage(err, "تعذّر تحميل التوقيع") };
+    }
+};
+
 // Public: the parents' page must never send or refresh a login, so these use
 // publicApi instead of api.
 export const validate = async (token) => {
     try {
         const { data } = await publicApi.get(`/inviteToken/validate/${encodeURIComponent(token)}`);
-        return { valid: Boolean(data?.valid), open: Boolean(data?.open) };
+        return { valid: Boolean(data?.valid), open: Boolean(data?.open), rules: data?.rules || null };
     } catch (err) {
         return { valid: false, open: false };
     }

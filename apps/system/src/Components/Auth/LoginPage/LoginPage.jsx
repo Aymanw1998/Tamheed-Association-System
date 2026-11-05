@@ -1,3 +1,4 @@
+import RequiredMark from "../../UI/RequiredMark";
 import { passkeySupported } from "../../../utils/passkey";
 import React, { useEffect, useRef, useState } from 'react'
 import styles from "./LoginPage.module.css"
@@ -179,7 +180,7 @@ export default function LoginPage() {
                 <div className={styles.loginForm}>
                     <h2>رمز الدخول</h2>
                     <p>أرسلنا رمزًا إلى بريدك الإلكتروني. الرمز صالح لمدة 10 دقائق.</p>
-                    <label className={styles.fieldLabel} htmlFor="login-code">الرمز</label>
+                    <label className={styles.fieldLabel} htmlFor="login-code">الرمز<RequiredMark /></label>
                     <input
                         id="login-code"
                         name="code"
@@ -199,10 +200,10 @@ export default function LoginPage() {
                     <div className={`${styles.logo} ${styles.logoDisNone}`}><img src={LogoIMG}/></div>
                     <h2>تسجيل الدخول</h2>
 
-                    <label className={styles.fieldLabel} htmlFor="login-tz">رقم الهوية أو البريد الإلكتروني</label>
+                    <label className={styles.fieldLabel} htmlFor="login-tz">رقم الهوية أو البريد الإلكتروني<RequiredMark /></label>
                     <input id="login-tz" ref={tzRef} name="tz" type="text" placeholder="رقم الهوية أو البريد الإلكتروني" value={tz} onChange={(e)=>setTz(e.target.value)} onKeyDown={handleKeyDown} required />
 
-                    <label className={styles.fieldLabel} htmlFor="login-password">كلمة المرور</label>
+                    <label className={styles.fieldLabel} htmlFor="login-password">كلمة المرور<RequiredMark /></label>
                     <div className={styles.passwordWrapper}>
                         <input
                             id="login-password"

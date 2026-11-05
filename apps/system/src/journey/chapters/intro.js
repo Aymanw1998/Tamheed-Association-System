@@ -28,8 +28,8 @@ const intro = {
       target: "notice-bell",
       requires: "notices.view",
       mood: "point",
-      title: "الإعلانات",
-      body: "اضغط على الجرس لفتح الإعلانات.",
+      title: "رسائل النظام",
+      body: "اضغط على الجرس لرؤية آخر الرسائل.",
     },
     {
       target: "help-button",

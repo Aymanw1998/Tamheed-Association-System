@@ -1,3 +1,4 @@
+import RequiredMark from "../ui/RequiredMark";
 import { useEffect, useRef, useState } from "react";
 import { errorText, login, loginPass, verify } from "../api";
 import logo from "../logo.png";
@@ -96,11 +97,11 @@ export default function SignIn({ pass = "", onSignedIn }) {
       {step === "password" && (
         <form onSubmit={sendPassword}>
           <label>
-            رقم الهوية
+            <span>رقم الهوية<RequiredMark /></span>
             <input name="tz" inputMode="numeric" autoComplete="username" value={tz} onChange={(e) => setTz(e.target.value)} required />
           </label>
           <label>
-            كلمة المرور
+            <span>كلمة المرور<RequiredMark /></span>
             <span className="password-wrap">
               <input name="password" type={showPassword ? "text" : "password"} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
               <button
@@ -123,7 +124,7 @@ export default function SignIn({ pass = "", onSignedIn }) {
         <form onSubmit={sendCode}>
           {message && <p role="status">{message}</p>}
           <label>
-            الرمز المرسل إلى بريدك الإلكتروني
+            <span>الرمز المرسل إلى بريدك الإلكتروني<RequiredMark /></span>
             <input name="code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code} onChange={(e) => setCode(e.target.value)} required />
           </label>
           {error && <p role="alert" className="error">{error}</p>}

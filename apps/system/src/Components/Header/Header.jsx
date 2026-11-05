@@ -219,12 +219,10 @@ export default function Header() {
             <span />
           </button>
         )}
-        {canViewNotices && (
-          <span data-tour="notice-bell" style={{ display: "inline-flex", alignItems: "center" }}>
-            <NoticeBell onOpen={(event) => onNavClick(event, "/notices")} />
-            <NewBadge section="notices" />
-          </span>
-        )}
+        <span data-tour="notice-bell" style={{ display: "inline-flex", alignItems: "center" }}>
+          <NoticeBell canViewNotices={canViewNotices} />
+          {canViewNotices && <NewBadge section="notices" />}
+        </span>
         {isMobile && accountMenu}
       </div>
 

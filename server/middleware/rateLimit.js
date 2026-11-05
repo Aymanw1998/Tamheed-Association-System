@@ -4,6 +4,13 @@ const buckets = new Map();
 // value is client-supplied, so it must never key a bucket.
 const getClientKey = (req, scope) => `${scope}:${req.ip || req.socket?.remoteAddress || "unknown"}`;
 
+const waitText = (seconds) => {
+  const minutes = Math.ceil(seconds / 60);
+  if (minutes === 1) return "دقيقة";
+  if (minutes === 2) return "دقيقتين";
+  return minutes <= 10 ? `${minutes} دقائق` : `${minutes} دقيقة`;
+};
+
 const rateLimit = ({ windowMs = 60 * 1000, max = 60, scope = "global", keyFn } = {}) => {
   return (req, res, next) => {
     const now = Date.now();
@@ -23,7 +30,7 @@ const rateLimit = ({ windowMs = 60 * 1000, max = 60, scope = "global", keyFn } =
       return res.status(429).json({
         ok: false,
         code: "RATE_LIMITED",
-        message: "Too many requests. Please try again later.",
+        message: `عدد الطلبات كبير. حاول مرة أخرى بعد ${waitText(retryAfter)}.`,
       });
     }
 

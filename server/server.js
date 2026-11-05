@@ -29,6 +29,8 @@ const { sportStatic, hostStatic, cacheHeaders } = require('./utils/sportHost');
 //Craete app
 const app = express();
 app.use(logger);
+// The sites' scripts and the API's lists shrink to about a quarter on the way out.
+app.use(require('./utils/compress').compress());
 
 
 // The client calls /api on its own origin (dev: CRA proxy, production: this
@@ -150,6 +152,7 @@ startVehicleExpiryJob();
 // Periodic alerts: every 15 minutes, 07:00-21:00 Asia/Jerusalem.
 const { startAlertJob } = require('./services/alertJob');
 startAlertJob();
+require('./services/gradePromotionJob').startGradePromotionJob();
 // Training reminders to sport players, every 5 minutes.
 require('./services/sportPushJob').startSportPushJob();
 // Passport versions of the photos: made one at a time, the missing ones by a half-hourly sweep.
@@ -214,6 +217,7 @@ const StartServer = async () => {
     // Runs after listen() so any self-referencing HTTP calls it makes
     // (e.g. storage folder provisioning) can actually reach this server.
     await ensureSystemAdmin();
+    await require('./Entities/InviteToken/Rules.model').ensureRulesIndexes()
     await require('./Entities/Notice/Notice.model').ensureNoticeIndexes()
       .catch((err) => console.error('Notice index:', err.message));
     await require('./Entities/Audit/Audit.model').ensureAuditIndexes()

@@ -1,7 +1,7 @@
 // Text for the administrators' notices board. Merged in I18nContext.
 export const noticeStrings = {
   ar: {
-    navTitle: "لوحة الإعلانات", title: "لوحة الإعلانات", bell: "إعلانات غير مقروءة: {n}",
+    navTitle: "لوحة الإعلانات", title: "لوحة الإعلانات", bell: "رسائل غير مقروءة: {n}", bellTitle: "رسائل النظام", bellEmpty: "لا توجد رسائل جديدة", bellBoard: "الانتقال إلى لوحة الإعلانات",
     filters: { all: "الكل", unread: "غير المقروءة", category: "الفئة", severity: "الأهمية", status: "الحالة" },
     category: { vehicle: "المركبات", system: "النظام", manual: "رسالة من الإدارة" },
     severity: { critical: "عاجل", important: "مهم", info: "معلومة" },

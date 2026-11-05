@@ -1,3 +1,4 @@
+import RequiredMark from "../UI/RequiredMark";
 import React, { useEffect, useMemo, useState } from "react";
 import { useI18n } from "../../i18n/I18nContext";
 import { toast } from "../../ALERT/SystemToasts";
@@ -85,11 +86,11 @@ function LessonForm({ lesson, onClose, onSaved }) {
             </select>
           </label>
           <label className={styles.field}>
-            {t("sport.lessons.start")}
+            <span>{t("sport.lessons.start")}<RequiredMark /></span>
             <input type="time" value={start} onChange={(e) => setStart(e.target.value)} />
           </label>
           <label className={styles.field}>
-            {t("sport.lessons.end")}
+            <span>{t("sport.lessons.end")}<RequiredMark /></span>
             <input type="time" value={end} onChange={(e) => setEnd(e.target.value)} />
           </label>
         </div>

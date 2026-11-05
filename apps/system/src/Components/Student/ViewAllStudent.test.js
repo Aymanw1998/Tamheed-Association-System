@@ -74,13 +74,10 @@ test("a waiting request has no «قبول» or «رفض» in the list; its row o
   mockPerms = ["students.view", "students.edit", "students.viewAll", "students.delete"];
   getAll.mockResolvedValue({ ok: true, students: [{ ...STUDENT, status: "ينتظر" }] });
   await mount();
-  // The status sits in the «فلتر» window.
-  const open = [...container.querySelectorAll("button")].find((b) => b.textContent.trim() === "فلتر");
-  await act(async () => open.click());
-  const waiting = [...container.querySelectorAll("button")].find((b) => b.textContent.includes("بانتظار") || b.textContent.includes("ينتظر"));
+  // The lists are tabs on the page; there is no «فلتر» here any more.
+  expect(labels()).not.toContain("فلتر");
+  const waiting = [...container.querySelectorAll('[role="tab"]')].find((b) => b.textContent.includes("الطلبات"));
   await act(async () => waiting.click());
-  const close = [...container.querySelectorAll("button")].find((b) => b.textContent.trim() === "إغلاق");
-  await act(async () => close.click());
   expect(labels()).not.toContain("قبول");
   expect(labels()).not.toContain("رفض");
   const row = [...container.querySelectorAll("tbody tr")].find((tr) => tr.textContent.includes("800000001"));

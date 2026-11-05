@@ -1,3 +1,4 @@
+import RequiredMark from "../UI/RequiredMark";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   getVehicleAudit,
@@ -80,7 +81,7 @@ export function VehicleDocuments({ vehicle, canUpload, canAccess, onVehicle, onD
           <h3>{t("vehicles.uploadDocument")}</h3>
           <div className={styles.formGrid}>
             <div className={`${styles.field} ${styles.wide}`}>
-              <label htmlFor="vehicle-doc-file">{t("vehicles.chooseFile")}</label>
+              <label htmlFor="vehicle-doc-file">{t("vehicles.chooseFile")}<RequiredMark /></label>
               <input
                 id="vehicle-doc-file"
                 type="file"

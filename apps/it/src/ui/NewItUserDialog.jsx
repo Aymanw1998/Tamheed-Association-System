@@ -1,3 +1,4 @@
+import RequiredMark from "./RequiredMark";
 import { useEffect, useState } from "react";
 import { createItUser, errorText } from "../api";
 import { ROLES, newItUserText as text, roleLabel } from "../strings";
@@ -38,10 +39,10 @@ export default function NewItUserDialog({ onClose, onCreated }) {
         <div className="c-body">
           <p className="muted">{text.intro}</p>
           <div className="form-grid">
-            <label>{text.firstname}<input name="firstname" value={form.firstname} onChange={set("firstname")} required /></label>
-            <label>{text.lastname}<input name="lastname" value={form.lastname} onChange={set("lastname")} required /></label>
-            <label>{text.tz}<input name="tz" inputMode="numeric" value={form.tz} onChange={set("tz")} required /></label>
-            <label>{text.email}<input name="email" type="email" value={form.email} onChange={set("email")} required /></label>
+            <label><span>{text.firstname}<RequiredMark /></span><input name="firstname" value={form.firstname} onChange={set("firstname")} required /></label>
+            <label><span>{text.lastname}<RequiredMark /></span><input name="lastname" value={form.lastname} onChange={set("lastname")} required /></label>
+            <label><span>{text.tz}<RequiredMark /></span><input name="tz" inputMode="numeric" value={form.tz} onChange={set("tz")} required /></label>
+            <label><span>{text.email}<RequiredMark /></span><input name="email" type="email" value={form.email} onChange={set("email")} required /></label>
             <label>{text.phone}<input name="phone" type="tel" value={form.phone} onChange={set("phone")} /></label>
             <label>
               {text.role}

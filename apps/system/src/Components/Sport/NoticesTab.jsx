@@ -1,3 +1,4 @@
+import RequiredMark from "../UI/RequiredMark";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "../../i18n/I18nContext";
 import { toast } from "../../ALERT/SystemToasts";
@@ -75,7 +76,7 @@ export default function NoticesTab({ lessons, canCoach }) {
           <h2 className={styles.noticeFormTitle}>{label("new")}</h2>
           <div className={styles.fields}>
             <label className={`${styles.field} ${styles.wide}`}>
-              {label("title")}
+              <span>{label("title")}<RequiredMark /></span>
               <input value={form.title} onChange={set("title")} maxLength={TITLE_MAX} required />
             </label>
             <label className={`${styles.field} ${styles.wide}`}>

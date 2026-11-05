@@ -24,14 +24,14 @@ const NOW = new Date("2026-01-01T00:00:00Z");
 /* ---------- unit ---------- */
 
 test("constants carry the agreed values", () => {
-  assert.equal(LOCK_THRESHOLD, 5);
+  assert.equal(LOCK_THRESHOLD, 10);
   assert.equal(SYSTEM_ALERT_EVERY, 5);
   assert.equal(LOCKED_MESSAGE, EXPECTED_MESSAGE);
 });
 
-test("four failures do not lock, the fifth does", () => {
+test("nine failures do not lock, the tenth does", () => {
   let user = { failedLoginCount: 0, lockedAt: null };
-  for (let i = 1; i <= 4; i++) {
+  for (let i = 1; i <= 9; i++) {
     const next = afterFailure(user, { isSystem: false, now: NOW });
     assert.equal(next.failedLoginCount, i);
     assert.equal(next.lockedAt, null);
@@ -39,7 +39,7 @@ test("four failures do not lock, the fifth does", () => {
     assert.equal(isLocked(user, { isSystem: false }), false);
   }
   const fifth = afterFailure(user, { isSystem: false, now: NOW });
-  assert.equal(fifth.failedLoginCount, 5);
+  assert.equal(fifth.failedLoginCount, 10);
   assert.equal(fifth.lockedAt, NOW);
   assert.equal(fifth.alertSystem, false);
   assert.equal(isLocked({ ...user, ...fifth }, { isSystem: false }), true);
@@ -164,20 +164,47 @@ test("a locked account is refused even with the right password", async () => {
   assert.equal(calls.updates.length, 0);
 });
 
-test("a wrong password is counted atomically and the fifth failure locks the account", async () => {
-  const user = { _id: "id-1", tz: "1", roles: [], password: FAKE_HASH, failedLoginCount: 4, lockedAt: null };
+test("each wrong password tells how many tries are left", async () => {
+  for (const [before, left, text] of [[0, 9, "تبقّى لك 9 محاولات"], [7, 2, "تبقّى لك محاولتان"], [8, 1, "تبقّى لك محاولة واحدة"]]) {
+    const user = { _id: "id-1", tz: "1", roles: [], password: FAKE_HASH, failedLoginCount: before, lockedAt: null };
+    const { controller } = loadController({ user });
+    const res = makeRes();
+    await controller.login({ body: { tz: "1", password: "wrong" }, headers: {}, cookies: {} }, res);
+    assert.equal(res.statusCode, 401);
+    assert.equal(res.body.attemptsLeft, left);
+    assert.ok(res.body.message.includes(text), res.body.message);
+  }
+});
+
+test("the system account is told nothing about tries, since it never locks", async () => {
+  const previous = process.env.SYSTEM_ADMIN_TZ;
+  process.env.SYSTEM_ADMIN_TZ = "1";
+  try {
+    const user = { _id: "id-1", tz: "1", roles: [], password: FAKE_HASH, failedLoginCount: 2, lockedAt: null };
+    const { controller } = loadController({ user });
+    const res = makeRes();
+    await controller.login({ body: { tz: "1", password: "wrong" }, headers: {}, cookies: {} }, res);
+    assert.equal(res.statusCode, 401);
+    assert.equal(res.body.attemptsLeft, undefined);
+  } finally {
+    if (previous === undefined) delete process.env.SYSTEM_ADMIN_TZ; else process.env.SYSTEM_ADMIN_TZ = previous;
+  }
+});
+
+test("a wrong password is counted atomically and the tenth failure locks the account", async () => {
+  const user = { _id: "id-1", tz: "1", roles: [], password: FAKE_HASH, failedLoginCount: 9, lockedAt: null };
   const { controller, calls } = loadController({ user });
   const res = makeRes();
   await controller.login({ body: { tz: "1", password: "wrong" }, headers: {}, cookies: {} }, res);
-  assert.equal(res.statusCode, 401);
-  assert.equal(res.body.code, "INVALID_CREDENTIALS");
+  assert.equal(res.statusCode, 423);
+  assert.equal(res.body.code, "ACCOUNT_LOCKED");
   assert.deepEqual(calls.increments, [["1", "active"]]);
   assert.equal(calls.updates.length, 0, "no read-modify-write of the counter");
   assert.equal(calls.locks.length, 1);
   const [tz, lockedAt, threshold, room] = calls.locks[0];
   assert.equal(tz, "1");
   assert.equal(room, "active");
-  assert.equal(threshold, 5);
+  assert.equal(threshold, 10);
   assert.equal(Object.prototype.toString.call(lockedAt), "[object Date]");
 });
 
@@ -260,8 +287,8 @@ test("reset-password on a locked account is refused", async () => {
 
 test("afterFailureCount decides the lock from an atomically returned count", () => {
   const { afterFailureCount } = require("../utils/loginLockout");
-  assert.equal(afterFailureCount(4, { isSystem: false, now: NOW }).lockedAt, null);
-  assert.equal(afterFailureCount(5, { isSystem: false, now: NOW }).lockedAt, NOW);
+  assert.equal(afterFailureCount(9, { isSystem: false, now: NOW }).lockedAt, null);
+  assert.equal(afterFailureCount(10, { isSystem: false, now: NOW }).lockedAt, NOW);
   assert.equal(afterFailureCount(5, { isSystem: true, now: NOW }).lockedAt, null);
   assert.equal(afterFailureCount(5, { isSystem: true, now: NOW }).alertSystem, true);
 });

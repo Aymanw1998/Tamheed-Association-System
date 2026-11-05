@@ -94,7 +94,7 @@ export default function Settings() {
       <div className="card">
         <h2>تحرير قفل عالق</h2>
         <form data-form="lock" className="row" onSubmit={release}>
-          <input name="lockKey" placeholder="مفتاح القفل" aria-label="مفتاح القفل" value={lockKey} onChange={(e) => setLockKey(e.target.value)} required />
+          <input name="lockKey" placeholder="مفتاح القفل *" aria-label="مفتاح القفل" value={lockKey} onChange={(e) => setLockKey(e.target.value)} required />
           <button type="submit" className="primary">تحرير القفل</button>
         </form>
       </div>

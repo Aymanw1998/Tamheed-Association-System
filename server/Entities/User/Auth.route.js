@@ -23,28 +23,29 @@ const { rateLimit } = require('../../middleware/rateLimit');
 const sitePass = require('../It/sitePass');
 const { setEngine } = require('crypto');
 
-const authRateLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 20, scope: "auth" });
+// Signing in has no limit per address (owner, 2026-11-05): a whole Wi-Fi shares one
+// address. Guessing is stopped per account (utils/loginLockout.js).
 const passwordResetRateLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 8, scope: "password-reset" });
 
 // ---------- Public ----------
 router.post('/register/', register);
 
 // ملاحظة عربية
-router.post('/login', authRateLimit, login);
+router.post('/login', login);
 // The second step for an IT user with no role and for the system account.
-router.post('/login-code', authRateLimit, loginWithCode);
+router.post('/login-code', loginWithCode);
 
 // A passkey in System (Entities/User/User.passkey.js): a fingerprint or face
 // signs in with no ID number; saved while signed in.
 const passkey = (name) => (req, res, next) => require('./User.passkey').userPasskeys()[name](req, res, next);
-router.post('/passkey/login-options', authRateLimit, passkey('loginOptions'));
-router.post('/passkey/login', authRateLimit, passkey('login'));
+router.post('/passkey/login-options', passkey('loginOptions'));
+router.post('/passkey/login', passkey('login'));
 router.post('/passkey/register-options', requireAuth, loadActor, passkey('registerOptions'));
 router.post('/passkey/register', requireAuth, loadActor, passkey('register'));
 
 // IT site → everyday app: a one-time pass from POST /api/it/system-pass
 // (Entities/It/sitePass.js) instead of the password; the everyday sign-in answer.
-router.post('/login-pass', authRateLimit, sitePass.loginToSystem);
+router.post('/login-pass', sitePass.loginToSystem);
 
 // ملاحظة عربية
 router.post('/logout', requireAuth, logout);
@@ -66,7 +67,7 @@ router.get('/admin/ping', requireAuth, loadActor, requirePermission('users.view'
 
 router.use(cookieParser());
 // ملاحظة عربية
-router.post('/refresh', rateLimit({ windowMs: 60 * 1000, max: 60, scope: "auth-refresh" }), refreshAccessToken);
+router.post('/refresh', refreshAccessToken);
 
 router.post("/forgot-password", passwordResetRateLimit, forgotPassword);
 router.post("/reset-password", passwordResetRateLimit, resetPassword);

@@ -1,3 +1,4 @@
+import RequiredMark from "../UI/RequiredMark";
 import React, { useState } from "react";
 import styles from "./Profile.module.css";
 import sectionStyles from "../UI/FormSection.module.css";
@@ -51,7 +52,7 @@ export default function ChangeOwnPassword() {
 
   const field = (id, label, value, setValue, autoComplete) => (
     <>
-      <label htmlFor={id}>{label}</label>
+      <label htmlFor={id}>{label}<RequiredMark /></label>
       <input id={id} data-tour={{ "own-new-password": "password-new", "own-confirm-password": "password-confirm" }[id]} type={show ? "text" : "password"} autoComplete={autoComplete}
         value={value} onChange={(e) => setValue(e.target.value)} />
     </>
@@ -60,7 +61,7 @@ export default function ChangeOwnPassword() {
   return (
     <fieldset className={sectionStyles.formSection} data-tour="profile-password">
       <legend>{t("passwordChange.ownTitle")}</legend>
-      <label htmlFor="own-current-password">{t("passwordChange.current")}</label>
+      <label htmlFor="own-current-password">{t("passwordChange.current")}<RequiredMark /></label>
       <div className={styles.passwordWrapper}>
         <input id="own-current-password" data-tour="password-current" type={show ? "text" : "password"} autoComplete="current-password"
           value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} />

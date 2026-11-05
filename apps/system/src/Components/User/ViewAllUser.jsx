@@ -198,19 +198,18 @@ const ViewAllUser = () => {
         </div>
 
         <div style={{ marginTop: 12, marginBottom: 12 }}>
+        <UserStatusFilter
+          value={status}
+          onChange={setStatus}
+          counts={counts}
+          compact={false}
+        />
         <FilterDialog
-          count={(status !== "active") + (roleFilter !== "all")}
-          onClear={() => { setStatus("active"); setRoleFilter("all"); }}
-          tour="users-status-filter"
+          count={roleFilter !== "all" ? 1 : 0}
+          onClear={() => setRoleFilter("all")}
+          tour="users-role-open"
           closeTour="users-filter-close"
         >
-          <UserStatusFilter
-            value={status}
-            onChange={setStatus}
-            counts={counts}
-            compact={false}
-          />
-
         <div className={styles.filterRow} data-tour="users-role-filter">
           <label htmlFor="role-filter" style={{ fontWeight: 600 }}>الدور</label>
           <select

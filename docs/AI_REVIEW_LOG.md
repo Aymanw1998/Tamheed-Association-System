@@ -4391,3 +4391,33 @@ between installed apps need a phone and the server. Needs `SYSTEM_HOST` on deplo
 **Verification:** see the owner's report. On the local stack with made-up data, in headless Chrome with the share function stubbed: the on-screen QR and the shared picture both decode, and the link signs a phone in and leaves the address. Not checked: a real iPhone camera, a real share sheet, a real printer.
 
 **Codex review:** pending; no live connection from this session. **Status:** uncommitted.
+
+### Fix: required-field stars and the default city (2026-11-05)
+
+**Change:** Owner: the register page showed no star on required fields; scan the rest; the city starts as «الرملة». Shared `RequiredMark` in each site. A star now means saving is really blocked: added on register, profile, sign-in and password forms, notices, sport lessons, the IT site's forms and the sport sign-in; on a new user's password and role; on the vehicle test date when the result is passed or failed. Removed from birth date, gender and email in `EditUser`, which do not block (`requiredUserFields`), and those fields no longer show a "required" message. Register now stops an empty password on the page; it used to reach the server's English answer.
+
+**Test:** `RegisterPage.test.js`, `RequiredMark.test.js`.
+
+**Verification:** System 1011, IT 75, Sport 98, server 1397 passed; all three sites built. The built register page and IT sign-in checked in a browser with no server behind them. Not checked on a phone. Not deployed.
+
+**Codex review:** answered, read-only, 2026-11-05 (no live production or database access). Fixed from it: stars that became a separate row in grid labels, stars missing on a new user's password and role, the vehicle test date, three forms with no label, weak tests. Open, for the owner: `EditStudent` stars school, class and health, none of which blocks saving. Email on register and profile stays required until the owner decides. **Status:** uncommitted.
+
+### Diagnosis: sign-in limits and slowness (2026-11-05)
+
+**Findings, no change yet:** `Auth.route.js` `authRateLimit` allows 20 requests per 15 minutes per IP, counts successes, and is shared by password, code, passkey and pass sign-in, so one Wi-Fi shares it: run against the real middleware, 25 different people from one IP gave 20 passes and 5 x 429. Parent registration is 3 an hour per IP and 30 a week overall. `/api/auth/register` has no limit. Live site, measured from one PC: the 1.95 MB main script arrives uncompressed (525 KB with gzip) with `max-age=0`; `/api/health` answers in about 12 ms; TCP connect took about 1 s in 8 of 25 tries, which may be the network of that PC. No route is lazy loaded. Dashboard and sport lists read whole collections (Codex; not measured). Server metrics not inspected.
+
+**Alerts:** `userWaiting` and `parentRegistered` already create alerts, but their only inbox is `FloatingAIButton`, commented out in `Routes.jsx`, and the visible bell counts Notices. So they reach nobody on screen.
+
+**Codex review:** answered as above. **Status:** awaiting the owner's decisions.
+
+### Feature: sign-in, bell, classes, rules and signature, speed (2026-11-05)
+
+**Change:** Owner's decisions. Sign-in and `/refresh` have no limit per address; 10 wrong passwords lock an account, each failure tells the tries left, in Arabic (`loginLockout.js`). Parent requests: 30 per rolling 30 days in total, no limit per address, also on opening the link. Email is optional on register and profile, and can be emptied. Student school, class and health carry no star; health starts as «سليم». Tabs outside the filter: الأعضاء / الطلبات / الموقوفون, الطلاب / الطلبات. The bell is for every signed-in user: alerts plus notices, a window with up to 3 and a button to the board; badge from the server's counts, lists only when opened. Class is a list (`utils/grades.js`); `services/gradePromotionJob.js` moves everyone up each July 1st from 2027, with catch-up, reporting a class it cannot read. Rules: `Rules.model.js`, published versions, parent signs on the link (checkbox, name, finger), stored apart in `StudentConsents`, read with `students.parentLink` on the student's page. Speed: `compression` (new dependency), a year's cache for hashed files, pages loaded when opened (`lazyPage.js`): the System main script fell from 528 KB to 195 KB gzipped.
+
+**Test:** `grades`, `compress-cache`, additions in `login-lockout`, `login-security`, `parent-registration`; client `NoticeBell`, `lazyPage`, `RegisterPage`, `RequiredMark`.
+
+**Verification:** server 1419, System 1022, IT 75, Sport 98 passed; all three built. Local run on a throwaway database with made-up data, no `.env`: 25 people signing in from one address, the tries count and lock, register with no email, publish, a real finger signature, the bell on desktop and phone sizes, tabs, the signature on the student's page, the real promotion with the clock set to 2027. Service worker registered and precached in Chrome 156 with compression on. In the app's preview pane it fails with or without compression. Not checked: production, a real phone or iPhone, real SMTP.
+
+**Codex review:** answered twice, read-only. Second round, 14 findings. Fixed: unique rule versions, promotion stamps the record so an open form cannot undo it, approval keeps `source`, emptied email is written, signature must be real PNG bytes, a signature with no student is not shown, one reload per build, no compression on range requests, bell counts and stale answers, opening the link has no address limit, missed years. Not changed: the cap can be passed by a few simultaneous requests, and a deleted request frees room (as designed before); a failed signature delete leaves a row that is no longer shown; finding 14 read the earlier Hebrew text. The fixes themselves were not sent back to Codex.
+
+**Open for the owner:** Sport sign-in (30 per 15 minutes per address) and IT sign-in (20) still have their limits. `/api/auth/register` has no limit. The tries message shows that an ID number is registered. **Status:** uncommitted, not deployed.

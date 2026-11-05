@@ -1,3 +1,4 @@
+import RequiredMark from "../UI/RequiredMark";
 import React, { useEffect, useState } from "react";
 import { isValidIsraeliId } from "../../utils/israeliId";
 
@@ -182,7 +183,7 @@ const Profile = ({parent = false}) => {
         }
 
         //phone, email, city, street
-        else if (['father_phone', 'mother_phone', 'phone', 'email', 'city', 'street'].includes(name)){
+        else if (['father_phone', 'mother_phone', 'phone', 'city', 'street'].includes(name)){
             if (value === "") {
             tag?.style.setProperty('border', '2px solid red'); // ملاحظة عربية
             return "هذا الحقل مطلوب";
@@ -238,7 +239,7 @@ const Profile = ({parent = false}) => {
         let b = await validate();
         if (b) { toast.warn(b); return; }
         b = true
-        const ff = ['tz', 'firstname', 'lastname', 'birth_date', 'gender', 'phone', 'email', 'city', 'street'];
+        const ff = ['tz', 'firstname', 'lastname', 'birth_date', 'gender', 'phone', 'city', 'street'];
         for(const nameTag in ff){
             const tag = document.getElementsByName(ff[nameTag])[0];
             //console.log('Tag', tag, ff[nameTag]);
@@ -309,7 +310,7 @@ const Profile = ({parent = false}) => {
 
         <fieldset className={sectionStyles.formSection} data-tour="profile-account">
             <legend>بيانات الحساب</legend>
-            <label>رقم الهوية:</label>
+            <label>رقم الهوية:<RequiredMark /></label>
             <input name="tz" value={form.tz} onChange={onField} readOnly={true} />
             <label style={{color: "red"}}>{error.tz}</label>
 
@@ -324,15 +325,15 @@ const Profile = ({parent = false}) => {
 
         <fieldset className={sectionStyles.formSection} data-tour="profile-personal">
             <legend>البيانات الشخصية</legend>
-            <label>الاسم الشخصي:</label>
+            <label>الاسم الشخصي:<RequiredMark /></label>
             <input name="firstname" value={form.firstname} onChange={handleChange} required />
             <label style={{color: "red"}}>{error.firstname}</label>
 
-            <label>اسم العائلة:</label>
+            <label>اسم العائلة:<RequiredMark /></label>
             <input name="lastname" value={form.lastname} onChange={handleChange} required />
             <label style={{color: "red"}}>{error.lastname}</label>
 
-            <label>تاريخ الميلاد:</label>
+            <label>تاريخ الميلاد:<RequiredMark /></label>
             <input
                 name="birth_date"
                 type="date"
@@ -341,7 +342,7 @@ const Profile = ({parent = false}) => {
             />
             <label style={{color: "red"}}>{error.birth_date}</label>
 
-            <label>الجنس:</label>
+            <label>الجنس:<RequiredMark /></label>
             <select name="gender" value={form.gender} onChange={onField}>
                 <option value="">اختر الجنس</option>
                 <option value="ذكر">ذكر</option>
@@ -352,15 +353,15 @@ const Profile = ({parent = false}) => {
 
         <fieldset className={sectionStyles.formSection}>
             <legend>السكن والتواصل</legend>
-            <label>مدينة السكن:</label>
+            <label>مدينة السكن:<RequiredMark /></label>
             <input name="city" value={form.city} onChange={onField} />
             <label style={{color: "red"}}>{error.city}</label>
 
-            <label>شارع السكن:</label>
+            <label>شارع السكن:<RequiredMark /></label>
             <input name="street" value={form.street} onChange={onField} />
             <label style={{color: "red"}}>{error.street}</label>
 
-            <label>الهاتف:</label>
+            <label>الهاتف:<RequiredMark /></label>
             <input
                 name="phone"
                 value={displayPhoneLocal(form.phone)}

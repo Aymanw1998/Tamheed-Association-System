@@ -324,6 +324,8 @@ const putS = async (req, res) => {
     }
 
     const newData = removeEmpty(buildData(req.body));
+    // buildData's default is for a new student: a parent's request stays a parent's after approval.
+    if (!hasValue(req.body?.source)) delete newData.source;
     if (!assigns) delete newData.main_teacher;
     // An explicit empty value from a viewAll holder clears the responsible guide.
     else if (req.body && Object.hasOwn(req.body, "main_teacher") && !hasValue(req.body.main_teacher)) newData.main_teacher = null;
@@ -412,6 +414,9 @@ const deleteS = async (req, res) => {
     await recordStudent(req, "delete", existing.result[0], null);
     notifyChange("student", existing.result[0]._id);
     await forgetAlerts("student", existing.result[0]._id);
+    // A parent's signature goes with the request it belongs to.
+    await Promise.resolve().then(() => require("../InviteToken/Rules.model").ConsentModelDef.delete({ studentId: String(existing.result[0]._id) }))
+      .catch((e) => logWithSource("Student.delete.consent", e));
     // Its player photo goes with it, at once.
     await playerPhotoJob.remove(existing.result[0]._id).catch((e) => logWithSource("Student.delete.playerPhoto", e));
 

@@ -48,7 +48,7 @@ const KINDS = {
     retiredAt: "voidedAt",
     guarded: ["testDate", "retestDate"],
     fields: [
-      { key: "testDate", type: "date", labelKey: "testDate" },
+      { key: "testDate", type: "date", labelKey: "testDate", required: (draft) => draft.result === "passed" || draft.result === "failed" },
       { key: "result", type: "select", group: "testResult", labelKey: "testResult", required: true, blank: true },
       { key: "institute", type: "text" },
       { key: "retestDate", type: "date" },
@@ -192,7 +192,7 @@ function RecordForm({ kind, config, vehicleId, record, canAttach, onSaved, onCan
                 value={draft[field.key]}
                 onChange={(value) => setDraft((prev) => ({ ...prev, [field.key]: value }))}
                 error={errors[field.key]}
-                required={field.required}
+                required={typeof field.required === "function" ? field.required(draft) : field.required}
                 wide={field.wide}
                 step={field.step}
                 min={field.min}

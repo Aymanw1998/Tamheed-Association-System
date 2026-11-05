@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getOne, deleteS, update } from "../../WebServer/services/student/functionsStudent.jsx";
 import { toast } from "../../ALERT/SystemToasts";
+import ConsentView from "./ConsentView.jsx";
 import { exportStudentPdf } from "../ExportPDF/ExportPDF.jsx";
 import { canStored, getStoredUserId } from "../../utils/session";
 import { byLessonTime, lessonWhen, guideLink } from "../../utils/recordLinks";
@@ -124,6 +125,11 @@ export default function StudentView() {
       id: "guide",
       label: t("record.guide"),
       content: <GuideCard contact={s.guide} to={guideLink(s.guide, getStoredUserId(), s.main_teacher)} empty={t("record.noGuide")} />,
+    },
+    canStored("students.parentLink") && s.source === "اهل" && {
+      id: "consent",
+      label: "التوقيع",
+      content: <ConsentView studentId={s._id} />,
     },
   ].filter(Boolean);
 

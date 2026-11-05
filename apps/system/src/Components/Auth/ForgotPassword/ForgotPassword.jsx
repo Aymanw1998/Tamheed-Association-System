@@ -1,3 +1,4 @@
+import RequiredMark from "../../UI/RequiredMark";
 import React, { useState } from "react";
 import { forgotPassword, resetPassword } from "../../../WebServer/services/auth/fuctionsAuth.jsx";
 import styles from "./ForgotPassword.module.css";
@@ -73,7 +74,7 @@ export default function ForgotPassword() {
                     <p className={styles.intro}>أدخل رقم الهوية لنرسل إليك رمز التحقق لإعادة تعيين كلمة المرور</p>
                     <form className={styles.wrapper} onSubmit={onSubmit}>
                         <div className={styles.field}>
-                            <label htmlFor="fp-tz">رقم الهوية</label>
+                            <label htmlFor="fp-tz">رقم الهوية<RequiredMark /></label>
                             <input
                                 id="fp-tz"
                                 type="text"
@@ -95,7 +96,7 @@ export default function ForgotPassword() {
                     <h3 className={styles.tzReminder}>رقم الهوية: <strong>{tz}</strong></h3>
 
                     <div className={styles.field}>
-                        <label htmlFor="fp-otp">رمز التحقق</label>
+                        <label htmlFor="fp-otp">رمز التحقق<RequiredMark /></label>
                         <input
                             id="fp-otp"
                             type="text"
@@ -107,7 +108,7 @@ export default function ForgotPassword() {
                     </div>
 
                     <div className={styles.field}>
-                        <label htmlFor="fp-new-password">كلمة المرور الجديدة</label>
+                        <label htmlFor="fp-new-password">كلمة المرور الجديدة<RequiredMark /></label>
                         <div className={styles.passwordWrapper}>
                             <input
                                 id="fp-new-password"
@@ -132,7 +133,7 @@ export default function ForgotPassword() {
                     <p id="fp-password-hint" className={styles.hint}>{t("passwordChange.resetHint")}</p>
 
                     <div className={styles.field}>
-                        <label htmlFor="fp-confirm-password">تأكيد كلمة المرور الجديدة</label>
+                        <label htmlFor="fp-confirm-password">تأكيد كلمة المرور الجديدة<RequiredMark /></label>
                         <div className={styles.passwordWrapper}>
                             <input
                                 id="fp-confirm-password"

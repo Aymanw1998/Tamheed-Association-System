@@ -1,3 +1,4 @@
+import RequiredMark from "../ui/RequiredMark";
 import { useCallback, useEffect, useState } from "react";
 import {
   deleteUser, endSession, errorText, getPassword, getSessions, getUser, moveUser, resetPassword, setRole, unlockUser, setRequestAlerts } from "../api";
@@ -141,7 +142,7 @@ export default function UserPage({ tz }) {
         </div>
         <form className="password-form" onSubmit={savePassword}>
           <label>
-            كلمة المرور الجديدة
+            <span>كلمة المرور الجديدة<RequiredMark /></span>
             <span className="password-wrap">
               <input name="newPassword" type={showPassword ? "text" : "password"} autoComplete="new-password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
               <button
@@ -156,7 +157,7 @@ export default function UserPage({ tz }) {
             </span>
           </label>
           <label>
-            تأكيد كلمة المرور
+            <span>تأكيد كلمة المرور<RequiredMark /></span>
             <input name="confirmPassword" type={showPassword ? "text" : "password"} autoComplete="new-password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
           </label>
           <button type="submit" className="primary" disabled={!newPassword || !confirmPassword}>تعيين كلمة المرور</button>

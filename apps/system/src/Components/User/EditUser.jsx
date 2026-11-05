@@ -1,3 +1,4 @@
+import RequiredMark from "../UI/RequiredMark";
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 // ملاحظة عربية
@@ -32,6 +33,8 @@ import { useLockRecovery } from "../../locks/LockLostBanner";
 const safeAsk = async (options) => {
   try { return await ask("change", options); } catch { return false; }
 };
+
+const OPTIONAL_USER_FIELDS = ["birth_date", "gender", "email", "city", "street"];
 
 const EditUser = () => {
   const { t } = useI18n();
@@ -173,6 +176,11 @@ const EditUser = () => {
   };
 
   const validate = async(name = null, value = null) => {
+    // Left empty, these do not block saving (requiredUserFields): no "required" message.
+    if (OPTIONAL_USER_FIELDS.includes(name) && !value) {
+      document.getElementsByName(name)[0]?.style.removeProperty('border');
+      return "";
+    }
     const tag = document.getElementsByName(name)[0];
     if(name === "tz"){
       //console.log(isNew && value === "");
@@ -430,7 +438,7 @@ const EditUser = () => {
         <label style={{color: "red"}}>{error.tz}</label>
 
         {showPasswordField && (<>
-        <label>كلمة المرور:</label>
+        <label>كلمة المرور:{isNew && <RequiredMark />}</label>
         <div className={styles.passwordWrapper}>
           <input
             name="password"
@@ -458,7 +466,7 @@ const EditUser = () => {
 
         {isNew && newUserRoles.length > 0 && (
           <>
-            <label>{t("perms.role")}:</label>
+            <label>{t("perms.role")}:<RequiredMark /></label>
             <select
               name="roles"
               value={form.roles?.[0] || ""}
@@ -511,7 +519,7 @@ const EditUser = () => {
         <input name="lastname" value={form.lastname} onChange={handleChange} required />
         <label style={{color: "red"}}>{error.lastname}</label>
 
-        <label>تاريخ الميلاد:<span style={{color: "red"}}>*</span></label>
+        <label>تاريخ الميلاد:</label>
         <input
           name="birth_date"
           type="date"
@@ -520,7 +528,7 @@ const EditUser = () => {
         />
         <label style={{color: "red"}}>{error.birth_date}</label>
 
-        <label>الجنس:<span style={{color: "red"}}>*</span></label>
+        <label>الجنس:</label>
         <select name="gender" value={form.gender} onChange={onField}>
           <option value="">اختر الجنس</option>
           <option value="ذكر">ذكر</option>
@@ -548,7 +556,7 @@ const EditUser = () => {
         />
         <label style={{color: "red"}}>{error.phone}</label>
 
-        <label>البريد الإلكتروني:<span style={{color: "red"}}>*</span></label>
+        <label>البريد الإلكتروني:</label>
         <input name="email" value={form.email} onChange={onField} readOnly={!canEditEmail} />
         <label style={{color: "red"}}>{error.email}</label>
         {isNew && <small>بدون بريد إلكتروني لن يصل رمز «نسيت كلمة المرور»، ويعيّنها المدير.</small>}

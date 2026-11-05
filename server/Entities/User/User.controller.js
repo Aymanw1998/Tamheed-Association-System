@@ -22,6 +22,7 @@ const {
 const {
   LOCK_THRESHOLD,
   LOCKED_MESSAGE,
+  attemptsLeftMessage,
   isLocked,
   afterFailureCount,
   afterSuccess,
@@ -267,6 +268,7 @@ async function sendLockoutAlert(failedLoginCount) {
 async function countFailedSignIn(req, user, room, isSystem) {
   try {
     const counted = await UserModelDef.incrementFailedLogin(user.tz, room);
+    const failedCount = Number(counted?.result?.failedLoginCount) || 0;
     const { lockedAt, alertSystem } = afterFailureCount(counted?.result?.failedLoginCount, {
       isSystem,
       lockedAt: counted?.result?.lockedAt,
@@ -288,8 +290,11 @@ async function countFailedSignIn(req, user, room, isSystem) {
         raiseAlert("accountLocked", alertPerson(user));
       }
     }
+    // The system account is never locked, so it has no tries to count.
+    return !isSystem && failedCount > 0 ? Math.max(0, LOCK_THRESHOLD - failedCount) : null;
   } catch (countError) {
     logWithSource("User.countFailedSignIn", countError);
+    return null;
   }
 }
 
@@ -779,6 +784,8 @@ const putU = async (req, res) => {
       : "active";
 
     const newData = stripServerOwned(removeEmpty(buildData(req.body)));
+    // Email is optional: an empty one is a request to remove it. The checks below still apply.
+    if (typeof req.body?.email === "string" && !req.body.email.trim()) newData.email = "";
     let existing = null;
     if (!isAdmin) {
       // The profile form sends back account metadata from getMe. Only editable
@@ -1168,12 +1175,13 @@ const login = async (req, res) => {
     const { ok } = await verifyPasswordAndMaybeUpgrade(user, room, password);
 
     if (!ok) {
-      // The attempt that reaches the threshold still answers 401; the lock
-      // applies from the next attempt.
-      await countFailedSignIn(req, user, room, isSystem);
+      const left = await countFailedSignIn(req, user, room, isSystem);
+      // The attempt that reaches the threshold is told at once that the account is locked.
+      if (left === 0) return lockedResponse(res);
       return res.status(401).json({
         code: "INVALID_CREDENTIALS",
-        message: "رقم الهوية أو كلمة المرور غير صحيحة.",
+        message: left === null ? "رقم الهوية أو كلمة المرور غير صحيحة." : attemptsLeftMessage(left),
+        ...(left === null ? {} : { attemptsLeft: left }),
       });
     }
 
