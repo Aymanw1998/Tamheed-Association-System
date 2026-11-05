@@ -4317,7 +4317,7 @@ button stays hidden, as the owner's commits intended.
 **Verification:** `apps/system` build with `CI=true` and `apps/sport` build pass;
 `AppChrome.test.js` 2/2 in each. Full `npm run verify` not run. Not deployed.
 
-**Codex review:** pending. **Status:** uncommitted.
+**Codex review:** pending. **Status:** committed, not deployed.
 
 ### Feature: administrator powers, hidden IT users, System passkeys (2026-11-04)
 
@@ -4338,7 +4338,7 @@ fixed `it-auth.test.js`, whose fixed clock had started failing on master.
 **Verification:** see the owner's report. A real passkey, email delivery and moving
 between installed apps need a phone and the server. Needs `SYSTEM_HOST` on deploy.
 
-**Codex review:** pending. **Status:** uncommitted.
+**Codex review:** pending. **Status:** committed, not deployed.
 
 **Independent review (Claude subagent, not Codex), 2026-11-04:** 3 critical and 6 important findings fixed with failing tests first: a forced password change no longer yields a session for hidden IT users or the system account; a session counts for them only with the `strong` claim from the code, passkey or IT pass (older ones get 401 TOKEN_STALE, so they sign in once after deploy); locks and stamps name «النظام»; Sport and IT-site edits no longer show the real name; System passkeys end on sign-out-everywhere, password reset, recovery, IT block and removal; forgot-password with no email answers generically; the form asks only for the short field list when editing. Open: a storage folder from a role once held still carries the ID number in its path.
 
@@ -4350,7 +4350,7 @@ between installed apps need a phone and the server. Needs `SYSTEM_HOST` on deplo
 
 **Verification:** see the owner's report. `deploy/update.sh` passed `bash -n` and one aside build of `apps/system`; it has not run on a server.
 
-**Codex review:** pending. **Status:** uncommitted.
+**Codex review:** pending. **Status:** committed, not deployed.
 
 ### Follow-up: update.sh stops and says where (2026-11-04)
 
@@ -4360,7 +4360,7 @@ between installed apps need a phone and the server. Needs `SYSTEM_HOST` on deplo
 
 **Verification:** see the owner's report. Not run on a real server.
 
-**Codex review:** pending. **Status:** uncommitted.
+**Codex review:** pending. **Status:** committed, not deployed.
 
 ### Feature: «الإبلاغ عن مشكلة» in System (2026-11-04)
 
@@ -4487,3 +4487,29 @@ between installed apps need a phone and the server. Needs `SYSTEM_HOST` on deplo
 **Verification:** System suite passed and built. Not checked on a phone.
 
 **Codex review:** pending. The owner chose to merge without waiting. **Status:** committed, not deployed.
+
+### Change: a known child gets the usual reply (2026-11-05)
+
+**Change:** Owner, replacing `ALREADY_PENDING` from earlier today. A child already registered or waiting gets the same «received» reply as a new one, no new request is saved, and staff see the refused request beside the parents' link. The form says nothing about who is registered.
+
+**Test:** `parent-registration.test.js`.
+
+**Verification:** server suite passed. Not checked on a real device.
+
+**Codex review:** pending. **Status:** committed, not deployed.
+
+### Change: the parents' signature in the privacy policy (2026-11-05)
+
+**Change:** Owner approved the wording. `privacyContent.js` lists the parent's name, signature, date and rules version under what is kept; updated date 2026-11-05. Written by Claude, not reviewed legally.
+
+**Verification:** see the owner's report.
+
+**Codex review:** pending. **Status:** committed, not deployed.
+
+### Change: no list of refused requests (2026-11-05)
+
+**Change:** Owner: not needed. A child already registered or waiting gets the usual reply and nothing is saved. Removed `recordAttempt`, the list beside the parents' link and `RegistrationAttempt.model.js`. Rows already in `RegistrationAttempts` on the server stay there unread until the owner decides.
+
+**Verification:** see the owner's report.
+
+**Codex review:** pending. **Status:** committed, not deployed.

@@ -1,7 +1,7 @@
 // Public privacy policy (shown at /privacy and linked from Google's consent
 // screen), in Arabic. "{contact}" is replaced on the page.
 
-export const PRIVACY_UPDATED = "2026-10-15";
+export const PRIVACY_UPDATED = "2026-11-05";
 export const PRIVACY_CONTACT = "tamheedramla@gmail.com";
 
 export const PRIVACY_CONTENT = {
@@ -16,6 +16,7 @@ export const PRIVACY_CONTENT = {
         "بيانات الطلاب: الاسم، رقم الهوية، تفاصيل التواصل مع الأهل، الصورة، الدروس والحضور.",
         "التقارير، ومعلومات المركبات والمقطورات: الرخص والتأمين والفحوصات ومستنداتها.",
         "الملفات التي يرفعها المستخدمون إلى قسم الملفات.",
+        "عند تسجيل طالب عبر رابط الأهل، أو عند توقيع ولي الأمر في الجمعية، نحفظ اسم ولي الأمر وتوقيعه وتاريخ التوقيع وإصدار نظام الجمعية الذي وافق عليه. نستعمل ذلك لإثبات الموافقة فقط، ولا يطّلع عليه إلا من لديه الصلاحية في الجمعية، ويُحذف مع حذف الطالب أو الطلب.",
       ],
     },
     {

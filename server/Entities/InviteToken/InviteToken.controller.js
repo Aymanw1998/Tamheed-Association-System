@@ -1,6 +1,5 @@
 const crypto = require("crypto");
 const { InviteTokenModelDef } = require("./InviteToken.model");
-const { RegistrationAttemptModelDef } = require("./RegistrationAttempt.model");
 const { RulesModelDef, ConsentModelDef } = require("./Rules.model");
 const { canonicalGrade } = require("../../utils/grades");
 const { StudentModelDef } = require("../Student/Student.model");
@@ -17,7 +16,6 @@ const { isDuplicateKey } = require("../../utils/tzUnique");
 const LINK_KEY = "parent-registration";
 const MONTHLY_LIMIT = 30;
 const DAY_MS = 24 * 60 * 60 * 1000;
-const ATTEMPTS_KEPT = 100;
 const PARENT_SOURCE = "اهل";
 const PENDING_STATUS = "ينتظر";
 const RECEIVED_MESSAGE = "تم استلام الطلب، سنتواصل معكم قريبًا";
@@ -52,7 +50,6 @@ function toDate(value) {
 }
 
 const resultsOf = (res) => (res?.success && Array.isArray(res.result) ? res.result : []);
-const newestFirst = (a, b) => new Date(b.createdAt) - new Date(a.createdAt);
 
 async function getLinkToken() {
   const [link] = resultsOf(await InviteTokenModelDef.get({ key: LINK_KEY }));
@@ -80,21 +77,6 @@ async function countRecentParentRequests() {
   return resultsOf(await StudentModelDef.get({ source: PARENT_SOURCE }))
     .filter((student) => new Date(student.createdAt).getTime() >= since).length;
 }
-
-async function listAttempts() {
-  return resultsOf(await RegistrationAttemptModelDef.get({})).sort(newestFirst);
-}
-
-const toPublicAttempt = (attempt) => ({
-  tz: attempt.tz,
-  firstname: attempt.firstname,
-  lastname: attempt.lastname,
-  phone: attempt.phone,
-  father_phone: attempt.father_phone,
-  mother_phone: attempt.mother_phone,
-  reason: attempt.reason,
-  createdAt: attempt.createdAt,
-});
 
 /* ================= the rules and the parent's signature ================= */
 
@@ -208,17 +190,11 @@ const signConsent = async (req, res) => {
 const getLink = async (req, res) => {
   try {
     const token = (await getLinkToken()) || (await saveNewToken());
-    const since = Date.now() - 30 * DAY_MS;
-    const attempts = (await listAttempts())
-      .filter((attempt) => new Date(attempt.createdAt).getTime() >= since)
-      .map(toPublicAttempt);
-
     return res.status(200).json({
       ok: true,
       token,
       usedThisMonth: await countRecentParentRequests(),
       monthlyLimit: MONTHLY_LIMIT,
-      attempts,
     });
   } catch (err) {
     logWithSource("InviteToken.getLink", err);
@@ -282,23 +258,6 @@ function registrationError(fields) {
   return "";
 }
 
-async function recordAttempt(fields, reason) {
-  await RegistrationAttemptModelDef.create({
-    tz: fields.tz,
-    firstname: fields.firstname,
-    lastname: fields.lastname,
-    phone: fields.phone,
-    father_phone: fields.father_phone,
-    mother_phone: fields.mother_phone,
-    reason,
-    createdAt: new Date(),
-  });
-  // Keep only the newest attempts so a flood cannot grow the collection.
-  for (const old of (await listAttempts()).slice(ATTEMPTS_KEPT)) {
-    await RegistrationAttemptModelDef.delete({ _id: old._id });
-  }
-}
-
 async function savePhoto(tz, file, id) {
   try {
     const uploaded = await handleUpload(
@@ -350,13 +309,10 @@ const submitRegistration = async (req, res) => {
     if (problem) return res.status(problem.status).json({ ok: false, code: problem.code, message: problem.message });
 
     // A known ID gets exactly the same reply as a new one, so the public form
-    // cannot reveal who is registered; staff see the refusal next to the link.
+    // cannot reveal who is registered.
     const [existing] = resultsOf(await StudentModelDef.get({ tz: fields.tz }));
     if (existing) {
-      const pending = existing.status === PENDING_STATUS;
-      await recordAttempt(fields, pending ? "pending" : "exists");
-      // One request per child: the parent is told it is already waiting (owner, 2026-11-05).
-      if (pending) return res.status(409).json({ ok: false, code: "ALREADY_PENDING", message: "يوجد طلب سابق لهذا الطالب وهو بانتظار الموافقة، ولا حاجة لإرساله مرة أخرى." });
+      // Registered or waiting: the same reply, and nothing is saved (owner, 2026-11-05).
       return res.status(200).json({ ok: true, message: RECEIVED_MESSAGE });
     }
 

@@ -65,11 +65,10 @@ function runInVm(filename, dependencies) {
 }
 
 // Loads the real controller with in-memory models and a fake Drive.
-function loadController({ students = [], attempts = [], rules = [{ version: 1, text: "the rules" }], uploadResult = null, extraDeps = {} } = {}) {
+function loadController({ students = [], rules = [{ version: 1, text: "the rules" }], uploadResult = null, extraDeps = {} } = {}) {
   const models = {
     students: createModel(students, { dbName: "tamheed_db", collections: { active: "Students" } }),
     links: createModel(),
-    attempts: createModel(attempts),
     rules: createModel(rules),
     consents: createModel(),
   };
@@ -83,7 +82,6 @@ function loadController({ students = [], attempts = [], rules = [{ version: 1, t
   const controller = runInVm(path.join(__dirname, "../Entities/InviteToken/InviteToken.controller.js"), {
     crypto: require("node:crypto"),
     "./InviteToken.model": { InviteTokenModelDef: models.links },
-    "./RegistrationAttempt.model": { RegistrationAttemptModelDef: models.attempts },
     "./Rules.model": { RulesModelDef: models.rules, ConsentModelDef: models.consents },
     "../../utils/grades": require("../utils/grades"),
     "../Student/Student.model": { StudentModelDef: models.students },
@@ -137,7 +135,7 @@ test("a wrong or missing token is not valid", async () => {
   }
 });
 
-test("admins see this month's parent requests and only the last 30 days of refused ones, newest first", async () => {
+test("admins see this month's parent requests", async () => {
   const ctrl = loadController({
     students: [
       { tz: "900000001", source: "اهل", status: "ينتظر", createdAt: daysAgo(1) },
@@ -145,18 +143,13 @@ test("admins see this month's parent requests and only the last 30 days of refus
       { tz: "900000003", source: "اهل", status: "عادي", createdAt: daysAgo(31) },
       { tz: "900000004", source: "جمعية", status: "عادي", createdAt: daysAgo(1) },
     ],
-    attempts: [
-      { tz: "800000003", reason: "exists", createdAt: daysAgo(3) },
-      { tz: "800000040", reason: "exists", createdAt: daysAgo(40) },
-      { tz: "800000001", reason: "pending", createdAt: daysAgo(1) },
-    ],
   });
 
   const body = plain((await call(ctrl.getLink)).body);
 
   assert.equal(body.usedThisMonth, 2);
   assert.equal(body.monthlyLimit, 30);
-  assert.deepEqual(body.attempts.map((a) => [a.tz, a.reason]), [["800000001", "pending"], ["800000003", "exists"]]);
+  assert.equal(body.attempts, undefined);
 });
 
 const registration = (overrides = {}) => ({
@@ -197,7 +190,7 @@ test("a parent request joins the waiting list with server-set status and source"
   assert.equal(student.photo, "");
 });
 
-test("a known ID number is not saved again and is listed for staff", async () => {
+test("a known ID number gets the same reply and nothing is saved", async () => {
   for (const { status, reason } of [{ status: "عادي", reason: "exists" }, { status: "ينتظر", reason: "pending" }]) {
     const ctrl = loadController({
       students: [{ tz: VALID_TZ, firstname: "قديم", status, source: "جمعية", createdAt: daysAgo(40) }],
@@ -206,18 +199,10 @@ test("a known ID number is not saved again and is listed for staff", async () =>
 
     const res = await call(ctrl.submitRegistration, { params: { token }, body: registration(), file: photoFile() });
 
-    // A waiting child is named as waiting; a registered one gets the usual reply.
-    if (reason === "pending") {
-      assert.equal(res.statusCode, 409, status);
-      assert.equal(res.body.code, "ALREADY_PENDING");
-    } else {
-      assert.equal(res.statusCode, 200, status);
-      assert.deepEqual(plain(res.body), { ok: true, message: RECEIVED }, status);
-    }
+    assert.equal(res.statusCode, 200, status);
+    assert.deepEqual(plain(res.body), { ok: true, message: RECEIVED }, status);
     assert.deepEqual(ctrl.models.students.snapshot().map((s) => s.firstname), ["قديم"], status);
     assert.deepEqual(ctrl.drive.uploads, [], status);
-    const attempts = plain((await call(ctrl.getLink)).body.attempts);
-    assert.deepEqual(attempts.map((a) => [a.tz, a.reason, a.father_phone]), [[VALID_TZ, reason, "+972500000001"]], status);
   }
 });
 
@@ -302,19 +287,6 @@ test("a failed photo upload keeps the request, without a photo and with the same
 
   assert.deepEqual(plain(res.body), { ok: true, message: RECEIVED });
   assert.equal(ctrl.models.students.snapshot()[0].photo, "");
-});
-
-test("only the newest 100 refused requests are kept", async () => {
-  const attempts = Array.from({ length: 100 }, (_, i) => ({ tz: `60000${String(i).padStart(4, "0")}`, reason: "exists", createdAt: daysAgo(1 + i / 10) }));
-  const ctrl = loadController({ students: [{ tz: VALID_TZ, status: "عادي", source: "جمعية", createdAt: daysAgo(90) }], attempts });
-  const token = await currentToken(ctrl);
-
-  await call(ctrl.submitRegistration, { params: { token }, body: registration() });
-
-  const kept = ctrl.models.attempts.snapshot();
-  assert.equal(kept.length, 100);
-  assert.ok(kept.some((a) => a.tz === VALID_TZ));
-  assert.ok(!kept.some((a) => a.tz === "600000099"));
 });
 
 process.env.JWT_ACCESS_SECRET = "test-access-secret";
@@ -470,15 +442,16 @@ test("with no rules published the link is closed and nothing can be sent", async
   }
 });
 
-test("a child with a waiting request cannot be sent again, and the parent is told why", async () => {
+test("sending the same child twice answers the same both times and adds no second request", async () => {
   const ctrl = loadController();
   const token = await currentToken(ctrl);
-  assert.equal((await call(ctrl.submitRegistration, { params: { token }, body: registration() })).statusCode, 200);
+  const first = await call(ctrl.submitRegistration, { params: { token }, body: registration() });
   const again = await call(ctrl.submitRegistration, { params: { token }, body: registration() });
-  assert.equal(again.statusCode, 409);
-  assert.equal(again.body.code, "ALREADY_PENDING");
-  assert.match(again.body.message, /بانتظار الموافقة/);
+  assert.equal(first.statusCode, 200);
+  assert.equal(again.statusCode, 200);
+  assert.deepEqual(plain(again.body), plain(first.body));
   assert.equal(ctrl.models.students.snapshot().length, 1);
+  assert.equal(ctrl.models.consents.snapshot().length, 1);
 });
 
 test("a parent's request counts as signed; a student the association added signs later, once", async () => {

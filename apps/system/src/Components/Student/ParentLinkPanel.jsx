@@ -6,17 +6,10 @@ import { getLink, rotateLink } from "../../WebServer/services/inviteToken/functi
 import styles from "./ParentLinkPanel.module.css";
 import RulesEditor from "./RulesEditor.jsx";
 
-const REASON_LABEL = { exists: "مسجّل مسبقًا", pending: "يوجد طلب سابق قيد الانتظار" };
-
 const registrationUrl = (token) => `${window.location.origin}/register-student/${token}`;
 
-const formatDate = (value) => {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? "-" : date.toLocaleDateString("en-GB");
-};
-
 // Admin-only view of the fixed parent-registration link: copy, rotate, this
-// week's intake, and the requests refused because the ID was already known.
+// month's intake and the association's rules.
 export default function ParentLinkPanel() {
   const [info, setInfo] = useState(null);
   const [error, setError] = useState("");
@@ -103,22 +96,6 @@ export default function ParentLinkPanel() {
 
       <RulesEditor />
 
-      <h3 className={styles.subTitle}>طلبات رُفضت تلقائيًا</h3>
-      {info.attempts.length ? (
-        <ul className={styles.attempts}>
-          {info.attempts.map((attempt, index) => (
-            <li key={`${attempt.tz}-${attempt.createdAt}-${index}`}>
-              <strong>{attempt.firstname} {attempt.lastname}</strong>
-              <span>رقم الهوية: {attempt.tz}</span>
-              <span dir="ltr">{attempt.father_phone || attempt.mother_phone || attempt.phone || "-"}</span>
-              <span>{REASON_LABEL[attempt.reason] || attempt.reason}</span>
-              <em>{formatDate(attempt.createdAt)}</em>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className={styles.muted}>لا توجد طلبات مرفوضة.</p>
-      )}
     </div>
   );
 }

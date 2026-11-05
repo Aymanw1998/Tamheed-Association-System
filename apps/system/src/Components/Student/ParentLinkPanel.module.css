@@ -57,37 +57,6 @@
   color: var(--color-danger-700);
 }
 
-.subTitle {
-  margin: 0;
-  font-size: 1rem;
-}
-
-.attempts {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-}
-
-.attempts li {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 12px;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--color-border);
-  font-size: var(--fs-xs);
-}
-
-.attempts li:last-child {
-  border-bottom: 0;
-}
-
-.attempts em {
-  color: var(--color-text-secondary);
-  font-style: normal;
-}
-
 .backdrop {
   position: fixed;
   inset: 0;

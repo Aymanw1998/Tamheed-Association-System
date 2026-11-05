@@ -11,7 +11,6 @@ export const getLink = async () => {
             token: data.token,
             usedThisMonth: data.usedThisMonth,
             monthlyLimit: data.monthlyLimit,
-            attempts: data.attempts || [],
         };
     } catch (err) {
         return { ok: false, message: errorMessage(err, "تعذّر تحميل رابط التسجيل") };

@@ -853,7 +853,7 @@ route("get", /^\/inviteToken\/rules$/, () => ok({ rules: null }));
 route("post", /^\/inviteToken\/rules$/, () => ok({ rules: { version: 1, text: "" } }));
 route("get", /^\/inviteToken\/consent\//, () => ok({ consent: null }));
 route("post", /^\/inviteToken\/consent\//, () => ok({}));
-route("get", /^\/inviteToken\/link$/, () => ok({ token: "demo", usedThisMonth: 0, monthlyLimit: 20, attempts: [] }));
+route("get", /^\/inviteToken\/link$/, () => ok({ token: "demo", usedThisMonth: 0, monthlyLimit: 20 }));
 
 /**
  * @returns {{status:number, data:any} | null}
