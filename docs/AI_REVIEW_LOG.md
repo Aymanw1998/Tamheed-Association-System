@@ -4421,3 +4421,33 @@ between installed apps need a phone and the server. Needs `SYSTEM_HOST` on deplo
 **Codex review:** answered twice, read-only. Second round, 14 findings. Fixed: unique rule versions, promotion stamps the record so an open form cannot undo it, approval keeps `source`, emptied email is written, signature must be real PNG bytes, a signature with no student is not shown, one reload per build, no compression on range requests, bell counts and stale answers, opening the link has no address limit, missed years. Not changed: the cap can be passed by a few simultaneous requests, and a deleted request frees room (as designed before); a failed signature delete leaves a row that is no longer shown; finding 14 read the earlier Hebrew text. The fixes themselves were not sent back to Codex.
 
 **Open for the owner:** Sport sign-in (30 per 15 minutes per address) and IT sign-in (20) still have their limits. `/api/auth/register` has no limit. The tries message shows that an ID number is registered. **Status:** uncommitted, not deployed.
+
+### Follow-up: sport sign-in without a limit per address (2026-11-05)
+
+**Change:** Owner: remove it. `SportPortal.route.js` no longer limits sign-in by address. Guessing stays stopped per student (5 tries, then a lock), and a new code goes out at most once a minute. IT sign-in keeps its limit.
+
+**Test:** `sport-portal-auth.test.js`.
+
+**Verification:** server suite passed. Not run on a server.
+
+**Codex review:** pending. **Status:** uncommitted, on branch `admin-bell-rules-speed`, not deployed.
+
+### Register limit and the sport site on a computer (2026-11-05)
+
+**Change:** Owner. `POST /auth/register` allows 30 an hour per address. The sport site gets a computer view from 900px wide, in `styles.css` only, plus two wrappers in `HomePage.jsx`: full-width header, tabs under it, card beside the next lesson, notices in two columns, a centered sign-in. Below 900px nothing changes.
+
+**Test:** `login-security.test.js`, `styles.layout.test.js`.
+
+**Verification:** server 1421, Sport 99 passed; Sport built. The built site checked in a browser at 1280x800 and 375x812 with made-up answers from a local stand-in, no real server: no sideways scroll, home, notices and sign-in. Not checked on a real computer screen or phone.
+
+**Codex review:** pending. **Status:** uncommitted, on branch `admin-bell-rules-speed`, not deployed.
+
+### Change: the passkey offer goes by account and device (2026-11-05)
+
+**Change:** Owner: every account is offered a passkey, also on a device someone else already used. `passkey.js` in all three sites: saved for an account on this device, or signed in with one here, means no offer; «لاحقًا» holds until the next sign-in (the sign-in page calls `newSignIn`). The offer says not to save on a shared device. Earlier saves are not known by account, so such a user is asked once more.
+
+**Test:** `passkey.test.js` in IT and Sport, additions to the offer and sign-in tests.
+
+**Verification:** IT 78 and Sport 102 passed, and the full System suite passed. A real device prompt not checked.
+
+**Codex review:** pending. **Status:** uncommitted, on branch `admin-bell-rules-speed`, not deployed. The unified sign-in screen is a mock-up waiting for the owner's approval.

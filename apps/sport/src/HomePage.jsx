@@ -9,8 +9,11 @@ const PLACE = "التدريب الخارجي";
 export default function HomePage({ me }) {
   const next = me.nextLesson;
   return (
-    <>
-      <FlipCard me={me} />
+    <div className="home-grid">
+      <div className="home-card">
+        <FlipCard me={me} />
+      </div>
+      <div className="home-side">
       <section className="panel next">
         <span className="next-icon">
           <CalendarIcon />
@@ -33,6 +36,7 @@ export default function HomePage({ me }) {
         </div>
       </section>
       <PushButton />
-    </>
+      </div>
+    </div>
   );
 }

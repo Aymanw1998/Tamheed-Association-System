@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { rememberOffer, savePasskey, shouldOfferPasskey } from "./passkey";
 
-// Shown once per phone after signing in: save a passkey, so the next sign-in
-// is a fingerprint or face instead of a code or the card.
-export default function PasskeyOffer() {
-  const [state, setState] = useState(() => (shouldOfferPasskey() ? "offer" : "hidden")); // offer | busy | done | hidden
+// Shown after signing in to an account with no passkey on this phone: save one, so
+// the next sign-in is a fingerprint or face instead of a code or the card.
+export default function PasskeyOffer({ account }) {
+  const [state, setState] = useState(() => (shouldOfferPasskey(account) ? "offer" : "hidden")); // offer | busy | done | hidden
   const [error, setError] = useState("");
 
   if (state === "hidden") return null;
@@ -13,19 +13,19 @@ export default function PasskeyOffer() {
   const save = async () => {
     setState("busy");
     setError("");
-    const r = await savePasskey();
+    const r = await savePasskey(account);
     if (r.ok) return setState("done");
     setState("offer");
     if (!r.cancelled) setError(r.message || "تعذّر حفظ الدخول بالبصمة على هذا الهاتف");
   };
   const later = () => {
-    rememberOffer();
+    rememberOffer(account);
     setState("hidden");
   };
 
   return (
     <div className="passkey-offer" role="region" aria-label="الدخول بالبصمة">
-      <p>ادخل في المرة القادمة بالبصمة أو بالوجه، بدون رمز.</p>
+      <p>ادخل في المرة القادمة بالبصمة أو بالوجه، بدون رمز. لا تحفظ على جهاز مشترك.</p>
       {error && <p className="error" role="alert">{error}</p>}
       <div className="passkey-offer-actions">
         <button className="btn" onClick={save} disabled={state === "busy"}>حفظ</button>

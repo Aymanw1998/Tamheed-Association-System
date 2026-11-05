@@ -12,7 +12,7 @@ jest.mock("../../../WebServer/services/auth/fuctionsAuth", () => ({
   login: jest.fn(), loginWithPass: jest.fn(), loginWithCode: jest.fn(), loginWithPasskey: jest.fn(),
 }));
 let mockSupported = true;
-jest.mock("../../../utils/passkey", () => ({ passkeySupported: () => mockSupported }));
+jest.mock("../../../utils/passkey", () => ({ passkeySupported: () => mockSupported, newSignIn: () => {} }));
 jest.mock("../../../ALERT/SystemToasts", () => ({ toast: { success: jest.fn(), warn: jest.fn(), error: jest.fn() } }));
 jest.mock("../ForgotPassword/ForgotPassword", () => () => null);
 jest.mock("../ForcedPasswordChange/ForcedPasswordChange", () => () => null);

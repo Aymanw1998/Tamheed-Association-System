@@ -560,3 +560,9 @@ test("signIn starts the year-long sport session; isPlayer reads the football row
   assert.equal(await auth.isPlayer("s1"), true);
   assert.equal(await auth.isPlayer("s3"), false);
 });
+
+test("signing in to the sport site has no limit per address", () => {
+  const source = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "Entities", "SportPortal", "SportPortal.route.js"), "utf8");
+  assert.doesNotMatch(source, /rateLimit/);
+  assert.ok(source.includes('router.post("/verify", auth.verify)'));
+});

@@ -34,10 +34,12 @@ export async function requestPasskeySignIn() {
   } catch (err) {
     return cancelled(err) ? { ok: false, cancelled: true } : { ok: false, message: "" };
   }
-  return post("/auth/passkey/login", { response });
+  const signedIn = await post("/auth/passkey/login", { response });
+  if (signedIn.ok) signedInWithPasskey();
+  return signedIn;
 }
 
-export async function savePasskey() {
+export async function savePasskey(account) {
   const opts = await post("/auth/passkey/register-options", {});
   if (!opts.ok) return opts;
   let response;
@@ -47,22 +49,59 @@ export async function savePasskey() {
     return cancelled(err) ? { ok: false, cancelled: true } : { ok: false, message: "" };
   }
   const saved = await post("/auth/passkey/register", { response });
-  if (saved.ok) rememberOffer();
+  if (saved.ok) rememberSaved(account);
   return saved;
 }
 
-// The offer to save a passkey shows once per device, until saved or put off.
-export function shouldOfferPasskey() {
+// The offer goes by account and device, so a second person on a shared device is
+// asked too. Saved, or signed in with one here: not asked again. «لاحقًا»: asked
+// again at the next sign-in (the sign-in page calls newSignIn).
+const savedKey = (account) => `${OFFERED_KEY}:${account}`;
+const LATER_KEY = `${OFFERED_KEY}-later`;
+const VIA_PASSKEY_KEY = `${OFFERED_KEY}-via`;
+
+export function shouldOfferPasskey(account) {
+  if (!account) return false;
   try {
-    return passkeySupported() && !localStorage.getItem(OFFERED_KEY);
+    if (!passkeySupported() || localStorage.getItem(savedKey(account))) return false;
+    if (sessionStorage.getItem(VIA_PASSKEY_KEY)) {
+      localStorage.setItem(savedKey(account), "1");
+      return false;
+    }
+    return sessionStorage.getItem(LATER_KEY) !== String(account);
   } catch {
     return false;
   }
 }
 
-export function rememberOffer() {
+export function rememberSaved(account) {
   try {
-    localStorage.setItem(OFFERED_KEY, "1");
+    if (account) localStorage.setItem(savedKey(account), "1");
+  } catch {
+    // Private mode: the offer may show again.
+  }
+}
+
+export function rememberOffer(account) {
+  try {
+    sessionStorage.setItem(LATER_KEY, String(account));
+  } catch {
+    // Private mode: the offer may show again.
+  }
+}
+
+export function newSignIn() {
+  try {
+    sessionStorage.removeItem(LATER_KEY);
+    sessionStorage.removeItem(VIA_PASSKEY_KEY);
+  } catch {
+    // Nothing to clear.
+  }
+}
+
+function signedInWithPasskey() {
+  try {
+    sessionStorage.setItem(VIA_PASSKEY_KEY, "1");
   } catch {
     // Private mode: the offer may show again.
   }

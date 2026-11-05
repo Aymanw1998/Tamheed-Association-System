@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { errorText, login, loginPass, verify } from "../api";
 import logo from "../logo.png";
 import EyeIcon from "../ui/EyeIcon.jsx";
-import { passkeySupported, signInWithPasskey } from "../passkey";
+import { newSignIn, passkeySupported, signInWithPasskey } from "../passkey";
 
 const PASS_FAILED = "انتهت صلاحية الانتقال، سجّل الدخول من جديد";
 
@@ -11,6 +11,8 @@ const PASS_FAILED = "انتهت صلاحية الانتقال، سجّل الد�
 // (from the everyday app) the password step is skipped: the server checks the
 // pass and sends the code. No sign-up here.
 export default function SignIn({ pass = "", onSignedIn }) {
+  // This page shows only when signed out: what follows is a new sign-in.
+  useEffect(() => { newSignIn(); }, []);
   const [step, setStep] = useState(pass ? "pass" : "password"); // pass | password | code
   const [tz, setTz] = useState("");
   const [password, setPassword] = useState("");

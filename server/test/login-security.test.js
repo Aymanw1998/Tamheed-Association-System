@@ -274,3 +274,19 @@ test("signing in has no limit per address; guessing stops per account", () => {
     assert.doesNotMatch(line, /[rR]ateLimit/, route);
   }
 });
+
+test("registering is limited to 30 an hour per address; the 31st gets an Arabic answer", () => {
+  const source = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "Entities", "User", "Auth.route.js"), "utf8");
+  assert.match(source, /rateLimit\(\{ windowMs: 60 \* 60 \* 1000, max: 30, scope: "register" \}\)/);
+  assert.ok(source.includes("router.post('/register/', registerRateLimit, register)"));
+  const { rateLimit } = require("../middleware/rateLimit");
+  const limit = rateLimit({ windowMs: 60 * 60 * 1000, max: 30, scope: "register-test" });
+  let passed = 0;
+  let last = null;
+  for (let i = 0; i < 31; i++) {
+    limit({ ip: "203.0.113.9" }, { set() {}, status(code) { last = { code }; return this; }, json(body) { last.body = body; return this; } }, () => { passed += 1; });
+  }
+  assert.equal(passed, 30);
+  assert.equal(last.code, 429);
+  assert.match(last.body.message, /حاول مرة أخرى بعد/);
+});

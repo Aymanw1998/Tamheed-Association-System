@@ -1,5 +1,5 @@
 import RequiredMark from "../../UI/RequiredMark";
-import { passkeySupported } from "../../../utils/passkey";
+import { newSignIn, passkeySupported } from "../../../utils/passkey";
 import React, { useEffect, useRef, useState } from 'react'
 import styles from "./LoginPage.module.css"
 
@@ -25,6 +25,8 @@ export default function LoginPage() {
     const [password, setPassword] = useState('');
     // The ID number waiting for its email code, and the code typed.
     const [canPasskey] = useState(passkeySupported);
+    // This page shows only when signed out: what follows is a new sign-in.
+    useEffect(() => { newSignIn(); }, []);
     const [codeFor, setCodeFor] = useState(null);
     const [codeTicket, setCodeTicket] = useState('');
     const [code, setCode] = useState('');

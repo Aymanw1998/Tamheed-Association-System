@@ -1,4 +1,4 @@
-import { signInWithPasskey, savePasskey, shouldOfferPasskey, rememberOffer } from "./passkey";
+import { signInWithPasskey, savePasskey, shouldOfferPasskey, rememberOffer, newSignIn } from "./passkey";
 import { startAuthentication, startRegistration } from "@simplewebauthn/browser";
 import * as api from "./api.js";
 
@@ -17,6 +17,7 @@ jest.mock("./api.js", () => ({
 
 beforeEach(() => {
   localStorage.clear();
+  sessionStorage.clear();
   api.passkeyLoginOptions.mockImplementation(() => Promise.resolve({ ok: true, data: { options: { challenge: "c" } } }));
   api.passkeyLogin.mockImplementation(() => Promise.resolve({ ok: true, data: { ok: true } }));
   api.passkeyRegisterOptions.mockImplementation(() => Promise.resolve({ ok: true, data: { options: { challenge: "r" } } }));
@@ -42,15 +43,37 @@ test("a refused passkey gives the server's message", async () => {
   expect(await signInWithPasskey()).toEqual({ ok: false, message: "تعذّر الدخول بالبصمة" });
 });
 
-test("saving a passkey registers it and remembers this phone has one", async () => {
-  expect(shouldOfferPasskey()).toBe(true);
-  expect(await savePasskey()).toEqual({ ok: true });
+test("saving a passkey registers it and remembers it for this account on this device", async () => {
+  expect(shouldOfferPasskey("a")).toBe(true);
+  expect(await savePasskey("a")).toEqual({ ok: true });
   expect(startRegistration).toHaveBeenCalledWith({ optionsJSON: { challenge: "r" } });
   expect(api.passkeyRegister).toHaveBeenCalledWith({ id: "cred" });
-  expect(shouldOfferPasskey()).toBe(false);
+  expect(shouldOfferPasskey("a")).toBe(false);
+  newSignIn();
+  expect(shouldOfferPasskey("a")).toBe(false);
 });
 
-test("'later' stops the offer on this phone", () => {
-  rememberOffer();
-  expect(shouldOfferPasskey()).toBe(false);
+test("another account on the same device is still asked", async () => {
+  await savePasskey("a");
+  expect(shouldOfferPasskey("b")).toBe(true);
+});
+
+test("'later' holds until the next sign-in, and only for that account", () => {
+  rememberOffer("a");
+  expect(shouldOfferPasskey("a")).toBe(false);
+  expect(shouldOfferPasskey("b")).toBe(true);
+  newSignIn();
+  expect(shouldOfferPasskey("a")).toBe(true);
+});
+
+test("signing in with a passkey here means this account has one here", async () => {
+  newSignIn();
+  await signInWithPasskey();
+  expect(shouldOfferPasskey("c")).toBe(false);
+  newSignIn();
+  expect(shouldOfferPasskey("c")).toBe(false);
+});
+
+test("with no account known, no offer", () => {
+  expect(shouldOfferPasskey("")).toBe(false);
 });

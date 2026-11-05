@@ -2,22 +2,21 @@ const express = require("express");
 const auth = require("./SportPortal.auth");
 const passkey = require("./SportPortal.passkey");
 const portal = require("./SportPortal.controller");
-const { rateLimit } = require("../../middleware/rateLimit");
 const push = require("../Push/Push.route");
 const { createSportLive } = require("./SportPortal.live");
 
 const router = express.Router();
 
-// 30 per IP: the children share the association's Wi-Fi (one IP); the per-student 5-try lock still stops guessing.
-const loginLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 30, scope: "sport-login" });
+// No limit per address: the children share one Wi-Fi. Guessing stops per student
+// (5 tries, then a lock), and a new code is sent at most once a minute (SportPortal.auth.js).
 
-router.post("/request-code", loginLimit, auth.requestCode);
-router.post("/verify", loginLimit, auth.verify);
+router.post("/request-code", auth.requestCode);
+router.post("/verify", auth.verify);
 // The sign-in card's QR (players without email).
-router.post("/card", loginLimit, auth.signInWithCard);
+router.post("/card", auth.signInWithCard);
 // Passkeys: saved by a signed-in player, then a fingerprint or face signs in.
-router.post("/passkey/login-options", loginLimit, passkey.loginOptions);
-router.post("/passkey/login", loginLimit, passkey.login);
+router.post("/passkey/login-options", passkey.loginOptions);
+router.post("/passkey/login", passkey.login);
 router.post("/passkey/register-options", auth.requireSportStudent, passkey.registerOptions);
 router.post("/passkey/register", auth.requireSportStudent, passkey.register);
 router.post("/logout", auth.logout);

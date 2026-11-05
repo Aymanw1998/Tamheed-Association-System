@@ -28,7 +28,10 @@ const { setEngine } = require('crypto');
 const passwordResetRateLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 8, scope: "password-reset" });
 
 // ---------- Public ----------
-router.post('/register/', register);
+// Open to anyone, with no password: 30 an hour per address stops a flood of fake
+// requests and still lets a group register together on one Wi-Fi.
+const registerRateLimit = rateLimit({ windowMs: 60 * 60 * 1000, max: 30, scope: "register" });
+router.post('/register/', registerRateLimit, register);
 
 // ملاحظة عربية
 router.post('/login', login);

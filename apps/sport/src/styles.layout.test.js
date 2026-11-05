@@ -33,3 +33,14 @@ test("the page leaves no room reserved for a floating bar, and does not break st
   // overflow-x: hidden would make the page its own scroller and sticky would stop working.
   expect(app).toMatch(/overflow-x: clip/);
 });
+
+test("a computer gets a wide page; what phones see stays outside the media query", () => {
+  const at = css.indexOf("@media (min-width: 900px)");
+  expect(at).toBeGreaterThan(-1);
+  const wide = css.slice(at);
+  expect(wide).toMatch(/\.app \{ max-width: none;/);
+  expect(wide).toMatch(/\.home-grid \{ display: grid;/);
+  expect(wide).toMatch(/\.tabs \{ order: 1; position: sticky; top: 0;/);
+  expect(css.slice(0, at)).toMatch(/\.app \{\s+max-width: 480px;/);
+  expect(css.slice(0, at)).not.toMatch(/\.home-grid/);
+});

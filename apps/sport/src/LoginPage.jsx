@@ -1,10 +1,10 @@
 import RequiredMark from "./RequiredMark";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { requestCode, verifyCode, GENERIC_ERROR_MESSAGE } from "./api.js";
 import { clearApiCache } from "./pwa/clearApiCache";
 import logo from "./logo.png";
 import { Ball, Floodlight } from "./Art.jsx";
-import { passkeySupported, signInWithPasskey } from "./passkey";
+import { newSignIn, passkeySupported, signInWithPasskey } from "./passkey";
 import { InstallAppButton } from "./pwa/InstallApp";
 
 const digits = (v, max) => v.replace(/\D/g, "").slice(0, max);
@@ -12,6 +12,8 @@ const GENERIC_ERROR = GENERIC_ERROR_MESSAGE;
 
 // notice: why a sign-in card did not work, shown above the form.
 export default function LoginPage({ onSignedIn, notice = "" }) {
+  // This page shows only when signed out: what follows is a new sign-in.
+  useEffect(() => { newSignIn(); }, []);
   const [step, setStep] = useState("tz");
   const [tz, setTz] = useState("");
   const [code, setCode] = useState("");

@@ -10,7 +10,7 @@ jest.mock("../api", () => ({
   verify: jest.fn(),
 }));
 
-jest.mock("../passkey", () => ({ passkeySupported: jest.fn(() => false), signInWithPasskey: jest.fn() }));
+jest.mock("../passkey", () => ({ passkeySupported: jest.fn(() => false), signInWithPasskey: jest.fn(), newSignIn: () => {} }));
 
 afterEach(async () => { await unmountAll(); jest.clearAllMocks(); });
 

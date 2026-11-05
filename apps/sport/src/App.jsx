@@ -201,7 +201,7 @@ export default function App() {
     <div className="app">
       <StadiumHeader firstname={me.student.firstname} onLogout={onLogout} onHelp={GUIDE_ENABLED ? () => setGuideOpen(true) : undefined} />
       <main className="content">
-        {tab === "home" && !guideOpen && <PasskeyOffer />}
+        {tab === "home" && !guideOpen && <PasskeyOffer key={studentKey} account={studentKey} />}
         {tab === "home" && <InstallAppButton className="btn btn-ghost install-app" />}
         {tab === "home" ? <HomePage me={me} /> : <NoticesPage notices={notices} seenBefore={seenBefore} failed={noticesFailed} />}
       </main>

@@ -94,7 +94,7 @@ export default function App() {
     <div className="shell">
       <Header links={links} path={path} me={me} onOpenSystem={hasSystem ? openSystem : null} onSignOut={signOut} />
       <main className="page">
-        <PasskeyOffer />
+        <PasskeyOffer key={me.tz} account={me.tz} />
         <Screen path={path} me={me} />
       </main>
       <Toaster />
