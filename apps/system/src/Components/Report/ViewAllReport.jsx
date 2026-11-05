@@ -11,6 +11,8 @@ import Button from "../UI/Button.jsx";
 import PersonCard, { PersonCardList } from "../UI/PersonCard.jsx";
 import { joinParts } from "../../utils/personCard";
 import { canStored } from "../../utils/session";
+import FilterDialog from "../UI/FilterDialog.jsx";
+import { EMPTY_REPORT_FILTERS, countReportFilters, matchesReportFilters } from "./reportFilters";
 
 
 
@@ -55,15 +57,6 @@ const dayName = (value) => {
   return ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"][date.getDay()];
 };
 
-const resetFilters = {
-  day: "",
-  stitle: "",
-  title: "",
-  dateFrom: "",
-  dateTo: "",
-  createBy: "",
-};
-
 const ViewAllReport = () => {
   const navigate = useNavigate();
   const isAdmin = canStored("reports.viewAll");
@@ -77,7 +70,8 @@ const ViewAllReport = () => {
   const [sortDir, setSortDir] = useState("desc");
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(null);
-  const [filters, setFilters] = useState(resetFilters);
+  const [filters, setFilters] = useState(EMPTY_REPORT_FILTERS);
+  const setFilter = (name) => (event) => setFilters((current) => ({ ...current, [name]: event.target.value }));
 
   const addBtnRef = useCallback((node) => {
     setAddBtnEl(node);
@@ -162,47 +156,7 @@ const ViewAllReport = () => {
         )
       : [...reports];
 
-    if (filters.day !== "") {
-      filtered = filtered.filter((report) => {
-        const date = toDate(report.date);
-        return date ? date.getDay() === Number(filters.day) : false;
-      });
-    }
-
-    if (filters.stitle.trim()) {
-      const value = filters.stitle.trim().toLowerCase();
-      filtered = filtered.filter((report) => String(report.stitle ?? "").toLowerCase().includes(value));
-    }
-
-    if (filters.title.trim()) {
-      const value = filters.title.trim().toLowerCase();
-      filtered = filtered.filter((report) => (report.title ?? []).join(" ").toLowerCase().includes(value));
-    }
-
-    if (filters.createBy.trim()) {
-      const value = filters.createBy.trim().toLowerCase();
-      filtered = filtered.filter((report) => {
-        const owner = report.user ? `${report.user.firstname ?? ""} ${report.user.lastname ?? ""}` : "";
-        return owner.toLowerCase().includes(value);
-      });
-    }
-
-    const from = filters.dateFrom ? new Date(filters.dateFrom) : null;
-    const to = filters.dateTo ? new Date(filters.dateTo) : null;
-
-    if (from) {
-      filtered = filtered.filter((report) => {
-        const date = toDate(report.date);
-        return date ? date >= from : false;
-      });
-    }
-
-    if (to) {
-      filtered = filtered.filter((report) => {
-        const date = toDate(report.date);
-        return date ? date <= to : false;
-      });
-    }
+    filtered = filtered.filter((report) => matchesReportFilters(report, filters, toDate));
 
     const dirMul = sortDir === "asc" ? 1 : -1;
 
@@ -272,6 +226,36 @@ const ViewAllReport = () => {
           </Button>
         </div>
 
+        <div style={{ marginTop: 12 }}>
+          <FilterDialog count={countReportFilters(filters)} onClear={() => setFilters(EMPTY_REPORT_FILTERS)} tour="reports-filter">
+            <div style={{ display: "grid", gap: 10 }}>
+              <label style={{ display: "grid", gap: 4 }}>
+                من تاريخ
+                <input type="date" value={filters.dateFrom} onChange={setFilter("dateFrom")} />
+              </label>
+              <label style={{ display: "grid", gap: 4 }}>
+                إلى تاريخ
+                <input type="date" value={filters.dateTo} onChange={setFilter("dateTo")} />
+              </label>
+              {/* Others see only their own reports, so a writer filter says nothing to them. */}
+              {isAdmin && (
+                <label style={{ display: "grid", gap: 4 }}>
+                  كاتب التقرير
+                  <input value={filters.createBy} onChange={setFilter("createBy")} placeholder="الاسم أو جزء منه" />
+                </label>
+              )}
+              <label style={{ display: "grid", gap: 4 }}>
+                عنوان التقرير
+                <input value={filters.stitle} onChange={setFilter("stitle")} placeholder="العنوان أو جزء منه" />
+              </label>
+              <label style={{ display: "grid", gap: 4 }}>
+                العنوان الثانوي
+                <input value={filters.title} onChange={setFilter("title")} placeholder="العنوان أو جزء منه" />
+              </label>
+            </div>
+          </FilterDialog>
+        </div>
+
         <div className={styles.summary}>عدد التقارير: {sortedFilteredReports.length}</div>
       </div>
 
@@ -311,77 +295,6 @@ const ViewAllReport = () => {
               <th className={styles.sortable} onClick={() => toggleSort("createdBy")}>كاتب التقرير{sortMark("createdBy")}</th>
               <th>الإجراءات</th>
             </tr>
-
-            {/* <tr>
-              <th>
-                <div style={{ display: "flex", gap: 6 }}>
-                  <input
-                    type="date"
-                    aria-label="من تاريخ"
-                    value={filters.dateFrom}
-                    onChange={(event) => setFilters((current) => ({ ...current, dateFrom: event.target.value }))}
-                    style={{ width: "48%" }}
-                  />
-                  <input
-                    type="date"
-                    aria-label="إلى تاريخ"
-                    value={filters.dateTo}
-                    onChange={(event) => setFilters((current) => ({ ...current, dateTo: event.target.value }))}
-                    style={{ width: "48%" }}
-                  />
-                </div>
-              </th>
-
-              <th>
-                <select
-                  value={filters.day}
-                  onChange={(event) => setFilters((current) => ({ ...current, day: event.target.value }))}
-                  style={{ width: "100%" }}
-                >
-                  <option value="">الكل</option>
-                  <option value="0">الأحد</option>
-                  <option value="1">الاثنين</option>
-                  <option value="2">الثلاثاء</option>
-                  <option value="3">الأربعاء</option>
-                  <option value="4">الخميس</option>
-                  <option value="5">الجمعة</option>
-                  <option value="6">السبت</option>
-                </select>
-              </th>
-
-              <th>
-                <input
-                  placeholder="فلتر بالعنوان…"
-                  value={filters.stitle}
-                  onChange={(event) => setFilters((current) => ({ ...current, stitle: event.target.value }))}
-                  style={{ width: "100%" }}
-                />
-              </th>
-
-              <th>
-                <input
-                  placeholder="فلتر بالعنوان الثانوي…"
-                  value={filters.title}
-                  onChange={(event) => setFilters((current) => ({ ...current, title: event.target.value }))}
-                  style={{ width: "100%" }}
-                />
-              </th>
-
-              <th>
-                <input
-                  placeholder="فلتر بكاتب التقرير…"
-                  value={filters.createBy}
-                  onChange={(event) => setFilters((current) => ({ ...current, createBy: event.target.value }))}
-                  style={{ width: "100%" }}
-                />
-              </th>
-
-              <th>
-                <Button size="sm" variant="secondary" onClick={() => setFilters(resetFilters)}>
-                  مسح الفلتر
-                </Button>
-              </th>
-            </tr> */}
           </thead>
 
           <tbody>

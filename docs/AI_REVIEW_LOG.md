@@ -4513,3 +4513,13 @@ between installed apps need a phone and the server. Needs `SYSTEM_HOST` on deplo
 **Verification:** see the owner's report.
 
 **Codex review:** pending. **Status:** committed, not deployed.
+
+### Feature: filter on the reports list (2026-11-05)
+
+**Change:** Owner. A «فلتر» window on `ViewAllReport.jsx`: from and to dates, both whole days; writer by a part of the name, for those who see all reports; main and secondary title by a part. `reportFilters.js`; the row commented out in the table's head is gone.
+
+**Test:** `reportFilters.test.js`.
+
+**Verification:** System 1041 passed and built. Local run on a throwaway database with made-up reports: secondary title, writer and one-day range each narrowed the list. Not checked on a phone.
+
+**Codex review:** pending. **Status:** committed on branch `reports-filter`, not pushed.
