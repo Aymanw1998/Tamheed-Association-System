@@ -519,3 +519,10 @@ svg.id-img { height: 86%; }
   .guide-overlay { align-items: center; }
   .guide-sheet { border-radius: 22px; max-width: 560px; }
 }
+
+/* The same sign-in screen as the other sites. */
+.login-title { margin-bottom: 12px; font-size: 19px; font-weight: 800; color: var(--navy); }
+.login .btn { color: var(--night); box-shadow: none; }
+.login .btn-passkey { background: var(--navy); color: #fff; }
+.login .btn-ghost { background: transparent; color: var(--navy); }
+.login-form input { padding: 12px; font-size: 17px; letter-spacing: 2px; }

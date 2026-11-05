@@ -165,12 +165,12 @@ export default function LoginPage() {
 
     return (
         <div className={styles.container}>
-            <div className={styles.leftPanel}>
-                <div className={styles.welcomeText}>
-                <img src={LogoIMG} alt="جمعية تمهيد" />
-                </div>
+            <div className={styles.brand}>
+                <span className={styles.brandLogo}><img src={LogoIMG} alt="شعار جمعية تمهيد" /></span>
+                <h1>جمعية تمهيد - الرملة</h1>
+                <p>النظام</p>
             </div>
-            <div className={styles.rightPanel}>
+            <div className={styles.cardArea}>
                 {forced ? (
                     <ForcedPasswordChange
                         token={forced.token}
@@ -194,13 +194,19 @@ export default function LoginPage() {
                         onKeyDown={(e) => { if (e.key === "Enter") handleCode(); }}
                         autoFocus
                     />
-                    <button type="submit" onClick={handleCode} disabled={loading}>{loading ? '…' : 'تأكيد'}</button>
+                    <button type="submit" className={styles.submitButton} onClick={handleCode} disabled={loading}>{loading ? '…' : 'تأكيد'}</button>
                     <button type="button" className={styles.secondaryButton} onClick={() => { setCodeFor(null); setCode(''); }}>رجوع</button>
                 </div>
                 ) : (
                 <div className={styles.loginForm}>
-                    <div className={`${styles.logo} ${styles.logoDisNone}`}><img src={LogoIMG}/></div>
                     <h2>تسجيل الدخول</h2>
+
+                    {canPasskey && (
+                        <>
+                            <button type="button" className={styles.passkeyButton} onClick={handlePasskey} disabled={loading}>الدخول بالبصمة أو بالوجه</button>
+                            <div className={styles.or}>أو</div>
+                        </>
+                    )}
 
                     <label className={styles.fieldLabel} htmlFor="login-tz">رقم الهوية أو البريد الإلكتروني<RequiredMark /></label>
                     <input id="login-tz" ref={tzRef} name="tz" type="text" placeholder="رقم الهوية أو البريد الإلكتروني" value={tz} onChange={(e)=>setTz(e.target.value)} onKeyDown={handleKeyDown} required />
@@ -229,13 +235,11 @@ export default function LoginPage() {
                         </button>
                     </div>
 
-                    {canPasskey && (
-                        <button type="button" className={styles.secondaryButton} onClick={handlePasskey} disabled={loading}>الدخول بالبصمة أو بالوجه</button>
-                    )}
-                    <button type="button" className={styles.forgotLink} onClick={() => setShowPopup(true)}>نسيت كلمة المرور؟</button>
-                    <button type="submit" onClick={handleLogin} disabled={loading}>{loading ? '…' : 'دخول'}</button>
-                    <hr />
-                    <button type="button" className={styles.secondaryButton} onClick={()=>navigate("/register")}>{'التسجيل كمستخدم جديد'}</button>
+                    <button type="submit" className={styles.submitButton} onClick={handleLogin} disabled={loading}>{loading ? '…' : 'دخول'}</button>
+                    <div className={styles.links}>
+                        <button type="button" className={styles.forgotLink} onClick={() => setShowPopup(true)}>نسيت كلمة المرور؟</button>
+                        <button type="button" className={styles.forgotLink} onClick={()=>navigate("/register")}>تسجيل مستخدم جديد</button>
+                    </div>
                     {/* Phones only, until the app is installed. */}
                     <InstallAppButton className={styles.secondaryButton} />
                 </div>

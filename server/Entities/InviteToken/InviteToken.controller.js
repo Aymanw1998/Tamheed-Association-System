@@ -171,6 +171,38 @@ const getConsent = async (req, res) => {
   }
 };
 
+// A student the association added: the parent signs later, on the student's page.
+const signConsent = async (req, res) => {
+  try {
+    const studentId = String(req.params.studentId);
+    const [student] = resultsOf(await StudentModelDef.get({ _id: studentId }));
+    if (!student) return res.status(404).json({ ok: false, message: "الطالب غير موجود" });
+    const rules = await currentRules();
+    if (!rules?.text) return res.status(409).json({ ok: false, code: "NO_RULES", message: "يجب نشر نظام الجمعية أولًا." });
+    const problem = consentProblem(req.body, rules);
+    if (problem) return res.status(problem.status).json({ ok: false, code: problem.code, message: problem.message });
+    if (resultsOf(await ConsentModelDef.get({ studentId })).length) {
+      return res.status(409).json({ ok: false, code: "ALREADY_SIGNED", message: "يوجد توقيع لهذا الطالب." });
+    }
+    const now = new Date();
+    await ConsentModelDef.create({
+      studentId,
+      tz: student.tz,
+      rulesVersion: rules.version,
+      signerName: cleanText(req.body.signerName, 100),
+      signature: String(req.body.signature),
+      signedAt: now,
+      recordedBy: [req.actor?.firstname, req.actor?.lastname].filter(Boolean).join(" "),
+    });
+    await StudentModelDef.updateExisting({ _id: studentId }, { consentAt: now });
+    notifyChange("student", studentId);
+    return res.status(200).json({ ok: true });
+  } catch (err) {
+    logWithSource("InviteToken.signConsent", err);
+    return res.status(500).json({ ok: false, message: "تعذّر حفظ التوقيع" });
+  }
+};
+
 /* ================= admin: the link ================= */
 
 const getLink = async (req, res) => {
@@ -213,8 +245,9 @@ const validateToken = async (req, res) => {
     const rules = await currentRules();
     return res.status(200).json({
       valid: true,
-      open: (await countRecentParentRequests()) < MONTHLY_LIMIT,
-      ...(rules?.text ? { rules: { version: rules.version, text: rules.text } } : {}),
+      // With no rules published a parent has nothing to sign, so nothing can be sent.
+      open: Boolean(rules?.text) && (await countRecentParentRequests()) < MONTHLY_LIMIT,
+      ...(rules?.text ? { rules: { version: rules.version, text: rules.text } } : { noRules: true }),
     });
   } catch (err) {
     logWithSource("InviteToken.validateToken", err);
@@ -310,16 +343,20 @@ const submitRegistration = async (req, res) => {
 
     // Checked before the ID, so the answer says nothing about who is registered.
     const rules = await currentRules();
-    if (rules?.text) {
-      const problem = consentProblem(req.body, rules);
-      if (problem) return res.status(problem.status).json({ ok: false, code: problem.code, message: problem.message });
+    if (!rules?.text) {
+      return res.status(409).json({ ok: false, code: "NO_RULES", message: "لا يمكن استقبال الطلبات قبل نشر نظام الجمعية. يُرجى التواصل مع الجمعية." });
     }
+    const problem = consentProblem(req.body, rules);
+    if (problem) return res.status(problem.status).json({ ok: false, code: problem.code, message: problem.message });
 
     // A known ID gets exactly the same reply as a new one, so the public form
     // cannot reveal who is registered; staff see the refusal next to the link.
     const [existing] = resultsOf(await StudentModelDef.get({ tz: fields.tz }));
     if (existing) {
-      await recordAttempt(fields, existing.status === PENDING_STATUS ? "pending" : "exists");
+      const pending = existing.status === PENDING_STATUS;
+      await recordAttempt(fields, pending ? "pending" : "exists");
+      // One request per child: the parent is told it is already waiting (owner, 2026-11-05).
+      if (pending) return res.status(409).json({ ok: false, code: "ALREADY_PENDING", message: "يوجد طلب سابق لهذا الطالب وهو بانتظار الموافقة، ولا حاجة لإرساله مرة أخرى." });
       return res.status(200).json({ ok: true, message: RECEIVED_MESSAGE });
     }
 
@@ -330,25 +367,24 @@ const submitRegistration = async (req, res) => {
       main_teacher: null,
       source: PARENT_SOURCE,
       status: PENDING_STATUS,
+      consentAt: now,
       createdAt: now,
       updatedAt: now,
     });
     // Saved before the parent is told it worked: a request never stands without its
     // signature. The time is the server's, and a known ID never reaches this point.
-    if (rules?.text) {
-      try {
-        await ConsentModelDef.create({
-          studentId: String(created?.result?._id),
-          tz: fields.tz,
-          rulesVersion: rules.version,
-          signerName: cleanText(req.body.signerName, 100),
-          signature: String(req.body.signature),
-          signedAt: now,
-        });
-      } catch (consentError) {
-        await StudentModelDef.delete({ _id: String(created?.result?._id) });
-        throw consentError;
-      }
+    try {
+      await ConsentModelDef.create({
+        studentId: String(created?.result?._id),
+        tz: fields.tz,
+        rulesVersion: rules.version,
+        signerName: cleanText(req.body.signerName, 100),
+        signature: String(req.body.signature),
+        signedAt: now,
+      });
+    } catch (consentError) {
+      await StudentModelDef.delete({ _id: String(created?.result?._id) });
+      throw consentError;
     }
     res.status(200).json({ ok: true, message: RECEIVED_MESSAGE });
     // Announced after replying, like the alert below: open staff lists reload.
@@ -387,4 +423,5 @@ module.exports = {
   getRules,
   publishRules,
   getConsent,
+  signConsent,
 };

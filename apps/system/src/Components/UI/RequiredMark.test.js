@@ -44,3 +44,17 @@ test("the user form stars exactly what blocks saving", () => {
   expect(source).toContain("<label>كلمة المرور:{isNew && <RequiredMark />}</label>");
   expect(source).toContain('<label>{t("perms.role")}:<RequiredMark /></label>');
 });
+
+test("the sign-in screen is one card with the logo and names above it on every site", () => {
+  const read = (file) => fs.readFileSync(path.join(__dirname, "..", "..", "..", "..", file), "utf8");
+  const system = read("system/src/Components/Auth/LoginPage/LoginPage.jsx");
+  const it = read("it/src/screens/SignIn.jsx");
+  const sport = read("sport/src/LoginPage.jsx");
+  for (const source of [system, it, sport]) {
+    expect(source).toContain("جمعية تمهيد - الرملة");
+    expect(source).toContain("تسجيل الدخول");
+    expect(source).toContain("الدخول بالبصمة أو بالوجه");
+    // The passkey comes before the fields.
+    expect(source.indexOf("الدخول بالبصمة أو بالوجه")).toBeLessThan(source.indexOf(">رقم الهوية"));
+  }
+});

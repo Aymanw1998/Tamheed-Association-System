@@ -4451,3 +4451,13 @@ between installed apps need a phone and the server. Needs `SYSTEM_HOST` on deplo
 **Verification:** IT 78 and Sport 102 passed, and the full System suite passed. A real device prompt not checked.
 
 **Codex review:** pending. **Status:** uncommitted, on branch `admin-bell-rules-speed`, not deployed. The unified sign-in screen is a mock-up waiting for the owner's approval.
+
+### Feature: rules required, unsigned students, one sign-in screen (2026-11-05)
+
+**Change:** Owner. With no rules published the parents' link is closed (`NO_RULES`). A child with a waiting request cannot be sent again and the parent is told so (`ALREADY_PENDING`), which tells anyone holding the link and an ID number that such a request exists; a registered child still gets the usual reply. `Students.consentAt` is set when a parent signs; a student without it is pink in the list, with a count and a filter, and a parent can sign later on the student's page (`POST /inviteToken/consent/:id`, `students.parentLink`, the staff member's name kept). System alerts are also listed on the board (`SystemAlerts.jsx`). One sign-in screen on all three sites from the approved mock-up; the sport site keeps its lights and ball.
+
+**Test:** additions in `parent-registration.test.js`, `RequiredMark.test.js`.
+
+**Verification:** all suites passed, all sites built. Local run on a throwaway database with made-up data: the closed link, the second request, pink row and filter count, a later signature clearing the pink, alerts on the board, the three sign-in screens on phone and desktop sizes. Found and fixed there: the pink did not show because table cells paint their own white; IT fields overflowed their card. The later signature was drawn with simulated pointer events. Not checked on a real phone or on the server.
+
+**Codex review:** pending. The third request did not run: Codex reported its usage limit until 7:11 PM. No findings exist for this work, the second-round fixes, the sport changes or the passkey offer. The owner chose to merge without waiting for it (2026-11-05). **Status:** committed, not deployed.

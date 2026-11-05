@@ -35,7 +35,7 @@ export default function ChangePassword({ onDone, onSignOut }) {
 
   return (
     <main className="signin">
-      <img className="signin-logo" src={logo} alt="شعار جمعية تمهيد - قسم IT" />
+      <span className="signin-logo signin-logo-small"><img src={logo} alt="شعار جمعية تمهيد - قسم IT" /></span>
       <h1>تغيير كلمة المرور</h1>
       <p className="muted">دخلت بكلمة مرور مؤقتة. اختر كلمة مرور جديدة لتتابع.</p>
       <form onSubmit={submit}>

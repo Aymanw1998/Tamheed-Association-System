@@ -25,3 +25,7 @@
 @media (max-width: 768px) {
   .bellPanel { position: fixed; top: 64px; inset-inline: 12px; width: auto; }
 }
+
+.systemAlerts { display: grid; gap: 6px; }
+.systemAlerts h2 { margin: 0; font-size: 1.05rem; }
+.systemAlerts ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 280px; overflow-y: auto; }

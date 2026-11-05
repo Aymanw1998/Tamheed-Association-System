@@ -54,12 +54,21 @@ export const getConsent = async (studentId) => {
     }
 };
 
+export const signConsent = async (studentId, consent) => {
+    try {
+        await api.post(`/inviteToken/consent/${encodeURIComponent(studentId)}`, consent);
+        return { ok: true };
+    } catch (err) {
+        return { ok: false, message: errorMessage(err, "تعذّر حفظ التوقيع") };
+    }
+};
+
 // Public: the parents' page must never send or refresh a login, so these use
 // publicApi instead of api.
 export const validate = async (token) => {
     try {
         const { data } = await publicApi.get(`/inviteToken/validate/${encodeURIComponent(token)}`);
-        return { valid: Boolean(data?.valid), open: Boolean(data?.open), rules: data?.rules || null };
+        return { valid: Boolean(data?.valid), open: Boolean(data?.open), rules: data?.rules || null, noRules: Boolean(data?.noRules) };
     } catch (err) {
         return { valid: false, open: false };
     }

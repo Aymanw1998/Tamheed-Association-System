@@ -169,7 +169,7 @@ const EditStudent = ({parent = false}) => {
     }
     (async () => {
       const res = await validateINV(registrationToken);
-      setInviteStatus({ checking: false, valid: res.valid, open: res.open, rules: res.rules });
+      setInviteStatus({ checking: false, valid: res.valid, open: res.open, rules: res.rules, noRules: res.noRules });
     })();
   }, [parent, registrationToken]);
 
@@ -417,7 +417,7 @@ const EditStudent = ({parent = false}) => {
       return (
         <div className={styles.formContainer} style={{ textAlign: "center" }}>
           <h2>استقبال الطلبات متوقف مؤقتًا</h2>
-          <p>يُرجى المحاولة مرة أخرى بعد بضعة أيام.</p>
+          <p>{inviteStatus.noRules ? "لم تنشر الجمعية نظامها بعد. يُرجى التواصل مع الجمعية." : "يُرجى المحاولة مرة أخرى بعد بضعة أيام."}</p>
         </div>
       );
     }

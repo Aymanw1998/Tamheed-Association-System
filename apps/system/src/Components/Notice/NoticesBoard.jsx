@@ -13,6 +13,7 @@ import { ask } from "../Provides/confirmBus";
 import { fillText } from "../../utils/vehicleDisplay";
 import { alertTarget } from "../../utils/alertDisplay";
 import styles from "./Notice.module.css";
+import SystemAlerts from "./SystemAlerts.jsx";
 
 const TONE = { critical: "danger", important: "warning", info: "neutral" };
 const notifyChanged = () => window.dispatchEvent(new Event("NOTICES_CHANGED"));
@@ -88,6 +89,8 @@ export default function NoticesBoard() {
           </Button>
         </div>
       </header>
+
+      <SystemAlerts />
 
       <div className={styles.filters} data-tour="notices-filters">
         <FilterDialog

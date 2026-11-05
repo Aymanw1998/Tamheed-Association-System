@@ -31,7 +31,7 @@ export default function RulesEditor() {
         title: "نشر نظام الجمعية",
         message: text.trim()
           ? "من الآن سيوقّع الأهل الجدد على هذا النص. من وقّع سابقًا يبقى توقيعه على النص الذي وقّعه."
-          : "النص فارغ: لن يُطلب من الأهل التوقيع. هل تريد المتابعة؟",
+          : "النص فارغ: سيتوقف رابط التسجيل عن استقبال طلبات الأهل. هل تريد المتابعة؟",
         confirmText: "نشر",
         cancelText: "إلغاء",
       });
@@ -54,6 +54,7 @@ export default function RulesEditor() {
     <div style={{ display: "grid", gap: 8 }}>
       <h3 style={{ margin: 0 }}>نظام الجمعية{version ? ` (الإصدار ${version})` : ""}</h3>
       <small>يظهر للأهل في رابط التسجيل، ويوقّعون عليه قبل إرسال الطلب.</small>
+      {!saved.trim() && <strong role="alert" style={{ color: "#b91c1c" }}>لم يُنشر نظام بعد: رابط التسجيل لا يستقبل طلبات.</strong>}
       <textarea aria-label="نص نظام الجمعية" rows={8} maxLength={20000} value={text} onChange={(event) => setText(event.target.value)} />
       <div>
         <Button size="sm" loading={busy} disabled={text === saved} onClick={publish}>نشر</Button>

@@ -84,15 +84,20 @@ export default function SignIn({ pass = "", onSignedIn }) {
   };
 
   return (
+    <div className="signin-page">
+    <div className="signin-brand">
+      <span className="signin-logo"><img src={logo} alt="شعار جمعية تمهيد - قسم IT" /></span>
+      <h1>جمعية تمهيد - الرملة</h1>
+      <p>قسم تكنولوجيا المعلومات</p>
+    </div>
     <main className="signin">
-      <img className="signin-logo" src={logo} alt="شعار جمعية تمهيد - قسم IT" />
-      <h1>قسم تكنولوجيا المعلومات</h1>
+      <h2>تسجيل الدخول</h2>
       {step === "pass" && <p role="status">جارٍ الانتقال…</p>}
 
       {step === "password" && canPasskey && (
         <>
           <button type="button" className="primary btn-passkey" onClick={withPasskey} disabled={busy}>الدخول بالبصمة أو بالوجه</button>
-          <p className="signin-or">أو بكلمة المرور</p>
+          <p className="signin-or">أو</p>
         </>
       )}
 
@@ -118,7 +123,7 @@ export default function SignIn({ pass = "", onSignedIn }) {
             </span>
           </label>
           {error && <p role="alert" className="error">{error}</p>}
-          <button type="submit" className="primary" disabled={busy}>متابعة</button>
+          <button type="submit" className="primary signin-submit" disabled={busy}>متابعة</button>
         </form>
       )}
 
@@ -131,11 +136,12 @@ export default function SignIn({ pass = "", onSignedIn }) {
           </label>
           {error && <p role="alert" className="error">{error}</p>}
           <div className="row">
-            <button type="submit" className="primary" disabled={busy}>دخول</button>
+            <button type="submit" className="primary signin-submit" disabled={busy}>دخول</button>
             <button type="button" onClick={back}>رجوع</button>
           </div>
         </form>
       )}
     </main>
+    </div>
   );
 }

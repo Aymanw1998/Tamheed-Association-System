@@ -74,8 +74,7 @@ test("a waiting request has no «قبول» or «رفض» in the list; its row o
   mockPerms = ["students.view", "students.edit", "students.viewAll", "students.delete"];
   getAll.mockResolvedValue({ ok: true, students: [{ ...STUDENT, status: "ينتظر" }] });
   await mount();
-  // The lists are tabs on the page; there is no «فلتر» here any more.
-  expect(labels()).not.toContain("فلتر");
+  // The lists are tabs on the page, outside «فلتر».
   const waiting = [...container.querySelectorAll('[role="tab"]')].find((b) => b.textContent.includes("الطلبات"));
   await act(async () => waiting.click());
   expect(labels()).not.toContain("قبول");

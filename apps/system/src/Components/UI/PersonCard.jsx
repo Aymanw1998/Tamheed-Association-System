@@ -13,7 +13,7 @@ export function PersonCardList({ emptyText, children }) {
 // photo: a profile photo link (an empty one shows the first letter); leave it
 // out for a card without photos.
 // tour: a journey anchor (data-tour) on the open button.
-export default function PersonCard({ initial, photo, name, summary, note, tags, badge, onOpen, actions, tour }) {
+export default function PersonCard({ initial, photo, name, summary, note, tags, badge, onOpen, actions, tour, background }) {
   const content = (
     <>
       {photo === undefined
@@ -36,7 +36,7 @@ export default function PersonCard({ initial, photo, name, summary, note, tags, 
   );
 
   return (
-    <li className={styles.card}>
+    <li className={styles.card} style={background ? { background } : undefined}>
       {onOpen ? (
         <button type="button" className={`${styles.main} ${styles.mainButton}`} data-tour={tour} onClick={onOpen}>
           {content}

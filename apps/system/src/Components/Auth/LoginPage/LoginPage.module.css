@@ -1,62 +1,58 @@
+/* The same screen on all three sites: the logo, the names, one white card. */
 .container {
   display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   min-height: 100vh;
-  flex-direction: row;
+  box-sizing: border-box;
+  padding: var(--space-6) var(--space-3);
+  background: var(--color-primary-900);
 }
 
-.leftPanel {
-  flex: 1;
-  background: linear-gradient(160deg, var(--color-primary-700), var(--color-primary-900));
-  color: var(--color-text-on-primary);
+.brand {
   display: flex;
   flex-direction: column;
-  justify-content: center;
   align-items: center;
-  position: relative;
-  padding: var(--space-6);
+  text-align: center;
+  margin-bottom: var(--space-4);
 }
 
-/* The association logo in a white circle with the orange ring, as on the sport site. */
-.leftPanel img {
-  --logo-size: min(240px, 60vw);
-  width: var(--logo-size);
-  aspect-ratio: 1;
-  box-sizing: border-box;
-  padding: calc(var(--logo-size) * 0.12); /* a % padding would follow the panel width */
-  object-fit: contain;
+.brandLogo {
+  display: grid;
+  place-items: center;
+  width: 96px;
+  height: 96px;
   border-radius: 50%;
   background: #fff;
-  box-shadow: 0 0 0 6px var(--color-accent-500), 0 10px 26px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 0 0 4px var(--color-accent-500), 0 10px 26px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
 }
 
-.logo {
-  align-items: center;
-  font-size: var(--fs-xl);
+.brandLogo img {
+  width: 80%;
+  height: 80%;
+  object-fit: contain;
 }
 
-.logoDisNone {
-  display: none;
+.brand h1 {
+  margin: var(--space-3) 0 0;
+  font-size: var(--fs-2xl);
+  font-weight: 800;
+  color: #fff;
 }
 
-.welcomeText h2 {
-  text-align: center;
-  font-size: var(--fs-3xl);
-  line-height: 1.5;
+.brand p {
+  margin: 2px 0 0;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: #ffc46b;
 }
 
-.welcomeText h2 span {
-  font-weight: 400;
-}
-
-.rightPanel {
-  position: relative;
-  flex: 1;
-  background-color: var(--color-background);
+.cardArea {
+  width: 100%;
   display: flex;
   justify-content: center;
-  align-items: center;
-  padding: var(--space-6) var(--space-4);
-  overflow: hidden;
 }
 
 .loginForm {
@@ -127,7 +123,7 @@
 }
 
 .forgotLink {
-  align-self: flex-end;
+  align-self: auto;
   background: none;
   border: none;
   padding: 0;
@@ -206,58 +202,61 @@
   font-weight: 600;
 }
 
-@media (max-width: 768px) {
-  .rightPanel {
-    padding: var(--space-3);
-    position: relative;
-  }
+/* Passkey first, the sign-in itself in the association's orange. */
+.loginForm .passkeyButton {
+  min-height: 48px;
+  background-color: var(--color-primary-700);
+  font-weight: 800;
+}
 
-  /* The logo above the form, in the same circle as on wide screens. */
-  .rightPanel::before {
-    content: "";
-    position: absolute;
-    top: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 150px;
-    height: 150px;
-    border-radius: 50%;
-    background: #fff url('../../../images/logo.png') center / 76% no-repeat;
-    box-shadow: 0 0 0 4px var(--color-accent-500), 0 8px 20px rgba(0, 0, 0, 0.2);
-  }
+.loginForm .passkeyButton:hover {
+  background-color: var(--color-primary-900);
+}
 
-  .container {
-    flex-direction: column;
-  }
+.loginForm .submitButton {
+  min-height: 48px;
+  background-color: var(--color-accent-500);
+  color: var(--color-primary-900);
+  font-weight: 800;
+}
 
-  .leftPanel {
-    display: none;
-  }
+.loginForm .submitButton:hover {
+  background-color: var(--color-accent-600);
+}
 
-  .logo {
-    font-size: var(--fs-lg);
-  }
+.or {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--fs-xs);
+  color: var(--color-text-secondary);
+}
 
-  .welcomeText h2 {
-    font-size: var(--fs-2xl);
-  }
+.or::before,
+.or::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--color-border);
+}
 
-  .loginForm {
-    margin-top: 180px;
-  }
+.links {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.loginForm .forgotLink,
+.loginForm .forgotLink:hover {
+  padding: 0;
+  background: none;
+  color: var(--color-primary-700);
+  font-weight: 700;
 }
 
 @media (max-width: 480px) {
   .loginForm {
     padding: var(--space-4);
-  }
-
-  .loginForm h2 {
-    font-size: var(--fs-xl);
-  }
-
-  .welcomeText h2 {
-    font-size: var(--fs-xl);
   }
 }
 

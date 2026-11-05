@@ -140,9 +140,20 @@ label.check { display: flex; align-items: center; gap: 8px; font-weight: 500; co
   background: var(--color-surface); border: 1px solid var(--color-border);
   border-radius: var(--radius-lg); box-shadow: var(--shadow-lg);
 }
-.signin form { display: grid; gap: 14px; }
-.signin h1 { text-align: center; margin-bottom: 18px; font-size: var(--fs-xl); color: var(--color-primary-700); }
-.signin-logo { display: block; width: 150px; height: 150px; margin: 0 auto 10px; object-fit: contain; }
+.signin form { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+.signin input { width: 100%; box-sizing: border-box; }
+.signin h1, .signin h2 { margin: 0 0 12px; font-size: var(--fs-xl); font-weight: 800; color: var(--color-primary-700); }
+/* The same screen on all three sites: the logo, the names, one white card. */
+.signin-page { min-height: 100vh; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px 16px; background: var(--color-primary-900); }
+.signin-page .signin { width: 100%; max-width: 400px; margin: 0; box-sizing: border-box; }
+.signin-brand { display: flex; flex-direction: column; align-items: center; text-align: center; margin-bottom: 20px; }
+.signin-brand h1 { margin: 14px 0 0; font-size: var(--fs-2xl); font-weight: 800; color: #fff; }
+.signin-brand p { margin: 2px 0 0; font-size: var(--fs-sm); font-weight: 700; color: #ffc46b; }
+.signin-logo { display: grid; place-items: center; width: 96px; height: 96px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 4px var(--color-accent-500), 0 10px 26px rgba(0, 0, 0, .3); overflow: hidden; }
+.signin-logo img { width: 80%; height: 80%; object-fit: contain; }
+.signin-logo-small { margin: 0 auto 10px; }
+.signin .signin-submit { min-height: 48px; background: var(--color-accent-500); border-color: var(--color-accent-500); color: var(--color-primary-900); font-weight: 800; }
+.signin .signin-submit:hover:not(:disabled) { background: var(--color-accent-600); filter: none; }
 .signin button { width: 100%; }
 
 /* Passkey sign-in and its offer. */

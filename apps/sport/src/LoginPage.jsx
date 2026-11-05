@@ -92,14 +92,15 @@ export default function LoginPage({ onSignedIn, notice = "" }) {
         <span className="logo-badge login-logo">
           <img src={logo} alt="شعار جمعية تمهيد" />
         </span>
-        <h1>تمهيد - رياضة</h1>
-        <p className="login-sub">بوابة اللاعبين</p>
+        <h1>جمعية تمهيد - الرملة</h1>
+        <p className="login-sub">الرياضة - بوابة اللاعبين</p>
         <div className="login-panel">
+          <h2 className="login-title">تسجيل الدخول</h2>
           {notice && <p className="error" role="alert">{notice}</p>}
           {step === "tz" && canPasskey && (
             <>
               <button type="button" className="btn btn-passkey" onClick={withPasskey} disabled={busy}>الدخول بالبصمة أو بالوجه</button>
-              <p className="login-or">أو برقم الهوية</p>
+              <p className="login-or">أو</p>
             </>
           )}
           {step === "tz" ? (

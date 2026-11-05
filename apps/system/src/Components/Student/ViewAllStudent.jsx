@@ -6,6 +6,8 @@ import styles from "./Student.module.css";
 import Fabtn from "../Global/Fabtn/Fabtn";
 import { canStored } from "../../utils/session.js";
 import StudentStatusFilter from "./StudentStatusFilter.jsx";
+import FilterDialog from "../UI/FilterDialog.jsx";
+import { UNSIGNED_COLOR } from "./studentConsent";
 import Button from "../UI/Button.jsx";
 import StatusBadge from "../UI/StatusBadge.jsx";
 import { ParentLinkDialog } from "./ParentLinkPanel.jsx";
@@ -49,6 +51,7 @@ const ViewAllStudent = () => {
   const [students, setStudents] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("active");
+  const [onlyUnsigned, setOnlyUnsigned] = useState(false);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(null);
   const [showFab, setShowFab] = useState(false);
@@ -124,6 +127,7 @@ const ViewAllStudent = () => {
       .filter((student) => {
         return getStudentFilterKey(student) === statusFilter;
       })
+      .filter((student) => !onlyUnsigned || !student.consentAt)
       .filter((student) => {
         if (!query) return true;
 
@@ -149,7 +153,12 @@ const ViewAllStudent = () => {
         const bName = `${b.firstname || ""} ${b.lastname || ""}`.trim();
         return aName.localeCompare(bName, "ar", { sensitivity: "base" });
       });
-  }, [students, searchTerm, statusFilter]);
+  }, [students, searchTerm, statusFilter, onlyUnsigned]);
+
+  const unsignedCount = useMemo(
+    () => students.filter((student) => getStudentFilterKey(student) === statusFilter && !student.consentAt).length,
+    [students, statusFilter]
+  );
 
   const handleAddStudent = () => {
     navigate("/students/new");
@@ -207,6 +216,17 @@ const ViewAllStudent = () => {
             ? "الطلاب بانتظار الموافقة"
             : "الطلاب غير الفعّالين"}: {sortedFilteredStudents.length}
         </div>
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginTop: 8 }}>
+          <FilterDialog count={onlyUnsigned ? 1 : 0} onClear={() => setOnlyUnsigned(false)}>
+            <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <input type="checkbox" style={{ width: "auto" }} checked={onlyUnsigned} onChange={(event) => setOnlyUnsigned(event.target.checked)} />
+              <span>بدون توقيع ولي الأمر فقط</span>
+            </label>
+          </FilterDialog>
+          <small style={{ background: UNSIGNED_COLOR, color: "#7a1f42", padding: "2px 8px", borderRadius: 6 }}>
+            الوردي: بدون توقيع ولي الأمر على نظام الجمعية ({unsignedCount})
+          </small>
+        </div>
       </div>
 
       {err && <div className={styles.formError}>{err}</div>}
@@ -240,7 +260,7 @@ const ViewAllStudent = () => {
               sortedFilteredStudents.map((student) => (
                 <tr
                   key={student._id || student.tz}
-                  className={styles.openRow}
+                  className={`${styles.openRow} ${student.consentAt ? "" : styles.unsignedRow}`}
                   onClick={(e) => openStudent(e, student)}
                 >
                   <td data-label="رقم الهوية">{student.tz}</td>

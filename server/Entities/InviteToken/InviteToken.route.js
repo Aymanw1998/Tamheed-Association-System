@@ -6,7 +6,7 @@ const {
   getLink,
   rotateLink,
   validateToken,
-  submitRegistration, getRules, publishRules, getConsent
+  submitRegistration, getRules, publishRules, getConsent, signConsent
 } = require("./InviteToken.controller");
 const { requireAuth: protect } = require("../../middleware/authMiddleware");
 const { loadActor, requirePermission } = require("../../middleware/permissionMiddleware");
@@ -41,6 +41,7 @@ router.post("/link/rotate", protect, loadActor, requirePermission("students.pare
 router.get("/rules", protect, loadActor, requirePermission("students.parentLink"), getRules);
 router.post("/rules", protect, loadActor, requirePermission("students.parentLink"), publishRules);
 router.get("/consent/:studentId", protect, loadActor, requirePermission("students.parentLink"), getConsent);
+router.post("/consent/:studentId", protect, loadActor, requirePermission("students.parentLink"), signConsent);
 
 // Public: parents open these from the shared link without logging in.
 router.get(

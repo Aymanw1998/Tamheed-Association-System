@@ -37,6 +37,10 @@ function createModel(records = [], extra = {}) {
       }
       return { success: true };
     },
+    async updateExisting(filter, newData) {
+      docs = docs.map((doc) => (matches(doc, filter) ? { ...doc, ...newData } : doc));
+      return { success: true };
+    },
     async delete(filter) {
       docs = docs.filter((doc) => !matches(doc, filter));
       return { success: true };
@@ -61,7 +65,7 @@ function runInVm(filename, dependencies) {
 }
 
 // Loads the real controller with in-memory models and a fake Drive.
-function loadController({ students = [], attempts = [], rules = [], uploadResult = null, extraDeps = {} } = {}) {
+function loadController({ students = [], attempts = [], rules = [{ version: 1, text: "the rules" }], uploadResult = null, extraDeps = {} } = {}) {
   const models = {
     students: createModel(students, { dbName: "tamheed_db", collections: { active: "Students" } }),
     links: createModel(),
@@ -120,7 +124,7 @@ test("the registration link keeps its token until an admin rotates it", async ()
   const rotated = (await call(ctrl.rotateLink)).body.token;
   assert.notEqual(rotated, first);
   assert.equal((await call(ctrl.validateToken, { params: { token: first } })).statusCode, 404);
-  assert.deepEqual(plain((await call(ctrl.validateToken, { params: { token: rotated } })).body), { valid: true, open: true });
+  { const seen = (await call(ctrl.validateToken, { params: { token: rotated } })).body; assert.equal(seen.valid, true); assert.equal(seen.open, true); }
 });
 
 test("a wrong or missing token is not valid", async () => {
@@ -156,6 +160,7 @@ test("admins see this month's parent requests and only the last 30 days of refus
 });
 
 const registration = (overrides = {}) => ({
+  rulesVersion: "1", rulesAccepted: "true", signerName: "Parent", signature: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
   tz: VALID_TZ,
   firstname: "طفل",
   lastname: "تجريبي",
@@ -192,7 +197,7 @@ test("a parent request joins the waiting list with server-set status and source"
   assert.equal(student.photo, "");
 });
 
-test("a known ID number gets the same reply, is not saved again, and is listed for staff", async () => {
+test("a known ID number is not saved again and is listed for staff", async () => {
   for (const { status, reason } of [{ status: "عادي", reason: "exists" }, { status: "ينتظر", reason: "pending" }]) {
     const ctrl = loadController({
       students: [{ tz: VALID_TZ, firstname: "قديم", status, source: "جمعية", createdAt: daysAgo(40) }],
@@ -201,8 +206,14 @@ test("a known ID number gets the same reply, is not saved again, and is listed f
 
     const res = await call(ctrl.submitRegistration, { params: { token }, body: registration(), file: photoFile() });
 
-    assert.equal(res.statusCode, 200, status);
-    assert.deepEqual(plain(res.body), { ok: true, message: RECEIVED }, status);
+    // A waiting child is named as waiting; a registered one gets the usual reply.
+    if (reason === "pending") {
+      assert.equal(res.statusCode, 409, status);
+      assert.equal(res.body.code, "ALREADY_PENDING");
+    } else {
+      assert.equal(res.statusCode, 200, status);
+      assert.deepEqual(plain(res.body), { ok: true, message: RECEIVED }, status);
+    }
     assert.deepEqual(ctrl.models.students.snapshot().map((s) => s.firstname), ["قديم"], status);
     assert.deepEqual(ctrl.drive.uploads, [], status);
     const attempts = plain((await call(ctrl.getLink)).body.attempts);
@@ -222,7 +233,7 @@ test("the link stops accepting requests after 30 parent requests in 30 days, wha
   assert.equal(res.statusCode, 429);
   assert.equal(res.body.code, "INTAKE_CLOSED");
   assert.equal(ctrl.models.students.snapshot().length, 30);
-  assert.deepEqual(plain((await call(ctrl.validateToken, { params: { token } })).body), { valid: true, open: false });
+  { const seen = (await call(ctrl.validateToken, { params: { token } })).body; assert.equal(seen.valid, true); assert.equal(seen.open, false); }
 });
 
 test("older parent requests and staff-added students do not count toward the monthly limit", async () => {
@@ -445,12 +456,51 @@ test("a new parent request raises parent_registration; a known ID or a failing a
 const RULES = { version: 2, text: "the rules" };
 const SIGNED = { rulesVersion: "2", rulesAccepted: "true", signerName: "Parent", signature: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==" };
 
-test("with no rules published, a request needs no signature and the form gets none", async () => {
+test("with no rules published the link is closed and nothing can be sent", async () => {
+  for (const rules of [[], [{ version: 1, text: "" }]]) {
+    const ctrl = loadController({ rules });
+    const token = await currentToken(ctrl);
+    const open = (await call(ctrl.validateToken, { params: { token } })).body;
+    assert.equal(open.open, false);
+    assert.equal(open.noRules, true);
+    const res = await call(ctrl.submitRegistration, { params: { token }, body: registration() });
+    assert.equal(res.statusCode, 409);
+    assert.equal(res.body.code, "NO_RULES");
+    assert.equal(ctrl.models.students.snapshot().length, 0);
+  }
+});
+
+test("a child with a waiting request cannot be sent again, and the parent is told why", async () => {
   const ctrl = loadController();
   const token = await currentToken(ctrl);
-  assert.equal((await call(ctrl.validateToken, { params: { token } })).body.rules, undefined);
   assert.equal((await call(ctrl.submitRegistration, { params: { token }, body: registration() })).statusCode, 200);
-  assert.equal(ctrl.models.consents.snapshot().length, 0);
+  const again = await call(ctrl.submitRegistration, { params: { token }, body: registration() });
+  assert.equal(again.statusCode, 409);
+  assert.equal(again.body.code, "ALREADY_PENDING");
+  assert.match(again.body.message, /بانتظار الموافقة/);
+  assert.equal(ctrl.models.students.snapshot().length, 1);
+});
+
+test("a parent's request counts as signed; a student the association added signs later, once", async () => {
+  const ctrl = loadController({ students: [{ tz: "1", status: "عادي" }] });
+  const token = await currentToken(ctrl);
+  await call(ctrl.submitRegistration, { params: { token }, body: registration() });
+  const parents = ctrl.models.students.snapshot().find((s) => s.tz === VALID_TZ);
+  assert.ok(parents.consentAt);
+  const added = ctrl.models.students.snapshot().find((s) => s.tz === "1");
+  assert.equal(added.consentAt, undefined);
+  const params = { studentId: String(added._id) };
+  const { rulesVersion, rulesAccepted, signerName, signature } = registration();
+  const missing = await call(ctrl.signConsent, { params, body: { rulesVersion, rulesAccepted } });
+  assert.equal(missing.statusCode, 400);
+  const signed = await call(ctrl.signConsent, { params, body: { rulesVersion, rulesAccepted, signerName, signature }, actor: { firstname: "Staff", lastname: "One" } });
+  assert.equal(signed.statusCode, 200);
+  assert.ok(ctrl.models.students.snapshot().find((s) => s.tz === "1").consentAt);
+  assert.equal((await call(ctrl.getConsent, { params })).body.consent.signerName, "Parent");
+  const twice = await call(ctrl.signConsent, { params, body: { rulesVersion, rulesAccepted, signerName, signature } });
+  assert.equal(twice.statusCode, 409);
+  assert.equal(twice.body.code, "ALREADY_SIGNED");
+  assert.equal((await call(ctrl.signConsent, { params: { studentId: "gone" }, body: { rulesVersion, rulesAccepted, signerName, signature } })).statusCode, 404);
 });
 
 test("the form gets the latest rules, and a request without a full signature stores nothing", async () => {
