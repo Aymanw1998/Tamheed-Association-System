@@ -47,6 +47,10 @@ export function noteFailure(error, now = Date.now()) {
       message: error.response.data?.message || error.response.data?.error || "",
       ...place(),
     };
+  } else if (!status && String(url).includes("/live/ticket")) {
+    // The live channel's background request: it retries by itself and the person
+    // never saw it, so a press must not send it instead of what they did see.
+    return;
   } else if (!status && window.navigator.onLine !== false) {
     last = { kind: "network", at: now, requestId: "", action, message: error.message || "", ...place() };
   } else {

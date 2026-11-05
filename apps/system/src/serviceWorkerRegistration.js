@@ -1,5 +1,6 @@
 // Registers the service worker in production builds only. Pages that want to
 // know about a waiting update subscribe with onUpdate(cb).
+const CHECK_EVERY_MS = 30 * 60 * 1000;
 const listeners = new Set();
 let waiting = null;
 
@@ -22,6 +23,10 @@ export function register() {
     navigator.serviceWorker
       .register(`${process.env.PUBLIC_URL || ""}/service-worker.js`)
       .then((reg) => {
+        // An open page or installed app hears of a new version without being reopened.
+        const check = () => { if (!document.hidden) reg.update().catch(() => {}); };
+        setInterval(check, CHECK_EVERY_MS);
+        document.addEventListener("visibilitychange", check);
         if (reg.waiting && navigator.serviceWorker.controller) announce(reg.waiting);
         reg.addEventListener("updatefound", () => {
           const sw = reg.installing;

@@ -60,3 +60,19 @@ test("the section follows the address", () => {
   expect(sectionOf("/sports")).toBe("الرياضة");
   expect(sectionOf("/somewhere")).toBe("");
 });
+
+test("a live ticket with no answer is not the problem a press reports: it retries by itself", () => {
+  clearProblem();
+  noteFailure({ message: "timeout of 15000ms exceeded", code: "ECONNABORTED", config: { method: "post", url: "/live/ticket" } }, 1000);
+  expect(recentProblem(1000)).toBeNull();
+});
+
+test("a server error on the live ticket, and no answer on anything else, still count", () => {
+  clearProblem();
+  noteFailure({ message: "boom", response: { status: 500, headers: {}, data: {} }, config: { method: "post", url: "/live/ticket" } }, 1000);
+  expect(recentProblem(1000).kind).toBe("server");
+  clearProblem();
+  noteFailure({ message: "timeout of 15000ms exceeded", config: { method: "get", url: "/lesson" } }, 1000);
+  expect(recentProblem(1000).kind).toBe("network");
+  clearProblem();
+});

@@ -1,5 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { onUpdate } from "../serviceWorkerRegistration";
+import { applyWhenSafe, createAutoUpdate } from "./autoUpdate";
+import { isDemo } from "../journey/demoMode";
 import { canPromptInstall, openInstallGuide, subscribeInstall } from "./installState";
 import { InstallGuide } from "./InstallApp";
 
@@ -64,7 +66,6 @@ const btn = {
 
 export default function AppChrome() {
   const [online, setOnline] = useState(() => (typeof navigator === "undefined" ? true : navigator.onLine !== false));
-  const [worker, setWorker] = useState(null);
   // The browser's install prompt is caught once, in installState.
   const [installEvt, setInstallEvt] = useState(canPromptInstall);
   const [hintDismissed, setHintDismissed] = useState(readFlag);
@@ -81,25 +82,18 @@ export default function AppChrome() {
     };
   }, []);
 
-  useEffect(() => onUpdate(setWorker), []);
+  useEffect(() => {
+    // Started at once, so what is typed before an update arrives counts too.
+    const guard = createAutoUpdate({ canApply: () => !isDemo() });
+    let stopApplying = null;
+    const off = onUpdate((worker) => { stopApplying?.(); stopApplying = applyWhenSafe(worker, guard); });
+    return () => { off(); stopApplying?.(); guard.stop(); };
+  }, []);
 
   useEffect(() => {
     setShowIosHint(isIosSafari() && !isStandalone());
     return subscribeInstall(() => setInstallEvt(canPromptInstall()));
   }, []);
-
-  const reload = () => {
-    if (!worker) return;
-    let done = false;
-    const go = () => { if (!done) { done = true; window.location.reload(); } };
-    navigator.serviceWorker?.addEventListener("controllerchange", go);
-    try {
-      worker.postMessage({ type: "SKIP_WAITING" });
-    } catch {
-      go();
-    }
-    setTimeout(go, 3000);
-  };
 
   const dismissHint = () => { writeFlag(); setHintDismissed(true); };
 
@@ -111,9 +105,9 @@ export default function AppChrome() {
     const root = document.documentElement.style;
     root.setProperty("--app-chrome-height", `${bars.current?.offsetHeight || 0}px`);
     return () => root.removeProperty("--app-chrome-height");
-  }, [online, worker, iosHint, installEvt]);
+  }, [online, iosHint, installEvt]);
 
-  if (online && !worker && !installEvt && !iosHint) return <InstallGuide />;
+  if (online && !installEvt && !iosHint) return <InstallGuide />;
 
   // The guide sits outside the wrapper: the wrapper lets clicks through
   // (pointer-events: none), which would make the guide unclickable.
@@ -123,13 +117,6 @@ export default function AppChrome() {
       {!online && (
         <div role="status" style={{ ...bar, background: "#7a4b00" }}>
           لا يوجد اتصال – البيانات من آخر تحديث
-        </div>
-      )}
-      {worker && (
-        <div role="status" style={bar}>
-          <button type="button" style={btn} onClick={reload}>
-            يوجد تحديث – إعادة التحميل
-          </button>
         </div>
       )}
       {iosHint && (

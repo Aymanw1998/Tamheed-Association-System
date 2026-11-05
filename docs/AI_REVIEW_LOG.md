@@ -4461,3 +4461,29 @@ between installed apps need a phone and the server. Needs `SYSTEM_HOST` on deplo
 **Verification:** all suites passed, all sites built. Local run on a throwaway database with made-up data: the closed link, the second request, pink row and filter count, a later signature clearing the pink, alerts on the board, the three sign-in screens on phone and desktop sizes. Found and fixed there: the pink did not show because table cells paint their own white; IT fields overflowed their card. The later signature was drawn with simulated pointer events. Not checked on a real phone or on the server.
 
 **Codex review:** pending. The third request did not run: Codex reported its usage limit until 7:11 PM. No findings exist for this work, the second-round fixes, the sport changes or the passkey offer. The owner chose to merge without waiting for it (2026-11-05). **Status:** committed, not deployed.
+
+### Fix: a new version installs itself, without a button (2026-11-05)
+
+**Symptom:** Owner: after a server update clients do not update by themselves; a tester got the update button, it covered buttons on the register page, and pressing it wiped the form. The second part came from `window.location.reload()` on a press. Until ed647bc the bar was `position: fixed`, and a device on an old build keeps showing the old bar, which is the likely reason for the covering; not proven on that device.
+
+**Cause of no self-update:** The service worker serves the saved app shell and waits for the button before taking over, and an open page checked for a new version only when it was opened.
+
+**Change:** `pwa/autoUpdate.js` in System and Sport; the button is gone. A waiting version takes over at once if nothing was typed, otherwise 3 seconds after moving to another page, or once no field is left; not during training; at most once in 5 minutes, so it cannot loop. An open page checks every 30 minutes and on return to the tab. The IT site has no service worker.
+
+**Test:** `autoUpdate.test.js`.
+
+**Verification:** System and Sport suites passed, both built. In Chrome with a served copy and a changed service worker: the new version was found with no bar, a typed field survived, and moving to another page reloaded onto the new version. Not checked on a phone or on a real deployment. A device still on the old build shows the old bar one last time.
+
+**Codex review:** pending; usage limit reported earlier. The owner chose to merge without waiting. **Status:** committed, not deployed.
+
+### Fix: a live ticket with no answer is not what a report press sends (2026-11-05)
+
+**Symptom:** A manager's one-press report carried `POST /api/live/ticket`, `timeout of ••••5000ms` (15000 ms, masked), from the lessons page. It is a background request that retries by itself, so it can replace what the person actually saw.
+
+**Change:** Owner: for this request only. `problemLog.js` does not keep a ticket with no answer, so a press with nothing else recent opens the window. A 5xx on the ticket and no answer on any other request still count. The masking and the «خطأ الخادم» title stay as they are, since this request no longer reaches them that way. The cause of the original timeout is unknown: server logs not inspected.
+
+**Test:** `problemLog.test.js`, failed before the fix.
+
+**Verification:** System suite passed and built. Not checked on a phone.
+
+**Codex review:** pending. The owner chose to merge without waiting. **Status:** committed, not deployed.
