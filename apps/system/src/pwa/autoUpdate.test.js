@@ -100,3 +100,73 @@ test("while not safe nothing is sent; once safe it is", () => {
   jest.useRealTimers();
   guard.stop();
 });
+
+test("another tab's activation waits for this tab's edits before reloading", () => {
+  jest.useFakeTimers();
+  const { guard, page } = setup(); type();
+  const worker = { state: "installed", postMessage: jest.fn() };
+  const container = new EventTarget(); const reload = jest.fn();
+  const stop = applyWhenSafe(worker, guard, { reload, serviceWorker: container });
+  container.dispatchEvent(new Event("controllerchange"));
+  jest.advanceTimersByTime(5000); expect(reload).not.toHaveBeenCalled(); expect(worker.postMessage).not.toHaveBeenCalled();
+  page.path = "/dashboard"; jest.advanceTimersByTime(1000); page.at += SETTLE_MS; jest.advanceTimersByTime(1000);
+  expect(reload).toHaveBeenCalledTimes(1);
+  stop(); guard.stop(); jest.useRealTimers();
+});
+
+test("typing after activation was requested is rechecked when the controller changes", () => {
+  jest.useFakeTimers();
+  const { guard, page } = setup(), worker = { state: "installed", postMessage: jest.fn() }, container = new EventTarget(), reload = jest.fn();
+  const stop = applyWhenSafe(worker, guard, { reload, serviceWorker: container });
+  expect(worker.postMessage).toHaveBeenCalledTimes(1); type();
+  container.dispatchEvent(new Event("controllerchange")); expect(reload).not.toHaveBeenCalled();
+  page.path = "/dashboard"; jest.advanceTimersByTime(1000); page.at += SETTLE_MS; jest.advanceTimersByTime(1000);
+  expect(reload).toHaveBeenCalledTimes(1); stop(); guard.stop(); jest.useRealTimers();
+});
+
+test("cancelling an update removes its reload callbacks and timer", () => {
+  jest.useFakeTimers();
+  const { guard } = setup(), worker = { state: "installed", postMessage: jest.fn() }, container = new EventTarget(), reload = jest.fn();
+  const stop = applyWhenSafe(worker, guard, { reload, serviceWorker: container }); stop();
+  worker.state = "activated"; container.dispatchEvent(new Event("controllerchange")); jest.advanceTimersByTime(10000);
+  expect(reload).not.toHaveBeenCalled(); guard.stop(); jest.useRealTimers();
+});
+
+test("a missing activation never blindly reloads the old cached build", () => {
+  jest.useFakeTimers();
+  const { guard } = setup(), worker = { state: "installed", postMessage: jest.fn() }, reload = jest.fn();
+  const stop = applyWhenSafe(worker, guard, { reload, serviceWorker: new EventTarget() });
+  jest.advanceTimersByTime(30000); expect(reload).not.toHaveBeenCalled(); expect(worker.postMessage).toHaveBeenCalledTimes(1);
+  stop(); guard.stop(); jest.useRealTimers();
+});
+
+test("open dialogs and a pending save hold an update even before typing", () => {
+  const { guard } = setup();
+  document.body.innerHTML = '<div role="dialog"></div>'; expect(guard.safeNow()).toBe(false);
+  document.body.innerHTML = '<button aria-busy="true">Saving</button>'; expect(guard.safeNow()).toBe(false);
+  document.body.innerHTML = '<main></main>'; expect(guard.safeNow()).toBe(true); guard.stop();
+});
+
+test.each(["canvas", "rich text"])("%s drafts are kept until the user leaves the page", (kind) => {
+  const { guard, page } = setup();
+  document.body.innerHTML = kind === "canvas" ? '<canvas id="draft"></canvas>' : '<div id="draft" contenteditable="true">Draft</div>';
+  document.getElementById("draft").dispatchEvent(new Event(kind === "canvas" ? "pointerdown" : "input", { bubbles: true }));
+  expect(guard.safeNow()).toBe(false);
+  document.body.innerHTML = '<main></main>'; expect(guard.safeNow()).toBe(false);
+  page.path = "/dashboard"; expect(guard.safeNow()).toBe(false); page.at += SETTLE_MS; expect(guard.safeNow()).toBe(true); guard.stop();
+});
+
+test("blocked session storage does not permanently disable automatic updates", () => {
+  let at = 0;
+  const guard = createAutoUpdate({ now: () => at, store: { getItem() { throw new Error("blocked"); }, setItem() { throw new Error("blocked"); } } });
+  document.body.innerHTML = '<main></main>';
+  expect(guard.safeNow()).toBe(true); guard.markTried(); expect(guard.safeNow()).toBe(false);
+  at += RETRY_GAP_MS; expect(guard.safeNow()).toBe(true); guard.stop();
+});
+
+test("typing after a route change before the first update stays protected after the settling delay", () => {
+  const { guard, page } = setup();
+  page.path = "/students/new"; type();
+  expect(guard.safeNow()).toBe(false); page.at += SETTLE_MS + 10000;
+  expect(guard.safeNow()).toBe(false); guard.stop();
+});

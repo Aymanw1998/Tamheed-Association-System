@@ -5289,3 +5289,66 @@ public surface, conditional writes, evidence retention/retry and UI state rules.
 Publish this requested change under the existing commit/push authorization,
 then inspect GitHub CI; production remains a separate owner-run update. Peer
 review remains pending under the recorded actual Claude quota response.
+
+### Automatic client-version rollout — started 2026-11-07
+
+Owner wants clients to update themselves after a server release instead of
+pressing the old update button. Current source already removed that button
+(commit 873b00e), but checks only every 30 minutes and only the initiating tab
+reliably reloads after worker activation. Codex is sole implementer; actual
+Claude Code is independent reviewer. Strengthen the existing System/Sport PWA
+mechanism: visible checks each minute and on resume/focus/reconnection, watch
+already-installing workers, and react to another tab activating the new worker.
+Every tab reloads only at a safe moment, rechecking after activation so newly
+typed data, open dialogs, rich text/canvas work and pending saves are preserved.
+Fix cancellation/loop guards without forced navigation of dirty clients. Keep
+first install from causing a reload. Use isolated browser/worker and regression
+tests, System verify plus Sport tests/build, a source-only peer review and CI.
+No real-client force refresh, live server deployment, user records or external
+messages. Legacy pages already executing the manual-button code may need one
+initial refresh/reopen to load this mechanism; do not claim they can execute
+new page code without first loading it. Peer quota is expected but must be
+requested and recorded honestly.
+
+**Implementation and regression evidence:** System and Sport now check each
+visible minute and on focus/resume/online, bypass service-worker HTTP caches,
+observe already-installing workers and detect controller replacement even when
+another tab initiated activation. Initial installation does not cause a reload.
+Each tab keeps its own safety gate and listens before requesting activation;
+it rechecks local work before reloading and cancels obsolete callbacks/timers.
+No blind three-second fallback reload remains. Blocked session storage has an
+in-memory retry guard. Rich-text/canvas drafts, open dialogs and busy saves
+hold updates; System additionally respects explicit unsaved state and holds
+unreported edit/public-registration/signing forms, including photo-only work.
+No update button or forced client.navigate was introduced.
+
+The first real-browser synthetic multi-window test exposed an older guard bug:
+it noticed a route change only after the update arrived, clearing a draft typed
+on that route. The new focused route regression failed before the fix. Edit
+and pointer events now note their route before marking work dirty. Repeated
+browser testing with the actual registration/update modules and a real local
+service worker passed: the clean build-2 page auto-reloaded to build 3 once;
+the editing page stayed on build 2, kept its full synthetic draft, and had zero
+reloads. After Finish editing changed route and the settle period elapsed, it
+auto-reloaded to build 3 once. The synthetic worker was unregistered, both test
+tabs closed, and the local server stopped/fixture removed. Screenshots are
+local delivery evidence; no production clients, records or service were used.
+
+**Peer review:** Requested [actual Claude review](reviews/2026-11-07-auto-update-claude-request.md)
+with the minimal relevant source/tests and tools/MCP/persistence disabled.
+[Its response](reviews/2026-11-07-auto-update-claude-response.txt) again reports
+the weekly limit until Nov 8, 16:00 Asia/Jerusalem. There are no peer findings or
+agreement; review remains pending. No environment, credentials, runtime logs or
+user records were sent. Local source review and isolated checks continued.
+Legacy pages already executing the former manual-button bundle may require an
+initial refresh or closing/reopening their windows to load these instructions;
+future rollouts are automatic after this version is loaded. Do not claim a
+closed/offline application can update before it runs online again.
+
+**Final verification:** npm run verify passed with Git Bash: 1,497 server tests,
+1,114 System tests in 126 suites, and optimized System build. Final Sport checks
+passed 128 tests in 23 suites and its optimized build. No dependency or lockfile
+change. The shared System/Sport registration/guard implementations match, and
+both have behavioral update/lifecycle regression suites. Publish under ongoing
+commit/push authorization and inspect GitHub CI. No production deployment or
+real-client forced refresh has occurred; actual peer review remains pending.

@@ -2,10 +2,20 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { onUpdate } from "../serviceWorkerRegistration";
 import { applyWhenSafe, createAutoUpdate } from "./autoUpdate";
 import { isDemo } from "../journey/demoMode";
+import { getUnsavedChanges, needsLeaveConfirm } from "../utils/unsavedChanges";
 import { canPromptInstall, openInstallGuide, subscribeInstall } from "./installState";
 import { InstallGuide } from "./InstallApp";
 
 const HINT_KEY = "pwa_ios_hint_dismissed";
+
+export function canApplySystemUpdate() {
+  const path = window.location.pathname;
+  // Photo pickers can use detached inputs. Hold unreported edit pages and
+  // public signing/registration forms even before a keyboard event is seen.
+  const publicForm = /^\/(register|register-student|parent-consent)(\/|$)/.test(path);
+  return !isDemo() && getUnsavedChanges() !== true && !needsLeaveConfirm(path) &&
+    !(publicForm && document.querySelector("input:not([type=hidden]),textarea,select,canvas"));
+}
 
 function readFlag() {
   try { return localStorage.getItem(HINT_KEY) === "1"; } catch { return false; }
@@ -84,7 +94,7 @@ export default function AppChrome() {
 
   useEffect(() => {
     // Started at once, so what is typed before an update arrives counts too.
-    const guard = createAutoUpdate({ canApply: () => !isDemo() });
+    const guard = createAutoUpdate({ canApply: canApplySystemUpdate });
     let stopApplying = null;
     const off = onUpdate((worker) => { stopApplying?.(); stopApplying = applyWhenSafe(worker, guard); });
     return () => { off(); stopApplying?.(); guard.stop(); };

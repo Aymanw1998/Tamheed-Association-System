@@ -1,10 +1,24 @@
 import React, { act } from "react";
 import { createRoot } from "react-dom/client";
-import AppChrome from "./AppChrome";
+import AppChrome, { canApplySystemUpdate } from "./AppChrome";
+import { setUnsavedChanges } from "../utils/unsavedChanges";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 const OFFLINE = "لا يوجد اتصال – البيانات من آخر تحديث";
+
+test("unreported edit pages and public forms wait even for photo-only work", () => {
+  const path = window.location.pathname;
+  const form = document.createElement("input"); document.body.appendChild(form);
+  setUnsavedChanges(null);
+  for (const route of ["/students/new", "/students/one/edit", "/register-student/token", "/parent-consent"]) {
+    window.history.replaceState({}, "", route); expect(canApplySystemUpdate()).toBe(false);
+  }
+  window.history.replaceState({}, "", "/dashboard"); setUnsavedChanges(true);
+  expect(canApplySystemUpdate()).toBe(false);
+  setUnsavedChanges(false); expect(canApplySystemUpdate()).toBe(true);
+  setUnsavedChanges(null); form.remove(); window.history.replaceState({}, "", path);
+});
 
 test("offline bar follows the offline and online events", () => {
   const host = document.createElement("div");
