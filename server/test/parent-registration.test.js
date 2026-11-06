@@ -25,6 +25,9 @@ function createModel(records = [], extra = {}) {
       return { success: true, result: docs.filter((doc) => matches(doc, filter)).map((doc) => ({ ...doc })) };
     },
     async create(data) {
+      if (docs.some((doc) => (data._id && doc._id === data._id) || (extra.uniqueKey && doc[extra.uniqueKey] === data[extra.uniqueKey]))) {
+        const error = new Error("duplicate"); error.code = 11000; throw error;
+      }
       const doc = { _id: `doc-${nextId++}`, ...data };
       docs.push(doc);
       return { success: true, result: { ...doc } };
@@ -72,7 +75,8 @@ function loadController({ students = [], rules = [{ version: 1, text: "the rules
     students: createModel(students, { dbName: "tamheed_db", collections: { active: "Students" } }),
     links: createModel(),
     rules: createModel(rules),
-    consents: createModel(),
+    consents: createModel([], { uniqueKey: "studentId" }),
+    consentHistory: createModel(),
   };
   const drive = {
     uploads: [],
@@ -85,7 +89,7 @@ function loadController({ students = [], rules = [{ version: 1, text: "the rules
     crypto: require("node:crypto"),
     "./defaultRules": require("../Entities/InviteToken/defaultRules"),
     "./InviteToken.model": { InviteTokenModelDef: models.links },
-    "./Rules.model": { RulesModelDef: models.rules, ConsentModelDef: models.consents },
+    "./Rules.model": { RulesModelDef: models.rules, ConsentModelDef: models.consents, ConsentHistoryModelDef: models.consentHistory },
     "../../utils/grades": require("../utils/grades"),
     "../Student/Student.model": { StudentModelDef: models.students },
     "../UploadFile/file": drive,
@@ -332,6 +336,9 @@ function loadRoutes({ multerError = null } = {}) {
       rotateLink: handler("rotateLink"),
       validateToken: handler("validateToken"),
       submitRegistration: handler("submitRegistration"),
+      getRules: handler("getRules"), publishRules: handler("publishRules"),
+      getConsent: handler("getConsent"), signConsent: handler("signConsent"),
+      createConsentLink: handler("createConsentLink"), validateConsentLink: handler("validateConsentLink"), submitConsentLink: handler("submitConsentLink"),
     },
     "../../middleware/authMiddleware": require("../middleware/authMiddleware"),
     "../../middleware/permissionMiddleware": require("./helpers/actors").permissionMiddlewareStub(),
@@ -586,13 +593,16 @@ test("the built-in rules are public version zero, stay readable after publicatio
   assert.equal(read.body.consent.rulesText, DEFAULT_RULES);
 });
 
-test("agreement without a stamp sends a request but stays unsigned until later completion", async () => {
-  const ctrl = loadController();
+test("public intake requires a stamp while existing pending evidence can still be completed", async () => {
+  const ctrl = loadController({ students: [{ tz: "1", consentAt: null }] });
   const token = await currentToken(ctrl);
   const sent = await call(ctrl.submitRegistration, { params: { token }, body: registration({ signature: "" }) });
-  assert.equal(sent.statusCode, 200);
+  assert.equal(sent.statusCode, 400);
+  assert.equal(sent.body.code, "CONSENT_REQUIRED");
+  assert.equal(ctrl.models.consents.snapshot().length, 0);
   const [student] = ctrl.models.students.snapshot();
   const params = { studentId: student._id };
+  await ctrl.models.consents.create({ studentId: student._id, signerName: "Parent", rulesVersion: 1, signature: null, acceptedAt: daysAgo(1), signedAt: null });
   assert.equal(student.consentAt, null);
   let read = (await call(ctrl.getConsent, { params })).body.consent;
   assert.ok(read.acceptedAt);
@@ -632,13 +642,151 @@ test("a partial later save can repair the student marker without replacing the s
 });
 
 test("a racing pending completion cannot overwrite already stored evidence", async () => {
-  const ctrl = loadController();
-  const token = await currentToken(ctrl);
-  await call(ctrl.submitRegistration, { params: { token }, body: registration({ signature: "" }) });
+  const ctrl = loadController({ students: [{ tz: "1", consentAt: null }] });
   const params = { studentId: ctrl.models.students.snapshot()[0]._id };
+  await ctrl.models.consents.create({ studentId: params.studentId, signerName: "Parent", rulesVersion: 1, signature: null, acceptedAt: daysAgo(1), signedAt: null });
   ctrl.models.consents.updateExisting = async () => ({ success: true, result: null });
   const res = await call(ctrl.signConsent, { params, body: registration() });
   assert.equal(res.statusCode, 409);
   assert.equal(res.body.code, "CONSENT_CHANGED");
   assert.equal(ctrl.models.students.snapshot()[0].consentAt, null);
+});
+
+const personalLink = async (ctrl, studentId) => {
+  const result = await call(ctrl.createConsentLink, { params: { studentId } });
+  assert.equal(result.statusCode, 200); return result.body.token;
+};
+
+test("personal links store only digests and disclose only the child name and rules", async () => {
+  const ctrl = loadController({ students: [{ tz: "1", firstname: "Child", lastname: "Family", phone: "private", photo: "private-photo" }] });
+  const studentId = ctrl.models.students.snapshot()[0]._id, token = await personalLink(ctrl, studentId);
+  assert.match(token, /^[A-Za-z0-9_-]{43}$/);
+  const [record] = ctrl.models.links.snapshot();
+  assert.equal(record.purpose, "student-consent"); assert.equal(record.studentId, studentId);
+  assert.match(record.tokenHash, /^[a-f0-9]{64}$/); assert.equal(record.token, undefined);
+  assert.ok(new Date(record.expiresAt).getTime() > Date.now());
+  const result = await call(ctrl.validateConsentLink, { body: { token } });
+  assert.deepEqual(Object.keys(result.body).sort(), ["ok", "rules", "studentName"]);
+  assert.equal(result.body.studentName, "Child Family"); assert.ok(!JSON.stringify(result.body).includes("private"));
+});
+
+test("parent links cannot register, edit fields or target another child", async () => {
+  const ctrl = loadController({ students: [{ tz: "1", firstname: "First", status: "عادي" }, { tz: "2", firstname: "Other" }] });
+  const [first, other] = ctrl.models.students.snapshot(), token = await personalLink(ctrl, first._id);
+  const result = await call(ctrl.submitConsentLink, { body: { ...registration(), token, studentId: other._id, firstname: "Injected", tz: "2", status: "ينتظر", main_teacher: "attacker" } });
+  assert.equal(result.statusCode, 200); assert.equal(ctrl.models.students.snapshot().length, 2);
+  const saved = ctrl.models.students.snapshot().find((row) => row._id === first._id);
+  assert.equal(saved.firstname, "First"); assert.equal(saved.status, "عادي"); assert.equal(saved.main_teacher, undefined); assert.ok(saved.consentAt);
+  assert.equal(ctrl.models.students.snapshot().find((row) => row._id === other._id).consentAt, undefined);
+  assert.equal(ctrl.models.consents.snapshot()[0].studentId, first._id);
+});
+
+test("personal links require agreement, name and stamp and close after success", async () => {
+  const ctrl = loadController({ students: [{ tz: "1" }] }), token = await personalLink(ctrl, ctrl.models.students.snapshot()[0]._id);
+  for (const missing of [{ rulesAccepted: "false" }, { signature: "" }, { signerName: " " }, { signature: "not-a-png" }]) {
+    assert.equal((await call(ctrl.submitConsentLink, { body: { ...registration(missing), token } })).statusCode, 400);
+    assert.equal(ctrl.models.consents.snapshot().length, 0); assert.equal(ctrl.models.links.snapshot()[0].used, false);
+  }
+  assert.equal((await call(ctrl.submitConsentLink, { body: { ...registration(), token } })).statusCode, 200);
+  const evidence = plain(ctrl.models.consents.snapshot());
+  assert.equal((await call(ctrl.validateConsentLink, { body: { token } })).statusCode, 410);
+  assert.equal((await call(ctrl.submitConsentLink, { body: { ...registration({ signerName: "Replacement" }), token } })).statusCode, 410);
+  assert.deepEqual(plain(ctrl.models.consents.snapshot()), evidence);
+});
+
+test("expired, guessed, wrong-purpose and removed-child links cannot sign or reveal a name", async () => {
+  const ctrl = loadController({ students: [{ tz: "1", firstname: "Private Child" }] }), studentId = ctrl.models.students.snapshot()[0]._id;
+  const token = await personalLink(ctrl, studentId); await ctrl.models.links.update({ studentId }, { expiresAt: daysAgo(1) });
+  for (const candidate of [token, "x".repeat(43), await currentToken(ctrl), ""]) {
+    const result = await call(ctrl.validateConsentLink, { body: { token: candidate } });
+    assert.equal(result.statusCode, 410); assert.equal(result.body.studentName, undefined);
+    assert.equal((await call(ctrl.submitConsentLink, { body: { ...registration(), token: candidate } })).statusCode, 410);
+  }
+  const fresh = await personalLink(ctrl, studentId); await ctrl.models.students.delete({ _id: studentId });
+  assert.equal((await call(ctrl.validateConsentLink, { body: { token: fresh } })).statusCode, 410); assert.equal(ctrl.models.consents.snapshot().length, 0);
+});
+
+test("changed rules require fresh acceptance without consuming a signing link", async () => {
+  const ctrl = loadController({ students: [{ tz: "1" }] }), token = await personalLink(ctrl, ctrl.models.students.snapshot()[0]._id);
+  await call(ctrl.publishRules, { body: { text: "Updated rules" } });
+  const stale = await call(ctrl.submitConsentLink, { body: { ...registration(), token } });
+  assert.equal(stale.statusCode, 409); assert.equal(stale.body.code, "RULES_CHANGED");
+  assert.equal(ctrl.models.consents.snapshot().length, 0); assert.equal(ctrl.models.links.snapshot()[0].used, false);
+  assert.equal((await call(ctrl.validateConsentLink, { body: { token } })).body.rules.version, 2);
+  assert.equal((await call(ctrl.submitConsentLink, { body: { ...registration({ rulesVersion: "2" }), token } })).statusCode, 200);
+});
+
+test("signature updates retain evidence and invalidate stale versions and older links", async () => {
+  const ctrl = loadController({ students: [{ tz: "1" }] }), params = { studentId: ctrl.models.students.snapshot()[0]._id };
+  await call(ctrl.signConsent, { params, body: registration() });
+  const original = plain(ctrl.models.consents.snapshot()[0]), oldToken = await personalLink(ctrl, params.studentId);
+  const read = (await call(ctrl.getConsent, { params })).body.consent;
+  assert.equal((await call(ctrl.signConsent, { params, body: registration({ signerName: "New parent", baseConsentVersion: read.revision }) })).statusCode, 200);
+  assert.equal(ctrl.models.consents.snapshot()[0].signerName, "New parent");
+  const [history] = ctrl.models.consentHistory.snapshot();
+  assert.equal(history.signature, original.signature); assert.equal(history.signerName, original.signerName);
+  assert.equal(history.rulesVersion, original.rulesVersion); assert.equal(history.sourceConsentId, original._id);
+  assert.equal((await call(ctrl.submitConsentLink, { body: { ...registration(), token: oldToken } })).statusCode, 410);
+  assert.equal((await call(ctrl.signConsent, { params, body: registration({ baseConsentVersion: read.revision }) })).statusCode, 409);
+  assert.equal(ctrl.models.consents.snapshot()[0].signerName, "New parent");
+});
+
+test("concurrent edits preserve one winner and one immutable historical snapshot", async () => {
+  const ctrl = loadController({ students: [{ tz: "1" }] }), params = { studentId: ctrl.models.students.snapshot()[0]._id };
+  await call(ctrl.signConsent, { params, body: registration() });
+  const revision = (await call(ctrl.getConsent, { params })).body.consent.revision;
+  const results = await Promise.all(["First", "Second"].map((signerName) => call(ctrl.signConsent, { params, body: registration({ signerName, baseConsentVersion: revision }) })));
+  assert.deepEqual(results.map((row) => row.statusCode).sort(), [200, 409]);
+  assert.equal(ctrl.models.consentHistory.snapshot().length, 1); assert.equal(ctrl.models.consentHistory.snapshot()[0].signerName, "Parent");
+});
+
+test("parallel parent submissions never overwrite accepted evidence", async () => {
+  const ctrl = loadController({ students: [{ tz: "1" }] }), token = await personalLink(ctrl, ctrl.models.students.snapshot()[0]._id);
+  const results = await Promise.all(["First", "Second"].map((signerName) => call(ctrl.submitConsentLink, { body: { ...registration({ signerName }), token } })));
+  assert.ok(results.some((row) => row.statusCode === 200)); assert.equal(ctrl.models.consents.snapshot().length, 1);
+  assert.equal(ctrl.models.consentHistory.snapshot().length, 0); assert.equal(ctrl.models.links.snapshot()[0].used, true);
+});
+
+test("partial parent signing repairs the student marker without replacing original evidence", async () => {
+  const ctrl = loadController({ students: [{ tz: "1" }] }), token = await personalLink(ctrl, ctrl.models.students.snapshot()[0]._id);
+  const update = ctrl.models.students.updateExisting;
+  ctrl.models.students.updateExisting = async () => { throw new Error("simulated marker failure"); };
+  assert.equal((await call(ctrl.submitConsentLink, { body: { ...registration(), token } })).statusCode, 500);
+  const evidence = plain(ctrl.models.consents.snapshot()[0]); ctrl.models.students.updateExisting = update;
+  assert.equal((await call(ctrl.submitConsentLink, { body: { ...registration({ signerName: "Changed on retry" }), token } })).statusCode, 200);
+  assert.deepEqual(plain(ctrl.models.consents.snapshot()[0]), evidence);
+  assert.ok(ctrl.models.students.snapshot()[0].consentAt); assert.equal(ctrl.models.links.snapshot()[0].used, true);
+});
+
+test("only authorized staff issue personal links; public signing needs no login and is rate limited", async () => {
+  for (const [roles, status] of [[["ادارة"], 200], [["مرشد"], 403], [["مساعد"], 403], [null, 401]]) {
+    const routes = loadRoutes(), result = await runRoute(routes.find("post", "/consent/:studentId/link"), routeRequest({ roles }));
+    assert.equal(result.statusCode, status); assert.deepEqual(routes.calls, status === 200 ? ["createConsentLink"] : []);
+  }
+  const routes = loadRoutes();
+  assert.equal((await runRoute(routes.find("post", "/consent-link/validate"), routeRequest({ ip: "203.0.113.70" }))).statusCode, 200);
+  assert.equal((await runRoute(routes.find("post", "/consent-link/submit"), routeRequest({ ip: "203.0.113.71" }))).statusCode, 200);
+  for (let i = 0; i < 29; i++) await runRoute(routes.find("post", "/consent-link/validate"), routeRequest({ ip: "203.0.113.70" }));
+  assert.equal((await runRoute(routes.find("post", "/consent-link/validate"), routeRequest({ ip: "203.0.113.70" }))).statusCode, 429);
+});
+
+test("a versioned pending retry repairs its marker without overwriting the accepted signature", async () => {
+  const ctrl = loadController({ students: [{ tz: "1", consentAt: null }] }), params = { studentId: ctrl.models.students.snapshot()[0]._id };
+  await ctrl.models.consents.create({ studentId: params.studentId, signature: null, signedAt: null, rulesVersion: 1 });
+  const revision = (await call(ctrl.getConsent, { params })).body.consent.revision;
+  const update = ctrl.models.students.updateExisting;
+  ctrl.models.students.updateExisting = async () => { throw new Error("marker failure"); };
+  assert.equal((await call(ctrl.signConsent, { params, body: registration({ baseConsentVersion: revision }) })).statusCode, 500);
+  const evidence = plain(ctrl.models.consents.snapshot()[0]); ctrl.models.students.updateExisting = update;
+  assert.equal((await call(ctrl.signConsent, { params, body: registration({ signerName: "Retry", baseConsentVersion: revision }) })).statusCode, 200);
+  assert.deepEqual(plain(ctrl.models.consents.snapshot()[0]), evidence); assert.ok(ctrl.models.students.snapshot()[0].consentAt);
+});
+
+test("failure to retain prior evidence prevents signature replacement", async () => {
+  const ctrl = loadController({ students: [{ tz: "1" }] }), params = { studentId: ctrl.models.students.snapshot()[0]._id };
+  await call(ctrl.signConsent, { params, body: registration() });
+  const previous = plain(ctrl.models.consents.snapshot()[0]), revision = (await call(ctrl.getConsent, { params })).body.consent.revision;
+  ctrl.models.consentHistory.create = async () => { throw new Error("archive unavailable"); };
+  assert.equal((await call(ctrl.signConsent, { params, body: registration({ signerName: "Replacement", baseConsentVersion: revision }) })).statusCode, 500);
+  assert.deepEqual(plain(ctrl.models.consents.snapshot()[0]), previous);
 });

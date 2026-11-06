@@ -53,17 +53,18 @@ test("a guide sees his task, marks it done, and it moves down to the done part",
   expect(getTaskBoard).not.toHaveBeenCalled();
   expect(button("تعديل المهمات والمجموعات")).toBeUndefined();
   expect(host.textContent).not.toContain("تم إنجازها");
-  await act(async () => button("تم").click());
+  await act(async () => host.querySelector('input[type="checkbox"]:not(:checked)').click());
   expect(setMyTaskDone).toHaveBeenCalledWith("t1", "g1", true, WEEK);
   expect(host.textContent).toContain("تم إنجازها");
-  expect(button("إلغاء")).toBeTruthy();
+  expect(host.querySelector('input[type="checkbox"]').checked).toBe(true);
 });
 
 test("a task the management confirmed cannot be undone by the guide", async () => {
   getMyTasks.mockResolvedValue({ ok: true, week: WEEK, tasks: [task({ done: true, approved: true })] });
   await mount();
   expect(host.textContent).toContain("أكّدتها الإدارة");
-  expect(button("إلغاء")).toBeUndefined();
+  expect(host.querySelector('input[type="checkbox"]').checked).toBe(true);
+  expect(host.querySelector('input[type="checkbox"]').disabled).toBe(true);
 });
 
 test("the management sees the register and the way to editing; an empty group is not listed", async () => {
@@ -96,8 +97,8 @@ test("the management's check confirms a task, and pressing it again takes it bac
   getMyTasks.mockResolvedValue({ ok: true, week: WEEK, tasks: [] });
   await mount();
   await act(async () => button("عرض مهمات الجمعية").click());
-  const check = () => host.querySelector("button[aria-pressed]");
-  expect(check().getAttribute("aria-pressed")).toBe("false");
+  const check = () => host.querySelector('input[type="checkbox"]');
+  expect(check().checked).toBe(false);
   await act(async () => check().click());
   expect(approveTask).toHaveBeenCalledWith("t1", "g1", true, WEEK);
   getTaskBoard.mockResolvedValue({ ...BOARD, statuses: [{ taskId: "t1", groupId: "g1", done: true, approved: true }] });
@@ -110,11 +111,28 @@ test("the same duty in two lessons has independent controls, and a completed dut
   getMyTasks.mockResolvedValue({ ok: true, week: WEEK, tasks: [task(), task({ groupId: "second", groupName: "Second lesson" })] });
   setMyTaskDone.mockResolvedValue({ ok: true, week: WEEK, tasks: [task({ done: true }), task({ groupId: "second", groupName: "Second lesson" })] });
   await mount();
-  await act(async () => button("تم").click());
+  await act(async () => host.querySelector('input[type="checkbox"]:not(:checked)').click());
   expect(setMyTaskDone).toHaveBeenCalledWith("t1", "g1", true, WEEK);
   const items = [...host.querySelectorAll("li")];
   expect(items[0].textContent).toContain("Second lesson");
   expect(items[1].textContent).toContain("Guide One");
-  await act(async () => button("تم").click());
+  await act(async () => host.querySelector('input[type="checkbox"]:not(:checked)').click());
   expect(setMyTaskDone).toHaveBeenLastCalledWith("t1", "second", true, WEEK);
+});
+
+test("management sees a check for duties already completed by the responsible person", async () => {
+  mockManage = true;
+  getTaskBoard.mockResolvedValue({ ...BOARD, statuses: [{ taskId: "t1", groupId: "g1", done: true, approved: false }] });
+  await mount(); await act(async () => button("عرض مهمات الجمعية").click());
+  const check = host.querySelector('input[type="checkbox"]');
+  expect(check.checked).toBe(true); expect(host.textContent).toContain("أنجزها المسؤول");
+  await act(async () => check.click());
+  expect(approveTask).toHaveBeenCalledWith("t1", "g1", false, WEEK);
+});
+
+test("a failed completion leaves the checkbox clear and the duty in the open section", async () => {
+  setMyTaskDone.mockResolvedValue({ ok: false, message: "Failed" });
+  await mount(); await act(async () => host.querySelector('input[type="checkbox"]').click());
+  expect(host.querySelector('input[type="checkbox"]').checked).toBe(false);
+  expect(host.textContent).not.toContain("تم إنجازها");
 });

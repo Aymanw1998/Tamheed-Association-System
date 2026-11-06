@@ -224,6 +224,7 @@ export default function Header() {
           <NoticeBell canViewNotices={canViewNotices} />
           {canViewNotices && <NewBadge section="notices" />}
         </span>
+        <span id="header-history" className={styles.historySlot} />
         {isMobile && accountMenu}
       </div>
 

@@ -58,6 +58,10 @@ InviteTokenModelDef.update = async function (filter, newData) {
     });
 };
 
+InviteTokenModelDef.updateExisting = async function (filter, newData) {
+    return await api.updateExisting({ dbName: this.dbName, collection: this.collections.active, filter, newData });
+};
+
 // DELETE
 InviteTokenModelDef.delete = async function (filter) {
     return await api.delete({

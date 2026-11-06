@@ -261,5 +261,4 @@
   background: var(--color-primary-50, rgba(30, 101, 128, 0.06));
 }
 
-/* A student with no parent signature (studentConsent.js). The cells paint their own white. */
-.unsignedRow td { background: #fde2ec !important; }
+.signaturePending { display: block; margin-top: 4px; color: var(--color-text-secondary); font-size: .8rem; }

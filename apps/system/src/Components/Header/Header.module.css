@@ -15,6 +15,7 @@
   align-items: center;
   gap: 0.75rem;
 }
+.historySlot { display: inline-flex; flex: 0 0 auto; align-items: center; }
 
 /* The association logo in a white circle with the orange ring, as on the sport site. */
 .logo {

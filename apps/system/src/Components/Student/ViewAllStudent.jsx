@@ -7,7 +7,6 @@ import Fabtn from "../Global/Fabtn/Fabtn";
 import { canStored } from "../../utils/session.js";
 import StudentStatusFilter from "./StudentStatusFilter.jsx";
 import FilterDialog from "../UI/FilterDialog.jsx";
-import { UNSIGNED_COLOR } from "./studentConsent";
 import Button from "../UI/Button.jsx";
 import StatusBadge from "../UI/StatusBadge.jsx";
 import { ParentLinkDialog } from "./ParentLinkPanel.jsx";
@@ -223,8 +222,8 @@ const ViewAllStudent = () => {
               <span>بدون توقيع ولي الأمر فقط</span>
             </label>
           </FilterDialog>
-          <small style={{ background: UNSIGNED_COLOR, color: "#7a1f42", padding: "2px 8px", borderRadius: 6 }}>
-            الوردي: بدون توقيع ولي الأمر على نظام الجمعية ({unsignedCount})
+          <small style={{ color: "var(--color-text-secondary)" }}>
+            متبقٍ توقيع ولي الأمر ({unsignedCount})
           </small>
         </div>
       </div>
@@ -260,7 +259,7 @@ const ViewAllStudent = () => {
               sortedFilteredStudents.map((student) => (
                 <tr
                   key={student._id || student.tz}
-                  className={`${styles.openRow} ${student.consentAt ? "" : styles.unsignedRow}`}
+                  className={styles.openRow}
                   onClick={(e) => openStudent(e, student)}
                 >
                   <td data-label="رقم الهوية">{student.tz}</td>
@@ -271,6 +270,7 @@ const ViewAllStudent = () => {
                         {`${student.firstname || ""} ${student.lastname || ""}`.trim()}
                       </Link>
                     </span>
+                    {!student.consentAt && <small className={styles.signaturePending}>متبقٍ توقيع ولي الأمر</small>}
                   </td>
                   <td data-label="اسم الأب">{student.father_name || "-"}</td>
                   <td data-label="العمر">{getAge(student.birth_date)}</td>

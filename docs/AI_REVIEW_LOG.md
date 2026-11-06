@@ -5211,3 +5211,81 @@ the successful required npm run verify. No deployment script was changed.
 production build passed in the full verify above. Publish the stability fix
 separately from the desktop UI commit, and inspect its new GitHub run. Production
 and real records remain untouched; actual peer review remains pending.
+
+### Weekly checkboxes, parent consent, schedule height and header history — started 2026-11-06
+
+Owner requests native checkbox completion for weekly tasks; a simpler rules
+modal with checkbox agreement and required signature before public registration;
+the same signing style for existing students, editable evidence and a personal
+parent rules-only link; normal student rows/cards with pending-signature text;
+taller desktop program hours; and conditional back/forward arrows next to the
+header bell. Codex is sole implementer, actual Claude Code independent reviewer.
+The new public-signature requirement supersedes the former agreement-only
+intake allowance. Preserve authenticated staff creation of unsigned students.
+Use scoped expiring secret links bound to one student and the current consent
+revision, with no registration/edit permissions, and retain previous signed
+evidence when updated. Do not send messages or use real records while testing.
+Reuse existing history/unsaved-change and task permission/week behavior. Add
+focused authorization/data tests, component checks and synthetic browser QA,
+then npm run verify and a source-only actual Claude request; record real response
+and any pending quota. No production deployment, seeds, migrations or billing.
+
+**Implemented:** Square native task checkboxes show checked completion and keep
+open tasks above completed tasks for each lesson. Management also sees a check
+when its responsible person completed a duty, with approval distinguished by
+text. Unsigned students now use ordinary rows/cards and the explicit neutral
+pending-signature label; the obsolete pink constant was removed. Week/day
+schedule grids have 850px timeline rows (about 90px/hour), preserving 13–22
+bounds and pointer-to-time calculations. Navigation buttons render beside the
+header bell only when a permitted back/forward destination exists; layout-owned
+history, scroll restoration and unsaved-change confirmation remain, including
+across a keyed header remount.
+
+**Consent and links:** A shared rules/checkbox/name/signature surface powers
+registration, existing-student signing/updates and the new parent-only page.
+Public registration now requires an actual signature, with an explicit warning
+on an incomplete attempt. Staff creation of unsigned students is unchanged.
+A signed update uses the displayed consent revision in an atomic conditional
+write. Previous evidence is archived first with deterministic snapshot IDs;
+an archive failure prevents replacement. Personal links carry a random secret
+in the browser fragment/POST body, store only its SHA256 digest, expire in seven
+days, bind one student and consent revision, and close after completion. They
+expose only the child's name and current rules; no student editing, registration
+or existing signature is exposed. Copied/native-share links require an explicit
+product action; no messages were sent during this work. Evidence/marker retries
+preserve the first accepted signature, and student deletion cleans both history
+and personal links. Exact public-route exceptions were added to the route guard
+inventory; staff link issuance remains permission-guarded. No broad auth guard
+was removed.
+
+**Focused verification and visual QA:** Combined consent/model/route-guard/
+photo-storage checks passed 59 tests, including authorization, expiry, wrong
+purpose/child, malformed signature, stale rules/revisions, concurrency, partial
+save retry, archive failure and deletion cleanup. Focused client checks passed,
+and the final full run includes the new header-remount regression. Actual
+components/global styles rendered with synthetic local adapters at desktop and
+375px phone widths. Checked task completion/reordering, conditional header
+history (both arrows fit without horizontal overflow), rules modal, actual
+canvas pointer strokes, personal-link display, phone parent page and its missing
+agreement/signature warning, and hour labels spaced about 89.8px. Synthetic
+screenshots were saved as delivery artifacts. The temporary preview server was
+stopped and its fixture removed; no real records or external services were used.
+
+**Actual peer request:** Sent [the source-only review packet](reviews/2026-11-07-consent-ui-claude-request.md)
+to actual Claude Code with tools/MCP/session persistence disabled. [Its response](reviews/2026-11-07-consent-ui-claude-response.txt)
+reports the weekly limit until Nov 8, 16:00 Asia/Jerusalem. There are no peer
+findings or agreement; independent review remains pending. No environment,
+credentials, runtime logs or user records were included. Local Codex review
+continues independently. The first full run identified the guard inventory's
+missing exceptions for the two newly authorized public capability routes;
+that inventory is now updated and its focused check passes. Full verify retry
+is in progress. No production deployment, seed, migration or billing actions.
+
+**Final local verification (2026-11-07):** npm run verify completed successfully:
+1,497 server tests, 1,096 System tests in 125 suites, and the optimized System
+production build. The added header-remount test passed in that run. No new
+package or lockfile change was needed. Local source review verified the scoped
+public surface, conditional writes, evidence retention/retry and UI state rules.
+Publish this requested change under the existing commit/push authorization,
+then inspect GitHub CI; production remains a separate owner-run update. Peer
+review remains pending under the recorded actual Claude quota response.

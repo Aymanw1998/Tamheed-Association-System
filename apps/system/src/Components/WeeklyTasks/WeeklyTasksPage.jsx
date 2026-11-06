@@ -6,17 +6,10 @@ import { canStored } from "../../utils/session";
 import Button from "../UI/Button.jsx";
 import styles from "./WeeklyTasks.module.css";
 
-const CheckIcon = ({ on }) => (
-  <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true">
-    {on ? (
-      <>
-        <circle cx="12" cy="12" r="11" fill="currentColor" />
-        <path d="M7 12.500l3.200 3.200L17 9" fill="none" stroke="#fff" strokeWidth="2.400" strokeLinecap="round" strokeLinejoin="round" />
-      </>
-    ) : (
-      <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="2.400" />
-    )}
-  </svg>
+const TaskCheck = ({ checked, disabled, label, onChange }) => (
+  <label className={styles.check}>
+    <input type="checkbox" checked={checked} disabled={disabled} aria-label={label} onChange={(event) => onChange(event.target.checked)} />
+  </label>
 );
 
 const weekLabel = (week) => {
@@ -37,7 +30,7 @@ function MyTasks({ tasks, onToggle, busy }) {
         {open.map((task) => (
           <li key={`${task.groupId}:${task.taskId}`} className={styles.item}>
             <span className={styles.text}><strong dir="auto">{task.title}</strong><small dir="auto">{task.groupName}</small>{task.details && <small dir="auto">{task.details}</small>}</span>
-            <Button size="sm" loading={busy === `${task.groupId}:${task.taskId}`} onClick={() => onToggle(task, true)}>تم</Button>
+            <TaskCheck checked={false} disabled={busy === `${task.groupId}:${task.taskId}`} label={`إنجاز ${task.title} — ${task.groupName}`} onChange={(checked) => onToggle(task, checked)} />
           </li>
         ))}
       </ul>
@@ -48,7 +41,7 @@ function MyTasks({ tasks, onToggle, busy }) {
             {done.map((task) => (
               <li key={`${task.groupId}:${task.taskId}`} className={`${styles.item} ${styles.done}`}>
                 <span className={styles.text}><strong dir="auto">{task.title}</strong><small dir="auto">{task.groupName}</small>{task.approved && <small>أكّدتها الإدارة</small>}</span>
-                {!task.approved && <Button size="sm" variant="secondary" loading={busy === `${task.groupId}:${task.taskId}`} onClick={() => onToggle(task, false)}>إلغاء</Button>}
+                <TaskCheck checked disabled={task.approved || busy === `${task.groupId}:${task.taskId}`} label={`إنجاز ${task.title} — ${task.groupName}`} onChange={(checked) => onToggle(task, checked)} />
               </li>
             ))}
           </ul>
@@ -86,19 +79,16 @@ function Register({ board, onToggle, busy }) {
                 const key = `${task.id}:${group.id}`;
                 return (
                   <li key={key} className={`${styles.item} ${task.done ? styles.done : ""}`}>
-                    <button
-                      type="button"
-                      className={`${styles.check} ${task.approved ? styles.checkOn : ""}`}
-                      aria-pressed={task.approved}
-                      aria-label={`${task.approved ? "إلغاء تأكيد" : "تأكيد"} ${task.title}`}
+                    <TaskCheck
+                      checked={task.done}
+                      label={`${task.done ? "إلغاء إنجاز" : "تأكيد إنجاز"} ${task.title} — ${group.name}`}
                       disabled={busy === key}
-                      onClick={() => onToggle(task, group, !task.approved)}
-                    >
-                      <CheckIcon on={task.approved} />
-                    </button>
+                      onChange={(checked) => onToggle(task, group, checked)}
+                    />
                     <span className={styles.text}>
                       <span dir="auto">{task.title}</span>
-                      {task.done && !task.approved && <small>أنجزها المرشد</small>}
+                      {task.done && !task.approved && <small>أنجزها المسؤول</small>}
+                      {task.approved && <small>أكّدتها الإدارة</small>}
                     </span>
                   </li>
                 );

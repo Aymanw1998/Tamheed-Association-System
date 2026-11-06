@@ -47,6 +47,9 @@ const PUBLIC_ROUTES = {
   "InviteToken/InviteToken.route.js": [
     "GET /validate/:token",
     "POST /submit/:token",
+    // Scoped expiring parent capabilities, checked in the controller.
+    "POST /consent-link/validate",
+    "POST /consent-link/submit",
   ],
   "Storage/Storage.route.js": [
     "GET /open-signed", // signed, time-limited link

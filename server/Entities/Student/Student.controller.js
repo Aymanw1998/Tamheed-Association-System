@@ -450,6 +450,10 @@ const deleteS = async (req, res) => {
     // A parent's signature goes with the request it belongs to.
     await Promise.resolve().then(() => require("../InviteToken/Rules.model").ConsentModelDef.delete({ studentId: String(existing.result[0]._id) }))
       .catch((e) => logWithSource("Student.delete.consent", e));
+    await Promise.resolve().then(() => require("../InviteToken/Rules.model").ConsentHistoryModelDef.delete({ studentId: String(existing.result[0]._id) }))
+      .catch((e) => logWithSource("Student.delete.consentHistory", e));
+    await Promise.resolve().then(() => require("../InviteToken/InviteToken.model").InviteTokenModelDef.delete({ purpose: "student-consent", studentId: String(existing.result[0]._id) }))
+      .catch((e) => logWithSource("Student.delete.consentLinks", e));
     // Its player photo goes with it, at once.
     await playerPhotoJob.remove(existing.result[0]._id).catch((e) => logWithSource("Student.delete.playerPhoto", e));
 

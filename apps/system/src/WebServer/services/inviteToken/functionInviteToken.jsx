@@ -58,8 +58,29 @@ export const signConsent = async (studentId, consent) => {
         await api.post(`/inviteToken/consent/${encodeURIComponent(studentId)}`, consent);
         return { ok: true };
     } catch (err) {
-        return { ok: false, message: errorMessage(err, "تعذّر حفظ التوقيع") };
+        return { ok: false, code: err?.response?.data?.code, message: errorMessage(err, "تعذّر حفظ التوقيع") };
     }
+};
+
+export const createConsentLink = async (studentId) => {
+    try {
+        const { data } = await api.post(`/inviteToken/consent/${encodeURIComponent(studentId)}/link`);
+        return data;
+    } catch (err) { return { ok: false, message: errorMessage(err, "تعذّر إنشاء رابط التوقيع") }; }
+};
+
+export const validateConsentLink = async (token) => {
+    try {
+        const { data } = await publicApi.post("/inviteToken/consent-link/validate", { token });
+        return data;
+    } catch (err) { return { ok: false, code: err?.response?.data?.code, message: errorMessage(err, "تعذّر فتح رابط التوقيع") }; }
+};
+
+export const submitConsentLink = async (token, consent) => {
+    try {
+        const { data } = await publicApi.post("/inviteToken/consent-link/submit", { token, ...consent });
+        return data;
+    } catch (err) { return { ok: false, code: err?.response?.data?.code, message: errorMessage(err, "تعذّر حفظ التوقيع") }; }
 };
 
 // Public: the parents' page must never send or refresh a login, so these use

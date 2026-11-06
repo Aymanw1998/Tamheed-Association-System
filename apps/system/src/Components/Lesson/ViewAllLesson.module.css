@@ -53,7 +53,7 @@
 .timelineGrid {
   display: grid;
   grid-template-columns: 58px repeat(7, minmax(0, 1fr));  /* عربيالجمعةالجمعةعربيالجمعةعربي ساعات + 5 أيام */
-  grid-template-rows: 42px clamp(360px, calc(100dvh - 300px), 540px);               /* ملاحظة عربية */
+  grid-template-rows: 42px 850px; /* 90px per hour, plus the timeline's 20px end insets. */
   column-gap: 8px;
   row-gap: 20px;
 }
@@ -269,7 +269,7 @@
   --cols: 1;
   display: grid;
   grid-template-columns: 58px repeat(var(--cols), minmax(0, 1fr));
-  grid-template-rows: 42px clamp(360px, calc(100dvh - 300px), 540px);
+  grid-template-rows: 42px 850px;
   column-gap: 8px;
   row-gap: 20px;
 }

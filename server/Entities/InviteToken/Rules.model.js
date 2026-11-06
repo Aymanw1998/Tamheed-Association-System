@@ -30,6 +30,19 @@ ConsentModelDef.delete = async function (filter) {
   return await api.delete({ dbName: this.dbName, collection: this.collection, filter });
 };
 
+// Updating a signature never discards the previously accepted evidence.
+// Deterministic snapshot _ids make archiving safe to retry before the CAS write.
+const ConsentHistoryModelDef = { dbName, collection: "StudentConsentHistory" };
+ConsentHistoryModelDef.create = async function (data) {
+  return await api.create({ dbName: this.dbName, collection: this.collection, data });
+};
+ConsentHistoryModelDef.get = async function (filter = {}) {
+  return await api.read({ dbName: this.dbName, collection: this.collection, filter });
+};
+ConsentHistoryModelDef.delete = async function (filter) {
+  return await api.delete({ dbName: this.dbName, collection: this.collection, filter });
+};
+
 // Two publishes at once cannot both take the same version.
 const RULES_INDEXES = [{ key: { version: 1 }, options: { unique: true } }];
 const CONSENT_INDEXES = [{ key: { studentId: 1 }, options: { unique: true } }];
@@ -47,4 +60,4 @@ async function ensureRulesIndexes() {
   await ensureIndexes(collectionOf(RulesModelDef), RULES_INDEXES);
 }
 
-module.exports = { RulesModelDef, ConsentModelDef, RULES_INDEXES, CONSENT_INDEXES, ensureRulesIndexes, ensureConsentIndexes };
+module.exports = { RulesModelDef, ConsentModelDef, ConsentHistoryModelDef, RULES_INDEXES, CONSENT_INDEXES, ensureRulesIndexes, ensureConsentIndexes };

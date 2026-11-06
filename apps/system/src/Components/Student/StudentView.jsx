@@ -147,6 +147,7 @@ export default function StudentView() {
   // attendance.view holder, the rate over the rows sent.
   const rate = Array.isArray(s.attendance) ? attendanceTotals(s.attendance).rate : undefined;
   const facts = [
+    !s.consentAt && ["التوقيع", "متبقٍ توقيع ولي الأمر"],
     status !== ACTIVE_STATUS && [t("record.status"), status],
     [t("record.guide"), s.guide?.name || "—"],
     [t("record.lessons"), String(mine.length)],

@@ -1,4 +1,5 @@
 import React, { useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useLocation, useNavigate, useNavigationType } from "react-router-dom";
 import { initialHistory, parentDestination, recordLocation, restorePageScroll } from "../../utils/navigationHistory";
 import { getStoredPermissions } from "../../utils/session";
@@ -12,10 +13,21 @@ export default function NavigationHistory() {
   const navigate = useNavigate();
   const [history, setHistory] = useState(() => initialHistory(location));
   const [busy, setBusy] = useState(false);
+  const [target, setTarget] = useState(null);
   const currentKey = useRef(location.key);
   const scroll = useRef(new Map());
   const previousKey = useRef(location.key);
   currentKey.current = location.key;
+  // The history stays mounted in the signed-in layout even when the header
+  // remounts after an access change; only its buttons move into the header.
+  useLayoutEffect(() => {
+    const attach = () => setTarget(document.getElementById("header-history"));
+    attach();
+    const container = document.getElementById("header")?.parentElement;
+    const observer = container ? new MutationObserver(attach) : null;
+    if (container) observer.observe(container, { childList: true });
+    return () => observer?.disconnect();
+  }, []);
   useLayoutEffect(() => {
     let stopRestoring;
     setHistory((previous) => recordLocation(previous, location, action));
@@ -45,8 +57,9 @@ export default function NavigationHistory() {
       else if (direction === -1 && !back && parent !== location.pathname) navigate(parent, { replace: true });
     } finally { setBusy(false); }
   };
-  return <nav className={styles.bar} aria-label="التنقل بين الصفحات" dir="rtl">
-    <button type="button" onClick={() => go(-1)} disabled={busy || !canGoBack}><span aria-hidden="true">→</span> رجوع</button>
-    <button type="button" onClick={() => go(1)} disabled={busy || !canGoForward}>تقدّم <span aria-hidden="true">←</span></button>
-  </nav>;
+  if (!target || (!canGoBack && !canGoForward)) return null;
+  return createPortal(<nav className={styles.bar} aria-label="التنقل بين الصفحات" dir="rtl">
+    {canGoBack && <button type="button" aria-label="رجوع" title="رجوع" onClick={() => go(-1)} disabled={busy}><span aria-hidden="true">→</span></button>}
+    {canGoForward && <button type="button" aria-label="تقدّم" title="تقدّم" onClick={() => go(1)} disabled={busy}><span aria-hidden="true">←</span></button>}
+  </nav>, target);
 }

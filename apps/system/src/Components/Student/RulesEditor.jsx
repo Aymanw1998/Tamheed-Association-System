@@ -59,7 +59,7 @@ export default function RulesEditor() {
   return (
     <div style={{ display: "grid", gap: 8 }}>
       <h3 style={{ margin: 0 }}>نظام الجمعية{version ? ` (الإصدار ${version})` : ""}</h3>
-      <small>يظهر للأهل في رابط «قوانين الجمعية». الموافقة مطلوبة لإرسال الطلب، والتوقيع/الختم مطلوب ويمكن استكماله لاحقًا. النص الافتراضي متاح ما لم تنشر الإدارة نصًا آخر.</small>
+      <small>يظهر للأهل في رابط «قوانين الجمعية». الموافقة والتوقيع/الختم مطلوبان لإرسال الطلب. يمكن استكمال توقيع طالب أضافته الجمعية من ملفه أو برابط شخصي لولي الأمر. النص الافتراضي متاح ما لم تنشر الإدارة نصًا آخر.</small>
       {!saved.trim() && version > 0 && <strong role="alert" style={{ color: "#b91c1c" }}>النص المنشور فارغ: رابط التسجيل لا يستقبل طلبات.</strong>}
       <textarea aria-label="نص نظام الجمعية" rows={8} maxLength={20000} value={text} onChange={(event) => setText(event.target.value)} />
       <div>

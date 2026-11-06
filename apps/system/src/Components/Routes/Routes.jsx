@@ -28,6 +28,7 @@ import LiveEventsProvider from '../../locks/LiveEventsProvider';
 import { lazyPage } from '../../utils/lazyPage';
 
 const RegisterPage = lazyPage(() => import('../Auth/RegisterPage/RegisterPage'));
+const ParentConsentPage = lazyPage(() => import('../Student/ParentConsentPage'));
 const NoticesBoard = lazyPage(() => import('../Notice/NoticesBoard'));
 const ViewAllStudent = lazyPage(() => import('../Student/ViewAllStudent'));
 const EditStudent = lazyPage(() => import('../Student/EditStudent'));
@@ -97,6 +98,7 @@ export default function CRoutes() {
       <Route path="/" element={<PublicOnly/>} />
       <Route path="/login" element={<PublicOnly/>} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/parent-consent" element={<ParentConsentPage />} />
       <Route path="/privacy" element={<PrivacyPage />} />
       <Route path="/register-student/:token" element={<EditStudent parent={true} />} />
       {/* عربيالجمعةالثلاثاءعربي */}

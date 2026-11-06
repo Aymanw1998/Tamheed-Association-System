@@ -109,6 +109,7 @@ const EditStudent = ({parent = false}) => {
   });
   const [submitted, setSubmitted] = useState(false);
   const [consent, setConsent] = useState({ accepted: false, signerName: "", signature: "" });
+  const [consentError, setConsentError] = useState("");
 
   
   const [instructors, setInstructors] = useState([]);
@@ -303,6 +304,11 @@ const EditStudent = ({parent = false}) => {
   };
   const handleSubmit = async (e) => {
     if (photoPick.busy) { toast.warn(PHOTO_NOT_READY); return; }
+    if (parent && (!inviteStatus.rules || !consent.accepted || !consent.signerName.trim() || !consent.signature)) {
+      const message = "يجب الموافقة على قوانين الجمعية وكتابة اسم ولي الأمر والتوقيع قبل إرسال الطلب.";
+      setConsentError(message); toast.warn(message); return;
+    }
+    setConsentError("");
     let b = await validate();
     if (b) { toast.warn(b); return; }
     b = true
@@ -325,9 +331,6 @@ const EditStudent = ({parent = false}) => {
     }
     if(!b) return toast.warn("يُرجى تعبئة الحقول المطلوبة");
     const rules = parent ? inviteStatus.rules : null;
-    if (parent && (!rules || !consent.accepted || !consent.signerName.trim())) {
-      return toast.warn("يُرجى قراءة قوانين الجمعية والموافقة عليها وكتابة اسم ولي الأمر");
-    }
     e.preventDefault();
     try {
       setSaving(true);
@@ -612,9 +615,10 @@ const EditStudent = ({parent = false}) => {
       {parent && inviteStatus.rules && (
         <RegistrationConsent key={inviteStatus.rules.version} rules={inviteStatus.rules} value={consent} onChange={setConsent} />
       )}
+      {parent && consentError && <p role="alert" className={styles.formError}>{consentError}</p>}
 
       <div className={styles.buttonRow} style={{ gap: 8, flexWrap: "wrap" }}>
-        <button type="submit" data-tour="student-save" onClick={handleSubmit} disabled={readonly || saving || (parent && (!consent.accepted || !consent.signerName.trim()))} style={{width:"100%"}}>
+        <button type="submit" data-tour="student-save" onClick={handleSubmit} disabled={readonly || saving} style={{width:"100%"}}>
           {saving ? "جارٍ الحفظ…" : parent ? "إرسال الطلب" : (isEdit ? "حفظ التعديلات" : "إضافة الطالب")}
         </button>
 

@@ -1,7 +1,7 @@
 const crypto = require("crypto");
 const { DEFAULT_RULES } = require("./defaultRules");
 const { InviteTokenModelDef } = require("./InviteToken.model");
-const { RulesModelDef, ConsentModelDef } = require("./Rules.model");
+const { RulesModelDef, ConsentModelDef, ConsentHistoryModelDef } = require("./Rules.model");
 const { canonicalGrade } = require("../../utils/grades");
 const { StudentModelDef } = require("../Student/Student.model");
 const { handleUpload } = require("../UploadFile/file");
@@ -97,11 +97,11 @@ async function currentRules() {
 }
 
 // What the form sent about the rules; "" when all is in order.
-function consentProblem(body, rules, { allowPending = false } = {}) {
+function consentProblem(body, rules) {
   if (String(body.rulesVersion ?? "") !== String(rules.version)) return { status: 409, code: "RULES_CHANGED", message: "تم تحديث نظام الجمعية. يُرجى قراءته والتوقيع عليه من جديد." };
   const signature = String(body.signature ?? "");
-  if (body.rulesAccepted !== "true" || !cleanText(body.signerName, 100) || (!signature && !allowPending) || (signature && (signature.length > MAX_SIGNATURE || !SIGNATURE.test(signature) || !isPng(signature)))) {
-    return { status: 400, code: "CONSENT_REQUIRED", message: "يجب الموافقة على قوانين الجمعية وكتابة اسم ولي الأمر، وإضافة توقيع/ختم صالح أو استكماله لاحقًا." };
+  if (body.rulesAccepted !== "true" || !cleanText(body.signerName, 100) || !signature || signature.length > MAX_SIGNATURE || !SIGNATURE.test(signature) || !isPng(signature)) {
+    return { status: 400, code: "CONSENT_REQUIRED", message: "يجب الموافقة على قوانين الجمعية وكتابة اسم ولي الأمر وإضافة توقيع/ختم صالح قبل الإرسال." };
   }
   return null;
 }
@@ -141,6 +141,7 @@ const getConsent = async (req, res) => {
     return res.status(200).json({
       ok: true,
       consent: {
+        revision: consentRevision(consent),
         signerName: consent.signerName,
         signature: consent.signature,
         signedAt: consent.signedAt,
@@ -156,7 +157,46 @@ const getConsent = async (req, res) => {
   }
 };
 
-// A student the association added: the parent signs later, on the student's page.
+const digest = (value) => crypto.createHash("sha256").update(String(value)).digest("hex");
+const consentRevision = (consent) => consent ? digest(JSON.stringify([String(consent._id), consent.revision || "", consent.signature || "", consent.signedAt, consent.rulesVersion])) : "none";
+const changedConsent = () => ({ status: 409, ok: false, code: "CONSENT_CHANGED", message: "تم تحديث التوقيع. حدّث الصفحة واطلب رابطًا جديدًا عند الحاجة." });
+
+async function saveConsentEvidence(student, existing, body, rules, { recordedBy = "", requestId = "" } = {}) {
+  const studentId = String(student._id);
+  // A retry after a partial first signature repairs its marker without replacing
+  // accepted evidence. Parent-link retries are bound to the same request ID.
+  const markerMatches = existing?.signedAt && new Date(student.consentAt).getTime() === new Date(existing.signedAt).getTime();
+  const repairing = existing?.signature && ((requestId && existing.requestId === requestId) || (!requestId && ((!student.consentAt && !body.baseConsentVersion) || (!markerMatches && body.baseConsentVersion !== undefined && body.baseConsentVersion === existing.previousRevision))));
+  let signedAt = repairing ? existing.signedAt : new Date();
+  if (!repairing) {
+    if (body.baseConsentVersion !== undefined && body.baseConsentVersion !== consentRevision(existing)) return changedConsent();
+    if (existing?.signature && body.baseConsentVersion === undefined) {
+      return { status: 409, ok: false, code: "ALREADY_SIGNED", message: "يوجد توقيع لهذا الطالب. حدّث الصفحة قبل تعديله." };
+    }
+    if (existing?.signature) {
+      const snapshot = { ...existing, _id: digest(`${studentId}:${consentRevision(existing)}`).slice(0, 24), sourceConsentId: String(existing._id), archivedAt: signedAt };
+      try { await ConsentHistoryModelDef.create(snapshot); }
+      catch (error) { if (!isDuplicateKey(error)) throw error; }
+    }
+    const evidence = {
+      studentId, tz: student.tz, rulesVersion: rules.version,
+      signerName: cleanText(body.signerName, 100), signature: String(body.signature),
+      acceptedAt: signedAt, signedAt, recordedBy, requestId, previousRevision: consentRevision(existing), revision: crypto.randomBytes(16).toString("hex"),
+    };
+    if (existing) {
+      const saved = await ConsentModelDef.updateExisting(
+        { _id: String(existing._id), signature: existing.signature ?? null, revision: existing.revision ?? null }, evidence,
+      );
+      if (!saved?.result) return changedConsent();
+    } else await ConsentModelDef.create(evidence);
+  }
+  const marked = await StudentModelDef.updateExisting({ _id: studentId }, { consentAt: signedAt });
+  if (!marked?.result) throw new Error("Student disappeared while saving consent");
+  notifyChange("student", studentId);
+  return { ok: true };
+}
+
+// Staff-assisted signing and explicitly versioned updates use the same evidence path.
 const signConsent = async (req, res) => {
   try {
     const studentId = String(req.params.studentId);
@@ -167,33 +207,80 @@ const signConsent = async (req, res) => {
     const problem = consentProblem(req.body, rules);
     if (problem) return res.status(problem.status).json({ ok: false, code: problem.code, message: problem.message });
     const [existing] = resultsOf(await ConsentModelDef.get({ studentId }));
-    if (existing?.signature && student.consentAt) {
-      return res.status(409).json({ ok: false, code: "ALREADY_SIGNED", message: "يوجد توقيع لهذا الطالب." });
-    }
-    // A prior consent write may have succeeded before the student marker failed.
-    // Repair that marker on retry without replacing the original evidence.
-    const signedAt = existing?.signature ? existing.signedAt : new Date();
-    if (!existing?.signature) {
-      const evidence = {
-        studentId, tz: student.tz, rulesVersion: rules.version,
-        signerName: cleanText(req.body.signerName, 100), signature: String(req.body.signature),
-        acceptedAt: signedAt, signedAt, recordedBy: String(req.actor?.name || ""),
-      };
-      if (existing) {
-        const saved = await ConsentModelDef.updateExisting(
-          { _id: String(existing._id), signature: existing.signature ?? null }, evidence,
-        );
-        if (!saved?.result) return res.status(409).json({ ok: false, code: "CONSENT_CHANGED", message: "تم تحديث التوقيع. حدّث الصفحة وحاول مرة أخرى." });
-      } else await ConsentModelDef.create(evidence);
-    }
-    const marked = await StudentModelDef.updateExisting({ _id: studentId }, { consentAt: signedAt });
-    if (!marked?.result) throw new Error("Student disappeared while saving consent");
-    notifyChange("student", studentId);
-    return res.status(200).json({ ok: true });
+    const result = await saveConsentEvidence(student, existing, req.body, rules, { recordedBy: String(req.actor?.name || "") });
+    return res.status(result.status || 200).json(result);
   } catch (err) {
     if (isDuplicateKey(err)) return res.status(409).json({ ok: false, code: "CONSENT_CHANGED", message: "تم تحديث التوقيع. حدّث الصفحة وحاول مرة أخرى." });
     logWithSource("InviteToken.signConsent", err);
     return res.status(500).json({ ok: false, message: "تعذّر حفظ التوقيع" });
+  }
+};
+
+// A personal, seven-day, one-use capability. Only the digest is stored; the
+// browser sends the secret in a POST body, never in a server path/query.
+const createConsentLink = async (req, res) => {
+  try {
+    const studentId = String(req.params.studentId);
+    const [student] = resultsOf(await StudentModelDef.get({ _id: studentId }));
+    if (!student) return res.status(404).json({ ok: false, message: "الطالب غير موجود" });
+    const rules = await currentRules();
+    if (!rules?.text) return res.status(409).json({ ok: false, code: "NO_RULES", message: "يجب نشر قوانين الجمعية أولًا." });
+    const [existing] = resultsOf(await ConsentModelDef.get({ studentId }));
+    const token = crypto.randomBytes(32).toString("base64url");
+    const expiresAt = new Date(Date.now() + 7 * DAY_MS);
+    await InviteTokenModelDef.create({ purpose: "student-consent", tokenHash: digest(token), studentId, baseConsentVersion: consentRevision(existing), expiresAt, used: false, createdAt: new Date() });
+    res.set("Cache-Control", "no-store");
+    return res.status(200).json({ ok: true, token, expiresAt });
+  } catch (error) {
+    logWithSource("InviteToken.createConsentLink", error);
+    return res.status(500).json({ ok: false, message: "تعذّر إنشاء رابط التوقيع" });
+  }
+};
+
+async function consentLinkContext(token) {
+  if (!/^[A-Za-z0-9_-]{43}$/.test(String(token || ""))) return null;
+  const [link] = resultsOf(await InviteTokenModelDef.get({ purpose: "student-consent", tokenHash: digest(token), used: false }));
+  if (!link || !(new Date(link.expiresAt).getTime() > Date.now())) return null;
+  const [student] = resultsOf(await StudentModelDef.get({ _id: String(link.studentId) }));
+  if (!student) return null;
+  const [existing] = resultsOf(await ConsentModelDef.get({ studentId: String(link.studentId) }));
+  if (consentRevision(existing) !== link.baseConsentVersion && existing?.requestId !== link.tokenHash) return null;
+  return { link, student, existing };
+}
+
+const closedConsentLink = (res) => res.status(410).json({ ok: false, code: "LINK_CLOSED", message: "الرابط غير صالح أو انتهى أو تم استكمال التوقيع. اطلب رابطًا جديدًا من الجمعية." });
+const validateConsentLink = async (req, res) => {
+  res.set("Cache-Control", "no-store");
+  try {
+    const context = await consentLinkContext(req.body?.token);
+    if (!context) return closedConsentLink(res);
+    const rules = await currentRules();
+    if (!rules?.text) return res.status(409).json({ ok: false, code: "NO_RULES", message: "التوقيع غير متاح حاليًا. تواصل مع الجمعية." });
+    return res.status(200).json({ ok: true, studentName: [context.student.firstname, context.student.lastname].filter(Boolean).join(" "), rules: { version: rules.version, text: rules.text } });
+  } catch (error) {
+    logWithSource("InviteToken.validateConsentLink", error);
+    return res.status(500).json({ ok: false, message: "تعذّر فتح رابط التوقيع" });
+  }
+};
+
+const submitConsentLink = async (req, res) => {
+  res.set("Cache-Control", "no-store");
+  try {
+    const context = await consentLinkContext(req.body?.token);
+    if (!context) return closedConsentLink(res);
+    const rules = await currentRules();
+    if (!rules?.text) return res.status(409).json({ ok: false, code: "NO_RULES", message: "التوقيع غير متاح حاليًا. تواصل مع الجمعية." });
+    const problem = consentProblem(req.body, rules);
+    if (problem) return res.status(problem.status).json({ ok: false, ...problem });
+    const { link, student, existing } = context;
+    const result = await saveConsentEvidence(student, existing, { ...req.body, baseConsentVersion: link.baseConsentVersion }, rules, { recordedBy: "ولي الأمر عبر رابط التوقيع", requestId: link.tokenHash });
+    if (!result.ok) return res.status(result.status || 409).json(result);
+    await InviteTokenModelDef.updateExisting({ _id: String(link._id), used: false }, { used: true, usedAt: new Date() });
+    return res.status(200).json({ ok: true, message: "تم حفظ موافقتكم وتوقيعكم في ملف الطالب." });
+  } catch (error) {
+    if (isDuplicateKey(error)) return res.status(409).json(changedConsent());
+    logWithSource("InviteToken.submitConsentLink", error);
+    return res.status(500).json({ ok: false, message: "تعذّر حفظ التوقيع. حاول مرة أخرى." });
   }
 };
 
@@ -317,7 +404,7 @@ const submitRegistration = async (req, res) => {
     if (!rules?.text) {
       return res.status(409).json({ ok: false, code: "NO_RULES", message: "لا يمكن استقبال الطلبات قبل نشر نظام الجمعية. يُرجى التواصل مع الجمعية." });
     }
-    const problem = consentProblem(req.body, rules, { allowPending: true });
+    const problem = consentProblem(req.body, rules);
     if (problem) return res.status(problem.status).json({ ok: false, code: problem.code, message: problem.message });
 
     // A known ID gets exactly the same reply as a new one, so the public form
@@ -339,7 +426,7 @@ const submitRegistration = async (req, res) => {
       createdAt: now,
       updatedAt: now,
     });
-    // Agreement is saved before replying; an absent stamp remains pending.
+    // Required agreement and signature are saved before replying.
     // The time is the server's, and a known ID never reaches this point.
     try {
       await ConsentModelDef.create({
@@ -393,4 +480,5 @@ module.exports = {
   publishRules,
   getConsent,
   signConsent,
+  createConsentLink, validateConsentLink, submitConsentLink,
 };

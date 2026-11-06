@@ -109,7 +109,7 @@ function loadUserController(model, storage, audit = auditStub()) {
   });
 }
 
-function loadStudentController(model, storage, audit = auditStub()) {
+function loadStudentController(model, storage, audit = auditStub(), consentCleanup = []) {
   return runInVm(path.join(__dirname, "../Entities/Student/Student.controller.js"), {
     ...audit.deps,
     "./Student.model": { StudentModelDef: model },
@@ -119,6 +119,11 @@ function loadStudentController(model, storage, audit = auditStub()) {
     "../../utils/studentScope": require("../utils/studentScope"),
     "../../middleware/logger": { logWithSource() {} },
     "../UploadFile/file": storage,
+    "../InviteToken/Rules.model": {
+      ConsentModelDef: { delete: async (filter) => consentCleanup.push(["current", filter]) },
+      ConsentHistoryModelDef: { delete: async (filter) => consentCleanup.push(["history", filter]) },
+    },
+    "../InviteToken/InviteToken.model": { InviteTokenModelDef: { delete: async (filter) => consentCleanup.push(["links", filter]) } },
     "../Notification/Notification.controller": {},
     ...require("./helpers/alertEventsStub").noopAlertDeps,
   });
@@ -281,7 +286,8 @@ test("deleting a student also deletes their photo from Drive", async () => {
     events,
     { dbName: "tamheed_db", collections: { active: "Students" } }
   );
-  const { deleteS } = loadStudentController(model, createDriveStorage(events, null));
+  const cleanup = [];
+  const { deleteS } = loadStudentController(model, createDriveStorage(events, null), auditStub(), cleanup);
   const res = createRes();
   const { forgotten } = require("./helpers/alertEventsStub");
   forgotten.length = 0;
@@ -297,6 +303,11 @@ test("deleting a student also deletes their photo from Drive", async () => {
     ["drive-delete", OLD_PHOTO],
   ]);
   assert.equal(model.snapshot().length, 0);
+  assert.deepEqual(JSON.parse(JSON.stringify(cleanup)), [
+    ["current", { studentId: "student-1" }],
+    ["history", { studentId: "student-1" }],
+    ["links", { purpose: "student-consent", studentId: "student-1" }],
+  ]);
 });
 
 test("student create, edit, photo and delete are recorded in the audit log", async () => {
