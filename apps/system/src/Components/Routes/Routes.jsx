@@ -6,6 +6,7 @@ import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import LoginPage from '../Auth/LoginPage/LoginPage';
 
 import Header from '../Header/Header';
+import NavigationHistory from './NavigationHistory';
 
 import RequireAuth from './RequireAuth';
 import PublicOnly from './PublicOnly';
@@ -49,6 +50,10 @@ const SportPage = lazyPage(() => import('../Sport/SportPage'));
 const PrivacyPage = lazyPage(() => import('../Privacy/PrivacyPage'));
 const GuidePage = lazyPage(() => import('../../guide/GuidePage'));
 
+const LessonsHub = lazyPage(() => import('../Lesson/LessonsHub'));
+const WeeklyTasksPage = lazyPage(() => import('../WeeklyTasks/WeeklyTasksPage'));
+const ManageWeeklyTasks = lazyPage(() => import('../WeeklyTasks/ManageWeeklyTasks'));
+const WeeklyPraise = lazyPage(() => import('../WeeklyTasks/WeeklyPraise'));
 const PageLoading = () => <div role="status" style={{ padding: 24, textAlign: "center" }}>جارٍ التحميل…</div>;
 
 // The assistant (alerts now, chat later) shows for accounts with ai.use.
@@ -71,7 +76,9 @@ function ProtectedLayout() {
       <GuidanceProviders>
         <TrainingBanner />
         <Header key={`header-${epoch}-${access}`} />
+        <NavigationHistory />
         <PasskeyOffer />
+        <Suspense fallback={null}><WeeklyPraise /></Suspense>
         {notice}
         <Suspense fallback={<PageLoading />}><Outlet key={`outlet-${epoch}-${applied}`} /></Suspense>
         {/* {canStored("ai.use") && <FloatingAIButton key={`ai-${epoch}`} />} */}
@@ -99,7 +106,7 @@ export default function CRoutes() {
           <Route path='/dashboard' element={<Dashboard />} />
           <Route path='/guide' element={<GuidePage />} />
           <Route element={<RoleGuard />}>
-            <Route path="/calendar" element={<AttendancePage />} />
+            <Route path="/calendar" element={<LessonsHub active="attendance"><AttendancePage /></LessonsHub>} />
             
             <Route path="/students" element={<ViewAllStudent />} />
             {/* A record opens on its read-only page; /new and /:id/edit open the form. */}
@@ -110,7 +117,7 @@ export default function CRoutes() {
             <Route path="/users/:id" element={<RecordRoute view={<UserView/>} form={<EditUser/>} />} />
             <Route path="/users/:id/edit" element={<EditUser/>} />
 
-            <Route path="/lessons" element={<ViewAllLesson/>} />
+            <Route path="/lessons" element={<LessonsHub active="lessons"><ViewAllLesson/></LessonsHub>} />
             <Route path="/lessons/:id" element={<RecordRoute view={<LessonView/>} form={<EditLesson/>} />} />
             <Route path="/lessons/:id/edit" element={<EditLesson/>} />
 
@@ -123,6 +130,8 @@ export default function CRoutes() {
             <Route path="/sports" element={<SportPage/>} />
 
             <Route path="/notices" element={<NoticesBoard/>} />
+            <Route path="/weekly-tasks" element={<WeeklyTasksPage/>} />
+            <Route path="/weekly-tasks/manage" element={<ManageWeeklyTasks/>} />
 
             <Route path="/files" element={<FilesPage/>} />
             <Route path="/profile" element={<ProfilePage/>} />

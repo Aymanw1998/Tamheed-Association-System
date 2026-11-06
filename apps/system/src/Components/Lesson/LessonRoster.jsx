@@ -5,6 +5,8 @@ import Button from "../UI/Button";
 import { useI18n } from "../../i18n/I18nContext";
 import { toast } from "../../ALERT/SystemToasts";
 import { lookupStudent } from "../../WebServer/services/student/functionsStudent";
+import useItemLock from "../../locks/useItemLock";
+import LockedScreen from "../../locks/LockedScreen";
 import {
   filterRosterStudents,
   isFullTz,
@@ -47,6 +49,9 @@ export default function LessonRoster({
   const [found, setFound] = useState(null);
   const [rosterQuery, setRosterQuery] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
+  // Saved forms already hold this lock. The view page holds it throughout
+  // its add window, including searching and choosing, rather than only on save.
+  const pickerLock = useItemLock(pickerOpen && confirmRemove && lesson._id ? `lesson:${lesson._id}` : null);
   const [pickerQuery, setPickerQuery] = useState("");
   const [addedInPicker, setAddedInPicker] = useState(0);
   // Ids whose add is on its way; in the form they clear once the list updates.
@@ -96,7 +101,7 @@ export default function LessonRoster({
   };
 
   const addFound = async () => {
-    if (!found || !onLookupAdd) return;
+    if (!found || !onLookupAdd || pickerLock.status !== "held") return;
     setLookupBusy(true);
     const joined = await onLookupAdd(found);
     setLookupBusy(false);
@@ -121,6 +126,7 @@ export default function LessonRoster({
   };
 
   const add = async (ids) => {
+    if (pickerLock.status !== "held") return;
     // A second click before the list catches up (a double click) adds nothing.
     const fresh = ids.map(String).filter((id) => !adding.current.has(id) && !selectedIds.includes(id));
     if (!fresh.length) return;
@@ -168,8 +174,8 @@ export default function LessonRoster({
           value={rosterQuery}
           onChange={(e) => setRosterQuery(e.target.value)}
           data-tour="roster-search"
-          placeholder="ابحث في طلاب الدرس"
-          aria-label="ابحث في طلاب الدرس"
+          placeholder="ابحث في طلاب البرنامج"
+          aria-label="ابحث في طلاب البرنامج"
         />
         {canEdit && (
           <Button type="button" data-tour="roster-add" onClick={openPicker}>
@@ -180,15 +186,15 @@ export default function LessonRoster({
 
       {lastRemoved && (
         <div className={styles.undo} role="status">
-          <span>تمت إزالة {nameOf(lastRemoved.student)} من الدرس</span>
+          <span>تمت إزالة {nameOf(lastRemoved.student)} من البرنامج</span>
           <button type="button" onClick={undo}>تراجع</button>
         </div>
       )}
 
       {enrolled.length === 0 ? (
-        <p className={styles.empty}>لا يوجد طلاب في هذا الدرس بعد</p>
+        <p className={styles.empty}>لا يوجد طلاب في هذا البرنامج بعد</p>
       ) : shown.length === 0 ? (
-        <p className={styles.empty}>لا يوجد طالب مطابق في هذا الدرس</p>
+        <p className={styles.empty}>لا يوجد طالب مطابق في هذا البرنامج</p>
       ) : (
         // Three students visible; the rest scroll.
         <ul className={`${styles.list} ${styles.scrollThree}`} data-tour="roster-list">
@@ -201,7 +207,7 @@ export default function LessonRoster({
                 <small>{detailsOf(student)}</small>
                 {conflicts[student._id] && (
                   <span className={styles.conflict}>
-                    لديه درس آخر في الوقت نفسه: {conflicts[student._id].join("، ")}
+                    لديه برنامج آخر في الوقت نفسه: {conflicts[student._id].join("، ")}
                   </span>
                 )}
               </span>
@@ -253,9 +259,12 @@ export default function LessonRoster({
             onClick={(e) => e.stopPropagation()}
           >
             <div className={styles.pickerHeader}>
-              <h3 id="roster-picker-title">إضافة طلاب إلى الدرس</h3>
+              <h3 id="roster-picker-title">إضافة طلاب إلى البرنامج</h3>
               {addedInPicker > 0 && <span className={styles.addedCount}>أُضيف: {addedInPicker}</span>}
             </div>
+            {pickerLock.status === "blocked" ? <LockedScreen holder={pickerLock.holder} />
+              : pickerLock.status !== "held" ? <p role="status">{pickerLock.status === "loading" ? "جارٍ حجز البرنامج…" : "فُقد قفل البرنامج. أغلق النافذة وافتحها من جديد."}</p> : (
+              <>
             <input
               type="search"
               value={pickerQuery}
@@ -319,8 +328,10 @@ export default function LessonRoster({
               </ul>
             )}
 
+              </>
+            )}
             <div className={styles.pickerFooter}>
-              {pickerQuery.trim() && available.length > 1 && (
+              {pickerLock.status === "held" && pickerQuery.trim() && available.length > 1 && (
                 <Button size="sm" variant="secondary" onClick={() => add(available.map((s) => s._id))}>
                   إضافة كل النتائج ({available.length})
                 </Button>

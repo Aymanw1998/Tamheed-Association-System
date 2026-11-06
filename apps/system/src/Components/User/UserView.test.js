@@ -76,7 +76,7 @@ afterEach(async () => { await act(async () => root.unmount()); container.remove(
 
 test("a guide with students and lessons has three tabs", async () => {
   await mount();
-  expect(tabLabels()).toEqual(["التفاصيل الشخصية", "طلابه", "دروسه"]);
+  expect(tabLabels()).toEqual(["التفاصيل الشخصية", "طلابه", "برامجه"]);
   expect(getUserById).toHaveBeenCalledWith("900000002");
 });
 
@@ -90,7 +90,7 @@ test("their students link to the student's page; other students are not listed",
 test("with lessons only, there is no students tab", async () => {
   getStudents.mockResolvedValue({ ok: true, students: [] });
   await mount();
-  expect(tabLabels()).toEqual(["التفاصيل الشخصية", "دروسه"]);
+  expect(tabLabels()).toEqual(["التفاصيل الشخصية", "برامجه"]);
 });
 
 test("with no students and no lessons there is no tab bar", async () => {

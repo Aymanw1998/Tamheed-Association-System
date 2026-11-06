@@ -1,4 +1,24 @@
-import { countLessonsByDay, endOf, lessonDayOf, lessonsForDay, toHHMM } from "./lessonSchedule";
+import { countLessonsByDay, endOf, lessonDayOf, lessonsForDay, toHHMM, initialProgramStart, validProgramHours, timelinePosition, timelineDuration, timelineMinuteAt } from "./lessonSchedule";
+
+test("program bounds accept 13:00 and 22:00, and reject spillover or reversed times", () => {
+  expect(validProgramHours(780, 825)).toBe(true);
+  expect(validProgramHours(1275, 1320)).toBe(true);
+  for (const [start, end] of [[779, 825], [1275, 1321], [1320, 1320], [900, 840], [NaN, 840]]) expect(validProgramHours(start, end)).toBe(false);
+  expect(initialProgramStart(null)).toBe(780);
+  expect(initialProgramStart("600")).toBe(780);
+  expect(initialProgramStart("1320")).toBe(1275);
+});
+
+test("compact timeline hit testing maps the same hours at different desktop heights", () => {
+  for (const height of [360, 450, 540]) {
+    expect(timelineMinuteAt(20, height)).toBe(780);
+    expect(timelineMinuteAt(height - 20, height)).toBe(1320);
+    expect(timelineMinuteAt(height / 2, height)).toBe(1050);
+  }
+  expect(timelinePosition(780)).toBe("calc(0% + 20px)");
+  expect(timelinePosition(1320)).toBe("calc(100% + -20px)");
+  expect(timelineDuration(540)).toBe("calc(100% - 40px)");
+});
 
 test.each([
   [840, "14:00"],

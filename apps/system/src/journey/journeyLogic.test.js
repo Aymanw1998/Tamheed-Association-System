@@ -9,7 +9,7 @@ const CHAPTERS = [
     step("students-add"),
     step("students-delete", "students.delete"),
   ] },
-  { id: "journey-lessons", title: "الدروس", route: "/lessons", requires: "lessons.view", steps: [step("lessons-add")] },
+  { id: "journey-lessons", title: "البرامج", route: "/lessons", requires: "lessons.view", steps: [step("lessons-add")] },
   { id: "journey-vehicles", title: "المركبات", route: "/vehicles", requires: "vehicles.view", steps: [step("vehicles-add")] },
   { id: "journey-users", title: "المستخدمون", route: "/users", requires: "users.view", steps: [step("users-list")] },
   // Every step needs a permission the guide and the assistant lack.
@@ -138,7 +138,7 @@ test("null or broken tour state is treated as empty everywhere", () => {
 
 describe("requires as an array of keys", () => {
   const chapter = {
-    id: "journey-lessons", title: "الدروس", route: "/lessons", requires: null,
+    id: "journey-lessons", title: "البرامج", route: "/lessons", requires: null,
     steps: [step("lessons-add"), step("lesson-delete", ["lessons.edit", "lessons.delete"])],
   };
 

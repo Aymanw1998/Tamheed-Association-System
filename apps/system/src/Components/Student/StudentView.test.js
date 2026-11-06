@@ -72,7 +72,7 @@ afterEach(async () => { await act(async () => root.unmount()); container.remove(
 
 test("shows the three tabs and the full personal details", async () => {
   await mount();
-  expect([...container.querySelectorAll('[role="tab"]')].map((t) => t.textContent)).toEqual(["التفاصيل الشخصية", "الدروس", "المرشد المسؤول"]);
+  expect([...container.querySelectorAll('[role="tab"]')].map((t) => t.textContent)).toEqual(["التفاصيل الشخصية", "البرامج", "المرشد المسؤول"]);
   expect(container.textContent).toContain("050-2222222");
   expect(getOne).toHaveBeenCalledWith("800000001");
 });
@@ -81,17 +81,17 @@ test("the lessons tab lists the lessons the server sent with the student, by day
   // The user's own lesson list may lack them (another guide's lesson).
   getAllLesson.mockResolvedValue({ ok: true, lessons: [] });
   await mount();
-  await openTab("الدروس");
+  await openTab("البرامج");
   const links = [...container.querySelectorAll('a[href^="/lessons/"]')];
   expect(links.map((a) => a.getAttribute("href"))).toEqual(["/lessons/L1", "/lessons/L2"]);
   expect(container.textContent).toContain("الأحد 16:00");
 });
 
-test("a student with no lessons shows «لا يوجد دروس بعد»", async () => {
+test("a student with no lessons shows «لا يوجد برامج بعد»", async () => {
   getOne.mockResolvedValue({ ok: true, student: { ...STUDENT, lessons: [] } });
   await mount();
-  await openTab("الدروس");
-  expect(container.textContent).toContain("لا يوجد دروس بعد");
+  await openTab("البرامج");
+  expect(container.textContent).toContain("لا يوجد برامج بعد");
 });
 
 test("no guide shows «لا يوجد مرشد مسؤول بعد»", async () => {
@@ -156,8 +156,8 @@ test("the attendance tab lists each date with the lesson, the status and the not
   expect(items[0]).toContain("غائب");
   expect(items[0]).toContain("مريض");
   expect(container.querySelector('a[href="/lessons/L2"]')).not.toBeNull();
-  // A deleted lesson: the row stays, with no link and «درس محذوف».
-  expect(items[1]).toContain("درس محذوف");
+  // A deleted lesson: the row stays, with no link and «برنامج محذوف».
+  expect(items[1]).toContain("برنامج محذوف");
   expect(container.querySelector('a[href="/lessons/GONE"]')).toBeNull();
   // Read-only: nothing to change it with (the one select picks a month).
   expect(container.querySelector("input, textarea")).toBeNull();

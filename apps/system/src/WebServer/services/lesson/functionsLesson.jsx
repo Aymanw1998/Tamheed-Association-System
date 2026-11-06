@@ -14,7 +14,7 @@ export const normalizeLesson = (lesson) => {
 export const getAllLesson = async() => {
     try{
         const {data, status} = await api.get('/lesson');
-        if(![200,201].includes(status) || !data.ok) throw new Error ('تعذّر تحميل الدروس');
+        if(![200,201].includes(status) || !data.ok) throw new Error ('تعذّر تحميل البرامج');
         // names: the staff's full names by user _id (the server's lesson list carries them).
         return {ok: true, lessons: (data.lessons || data.schema || []).map(normalizeLesson).filter(Boolean), names: data.names || {}};
     } catch(err) {    
@@ -26,7 +26,7 @@ export const getAllLesson = async() => {
 export const getSportSchedule = async() => {
     try{
         const {data, status} = await api.get('/lesson/sport-schedule');
-        if(![200,201].includes(status) || !data.ok) throw new Error ('تعذّر تحميل دروس الرياضة');
+        if(![200,201].includes(status) || !data.ok) throw new Error ('تعذّر تحميل برامج الرياضة');
         return {ok: true, lessons: Array.isArray(data.lessons) ? data.lessons : []};
     } catch(err) {
         return {ok: false, status: err.response?.status, data: err.response?.data, message: err.response?.data?.message || err.message || 'تعذّر إتمام العملية.'};
@@ -36,7 +36,7 @@ export const getSportSchedule = async() => {
 export const getOneLesson = async(_id) => {
     try{
         const {data, status} = await api.get('/lesson/' + _id, );
-        if(![200,201].includes(status) || !data.ok) throw new Error ('تعذّر تحميل الدرس');
+        if(![200,201].includes(status) || !data.ok) throw new Error ('تعذّر تحميل البرنامج');
         return {ok: true, lesson: normalizeLesson(data.lesson || data.schema)};
     } catch(err) {    
         return {ok: false, status: err.response?.status, data: err.response?.data, message: err.response?.data?.message || err.message || 'تعذّر إتمام العملية.'};
@@ -65,7 +65,7 @@ export const createLesson = async(payload, {confirm = true} = {}) => {
         console.log("create lesson", payload);
         const res = await api.post('/lesson', payload);
         console.log(res);
-        if(![200,201].includes(res.status) || !res.data.ok) throw new Error (data?.message || 'تعذّر إنشاء الدرس');
+        if(![200,201].includes(res.status) || !res.data.ok) throw new Error (data?.message || 'تعذّر إنشاء البرنامج');
         return {ok: true, lesson: normalizeLesson(res.data.lesson || res.data.schema)};
     } catch(err) {
         console.error(err);
@@ -82,7 +82,7 @@ export const updateLesson = async(_id, payload, {confirm = true} = {}) => {
         }
         const {data, status} = await api.put(`/lesson/${encodeURIComponent(_id)}`, payload);
         console.log("update lesson", status, data);
-        if(![200,201].includes(status) || !data.ok) throw new Error (data?.message || 'تعذّر تحديث الدرس');
+        if(![200,201].includes(status) || !data.ok) throw new Error (data?.message || 'تعذّر تحديث البرنامج');
         return {ok: true, lesson: normalizeLesson(data.lesson || data.schema)};
     } catch(err) {
         return {ok: false, status: err.response?.status, data: err.response?.data, message: err.response?.data?.message || err.message || 'تعذّر إتمام العملية.'};
@@ -99,7 +99,7 @@ export const deleteLesson = async(_id, {confirm = true} = {}) => {
         }
         const {data, status} = await api.delete(`/lesson/${encodeURIComponent(_id)}`);
         console.log("delete lesson", status, data);
-        if(![200,201].includes(status) || !data.ok) throw new Error (data?.message || 'تعذّر حذف الدرس');
+        if(![200,201].includes(status) || !data.ok) throw new Error (data?.message || 'تعذّر حذف البرنامج');
         return {ok: true, lesson: null};
     } catch(err) {
         return {ok: false, status: err.response?.status, data: err.response?.data, message: err.response?.data?.message || err.message || 'تعذّر إتمام العملية.'};
@@ -116,7 +116,7 @@ export async function addToList(lessonId, { list_students = [], list_tz = [] } =
             list_students,
             list_tz,
         });
-        if (![200,201].includes(status) || !data?.ok) throw new Error(data?.message || 'تعذّرت إضافة الطلاب إلى الدرس');
+        if (![200,201].includes(status) || !data?.ok) throw new Error(data?.message || 'تعذّرت إضافة الطلاب إلى البرنامج');
         // updatedAt: the lesson's new version, the base of the next form save.
         return {ok: true, updatedAt: data.updatedAt};
     } catch(err) {
@@ -129,7 +129,7 @@ export async function removeFromList(lessonId, studentIds = []) {
         const { data, status } = await api.post(`/lesson/removeFromList/${encodeURIComponent(lessonId)}`, {
             list_students: studentIds,
         });
-        if (![200,201].includes(status) || !data?.ok) throw new Error(data?.message || 'تعذّرت إزالة الطالب من الدرس');
+        if (![200,201].includes(status) || !data?.ok) throw new Error(data?.message || 'تعذّرت إزالة الطالب من البرنامج');
         return {ok: true, updatedAt: data.updatedAt};
     } catch(err) {
         return {ok: false, status: err.response?.status, data: err.response?.data, message: err.response?.data?.message || err.message || 'تعذّر إتمام العملية.'};

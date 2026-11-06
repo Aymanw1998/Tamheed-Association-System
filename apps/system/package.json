@@ -40,6 +40,9 @@
     "test": "react-scripts test --watchAll=false --runInBand"
   },
   "jest": {
+    "moduleNameMapper": {
+      "^react-router/dom$": "<rootDir>/node_modules/react-router/dist/development/dom-export.js"
+    },
     "transformIgnorePatterns": [
       "node_modules/(?!(@dicebear)/)"
     ]

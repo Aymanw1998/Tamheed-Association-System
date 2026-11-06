@@ -50,7 +50,7 @@ const res = () => ({ statusCode: 200, body: undefined, status(c) { this.statusCo
 
 const SPORT_LESSON = {
   _id: "5".repeat(24), sportId: "f".repeat(24), name: "Football", room: "9",
-  date: { day: 2, startMin: 600, endMin: 660 },
+  date: { day: 2, startMin: 840, endMin: 900 },
   players: [{ studentId: "1".repeat(24), joinedAt: "2026-10-01" }, { studentId: "2".repeat(24), joinedAt: "2026-10-02" }],
 };
 
@@ -73,7 +73,7 @@ function setup(lessonSeed = [], sportSeed = [SPORT_LESSON]) {
   return { controller, lessons };
 }
 
-const body = (room, startMin = 630, endMin = 690) => ({ name: "Math", teacher: "t1", room, date: { day: 2, startMin, endMin } });
+const body = (room, startMin = 870, endMin = 930) => ({ name: "Math", teacher: "t1", room, date: { day: 2, startMin, endMin } });
 
 test("POST in room 9 over a football lesson is refused; room 2 is fine", async () => {
   const { controller } = setup();
@@ -85,12 +85,12 @@ test("POST in room 9 over a football lesson is refused; room 2 is fine", async (
   await controller.postOne(req({ body: body("2") }), other);
   assert.equal(other.statusCode, 201);
   const later = res();
-  await controller.postOne(req({ body: { ...body("9", 660, 720), teacher: "t2" } }), later);
+  await controller.postOne(req({ body: { ...body("9", 900, 960), teacher: "t2" } }), later);
   assert.equal(later.statusCode, 201);
 });
 
 test("PUT moving a lesson into room 9 at an overlapping time is refused", async () => {
-  const { controller, lessons } = setup([{ _id: "6".repeat(24), name: "Math", teacher: "t1", room: "2", date: { day: 2, startMin: 630, endMin: 690 }, list_students: [] }]);
+  const { controller, lessons } = setup([{ _id: "6".repeat(24), name: "Math", teacher: "t1", room: "2", date: { day: 2, startMin: 870, endMin: 930 }, list_students: [] }]);
   const r = res();
   await controller.putOne(req({ params: { id: "6".repeat(24) }, body: { room: "9" } }), r);
   assert.equal(r.statusCode, 409);

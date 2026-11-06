@@ -1,7 +1,7 @@
 import { attendanceDateAllowed, hhmmToMin, lessonDates, lessonLabel, mergeSchedule } from "./sportSchedule";
 
 describe("mergeSchedule", () => {
-  const regular = [{ _id: "r1", name: "درس", teacher: "t1", date: { day: 2, startMin: 600, endMin: 645 } }];
+  const regular = [{ _id: "r1", name: "برنامج", teacher: "t1", date: { day: 2, startMin: 600, endMin: 645 } }];
   const sport = [{ _id: "s1", name: "كرة القدم", teacher: null, room: "9", kind: "sport", date: { day: 1, startMin: 960, endMin: 1020 } }];
 
   test("keeps regular lessons untouched and marks sport ones read-only", () => {

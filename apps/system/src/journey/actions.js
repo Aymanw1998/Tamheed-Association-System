@@ -46,6 +46,16 @@ const never = () => false;
 export const findTarget = (target, { visibleOnly = false } = {}) => {
   try {
     const all = [...document.querySelectorAll(`[data-tour="${String(target).replace(/["\\]/g, "")}"]`)];
+    // Navigation targets live in disclosure groups. Use marked tour events to
+    // reveal their ancestors before the spotlight looks for a laid-out link.
+    const menuItem = String(target).startsWith("menu-") && all.find((el) => el.closest("#main-nav"));
+    if (menuItem) {
+      const toggle = document.querySelector('[data-tour="menu-toggle"][aria-expanded="false"]');
+      if (toggle) journeyClick(toggle);
+      const panel = menuItem.closest('[id^="nav-group-"][hidden]');
+      const opener = panel && document.querySelector(`[aria-controls="${panel.id}"]`);
+      if (opener) journeyClick(opener);
+    }
     const shown = all.find((el) => el.getClientRects().length > 0);
     return shown || (visibleOnly ? null : all[0] || null);
   } catch {

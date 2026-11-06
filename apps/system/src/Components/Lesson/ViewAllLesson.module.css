@@ -52,9 +52,9 @@
 
 .timelineGrid {
   display: grid;
-  grid-template-columns: 110px repeat(7, 1fr);  /* عربيالجمعةالجمعةعربيالجمعةعربي ساعات + 5 أيام */
-  grid-template-rows: 52px 960px;               /* ملاحظة عربية */
-  column-gap: 18px;
+  grid-template-columns: 58px repeat(7, minmax(0, 1fr));  /* عربيالجمعةالجمعةعربيالجمعةعربي ساعات + 5 أيام */
+  grid-template-rows: 42px clamp(360px, calc(100dvh - 300px), 540px);               /* ملاحظة عربية */
+  column-gap: 8px;
   row-gap: 20px;
 }
 
@@ -131,7 +131,8 @@
   background: rgba(56,189,248,.55);;
   border: 1px solid rgba(56,189,248,.55);
   color: var(--text);
-  padding: 8px 10px;
+  padding: 4px 6px;
+  overflow: hidden;
   font-size: 14px;
   line-height: 1.2;
   cursor: grab;
@@ -169,7 +170,7 @@
 .loaderWrap {
   display: grid;
   grid-template-columns: 110px repeat(5, 1fr);
-  column-gap: 18px;
+  column-gap: 8px;
   row-gap: 10px;
 }
 .loaderBox {
@@ -267,9 +268,9 @@
 .timelineGridRooms{
   --cols: 1;
   display: grid;
-  grid-template-columns: 110px repeat(var(--cols), 1fr);
-  grid-template-rows: 52px 960px;
-  column-gap: 18px;
+  grid-template-columns: 58px repeat(var(--cols), minmax(0, 1fr));
+  grid-template-rows: 42px clamp(360px, calc(100dvh - 300px), 540px);
+  column-gap: 8px;
   row-gap: 20px;
 }
 
@@ -406,3 +407,6 @@
   background: var(--color-surface);
   color: var(--color-text-primary);
 }
+
+.outsideHours { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 12px; margin-bottom: 14px; background: var(--color-surface); color: var(--color-text-primary); border-radius: 10px; }
+.outsideHours button { font: inherit; padding: 6px 10px; color: var(--color-primary-700); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 6px; cursor: pointer; }

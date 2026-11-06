@@ -78,7 +78,7 @@ function lessonSetup(seed = [], users = []) {
 test("lesson create, edit, roster changes and delete are recorded in the audit log", async () => {
   const { controller, lessons, audit } = lessonSetup();
   const created = createRes();
-  await controller.postOne(req({ body: { name: "Math", teacher: "t1", room: "1", date: { day: 2, startMin: 600, endMin: 645 } } }), created);
+  await controller.postOne(req({ body: { name: "Math", teacher: "t1", room: "1", date: { day: 2, startMin: 840, endMin: 885 } } }), created);
   assert.equal(created.statusCode, 201);
   const id = lessons.all()[0]._id;
   const [made] = audit.find({ module: "lessons", action: "create", targetId: id });
@@ -115,7 +115,7 @@ test("lesson create, edit, roster changes and delete are recorded in the audit l
 });
 
 test("attendance bulk-save writes one audit row per save with lesson, date and rows changed", async () => {
-  const lessons = createStore([{ _id: "lesson-1", name: "Math", date: { day: 2, startMin: 600, endMin: 645 } }]);
+  const lessons = createStore([{ _id: "lesson-1", name: "Math", date: { day: 2, startMin: 840, endMin: 885 } }]);
   const attendance = createStore([
     { lesson: "lesson-1", student: "s1", dateKey: 20261017, status: "حاضر", notes: "" },
     { lesson: "lesson-1", student: "s2", dateKey: 20261017, status: "حاضر", notes: "" },
@@ -175,7 +175,7 @@ async function withSystemTz(fn) {
 
 test("the system account cannot be a lesson teacher or helper", async () => {
   await withSystemTz(async () => {
-    const lesson = { name: "Math", room: "1", date: { day: 2, startMin: 600, endMin: 645 } };
+    const lesson = { name: "Math", room: "1", date: { day: 2, startMin: 840, endMin: 885 } };
     for (const role of ["teacher", "helper"]) {
       const { controller, lessons, audit } = lessonSetup([], [SYS, TEACHER]);
       const out = createRes();
@@ -250,13 +250,13 @@ test("a teacher or helper value that is not an ObjectId is not looked up (no Cas
       "../../utils/attendanceMarks": require("../utils/attendanceMarks"),
       ...auditStub().deps,
     });
-    const lesson = { name: "Math", room: "1", date: { day: 2, startMin: 600, endMin: 645 } };
+    const lesson = { name: "Math", room: "1", date: { day: 2, startMin: 840, endMin: 885 } };
     const out = createRes();
     await controller.postOne(req({ body: { ...lesson, teacher: "not-an-object-id" } }), out);
     assert.equal(out.statusCode, 201);
 
     const blocked = createRes();
-    await controller.postOne(req({ body: { ...lesson, date: { day: 3, startMin: 600, endMin: 645 }, teacher: "not-an-object-id", helper: SYS._id } }), blocked);
+    await controller.postOne(req({ body: { ...lesson, date: { day: 3, startMin: 840, endMin: 885 }, teacher: "not-an-object-id", helper: SYS._id } }), blocked);
     assert.equal(blocked.statusCode, 400, "the system account is still refused");
   });
 });
@@ -265,7 +265,7 @@ test("a teacher or helper value that is not an ObjectId is not looked up (no Cas
 
 test("the nightly job marks the rows it creates auto: true; a teacher's save sets auto: false", async () => {
   const { AUTO_ABSENCE_NOTE } = require("../utils/attendanceMarks");
-  const lessons = createStore([{ _id: "lesson-1", name: "Math", date: { day: 7, startMin: 600, endMin: 645 }, list_students: ["s1", "s2"] }]);
+  const lessons = createStore([{ _id: "lesson-1", name: "Math", date: { day: 7, startMin: 840, endMin: 885 }, list_students: ["s1", "s2"] }]);
   const attendance = createStore([{ lesson: "lesson-1", student: "s1", dateKey: 20261017, status: "حاضر", notes: "" }]);
   const controller = load("Attendance/Attendance.controller.js", {
     "./Attendance.model": { AttendanceModelDef: attendance },
@@ -295,7 +295,7 @@ test("the nightly job marks the rows it creates auto: true; a teacher's save set
 /* ================= overwritten marks (conflict signal) ================= */
 
 test("bulk-save reports students whose mark was replaced by a different user", async () => {
-  const lessons = createStore([{ _id: "lesson-1", name: "Math", date: { day: 7, startMin: 600, endMin: 645 }, list_students: ["s1", "s2"] }]);
+  const lessons = createStore([{ _id: "lesson-1", name: "Math", date: { day: 7, startMin: 840, endMin: 885 }, list_students: ["s1", "s2"] }]);
   const attendance = createStore([{ lesson: "lesson-1", student: "s2", dateKey: 20261017, status: "غائب", notes: "", auto: true }]);
   const controller = load("Attendance/Attendance.controller.js", {
     "./Attendance.model": { AttendanceModelDef: attendance },
@@ -339,7 +339,7 @@ test("lesson writes stamp updatedAt, announce the change, and a stale form save 
   const { controller, lessons } = lessonSetup();
   live.changes.length = 0;
   const created = createRes();
-  await controller.postOne(req({ body: { name: "Math", teacher: "t1", room: "1", date: { day: 2, startMin: 600, endMin: 645 } } }), created);
+  await controller.postOne(req({ body: { name: "Math", teacher: "t1", room: "1", date: { day: 2, startMin: 840, endMin: 885 } } }), created);
   const id = lessons.all()[0]._id;
   assert.deepEqual(live.changes, [["lesson", id]]);
 
@@ -374,7 +374,7 @@ test("lesson writes stamp updatedAt, announce the change, and a stale form save 
 });
 
 test("attendance bulk-save: refused (409) on top of an older sheet, otherwise announced; the sheet reports its version", async () => {
-  const lessons = createStore([{ _id: "lesson-1", name: "Math", date: { day: 2, startMin: 600, endMin: 645 }, list_students: ["s1"] }]);
+  const lessons = createStore([{ _id: "lesson-1", name: "Math", date: { day: 2, startMin: 840, endMin: 885 }, list_students: ["s1"] }]);
   const attendance = createStore([
     { lesson: "lesson-1", student: "s1", dateKey: 20261025, status: "حاضر", notes: "", updatedAt: new Date("2026-10-25T10:00:00.000Z") },
     { lesson: "lesson-1", student: "s2", dateKey: 20261025, status: "حاضر", notes: "", updatedAt: new Date("2026-10-25T10:05:00.000Z"), updatedBy: "u9", updatedByName: "Sara Lee" },
@@ -415,7 +415,7 @@ test("attendance bulk-save: refused (409) on top of an older sheet, otherwise an
 });
 
 test("roster add and remove answer the lesson's new updatedAt, so the screen's next save is not stale", async () => {
-  const { controller, lessons } = lessonSetup([{ _id: "L9", name: "Math", teacher: "t1", room: "1", date: { day: 2, startMin: 600, endMin: 645 }, list_students: [], updatedAt: new Date("2026-10-01T10:00:00Z") }]);
+  const { controller, lessons } = lessonSetup([{ _id: "L9", name: "Math", teacher: "t1", room: "1", date: { day: 2, startMin: 840, endMin: 885 }, list_students: [], updatedAt: new Date("2026-10-01T10:00:00Z") }]);
   const added = createRes();
   await controller.addToList(req({ params: { id: "L9" }, body: { list_students: ["s1"] } }), added);
   const afterAdd = lessons.all().find((l) => l._id === "L9").updatedAt;
@@ -431,7 +431,7 @@ test("roster add and remove answer the lesson's new updatedAt, so the screen's n
 
 test("two lesson saves on the same version at once: one is written, the other is 409 STALE", async () => {
   const stamp = new Date("2026-10-20T10:00:00.000Z");
-  const { controller, lessons } = lessonSetup([{ _id: "L1", name: "Math", teacher: "t1", room: "1", date: { day: 2, startMin: 600, endMin: 645 }, updatedAt: stamp }]);
+  const { controller, lessons } = lessonSetup([{ _id: "L1", name: "Math", teacher: "t1", room: "1", date: { day: 2, startMin: 840, endMin: 885 }, updatedAt: stamp }]);
   live.changes.length = 0;
   const a = createRes();
   const b = createRes();
@@ -450,7 +450,7 @@ test("two lesson saves on the same version at once: one is written, the other is
 });
 
 test("a sheet's version counts only rows a person saved; a save based on a never-saved sheet is stale once someone saves it", async () => {
-  const lessons = createStore([{ _id: "lesson-1", name: "Math", date: { day: 2, startMin: 600, endMin: 645 }, list_students: ["s1", "s2"] }]);
+  const lessons = createStore([{ _id: "lesson-1", name: "Math", date: { day: 2, startMin: 840, endMin: 885 }, list_students: ["s1", "s2"] }]);
   // Only system rows: a nightly automatic absence and an empty row a sheet view created.
   const attendance = createStore([
     { lesson: "lesson-1", student: "s1", dateKey: 20261025, status: "غائب", notes: "", auto: true, updatedAt: new Date("2026-10-25T20:59:00.000Z") },
@@ -486,7 +486,7 @@ test("a sheet's version counts only rows a person saved; a save based on a never
 });
 
 test("the first two edits of a lesson stored without updatedAt cannot both be written", async () => {
-  const { controller, lessons } = lessonSetup([{ _id: "L2", name: "Old", teacher: "t1", room: "1", date: { day: 2, startMin: 600, endMin: 645 } }]);
+  const { controller, lessons } = lessonSetup([{ _id: "L2", name: "Old", teacher: "t1", room: "1", date: { day: 2, startMin: 840, endMin: 885 } }]);
   const a = createRes();
   const b = createRes();
   await Promise.all([
@@ -498,6 +498,6 @@ test("the first two edits of a lesson stored without updatedAt cannot both be wr
 
   // A new lesson is stored with its version, so its first edit is guarded too.
   const created = createRes();
-  await controller.postOne(req({ body: { name: "New", teacher: "t1", room: "2", date: { day: 3, startMin: 600, endMin: 645 } } }), created);
+  await controller.postOne(req({ body: { name: "New", teacher: "t1", room: "2", date: { day: 3, startMin: 840, endMin: 885 } } }), created);
   assert.ok(lessons.all().at(-1).updatedAt, "created with updatedAt");
 });

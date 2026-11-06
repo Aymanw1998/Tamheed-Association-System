@@ -308,7 +308,7 @@ test("student create, edit, photo and delete are recorded in the audit log", asy
   const req = (extra) => ({ user, actor: actorFor(user), params: {}, body: {}, ...extra });
 
   const created = createRes();
-  await controller.postS(req({ body: { tz: "200000008", firstname: "Sam", lastname: "Example" } }), created);
+  await controller.postS(req({ body: { status: "ينتظر", tz: "200000008", firstname: "Sam", lastname: "Example" } }), created);
   assert.equal(created.statusCode, 201);
   const id = model.snapshot()[0]._id;
   const [made] = audit.find({ module: "students", action: "create", targetId: id });

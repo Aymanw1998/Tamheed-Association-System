@@ -45,7 +45,7 @@ export default function LessonView() {
   const reload = useCallback(async () => {
     const res = await getOneLesson(id);
     if (shownId.current !== id) return; // the page moved on to another lesson
-    if (!res.ok) { setError(res.message || "تعذّر تحميل الدرس"); return; }
+    if (!res.ok) { setError(res.message || "تعذّر تحميل البرنامج"); return; }
     setLesson(res.lesson);
   }, [id]);
 
@@ -144,9 +144,10 @@ export default function LessonView() {
       content: (
         <>
           <DetailGroup rows={[
-            ["اسم الدرس", lesson.name],
+            ["اسم البرنامج", lesson.name],
             ["الموعد", `${lessonWhen(lesson)} – ${toHHMM(endOf(lesson))}`],
             ["المكان", roomLabel(lesson.room)],
+            ["نوع البرنامج", lesson.kind === "educational" ? "برنامج تربوي" : "برنامج عادي"],
           ]} />
           <GuideCard label="المرشد" contact={lesson.teacherContact} to={guideLink(lesson.teacherContact, viewer, lesson.teacher)} empty="—" />
           {lesson.helperContact && (

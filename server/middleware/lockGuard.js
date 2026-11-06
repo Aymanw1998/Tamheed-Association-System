@@ -127,4 +127,24 @@ const guard = createLockGuard({
 const holderOf = (key, clientId) => lazyLocks().holderOf(key, clientId ?? null);
 const lockedAnswer = (holder) => ({ ok: false, code: "LOCKED", holder, message: lockedMessage(holder) });
 
-module.exports = { ...guard, lockOwner, holderOf, lockedAnswer, checkVersion, sameVersion, nextStamp, raceLost, staleAnswer, editorStamp, createLockGuard, LOCKED_MESSAGE, lockedMessage, staleMessage };
+// Hold all affected programs before changing a student's responsible guide.
+// Sorting avoids lock-order inversions; preserve a lock already held by this tab.
+async function holdItemLocks(locks, keys, req) {
+  const clientId = req.get?.("X-Client-Id") || require("crypto").randomUUID();
+  const release = [];
+  const owner = { clientId, userId: req.actor?.id, ...lockOwner(req.actor) };
+  const done = async () => {
+    for (const key of release.reverse()) await locks.release(key, clientId).catch(() => {});
+  };
+  try {
+    for (const key of [...new Set(keys)].sort()) {
+      const result = await locks.acquire(key, owner);
+      if (!result.ok) throw Object.assign(new Error(lockedMessage(result.holder)), { status: 423, holder: result.holder });
+      if (result.created !== false) release.push(key);
+    }
+    return done;
+  } catch (error) { await done(); throw error; }
+}
+const acquireItemLocks = (keys, req) => holdItemLocks(lazyLocks(), keys, req);
+
+module.exports = { ...guard, lockOwner, holderOf, lockedAnswer, holdItemLocks, acquireItemLocks, checkVersion, sameVersion, nextStamp, raceLost, staleAnswer, editorStamp, createLockGuard, LOCKED_MESSAGE, lockedMessage, staleMessage };

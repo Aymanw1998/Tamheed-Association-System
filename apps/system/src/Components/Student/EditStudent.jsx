@@ -1,5 +1,6 @@
+import { isDemo } from "../../journey/demoMode";
 import { gradeOptions } from "../../utils/grades";
-import SignaturePad from "./SignaturePad.jsx";
+import RegistrationConsent from "./RegistrationConsent.jsx";
 import RequiredMark from "../UI/RequiredMark";
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
@@ -316,10 +317,16 @@ const EditStudent = ({parent = false}) => {
         b = false;
       }
     }
+    // A new student has a responsible guide, who may be from the management. Older
+    // students without one stay as they are until someone chooses (owner, 2026-11-05).
+    if (!parent && !isEdit && canAssignGuide && !isDemo() && !form.main_teacher) {
+      setError((prev) => ({ ...prev, main_teacher: "يجب اختيار المرشد المسؤول" }));
+      b = false;
+    }
     if(!b) return toast.warn("يُرجى تعبئة الحقول المطلوبة");
     const rules = parent ? inviteStatus.rules : null;
-    if (rules && (!consent.accepted || !consent.signerName.trim() || !consent.signature)) {
-      return toast.warn("يُرجى قراءة نظام الجمعية والموافقة عليه وكتابة الاسم والتوقيع");
+    if (parent && (!rules || !consent.accepted || !consent.signerName.trim())) {
+      return toast.warn("يُرجى قراءة قوانين الجمعية والموافقة عليها وكتابة اسم ولي الأمر");
     }
     e.preventDefault();
     try {
@@ -518,7 +525,7 @@ const EditStudent = ({parent = false}) => {
 
         {/* Shown even before any staff account exists: the list then holds only «بدون مرشد مسؤول». */}
         {!parent && canAssignGuide && <>
-          <label>{t("roster.responsibleGuide")}:</label>
+          <label>{t("roster.responsibleGuide")}:{!isEdit && <RequiredMark />}</label>
           <select
             name="main_teacher"
             value={form.main_teacher || ""}
@@ -534,6 +541,7 @@ const EditStudent = ({parent = false}) => {
               </option>
             ))}
           </select>
+          {error.main_teacher && <label style={{color: "red"}}>{error.main_teacher}</label>}
         </>}
       </fieldset>
 
@@ -602,24 +610,11 @@ const EditStudent = ({parent = false}) => {
       </ReadOnlyArea>
 
       {parent && inviteStatus.rules && (
-        <fieldset className={sectionStyles.formSection} key={inviteStatus.rules.version}>
-          <legend>نظام الجمعية</legend>
-          <div dir="auto" tabIndex={0} style={{ maxHeight: 240, overflowY: "auto", whiteSpace: "pre-wrap", padding: 8, border: "1px solid #d1d5db", borderRadius: 8 }}>
-            {inviteStatus.rules.text}
-          </div>
-          <label style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-            <input type="checkbox" name="rulesAccepted" style={{ width: "auto" }} checked={consent.accepted} onChange={(event) => setConsent((prev) => ({ ...prev, accepted: event.target.checked }))} />
-            <span>قرأت نظام الجمعية وأوافق عليه<RequiredMark /></span>
-          </label>
-          <label htmlFor="signer-name">اسم ولي الأمر:<RequiredMark /></label>
-          <input id="signer-name" name="signerName" maxLength={100} value={consent.signerName} onChange={(event) => setConsent((prev) => ({ ...prev, signerName: event.target.value }))} />
-          <label>التوقيع:<RequiredMark /></label>
-          <SignaturePad onChange={(signature) => setConsent((prev) => ({ ...prev, signature }))} />
-        </fieldset>
+        <RegistrationConsent key={inviteStatus.rules.version} rules={inviteStatus.rules} value={consent} onChange={setConsent} />
       )}
 
       <div className={styles.buttonRow} style={{ gap: 8, flexWrap: "wrap" }}>
-        <button type="submit" data-tour="student-save" onClick={handleSubmit} disabled={readonly} style={{width:"100%"}}>
+        <button type="submit" data-tour="student-save" onClick={handleSubmit} disabled={readonly || saving || (parent && (!consent.accepted || !consent.signerName.trim()))} style={{width:"100%"}}>
           {saving ? "جارٍ الحفظ…" : parent ? "إرسال الطلب" : (isEdit ? "حفظ التعديلات" : "إضافة الطالب")}
         </button>
 

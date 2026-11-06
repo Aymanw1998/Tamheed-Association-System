@@ -14,7 +14,7 @@ export const fillText = (text, values) => String(text).replace(/\{(\w+)\}/g, (_,
 
 const modules = {
   dashboard: "لوحة التحكم", calendar: "التقويم", students: "الطلاب", lessons: "الدروس",
-  attendance: "الحضور والغياب", reports: "التقارير", vehicles: "المركبات", files: "الملفات",
+  attendance: "الحضور والغياب", tasks: "المهمات الأسبوعية", reports: "التقارير", vehicles: "المركبات", files: "الملفات",
   notices: "الإعلانات", users: "المستخدمون", ai: "المساعد الذكي", permissions: "الصلاحيات",
   audit: "سجل التغييرات", sports: "الرياضة", systemRecovery: "استعادة حساب النظام", storage: "التخزين",
 };

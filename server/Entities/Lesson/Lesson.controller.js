@@ -10,7 +10,7 @@ const { createStudentScope, mergeRoster, scopeLesson } = require("../../utils/st
 const { contactById } = require("../../utils/guideContact");
 // Without lessons.viewAll only the lessons the actor teaches or assists in.
 const { isOnLesson, mayOpenLesson, mayViewLesson, ownLessons, responsibleStudentIds, seesAllLessons } = require("../../utils/lessonAccess");
-const { checkVersion, editorStamp, sameVersion, raceLost } = require("../../middleware/lockGuard");
+const { checkVersion, editorStamp, sameVersion, nextStamp, raceLost } = require("../../middleware/lockGuard");
 const { notifyChange } = require("../../services/liveHub");
 
 // Student scope: null (students.viewAll, today's behaviour) or the Set of
@@ -123,10 +123,18 @@ const safeNotify = async (payload) => {
 
 const toInt = (v, d = 0) => Number.isFinite(Number(v)) ? Number(v) : d;
 const clamp = (n, min, max) => Math.max(min, Math.min(n, max));
+const PROGRAM_HOURS = { ok: false, code: "PROGRAM_HOURS", message: "يجب أن يكون موعد البرنامج بين 13:00 و22:00، وأن تكون ساعة الانتهاء بعد ساعة البدء." };
+function validProgramHours(date = {}) {
+  if (!date || typeof date !== "object") return false;
+  if (["startMin", "endMin"].some((key) => Object.hasOwn(date, key) && date[key] == null)) return false;
+  const start = date.startMin ?? (date.hh != null ? Number(date.hh) * 60 : 780);
+  const end = date.endMin ?? (Number(start) + 45);
+  return start !== "" && end !== "" && Number.isInteger(Number(start)) && Number.isInteger(Number(end)) && Number(start) >= 780 && Number(end) <= 1320 && Number(end) > Number(start);
+}
 
 function buildLesson(body) {
-  const start = clamp(toInt(body?.date?.startMin, 9 * 60), 0, 1439);
-  const end = clamp(Math.max(toInt(body?.date?.endMin, start + 45), start + 1), 1, 1440);
+  const start = toInt(body?.date?.startMin, body?.date?.hh != null ? Number(body.date.hh) * 60 : 780);
+  const end = toInt(body?.date?.endMin, start + 45);
 
   return {
     name: body?.name ?? "",
@@ -139,8 +147,16 @@ function buildLesson(body) {
     helper: body?.helper || null,
     room: body?.room ?? "0",
     list_students: Array.isArray(body?.list_students) ? body.list_students : [],
+    ...(body?.kind ? { kind: body.kind === "educational" ? "educational" : "regular" } : {}),
   };
 }
+
+// A guide's educational lesson (services/educationalLesson). Never fatal to the save.
+const edu = () => require("../../services/educationalLesson").educationalLessons();
+const EDUCATIONAL_TAKEN = { ok: false, code: "EDUCATIONAL_EXISTS", message: "لهذا المرشد برنامج تربوي. لكل مرشد برنامج تربوي واحد." };
+const enrolGuideStudents = (teacher) => Promise.resolve()
+  .then(() => edu().enrolAll(teacher))
+  .catch((err) => logWithSource("Lesson.enrolGuideStudents", err));
 
 const pad2 = (n) => String(n).padStart(2, "0");
 
@@ -297,6 +313,8 @@ const postOne = async (req, res) => {
       model.list_students = appendNew(model.list_students, await idsFromTz(req.body.list_tz));
     }
     if (await namesSystemAccount([model.teacher, model.helper])) return res.status(400).json(SYSTEM_STAFF);
+    if (!validProgramHours(req.body?.date)) return res.status(400).json(PROGRAM_HOURS);
+    if (model.kind === "educational" && (await edu().takenBy(model.teacher))) return res.status(409).json(EDUCATIONAL_TAKEN);
 
     const sameDay = await LessonModelDef.get({ "date.day": model.date.day });
     const sportDay = await SportLessonModelDef.get({ "date.day": model.date.day });
@@ -320,6 +338,7 @@ const postOne = async (req, res) => {
     });
     await recordLesson(req, "create", null, created?.result || model);
     notifyChange("lesson", created?.result?._id);
+    if (model.kind === "educational") await enrolGuideStudents(model.teacher);
 
     return res.status(201).json({ ok: true, lesson: created });
   } catch (err) {
@@ -339,7 +358,8 @@ const putOne = async (req, res) => {
     }
 
     const current = existingRes.result[0];
-    const next = buildLesson({ ...current, ...req.body });
+    const date = { ...current.date, ...req.body?.date };
+    const next = buildLesson({ ...current, ...req.body, date });
     const visible = await scope.visibleStudentIds(req.actor);
     // A form saved on top of a newer version is refused (the screen keeps the draft).
     const stale = checkVersion(current, req, (doc) => scopeLesson(doc, visible));
@@ -371,6 +391,8 @@ const putOne = async (req, res) => {
       });
     }
     if (await namesSystemAccount([req.body?.teacher, req.body?.helper])) return res.status(400).json(SYSTEM_STAFF);
+    if (!validProgramHours(date)) return res.status(400).json(PROGRAM_HOURS);
+    if (next.kind === "educational" && (await edu().takenBy(next.teacher, id))) return res.status(409).json(EDUCATIONAL_TAKEN);
 
     const sameDay = await LessonModelDef.get({ "date.day": next.date.day });
     const sportDay = await SportLessonModelDef.get({ "date.day": next.date.day });
@@ -388,13 +410,15 @@ const putOne = async (req, res) => {
     // Written only if nobody saved since `current` was read.
     const updated = await LessonModelDef.updateExisting(
       sameVersion({ _id: id }, current),
-      { ...next, updatedAt: new Date(), ...editorStamp(req) }
+      { ...next, updatedAt: nextStamp(current), ...editorStamp(req) }
     );
     if (!updated?.result) {
       return res.status(409).json(await raceLost(() => LessonModelDef.get({ _id: id }), (doc) => scopeLesson(doc, visible)));
     }
     await recordLesson(req, "update", current, { ...current, ...next });
     notifyChange("lesson", id);
+    // The guide's students stay on it, whatever the submitted roster said.
+    if (next.kind === "educational") await enrolGuideStudents(next.teacher);
 
     const lesson = visible && updated?.result ? { ...updated, result: scopeLesson(updated.result, visible) } : updated;
     return res.status(200).json({ ok: true, lesson });
@@ -457,11 +481,12 @@ const addToList = async (req, res) => {
 
     const updatedList = [...lesson.list_students, ...toAdd];
 
-    const updatedAt = new Date();
-    await LessonModelDef.update(
-      { _id: id },
+    const updatedAt = nextStamp(lesson);
+    const saved = await LessonModelDef.updateExisting(
+      sameVersion({ _id: id }, lesson),
       { list_students: updatedList, updatedAt, ...editorStamp(req) }
     );
+    if (!saved?.result) return res.status(409).json(await raceLost(() => LessonModelDef.get({ _id: id })));
     await recordLesson(req, "update", lesson, { ...lesson, list_students: updatedList });
     notifyChange("lesson", id);
 
@@ -486,6 +511,13 @@ const removeFromList = async (req, res) => {
     }
 
     const lesson = existingRes.result[0];
+    if (lesson.kind === "educational" && removeList.length) {
+      const own = await StudentModelDef.get({ main_teacher: String(lesson.teacher) });
+      const ownIds = new Set((own?.result || []).map((s) => String(s._id)));
+      if (removeList.some((r) => ownIds.has(String(r)))) {
+        return res.status(409).json({ ok: false, code: "EDUCATIONAL_MEMBER", message: "طلاب المرشد المسؤول يبقون في برنامجه التربوي. غيّر المرشد المسؤول في صفحة الطالب." });
+      }
+    }
 
     // A scoped actor removes only students he can see; hidden ids stay.
     const visible = await scope.visibleStudentIds(req.actor);
@@ -497,11 +529,12 @@ const removeFromList = async (req, res) => {
       // Compared as strings: the lesson may hold ObjectIds, the request strings.
       : (lesson.list_students || []).filter((s) => !removeList.some((r) => String(r) === String(s)));
 
-    const updatedAt = new Date();
-    await LessonModelDef.update(
-      { _id: id },
+    const updatedAt = nextStamp(lesson);
+    const saved = await LessonModelDef.updateExisting(
+      sameVersion({ _id: id }, lesson),
       { list_students: updated, updatedAt, ...editorStamp(req) }
     );
+    if (!saved?.result) return res.status(409).json(await raceLost(() => LessonModelDef.get({ _id: id })));
     await recordLesson(req, "update", lesson, { ...lesson, list_students: updated });
     notifyChange("lesson", id);
 

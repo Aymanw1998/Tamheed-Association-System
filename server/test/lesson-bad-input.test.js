@@ -29,7 +29,7 @@ const REAL = "5".repeat(24);
 const WAITING = "7".repeat(24);
 
 function world() {
-  let stored = { _id: "lesson-1", name: "X", teacher: null, helper: null, room: "1", date: { day: 1, startMin: 600 }, list_students: [] };
+  let stored = { _id: "lesson-1", name: "X", teacher: null, helper: null, room: "1", date: { day: 1, startMin: 840 }, list_students: [] };
   const lessons = {
     dbName: "tamheed_db", collections: { active: "Lessons" },
     async get() { return { success: true, result: [{ ...stored, list_students: [...stored.list_students] }] }; },
@@ -106,7 +106,7 @@ test("an admin cannot add a student who is still on the waiting list", async () 
   assert.deepEqual(JSON.parse(JSON.stringify(w.stored().list_students.map(String))), [REAL]);
 });
 
-const LESSON_BODY = { name: "Math", teacher: "t".repeat(24), room: "1", date: { day: 2, startMin: 600, endMin: 645 } };
+const LESSON_BODY = { name: "Math", teacher: "t".repeat(24), room: "1", date: { day: 2, startMin: 840, endMin: 885 } };
 
 test("an admin creating a lesson stores only existing, accepted students", async () => {
   const w = world();
@@ -123,3 +123,26 @@ test("an admin saving the lesson form adds only existing, accepted students and 
   assert.equal(out.statusCode, 200, JSON.stringify(out.body));
   assert.deepEqual(JSON.parse(JSON.stringify(w.stored().list_students.map(String))), [REAL]);
 });
+
+for (const [startMin, endMin] of [[779, 840], [780, 1321], [1320, 1320], [900, 840], [-1, 840], [780.5, 840], ["bad", 840], [null, 840], [780, null]]) {
+  test(`creation and editing refuse invalid program hours ${startMin}–${endMin} without writing`, async () => {
+    for (const operation of ["postOne", "putOne"]) {
+      const w = world(); const before = JSON.stringify(w.stored()); const out = res();
+      await w.lesson[operation](req({ ...LESSON_BODY, date: { day: 2, startMin, endMin } }), out);
+      assert.equal(out.statusCode, 400);
+      assert.equal(out.body.code, "PROGRAM_HOURS");
+      assert.equal(JSON.stringify(w.stored()), before);
+    }
+  });
+}
+for (const [startMin, endMin] of [[780, 825], [1275, 1320]]) {
+  test(`creation and editing accept program boundary ${startMin}–${endMin} exactly`, async () => {
+    for (const operation of ["postOne", "putOne"]) {
+      const w = world(); const out = res();
+      await w.lesson[operation](req({ ...LESSON_BODY, date: { day: 2, startMin, endMin } }), out);
+      assert.equal(out.statusCode, operation === "postOne" ? 201 : 200);
+      assert.equal(w.stored().date.startMin, startMin);
+      assert.equal(w.stored().date.endMin, endMin);
+    }
+  });
+}

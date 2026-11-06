@@ -4,6 +4,7 @@ export const PERMISSION_TREE = {
   students: ["view", "viewAll", "create", "edit", "delete", "photo", "parentLink"],
   lessons: ["view", "viewAll", "create", "edit", "roster", "delete", "copyMonth"],
   attendance: ["view", "record"],
+  tasks: ["manage"],
   reports: ["create", "editOwn", "viewAll", "editAll", "delete", "exportPdf"],
   vehicles: ["view", "edit", "compliance", "documents", "archive", "delete"],
   files: ["use", "manageAll"],

@@ -4,7 +4,7 @@ afterEach(() => setUnsavedChanges(null));
 
 describe("needsLeaveConfirm", () => {
   test("only edit pages ask, unless they report nothing to lose", () => {
-    for (const path of ["/students/new", "/students/abc/edit", "/users/new", "/users/abc/edit", "/lessons/new", "/lessons/1/edit", "/vehicles/v1", "/subs/new", "/selectSubfor/x", "/regnextmonth"]) {
+    for (const path of ["/students/new", "/students/abc/edit", "/users/new", "/users/abc/edit", "/lessons/new", "/lessons/1/edit", "/reports/new", "/weekly-tasks/manage", "/vehicles/v1", "/subs/new", "/selectSubfor/x", "/regnextmonth"]) {
       expect(needsLeaveConfirm(path, true)).toBe(true);
       expect(needsLeaveConfirm(path, null)).toBe(true);
       expect(needsLeaveConfirm(path, false)).toBe(false);

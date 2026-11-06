@@ -2,6 +2,16 @@ import { isJourneyEvent, runAction } from "./actions";
 
 const byTour = (target) => document.querySelector(`[data-tour="${target}"]`);
 
+test("finding a navigation tour target reveals its phone drawer and disclosure with marked events", () => {
+  const { findTarget } = require("./actions");
+  document.body.innerHTML = '<button data-tour="menu-toggle" aria-expanded="false"></button><nav id="main-nav"><button aria-controls="nav-group-people"></button><div id="nav-group-people" hidden><a data-tour="menu-students">students</a></div></nav>';
+  const events = [];
+  byTour("menu-toggle").onclick = (event) => { events.push(event.__journey); event.currentTarget.setAttribute("aria-expanded", "true"); };
+  document.querySelector('[aria-controls="nav-group-people"]').onclick = (event) => { events.push(event.__journey); document.getElementById("nav-group-people").hidden = false; };
+  expect(findTarget("menu-students")).toBe(byTour("menu-students"));
+  expect(events).toEqual([true, true]);
+});
+
 afterEach(() => {
   document.body.innerHTML = "";
 });

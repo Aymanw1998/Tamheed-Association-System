@@ -1,3 +1,5 @@
+import WeeklyTasksCard from "../WeeklyTasks/WeeklyTasksCard.jsx";
+import GuidePickerDialog from "../Student/GuidePickerDialog.jsx";
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import styles from "./Dashboard.module.css";
@@ -27,7 +29,7 @@ const formatLessonTime = (lesson) => {
 };
 
 const moreLessonsLabel = (count) =>
-  count === 1 ? "ودرس آخر" : count === 2 ? "ودرسان آخران" : `و${count} دروس أخرى`;
+  count === 1 ? "وبرنامج آخر" : count === 2 ? "وبرنامجان آخران" : `و${count} برامج أخرى`;
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -160,7 +162,7 @@ export default function Dashboard() {
     }
 
     if (canViewStudents) cards.push({ label: "الطلاب", value: data.students.length, failed: loadFailed.students });
-    if (canOpenLessons) cards.push({ label: "دروس اليوم", value: lessonPanel.today.length, failed: loadFailed.lessons });
+    if (canOpenLessons) cards.push({ label: "برامج اليوم", value: lessonPanel.today.length, failed: loadFailed.lessons });
     if (canOpenReports) cards.push({ label: "التقارير", value: data.reportsCount, failed: loadFailed.reports });
 
     return cards;
@@ -234,11 +236,17 @@ export default function Dashboard() {
     }
   };
 
-  const handleApproveStudent = async (student) => {
+  const [guideFor, setGuideFor] = useState(null);
+  const handleApproveStudent = async (student, extra = {}) => {
+    // A request with no responsible guide asks for one first.
+    if (!student.main_teacher && !extra.main_teacher && canStored("students.viewAll") && canStored("users.view")) {
+      setGuideFor(student);
+      return;
+    }
     const key = `student-approve-${student.tz}`;
     try {
       setActionLoading(key);
-      const res = await updateStudent(student.tz, { status: "عادي" });
+      const res = await updateStudent(student.tz, { status: "عادي", ...extra });
       if (!res?.ok) throw new Error(res?.message || "تعذّر قبول الطالب");
       removeStudentFromPending(student.tz, "approve");
       toast.success("تم قبول الطالب بنجاح");
@@ -284,12 +292,16 @@ export default function Dashboard() {
         <div className={styles.links} data-tour="dashboard-links">
           {canViewUsers && <Link to="/users">المستخدمون</Link>}
           {canViewStudents && <Link to="/students">الطلاب</Link>}
-          {canOpenLessons && <Link to="/lessons">الدروس</Link>}
+          {canOpenLessons && <Link to="/lessons">البرامج</Link>}
           {canOpenReports && <Link to="/reports">التقارير</Link>}
         </div>
       </div>
 
+      {guideFor && <GuidePickerDialog student={guideFor} onClose={() => setGuideFor(null)} onPick={(guide) => { const student = guideFor; setGuideFor(null); handleApproveStudent(student, { main_teacher: guide }); }} />}
+
       {error && <div className={styles.error}>{error}</div>}
+
+      <WeeklyTasksCard />
 
       <div className={styles.stats} data-tour="dashboard-stats">
         {summary.map((item) => (
@@ -399,15 +411,15 @@ export default function Dashboard() {
         {canOpenLessons && (
         <section className={styles.panel} data-tour="dashboard-lessons">
           <div className={styles.panelHeader}>
-            <h2>{canSeeAllLessons ? "دروس اليوم" : "دروسي اليوم"}</h2>
-            <Link to="/lessons">كل الدروس</Link>
+            <h2>{canSeeAllLessons ? "برامج اليوم" : "برامجي اليوم"}</h2>
+            <Link to="/lessons">كل البرامج</Link>
           </div>
           {loading ? (
             <p className={styles.empty}>جارٍ التحميل…</p>
           ) : (
             <>
               {lessonPanel.today.length === 0 && (
-                <p className={styles.empty}>لا توجد دروس اليوم.</p>
+                <p className={styles.empty}>لا توجد برامج اليوم.</p>
               )}
               {/* Three lessons visible; the rest scroll. */}
               <div className={styles.lessonScroll}>
@@ -418,7 +430,7 @@ export default function Dashboard() {
                 >
                   <div>
                     <strong>
-                      {lesson.name || "درس"}
+                      {lesson.name || "برنامج"}
                       {state === "now" && <span className={styles.lessonTagNow}>الآن</span>}
                       {state === "next" && <span className={styles.lessonTagNext}>التالي</span>}
                     </strong>
@@ -444,12 +456,12 @@ export default function Dashboard() {
               {lessonPanel.upcoming && (
                 <>
                   <h3 className={styles.upcomingTitle}>
-                    الدروس القادمة: {DAY_NAMES[lessonPanel.upcoming.day - 1]} ({lessonPanel.upcoming.lessons.length})
+                    البرامج القادمة: {DAY_NAMES[lessonPanel.upcoming.day - 1]} ({lessonPanel.upcoming.lessons.length})
                   </h3>
                   {lessonPanel.upcoming.lessons.slice(0, 5).map((lesson) => (
                     <div key={lesson._id || lesson.name} className={styles.row}>
                       <div>
-                        <strong>{lesson.name || "درس"}</strong>
+                        <strong>{lesson.name || "برنامج"}</strong>
                         <span>{roomLabel(lesson.room)}</span>
                       </div>
                       <div className={styles.actions}>

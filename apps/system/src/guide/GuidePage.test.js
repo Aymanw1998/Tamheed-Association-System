@@ -57,7 +57,7 @@ test("shows a card per screen the user can open, folded", async () => {
   expect(cards()).toEqual(["dashboard", "lessons", "calendar", "reports"]);
   expect(card("lessons").querySelector("details").open).toBe(false);
   // No lessons.create: the steps for a new lesson are left out.
-  expect(card("lessons").textContent).not.toContain("درس جديد");
+  expect(card("lessons").textContent).not.toContain("برنامج جديد");
 });
 
 test("with no keys only the dashboard is shown", async () => {
@@ -67,7 +67,7 @@ test("with no keys only the dashboard is shown", async () => {
 
 test("a user who can create lessons sees how", async () => {
   await mount(["lessons.create"]);
-  expect(card("lessons").textContent).toContain("درس جديد");
+  expect(card("lessons").textContent).toContain("برنامج جديد");
 });
 
 test("switches to Hebrew and remembers it", async () => {

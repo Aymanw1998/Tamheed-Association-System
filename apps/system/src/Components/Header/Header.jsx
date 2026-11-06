@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import styles from "./Header.module.css";
+import NavigationMenu from "./NavigationMenu";
 import LOGO from "../../images/logo.png";
 import { getMe, logout, requestItPass } from "../../WebServer/services/auth/fuctionsAuth";
 import { getMyPermissions } from "../../WebServer/services/vehicle/functionsVehicle";
@@ -93,7 +94,7 @@ export default function Header() {
   const [itRefused, setItRefused] = useState(false);
   const navigate = useNavigate();
   const headerRef = useRef(null);
-  const navRef = useRef(null);
+
 
   const roles = normalizeRoles(user?.roles || localStorage.getItem("roles"));
   // Role names only pick the label; the links follow stored permissions.
@@ -190,7 +191,7 @@ export default function Header() {
   );
 
   return (
-    <header id="header" className={styles.header} ref={headerRef} dir={dir}>
+    <header id="header" className={styles.header} ref={headerRef} dir={dir} data-menu-open={isMobile && menuOpen}>
       <div className={styles.headerContent}>
         {/* The logo is the way to the dashboard. */}
         <a href="/dashboard" data-tour="menu-dashboard" title={t("nav.dashboard")} onClick={(event) => onNavClick(event, "/dashboard")}>
@@ -226,43 +227,27 @@ export default function Header() {
         {isMobile && accountMenu}
       </div>
 
-      {isMobile && menuOpen && <div className={styles.backdrop} onClick={() => setMenuOpen(false)} />}
-
-      <nav
-        id="main-nav"
-        data-tour="menu"
-        ref={navRef}
-        className={`${styles.navbarV} ${isMobile ? styles.mobileNav : ""}`}
-        data-open={isMobile ? menuOpen : true}
-      >
-        {opens("/calendar") && (
-          <a href="/calendar" data-tour="menu-calendar" onClick={(event) => onNavClick(event, "/calendar")}>{t("nav.attendance")}<NewBadge section="calendar" /></a>
-        )}
-        {canViewUsers && (
-          <a href="/users" data-tour="menu-users" onClick={(event) => onNavClick(event, "/users")}>{t("nav.users")}<NewBadge section="users" /></a>
-        )}
-        {canViewStudents && (
-          <a href="/students" data-tour="menu-students" onClick={(event) => onNavClick(event, "/students")}>{t("nav.students")}<NewBadge section="students" /></a>
-        )}
-        {/* {canViewNotices && (
-          <a href="/notices" onClick={(event) => onNavClick(event, "/notices")}>{t("nav.notices")}</a>
-        )} */}
-        {opens("/lessons") && (
-          <a href="/lessons" data-tour="menu-lessons" onClick={(event) => onNavClick(event, "/lessons")}>{t("nav.lessons")}<NewBadge section="lessons" /></a>
-        )}
-        {opens("/reports") && (
-          <a href="/reports" data-tour="menu-reports" onClick={(event) => onNavClick(event, "/reports")}>{t("nav.reports")}<NewBadge section="reports" /></a>
-        )}
-        {opens("/files") && (
-          <a href="/files" data-tour="menu-files" onClick={(event) => onNavClick(event, "/files")}>{t("nav.files")}<NewBadge section="files" /></a>
-        )}
-        {canViewVehicles && (
-          <a href="/vehicles" data-tour="menu-vehicles" onClick={(event) => onNavClick(event, "/vehicles")}>{t("nav.vehicles")}<NewBadge section="vehicles" /></a>
-        )}
-        {(canStored("sports.view") || canStored("sports.coach") || canStored("sports.manage")) && (
-          <a href="/sports" data-tour="menu-sports" onClick={(event) => onNavClick(event, "/sports")}>{t("nav.sports")}</a>
-        )}
-      </nav>
+      <NavigationMenu mobile={isMobile} open={menuOpen} onClose={() => setMenuOpen(false)} onNav={onNavClick}
+        program={(opens("/lessons") || opens("/calendar")) ? { path: opens("/lessons") ? "/lessons" : "/calendar", label: t("nav.lessons"), tour: "menu-lessons", badge: "lessons" } : null}
+        groups={[
+          { id: "daily", label: "العمل اليومي", items: [
+            { path: "/weekly-tasks", label: "المهمات الأسبوعية", tour: "menu-weekly-tasks" },
+            opens("/sports") && { path: "/sports", label: t("nav.sports"), tour: "menu-sports" },
+          ] },
+          { id: "people", label: "الأعضاء والطاقم", items: [
+            canViewStudents && { path: "/students", label: t("nav.students"), tour: "menu-students", badge: "students" },
+            canViewUsers && { path: "/users", label: "طاقم الجمعية", tour: "menu-users", badge: "users" },
+          ] },
+          { id: "followup", label: "المتابعة", items: [
+            opens("/reports") && { path: "/reports", label: t("nav.reports"), tour: "menu-reports", badge: "reports" },
+            canViewNotices && { path: "/notices", label: t("nav.notices"), tour: "menu-notices", badge: "notices" },
+          ] },
+          { id: "resources", label: "الموارد", items: [
+            opens("/files") && { path: "/files", label: t("nav.files"), tour: "menu-files", badge: "files" },
+            canViewVehicles && { path: "/vehicles", label: t("nav.vehicles"), tour: "menu-vehicles", badge: "vehicles" },
+          ] },
+        ].map((group) => ({ ...group, items: group.items.filter(Boolean) })).filter((group) => group.items.length)}
+      />
     </header>
   );
 }

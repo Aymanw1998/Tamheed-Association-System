@@ -56,6 +56,8 @@ const PUBLIC_ROUTES = {
   // with a single-use 60 s ticket from POST /ticket, and the handler re-loads
   // the user (active, not locked) exactly as loadActor does before streaming.
   "Live/Live.route.js": ["GET /stream"],
+  // Only the signed-in user's own tasks (services/weeklyTasks).
+  "WeeklyTask/WeeklyTask.route.js": ["GET /me", "POST /me/praise-seen", "POST /me/:taskId"],
   // Student sport site (sign-in, me, photo): its own cookie and requireSportStudent, never staff auth.
   "SportPortal/SportPortal.route.js": ["POST /request-code", "POST /verify", "POST /card", "POST /passkey/login-options", "POST /passkey/login", "POST /passkey/register-options", "POST /passkey/register", "POST /logout", "GET /me", "GET /photo", "GET /id", "GET /notices", "GET /live", "POST /push/subscribe", "DELETE /push/subscribe"],
   // IT site sign-in: IT_HOST only (router.use(requireItHost)), its own cookie, never staff auth.

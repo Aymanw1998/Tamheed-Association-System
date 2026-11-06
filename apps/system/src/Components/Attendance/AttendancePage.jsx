@@ -347,7 +347,7 @@ export default function AttendancePage() {
             <div className={styles.tabs} data-tour="calendar-tabs">
             <button className={`${styles.tabBtn} ${tab === "today" ? styles.tabActive : ""}`}
             onClick={() => doChange(setTab,"today")}>
-                دروس اليوم
+                برامج اليوم
             </button>
             <button className={`${styles.tabBtn} ${tab === "history" ? styles.tabActive : ""}`}
             data-tour="calendar-tab-history"
@@ -380,7 +380,7 @@ export default function AttendancePage() {
             {!(isMobile && mobileView === "sheet") && <div className={styles.left}>
             <div className={styles.leftHeader}>
                 <div className={styles.leftTitle}>
-                {tab === "today" ? "دروس اليوم - " + `${ymd(date)}` : "كل الدروس"}
+                {tab === "today" ? "برامج اليوم - " + `${ymd(date)}` : "كل البرامج"}
                 </div>
                 {loadingLeft && <div className={styles.small}>جارٍ تحميل البيانات…</div>}
             </div>
@@ -388,7 +388,7 @@ export default function AttendancePage() {
             <div className={styles.lessonList} data-tour="calendar-lessons">
                 <div className={styles.filterGroup}>
                     <label htmlFor="attendance-lesson-search">بحث: </label>
-                    <input id="attendance-lesson-search" data-tour="calendar-search" value={searchLesson} onChange={(e)=>setSearchLesson(e.target.value)} placeholder="اسم الدرس" />
+                    <input id="attendance-lesson-search" data-tour="calendar-search" value={searchLesson} onChange={(e)=>setSearchLesson(e.target.value)} placeholder="اسم البرنامج" />
                 </div>
                 {/* Scrolls after three lessons so the sheet stays in view. */}
                 <div className={styles.lessonScroll}>
@@ -407,7 +407,7 @@ export default function AttendancePage() {
                 </button>
                 ))}
                 {!loadingLeft && leftLessons.length === 0 && (
-                <div className={styles.empty}>{tab === "today" ? "لا توجد دروس في هذا اليوم" : "لا توجد دروس"}</div>
+                <div className={styles.empty}>{tab === "today" ? "لا توجد برامج في هذا اليوم" : "لا توجد برامج"}</div>
                 )}
                 </div>
             </div>
@@ -419,7 +419,7 @@ export default function AttendancePage() {
                 {loadingSheet && historyDates.length === 0 ? (
                     <div className={styles.small}>جارٍ تحميل البيانات…</div>
                 ) : historyDates.length === 0 ? (
-                    <div className={styles.empty}>لا يوجد حضور مسجّل لهذا الدرس بعد</div>
+                    <div className={styles.empty}>لا يوجد حضور مسجّل لهذا البرنامج بعد</div>
                 ) : (
                     <select
                     id="attendance-date"
@@ -447,7 +447,7 @@ export default function AttendancePage() {
             {isMobile && (
                 <div className={styles.mobileBar}>
                 <button type="button" className={styles.backBtn} onClick={backToLessons}>
-                    → الدروس
+                    → البرامج
                 </button>
                 {tab === "history" && selectedLesson && (
                     <button type="button" className={styles.changeDateBtn} onClick={() => setDateModalOpen(true)}>
@@ -458,13 +458,13 @@ export default function AttendancePage() {
             )}
             {!selectedLesson && (
                 <div className={styles.placeholder}>
-                {tab === "today" ? "اختر درسًا أولًا" : "اختر درسًا وتاريخًا أولًا"}
+                {tab === "today" ? "اختر برنامجًا أولًا" : "اختر برنامجًا وتاريخًا أولًا"}
                 </div>
             )}
 
             {selectedLesson && tab === "history" && !selectedHistoryDate && (
                 <div className={styles.placeholder}>
-                اختر تاريخًا للدرس: <b>{selectedLesson.name}</b>
+                اختر تاريخًا للبرنامج: <b>{selectedLesson.name}</b>
                 </div>
             )}
 
@@ -610,7 +610,7 @@ export default function AttendancePage() {
                 {loadingSheet && historyDates.length === 0 ? (
                 <div className={styles.small}>جارٍ تحميل البيانات…</div>
                 ) : historyDates.length === 0 ? (
-                <div className={styles.empty}>لا يوجد حضور مسجّل لهذا الدرس بعد</div>
+                <div className={styles.empty}>لا يوجد حضور مسجّل لهذا البرنامج بعد</div>
                 ) : (
                 <div className={styles.dateOptions}>
                     {historyDates.map((d) => (

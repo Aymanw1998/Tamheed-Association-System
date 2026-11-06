@@ -849,6 +849,8 @@ route("get", /^\/ai\/status$/, () => ok({ enabled: false }));
 route("get", /^\/ai\/conversations$/, () => ok({ result: [] }));
 
 // --- parent registration link (administrators)
+route("get", /^\/weekly-tasks\/me$/, () => ok({ week: "", tasks: [], praise: false }));
+route("get", /^\/weekly-tasks\/board$/, () => ok({ week: "", tasks: [], guides: [], assignments: [], statuses: [], lastWeek: [] }));
 route("get", /^\/inviteToken\/rules$/, () => ok({ rules: null }));
 route("post", /^\/inviteToken\/rules$/, () => ok({ rules: { version: 1, text: "" } }));
 route("get", /^\/inviteToken\/consent\//, () => ok({ consent: null }));

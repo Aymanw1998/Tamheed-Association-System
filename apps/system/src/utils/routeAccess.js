@@ -5,6 +5,7 @@ import { hasPermission } from "./permissionKeys";
 // menu and the page buttons offer; the server enforces its own rules.
 const RESTRICTED = [
   // The forms: only an admin edits by default (owner, 2026-11-01).
+  { pattern: /^\/weekly-tasks\/manage$/, key: "tasks.manage" },
   { pattern: /^\/users\/new$/, key: "users.create" },
   { pattern: /^\/users\/[^/]+\/edit$/, key: "users.edit" },
   { pattern: /^\/students\/[^/]+\/edit$/, key: "students.edit" },

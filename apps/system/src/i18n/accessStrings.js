@@ -3,8 +3,8 @@
 
 const modules = {
   ar: {
-    dashboard: "لوحة التحكم", calendar: "التقويم", students: "الطلاب", lessons: "الدروس",
-    attendance: "الحضور والغياب", reports: "التقارير", vehicles: "المركبات", files: "الملفات",
+    dashboard: "لوحة التحكم", calendar: "التقويم", students: "الطلاب", lessons: "البرامج",
+    attendance: "الحضور والغياب", tasks: "المهمات الأسبوعية", reports: "التقارير", vehicles: "المركبات", files: "الملفات",
     notices: "الإعلانات", users: "المستخدمون", ai: "المساعد الذكي", permissions: "الصلاحيات",
     audit: "سجل التغييرات", sports: "الرياضة", systemRecovery: "استعادة حساب النظام", storage: "التخزين",
   },
@@ -14,7 +14,7 @@ const modules = {
 const leaves = {
   ar: {
     view: "عرض", viewAll: "عرض الكل", create: "إضافة", edit: "تعديل", delete: "حذف",
-    photo: "الصورة", parentLink: "رابط تسجيل الأهل", roster: "قائمة طلاب الدرس", copyMonth: "نسخ شهر",
+    photo: "الصورة", parentLink: "رابط تسجيل الأهل", roster: "قائمة طلاب البرنامج", copyMonth: "نسخ شهر",
     record: "تسجيل", editOwn: "تعديل ما أنشأه", editAll: "تعديل الكل", exportPdf: "تصدير PDF",
     compliance: "الفحوصات والتأمين", documents: "المستندات", archive: "أرشفة",
     use: "استخدام", manageAll: "إدارة كل الملفات", post: "نشر", runCheck: "تشغيل الفحص",

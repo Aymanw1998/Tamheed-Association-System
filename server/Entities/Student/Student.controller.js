@@ -38,6 +38,12 @@ const hasValue = (v) => v !== undefined && v !== null && v !== "";
 // Only a students.viewAll holder sets or changes main_teacher; for
 // anyone else the field is ignored (not validated, not written).
 const mayAssignInstructor = (actor) => can(actor, "students.viewAll");
+const WAITING_STATUS = "ينتظر";
+const GUIDE_REQUIRED = { ok: false, code: "GUIDE_REQUIRED", message: "يجب اختيار المرشد المسؤول." };
+// A guide's educational lesson follows his students (services/educationalLesson). Never fatal.
+const moveInEducationalLesson = (studentId, from, to) => Promise.resolve()
+  .then(() => require("../../services/educationalLesson").educationalLessons().moveStudent(String(studentId), from, to))
+  .catch((err) => logWithSource("Student.moveInEducationalLesson", err));
 // Parent-registration requests wait with this status until staff approve them.
 const PENDING_STATUS = "ينتظر";
 
@@ -231,6 +237,7 @@ const getOneS = async (req, res) => {
 
 // POST /api/students
 const postS = async (req, res) => {
+  let releasePrograms = async () => {};
   try {
     const model = buildData(req.body);
     const assigns = mayAssignInstructor(req.actor);
@@ -256,6 +263,10 @@ const postS = async (req, res) => {
       return res.status(400).json(INVALID_INSTRUCTOR);
     }
 
+    if (assigns && !hasValue(model.main_teacher) && model.status !== WAITING_STATUS) {
+      return res.status(400).json(GUIDE_REQUIRED);
+    }
+
     const exists = await StudentModelDef.get({ tz: model.tz });
     if (exists?.result?.length) {
       return res.status(409).json({
@@ -264,12 +275,16 @@ const postS = async (req, res) => {
       });
     }
 
+    if (model.main_teacher && model.status !== WAITING_STATUS) {
+      releasePrograms = await require("../../services/educationalLesson").educationalLessons().holdForStudentChange(null, model.main_teacher, req);
+    }
     const created = await StudentModelDef.create({
       ...model,
       createdAt: new Date(),
     });
     await recordStudent(req, "create", null, created?.result || model);
     notifyChange("student", created?.result?._id);
+    if (model.main_teacher && model.status !== WAITING_STATUS) await moveInEducationalLesson(created?.result?._id, null, model.main_teacher);
 
     await safeNotify({
       toRoles: ["ادارة"],
@@ -286,6 +301,7 @@ const postS = async (req, res) => {
       created,
     });
   } catch (err) {
+    if (err.status === 423) return res.status(423).json({ ok: false, code: "LOCKED", holder: err.holder, message: err.message });
     // The unique tz index refused a save of the same moment (utils/tzUnique).
     if (isDuplicateKey(err)) return res.status(409).json({ ok: false, code: "TZ_EXISTS", message: "الطالب مسجّل مسبقًا" });
     logWithSource("Student.postS", err);
@@ -293,11 +309,12 @@ const postS = async (req, res) => {
       ok: false,
       message: err.message,
     });
-  }
+  } finally { await releasePrograms(); }
 };
 
 // PUT /api/students/:tz
 const putS = async (req, res) => {
+  let releasePrograms = async () => {};
   try {
     const tz = String(req.params.tz ?? "").trim();
 
@@ -339,10 +356,22 @@ const putS = async (req, res) => {
       }
     }
 
+    // Approving a request names its responsible guide; one who may not name a guide takes it himself.
+    const before = existing.result[0];
+    const approving = before.status === WAITING_STATUS && hasValue(body.status) && body.status !== WAITING_STATUS;
+    if (approving && !hasValue(newData.main_teacher ?? before.main_teacher)) {
+      if (assigns || req.actor?.id == null) return res.status(400).json(GUIDE_REQUIRED);
+      newData.main_teacher = String(req.actor.id);
+    }
+
     const stale = checkVersion(existing.result[0], req);
     if (stale) return res.status(409).json(stale);
     newData.updatedAt = new Date();
     Object.assign(newData, editorStamp(req));
+    const guideNow = "main_teacher" in newData ? newData.main_teacher : before.main_teacher;
+    const statusNow = newData.status ?? before.status;
+    const movesProgram = statusNow !== WAITING_STATUS && (approving || String(guideNow ?? "") !== String(before.main_teacher ?? ""));
+    if (movesProgram) releasePrograms = await require("../../services/educationalLesson").educationalLessons().holdForStudentChange(before.main_teacher, guideNow, req);
     // Written only if nobody saved since the student was read.
     const studentId = String(existing.result[0]._id);
     const updated = await StudentModelDef.updateExisting(
@@ -352,6 +381,9 @@ const putS = async (req, res) => {
     if (!updated?.result) return res.status(409).json(await raceLost(() => StudentModelDef.get({ _id: studentId })));
     await recordStudent(req, "update", existing.result[0], { ...existing.result[0], ...newData });
     notifyChange("student", existing.result[0]._id);
+    if (movesProgram) {
+      await moveInEducationalLesson(before._id, before.main_teacher, guideNow);
+    }
     // A football player's name or photo shows on his own sport screen (a no-op when nobody listens).
     liveHub.toStudents([existing.result[0]._id], "me");
     if ("photo" in newData) {
@@ -374,13 +406,14 @@ const putS = async (req, res) => {
       updated,
     });
   } catch (err) {
+    if (err.status === 423) return res.status(423).json({ ok: false, code: "LOCKED", holder: err.holder, message: err.message });
     if (isDuplicateKey(err)) return res.status(409).json({ ok: false, code: "TZ_EXISTS", message: "الطالب مسجّل مسبقًا" });
     logWithSource("Student.putS", err);
     return res.status(500).json({
       ok: false,
       message: err.message,
     });
-  }
+  } finally { await releasePrograms(); }
 };
 
 // DELETE /api/students/:tz

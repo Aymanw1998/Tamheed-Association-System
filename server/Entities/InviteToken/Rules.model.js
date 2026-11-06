@@ -20,7 +20,11 @@ ConsentModelDef.get = async function (filter = {}) {
   return await api.read({ dbName: this.dbName, collection: this.collection, filter });
 };
 ConsentModelDef.create = async function (data) {
+  await ensureConsentIndexes();
   return await api.create({ dbName: this.dbName, collection: this.collection, data });
+};
+ConsentModelDef.updateExisting = async function (filter, newData) {
+  return await api.updateExisting({ dbName: this.dbName, collection: this.collection, filter, newData });
 };
 ConsentModelDef.delete = async function (filter) {
   return await api.delete({ dbName: this.dbName, collection: this.collection, filter });
@@ -28,9 +32,19 @@ ConsentModelDef.delete = async function (filter) {
 
 // Two publishes at once cannot both take the same version.
 const RULES_INDEXES = [{ key: { version: 1 }, options: { unique: true } }];
+const CONSENT_INDEXES = [{ key: { studentId: 1 }, options: { unique: true } }];
+let consentIndexReady;
+function ensureConsentIndexes() {
+  if (!consentIndexReady) {
+    const { ensureIndexes, collectionOf } = require("../../utils/ensureIndexes");
+    consentIndexReady = ensureIndexes(collectionOf(ConsentModelDef), CONSENT_INDEXES)
+      .catch((error) => { consentIndexReady = null; throw error; });
+  }
+  return consentIndexReady;
+}
 async function ensureRulesIndexes() {
   const { ensureIndexes, collectionOf } = require("../../utils/ensureIndexes");
   await ensureIndexes(collectionOf(RulesModelDef), RULES_INDEXES);
 }
 
-module.exports = { RulesModelDef, ConsentModelDef, RULES_INDEXES, ensureRulesIndexes };
+module.exports = { RulesModelDef, ConsentModelDef, RULES_INDEXES, CONSENT_INDEXES, ensureRulesIndexes, ensureConsentIndexes };

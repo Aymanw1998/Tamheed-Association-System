@@ -45,8 +45,8 @@ const NAV_CHAPTER = {
   route: "/students",
   requires: null,
   steps: [
-    { target: null, mood: "explain", title: "أذهب إلى الدروس", body: "نص", action: { type: "navigate", path: "/lessons" } },
-    { target: null, mood: "explain", title: "في الدروس", body: "نص" },
+    { target: null, mood: "explain", title: "أذهب إلى البرامج", body: "نص", action: { type: "navigate", path: "/lessons" } },
+    { target: null, mood: "explain", title: "في البرامج", body: "نص" },
   ],
 };
 const MISSING_CHAPTER = {
@@ -334,7 +334,7 @@ test("a page the engine opens itself does not pause the journey", async () => {
   });
   expect(path).toBe("/lessons");
   expect(api.running).toBe(true);
-  expect(container.querySelector("h3").textContent).toBe("في الدروس");
+  expect(container.querySelector("h3").textContent).toBe("في البرامج");
 });
 
 test("a chapter none of whose targets showed is not saved as done", async () => {

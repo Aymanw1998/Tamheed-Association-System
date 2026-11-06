@@ -24,7 +24,7 @@ const translations = {
       attendance: "الحضور والغياب",
       students: "الطلاب",
       users: "المستخدمون",
-      lessons: "الدروس",
+      lessons: "البرنامج",
       reports: "التقارير",
       files: "الملفات",
       profile: "الملف الشخصي",

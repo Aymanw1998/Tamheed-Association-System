@@ -4523,3 +4523,470 @@ between installed apps need a phone and the server. Needs `SYSTEM_HOST` on deplo
 **Verification:** System 1041 passed and built. Local run on a throwaway database with made-up reports: secondary title, writer and one-day range each narrowed the list. Not checked on a phone.
 
 **Codex review:** pending. **Status:** committed on branch `reports-filter`, not pushed.
+
+### Independent Codex review of Claude's recent work (2026-11-06)
+
+**Owner request:** Scan the code implemented by Claude Code and Claude's notes
+for errors. **Roles/scope:** Claude remains the application implementer; Codex
+is the independent reviewer. Reviewed HEAD `f33f475`, recent pending handoffs,
+and existing uncommitted weekly-task / educational-lesson / student-guide work.
+Codex owns only the new review artifacts and this appended log entry; existing
+application and test edits were preserved. Verification plan: inspect actual
+callers and actor/data contracts, reproduce concrete failures with isolated
+stand-ins, run `npm run verify`, the additional site suites/builds and syntax checks.
+
+**Reviewer response:** Four behavioral defects reproduced: (R1, P1) automatic
+update pathname detection forgets input already entered after navigation, in
+System and Sport; (R2, P1) concurrent educational-lesson enrolments overwrite one
+another; (R3, P2) a partial later-consent save leaves `consentAt` absent and retry
+blocked by `ALREADY_SIGNED`; (R4, P2) staff attribution reads nonexistent actor
+fields and is empty. R5 (P2): two regression checks were not aligned with the
+weekly-task integration. The server route has a real permission guard, but the
+static check cannot recognize its alias; the Header test misses the new link.
+These last failures are not reported as an authorization bypass.
+
+Evidence, locations, failure scenarios and suggested resolutions:
+[review](reviews/2026-11-06-codex-review.md). Repeat the isolated reproductions
+with `node docs/reviews/2026-11-06-repros.cjs`. They assert observed bugs, not
+corrected behavior. No application fixes made in this review.
+
+**Verification:** Final `npm run verify` with Git Bash on PATH: server 1,438
+passed / 1 failed (`route-guards`); the command therefore stops before its client
+steps. Independently: System 1,045 passed / 1 failed (`Header`, 117 suites);
+IT 78 passed; Sport 102 passed. All three production builds passed. All 313
+server JavaScript files passed `node --check`; `git diff --check` passed.
+Initial Windows Bash/WSL environment failures were separated from code failures:
+the deployment/open-items tests passed 29/29 with Git Bash. No production, real
+database, external service, actual phone or deployment was exercised, and no
+data-clearing, seed, migration or administrator-creation command was run.
+
+**Handoff/resolution:** This is the actual Codex response to the pending Claude
+implementation reviews, available locally in the linked report. Claude's response
+to these findings and implementation fixes are pending; no agreement is claimed.
+No recursive reviewer or unrelated Claude session was invoked. No commit, push
+or deployment was made. Earlier log claims of passing suites describe earlier
+snapshots and do not establish that the current uncommitted integration passes.
+
+### Follow-up: recovered owner decisions for items 9–16 (2026-11-06)
+
+**Request/context:** Owner supplied the last Claude exchange and asked Codex to
+check it against the implementation. Confirmed decisions: attendance tabs; one
+educational lesson per responsible guide, including management; retain existing
+unassigned students; group = guide and students; reset Saturday night; a guide's
+own completion counts; congratulate only finishers; report-filter commit without
+push; do not present the association checklist. Claude reported reaching its
+weekly usage limit during implementation. This is owner-supplied availability
+information, not a fresh CLI response.
+
+**Review response:** Much of the UI was actually saved before interruption:
+management/display pages, dashboard card, menu, bell hooks and praise dialog.
+Report filters already have commit `f33f475`; subsequent feature work remains
+uncommitted. Local `master`/cached `origin/master` are at `fe3eebd` (no remote
+verification). Attendance's old URL renders the new tabbed wrapper directly.
+Tasks are on a separate display page; if the owner meant the lesson's record
+page, that integration is missing. The full mapping and evidence were appended
+to [the review](reviews/2026-11-06-codex-review.md).
+
+**New finding R6, P2:** The next-login praise only reads the immediately preceding
+week. An earned unseen congratulation is lost if the guide returns more than a
+week later. Reproduced with the real weekly-task service and an in-memory clock;
+added to `docs/reviews/2026-11-06-repros.cjs`. The previously found defects and
+two suite failures remain open; the recovered conversation does not resolve them.
+
+**Verification:** Focused server suites passed 26/26 (weekly tasks, educational
+lessons, grades); weekly-task display and report-filter client suites passed
+12/12. No application code, real data, commits, pushes or deployment changed.
+Claude remains implementer, Codex reviewer; corrections and Claude's response
+remain pending. No checklist was presented to the association.
+
+### Weekly-task completion, reminders and management greetings — work started 2026-11-06
+
+Owner clarified that weekly tasks have their own display page for every group
+owner (guide, manager or assistant). All management members currently manage the
+tasks through the display/manage pages. Add editable greetings, default
+`بارك الله فيكم على مجهودكم`, sent explicitly to selected owners through their
+inbox and private email where available. Owner answered: greetings may go to
+selected owners even before completion; close an unfinished week with a warning,
+do not carry its tasks forward as debts; login reminders cover the current week.
+
+Codex now owns implementation of weekly-task service/models/routes, related
+alerts/email, weekly-task client components/services and their tests, plus the
+two weekly-task integration check corrections. Existing unrelated Claude changes
+stay intact. Actual Claude Code is the requested independent reviewer; the owner
+reported its weekly quota exhausted, so review availability will be checked and
+any blocked handoff recorded. Verification: isolated lifecycle, role/ownership,
+recipient and delivery tests, UI behavior tests, `npm run verify`; no real email,
+database changes, seed, migration, deployment or push as tests.
+
+**Implementation completed locally:** The weekly display remains available to
+every assigned owner, independent of role; management defaults retain
+`tasks.manage` and explicit revokes still apply. The management page now opens a
+recipient picker and editable greeting with the requested Arabic default. Its
+explicit Send writes a private inbox alert and attempts plain-text email to each
+selected owner's existing personal mailbox, even before task completion. Results
+distinguish sent, missing email, failed email and a delivery still in progress;
+HTTP retries reuse per-recipient durable receipts instead of sending twice.
+Unique indexes protect assignments, week statuses, summaries and greeting
+receipts. Receipt/status writes require the indexes to exist, so a startup index
+failure does not silently disable their safeguards. No indexes were executed
+against real data during development.
+
+An unfinished closed week now produces an important inbox warning, with retries
+if writing the alert fails. Its tasks are not carried as overdue debts. Every
+signed-in layout entry checks current-week unfinished tasks and opens a dismissible
+reminder with a link to the display page; completing all current tasks suppresses
+that reminder. A stale page's completion/approval request is rejected by its
+week key rather than being applied to the next week. Previously earned praise
+remains available beyond the immediately following week and is acknowledged by
+the exact owner/week. Weekly-task route guard and Header regression failures
+from R5 are corrected. R1–R4 from the earlier broader review remain separate,
+unfixed work; they were not included in this weekly-task request.
+
+**Verification:** `npm run verify` with Git Bash passed: 1,451 server tests,
+1,052 System tests (119 suites), optimized System build. A final model safeguard
+was then verified with 3/3 additional isolated tests (index failure prevents a
+send claim; a duplicate returns the existing receipt; index setup is cached).
+Focused checks also cover owner/role isolation, management permission revocation,
+unfinished-week warning and retry, no inherited debt, late-page submission,
+delayed praise, selected recipients before completion, concurrent request retry,
+email failure/missing-address reporting, exact plain-text email contents and
+login reminders across remounts. Changed server syntax and `git diff --check`
+passed. No real mail, database, browser/phone flow or deployment was tested.
+
+**Actual Claude request and response:** Requested read-only review of an explicit
+source/test packet, with tools, MCP and session persistence disabled. Restricted
+invocation produced no response and was stopped. The permitted network-enabled
+invocation returned: `You've hit your weekly limit · resets Nov 8, 4pm
+(Asia/Jerusalem)`. There are no peer findings or agreement. The request is at
+[weekly Claude request](reviews/2026-11-06-weekly-claude-request.md), and the actual
+response at [weekly Claude response](reviews/2026-11-06-weekly-claude-response.txt).
+The packet is refreshed to final source for the pending review. No credentials,
+environment files, runtime logs or user records are included. Peer review and
+live SMTP/device verification remain pending; no commit, push or deployment.
+
+### Lesson-based weekly tasks and personal-first display — started 2026-11-06
+
+Owner clarified that the photo is an example of tasks and completion only: do
+not add daily deadlines. A group is a separate lesson; an owner sees the tasks
+from all their lessons together. Completed tasks move to the bottom. A manager
+starts with personal tasks and explicitly opens association tasks, then Update
+opens the assignment/editing page. Assignments persist until management releases
+or rearranges them; the new week resets completion only. Codex owns the weekly
+service/model/routes, task UI/services and focused tests. Actual Claude remains
+independent reviewer; its current weekly-quota response is already recorded.
+Preserve unrelated work and existing legacy records; do not infer lesson
+assignments from old owner-only assignments. Verify isolation of two lessons of
+one owner, teacher/helper access, stable assignments, week closure, UI navigation
+and completion order, then `npm run verify`. No real database/email/deployment.
+
+**Implemented:** Assignment and completion identity is now task + lesson, with
+the week added for completion. Personal responses combine every lesson where
+the active caller is teacher/helper; access follows the lesson's current staff,
+independent of role. The same task on two lessons has two independent controls;
+completed tasks sort below unfinished ones. Management starts in personal view,
+uses `عرض مهمات الجمعية` to open the association register, then its update button
+opens distribution/editing. The assignment screen lists actual lesson names and
+their responsible staff, with per-lesson add/remove. Assignment rows persist
+across weeks; only weekly statuses reset, without automatically rearranging the
+groups. The existing end-of-week warnings, private reminders and greeting
+recipients now derive from lesson staff (recipients deduplicated per person).
+
+Legacy owner-only assignment/status/summary collections are preserved, not
+reinterpreted as lesson IDs. Lesson-based rows use separate collections and
+unique indexes; task definitions and greeting receipts are preserved. No data
+conversion, deletion or real database command was executed. If legacy assignments
+were entered in a running environment, management must distribute those task
+definitions to the intended lessons explicitly.
+
+**Verification:** `npm run verify` passed with Git Bash: 1,457 server tests,
+1,054 System tests (120 suites), production build. Focused tests verified two
+lessons of one owner, independent completion of the same task, current helper
+access and former/unrelated staff denial, completed-last order, assignment
+persistence at week rollover, selective release, personal-first manager view,
+association/update navigation and per-lesson distribution UI. Changed server
+syntax and `git diff --check` passed. No live email/browser/device/DB/deployment
+check. No commit or push.
+
+**Peer handoff:** Updated the explicit review packet with the final lesson-based
+implementation. Actual Claude remains unavailable under its recorded weekly
+quota until Nov 8, 16:00 Asia/Jerusalem; the prior actual response is retained.
+No new response or approval is claimed. This change's peer review is pending,
+as are R1–R4 from the earlier unrelated review.
+
+### Program terminology — started 2026-11-06
+
+Owner requested `درس` → `البرنامج` and `برنامج الدروس` → `برنامج الأسبوع`.
+Codex owns Arabic UI wording and corresponding existing test expectations in
+System, plus the weekly-task service's user-visible group error/fallback wording.
+Use grammatical program/programs variants in sentences, with `البرنامج` as the
+navigation label and `برنامج الأسبوع` for the weekly schedule. Preserve code
+identifiers, routes, permissions and stored records. Actual Claude remains the
+independent reviewer, pending under its recorded quota. Verification: inspect
+the wording diff, existing regression suites and build with `npm run verify`.
+The earlier navigation-group/back-forward proposal is not implemented by this
+terminology-only request.
+
+**Completed locally:** Navigation now says `البرنامج`; the schedule title and
+its tab say `برنامج الأسبوع`. Related Arabic headings, form labels, confirmations,
+attendance/roster text, record labels, guidance/demo content and existing test
+expectations use grammatical program/programs wording. School/study words and
+Latin code identifiers remain intact. Also updated the two educational-program
+server messages and weekly-group fallback/error wording. No stored records or
+routes changed. `npm run verify` passed: 1,457 server, 1,054 System tests, System
+build; `git diff --check` passed. No commit, push or deployment. Claude peer
+review remains pending under the actual quota response already recorded.
+
+**Preview requested during implementation:** Owner asked to see the proposed
+navigation. Created two local interactive mockups (grouped right sidebar and
+grouped top navigation) in the thread visualization directory, with `البرنامج`
+first, `برنامج الأسبوع`, history arrows and program/detail/edit/task navigation.
+Both variants' JavaScript and primary navigation were exercised using isolated
+JSDOM; no browser rendering or real application navigation was claimed. These
+are proposals only; the application navigation layout/back-forward behavior is
+not yet changed.
+
+### Program hours 13:00–22:00 — started 2026-11-06
+
+Owner requested a more compact desktop weekly schedule covering 13:00–22:00,
+with creation and editing refusing hours outside that range. Codex owns the
+program controller time validation, System schedule/form geometry and validation,
+plus focused behavioral tests/fixture alignment. Actual Claude remains reviewer,
+pending under its recorded quota. Retain legacy out-of-range records visibly in
+a separate list, without changing stored times; reject their invalid times on
+form save until corrected. Validate drag rescheduling as well. Verify isolated
+create/edit boundaries and rendering geometry, then `npm run verify`; no real DB.
+
+**Implemented:** Create/edit endpoints reject a program starting before 13:00,
+ending after 22:00, ending at/before its start, or using malformed/noninteger/null
+times; they do not clamp a bad payload into a valid one. Partial date updates
+merge with the existing schedule before validation. The form opens new programs
+at 13:00 by default, bounds grid-derived start values, labels the operating hours,
+limits native time inputs and refuses invalid saves with an Arabic message.
+Existing duration input behavior is retained. A legacy out-of-hours record can
+still be read, but its schedule must be corrected before a full form save.
+
+Weekly and room-based desktop timelines now run 13:00–22:00 in a responsive
+360–540px time area instead of the old 960px area. Columns/gaps and block padding
+are reduced; hour marks, block placement and click/drop hit testing use the same
+scaled geometry. A drag that would push the program past 22:00 is refused,
+preserving duration. Legacy or sport entries outside the range remain accessible
+in a separately labeled list, and the mobile list retains every visible entry.
+Stored times were not changed. Authorization and filtering still apply to both
+the timeline and the outside-hours list.
+
+**Verification:** Final `npm run verify` with Git Bash passed: 1,468 server
+tests, 1,061 System tests (120 suites), optimized System build. Focused behavioral
+checks cover both endpoint boundaries and rejection without writes, malformed
+input, new-form defaults, refusal to save a legacy invalid form, hour labels,
+retained legacy entries and geometry at multiple desktop heights. Valid-time
+fixtures were shifted while preserving their conflict/overlap relationships.
+The full run also caught and corrected stale `دروسه` test expectations from the
+prior terminology change. Server syntax and scoped `git diff --check` passed.
+No real database/email/phone/production or browser layout verification; no commit,
+push or deployment.
+
+**Peer handoff:** Prepared [hours review request](reviews/2026-11-06-hours-claude-request.md)
+for actual Claude, currently unavailable under its recorded quota until Nov 8,
+16:00 Asia/Jerusalem. No new peer response/agreement is claimed. The local
+implementation is verified separately from the pending peer and live checks.
+
+### Grouped navigation and content history — started 2026-11-06
+
+Owner approved the proposed desktop top-menu groups, mobile hamburger drawer
+with expandable groups, direct first `البرنامج` link and content back/forward
+controls. Codex owns Header/menu components and CSS, the protected-layout history
+provider/toolbar and focused tests. Preserve user changes, account switching,
+permission checks, unsaved-edit confirmation and guidance anchors. Use native
+disclosure buttons, route-based active states, Escape/outside dismissal and
+mobile keyboard focus handling. History must be internal to the signed-in app,
+disable unavailable forward, preserve location/query state and avoid leaving
+the app on a direct entry. Actual Claude remains the requested independent
+reviewer; its recorded weekly quota currently blocks response. Verify behavioral
+navigation/access/history tests and `npm run verify`. No live data or deployment.
+
+**Implemented locally:** A first direct `البرنامج` shortcut is followed by
+desktop disclosure groups: daily work, members/staff, follow-up and resources.
+Only permitted links are rendered; groups with no links are omitted. Staff is
+labeled `طاقم الجمعية`; notices are now reachable from Follow-up. Current page
+and its group are indicated. Desktop groups open by click/ArrowDown, close by
+Escape/outside click or focus leaving. Account, install, logout and IT switching
+stay in their existing account menu.
+
+On mobile the hamburger opens a right-side drawer with one expandable group at
+a time; the current group opens on entry. Selecting a link or Escape closes it,
+body scrolling is restored and focus returns to the hamburger. The drawer has
+a labeled close control, modal semantics, keyboard focus wrapping, a scrollable
+height and a width capped at 90vw. The header's stacking level rises while open
+so existing floating app controls do not cover the drawer.
+
+The protected content now has RTL back/forward buttons using the known history
+within this signed-in layout. Forward is disabled without a known allowed
+destination. Direct entries use an allowed internal parent instead of the
+browser's external referrer. Navigation preserves route/query/state and restores
+saved document scrolling on POP, waiting for asynchronous list growth and
+canceling restoration if the person interacts. Unsaved changes are confirmed
+before toolbar navigation; report forms and weekly-task management now also
+participate in the existing conservative leave guard. Management task drafts
+report actual dirty state. This does not add a blocker to the browser's own
+native Back button. Non-URL component filters are not newly persisted by this
+history control. Guided-tour target resolution reveals grouped navigation
+ancestors using the existing marked tour-event convention.
+
+**Verification:** Final `npm run verify` passed with Git Bash: 1,468 server
+tests, 1,074 System tests (122 suites), optimized System build. Focused checks
+cover first-link order, permission exclusions, empty groups, desktop dismissal
+and focus, phone navigation/close/focus return, direct-entry fallback, back and
+forward with query restoration, refusal to discard edits, branched/replaced
+history, delayed scroll restoration and cancellation, and guided-tour menu
+reveal. `git diff --check` passed. No real-device or browser layout check, real
+data, database/email activity, commit, push or deployment.
+
+**Peer review:** Prepared [navigation Claude request](reviews/2026-11-06-navigation-claude-request.md)
+with explicit source/tests only. Actual Claude's recorded weekly quota blocks
+its response until Nov 8, 16:00 Asia/Jerusalem; no new response or agreement is
+claimed. Local verification is complete; independent peer and real-device checks
+remain pending.
+
+### Default parent rules and deferred fixes — started 2026-11-06
+
+Owner asked for concrete examples of R2 (concurrent educational roster writes)
+and R3 (partially persisted later consent), and said repairs are not necessary
+now. Keep those fixes deferred; do not imply they disappeared. Owner also supplied
+four exact Arabic rules as an editable default. Codex owns the default text,
+RulesEditor integration and focused UI tests. Use the text as an unpublished
+draft when no version exists, never overwrite an existing published version;
+allow explicit restoration of the default and normal versioned publishing.
+Actual Claude review remains pending under its recorded quota. Verify default,
+existing/empty published text and edited publication, then `npm run verify`.
+Do not publish rules, alter consents or contact real parents during tests.
+
+**Completed locally:** Added the owner's four paragraphs verbatim as the
+RulesEditor draft default only when there is no published rules record. Existing
+published text, including an intentionally empty version, is retained. An
+explicit `استعادة النص الافتراضي` button restores the draft; management can
+edit and publish through the existing confirmation/versioning flow. Loading
+failure prevents editing/publishing an unknown prior version. No rules were
+published or stored consents changed. R2/R3 repairs remain deferred at the
+owner's request; the examples distinguish automatic concurrent enrolment after
+student approval from manual roster writes, and a partially persisted two-step
+later-consent save from an incomplete drawn signature.
+
+**Verification:** Five focused RulesEditor behavior tests passed. Full
+`npm run verify` with Git Bash passed: 1,468 server tests, 1,079 System tests
+(123 suites), optimized System build. Scoped `git diff --check` passed. No
+production, real database, parent communications, commit, push or deployment.
+
+**Peer handoff:** [Default-rules Claude request](reviews/2026-11-06-default-rules-claude-request.md)
+contains explicit source/tests only. Actual Claude remains unavailable under
+its recorded quota until Nov 8, 16:00 Asia/Jerusalem; independent review is
+pending, with no new response/agreement claimed.
+### Parent consent and program enrolment locks — started 2026-11-06
+
+Owner now requests consent as an integral default feature, published default
+rules, a link after the registration photo opening rules/agree/disagree and a
+signature/stamp canvas, and submission only after agreement. The final sentence
+allows the stamp later; implement agreement + guardian name as mandatory at
+intake, preserve unsigned status until the signature/stamp is completed on the
+student page. Existing signed evidence stays immutable. This supersedes the
+prior draft-only default and the deferral of directly affected R2/R3 paths.
+Owner also requests exclusive program enrolment with the other holder shown.
+Codex is sole implementer for the consent, roster-lock and educational enrolment
+paths and isolated behavioral tests. Actual Claude is independent reviewer;
+its previously returned weekly quota currently blocks review. Prepare an
+explicit handoff and record pending status. Verify acceptance enforcement,
+pending completion/retry, default version evidence, held-program rejection and
+concurrent roster preservation, then npm run verify. No real database, parent
+messages, live publication, commit, push or deployment.
+
+**Completed locally:** Default rules are now available as immutable built-in
+version 0 when no management version exists; management can edit/publish later
+versions and old signatures still show their exact version. An explicitly empty
+published version retains the existing intake-closed behavior. Parent registration
+now places `قوانين الجمعية` after the photo and opens an RTL, scrollable dialog
+with agreement/refusal, guardian name and a signature/stamp drawing canvas.
+Agreement and name are enforced in both UI and API. A missing stamp is allowed
+at intake, saved as agreement with acceptedAt and null signature/signedAt, and
+keeps Student.consentAt null so existing unsigned highlighting/filtering remain
+accurate. The protected student consent page shows it as incomplete and requires
+a valid stamp to complete it. Existing signed records cannot be overwritten;
+a retry after a failed student-marker write repairs that marker using the
+original evidence. Consent creation requires a cached unique student index;
+concurrent pending completion uses compare-and-set. Tests never created indexes
+on a real database. Staff attribution now uses the actual actor name field.
+
+The view-page add-student picker holds the lesson lock throughout searching and
+adding, displays the other holder and disables additions while blocked/lost.
+The surrounding edit form keeps ownership of its existing lock. Automatic
+educational enrolment locks affected old/new programs before writing the student;
+a blocked program returns 423 before student creation/approval. Acquired locks
+are sorted/deduplicated and released while preserving pre-existing tab locks.
+Educational roster deltas retry current data with monotonic version checks;
+manual roster add/remove and lesson edits also use monotonic compare-and-set
+writes. R2's reproduced concurrent overwrite and R3's reproduced unretryable
+partial-marker save are addressed in these bounded paths. This does not add
+multi-document transactions or a durable reconciliation queue for DB outages.
+
+**Verification:** Final `npm run verify` with Git Bash passed: 1,483 server
+tests, 1,086 System tests across 125 suites, optimized System production build.
+Focused coverage includes default version evidence after publication, refused
+agreement, pending stamp completion, immutable evidence during marker repair,
+concurrent completion conflict, unique-index failure, other-holder UI blocking,
+lock ownership/release, approval rejection before writes, concurrent automatic
+additions and stale manual roster writes. All seven changed production server
+files passed `node --check`; `git diff --check` passed. The first regression run
+exposed an old roster test fake missing updateExisting, corrected to model CAS.
+Full client runs also exposed CRA Jest 27's unsupported Router 7 ./dom export
+resolution. Test-only mapping to the installed package's declared CommonJS
+export and jsdom encoding globals fixed it; no dependency upgrade or production
+routing change was made. No real-device/browser layout, database, mail, live
+publication, commit, push or deployment was performed.
+
+**Actual peer request/response:** Requested a dedicated actual Claude review of
+[the explicit source/test packet](reviews/2026-11-06-consent-locks-claude-request.md).
+The initial bare invocation lacked authentication; the restricted-network
+invocation produced no response and was stopped. The permitted network-enabled
+invocation used restricted mode with tools, MCP and session persistence disabled
+and returned: `You've hit your weekly limit · resets Nov 8, 4pm (Asia/Jerusalem)`.
+[Actual Claude response](reviews/2026-11-06-consent-locks-claude-response.txt)
+is retained. There are no peer findings or agreement. The packet is refreshed
+with the final test-runner correction and checks for later independent review.
+Local implementation and verification are complete; actual Claude review and
+production/device verification remain pending.
+
+### Owner-authorized commit and push — 2026-11-06
+
+Owner now explicitly requests pushing the completed work, superseding the earlier
+commit-only/no-push instruction. Codex will commit the reviewed session changes
+on the current `weekly-tasks` branch and push that branch to `origin`, preserving
+all existing work. This includes the already committed reports filter and the
+completed weekly tasks, educational programs/attendance, navigation, schedule
+hours and parent-consent changes. Latest full verification remains 1,483 server
+and 1,086 System tests (125 suites), plus optimized System build, with no source
+changes since that passing run. Remote refs were fetched successfully before
+publication. Independent actual Claude review remains pending under its recorded
+weekly quota; no peer agreement or production/device verification is claimed.
+The authorized action publishes the Git branch; it does not deploy the server.
+
+Preparation check: only trailing whitespace/extra EOF blank lines in the review
+packets were normalized before commit. Application source and tests remain the
+same as the passing verify run. The staged patch is checked for whitespace and
+credential patterns before publication.
+
+**Publication fallback:** Native Git push could not authenticate: its credential
+helper waited for interaction, and a noninteractive retry reported that it could
+not read the GitHub username. The connected GitHub app confirms push permission
+for this repository. Publish the same committed file trees through its Git Data
+API instead, keeping the report-filter and feature changes in sequence. The API
+creates new commit metadata/SHAs; verify tree SHAs match the local commits, retain
+a local backup branch, fetch the published branch and align the current local
+branch only after exact tree equality. No force update of a remote branch or
+server deployment is authorized or needed.
+
+**Fallback response:** The connected GitHub account reports repository push
+permission, but creating a Git tree returned API 403 `Resource not accessible by
+integration`; account permission did not grant the integration write access.
+No remote branch was created or changed. Native Git also has no usable saved
+GitHub login in this execution context. Publication is pending user sign-in;
+all verified code is committed locally and a backup branch is retained. Removed
+the temporary source-transfer JSON/compressed files. No credentials or device
+sign-in codes are included in this review log or review payloads.

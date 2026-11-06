@@ -11,9 +11,9 @@ const when = (value) => {
 };
 
 // A student the association added: the parent signs here, on this device.
-function SignNow({ studentId, onSigned }) {
+function SignNow({ studentId, onSigned, signerName = "" }) {
   const [rules, setRules] = useState(undefined);
-  const [form, setForm] = useState({ accepted: false, signerName: "", signature: "" });
+  const [form, setForm] = useState({ accepted: false, signerName, signature: "" });
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -47,7 +47,7 @@ function SignNow({ studentId, onSigned }) {
       </label>
       <label htmlFor="consent-signer">اسم ولي الأمر:<RequiredMark /></label>
       <input id="consent-signer" maxLength={100} value={form.signerName} onChange={(event) => setForm((prev) => ({ ...prev, signerName: event.target.value }))} />
-      <label>توقيع ولي الأمر:<RequiredMark /></label>
+      <label>توقيع / ختم ولي الأمر:<RequiredMark /></label>
       <SignaturePad onChange={(signature) => setForm((prev) => ({ ...prev, signature }))} />
       <div><Button size="sm" loading={busy} onClick={submit}>حفظ التوقيع</Button></div>
     </div>
@@ -69,11 +69,13 @@ export default function ConsentView({ studentId }) {
 
   if (state.loading) return <div role="status">جارٍ التحميل…</div>;
   if (state.error) return <div role="alert">{state.error}</div>;
-  if (!state.consent) {
+  if (!state.consent?.signature) {
     return (
       <div style={{ display: "grid", gap: 8 }}>
-        <p style={{ margin: 0 }}>لا يوجد توقيع لهذا الطالب.</p>
-        <SignNow studentId={studentId} onSigned={load} />
+        <p style={{ margin: 0 }}>{state.consent
+          ? `وافق ولي الأمر ${state.consent.signerName} بتاريخ ${when(state.consent.acceptedAt)}. التوقيع/الختم مطلوب ولم يُستكمل بعد.`
+          : "لا يوجد توقيع لهذا الطالب. التوقيع/الختم مطلوب ويجب استكماله."}</p>
+        <SignNow studentId={studentId} signerName={state.consent?.signerName} onSigned={load} />
       </div>
     );
   }

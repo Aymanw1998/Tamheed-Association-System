@@ -48,14 +48,14 @@ afterEach(async () => { await act(async () => root.unmount()); host.remove(); lo
 
 test("a guide without any reports key sees no reports shortcut or card", async () => {
   await mount(["students.view", "lessons.view", "attendance.view"]);
-  expect(links()).toEqual(["الطلاب", "الدروس"]);
-  expect(cards()).toEqual(["الطلاب", "دروس اليوم"]);
+  expect(links()).toEqual(["الطلاب", "البرامج"]);
+  expect(cards()).toEqual(["الطلاب", "برامج اليوم"]);
 });
 
 test("any reports key brings the reports shortcut and card back", async () => {
   await mount(["students.view", "lessons.view", "reports.create"]);
-  expect(links()).toEqual(["الطلاب", "الدروس", "التقارير"]);
-  expect(cards()).toEqual(["الطلاب", "دروس اليوم", "التقارير"]);
+  expect(links()).toEqual(["الطلاب", "البرامج", "التقارير"]);
+  expect(cards()).toEqual(["الطلاب", "برامج اليوم", "التقارير"]);
 });
 
 test("without lessons.view the lessons shortcut, card and panel are gone", async () => {
@@ -67,5 +67,5 @@ test("without lessons.view the lessons shortcut, card and panel are gone", async
 
 test("without students.view the students card is gone", async () => {
   await mount(["lessons.view"]);
-  expect(cards()).toEqual(["دروس اليوم"]);
+  expect(cards()).toEqual(["برامج اليوم"]);
 });

@@ -18,6 +18,8 @@ export const EDIT_PATTERNS = [
   /^\/students\/(new|[^/]+\/edit)$/,
   /^\/users\/(new|[^/]+\/edit)$/,
   /^\/lessons\/(new|[^/]+\/edit)$/,
+  /^\/reports\/[^/]+$/,
+  /^\/weekly-tasks\/manage$/,
   /^\/vehicles\/(new|[^/]+)$/,
   /^\/subs\/(new|[^/]+)$/,
   /^\/selectSubfor\/[^/]+$/,

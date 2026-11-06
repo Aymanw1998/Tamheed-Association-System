@@ -46,7 +46,7 @@ function Probe() {
   return <p data-testid="at">{useLocation().pathname}</p>;
 }
 const at = () => host.querySelector('[data-testid="at"]').textContent;
-const navText = () => [...host.querySelectorAll("#main-nav a, #main-nav button")].map((el) => el.textContent.trim());
+const navText = () => [...host.querySelectorAll("#main-nav a")].map((el) => el.textContent.trim());
 const accountButton = () => host.querySelector('[data-testid="account-button"]');
 const accountMenu = () => host.querySelector('[data-testid="account-menu"]');
 const item = (label) => [...(accountMenu()?.querySelectorAll("a, button") || [])].find((el) => el.textContent.trim() === label);
@@ -62,7 +62,7 @@ afterEach(async () => { await act(async () => root.unmount()); host.remove(); })
 
 test("the menu has the pages only: no dashboard, profile, install or sign-out", async () => {
   await mount();
-  expect(navText()).toEqual(["الحضور والغياب", "المستخدمون", "الطلاب", "الدروس", "التقارير", "الملفات"]);
+  expect(navText()).toEqual(["البرنامج", "المهمات الأسبوعية", "الطلاب", "طاقم الجمعية", "التقارير", "الملفات"]);
 });
 
 test("the logo opens the dashboard", async () => {
@@ -122,7 +122,49 @@ test("sign-out is reachable before the user's details load", async () => {
 test("each page link follows its permission", async () => {
   mockPerms = ["students.view", "lessons.view"];
   await mount();
-  expect(navText()).toEqual(["الطلاب", "الدروس"]);
+  expect(navText()).toEqual(["البرنامج", "المهمات الأسبوعية", "الطلاب"]);
+});
+
+const groupButton = (name) => [...host.querySelectorAll('#main-nav button')].find((button) => button.textContent.includes(name));
+test("desktop groups open on click and ArrowDown, close on Escape/outside, and mark the active page", async () => {
+  await mount();
+  expect(host.querySelector('#main-nav a').textContent).toBe("البرنامج");
+  expect(host.querySelector('#main-nav a').getAttribute("aria-current")).toBe("page");
+  const people = groupButton("الأعضاء والطاقم");
+  await act(async () => people.click());
+  expect(people.getAttribute("aria-expanded")).toBe("true");
+  await act(async () => host.querySelector('a[href="/students"]').dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+  expect(people.getAttribute("aria-expanded")).toBe("false");
+  expect(document.activeElement).toBe(people);
+  await act(async () => people.click());
+  await act(async () => document.body.click());
+  expect(people.getAttribute("aria-expanded")).toBe("false");
+});
+test("mobile drawer expands groups, closes after navigation and returns focus to its toggle", async () => {
+  window.innerWidth = 375;
+  await mount();
+  const toggle = host.querySelector('[data-tour="menu-toggle"]');
+  toggle.focus();
+  await act(async () => toggle.click());
+  expect(host.querySelector('[role="dialog"]')).not.toBeNull();
+  expect(document.body.style.overflow).toBe("hidden");
+  await act(async () => groupButton("الأعضاء والطاقم").click());
+  await act(async () => host.querySelector('#main-nav a[href="/students"]').click());
+  expect(at()).toBe("/students");
+  expect(host.querySelector('[role="dialog"]')).toBeNull();
+  expect(document.activeElement).toBe(toggle);
+  await act(async () => toggle.click());
+  expect(groupButton("الأعضاء والطاقم").getAttribute("aria-expanded")).toBe("true");
+  await act(async () => host.querySelector('[role="dialog"]').dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+  expect(document.body.style.overflow).not.toBe("hidden");
+});
+test("groups with no permitted pages are absent", async () => {
+  mockPerms = [];
+  await mount();
+  expect(groupButton("الأعضاء والطاقم")).toBeUndefined();
+  expect(groupButton("المتابعة")).toBeUndefined();
+  expect(groupButton("الموارد")).toBeUndefined();
+  expect(navText()).toEqual(["المهمات الأسبوعية"]);
 });
 
 // The system account has no everyday role: its label is «النظام», not an assistant's.

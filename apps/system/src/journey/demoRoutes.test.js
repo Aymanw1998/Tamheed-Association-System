@@ -72,9 +72,9 @@ describe("one read and one write per entity", () => {
   test("lessons", () => {
     expect(call("get", "/lesson").data.lessons).toHaveLength(store.lessons.length);
     const id = store.lessons[0]._id;
-    const res = call("put", `/lesson/${id}`, { data: { name: "درس معدَّل" } });
-    expect(res.data.lesson.name).toBe("درس معدَّل");
-    expect(call("get", `/lesson/${id}`).data.lesson.name).toBe("درس معدَّل");
+    const res = call("put", `/lesson/${id}`, { data: { name: "برنامج معدَّل" } });
+    expect(res.data.lesson.name).toBe("برنامج معدَّل");
+    expect(call("get", `/lesson/${id}`).data.lesson.name).toBe("برنامج معدَّل");
   });
 
   test("attendance", () => {
@@ -196,7 +196,7 @@ describe("demo responses match service shapes", () => {
     defined(ok(await Lessons.getLessonsByQuery({ day: 1 })).lessons);
     const id = store.lessons[0]._id;
     defined(ok(await Lessons.getOneLesson(id)).lesson);
-    defined(ok(await Lessons.createLesson({ name: "درس", teacher: store.users[1]._id, room: "1", date: { day: 2, startMin: 600, endMin: 660 } }, { confirm: false })).lesson);
+    defined(ok(await Lessons.createLesson({ name: "برنامج", teacher: store.users[1]._id, room: "1", date: { day: 2, startMin: 600, endMin: 660 } }, { confirm: false })).lesson);
     defined(ok(await Lessons.updateLesson(id, { name: "ج" }, { confirm: false })).lesson);
     ok(await Lessons.addToList(id, { list_students: [store.students[5]._id] }));
     ok(await Lessons.removeFromList(id, [store.students[5]._id]));
@@ -316,9 +316,9 @@ describe("chapters 7-13: every save the guide makes succeeds in the demo store",
 
   test("files: the chunked upload endpoints are answered by the store", async () => {
     const file = new File(["demo"], "ملف-كبير.pdf", { type: "application/pdf" });
-    const res = await Storage.uploadLargeStorageFile(file, "مستندات الدروس (تجريبي)", "");
+    const res = await Storage.uploadLargeStorageFile(file, "مستندات البرامج (تجريبي)", "");
     expect(res.ok).toBe(true);
-    const folder = await Storage.getStorageEntries("مستندات الدروس (تجريبي)");
+    const folder = await Storage.getStorageEntries("مستندات البرامج (تجريبي)");
     expect(folder.files.some((f) => f.name === "ملف-كبير.pdf")).toBe(true);
     expect(store.uploads).toEqual({});
   });

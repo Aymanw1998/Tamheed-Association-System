@@ -78,8 +78,8 @@ S[1].main_teacher = GUIDE._id; // s2: the guide is responsible
 
 // L1: the guide teaches s1. L2: another guide's lesson with s3, s4. s5: nobody's.
 const LESSONS = () => [
-  { _id: "lesson-1", name: "Mine", teacher: GUIDE._id, helper: null, room: "1", date: { day: 2, startMin: 600, endMin: 645 }, list_students: [sid(1)] },
-  { _id: "lesson-2", name: "Theirs", teacher: OTHER._id, helper: null, room: "2", date: { day: 2, startMin: 600, endMin: 645 }, list_students: [sid(3), sid(4)] },
+  { _id: "lesson-1", name: "Mine", teacher: GUIDE._id, helper: null, room: "1", date: { day: 2, startMin: 840, endMin: 885 }, list_students: [sid(1)] },
+  { _id: "lesson-2", name: "Theirs", teacher: OTHER._id, helper: null, room: "2", date: { day: 2, startMin: 840, endMin: 885 }, list_students: [sid(3), sid(4)] },
 ];
 
 const reqAs = (user, extra = {}) => ({
@@ -87,7 +87,7 @@ const reqAs = (user, extra = {}) => ({
   actor: actorFor(user), params: {}, query: {}, body: {}, ...extra,
 });
 
-function world() {
+function world({ lockPrograms } = {}) {
   const students = createStore(S);
   const lessons = createStore(LESSONS());
   const users = createStore([ADMIN, GUIDE, OTHER, SYS]);
@@ -103,6 +103,7 @@ function world() {
   };
   const student = load("Student/Student.controller.js", {
     ...common,
+    "../../services/educationalLesson": { educationalLessons: () => require("../services/educationalLesson").createEducationalLessons({ lessons, students, lockPrograms }) },
     "./Student.model": { StudentModelDef: students },
     "../Lesson/Lesson.model": { LessonModelDef: lessons },
     "../User/User.model": { UserModelDef: users },
@@ -211,7 +212,10 @@ test("main_teacher must name an active, non-system user _id", async () => {
     assert.equal(w.students.all().at(-1).main_teacher, GUIDE._id);
 
     const none = await call(w.student.postS, reqAs(ADMIN, { body: { ...base, tz: "800000010" } }));
-    assert.equal(none.statusCode, 201, "no instructor is fine");
+    assert.equal(none.statusCode, 400, "a new student needs a responsible guide");
+    assert.equal(none.body.code, "GUIDE_REQUIRED");
+    const waiting = await call(w.student.postS, reqAs(ADMIN, { body: { ...base, tz: "800000010", status: "ينتظر" } }));
+    assert.equal(waiting.statusCode, 201, "a waiting request has none yet");
     assert.equal(w.students.all().at(-1).main_teacher, null);
 
     const put = await call(w.student.putS, reqAs(ADMIN, { params: { tz: S[4].tz }, body: { main_teacher: OTHER._id } }));
@@ -423,7 +427,7 @@ test("a scoped actor cannot make himself teacher or helper of a lesson he is not
   const own = await call(w.lesson.putOne, reqAs(GUIDE, { params: { id: "lesson-1" }, body: { helper: ADMIN._id } }));
   assert.equal(own.statusCode, 200);
   assert.equal(lessonById(w, "lesson-1").helper, ADMIN._id);
-  const admin = await call(w.lesson.putOne, reqAs(ADMIN, { params: { id: "lesson-2" }, body: { teacher: GUIDE._id, room: "7", date: { day: 6, startMin: 600, endMin: 645 } } }));
+  const admin = await call(w.lesson.putOne, reqAs(ADMIN, { params: { id: "lesson-2" }, body: { teacher: GUIDE._id, room: "7", date: { day: 6, startMin: 840, endMin: 885 } } }));
   assert.equal(admin.statusCode, 200);
   assert.equal(lessonById(w, "lesson-2").teacher, GUIDE._id);
 });
@@ -464,7 +468,7 @@ test("main_teacher is set only by a students.viewAll holder; otherwise it is ign
 test("a scoped postOne must name himself and keeps only existing, non-pending students", async () => {
   const w = world();
   w.students.all()[3].status = PENDING; // s4 is on the waiting list
-  const lesson = { name: "New", room: "9", date: { day: 3, startMin: 600, endMin: 645 } };
+  const lesson = { name: "New", room: "9", date: { day: 3, startMin: 840, endMin: 885 } };
   const res = await call(w.lesson.postOne, reqAs(GUIDE, { body: {
     ...lesson, teacher: GUIDE._id,
     // _ids: only visible ones count (s1); hidden s5/s4 and unknown ids are dropped.
@@ -476,15 +480,15 @@ test("a scoped postOne must name himself and keeps only existing, non-pending st
   assert.deepEqual(plain(w.lessons.all().at(-1).list_students), [sid(1), sid(5)]);
   assert.equal(w.lessons.all().at(-1).list_tz, undefined, "list_tz is not stored");
 
-  const asHelper = await call(w.lesson.postOne, reqAs(GUIDE, { body: { ...lesson, date: { day: 4, startMin: 600, endMin: 645 }, teacher: OTHER._id, helper: GUIDE._id } }));
+  const asHelper = await call(w.lesson.postOne, reqAs(GUIDE, { body: { ...lesson, date: { day: 4, startMin: 840, endMin: 885 }, teacher: OTHER._id, helper: GUIDE._id } }));
   assert.equal(asHelper.statusCode, 201);
 
   const count = w.lessons.all().length;
-  const forOther = await call(w.lesson.postOne, reqAs(GUIDE, { body: { ...lesson, date: { day: 5, startMin: 600, endMin: 645 }, teacher: OTHER._id } }));
+  const forOther = await call(w.lesson.postOne, reqAs(GUIDE, { body: { ...lesson, date: { day: 5, startMin: 840, endMin: 885 }, teacher: OTHER._id } }));
   assert.equal(forOther.statusCode, 403);
   assert.equal(w.lessons.all().length, count);
 
-  const admin = await call(w.lesson.postOne, reqAs(ADMIN, { body: { ...lesson, date: { day: 6, startMin: 600, endMin: 645 }, teacher: OTHER._id, list_students: ["anything"] } }));
+  const admin = await call(w.lesson.postOne, reqAs(ADMIN, { body: { ...lesson, date: { day: 6, startMin: 840, endMin: 885 }, teacher: OTHER._id, list_students: ["anything"] } }));
   assert.equal(admin.statusCode, 201);
   // An admin too stores only existing, accepted students (owner, 2026-11-01).
   assert.deepEqual(plain(w.lessons.all().at(-1).list_students), []);
@@ -610,7 +614,7 @@ test("list_tz is capped at 50 entries on addToList and postOne", async () => {
   assert.equal(okAdd.statusCode, 200);
 
   const before = w.lessons.all().length;
-  const lesson = { name: "Cap", room: "1", date: { day: 3, startMin: 600, endMin: 645 }, teacher: GUIDE._id };
+  const lesson = { name: "Cap", room: "1", date: { day: 3, startMin: 840, endMin: 885 }, teacher: GUIDE._id };
   const post = await call(w.lesson.postOne, reqAs(GUIDE, { body: { ...lesson, list_tz: tooMany } }));
   assert.equal(post.statusCode, 400);
   assert.equal(post.body.code, "TOO_MANY");
@@ -698,7 +702,7 @@ const duplicateKey = () => Object.assign(new Error("E11000 duplicate key error c
 test("a new student whose ID number was taken a moment ago gets 409 TZ_EXISTS", async () => {
   const w = world();
   w.students.create = async () => { throw duplicateKey(); };
-  const res = await call(w.student.postS, reqAs(ADMIN, { body: { tz: "800000020", firstname: "N", lastname: "Ew" } }));
+  const res = await call(w.student.postS, reqAs(ADMIN, { body: { status: "ينتظر", tz: "800000020", firstname: "N", lastname: "Ew" } }));
   assert.equal(res.statusCode, 409);
   assert.equal(res.body.code, "TZ_EXISTS");
 });
@@ -709,4 +713,53 @@ test("changing a student's ID number to one taken a moment ago gets 409 TZ_EXIST
   const res = await call(w.student.putS, reqAs(ADMIN, { params: { tz: S[0].tz }, body: { tz: "800000021" } }));
   assert.equal(res.statusCode, 409);
   assert.equal(res.body.code, "TZ_EXISTS");
+});
+
+
+test("a held educational program blocks student creation and approval before either record changes", async () => {
+  const holder = { name: "Program Holder", tz: "900000099" };
+  const lockPrograms = async (keys) => {
+    if (keys.includes("lesson:lesson-1")) throw Object.assign(new Error("program held"), { status: 423, holder });
+    return async () => {};
+  };
+  const w = world({ lockPrograms });
+  await w.lessons.updateExisting({ _id: "lesson-1" }, { kind: "educational" });
+  const count = w.students.all().length;
+  const created = await call(w.student.postS, reqAs(ADMIN, { body: { tz: "new-tz", firstname: "New", lastname: "Child", main_teacher: GUIDE._id } }));
+  assert.equal(created.statusCode, 423);
+  assert.deepEqual(plain(created.body.holder), holder);
+  assert.equal(w.students.all().length, count);
+  await w.students.updateExisting({ _id: sid(5) }, { status: "ينتظر" });
+  const accepted = await call(w.student.putS, reqAs(ADMIN, { params: { tz: S[4].tz }, body: { status: "عادي", main_teacher: GUIDE._id } }));
+  assert.equal(accepted.statusCode, 423);
+  assert.equal(w.students.all().find((s) => s._id === sid(5)).status, "ينتظر");
+  assert.deepEqual(w.lessons.all()[0].list_students, [sid(1)]);
+});
+
+test("successful approval enrols the student and releases its program lock", async () => {
+  let released = 0;
+  const keysHeld = [];
+  const w = world({ lockPrograms: async (keys) => { keysHeld.push(...keys); return async () => { released += 1; }; } });
+  await w.lessons.updateExisting({ _id: "lesson-1" }, { kind: "educational" });
+  await w.students.updateExisting({ _id: sid(5) }, { status: "ينتظر" });
+  const accepted = await call(w.student.putS, reqAs(ADMIN, { params: { tz: S[4].tz }, body: { status: "عادي", main_teacher: GUIDE._id } }));
+  assert.equal(accepted.statusCode, 200);
+  assert.ok(keysHeld.includes("lesson:lesson-1"));
+  assert.equal(released, 1);
+  assert.ok(w.lessons.all()[0].list_students.includes(sid(5)));
+});
+
+test("manual roster writes refuse a race instead of overwriting a new enrolment", async () => {
+  for (const action of ["addToList", "removeFromList"]) {
+    const w = world();
+    const original = w.lessons.updateExisting;
+    w.lessons.updateExisting = async (filter, patch) => {
+      await original({ _id: "lesson-1" }, { list_students: [sid(1), sid(5)], updatedAt: new Date("2026-11-06T12:00:00Z") });
+      return original(filter, patch);
+    };
+    const res = await call(w.lesson[action], reqAs(ADMIN, { params: { id: "lesson-1" }, body: { list_students: [action === "addToList" ? sid(3) : sid(1)] } }));
+    assert.equal(res.statusCode, 409, action);
+    assert.equal(res.body.code, "STALE", action);
+    assert.deepEqual(w.lessons.all()[0].list_students, [sid(1), sid(5)], action);
+  }
 });

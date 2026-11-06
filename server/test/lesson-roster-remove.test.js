@@ -34,7 +34,10 @@ test("an admin removing a student stored as an ObjectId really removes them", as
   const lessons = {
     dbName: "tamheed_db", collections: { active: "Lessons" },
     async get() { return { success: true, result: [{ ...stored, list_students: [...stored.list_students] }] }; },
-    async update(filter, patch) { stored = { ...stored, ...patch }; return { success: true, result: stored }; },
+    async updateExisting(filter, patch) {
+      if (String(stored._id) !== String(filter._id) || String(stored.updatedAt ?? null) !== String(filter.updatedAt)) return { success: true, result: null };
+      stored = { ...stored, ...patch }; return { success: true, result: stored };
+    },
   };
   const none = { async get() { return { success: true, result: [] }; } };
   const lesson = load("Lesson/Lesson.controller.js", {

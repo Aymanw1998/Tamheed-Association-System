@@ -10,7 +10,7 @@ const SECTIONS = {
   attendance: "الحضور والغياب",
   students: "الطلاب",
   users: "المستخدمون",
-  lessons: "الدروس",
+  lessons: "البرامج",
   reports: "التقارير",
   vehicles: "المركبات والمقطورات",
   files: "الملفات",

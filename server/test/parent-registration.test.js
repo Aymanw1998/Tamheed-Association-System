@@ -17,7 +17,7 @@ function createModel(records = [], extra = {}) {
   let nextId = 0;
   let docs = records.map((record) => ({ _id: `doc-${nextId++}`, ...record }));
   const matches = (doc, filter = {}) =>
-    Object.keys(filter).every((key) => String(doc[key]) === String(filter[key]));
+    Object.keys(filter).every((key) => filter[key] == null ? doc[key] == null : String(doc[key]) === String(filter[key]));
 
   return {
     ...extra,
@@ -38,8 +38,10 @@ function createModel(records = [], extra = {}) {
       return { success: true };
     },
     async updateExisting(filter, newData) {
-      docs = docs.map((doc) => (matches(doc, filter) ? { ...doc, ...newData } : doc));
-      return { success: true };
+      const index = docs.findIndex((doc) => matches(doc, filter));
+      if (index < 0) return { success: true, result: null };
+      docs[index] = { ...docs[index], ...newData };
+      return { success: true, result: { ...docs[index] } };
     },
     async delete(filter) {
       docs = docs.filter((doc) => !matches(doc, filter));
@@ -81,6 +83,7 @@ function loadController({ students = [], rules = [{ version: 1, text: "the rules
   };
   const controller = runInVm(path.join(__dirname, "../Entities/InviteToken/InviteToken.controller.js"), {
     crypto: require("node:crypto"),
+    "./defaultRules": require("../Entities/InviteToken/defaultRules"),
     "./InviteToken.model": { InviteTokenModelDef: models.links },
     "./Rules.model": { RulesModelDef: models.rules, ConsentModelDef: models.consents },
     "../../utils/grades": require("../utils/grades"),
@@ -428,8 +431,8 @@ test("a new parent request raises parent_registration; a known ID or a failing a
 const RULES = { version: 2, text: "the rules" };
 const SIGNED = { rulesVersion: "2", rulesAccepted: "true", signerName: "Parent", signature: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==" };
 
-test("with no rules published the link is closed and nothing can be sent", async () => {
-  for (const rules of [[], [{ version: 1, text: "" }]]) {
+test("an explicitly empty published version closes the link", async () => {
+  for (const rules of [[{ version: 1, text: "" }]]) {
     const ctrl = loadController({ rules });
     const token = await currentToken(ctrl);
     const open = (await call(ctrl.validateToken, { params: { token } })).body;
@@ -476,11 +479,11 @@ test("a parent's request counts as signed; a student the association added signs
   assert.equal((await call(ctrl.signConsent, { params: { studentId: "gone" }, body: { rulesVersion, rulesAccepted, signerName, signature } })).statusCode, 404);
 });
 
-test("the form gets the latest rules, and a request without a full signature stores nothing", async () => {
+test("the form gets the latest rules; missing approval/name and malformed stamps store nothing", async () => {
   const ctrl = loadController({ rules: [{ version: 1, text: "old" }, RULES] });
   const token = await currentToken(ctrl);
   assert.deepEqual(plain((await call(ctrl.validateToken, { params: { token } })).body.rules), RULES);
-  for (const missing of ["rulesAccepted", "signerName", "signature"]) {
+  for (const missing of ["rulesAccepted", "signerName"]) {
     const body = { ...registration(), ...SIGNED };
     delete body[missing];
     const res = await call(ctrl.submitRegistration, { params: { token }, body });
@@ -561,4 +564,81 @@ test("a parent's request is saved with health سليم when blank and a class on
   const [student] = ctrl.models.students.snapshot();
   assert.equal(student.health_status, "سليم");
   assert.equal(student.layer, "ثالث");
+});
+
+test("the built-in rules are public version zero, stay readable after publication, and match the editor default", async () => {
+  const { DEFAULT_RULES } = require("../Entities/InviteToken/defaultRules");
+  const clientText = fs.readFileSync(path.join(__dirname, "../../apps/system/src/Components/Student/defaultRules.js"), "utf8").match(/String.raw`([\s\S]*?)`;/)[1].replace(/\r\n/g, "\n");
+  assert.equal(clientText, DEFAULT_RULES.replace(/\r\n/g, "\n"));
+  const ctrl = loadController({ rules: [] });
+  const token = await currentToken(ctrl);
+  const opened = (await call(ctrl.validateToken, { params: { token } })).body;
+  assert.equal(opened.open, true);
+  assert.equal(opened.rules.version, 0);
+  assert.equal(opened.rules.text, DEFAULT_RULES);
+  assert.equal(ctrl.models.rules.snapshot().length, 0, "read does not seed or migrate data");
+  const sent = await call(ctrl.submitRegistration, { params: { token }, body: registration({ rulesVersion: "0" }) });
+  assert.equal(sent.statusCode, 200);
+  const published = await call(ctrl.publishRules, { body: { text: "Edited" }, actor: { name: "Staff Name" } });
+  assert.equal(published.body.rules.version, 1);
+  assert.equal(ctrl.models.rules.snapshot()[0].createdByName, "Staff Name");
+  const read = await call(ctrl.getConsent, { params: { studentId: ctrl.models.students.snapshot()[0]._id } });
+  assert.equal(read.body.consent.rulesText, DEFAULT_RULES);
+});
+
+test("agreement without a stamp sends a request but stays unsigned until later completion", async () => {
+  const ctrl = loadController();
+  const token = await currentToken(ctrl);
+  const sent = await call(ctrl.submitRegistration, { params: { token }, body: registration({ signature: "" }) });
+  assert.equal(sent.statusCode, 200);
+  const [student] = ctrl.models.students.snapshot();
+  const params = { studentId: student._id };
+  assert.equal(student.consentAt, null);
+  let read = (await call(ctrl.getConsent, { params })).body.consent;
+  assert.ok(read.acceptedAt);
+  assert.equal(read.signedAt, null);
+  assert.equal(read.signature, null);
+  assert.equal(read.signaturePending, true);
+  assert.equal((await call(ctrl.signConsent, { params, body: registration({ signature: "" }) })).statusCode, 400);
+  assert.equal((await call(ctrl.signConsent, { params, body: registration(), actor: { name: "Recorder" } })).statusCode, 200);
+  assert.equal(ctrl.models.consents.snapshot().length, 1);
+  read = (await call(ctrl.getConsent, { params })).body.consent;
+  assert.equal(read.signaturePending, false);
+  assert.ok(read.signedAt);
+  assert.ok(ctrl.models.students.snapshot()[0].consentAt);
+  assert.equal(ctrl.models.consents.snapshot()[0].recordedBy, "Recorder");
+});
+
+test("declining agreement cannot create a student even with a valid stamp", async () => {
+  const ctrl = loadController();
+  const token = await currentToken(ctrl);
+  const sent = await call(ctrl.submitRegistration, { params: { token }, body: registration({ rulesAccepted: "false" }) });
+  assert.equal(sent.statusCode, 400);
+  assert.equal(ctrl.models.students.snapshot().length, 0);
+  assert.equal(ctrl.models.consents.snapshot().length, 0);
+});
+
+test("a partial later save can repair the student marker without replacing the signature evidence", async () => {
+  const ctrl = loadController({ students: [{ tz: "1" }] });
+  const params = { studentId: ctrl.models.students.snapshot()[0]._id };
+  const update = ctrl.models.students.updateExisting;
+  ctrl.models.students.updateExisting = async () => { throw new Error("simulated interrupted marker write"); };
+  assert.equal((await call(ctrl.signConsent, { params, body: registration() })).statusCode, 500);
+  const original = plain(ctrl.models.consents.snapshot()[0]);
+  ctrl.models.students.updateExisting = update;
+  assert.equal((await call(ctrl.signConsent, { params, body: registration({ signerName: "Replacement" }) })).statusCode, 200);
+  assert.deepEqual(plain(ctrl.models.consents.snapshot()[0]), original);
+  assert.equal(ctrl.models.students.snapshot()[0].consentAt.toISOString(), new Date(original.signedAt).toISOString());
+});
+
+test("a racing pending completion cannot overwrite already stored evidence", async () => {
+  const ctrl = loadController();
+  const token = await currentToken(ctrl);
+  await call(ctrl.submitRegistration, { params: { token }, body: registration({ signature: "" }) });
+  const params = { studentId: ctrl.models.students.snapshot()[0]._id };
+  ctrl.models.consents.updateExisting = async () => ({ success: true, result: null });
+  const res = await call(ctrl.signConsent, { params, body: registration() });
+  assert.equal(res.statusCode, 409);
+  assert.equal(res.body.code, "CONSENT_CHANGED");
+  assert.equal(ctrl.models.students.snapshot()[0].consentAt, null);
 });

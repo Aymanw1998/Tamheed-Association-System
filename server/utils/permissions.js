@@ -6,6 +6,7 @@ const PERMISSION_TREE = {
   students: ["view", "viewAll", "create", "edit", "delete", "photo", "parentLink"],
   lessons: ["view", "viewAll", "create", "edit", "roster", "delete", "copyMonth"],
   attendance: ["view", "record"],
+  tasks: ["manage"], // the weekly tasks: writing them and joining them to groups
   reports: ["create", "editOwn", "viewAll", "editAll", "delete", "exportPdf"],
   vehicles: ["view", "edit", "compliance", "documents", "archive", "delete"], // delete: admin default only
   files: ["use", "manageAll"],
@@ -19,7 +20,7 @@ const PERMISSION_TREE = {
 
 const ROLE_DEFAULTS = {
   "ادارة": ["dashboard", "calendar", "students", "lessons", "attendance", "reports", "vehicles",
-            "files", "notices", "users.view", "users.create", "users.edit", "users.approve",
+            "files", "notices", "tasks", "users.view", "users.create", "users.edit", "users.approve",
             "users.delete", "users.changeRole", "users.resetPassword", "ai"],
   // Only an admin edits students, lessons and users (owner, 2026-11-01); an
   // admin may still grant one guide an edit key in the permissions screen.

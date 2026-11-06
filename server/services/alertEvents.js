@@ -57,6 +57,27 @@ function createAlertEvents({ engine, now = () => new Date() } = {}) {
     });
   };
 
+  // The group's weekly tasks: the guide only; the management gets no alert about them.
+  const weeklyTasks = (user = {}, count = 0, week = "") => send("weekly_tasks", {
+    params: { count },
+    rule: { tz: user.tz },
+    link: "/weekly-tasks",
+    dedupKey: `weekly_tasks:${user.tz}:${week}`,
+  });
+  const weeklyTaskAdded = (user = {}, taskId = "", week = "") => send("weekly_task_added", {
+    rule: { tz: user.tz },
+    link: "/weekly-tasks",
+    dedupKey: `weekly_task_added:${user.tz}:${taskId}:${week}`,
+  });
+  const weeklyTasksOverdue = (user, remaining, week) => send("weekly_tasks_overdue", {
+    params: { remaining, week }, rule: { tz: user.tz }, link: "/weekly-tasks",
+    dedupKey: `weekly_tasks_overdue:${user.tz}:${week}`,
+  });
+  const weeklyTasksGreeting = (user, text, deliveryId) => send("weekly_tasks_greeting", {
+    params: { text }, rule: { tz: user.tz }, link: "/weekly-tasks",
+    dedupKey: `weekly_tasks_greeting:${deliveryId}`,
+  });
+
   // An administrator added or promoted one: IT should know.
   const adminAdded = (user = {}) => send("admin_added", {
     params: { name: fullName(user) },
@@ -120,7 +141,7 @@ function createAlertEvents({ engine, now = () => new Date() } = {}) {
     });
   }
 
-  return { parentRegistered, userWaiting, adminAdded, accountLocked, accessChanged, systemLoginFailures, vehicleStage };
+  return { weeklyTasks, weeklyTaskAdded, weeklyTasksOverdue, weeklyTasksGreeting, parentRegistered, userWaiting, adminAdded, accountLocked, accessChanged, systemLoginFailures, vehicleStage };
 }
 
 const events = createAlertEvents();

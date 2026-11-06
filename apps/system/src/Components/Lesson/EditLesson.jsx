@@ -18,6 +18,7 @@ import { resolveRole } from '../../utils/roles';
 import { buildAddPayload, countAdded, unwrapCreated } from '../../utils/lessonRoster';
 import { useI18n } from '../../i18n/I18nContext';
 import { ROOM_OPTIONS } from '../../utils/rooms';
+import { initialProgramStart, validProgramHours, PROGRAM_HOURS_MESSAGE } from '../../utils/lessonSchedule';
 import sectionStyles from '../UI/FormSection.module.css';
 import LessonRoster from './LessonRoster';
 import Button from '../UI/Button';
@@ -40,7 +41,7 @@ const EditLesson = () => {
   const navigate = useNavigate();
   const searchParams = new URLSearchParams(window.location.search);
   const dayFromUrl = Number(searchParams.get('day')) || 1;
-  const hhFromUrl = (Number(searchParams.get('startMin'))/60) || 8;
+  const hhFromUrl = initialProgramStart(searchParams.get('startMin')) / 60;
 
   const [lesson, setLesson] = useState({
     name: '',
@@ -53,6 +54,7 @@ const EditLesson = () => {
       helper: '',
       room: '-1',
       list_students: [],
+      kind: 'regular',
   });
   const [error, setError] = useState({
     name: '',
@@ -189,15 +191,14 @@ const EditLesson = () => {
   };
 
     const validateBeforeSave = async() => {
-      if (!lesson.name?.trim()) return 'اسم الدرس مطلوب';
+      if (!lesson.name?.trim()) return 'اسم البرنامج مطلوب';
       if (!lesson.teacher) return 'المرشد مطلوب';
       if (!lesson.room || lesson.room === '-1') return 'المكان مطلوب';
       const d = Number(lesson.date.day);
       const start = Number(lesson.date.startMin);
       const end = Number(lesson.date.endMin);
       if (Number.isNaN(d) || d < 1 || d > 7) return 'يوم غير صالح';
-      if (Number.isNaN(start) || start < 0 || start > 23 * 60) return 'ساعة بدء غير صالحة';
-      if (Number.isNaN(end) || end < start || end > 23 * 60) return 'ساعة انتهاء غير صالحة';
+      if (!validProgramHours(start, end)) return PROGRAM_HOURS_MESSAGE;
 
       return null;
     };
@@ -252,15 +253,15 @@ const EditLesson = () => {
           const fresh = createdId ? await getOneLesson(createdId) : null;
           if (!fresh?.ok || countAdded({ num_in_list: 0 }, fresh.lesson) < expected) toast.warn(t('roster.someNotAdded'));
         }
-        toast.success(id === 'new' ? 'تمت إضافة الدرس بنجاح' : 'تم حفظ الدرس بنجاح');
+        toast.success(id === 'new' ? 'تمت إضافة البرنامج بنجاح' : 'تم حفظ البرنامج بنجاح');
         navigate(-1);
       } else {
         if (handleSaveError(resL, { draft: lesson.name, setNotice, onReload: loadData })) return;
-        toast.warn(resL.message || 'تعذّر حفظ الدرس');
+        toast.warn(resL.message || 'تعذّر حفظ البرنامج');
       }
     } catch (e) {
       console.error(e);
-      toast.error(e.message || 'تعذّر حفظ الدرس');
+      toast.error(e.message || 'تعذّر حفظ البرنامج');
     }
   };
 
@@ -279,15 +280,15 @@ const EditLesson = () => {
       {recovery.element}
       {
       isAdmin ? (
-      <center><h1>{id != "new" ? "تعديل بيانات الدرس" : "إضافة درس جديد"}</h1></center>
+      <center><h1>{id != "new" ? "تعديل بيانات البرنامج" : "إضافة برنامج جديد"}</h1></center>
       ) : (
-        <h2>معلومات الدرس</h2>
+        <h2>معلومات البرنامج</h2>
       )}
 
       <fieldset className={sectionStyles.formSection} data-tour="lesson-details">
-        <legend>بيانات الدرس</legend>
+        <legend>بيانات البرنامج</legend>
         <div className={styles.formControl}>
-          <label htmlFor="lesson-name">اسم الدرس:<span style={{color: "red"}}>*</span></label>
+          <label htmlFor="lesson-name">اسم البرنامج:<span style={{color: "red"}}>*</span></label>
           <input
             type="text"
             name="name"
@@ -295,7 +296,7 @@ const EditLesson = () => {
             data-tour="lesson-name"
             value={lesson.name}
             onChange={handleChange}
-            placeholder="أدخل اسم الدرس"
+            placeholder="أدخل اسم البرنامج"
             disabled={!editing}
           />
           <label style={{color: "red"}}>{error.name}</label>
@@ -304,8 +305,10 @@ const EditLesson = () => {
 
       <fieldset className={sectionStyles.formSection} data-tour="lesson-schedule">
         <legend>الموعد والمكان</legend>
+        <p>ساعات البرامج: 13:00–22:00</p>
+        {!validProgramHours(Number(lesson.date.startMin), Number(lesson.date.endMin)) && <p role="alert">{PROGRAM_HOURS_MESSAGE}</p>}
         <div className={styles.formControl}>
-          <label htmlFor="lesson-day">يوم الدرس:<span style={{color: "red"}}>*</span></label>
+          <label htmlFor="lesson-day">يوم البرنامج:<span style={{color: "red"}}>*</span></label>
           <select
             name="day"
             id="lesson-day"
@@ -328,6 +331,8 @@ const EditLesson = () => {
             <label htmlFor="lesson-start">ساعة البدء:<span style={{color: "red"}}>*</span></label>
             <input
               type="time"
+              min="13:00"
+              max="21:15"
               value={toHHMM(lesson.date.startMin)}
             id="lesson-start"
             data-tour="lesson-start"
@@ -339,6 +344,8 @@ const EditLesson = () => {
             <label htmlFor="lesson-end">ساعة الانتهاء:<span style={{color: "red"}}>*</span></label>
             <input
               type="time"
+              min="13:45"
+              max="22:00"
               value={toHHMM(lesson.date.endMin)}
             id="lesson-end"
               onChange={(e) => handleTimeChange('end', e.target.value)}
@@ -370,6 +377,14 @@ const EditLesson = () => {
 
       <fieldset className={sectionStyles.formSection} data-tour="lesson-staff">
         <legend>الطاقم</legend>
+        <div className={styles.formControl}>
+          <label htmlFor="lesson-kind">نوع البرنامج:<span style={{color: "red"}}>*</span></label>
+          <select name="kind" id="lesson-kind" value={lesson.kind || 'regular'} onChange={handleChange} disabled={!editing}>
+            <option value="regular">برنامج عادي</option>
+            <option value="educational">برنامج تربوي</option>
+          </select>
+          {lesson.kind === 'educational' && <small>كل طلاب المرشد المسؤول ينضمون إلى هذا البرنامج تلقائيًا، ولكل مرشد برنامج تربوي واحد.</small>}
+        </div>
         <div className={styles.formControl}>
           <label htmlFor="lesson-teacher">المرشد / الإدارة:<span style={{color: "red"}}>*</span></label>
           {id === 'new' && !viewAll && <small>{t('roster.teacherHint')}</small>}
@@ -423,7 +438,7 @@ const EditLesson = () => {
       </fieldset>
 
       <fieldset className={sectionStyles.formSection} data-tour="lesson-roster">
-        <legend>الطلاب في الدرس ({(lesson.list_students?.length || 0) + (Number(lesson.hiddenCount) || 0) + pendingLooked.length})</legend>
+        <legend>الطلاب في البرنامج ({(lesson.list_students?.length || 0) + (Number(lesson.hiddenCount) || 0) + pendingLooked.length})</legend>
         <LessonRoster
           lesson={lesson}
           students={students}
@@ -440,7 +455,7 @@ const EditLesson = () => {
       {isAdmin && (
         <div className={styles.buttonRow} style={{ gap: 8, flexWrap: "wrap" }}>
           <Button type="button" data-tour="lesson-save" onClick={handleSave} disabled={readonly}>
-            {id !== 'new' ? 'حفظ التعديلات' : 'حفظ الدرس'}
+            {id !== 'new' ? 'حفظ التعديلات' : 'حفظ البرنامج'}
           </Button>
           {/* Deleting is on the lesson's page (owner, 2026-11-02). */}
           <Button type="button" variant="secondary" onClick={() => navigate(-1)}>الرجوع للقائمة</Button>

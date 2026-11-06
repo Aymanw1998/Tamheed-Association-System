@@ -42,11 +42,33 @@ const CHANGE = {
 const changeOf = (p, lang) => (CHANGE[p.change] || CHANGE.permissions)[lang];
 
 const ALERT_TEMPLATES = {
+  weekly_tasks_overdue: {
+    severity: "important",
+    ar: (p) => `تنبيه: انتهى أسبوع ${p.week} وبقيت ${Number(p.remaining) || 0} مهمات لم تنجزها مجموعتك. يُرجى الالتزام بموعد مهمات الأسبوع الجديد.`,
+    he: (p) => `אזהרה: השבוע שהחל ב־${p.week} הסתיים עם ${Number(p.remaining) || 0} משימות שלא הושלמו בקבוצתך.`,
+    en: (p) => `Warning: your group left ${Number(p.remaining) || 0} tasks unfinished in the week of ${p.week}.`,
+  },
+  weekly_tasks_greeting: {
+    severity: "info",
+    ar: (p) => String(p.text), he: (p) => String(p.text), en: (p) => String(p.text),
+  },
   parent_registration: {
     severity: "important",
     ar: (p) => `طلب تسجيل جديد من الأهل: ${nameOf(p)}`,
     he: (p) => `בקשת הרשמה חדשה מהורים: ${nameOf(p)}`,
     en: (p) => `New parent registration request: ${nameOf(p)}`,
+  },
+  weekly_tasks: {
+    severity: "info",
+    ar: (p) => `لدى مجموعتك مهمات أسبوعية: ${Number(p.count) || 0}`,
+    he: (p) => `לקבוצה שלך יש משימות שבועיות: ${Number(p.count) || 0}`,
+    en: (p) => `Your group has weekly tasks: ${Number(p.count) || 0}`,
+  },
+  weekly_task_added: {
+    severity: "info",
+    ar: () => "أضيفت مهمة أسبوعية جديدة إلى مجموعتك",
+    he: () => "נוספה משימה שבועית חדשה לקבוצה שלך",
+    en: () => "A new weekly task was added to your group",
   },
   user_waiting: {
     severity: "important",

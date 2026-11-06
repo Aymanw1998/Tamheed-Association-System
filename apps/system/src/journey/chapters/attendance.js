@@ -11,19 +11,19 @@ const attendance = {
       target: "calendar-tabs",
       mood: "point",
       title: "اليوم والسجل",
-      body: "«دروس اليوم» لتسجيل الحضور، و«السجل» لمراجعته.",
+      body: "«برامج اليوم» لتسجيل الحضور، و«السجل» لمراجعته.",
     },
     {
       target: "calendar-lessons",
       mood: "point",
-      title: "دروس اليوم",
-      body: "هنا دروسك لهذا اليوم، ويمكنك البحث باسم الدرس إن كثرت.",
+      title: "برامج اليوم",
+      body: "هنا برامجك لهذا اليوم، ويمكنك البحث باسم البرنامج إن كثرت.",
     },
     {
       target: "calendar-lesson-open",
       mood: "point",
-      title: "فتح الدرس",
-      body: "سأفتح الدرس الأول لتظهر قائمة طلابه.",
+      title: "فتح البرنامج",
+      body: "سأفتح البرنامج الأول لتظهر قائمة طلابه.",
       action: { type: "click", target: "calendar-lesson-open" },
     },
     {
@@ -74,8 +74,8 @@ const attendance = {
     {
       target: "calendar-lesson-open",
       mood: "point",
-      title: "اختيار الدرس",
-      body: "سأختار درسًا لتظهر التواريخ التي سُجّل فيها حضوره.",
+      title: "اختيار البرنامج",
+      body: "سأختار برنامجًا لتظهر التواريخ التي سُجّل فيها حضوره.",
       action: { type: "click", target: "calendar-lesson-open" },
     },
     {

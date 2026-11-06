@@ -5,6 +5,31 @@ const test = require("node:test");
 const vm = require("node:vm");
 
 const { createLockGuard, checkVersion } = require("../middleware/lockGuard");
+const { holdItemLocks } = require("../middleware/lockGuard");
+
+test("program locks are acquired in order; a conflict releases only newly acquired locks", async () => {
+  const acquired = [], released = [];
+  const locks = {
+    async acquire(key, owner) {
+      acquired.push([key, owner]);
+      if (key === "lesson:c") return { ok: false, holder: { name: "Other" } };
+      return { ok: true, created: key !== "lesson:a" };
+    },
+    async release(key, clientId) { released.push([key, clientId]); },
+  };
+  const req = { get: () => "tab", actor: { id: "staff", name: "Staff" } };
+  await assert.rejects(() => holdItemLocks(locks, ["lesson:c", "lesson:b", "lesson:a", "lesson:b"], req), (error) => error.status === 423 && error.holder.name === "Other");
+  assert.deepEqual(acquired.map(([key]) => key), ["lesson:a", "lesson:b", "lesson:c"]);
+  assert.deepEqual(released, [["lesson:b", "tab"]]);
+});
+
+test("program locks remain held for the write and are released on completion", async () => {
+  const released = [];
+  const release = await holdItemLocks({ acquire: async () => ({ ok: true, created: true }), release: async (key) => released.push(key) }, ["lesson:b", "lesson:a"], { get: () => "tab", actor: { id: "staff" } });
+  assert.deepEqual(released, []);
+  await release();
+  assert.deepEqual(released, ["lesson:b", "lesson:a"]);
+});
 
 /* ================= the guard itself ================= */
 const HOLDER = { name: "Holder Name", tz: "900000001" };

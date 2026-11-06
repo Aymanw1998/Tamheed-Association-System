@@ -31,6 +31,7 @@ global.IS_REACT_ACT_ENVIRONMENT = true;
 
 let container, root;
 beforeEach(async () => {
+  localStorage.setItem("user_id", "g1");
   getAllLesson.mockResolvedValue({
     ok: true,
     lessons: [{ _id: "L1", name: "Math", teacher: "g1", helper: "h1", room: "1", date: { day: 1, startMin: 600, endMin: 660 }, list_students: [] }],
@@ -42,10 +43,20 @@ beforeEach(async () => {
   root = createRoot(container);
   await act(async () => root.render(<MemoryRouter><ViewAllLesson /></MemoryRouter>));
 });
-afterEach(() => { act(() => root.unmount()); container.remove(); });
+afterEach(() => { act(() => root.unmount()); container.remove(); localStorage.removeItem("user_id"); });
 
 test("the page does not ask for the user list", () => {
   expect(getAllUsers).not.toHaveBeenCalled();
+});
+
+test("desktop timeline shows 13:00–22:00 and retains legacy morning programs in a separate list", () => {
+  const labels = [...container.querySelectorAll('[class*="hourLabel"]')].map((node) => node.textContent);
+  expect(labels).toContain("13:00");
+  expect(labels).toContain("22:00");
+  expect(labels).not.toContain("08:00");
+  const outside = container.querySelector('section[aria-label="برامج خارج الساعات المحددة"]');
+  expect(outside.textContent).toContain("Math");
+  expect(outside.textContent).toContain("10:00–11:00");
 });
 
 test("the guide filter is filled from the names that come with the lessons", async () => {

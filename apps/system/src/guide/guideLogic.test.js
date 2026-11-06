@@ -13,7 +13,7 @@ const entry = (id, path, steps, updated = "2026-10-29") => ({
 const guide = [
   entry("dashboard", "/dashboard", [[null, "أرقام", "מספרים"], ["users.approve", "قبول", "אישור"]]),
   entry("users", "/users", [[null, "قائمة", "רשימה"]]),
-  entry("lessons", "/lessons", [["lessons.create", "درس جديد", "שיעור חדש"]]),
+  entry("lessons", "/lessons", [["lessons.create", "برنامج جديد", "שיעור חדש"]]),
 ];
 
 afterEach(() => localStorage.clear());
@@ -35,8 +35,8 @@ test("never changes the content it is given", () => {
 test("searches in the chosen language, every word", () => {
   expect(searchGuide(guide, "שיעור", "he").map((e) => e.id)).toEqual(["lessons"]);
   expect(searchGuide(guide, "שיעור", "ar")).toEqual([]);
-  expect(searchGuide(guide, "درس جديد", "ar").map((e) => e.id)).toEqual(["lessons"]);
-  expect(searchGuide(guide, "درس قائمة", "ar")).toEqual([]);
+  expect(searchGuide(guide, "برنامج جديد", "ar").map((e) => e.id)).toEqual(["lessons"]);
+  expect(searchGuide(guide, "برنامج قائمة", "ar")).toEqual([]);
   expect(searchGuide(guide, "  ", "ar")).toBe(guide);
 });
 

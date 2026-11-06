@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { getOne, deleteS, update } from "../../WebServer/services/student/functionsStudent.jsx";
 import { toast } from "../../ALERT/SystemToasts";
 import ConsentView from "./ConsentView.jsx";
+import GuidePickerDialog from "./GuidePickerDialog.jsx";
 import { exportStudentPdf } from "../ExportPDF/ExportPDF.jsx";
 import { canStored, getStoredUserId } from "../../utils/session";
 import { byLessonTime, lessonWhen, guideLink } from "../../utils/recordLinks";
@@ -26,6 +27,7 @@ const PENDING_STATUS = "ينتظر";
 // approving or rejecting a waiting request and activating an inactive
 // student included.
 export default function StudentView() {
+  const [pickGuide, setPickGuide] = useState(false);
   const { id } = useParams();
   const navigate = useNavigate();
   const { t } = useI18n();
@@ -65,11 +67,19 @@ export default function StudentView() {
   // update asks first; null means it was cancelled. The student stays on the
   // page, now active.
   const activate = async () => {
-    const res = await update(s.tz, { status: ACTIVE_STATUS });
+    // A request with no responsible guide asks for one first.
+    if (waiting && !s.main_teacher && canStored("students.viewAll") && canStored("users.view")) {
+      setPickGuide(true);
+      return;
+    }
+    await approveWith({});
+  };
+  const approveWith = async (extra) => {
+    const res = await update(s.tz, { status: ACTIVE_STATUS, ...extra });
     if (!res) return;
     if (!res.ok) return toast.warn(res.message || t(waiting ? "record.approveFailed" : "record.activateFailed"));
     toast.success(t(waiting ? "record.approvedStudent" : "record.activated"));
-    setStudent({ ...s, status: ACTIVE_STATUS });
+    setStudent({ ...s, ...extra, status: ACTIVE_STATUS });
   };
   const canEdit = canStored("students.edit");
   const actions = [
@@ -144,6 +154,8 @@ export default function StudentView() {
   ].filter(Boolean);
 
   return (
+    <>
+    {pickGuide && <GuidePickerDialog student={s} onClose={() => setPickGuide(false)} onPick={(guide) => { setPickGuide(false); approveWith({ main_teacher: guide }); }} />}
     <RecordPage
       photo={s.photo}
       facts={facts}
@@ -152,5 +164,6 @@ export default function StudentView() {
       actions={actions}
       tabs={tabs}
     />
+    </>
   );
 }

@@ -1,9 +1,10 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { act } from "react";
+let mockLessonId = "L1";
 
 jest.mock("react-router-dom", () => ({
-  useParams: () => ({ id: "L1" }),
+  useParams: () => ({ id: mockLessonId }),
   useNavigate: () => jest.fn(),
 }), { virtual: true });
 jest.mock("../../WebServer/services/api", () => ({
@@ -42,16 +43,41 @@ global.IS_REACT_ACT_ENVIRONMENT = true;
 
 const OPENED = "2026-10-01T10:00:00.000Z";
 const AFTER_ADD = "2026-10-01T10:05:00.000Z";
-const lesson = (updatedAt, list) => ({ _id: "L1", name: "Math", teacher: "t1", helper: "", room: "1", date: { day: 2, startMin: 600, endMin: 645 }, list_students: list, updatedAt });
+const lesson = (updatedAt, list) => ({ _id: "L1", name: "Math", teacher: "t1", helper: "", room: "1", date: { day: 2, startMin: 840, endMin: 885 }, list_students: list, updatedAt });
 let container, root;
 
 // CRA resets mock implementations before each test.
 beforeEach(() => {
+  mockLessonId = "L1";
   api.post.mockImplementation(async () => ({ data: { ok: true } }));
   updateLesson.mockImplementation(async () => ({ ok: true }));
   getAllLesson.mockImplementation(async () => ({ ok: true, lessons: [] }));
   getAllS.mockImplementation(async () => ({ ok: true, students: [] }));
   getAllU.mockImplementation(async () => ({ ok: true, users: [] }));
+});
+
+test("an existing out-of-hours program shows an error and cannot be saved", async () => {
+  getOneLesson.mockResolvedValue({ ok: true, lesson: { ...lesson(OPENED, []), date: { day: 2, startMin: 720, endMin: 765 } } });
+  container = document.createElement("div"); document.body.appendChild(container); root = createRoot(container);
+  await act(async () => root.render(<I18nProvider><EditLesson /></I18nProvider>));
+  expect(container.querySelector('[role="alert"]').textContent).toContain("13:00");
+  expect(container.querySelector('#lesson-start').min).toBe("13:00");
+  expect(container.querySelector('#lesson-end').max).toBe("22:00");
+  const save = [...container.querySelectorAll("button")].find((button) => button.textContent.includes("حفظ التعديلات"));
+  await act(async () => save.click());
+  expect(updateLesson).not.toHaveBeenCalled();
+  await act(async () => root.unmount()); container.remove();
+});
+
+test.each([["", "13:00"], ["?startMin=600", "13:00"], ["?startMin=1320", "21:15"]])("new program %s starts within operating hours", async (query, expected) => {
+  mockLessonId = "new";
+  window.history.replaceState({}, "", `/lessons/new${query}`);
+  container = document.createElement("div"); document.body.appendChild(container); root = createRoot(container);
+  await act(async () => root.render(<I18nProvider><EditLesson /></I18nProvider>));
+  expect(container.querySelector('#lesson-start').value).toBe(expected);
+  expect(container.querySelector('#lesson-end').value <= "22:00").toBe(true);
+  await act(async () => root.unmount()); container.remove();
+  window.history.replaceState({}, "", "/");
 });
 
 test("adding a found student and then saving builds on the new version (no 409 naming oneself)", async () => {

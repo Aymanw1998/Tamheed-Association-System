@@ -8,7 +8,7 @@ import { toast } from "../../ALERT/SystemToasts";
 import { canStored } from "../../utils/session";
 import { isLessonVisible } from "../../utils/lessonVisibility";
 import { roomLabel } from "../../utils/rooms";
-import { lessonDayOf } from "../../utils/lessonSchedule";
+import { PROGRAM_START, PROGRAM_END, initialProgramStart, validProgramHours, timelinePosition, timelineDuration, timelineMinuteAt, lessonDayOf } from "../../utils/lessonSchedule";
 import { SYSTEM_TEACHER, lessonLabel, mergeSchedule } from "../../utils/sportSchedule";
 import MobileLessonList from "./MobileLessonList";
 import { ask } from "../Provides/confirmBus";
@@ -18,8 +18,8 @@ import Button from "../UI/Button";
 /* =======================
    Helpers
 ======================= */
-const BASE_MIN = 8 * 60;   // 08:00
-const END_MIN  = 23 * 60;  // 23:00
+const BASE_MIN = PROGRAM_START;
+const END_MIN = PROGRAM_END;
 const dayNames = ["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"]; // 1..7
 
 const toHHMM = (min) => {
@@ -29,8 +29,6 @@ const toHHMM = (min) => {
   return `${String(h).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
 };
 
-const minuteToPx = (min) =>
-  Math.max(0, Math.min((min ?? BASE_MIN) - BASE_MIN, END_MIN - BASE_MIN));
 
 const getStart = (l) => l?.date?.startMin ?? ((l?.date?.hh ?? 8) * 60);
 const getEnd   = (l) => l?.date?.endMin   ?? (getStart(l) + 45);
@@ -41,11 +39,12 @@ const getEnd   = (l) => l?.date?.endMin   ?? (getStart(l) + 45);
 async function saveReschedule({ lesson, newDay, newRoom, newStartMin, onReload }) {
   const dur = Math.max(1, getEnd(lesson) - getStart(lesson));
   const start = Math.max(BASE_MIN, Math.min(newStartMin, END_MIN - 1));
-  const end = Math.min(start + dur, 24 * 60);
+  const end = start + dur;
+  if (!validProgramHours(start, end)) { toast.warn("يجب أن يبقى البرنامج كاملًا بين 13:00 و22:00."); return; }
 
   const confirmed = await ask("change", {
-    title: "نقل الدرس",
-    message: `هل تريد نقل درس «${lesson.name}» إلى يوم ${dayNames[(newDay || 1) - 1]} الساعة ${toHHMM(start)}؟`,
+    title: "نقل البرنامج",
+    message: `هل تريد نقل برنامج «${lesson.name}» إلى يوم ${dayNames[(newDay || 1) - 1]} الساعة ${toHHMM(start)}؟`,
   }).catch(() => false);
   if (!confirmed) return;
 
@@ -62,13 +61,13 @@ async function saveReschedule({ lesson, newDay, newRoom, newStartMin, onReload }
     const res = await updateLesson(lesson._id, payload);
 
     if (res?.ok || res?.status === 200) {
-      toast.success("تم نقل الدرس بنجاح");
+      toast.success("تم نقل البرنامج بنجاح");
       onReload?.();
     } else {
-      toast.error(res?.message || "تعذّر نقل الدرس");
+      toast.error(res?.message || "تعذّر نقل البرنامج");
     }
   } catch (e) {
-    toast.error("تعذّر نقل الدرس");
+    toast.error("تعذّر نقل البرنامج");
   }
 }
 
@@ -107,7 +106,7 @@ function WeekTimeline({
     return map;
   }, [lessons, showMyLessons]);
 
-  const hourMarks = Array.from({ length: 16 }, (_, i) => 8 + i); // 08..23
+  const hourMarks = Array.from({ length: 10 }, (_, i) => 13 + i);
 
   return (
     <div className={styles.timelineGrid}>
@@ -120,8 +119,8 @@ function WeekTimeline({
       <div className={styles.hoursGutter}>
         {hourMarks.map((h, idx) => (
           <div key={idx}>
-            <div className={styles.hourLine} style={{ top: `${(20 + h * 60 - BASE_MIN)}px` }} />
-            <div className={styles.hourLabel} style={{ top: `${(20 + h * 60 - BASE_MIN)}px` }}>
+            <div className={styles.hourLine} style={{ top: timelinePosition(h * 60) }} />
+            <div className={styles.hourLabel} style={{ top: timelinePosition(h * 60) }}>
               {String(h).padStart(2, "0")}:00
             </div>
           </div>
@@ -142,9 +141,9 @@ function WeekTimeline({
 
               const rect = e.currentTarget.getBoundingClientRect();
               const offsetY = e.clientY - rect.top;
-              const clickedMin = BASE_MIN + Math.round(offsetY);
+              const clickedMin = timelineMinuteAt(offsetY, rect.height);
 
-              navigate(`/lessons/new?day=${day}&startMin=${clickedMin}`);
+              navigate(`/lessons/new?day=${day}&startMin=${initialProgramStart(clickedMin)}`);
             }}
             onDragOver={(e) => {
               if (canEdit && canStored("lessons.edit")) e.preventDefault();
@@ -158,7 +157,7 @@ function WeekTimeline({
 
               const rect = e.currentTarget.getBoundingClientRect();
               const offsetY = e.clientY - rect.top;
-              const targetStartMin = BASE_MIN + Math.round(offsetY);
+              const targetStartMin = timelineMinuteAt(offsetY, rect.height);
 
               const all = Object.values(byDay).flat();
               const l = all.find(x => String(x._id) === String(lessonId));
@@ -174,8 +173,8 @@ function WeekTimeline({
             }}
           >
             {(byDay[day] || []).map((l) => {
-              const top = 30 + minuteToPx(getStart(l));
-              const height = Math.max(10, getEnd(l) - getStart(l));
+              const top = timelinePosition(getStart(l));
+              const height = timelineDuration(getEnd(l) - getStart(l));
               return (
                 <div
                   key={l._id}
@@ -282,7 +281,7 @@ function DayRoomsTimeline({
     return map;
   }, [lessons, roomsList, selectedDay, showMyLessons]);
 
-  const hourMarks = Array.from({ length: 16 }, (_, i) => 8 + i);
+  const hourMarks = Array.from({ length: 10 }, (_, i) => 13 + i);
 
   return (
     <div className={styles.timelineGridRooms} style={{ ["--cols"]: roomsList.length }}>
@@ -296,8 +295,8 @@ function DayRoomsTimeline({
       <div className={styles.hoursGutter}>
         {hourMarks.map((h, idx) => (
           <div key={idx}>
-            <div className={styles.hourLine} style={{ top: `${(20 + h * 60 - BASE_MIN)}px` }} />
-            <div className={styles.hourLabel} style={{ top: `${(20 + h * 60 - BASE_MIN)}px` }}>
+            <div className={styles.hourLine} style={{ top: timelinePosition(h * 60) }} />
+            <div className={styles.hourLabel} style={{ top: timelinePosition(h * 60) }}>
               {String(h).padStart(2, "0")}:00
             </div>
           </div>
@@ -314,9 +313,9 @@ function DayRoomsTimeline({
 
             const rect = e.currentTarget.getBoundingClientRect();
             const offsetY = e.clientY - rect.top;
-            const clickedMin = BASE_MIN + Math.round(offsetY);
+            const clickedMin = timelineMinuteAt(offsetY, rect.height);
 
-            navigate(`/lessons/new?day=${selectedDay}&room=${room}&startMin=${clickedMin}`);
+            navigate(`/lessons/new?day=${selectedDay}&room=${room}&startMin=${initialProgramStart(clickedMin)}`);
           }}
           onDragOver={(e) => {
             if (canEdit && canStored("lessons.edit")) e.preventDefault();
@@ -330,7 +329,7 @@ function DayRoomsTimeline({
 
             const rect = e.currentTarget.getBoundingClientRect();
             const offsetY = e.clientY - rect.top;
-            const targetStartMin = BASE_MIN + Math.round(offsetY);
+            const targetStartMin = timelineMinuteAt(offsetY, rect.height);
 
             const l = (lessons || []).find(x => String(x._id) === String(lessonId));
             if (!l) return;
@@ -345,8 +344,8 @@ function DayRoomsTimeline({
           }}
         >
           {(byRoom[room] || []).map((l) => {
-            const top = 30 + minuteToPx(getStart(l));
-            const height = Math.max(10, getEnd(l) - getStart(l));
+            const top = timelinePosition(getStart(l));
+            const height = timelineDuration(getEnd(l) - getStart(l));
 
             return (
               <button
@@ -515,7 +514,7 @@ export default function ViewAllLesson() {
 
     } catch {
       if (quiet) return;
-      toast.error("تعذّر تحميل الدروس");
+      toast.error("تعذّر تحميل البرامج");
       setLessons([]);
       setTeacherNames({});
       setTeachers([]);
@@ -594,13 +593,16 @@ export default function ViewAllLesson() {
       data-tour="lessons-add"
       onClick={() => navigate(`/lessons/new?day=${newLessonDay}`)}
     >
-      + إضافة درس جديد
+      + إضافة برنامج جديد
     </Button>
   );
 
+  const outsideHours = filteredLessons.filter((lesson) => !validProgramHours(getStart(lesson), getEnd(lesson)));
+  const timelineLessons = filteredLessons.filter((lesson) => validProgramHours(getStart(lesson), getEnd(lesson)));
   return (
     <div>
-      <h1 className={styles.title}>برنامج الدروس</h1>
+      <h1 className={styles.title}>برنامج الأسبوع</h1>
+      <p>ساعات البرامج: 13:00–22:00</p>
 
       {/* ===== Filters + Controls ===== */}
       <div className={styles.controlsBar} data-tour="lessons-filters">
@@ -630,7 +632,7 @@ export default function ViewAllLesson() {
               id="lesson-search"
               data-tour="lessons-search"
               type="search"
-              placeholder="اسم الدرس…"
+              placeholder="اسم البرنامج…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
@@ -669,6 +671,7 @@ export default function ViewAllLesson() {
         {isMobile && addButton}
       </div>
 
+      {outsideHours.length > 0 && <section className={styles.outsideHours} aria-label="برامج خارج الساعات المحددة"><strong>برامج موجودة خارج 13:00–22:00</strong>{outsideHours.map((lesson) => <button type="button" key={lesson._id} onClick={() => lesson.readOnly ? setDetails(lesson) : navigate(`/lessons/${lesson._id}`)}>{lessonLabel(lesson)} · {toHHMM(getStart(lesson))}–{toHHMM(getEnd(lesson))}</button>)}</section>}
       {/* ===== Calendar (ONE) ===== */}
       {isLoading ? (
         <div className={styles.loaderWrap}>
@@ -681,7 +684,7 @@ export default function ViewAllLesson() {
           <div className={styles.desktopView} data-tour={isMobile ? undefined : "lessons-calendar"}>
             {viewMode === "week" ? (
               <WeekTimeline
-                lessons={filteredLessons}
+                lessons={timelineLessons}
                 canEdit={canEdit}
                 showMyLessons={showMyLessons}
                 navigate={navigate}
@@ -692,7 +695,7 @@ export default function ViewAllLesson() {
               />
             ) : (
               <DayRoomsTimeline
-                lessons={filteredLessons}
+                lessons={timelineLessons}
                 selectedDay={selectedDay}
                 canEdit={canEdit}
                 showMyLessons={showMyLessons}
@@ -750,7 +753,7 @@ export default function ViewAllLesson() {
       <Fabtn
         anchor="#page-add-lesson"
         visible={showFab && canCreateLessons}
-        label="إضافة درس"
+        label="إضافة برنامج"
         onClick={() => navigate(`/lessons/new?day=${newLessonDay}`)}
       />
     </div>

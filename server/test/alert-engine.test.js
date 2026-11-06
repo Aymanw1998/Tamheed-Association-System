@@ -226,6 +226,20 @@ test("account_locked reaches the IT users who are not blocked and the system acc
   assert.equal(store.docs[0].link, `/users/${GUIDE_U.tz}`);
 });
 
+test("weekly warnings and custom greetings reach only their owner, and are deduplicated", async () => {
+  const { events, store } = makeEvents();
+  await events.weeklyTasksOverdue(GUIDE_U, 2, "2026-11-08");
+  await events.weeklyTasksOverdue(GUIDE_U, 2, "2026-11-08");
+  assert.deepEqual(recipientsOf(store, "weekly_tasks_overdue"), [GUIDE_U.tz]);
+  const warning = store.docs.find((doc) => doc.type === "weekly_tasks_overdue");
+  assert.equal(warning.severity, "important");
+  assert.match(warning.text.ar, /2/);
+  await events.weeklyTasksGreeting(GUIDE_2, "بارك الله فيكم على مجهودكم", "delivery-1");
+  await events.weeklyTasksGreeting(GUIDE_2, "بارك الله فيكم على مجهودكم", "delivery-1");
+  assert.deepEqual(recipientsOf(store, "weekly_tasks_greeting"), [GUIDE_2.tz]);
+  assert.equal(store.docs.find((doc) => doc.type === "weekly_tasks_greeting").text.ar, "بارك الله فيكم على مجهودكم");
+});
+
 test("account_locked links to the user's page on the IT site when IT_HOST is set", async () => {
   const { events, store } = makeEvents();
   await withItHost("it.example.test", () => events.accountLocked({ tz: GUIDE_U.tz, firstname: "Gu", lastname: "Ide" }));

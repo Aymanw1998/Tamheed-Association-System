@@ -41,8 +41,8 @@ export default function MobileLessonList({ lessons, day, onDayChange, teacherNam
 
       <p className={styles.note}>
         {dayLessons.length
-          ? `عدد الدروس: ${dayLessons.length} · مرتبة حسب الوقت`
-          : "لا توجد دروس في هذا اليوم"}
+          ? `عدد البرامج: ${dayLessons.length} · مرتبة حسب الوقت`
+          : "لا توجد برامج في هذا اليوم"}
       </p>
 
       <ul className={styles.list}>

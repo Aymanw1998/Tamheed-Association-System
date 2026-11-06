@@ -37,7 +37,11 @@ const noticeStore = {
 const pushes = [];
 const push = { sendToStudents: async (ids, payload) => { pushes.push([Array.from(ids || [], String), payload]); return { sent: 0, removed: 0 }; } };
 const requireFreeOrMine = () => (req, res, next) => next();
-const deps = {};
+const deps = {
+  "../../services/educationalLesson": { educationalLessons: () => ({
+    holdForStudentChange: async () => async () => {}, moveStudent: async () => {}, enrolAll: async () => 0, takenBy: async () => null,
+  }) },
+};
 for (const suffix of ["", ".js"]) {
   deps[`../../middleware/lockGuard${suffix}`] = { checkVersion, editorStamp, sameVersion, nextStamp, raceLost, requireFreeOrMine, lockedAnswer, holderOf: async (key, clientId) => { const h = holders.get(key); return h && h.clientId !== clientId ? { name: h.name, tz: h.tz } : null; } };
   deps[`../../services/liveHub${suffix}`] = { notifyChange, liveHub };

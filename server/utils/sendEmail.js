@@ -1,7 +1,7 @@
 const nodemailer = require('nodemailer');
 
 // ملاحظة عربية
-const createTransporter = () => {
+const createTransporter = (options = {}) => {
     try{
     return nodemailer.createTransport({
         host: process.env.SMTP_SERVER,
@@ -11,6 +11,7 @@ const createTransporter = () => {
             user: process.env.SMTP_USER,
             pass: process.env.SMTP_PASS,
         },
+        ...options,
     });
     }catch(err){
         console.error("Error creating SMTP transporter:", err);
@@ -134,6 +135,11 @@ const sendBugReportEmail = async (to, report) => {
 };
 
 module.exports = {
+    // Plain text preserves management's wording without interpreting HTML.
+    sendWeeklyTaskEmail: async (to, text) => {
+        if (!smtpConfigured()) throw new Error("SMTP is not configured");
+        await createTransporter({ connectionTimeout: 10000, greetingTimeout: 10000, socketTimeout: 20000 }).sendMail({ from: process.env.SMTP_FROM, to, subject: "تمهيد — المهمات الأسبوعية", text });
+    },
     sendBugReportEmail,
     sendAccountEmail,
     sendResetPasswordEmail,

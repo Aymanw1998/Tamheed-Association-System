@@ -124,6 +124,7 @@ app.use('/api/inviteToken', require('./Entities/InviteToken/InviteToken.route'))
 app.use('/api/report', require('./Entities/Report/Report.route'));
 app.use('/api/vehicle', require('./Entities/Vehicle/Vehicle.route'));
 app.use('/api/notices', require('./Entities/Notice/Notice.route'));
+app.use('/api/weekly-tasks', require('./Entities/WeeklyTask/WeeklyTask.route'));
 // The audit log is on the IT site only (/api/it/audit, Entities/It/It.route.js).
 // Signed-in live channel (ticket + SSE); replaces the old open /api/events.
 app.use('/api/live', require('./Entities/Live/Live.route'));
@@ -153,6 +154,7 @@ startVehicleExpiryJob();
 const { startAlertJob } = require('./services/alertJob');
 startAlertJob();
 require('./services/gradePromotionJob').startGradePromotionJob();
+require('./services/weeklyTasks').startWeeklyTasksJob();
 // Training reminders to sport players, every 5 minutes.
 require('./services/sportPushJob').startSportPushJob();
 // Passport versions of the photos: made one at a time, the missing ones by a half-hourly sweep.
@@ -260,6 +262,8 @@ const StartServer = async () => {
     // `node scripts/findDuplicateTz.js`, fix them, and restart.
     await require('./Entities/Student/Student.model').ensureStudentIndexes()
       .catch((err) => console.error('Students tz index:', err.message));
+    await require('./Entities/WeeklyTask/WeeklyTask.model').ensureWeeklyTaskIndexes()
+      .catch((err) => console.error('WeeklyTasks indexes:', err.message));
     await require('./Entities/User/User.model').ensureUserIndexes()
       .catch((err) => console.error('Users tz index:', err.message));
     catchUpVehicleExpiryCheck().catch((err) => console.error('Vehicle expiry catch-up:', err.message));
