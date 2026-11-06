@@ -8,7 +8,7 @@ const { can, isSystemTz, actorRef, actorDisplayName, SYSTEM_ACTOR_NAME, isHidden
 const { inspectDocument, buildDocumentName } = require("../../utils/vehicleFiles.js");
 const { lookupByPlate } = require("../../services/vehicleLookup.service.js");
 const { audit: auditLog } = require("../../utils/audit.js");
-const { checkVersion, editorStamp, sameVersion, raceLost } = require("../../middleware/lockGuard.js");
+const { checkVersion, editorStamp, sameVersion, nextStamp, raceLost } = require("../../middleware/lockGuard.js");
 const { notifyChange } = require("../../services/liveHub.js");
 const recordAlerts = require("../../services/recordAlerts.js");
 
@@ -92,7 +92,10 @@ const syncAlerts = (vehicle) => Promise.resolve()
   .catch((err) => logWithSource("Vehicle.syncAlerts", err));
 
 async function saveVehicle(vehicle, patch, actor, { guarded = false } = {}) {
-  const data = { ...patch, updatedBy: actorId(actor), updatedByName: actorId(actor) === "system" ? SYSTEM_ACTOR_NAME : String(actor?.name ?? ""), updatedAt: new Date().toISOString() };
+  // updatedAt is the compare-and-swap version: even a same-tick save or a
+  // backwards clock must consume the old version so it cannot be reused.
+  const updatedAt = nextStamp(vehicle, Date.now()).toISOString();
+  const data = { ...patch, updatedBy: actorId(actor), updatedByName: actorId(actor) === "system" ? SYSTEM_ACTOR_NAME : String(actor?.name ?? ""), updatedAt };
   if (guarded) {
     const written = await VehicleModelDef.updateExisting(sameVersion({ _id: String(vehicle._id) }, vehicle), data);
     if (!written?.result) return null;

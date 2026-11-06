@@ -51,7 +51,7 @@ const FOUR = { _id: "5".padStart(24, "c"), tz: "555555550", firstname: "Fo", las
 
 const lookupStub = { lookupByPlate: async (plate) => ({ available: true, found: false, reason: "stub", plate }) };
 
-function setup({ vehicles = [], extraUsers = [] } = {}) {
+function setup({ vehicles = [], extraUsers = [], clock } = {}) {
   const vehicleStore = createStore(vehicles);
   const auditStore = createStore();
   const userStore = createStore([ADMIN, GUIDE, VIEWER, DOCS, FOUR, FIVE, ...extraUsers]);
@@ -99,6 +99,7 @@ function setup({ vehicles = [], extraUsers = [] } = {}) {
     module,
     process,
     Buffer,
+    ...(clock ? { Date: clock } : {}),
     require(name) {
       if (!Object.hasOwn(dependencies, name) && Object.hasOwn(live.deps, name)) return live.deps[name];
       assert.ok(Object.hasOwn(dependencies, name), `Unexpected dependency: ${name}`);
@@ -848,6 +849,39 @@ test("two vehicle saves on the same version at once: one is written, the other i
   assert.equal((a.statusCode === 409 ? a : b).body.code, "STALE");
   assert.equal(vehicleStore.all().find((v) => String(v._id) === String(id)).make, winner);
 });
+
+for (const shift of [0, -60_000]) {
+  test(`concurrent vehicle saves reject a reused version when the clock ${shift ? "moves backwards" : "stays in the same millisecond"}`, async () => {
+    let now = Date.parse("2026-01-01T12:00:00.000Z");
+    class Clock extends Date {
+      constructor(...args) { super(...(args.length ? args : [now])); }
+      static now() { return now; }
+    }
+    const { controller, vehicleStore } = setup({ clock: Clock });
+    const created = await createVehicle(controller);
+    const id = created.body.vehicle._id;
+    const base = created.body.vehicle.updatedAt;
+    now += shift;
+    const { req } = await guard(controller, "edit", ADMIN);
+    const a = createRes(), b = createRes();
+    await Promise.all([
+      controller.update({ ...req, params: { id }, body: { make: "Mazda", baseVersion: base } }, a),
+      controller.update({ ...req, params: { id }, body: { make: "Honda", baseVersion: base } }, b),
+    ]);
+    assert.deepEqual([a.statusCode, b.statusCode].sort(), [200, 409]);
+    assert.equal((a.statusCode === 409 ? a : b).body.code, "STALE");
+    const saved = vehicleStore.all().find((v) => String(v._id) === String(id));
+    assert.equal(saved.make, a.statusCode === 200 ? "Mazda" : "Honda");
+    assert.ok(Date.parse(saved.updatedAt) > Date.parse(base));
+    const stale = createRes();
+    await controller.update({ ...req, params: { id }, body: { make: "Stale", baseVersion: base } }, stale);
+    assert.equal(stale.statusCode, 409);
+    const fresh = createRes();
+    await controller.update({ ...req, params: { id }, body: { make: "Fresh", baseVersion: saved.updatedAt } }, fresh);
+    assert.equal(fresh.statusCode, 200);
+    assert.ok(Date.parse(fresh.body.vehicle.updatedAt) > Date.parse(saved.updatedAt));
+  });
+}
 
 // Owner, 2026-11-02: deleting a vehicle removes every alert and notice about
 // it; saving one keeps only the alerts of its current stages, so a renewal

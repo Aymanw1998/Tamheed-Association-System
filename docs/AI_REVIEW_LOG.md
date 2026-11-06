@@ -5160,3 +5160,54 @@ production build. Temporary test outputs are removed before publication.
 No production deployment, database, billing or outbound-message changes.
 The previous code's CI run 42295303993 passed all jobs; inspect the new desktop
 patch's CI after publishing. Peer review remains pending under the quota.
+
+### CI-discovered vehicle version collision — started 2026-11-06
+
+The desktop-only commit 82fd7ef reached GitHub. IT passed; server regression
+failed the existing concurrent vehicle-save case with two 200 responses where
+one 200 and one 409 were required. No server code changed in that commit. Local
+inspection identifies the saved updatedAt potentially equaling the old version
+within one millisecond, leaving the compare-and-swap predicate reusable. Codex
+is sole implementer; actual Claude is reviewer. Add deterministic isolated
+clock tests to reproduce same-tick and clock-rollback collisions, then advance
+the vehicle timestamp strictly beyond its read version. Keep the existing
+atomic database predicate and permission rules. Verify focused vehicle behavior
+and npm run verify, request source-only peer review, and publish a separate
+bounded stability fix before claiming CI healthy. No live data or services.
+
+**Reproduction and resolution:** Added two VM-local clock cases. Before the fix,
+the frozen same-tick case accepted both writes (200/200), and a backwards clock
+produced a version earlier than its base. After the fix, all 39 vehicle-controller
+tests pass: exactly one parallel write is accepted, its data remains intact,
+stale retries are rejected and a fresh-version write succeeds with another
+newer timestamp. The shared vehicle save helper uses max(Date.now(), previous
+updatedAt + 1ms), handling legacy invalid/missing dates with current time and
+retaining the existing atomic sameVersion predicate. No schema or permission
+change. Full npm run verify is in progress.
+
+**Actual peer request:** Sent [the minimal source-and-test packet](reviews/2026-11-06-vehicle-version-claude-request.md)
+to actual Claude Code; [its response](reviews/2026-11-06-vehicle-version-claude-response.txt)
+again reports the weekly limit until Nov 8, 16:00 Asia/Jerusalem. No findings or
+agreement; independent review remains pending. No CI/runtime logs, credentials,
+environment files or user records were included in the peer request.
+
+**Final implementation refinement:** Reused the existing `nextStamp` helper
+from lockGuard instead of duplicating its monotonic clock logic. Vehicle passes
+its caller clock explicitly and serializes the helper's Date to the existing
+ISO field. The final source-only request was sent again; actual Claude again
+returned its quota. The final helper-based vehicle suite passed all 39 tests.
+
+The desktop commit's GitHub client and IT jobs passed; the server job was the
+pre-existing version collision described above (run 42296793975). Full local
+npm run verify then passed with 1,485 server tests, 1,088 System tests (125
+suites) and the optimized System build. After the helper-only refinement, the
+full server suite is being rechecked with four workers and Git Bash. An initial
+standalone recheck without Git Bash hit the Windows default bash access error
+in deployment-script tests; the corrected invocation restores the same PATH as
+the successful required npm run verify. No deployment script was changed.
+
+**Final result:** The helper-based final source passed the entire server suite:
+1,485 tests, zero failures, with Git Bash and four workers. The System suite and
+production build passed in the full verify above. Publish the stability fix
+separately from the desktop UI commit, and inspect its new GitHub run. Production
+and real records remain untouched; actual peer review remains pending.
