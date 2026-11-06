@@ -13,10 +13,15 @@ export default function NavigationMenu({ groups, program, mobile, open, onClose,
   const [expanded, setExpanded] = useState(mobile ? activeGroup : null);
   useEffect(() => { setExpanded(mobile ? activeGroup : null); onClose(); }, [pathname, mobile]); // close after route changes
   useEffect(() => {
-    const outside = (event) => { if (nav.current && !nav.current.contains(event.target)) setExpanded(null); };
+    const outside = (event) => {
+      if (nav.current && !nav.current.contains(event.target)) {
+        setExpanded(null);
+        if (mobile && open) onClose();
+      }
+    };
     document.addEventListener("click", outside);
     return () => document.removeEventListener("click", outside);
-  }, []);
+  }, [mobile, open, onClose]);
   useEffect(() => {
     if (!mobile || !open) return undefined;
     setExpanded(activeGroup);
@@ -24,7 +29,18 @@ export default function NavigationMenu({ groups, program, mobile, open, onClose,
     nav.current?.querySelector("button")?.focus();
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = previousOverflow; previous?.focus?.(); };
+    // The old phone layout opens below the header. Measure its actual bottom:
+    // long names, landscape and text zoom must leave the menu scrollable.
+    const header = nav.current?.closest("header");
+    const measure = () => nav.current?.style.setProperty("--navigation-header-bottom", `${header?.getBoundingClientRect().bottom || 120}px`);
+    measure();
+    const observer = typeof ResizeObserver === "function" ? new ResizeObserver(measure) : null;
+    if (header) observer?.observe(header);
+    window.addEventListener("resize", measure);
+    return () => {
+      observer?.disconnect(); window.removeEventListener("resize", measure);
+      document.body.style.overflow = previousOverflow; previous?.focus?.();
+    };
   }, [mobile, open]);
 
   const link = (item) => <a key={item.path} href={item.path} data-tour={item.tour}
@@ -49,11 +65,11 @@ export default function NavigationMenu({ groups, program, mobile, open, onClose,
 
   return <>
     {mobile && open && <div className={styles.backdrop} onClick={onClose} aria-hidden="true" />}
-    <div ref={nav} className={`${styles.shell} ${mobile ? styles.drawer : ""}`} hidden={mobile && !open}
+    <div ref={nav} className={`${styles.shell} ${mobile ? styles.mobileMenu : ""}`} hidden={mobile && !open}
       role={mobile && open ? "dialog" : undefined} aria-modal={mobile && open ? "true" : undefined}
       aria-label={mobile ? "القائمة الرئيسية" : undefined} onKeyDown={onKey}
       onBlur={(event) => { if (!mobile && !event.currentTarget.contains(event.relatedTarget)) setExpanded(null); }}>
-      {mobile && <div className={styles.drawerHead}><strong>القائمة الرئيسية</strong><button type="button" onClick={onClose} aria-label="إغلاق القائمة">×</button></div>}
+      {mobile && <div className={styles.menuHeading}><strong>القائمة الرئيسية</strong><button type="button" onClick={onClose} aria-label="إغلاق القائمة">×</button></div>}
       <nav id="main-nav" data-tour="menu" aria-label="التنقل الرئيسي" className={styles.nav}>
         {program && <div className={styles.shortcut}>{link(program)}</div>}
         {groups.map((group) => <div key={group.id} className={styles.group}>

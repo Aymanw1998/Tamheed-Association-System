@@ -140,7 +140,7 @@ test("desktop groups open on click and ArrowDown, close on Escape/outside, and m
   await act(async () => document.body.click());
   expect(people.getAttribute("aria-expanded")).toBe("false");
 });
-test("mobile drawer expands groups, closes after navigation and returns focus to its toggle", async () => {
+test("phone dropdown expands groups, closes after navigation and returns focus to its toggle", async () => {
   window.innerWidth = 375;
   await mount();
   const toggle = host.querySelector('[data-tour="menu-toggle"]');
@@ -156,6 +156,34 @@ test("mobile drawer expands groups, closes after navigation and returns focus to
   await act(async () => toggle.click());
   expect(groupButton("الأعضاء والطاقم").getAttribute("aria-expanded")).toBe("true");
   await act(async () => host.querySelector('[role="dialog"]').dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+  expect(document.body.style.overflow).not.toBe("hidden");
+});
+test("phone menu wraps keyboard focus and closes when the account menu is opened", async () => {
+  window.innerWidth = 375;
+  await mount();
+  const toggle = host.querySelector('[data-tour="menu-toggle"]');
+  await act(async () => toggle.click());
+  const menu = host.querySelector('[role="dialog"]');
+  const controls = [...menu.querySelectorAll("a,button")].filter((node) => !node.closest("[hidden]"));
+  const first = controls[0], last = controls[controls.length - 1];
+  last.focus();
+  await act(async () => last.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true })));
+  expect(document.activeElement).toBe(first);
+  await act(async () => first.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", shiftKey: true, bubbles: true, cancelable: true })));
+  expect(document.activeElement).toBe(last);
+  await act(async () => accountButton().click());
+  expect(host.querySelector('[role="dialog"]')).toBeNull();
+  expect(accountMenu()).not.toBeNull();
+  expect(document.body.style.overflow).not.toBe("hidden");
+});
+test("the phone close control restores the menu toggle and page scrolling", async () => {
+  window.innerWidth = 375;
+  await mount();
+  const toggle = host.querySelector('[data-tour="menu-toggle"]');
+  await act(async () => toggle.click());
+  await act(async () => host.querySelector('[aria-label="إغلاق القائمة"]').click());
+  expect(toggle.getAttribute("aria-expanded")).toBe("false");
+  expect(document.activeElement).toBe(toggle);
   expect(document.body.style.overflow).not.toBe("hidden");
 });
 test("groups with no permitted pages are absent", async () => {

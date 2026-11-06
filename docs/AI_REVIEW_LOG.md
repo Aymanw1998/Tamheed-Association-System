@@ -5056,3 +5056,63 @@ There are no peer findings or agreement; independent review remains pending.
 Publish the verified lockfile repair and inspect the new GitHub run, retaining
 the remote run as the verification record. Temporary local check outputs are
 removed and are not included in the source review payload or commit.
+
+### Server security patches and former phone navigation appearance — started 2026-11-06
+
+Owner asks how to address deployment warnings directly and requests restoring
+the former mobile navigation appearance or a new design. Codex is sole writer.
+Apply the two previously identified server runtime security patches narrowly:
+body-parser 1.20.8 to a compatible fixed release and follow-redirects 1.16.1 to
+a compatible fixed release, without audit fix --force or broad toolchain changes.
+Restore the previous phone menu as a dark rounded dropdown below the header,
+retaining permission-filtered groups, program-first order, weekly tasks and
+keyboard/focus/dismissal behavior. Desktop navigation remains grouped. Actual
+Claude is the independent reviewer; request a minimal source-only review and
+record its response/quota honestly. Verify dependency diff, production audit,
+focused menu behavior and phone/desktop rendering, then npm run verify and CI
+if published. No live database, credentials, runtime logs or user records in
+review payloads; no server deployment or billing changes. Staging setup still
+awaits the owner's server-access and test-data decisions.
+
+**Implementation:** Restored the phone menu's former dark rounded dropdown under
+the header, with white links, an active-page highlight and groups expanding
+below their headings. The current program-first permission filtering stays in
+place. Measured header geometry limits the menu height; internal scrolling
+keeps lower links reachable in landscape. Outside/account clicks, explicit
+close, Escape, route changes and keyboard focus wrap are covered. Desktop
+navigation retains its grouped layout. Codex performed an additional local
+source review; no second agent edited files.
+
+Updated only body-parser 1.20.8 to 1.20.9 and follow-redirects 1.16.1 to 1.16.2
+in the server lockfile. Restored unrelated optional-platform libc metadata
+removed by npm 10 normalization, leaving exactly the two package patch records
+changed (versions, registry URLs and integrity). Installed local packages match
+the lock. npm 10.8.2 clean-install dry-run validation passed. Production-only
+server audit now reports zero high/critical and four moderate findings in the
+gaxios/glob/minimatch/rimraf chain. Frontend audit warnings and the deprecated
+CRA toolchain require separate work; this patch does not claim to fix them.
+
+**Verification:** Header focused tests passed: 21 tests. Browser verification
+rendered the actual Header and NavigationMenu with synthetic service adapters,
+without backend requests or real records. Checked 320 and 375 pixel phone widths,
+667x375 landscape (internal scroll height 468 versus visible height 234 and a
+lower resource link opens/closes successfully), and 1280 desktop grouped links.
+A screenshot of the 375px phone menu is a local delivery artifact. The temporary
+preview server was stopped and its fixture removed after verification.
+The first full verify lost the live-hub worker without an assertion report;
+its 11 focused tests passed, and a subsequent full server run passed all 1,483.
+The subsequent System suite passed all 1,088 tests across 125 suites.
+
+**Actual peer response:** Requested independent actual Claude Code review with
+[the source-only packet](reviews/2026-11-06-phone-runtime-claude-request.md).
+[Claude's response](reviews/2026-11-06-phone-runtime-claude-response.txt) reports
+its weekly limit until Nov 8, 16:00 Asia/Jerusalem. There are no peer findings or
+agreement; independent review remains pending. No environment files, secrets,
+runtime logs or user records were sent in the review packet. No live production,
+billing, database or external-message changes were made.
+
+**Final local result:** `npm run verify` completed successfully with Git Bash:
+1,483 server tests, 1,088 System tests (125 suites), and the optimized System
+production build. Publish this bounded patch to master under existing update
+and push authorization, then inspect the new GitHub CI run. Production remains
+unchanged until the owner runs the existing server update command.

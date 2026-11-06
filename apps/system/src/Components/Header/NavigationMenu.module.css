@@ -7,12 +7,92 @@
 .panel { position: absolute; inset-inline-start: 0; top: calc(100% + 5px); min-width: 200px; padding: 6px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); box-shadow: var(--shadow-lg); }
 .panel a { display: flex; gap: 8px; align-items: center; min-height: 44px; padding: 10px 12px; border-radius: var(--radius-md); color: var(--color-text-primary); text-decoration: none; }
 .panel a:hover, .panel a[aria-current="page"] { background: var(--color-primary-100); color: var(--color-primary-700); }
-.nav a:focus-visible, .nav button:focus-visible, .drawerHead button:focus-visible { outline: 2px solid var(--color-accent-500); outline-offset: 2px; }
-.backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 1500; }
-.drawer { position: fixed; inset-block: 0; inset-inline-start: 0; width: min(340px, 90vw); overflow-y: auto; background: var(--color-surface); z-index: 1501; box-shadow: var(--shadow-lg); padding: env(safe-area-inset-top, 0px) 12px env(safe-area-inset-bottom, 0px); }
-.drawerHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; color: var(--color-text-primary); }
-.drawerHead button { min-width: 44px; min-height: 44px; font: inherit; font-size: 24px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); color: var(--color-text-primary); cursor: pointer; }
-.drawer .nav { display: flex; flex-direction: column; align-items: stretch; padding: 0; background: var(--color-surface); }
-.drawer .groupButton, .drawer .shortcut a { width: 100%; color: var(--color-text-primary); }
-.drawer .groupButton[data-active="true"], .drawer .groupButton[aria-expanded="true"], .drawer .shortcut a[aria-current="page"] { background: var(--color-primary-100); color: var(--color-primary-700); }
-.drawer .panel { position: static; min-width: 0; padding: 0 12px; border: 0; box-shadow: none; border-inline-start: 2px solid var(--color-border); margin: 4px 12px 10px; }
+.nav a:focus-visible, .nav button:focus-visible, .menuHeading button:focus-visible { outline: 2px solid var(--color-accent-500); outline-offset: 2px; }
+
+/* Restore the original phone menu: a rounded dark panel under the header. */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(3, 3, 3, .35);
+  backdrop-filter: blur(4px);
+  z-index: 1200;
+}
+.mobileMenu {
+  position: absolute;
+  inset-inline: 12px;
+  top: calc(100% + 8px);
+  max-height: max(88px, calc(100dvh - var(--navigation-header-bottom, 120px) - 24px - env(safe-area-inset-bottom, 0px)));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 8px 12px 12px;
+  border-radius: 18px;
+  background: var(--background-navbar, var(--color-primary-700));
+  color: var(--color-text-on-primary);
+  box-shadow: 0 18px 35px rgba(15, 23, 42, .24);
+  z-index: 1501;
+  animation: phoneMenuAppear .18s ease-out;
+}
+.menuHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 4px 8px;
+}
+.menuHeading strong { font-size: .95rem; font-weight: 600; }
+.menuHeading button {
+  min-width: 44px;
+  min-height: 44px;
+  border: 1px solid rgba(255, 255, 255, .3);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .1);
+  color: inherit;
+  font: inherit;
+  font-size: 24px;
+  cursor: pointer;
+}
+.mobileMenu .nav {
+  flex-direction: column;
+  align-items: stretch;
+  flex-wrap: nowrap;
+  gap: 0;
+  padding: 0;
+  background: transparent;
+}
+.mobileMenu .group { border-bottom: 1px solid rgba(255, 255, 255, .15); }
+.mobileMenu .group:last-child { border-bottom: 0; }
+.mobileMenu .shortcut { margin-bottom: 6px; }
+.mobileMenu .groupButton, .mobileMenu .shortcut a {
+  width: 100%;
+  min-height: 48px;
+  padding: 14px 12px;
+  border-radius: 12px;
+  color: inherit;
+  font-weight: 600;
+  text-align: start;
+}
+.mobileMenu .groupButton:hover,
+.mobileMenu .groupButton[data-active="true"],
+.mobileMenu .groupButton[aria-expanded="true"] { background: rgba(255, 255, 255, .12); }
+.mobileMenu .panel {
+  position: static;
+  min-width: 0;
+  padding: 0 6px;
+  margin: 4px 10px 12px;
+  border: 0;
+  border-inline-start: 2px solid rgba(255, 255, 255, .25);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.mobileMenu .panel a { padding: 12px; color: var(--color-text-on-primary); }
+.mobileMenu .panel a:hover { background: rgba(255, 255, 255, .12); }
+.mobileMenu .shortcut a[aria-current="page"],
+.mobileMenu .panel a[aria-current="page"] { background: var(--color-surface); color: var(--color-primary-700); }
+@keyframes phoneMenuAppear {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mobileMenu { animation: none; }
+}
