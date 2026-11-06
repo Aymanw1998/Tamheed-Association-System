@@ -1,6 +1,8 @@
 .shell { position: relative; z-index: 1300; }
 .shell[hidden], .panel[hidden] { display: none; }
-.nav { display: flex; align-items: stretch; flex-wrap: wrap; gap: 4px; padding: 5px 10px; border-radius: var(--radius-lg); background: var(--color-primary-700); }
+.nav { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 4px; padding: 0 20px; border-radius: var(--radius-full); background: var(--background-navbar, var(--color-primary-700)); }
+.nav > a, .nav > .shortcut a { display: flex; align-items: center; gap: 8px; padding: 15px clamp(12px, 1.8vw, 30px); border-radius: var(--radius-full); color: var(--color-text-on-primary); text-decoration: none; font-weight: 500; transition: background-color .2s ease, color .2s ease; }
+.nav > a:hover, .nav > a[aria-current="page"], .nav > .shortcut a:hover, .nav > .shortcut a[aria-current="page"] { background: var(--color-surface); color: var(--color-primary-700); }
 .group { position: relative; }
 .groupButton, .shortcut a { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; padding: 9px 16px; border: 0; border-radius: var(--radius-md); background: transparent; color: var(--color-text-on-primary); font: inherit; text-decoration: none; cursor: pointer; }
 .groupButton:hover, .groupButton[aria-expanded="true"], .groupButton[data-active="true"], .shortcut a[aria-current="page"] { background: var(--color-primary-500); }

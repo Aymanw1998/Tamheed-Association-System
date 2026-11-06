@@ -72,7 +72,8 @@ export default function NavigationMenu({ groups, program, mobile, open, onClose,
       {mobile && <div className={styles.menuHeading}><strong>القائمة الرئيسية</strong><button type="button" onClick={onClose} aria-label="إغلاق القائمة">×</button></div>}
       <nav id="main-nav" data-tour="menu" aria-label="التنقل الرئيسي" className={styles.nav}>
         {program && <div className={styles.shortcut}>{link(program)}</div>}
-        {groups.map((group) => <div key={group.id} className={styles.group}>
+        {!mobile && groups.flatMap((group) => group.items).map(link)}
+        {mobile && groups.map((group) => <div key={group.id} className={styles.group}>
           <button ref={(element) => { triggers.current[group.id] = element; }} type="button"
             className={styles.groupButton} data-active={group.id === activeGroup}
             aria-expanded={expanded === group.id} aria-controls={`nav-group-${group.id}`}

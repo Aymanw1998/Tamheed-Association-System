@@ -126,19 +126,24 @@ test("each page link follows its permission", async () => {
 });
 
 const groupButton = (name) => [...host.querySelectorAll('#main-nav button')].find((button) => button.textContent.includes(name));
-test("desktop groups open on click and ArrowDown, close on Escape/outside, and mark the active page", async () => {
+test("desktop pages are direct links, mark the active page and keep phone groups after resizing", async () => {
   await mount();
   expect(host.querySelector('#main-nav a').textContent).toBe("البرنامج");
   expect(host.querySelector('#main-nav a').getAttribute("aria-current")).toBe("page");
-  const people = groupButton("الأعضاء والطاقم");
-  await act(async () => people.click());
-  expect(people.getAttribute("aria-expanded")).toBe("true");
-  await act(async () => host.querySelector('a[href="/students"]').dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
-  expect(people.getAttribute("aria-expanded")).toBe("false");
-  expect(document.activeElement).toBe(people);
-  await act(async () => people.click());
-  await act(async () => document.body.click());
-  expect(people.getAttribute("aria-expanded")).toBe("false");
+  expect(host.querySelectorAll('#main-nav button')).toHaveLength(0);
+  expect(host.querySelector('#main-nav a[href="/weekly-tasks"]').closest('[hidden]')).toBeNull();
+  await act(async () => host.querySelector('#main-nav a[href="/students"]').click());
+  expect(at()).toBe("/students");
+  expect(host.querySelector('#main-nav a[href="/students"]').getAttribute("aria-current")).toBe("page");
+  window.innerWidth = 375;
+  await act(async () => window.dispatchEvent(new Event("resize")));
+  await act(async () => host.querySelector('[data-tour="menu-toggle"]').click());
+  expect(groupButton("الأعضاء والطاقم").getAttribute("aria-expanded")).toBe("true");
+  window.innerWidth = 1280;
+  await act(async () => window.dispatchEvent(new Event("resize")));
+  expect(host.querySelector('[role="dialog"]')).toBeNull();
+  expect(host.querySelectorAll('#main-nav button')).toHaveLength(0);
+  expect(document.body.style.overflow).not.toBe("hidden");
 });
 test("phone dropdown expands groups, closes after navigation and returns focus to its toggle", async () => {
   window.innerWidth = 375;

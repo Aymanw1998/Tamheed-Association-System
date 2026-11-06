@@ -5116,3 +5116,47 @@ billing, database or external-message changes were made.
 production build. Publish this bounded patch to master under existing update
 and push authorization, then inspect the new GitHub CI run. Production remains
 unchanged until the owner runs the existing server update command.
+
+### Restore the former desktop navigation — started 2026-11-06
+
+Owner says desktop navigation also looks worse than before. Codex is sole
+implementer; actual Claude Code is the independent reviewer. Restore the
+pre-grouping desktop appearance from f33f475: centered direct page links in
+the rounded dark bar, with program first and current weekly-tasks, notices,
+permissions and names retained. Keep the already restored grouped phone menu.
+No dependency, account, server or data changes. Update the existing desktop
+navigation behavior check to cover direct links and responsive switching;
+verify real-component rendering at wide and narrow desktop sizes plus phone,
+run npm run verify, request a minimal actual Claude source-only review, record
+the actual response, and publish under the ongoing fix/push authorization.
+
+**Implementation and focused verification:** Desktop now renders each already
+permission-filtered page directly, keeping program first and all current links.
+Restored the earlier centered dark pill, former spacing, white hover/active
+page and wrapping. The phone branch retains the grouped dropdown. Updated the
+existing Header regression to check desktop direct links, active-page changes,
+resizing into phone groups and returning to desktop with scrolling restored.
+All 21 focused Header tests passed. No authentication or data logic changed.
+
+Browser checks rendered actual Header/NavigationMenu and global styles with
+synthetic service adapters: 1280px all nine links in one row; 900px and 769px
+wrap without overflow (at 769px bar clientWidth and scrollWidth both 727, all
+link rectangles within the bar); 375px retains the dark grouped phone menu and
+its expanding sublinks. Saved a local desktop screenshot for the owner. The
+preview server was stopped and its temporary fixture removed.
+
+**Actual peer review:** Sent [the source-only patch request](reviews/2026-11-06-desktop-nav-claude-request.md)
+to actual Claude Code with tools, MCP and persistence disabled. [Its response](reviews/2026-11-06-desktop-nav-claude-response.txt)
+again reports the weekly limit until Nov 8, 16:00 Asia/Jerusalem. There are no
+peer findings or agreement; independent review remains pending. Source review
+was performed locally by Codex without claiming independent peer approval.
+The first full local run lost the bug-reports test worker with only 'test
+failed', without an assertion detail; all its 20 focused isolated tests passed.
+A full npm run verify retry is in progress after closing the preview workload.
+
+**Final local verification:** npm run verify completed successfully on retry:
+1,483 server tests, 1,088 System tests in 125 suites and the optimized System
+production build. Temporary test outputs are removed before publication.
+No production deployment, database, billing or outbound-message changes.
+The previous code's CI run 42295303993 passed all jobs; inspect the new desktop
+patch's CI after publishing. Peer review remains pending under the quota.
