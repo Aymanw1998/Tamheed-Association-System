@@ -5001,3 +5001,20 @@ The GitHub integration did not write any objects/refs, and the API fallback was
 not needed. Application content remains the passing verified version. This log
 resolution is a documentation-only follow-up; actual Claude review remains
 pending and no server deployment or master merge was performed.
+
+### Owner-authorized integration into master — 2026-11-06
+
+Owner requested merging the two branches after weekly-tasks was published.
+Codex is the implementer; actual Claude remains the designated independent
+reviewer with its recorded weekly-quota response and pending review. No new
+application changes or agreement are claimed. Fetch confirmed origin/master is
+an ancestor of origin/weekly-tasks, with zero master-only and three feature-only
+commits. Switched to master, synchronized origin/master and fast-forwarded to
+origin/weekly-tasks (3d4fb5c), preserving the report filter, implementation and
+publication-record commits without conflicts. Exact tree equality was checked
+against origin/weekly-tasks before this documentation-only integration record.
+The merged application source/tests equal the version already verified by npm
+run verify: 1,483 server and 1,086 System tests in 125 suites, plus optimized
+System build. No rerun is needed for an identical application tree. Commit this
+integration record, push master normally, and confirm its remote SHA and feature
+ancestry. This action integrates Git branches; no server deployment is performed.
