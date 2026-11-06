@@ -4990,3 +4990,14 @@ GitHub login in this execution context. Publication is pending user sign-in;
 all verified code is committed locally and a backup branch is retained. Removed
 the temporary source-transfer JSON/compressed files. No credentials or device
 sign-in codes are included in this review log or review payloads.
+
+**Publication resolved:** Git Credential Manager confirmed that the owner's
+`Aymanw1998` account already had saved credentials. Supplying the username only
+for the push (`-c credential.username=Aymanw1998`) resolved account selection
+without changing global configuration or creating/re-authenticating an account.
+Native Git push succeeded, publishing feature commit `28e2f38` and its existing
+report-filter parent to `origin/weekly-tasks`; upstream tracking is configured.
+The GitHub integration did not write any objects/refs, and the API fallback was
+not needed. Application content remains the passing verified version. This log
+resolution is a documentation-only follow-up; actual Claude review remains
+pending and no server deployment or master merge was performed.
