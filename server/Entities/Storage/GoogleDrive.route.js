@@ -43,14 +43,14 @@ function createGoogleDriveRouter({
       : res.status(403).json({ code: "FORBIDDEN", message: "ربط Google Drive متاح لحساب النظام ولمن منحه الصلاحية" });
 
   if (withConnect) {
-    router.post("/connect-url", requireAuth, requireDriveAccess, (req, res) => {
+    router.post("/connect-url", requireAuth, requireDriveAccess, express.json(), (req, res) => {
       try {
         // The callback is a public redirect with no signed-in user, so the state
         // carries who started the flow (for the audit log) and on which site.
         const actor = who(req);
         const tz = String(actor.tz || "");
         const token = state.issue(actor.id, Date.now(), { tz, name: actor.name || tz, isSystem: isSystem(actor), site });
-        return res.json({ ok: true, url: drive.getAuthUrl(token) });
+        return res.json({ ok: true, url: drive.getAuthUrl(token, { fullAccess: req.body?.fullAccess === true }) });
       } catch (err) {
         return res.status(500).json({ ok: false, message: err.message });
       }

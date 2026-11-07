@@ -5,12 +5,14 @@
 const { google } = require("googleapis");
 const { Readable } = require("stream");
 const api = require("../Entities/api");
+const { createDriveLayout } = require("./driveLayout");
 
 const DB_NAME = process.env.DB_NAME || "tamheed_db";
 const CONNECTIONS_COLLECTION = "Integrations";
 const CONNECTION_KEY = "googleDrive";
 
-const ROOT_FOLDER_NAME = process.env.GOOGLE_DRIVE_ROOT_FOLDER || "Tamheed";
+const ROOT_FOLDER_NAME = process.env.GOOGLE_DRIVE_ROOT_FOLDER || "Tamheed-System";
+const FULL_DRIVE_SCOPE = "https://www.googleapis.com/auth/drive";
 const SCOPES = [
   "https://www.googleapis.com/auth/drive.file",
   "https://www.googleapis.com/auth/userinfo.email",
@@ -47,12 +49,12 @@ async function saveConnection(patch) {
   });
 }
 
-function getAuthUrl(state) {
+function getAuthUrl(state, { fullAccess = false } = {}) {
   const oauth2Client = getOAuth2Client();
   return oauth2Client.generateAuthUrl({
     access_type: "offline",
     prompt: "consent",
-    scope: SCOPES,
+    scope: fullAccess ? [FULL_DRIVE_SCOPE, "https://www.googleapis.com/auth/userinfo.email"] : SCOPES,
     state,
   });
 }
@@ -76,6 +78,7 @@ async function handleOAuthCallback(code) {
     connectedEmail: profile.email || "",
     connectedAt: new Date(),
     rootFolderId: null, // re-resolved on next use in case the account changed
+    grantedScopes: String(tokens.scope || "").split(/\s+/).filter(Boolean),
   });
 
   if (saved?.success === false) {
@@ -87,7 +90,8 @@ async function handleOAuthCallback(code) {
 
 async function getStatus() {
   const conn = await getConnection();
-  return { connected: !!conn?.refreshToken, email: conn?.connectedEmail || null };
+  return { connected: !!conn?.refreshToken, email: conn?.connectedEmail || null, rootName: ROOT_FOLDER_NAME,
+    manualFilesAccess: Array.isArray(conn?.grantedScopes) && conn.grantedScopes.includes(FULL_DRIVE_SCOPE) };
 }
 
 async function getDriveClient() {
@@ -101,81 +105,42 @@ async function getDriveClient() {
   return google.drive({ version: "v3", auth: oauth2Client });
 }
 
-async function findOrCreateFolder(drive, name, parentId) {
-  const safeName = String(name).replace(/'/g, "\\'");
-  const parentClause = parentId ? ` and '${parentId}' in parents` : "";
+const layoutFor = (drive) => createDriveLayout({ drive, getConnection, saveConnection,
+  dbName: DB_NAME, collection: process.env.STORAGE_COLLECTION || "root", rootName: ROOT_FOLDER_NAME });
+// Concurrent uploads in one server process must not create duplicate roots or
+// branches. File uploads themselves can proceed concurrently after resolution.
+let layoutWrites = Promise.resolve();
+const serializeLayoutWrite = (operation) => {
+  const result = layoutWrites.then(operation);
+  layoutWrites = result.catch(() => {});
+  return result;
+};
 
-  const existing = await drive.files.list({
-    q: `name = '${safeName}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false${parentClause}`,
-    fields: "files(id, name)",
-    spaces: "drive",
-  });
-
-  if (existing.data.files?.length) return existing.data.files[0].id;
-
-  const created = await drive.files.create({
-    requestBody: {
-      name,
-      mimeType: "application/vnd.google-apps.folder",
-      ...(parentId ? { parents: [parentId] } : {}),
-    },
-    fields: "id",
-  });
-
-  return created.data.id;
-}
-
-async function ensureRootFolder(drive) {
-  const conn = await getConnection();
-  if (conn?.rootFolderId) return conn.rootFolderId;
-
-  const folderId = await findOrCreateFolder(drive, ROOT_FOLDER_NAME, null);
-  await saveConnection({ rootFolderId: folderId });
-  return folderId;
-}
-
-// folderPath like "tamheed_db/Users" -> Tamheed/tamheed_db/Users in Drive
+// Legacy logical paths remain valid, but new installations store photos in
+// Profile-photos and association files in Storages. Existing branches stay
+// readable/writable in place until the explicit layout migration is applied.
 async function ensureFolderPath(folderPath = "") {
   const drive = await getDriveClient();
-  const segments = String(folderPath).split(/[\\/]/).filter(Boolean);
-
-  let parentId = await ensureRootFolder(drive);
-  for (const segment of segments) {
-    parentId = await findOrCreateFolder(drive, segment, parentId);
-  }
-
+  const parentId = await serializeLayoutWrite(() => layoutFor(drive).resolve(folderPath, true));
   return { drive, parentId };
-}
-
-async function findChildFolder(drive, name, parentId) {
-  const safeName = String(name).replace(/'/g, "\\'");
-  const result = await drive.files.list({
-    q: `name = '${safeName}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false and '${parentId}' in parents`,
-    fields: "files(id, name)",
-    spaces: "drive",
-  });
-  return result.data.files?.[0]?.id || null;
 }
 
 // Like ensureFolderPath, but never creates anything. Returns null if any
 // segment is missing (used for read-only operations like listing).
 async function resolveFolderPath(folderPath = "") {
   const drive = await getDriveClient();
-  const conn = await getConnection();
-  let parentId = conn?.rootFolderId || null;
+  return { drive, folderId: await layoutFor(drive).resolve(folderPath) };
+}
 
-  if (!parentId) {
-    parentId = await findChildFolder(drive, ROOT_FOLDER_NAME, "root").catch(() => null);
-    if (!parentId) return { drive, folderId: null };
+async function reorganizeLayout(options = {}) {
+  const connection = await getConnection();
+  // A narrow grant cannot reliably see manually created destinations, so its
+  // "no conflict" result would be misleading during a move or root rename.
+  if (!Array.isArray(connection?.grantedScopes) || !connection.grantedScopes.includes(FULL_DRIVE_SCOPE)) {
+    throw Object.assign(new Error("فعّل الوصول للملفات اليدوية بإعادة ربط حساب الجمعية قبل معاينة النقل، حتى يمكن كشف المجلدات الموجودة والتعارضات."), { code: "DRIVE_LAYOUT_SCOPE" });
   }
-
-  const segments = String(folderPath).split(/[\\/]/).filter(Boolean);
-  for (const segment of segments) {
-    parentId = await findChildFolder(drive, segment, parentId);
-    if (!parentId) return { drive, folderId: null };
-  }
-
-  return { drive, folderId: parentId };
+  const layout = layoutFor(await getDriveClient());
+  return options.apply ? serializeLayoutWrite(() => layout.migrate(options)) : layout.migrate(options);
 }
 
 async function listChildren(folderPath = "") {
@@ -187,7 +152,7 @@ async function listChildren(folderPath = "") {
   do {
     const result = await drive.files.list({
       q: `'${folderId}' in parents and trashed = false`,
-      fields: "nextPageToken, files(id, name, mimeType, size, modifiedTime)",
+      fields: "nextPageToken, files(id, name, mimeType, size, modifiedTime, webViewLink)",
       spaces: "drive",
       pageSize: 200,
       pageToken,
@@ -298,14 +263,30 @@ async function uploadFile({ buffer, body, name, mimeType, folderPath = "" }) {
 // file is reachable only through the Drive account itself, so the app must
 // stream it to signed-in users after its own permission check. Used for
 // documents (licences, insurance, receipts), never for photos.
-async function uploadPrivateFile({ buffer, name, mimeType, folderPath = "" }) {
+async function uploadPrivateFile({ buffer, body, name, mimeType, folderPath = "" }) {
   const { drive, parentId } = await ensureFolderPath(folderPath);
+  const { data: parent } = await drive.files.get({ fileId: parentId, fields: "permissions(type,role)" }, { timeout: 15000 });
+  if (!Array.isArray(parent.permissions) || parent.permissions.some((permission) => ["anyone", "domain"].includes(permission.type))) {
+    throw Object.assign(new Error("مجلد الحفظ في Google مشارك على نطاق عام أو تعذّر التحقق من خصوصيته. اضبط مشاركة المجلد قبل رفع مستند خاص."), { code: "DRIVE_PUBLIC_PARENT" });
+  }
   const created = await drive.files.create({
     requestBody: { name, parents: [parentId] },
-    media: { mimeType: mimeType || "application/octet-stream", body: Readable.from(buffer) },
+    media: { mimeType: mimeType || "application/octet-stream", body: body || Readable.from(buffer) },
     fields: "id, name",
   });
-  return { id: created.data.id, name: created.data.name };
+  return { id: created.data.id, name: created.data.name, viewUrl: toViewUrl(created.data.id) };
+}
+
+async function getFileInfo(fileId) {
+  const drive = await getDriveClient();
+  const { data } = await drive.files.get({ fileId, fields: "id,name,mimeType,size,webViewLink,trashed" }, { timeout: 15000 });
+  return data;
+}
+
+async function exportStream(fileId, mimeType = "application/pdf") {
+  const drive = await getDriveClient();
+  const response = await drive.files.export({ fileId, mimeType }, { responseType: "stream", timeout: 30000 });
+  return response.data;
 }
 
 // Whether a file is an image anyone with the link can already view (as the
@@ -370,4 +351,7 @@ module.exports = {
   toDriveViewUrl,
   toDriveDownloadUrl,
   translateDriveError,
+  reorganizeLayout,
+  getFileInfo,
+  exportStream,
 };

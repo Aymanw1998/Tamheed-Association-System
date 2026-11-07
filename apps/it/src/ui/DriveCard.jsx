@@ -31,6 +31,7 @@ export default function DriveCard() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [asking, setAsking] = useState(false);
+  const [fullAccess, setFullAccess] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -45,7 +46,8 @@ export default function DriveCard() {
     getDriveStatus().then((res) => {
       if (!live) return;
       if (!res.ok) return setError(errorText(res));
-      setStatus({ connected: Boolean(res.data.connected), email: res.data.email || "", canConnect: Boolean(res.data.canConnect) });
+      setStatus({ connected: Boolean(res.data.connected), email: res.data.email || "", canConnect: Boolean(res.data.canConnect), manualFilesAccess: Boolean(res.data.manualFilesAccess), rootName: res.data.rootName || "Tamheed-System" });
+      setFullAccess(Boolean(res.data.manualFilesAccess));
     });
     return () => { live = false; };
   }, []);
@@ -54,7 +56,7 @@ export default function DriveCard() {
     setAsking(false);
     setBusy(true);
     setError("");
-    const res = await getDriveConnectUrl();
+    const res = await getDriveConnectUrl({ fullAccess });
     if (!res.ok || !res.data.url) {
       setBusy(false);
       return toast.error("تعذّر بدء الربط، حاول مرة أخرى.");
@@ -86,10 +88,16 @@ export default function DriveCard() {
           </div>
         )}
       </section>
+      <p>مجلد النظام: <b dir="ltr">{status.rootName}</b>. ملفات الجمعية داخل <b dir="ltr">Storages</b>، والصور ومستندات المركبات في مجلداتها المنفصلة.</p>
+      {status.canConnect && <label style={{ display: "flex", alignItems: "start", gap: 8 }}>
+        <input type="checkbox" checked={fullAccess} onChange={(event) => setFullAccess(event.target.checked)} style={{ width: "auto", marginTop: 5 }} />
+        <span>إظهار الملفات التي تُضاف يدويًا من Google Drive.<small style={{ display: "block" }}>عند الربط سيطلب Google السماح للتطبيق بقراءة وإدارة ملفات الحساب. استخدم حساب الجمعية المخصص. تُعرض ملفات الجمعية من Storages حسب صلاحيات النظام.</small></span>
+      </label>}
+      {status.canConnect && status.connected && !status.manualFilesAccess && <p>الاتصال الحالي يحفظ ملفات النظام؛ لتفعيل ظهور الملفات اليدوية، اختر الخيار أعلاه ثم أعد ربط حساب الجمعية نفسه.</p>}
       {asking && (
         <ConfirmDialog
           title="تغيير حساب Google Drive"
-          message="ستُحفظ الملفات الجديدة في الحساب الذي تختاره. هل تريد المتابعة؟"
+          message={fullAccess ? "اختر حساب الجمعية نفسه لتفعيل الوصول للملفات اليدوية، ثم راجع صلاحيات Google المطلوبة. اختيار حساب آخر يغيّر مكان حفظ الملفات الجديدة." : "ستُحفظ الملفات الجديدة في الحساب الذي تختاره. هل تريد المتابعة؟"}
           onCancel={() => setAsking(false)}
           onConfirm={connect}
         />

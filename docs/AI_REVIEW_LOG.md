@@ -5429,3 +5429,78 @@ and the new Rules route access check. The restored filters/task layout also
 passed 16 focused tests and browser inspection. No dependency/lockfile change.
 Commit/push under the owner's existing authorization; inspect remote CI after
 publishing. No live server deployment. Actual Claude review remains pending.
+
+## 2026-11-07 — Requested Drive hierarchy
+
+**Bounded objective / ownership:** Codex is sole implementer. Owner requests
+Tamheed-System/Profile-photos/{Students,Users}, Storages for association files
+only, and Vehicles. Implement a canonical physical layout while retaining
+legacy logical storage paths/permissions and existing file-id links. Prepare
+an explicit dry-run/apply migration for old folders, refusing ambiguity and
+never copying/deleting user files. New installations use the canonical layout;
+existing data remains readable until an operator applies the migration.
+Provide opt-in Google reconnect for manually added Storages files without
+silently expanding an existing grant. Actual Claude Code is independent reviewer;
+request source-only review, record actual response/quota. No cloud operations,
+real migrations, production deployment or database commands as tests. Verify
+with fake Drive tree/mocked APIs, relevant IT/System tests and npm run verify.
+
+**Owner clarification:** Manual files placed in the Storages root go to
+files.manageAll holders first, then are explicitly shared with other staff.
+A user's personal subfolder remains visible to that user. No Google account,
+permission, token, existing file or production setting was changed here.
+
+**Implementation / source review:** Default root is Tamheed-System (explicit
+configured root names remain respected). Pure driveLayout maps legacy API/DB
+paths to Storages, Profile-photos/Students and Profile-photos/Users. Vehicles
+keeps its branch. Reads are side-effect free; writes keep using an existing
+legacy branch until explicit migration, avoiding a split empty store. Root
+and folder ambiguity fails closed. The operator CLI defaults to preview; apply
+moves existing folders using addParents/removeParents with stable ids, retains
+file links and app sharing metadata, resumes after partial failure, and trashes
+only an empty legacy structural folder. Shared parents are refused before moves
+so inherited permissions are not silently changed. Apply is documented as an
+offline, one-operator maintenance operation; per-process folder-write queuing
+is not claimed as a cross-process/distributed migration lock. API operations
+have finite folder-operation timeouts. This migration was NOT run against Drive.
+
+Google reconnect offers an explicit manual-files checkbox to authorized IT
+storage.drive/system accounts. Default requests stay narrow. The opt-in explains
+account-wide read/manage access and still requires Google's owner consent.
+Actual returned scopes are stored; migration refuses narrow/unknown scopes,
+which could hide manually created destination conflicts. New local Storages
+uploads use the private path and refuse publicly/domain-shared or unverified
+parents; public profile-photo uploads stay separate and vehicle documents stay
+private. Existing public file permissions are not retroactively revoked.
+Ordinary file bytes are streamed under the existing short-lived signed token;
+HTML/SVG download as attachments, native Google editing redirects only to Google
+editor domains and downloads use authenticated PDF export. App shares do not
+claim to grant native-editor Google ACLs. Found and fixed a pre-existing scope
+escape: dot path segments were normalized by posix.join before user-root
+scoping. Invalid path/creation names are now rejected before storage calls.
+
+[Operator guide](DRIVE_LAYOUT.md) covers the requested tree, required local
+storage backend, public HTTPS signed-file endpoint, Google reconnect, preview,
+maintenance apply/resume and unchanged MongoDB records. A configured external
+storage service is not silently switched or migrated. Docs/Sheets creation and
+Google sharing synchronization remain outside this hierarchy change. No real
+cloud round-trip or production migration success is claimed.
+
+**Verification:** npm run verify passed (1,526 server tests at that point,
+1,124 System tests in 128 suites, optimized System build). After the final
+private-parent inheritance guard, the complete isolated server suite passed
+1,527 tests with concurrency=4; its focused signed-file/service tests passed too.
+Full IT passed 79 tests in 15 suites and its optimized build. No dependencies
+or lockfiles changed. Synthetic Drive-tree tests prove preview has no writes,
+physical/logical path mapping, unchanged file ids and direct permissions,
+collision refusal, shared-parent refusal, partial-run recovery, idempotent
+repeat and new hierarchy initialization. No data-clearing, seed, actual
+migration or administrator-creation commands were executed as tests.
+
+**Actual peer review:** Requested [Claude source-only review](reviews/2026-11-07-drive-layout-claude-request.md)
+and refreshed it for final safeguards. [Actual response](reviews/2026-11-07-drive-layout-claude-response.txt)
+reports the weekly limit until Nov 8, 16:00 Asia/Jerusalem. No findings or
+agreement were received; Claude review remains pending. No environment values,
+credentials, runtime logs or real records were included. Continued independent
+local verification under the collaboration policy. Publish the tested source
+under ongoing commit/push authorization and inspect CI; no live deployment.

@@ -442,6 +442,13 @@ const hasAnySharedAccess = (user = {}, requestedPath = "") => {
 };
 
 const getStorageScope = async (req, action = "view", requestedPath = "") => {
+  // Validate before posix.join can erase traversal segments and escape the
+  // caller's personal folder or the association's Storages namespace.
+  if (String(requestedPath || "").split(/[\\/]/).some((part) => part === "." || part === ".." || part.includes("\0"))) {
+    const error = new Error("مسار الملفات غير صالح");
+    error.status = 400;
+    throw error;
+  }
   // req.actor (permissionMiddleware.loadActor) already holds the active user.
   const user = req.actor?.user || (await getActiveUserByTz(req.user?.tz)) || { tz: req.user?.tz };
   const requested = getClientRelativePath(requestedPath);
@@ -1356,7 +1363,7 @@ const getStorageStats = async (req, res) => {
 const createFolder = async (req, res) => {
   try {
     const folderName = normalizeRelativePath(req.body.name || "");
-    if (!folderName || folderName.includes("/")) {
+    if (!folderName || folderName.includes("/") || folderName === "." || folderName === ".." || folderName.includes("\0")) {
       return res.status(400).json({ success: false, message: "Folder name is required" });
     }
 

@@ -101,7 +101,7 @@ export const getAudit = (filters = {}, page = 1) => {
   return call(`/audit?${query}`);
 };
 export const getDriveStatus = () => call("/storage/google/status");
-export const getDriveConnectUrl = () => send("POST", "/storage/google/connect-url");
+export const getDriveConnectUrl = (options = {}) => send("POST", "/storage/google/connect-url", { fullAccess: options.fullAccess === true });
 export const forceReleaseLock = (key) => send("POST", "/locks/force-release", { key });
 export const getPushSettings = () => call("/push/settings");
 export const setPushEnabled = (enabled) => send("PUT", "/push/settings", { enabled });

@@ -51,3 +51,22 @@ test("Storage: a failed status call", async () => {
   const c = await mount(<Storage />);
   expect(c.querySelector("[role=alert]")).not.toBeNull();
 });
+
+test("manual Drive discovery is opt-in and describes the account-wide Google permission", async () => {
+  api.getDriveStatus.mockImplementation(() => ok({ connected: true, email: "files@example.org", canConnect: true, manualFilesAccess: false }));
+  api.getDriveConnectUrl.mockImplementation(() => ok({ url: "https://accounts.example.org/consent" }));
+  const c = await mount(<Storage />);
+  const checkbox = c.querySelector('input[type="checkbox"]');
+  expect(checkbox.checked).toBe(false);
+  expect(c.textContent).toContain("قراءة وإدارة ملفات الحساب");
+  expect(c.textContent).toContain("Tamheed-System");
+  expect(c.textContent).toContain("Storages");
+  await click(checkbox);
+  await click(button(c, "تغيير الحساب"));
+  expect(api.getDriveConnectUrl).not.toHaveBeenCalled();
+  const dialog = document.querySelector('[role="dialog"]');
+  expect(dialog.textContent).toContain("اختر حساب الجمعية نفسه");
+  await click(button(dialog, "تأكيد"));
+  expect(api.getDriveConnectUrl).toHaveBeenCalledWith({ fullAccess: true });
+  expect(siteLink.goTo).toHaveBeenCalledWith("https://accounts.example.org/consent");
+});

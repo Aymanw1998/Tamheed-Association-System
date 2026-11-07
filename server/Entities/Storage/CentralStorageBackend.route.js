@@ -14,6 +14,7 @@ const path = require("path");
 const { StorageModelDef } = require("./Storage.model");
 const googleDrive = require("../../services/googleDrive.service");
 const { repairMisencodedText } = require("../../utils/textEncoding");
+const { pipeline } = require("stream/promises");
 
 const router = express.Router();
 
@@ -73,7 +74,7 @@ const driveFileToItem = (file, storageFolder) => {
     size: isDirectory ? null : Number(file.size) || 0,
     modifiedAt: file.modifiedTime || null,
     url: isDirectory ? null : googleDrive.toViewUrl(file.id),
-    mimeType: isDirectory ? undefined : undefined,
+    mimeType: isDirectory ? undefined : file.mimeType,
   };
 };
 
@@ -138,7 +139,7 @@ router.post("/upload", singleUpload.single("file"), async (req, res) => {
     req.file.originalname = repairMisencodedText(req.file.originalname);
     const storageFolder = joinStoragePath(dbName, collection, folder);
     const stream = fs.createReadStream(req.file.path);
-    const uploaded = await googleDrive.uploadFile({
+    const uploaded = await googleDrive.uploadPrivateFile({
       body: stream,
       name: req.file.originalname,
       mimeType: req.file.mimetype,
@@ -224,7 +225,7 @@ router.post("/merge-chunks", express.json(), async (req, res) => {
     const storageFolder = joinStoragePath(dbName, collection, folder);
     const stream = fs.createReadStream(mergedPath);
     const stat = await fs.promises.stat(mergedPath);
-    const uploaded = await googleDrive.uploadFile({
+    const uploaded = await googleDrive.uploadPrivateFile({
       body: stream,
       name: fileName,
       mimeType: mimeType || "application/octet-stream",
@@ -375,12 +376,28 @@ router.get("/file/:name", async (req, res) => {
       return res.status(404).json({ success: false, error: "file not found" });
     }
 
-    const driveUrl = payload?.download
-      ? googleDrive.toDriveDownloadUrl(target.fileId)
-      : googleDrive.toDriveViewUrl(target.fileId);
-
-    return res.redirect(302, driveUrl);
+    const info = await googleDrive.getFileInfo(target.fileId);
+    if (info.trashed) return res.status(404).json({ success: false, error: "file not found" });
+    const native = String(info.mimeType || "").startsWith("application/vnd.google-apps.");
+    // Native editing is done by Google's editor and requires the viewer's own
+    // authorized Google account. Never turn a private document into a public link.
+    if (native && !payload.download) {
+      const editor = String(info.webViewLink || "");
+      if (!/^https:\/\/(docs|drive)\.google\.com\//.test(editor)) return res.status(400).json({ success: false, error: "Google editor unavailable" });
+      return res.redirect(302, editor);
+    }
+    const mime = native ? "application/pdf" : info.mimeType || "application/octet-stream";
+    const name = `${info.name || req.params.name}${native ? ".pdf" : ""}`;
+    const inline = !payload.download && /^(application\/pdf|image\/(png|jpeg|gif|webp|avif)|audio\/|video\/)/.test(mime);
+    res.setHeader("Content-Type", mime);
+    res.setHeader("Cache-Control", "private, no-store");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Content-Disposition", `${inline ? "inline" : "attachment"}; filename*=UTF-8''${encodeURIComponent(name).replace(/['()*]/g, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`)}`);
+    const stream = native ? await googleDrive.exportStream(target.fileId) : await googleDrive.downloadStream(target.fileId);
+    await pipeline(stream, res);
+    return undefined;
   } catch (error) {
+    if (res.headersSent) { res.destroy(); return undefined; }
     const status = error?.name === "TokenExpiredError" || error?.name === "JsonWebTokenError" ? 401 : 500;
     return res.status(status).json({ success: false, error: googleDrive.translateDriveError(error).message });
   }

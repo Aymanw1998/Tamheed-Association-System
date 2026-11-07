@@ -30,7 +30,7 @@ function startApp({ tz = "000000000", permissions = [] } = {}) {
   const calls = { authUrlState: null, callbackCode: null };
   const audit = auditStub();
   const drive = {
-    getAuthUrl(stateToken) { calls.authUrlState = stateToken; return `https://accounts.google.test/auth?state=${stateToken}`; },
+    getAuthUrl(stateToken, options) { calls.authUrlState = stateToken; calls.authOptions = options; return `https://accounts.google.test/auth?state=${stateToken}`; },
     async handleOAuthCallback(code) { calls.callbackCode = code; return { email: "org@example.org" }; },
     async getStatus() { return { connected: true, email: "org@example.org" }; },
   };
@@ -51,6 +51,22 @@ function startApp({ tz = "000000000", permissions = [] } = {}) {
 }
 
 const request = (url, options = {}) => fetch(url, { redirect: "manual", ...options });
+
+test("full-account Drive access requires an explicit boolean opt-in behind the connect permission", async () => {
+  const { server, base, calls } = await startApp();
+  try {
+    for (const [body, expected] of [[{}, false], [{ fullAccess: "true" }, false], [{ fullAccess: true }, true]]) {
+      const response = await request(`${base}/connect-url`, { method: "POST", headers: { authorization: "Bearer ok", "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      assert.equal(response.status, 200);
+      assert.equal(calls.authOptions.fullAccess, expected);
+    }
+  } finally { server.close(); }
+  const denied = await startApp({ tz: "other" });
+  try {
+    assert.equal((await request(`${denied.base}/connect-url`, { method: "POST", headers: { authorization: "Bearer ok", "Content-Type": "application/json" }, body: JSON.stringify({ fullAccess: true }) })).status, 403);
+    assert.equal(denied.calls.authOptions, undefined);
+  } finally { denied.server.close(); }
+});
 
 test("the old open /connect link no longer starts a connection", async () => {
   const { server, base } = await startApp();
