@@ -1,14 +1,16 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getAlertPage, markAlertRead } from "../../WebServer/services/alerts/functionsAlerts.jsx";
+import { dismissAlert, getAlertPage, markAlertRead } from "../../WebServer/services/alerts/functionsAlerts.jsx";
 import { liveEvents } from "../../WebServer/services/live/liveStream";
-import { getNotices, markNoticeRead } from "../../WebServer/services/notice/functionsNotice.jsx";
+import { changeNoticeState, getNotices, markNoticeRead } from "../../WebServer/services/notice/functionsNotice.jsx";
+import { canStored } from "../../utils/session";
 import useLiveRefresh from "../../locks/useLiveRefresh";
 import { alertTarget, alertText, alertTime, normalizeAlert } from "../../utils/alertDisplay";
 import styles from "./Notice.module.css";
 
 // The signed-in user's system alerts on the board, past the three the bell shows.
 export default function SystemAlerts({ title = "رسائل النظام", showEmpty = false, includeNotices = false }) {
+  const [trash, setTrash] = useState(false);
   const navigate = useNavigate();
   const [alerts, setAlerts] = useState([]);
   const [total, setTotal] = useState(0);
@@ -28,8 +30,8 @@ export default function SystemAlerts({ title = "رسائل النظام", showEm
     setLoading(true); setError("");
     try {
       const [page, board] = await Promise.all([
-        getAlertPage(skip),
-        includeNotices ? getNotices({ status: "all", skip: noticeSkip }) : Promise.resolve({ ok: true, notices: [] }),
+        getAlertPage(skip, trash ? "deleted" : "active"),
+        includeNotices ? getNotices({ status: trash ? "deleted" : "all", skip: noticeSkip, ...(trash ? { personal: 1 } : {}) }) : Promise.resolve({ ok: true, notices: [] }),
       ]);
       if (request !== generation.current) return;
       if (!board.ok) throw new Error("Notices unavailable");
@@ -46,7 +48,7 @@ export default function SystemAlerts({ title = "رسائل النظام", showEm
     } finally {
       if (request === generation.current) { pending.current = false; setLoading(false); }
     }
-  }, [includeNotices]);
+  }, [includeNotices, trash]);
   useLiveRefresh(["notice"], () => load(0));
   useEffect(() => {
     const refresh = () => load(0);
@@ -57,7 +59,7 @@ export default function SystemAlerts({ title = "رسائل النظام", showEm
   }, [load]);
 
   const items = [...alerts, ...(includeNotices ? notices : [])].sort((a, b) => new Date(b.at) - new Date(a.at));
-  if (!showEmpty && !items.length && !error && !loading) return null;
+  if (!showEmpty && !items.length && !error && !loading && !trash && !canStored("alerts.dismiss")) return null;
 
   const open = async (alert) => {
     if (!alert.read) {
@@ -75,6 +77,7 @@ export default function SystemAlerts({ title = "رسائل النظام", showEm
   return (
     <section className={styles.systemAlerts} aria-label={title}>
       <h2>{title}</h2>
+      {canStored("alerts.dismiss") && <button type="button" onClick={() => setTrash((old) => !old)}>{trash ? "العودة للتنبيهات" : "المحذوفة من تنبيهاتي"}</button>}
       {error && <p role="alert">{error}<button type="button" onClick={() => load(0)}>إعادة المحاولة</button></p>}
       {!loading && !error && !items.length && <p>لا توجد إشعارات.</p>}
       <ul aria-label="قائمة الإشعارات" tabIndex={0}>
@@ -82,8 +85,15 @@ export default function SystemAlerts({ title = "رسائل النظام", showEm
           <li key={`${alert.kind || "alert"}:${alert.id}`}>
             <button type="button" className={`${styles.bellItem} ${alert.read ? "" : styles.bellUnread}`} onClick={() => open(alert)}>
               <span dir="auto">{alertText(alert)}</span>
-              <small>{alertTime(alert.at)}</small>
+              <small><time dir="ltr">{alertTime(alert.at)}</time></small>
             </button>
+            {canStored("alerts.dismiss") && <button type="button" onClick={async () => {
+              try {
+                if (alert.kind === "notice") { const res = await changeNoticeState(alert.id, trash ? "unhide" : "hide"); if (!res.ok) throw new Error(); }
+                else await dismissAlert(alert.id, !trash);
+                window.dispatchEvent(new Event("NOTICES_CHANGED")); await load(0);
+              } catch { setError("تعذّر تنفيذ العملية. حاول مرة أخرى."); }
+            }}>{trash ? "استعادة التنبيه" : "حذف من قائمتي"}</button>}
           </li>
         ))}
         {(offset < total || moreNotices) && <li><button type="button" disabled={loading} onClick={() => load(offset, noticeOffset, true)}>عرض إشعارات أقدم</button></li>}

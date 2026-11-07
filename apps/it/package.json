@@ -6,9 +6,9 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test --watchAll=false --runInBand",
-    "prestart": "node ../../scripts/syncPermissions.js",
-    "pretest": "node ../../scripts/syncPermissions.js",
-    "prebuild": "node ../../scripts/syncPermissions.js"
+    "prestart": "node ../../scripts/syncShared.js",
+    "pretest": "node ../../scripts/syncShared.js",
+    "prebuild": "node ../../scripts/syncShared.js"
   },
   "dependencies": {
     "@simplewebauthn/browser": "13.3.0",

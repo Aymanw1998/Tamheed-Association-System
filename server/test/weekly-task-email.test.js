@@ -10,6 +10,7 @@ test("weekly greetings send the exact custom text only to the chosen mailbox, wi
   vm.runInNewContext(fs.readFileSync(require.resolve("../utils/sendEmail"), "utf8"), {
     module, console, process: { env: { SMTP_SERVER: "smtp.example.test", SMTP_PORT: "587", SMTP_FROM: "sender@example.org" } },
     require(name) {
+      if (name === "../services/mailDelivery") return require("../services/mailDelivery");
       assert.equal(name, "nodemailer");
       return { createTransport(options) { configurations.push(options); return { sendMail: async (message) => sent.push(message) }; } };
     },

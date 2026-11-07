@@ -1,3 +1,4 @@
+import { formatDateTime } from "../../generated/dateFormat";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getUserPermissions, saveUserPermissions } from "../../WebServer/services/user/functionsUser.jsx";
 import { useI18n } from "../../i18n/I18nContext";
@@ -107,7 +108,7 @@ export default function PermissionsTab({ tz, onSaved }) {
 
   const who = data.updatedBy === "system" ? t("perms.system") : data.updatedBy;
   const lastChange = data.updatedAt
-    ? fillText(t("perms.lastChange"), { who: who || "—", when: new Date(data.updatedAt).toLocaleString("ar", { timeZone: "Asia/Jerusalem" }) })
+    ? fillText(t("perms.lastChange"), { who: who || "—", when: formatDateTime(data.updatedAt) })
     : t("perms.neverChanged");
   const hasSpecial = (data.grants || []).length > 0 || (data.revokes || []).length > 0;
   const canReset = isResettable(data, grantable);

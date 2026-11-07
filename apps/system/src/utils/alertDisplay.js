@@ -1,3 +1,4 @@
+import { formatDateTime } from "../generated/dateFormat";
 import { isItLink } from "./siteLink";
 // Pure helpers for the assistant's alerts tab.
 // An alert: { id, type, severity, text: { ar, ... }, link, at, read }.
@@ -34,19 +35,7 @@ export const markReadLocal = (alerts, id) =>
   (Array.isArray(alerts) ? alerts : []).map((alert) =>
     !id || alert.id === id ? { ...alert, read: true } : alert);
 
-export const alertTime = (value) => {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  return new Intl.DateTimeFormat("ar", {
-    timeZone: "Asia/Jerusalem",
-    day: "2-digit",
-    month: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-    numberingSystem: "latn",
-  }).format(date);
-};
+export const alertTime = (value) => formatDateTime(value, "");
 
 export const severityClass = (severity) =>
   severity === "critical" || severity === "important" ? severity : "info";

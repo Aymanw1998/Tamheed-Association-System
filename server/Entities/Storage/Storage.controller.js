@@ -9,6 +9,7 @@ const liveBus = require("../../services/liveBus");
 const { createStorageRecipients } = require("../../services/storageRecipients");
 const { repairMisencodedText } = require("../../utils/textEncoding");
 const { can, isSystemTz, SYSTEM_ACTOR_NAME, isHiddenUser } = require("../../utils/permissions");
+const { storageOwnerLabel } = require("../../utils/storageOwnerLabel");
 const { audit } = require("../../utils/audit");
 
 const STORAGE_DB_NAME = process.env.DB_NAME || "tamheed_db";
@@ -683,12 +684,12 @@ const enrichItemsWithOwner = async (items = []) => {
     const itemPath = normalizeRelativePath(item?.relativePath || item?.filename || "");
     const metadata = metadataByPath.get(itemPath);
     const ownerId = String(metadata?.ownerId || "").trim();
-    const ownerName = ownerId ? userLookup.get(ownerId) || ownerId : "";
+    const ownerName = storageOwnerLabel({ ownerId, knownName: userLookup.get(ownerId), suppliedName: item.ownerName, relativePath: itemPath });
 
     return {
       ...item,
       ownerId,
-      ownerName: ownerName || item.ownerName || "",
+      ownerName,
     };
   });
 };

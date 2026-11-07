@@ -22,10 +22,10 @@ describe("lessonTime", () => {
 
 describe("historyLabel", () => {
   it("shows the weekday, day/month and status", () => {
-    expect(historyLabel({ date: "2026-10-25", status: "حاضر" })).toBe("الأحد 25/10 · حاضر");
+    expect(historyLabel({ date: "2026-10-25", status: "حاضر" })).toBe("الأحد 25/10/2026 · حاضر");
   });
   it("works for a Saturday", () => {
-    expect(historyLabel({ date: "2026-10-31", status: "غائب" })).toBe("السبت 31/10 · غائب");
+    expect(historyLabel({ date: "2026-10-31", status: "غائب" })).toBe("السبت 31/10/2026 · غائب");
   });
 });
 

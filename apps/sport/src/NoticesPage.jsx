@@ -1,8 +1,9 @@
+import { formatDate } from "./generated/dateFormat";
 import { BellIcon } from "./Art.jsx";
 
 const dateLabel = (v) => {
   const d = new Date(v);
-  return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-GB");
+  return Number.isNaN(d.getTime()) ? "" : formatDate(d);
 };
 
 // The staff's notices to this player, newest first. `seenBefore` marks the

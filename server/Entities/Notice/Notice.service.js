@@ -42,13 +42,14 @@ async function existingDedupKeys(prefix = "vehicle:") {
 }
 
 // Who read a notice stays here: the browser needs only "did I".
-const withRead = ({ readBy, readTimes, ...row }, userId) => ({ ...row, read: (readBy || []).includes(String(userId)) });
+const withRead = ({ readBy, readTimes, hiddenBy, ...row }, userId) => ({ ...row, read: (readBy || []).includes(String(userId)), hiddenForMe: (hiddenBy || []).includes(String(userId)) });
 
 // Past its end date a notice is gone at once, before the TTL index deletes it.
 async function activeNotices(now = new Date()) {
   const found = await NoticeModelDef.get({});
   return (found?.result || [])
     .filter((row) => !row.archivedAt)
+    .filter((row) => !row.deletedAt)
     .filter((row) => !row.expireAt || new Date(row.expireAt) > now)
     .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
 }
@@ -63,10 +64,14 @@ function stillShown(row, userId, now) {
   return now - readAt <= READ_KEEP_MS;
 }
 
-async function listNotices({ userId, status = "all", category = "", severity = "", skip = 0 }) {
+async function listNotices({ userId, status = "all", category = "", severity = "", skip = 0, canManageTrash = false }) {
   const now = new Date();
-  return (await activeNotices(now))
-    .filter((row) => stillShown(row, userId, now))
+  const found = await NoticeModelDef.get({});
+  return (found?.result || [])
+    .filter((row) => !row.expireAt || new Date(row.expireAt) > now)
+    .filter((row) => status === "deleted" ? (canManageTrash && Boolean(row.deletedAt)) || (row.hiddenBy || []).includes(String(userId)) : status === "archived" ? row.archivedAt && !row.deletedAt && !(row.hiddenBy || []).includes(String(userId)) : !row.archivedAt && !row.deletedAt && !(row.hiddenBy || []).includes(String(userId)))
+    .filter((row) => status === "archived" || status === "deleted" || stillShown(row, userId, now))
+    .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
     .map((row) => withRead(row, userId))
     .filter((row) => (status === "unread" ? !row.read : true))
     .filter((row) => (category ? row.category === category : true))
@@ -75,7 +80,7 @@ async function listNotices({ userId, status = "all", category = "", severity = "
 }
 
 async function countUnread(userId) {
-  return (await activeNotices()).filter((row) => !(row.readBy || []).includes(String(userId))).length;
+  return (await activeNotices()).filter((row) => !(row.hiddenBy || []).includes(String(userId)) && !(row.readBy || []).includes(String(userId))).length;
 }
 
 async function findNotice(id) {
@@ -95,15 +100,34 @@ async function markRead(id, userId) {
 }
 
 async function markAllRead(userId) {
-  const unread = (await activeNotices()).filter((row) => !(row.readBy || []).includes(String(userId)));
+  const unread = (await activeNotices()).filter((row) => !(row.hiddenBy || []).includes(String(userId)) && !(row.readBy || []).includes(String(userId)));
   for (const row of unread) await markRead(row._id, userId);
   return unread.length;
 }
 
 async function archiveNotice(id, actor) {
   const notice = await findNotice(id);
-  if (!notice || notice.archivedAt) return null;
+  if (!notice || notice.archivedAt || notice.deletedAt || notice.category !== "manual") return null;
   const patch = { archivedAt: new Date().toISOString(), archivedBy: actorRef(actor, String(actor.id)) };
+  await NoticeModelDef.update({ _id: notice._id }, patch);
+  return { ...notice, ...patch };
+}
+
+async function changeNoticeState(id, actor, action) {
+  const notice = await findNotice(id); if (!notice) return null;
+  const me = String(actor.id);
+  let patch;
+  if (action === "hide" || action === "unhide") {
+    const hidden = new Set(notice.hiddenBy || []); action === "hide" ? hidden.add(me) : hidden.delete(me);
+    patch = { hiddenBy: [...hidden] };
+    await NoticeModelDef.setHidden(notice._id, me, action === "hide");
+    return { ...notice, ...patch };
+  } else if (action === "delete") {
+    // Automatic system notices retain their source lifecycle; dismissal is personal.
+    if (notice.category !== "manual") return null;
+    patch = { deletedAt: new Date().toISOString(), deletedBy: actorRef(actor, me) };
+  } else if (action === "restore") patch = { deletedAt: null, deletedBy: null, archivedAt: null, archivedBy: null };
+  else return null;
   await NoticeModelDef.update({ _id: notice._id }, patch);
   return { ...notice, ...patch };
 }
@@ -124,4 +148,4 @@ async function listNoticeRecipients() {
     .filter((user) => EMAIL.test(user.email) && user.email !== "test@test.com");
 }
 
-module.exports = { publishNotice, existingDedupKeys, listNotices, countUnread, markRead, markAllRead, archiveNotice, listNoticeRecipients };
+module.exports = { publishNotice, existingDedupKeys, listNotices, countUnread, markRead, markAllRead, archiveNotice, changeNoticeState, listNoticeRecipients };

@@ -74,13 +74,25 @@ function createAuditRouter({ model, loadActor }) {
   router.get("/", requirePermission("audit.view"), async (req, res) => {
     try {
       const page = Math.min(MAX_PAGE, Math.max(1, parseInt(req.query.page, 10) || 1));
-      const { items, total } = await model.page(buildFilter(req.query), { page, pageSize: PAGE_SIZE });
+      const filter = { ...buildFilter(req.query), archivedAt: req.query.status === "archived" ? { $ne: null } : null };
+      const { items, total } = await model.page(filter, { page, pageSize: PAGE_SIZE });
       return res.status(200).json({ ok: true, items, total });
     } catch (error) {
       if (error instanceof BadDateError) return res.status(400).json({ ok: false, code: "BAD_DATE" });
       logWithSource("Audit.list", error);
       return res.status(500).json({ ok: false, message: SERVER_ERROR });
     }
+  });
+
+  router.post("/archive", requirePermission("audit.view"), requirePermission("audit.archive"), async (req, res) => {
+    const ids = req.body?.ids;
+    if (!Array.isArray(ids) || !ids.length || ids.length > 200 || ids.some((id) => typeof id !== "string" || !/^[a-f\d]{24}$/i.test(id)) || typeof req.body.archived !== "boolean") {
+      return res.status(400).json({ ok: false, code: "BAD_SELECTION" });
+    }
+    try {
+      await model.archive([...new Set(ids)], req.body.archived, req.actor?.isSystem ? "system" : req.actor?.tz || "");
+      return res.json({ ok: true });
+    } catch (error) { logWithSource("Audit.archive", error); return res.status(500).json({ ok: false, message: SERVER_ERROR }); }
   });
 
   return router;

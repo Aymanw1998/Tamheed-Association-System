@@ -34,8 +34,8 @@ AlertModelDef.insertOnce = async function (doc) {
 
 // The recipient's alerts, newest first; total counts every match. `types`
 // (optional) limits the result to those alert types.
-AlertModelDef.listFor = async function (recipientTz, { unreadOnly = false, limit = 50, types, skip = 0 } = {}) {
-  const filter = { recipientTz };
+AlertModelDef.listFor = async function (recipientTz, { unreadOnly = false, limit = 50, types, skip = 0, dismissed = false } = {}) {
+  const filter = { recipientTz, dismissedAt: dismissed ? { $ne: null } : null };
   if (unreadOnly) filter.readAt = null;
   if (Array.isArray(types)) filter.type = { $in: types };
   const res = await api.readPage({
@@ -47,6 +47,11 @@ AlertModelDef.listFor = async function (recipientTz, { unreadOnly = false, limit
     skip,
   });
   return { result: res.result, total: res.total };
+};
+AlertModelDef.dismiss = async function (recipientTz, id, dismissed) {
+  const result = await api.updateExisting({ dbName: this.dbName, collection: this.collection,
+    filter: { _id: String(id), recipientTz }, newData: { dismissedAt: dismissed ? new Date() : null } });
+  return result.result || null;
 };
 
 // Marks one of the recipient's own alerts read; from then it is kept 30 days

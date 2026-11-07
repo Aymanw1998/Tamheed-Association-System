@@ -1,3 +1,4 @@
+import { formatDateTime } from "../../generated/dateFormat";
 import RequiredMark from "../UI/RequiredMark";
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
@@ -504,7 +505,7 @@ const EditUser = () => {
         {isEdit && form.lockedAt && (
           <div className={tabStyles.lockRow}>
             <StatusBadge tone="danger">{t("perms.locked")}</StatusBadge>
-            <small>{fillText(t("perms.lockedSince"), { when: new Date(form.lockedAt).toLocaleString("ar", { timeZone: "Asia/Jerusalem" }) })}</small>
+            <small>{fillText(t("perms.lockedSince"), { when: formatDateTime(form.lockedAt) })}</small>
           </div>
         )}
       </fieldset>

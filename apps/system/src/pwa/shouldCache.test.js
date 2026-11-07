@@ -7,6 +7,8 @@ describe("shouldCache", () => {
   ])("caches %s", (url, method) => expect(shouldCache(url, method)).toBe(true));
 
   test.each([
+    ["/api/report/aaaaaaaaaaaaaaaaaaaaaaaa/pdf/jobs/job/file", "GET"],
+    ["/api/report/aaaaaaaaaaaaaaaaaaaaaaaa/pdf/jobs/job", "GET"],
     ["/api/attendance/bulk-save", "POST"],
     ["/api/auth/refresh", "GET"],
     ["/api/AUTH/refresh", "GET"],

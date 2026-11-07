@@ -38,9 +38,9 @@ test("lessons has a viewAll leaf", () => {
   expect(hasPermission(["lessons.viewAll"], "lessons.viewAll")).toBe(true);
 });
 
-test("users has a resetPassword leaf and IT_KEYS mirrors the server's six IT keys", () => {
+test("users has a resetPassword leaf and IT_KEYS mirrors the server's IT keys", () => {
   expect(PERMISSION_TREE.users).toContain("resetPassword");
-  expect([...IT_KEYS].sort()).toEqual(["audit.view", "permissions.manage", "storage.drive",
+  expect([...IT_KEYS].sort()).toEqual(["audit.archive", "audit.view", "permissions.manage", "storage.drive",
     "systemRecovery.reset", "users.passwords", "users.unlock"]);
   for (const key of IT_KEYS) expect(ALL_KEYS).toContain(key);
 });

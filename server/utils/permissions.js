@@ -5,16 +5,16 @@ const catalog = require("../../shared/permissions.json");
 const PERMISSION_TREE = catalog.tree;
 
 const ROLE_DEFAULTS = {
-  "ادارة": ["dashboard", "calendar", "students", "lessons", "attendance", "reports", "vehicles",
+  "ادارة": ["dashboard", "calendar", "alerts.dismiss", "students", "lessons", "attendance", "reports", "vehicles",
             "files", "notices", "tasks", "rules", "consents", "users.view", "users.create", "users.edit", "users.approve",
             "users.delete", "users.changeRole", "users.resetPassword", "ai"],
   // Only an admin edits students, lessons and users (owner, 2026-11-01); an
   // admin may still grant one guide an edit key in the permissions screen.
-  "مرشد": ["dashboard", "calendar", "students.view",
+  "مرشد": ["dashboard", "calendar", "alerts.dismiss", "students.view",
            "lessons.view",
            "attendance", "reports.create", "reports.editOwn", "reports.exportPdf",
            "files.use", "files.upload", "files.createFolder", "files.rename", "files.delete", "files.share", "tasks.view", "tasks.complete", "ai"],
-  "مساعد": ["dashboard", "calendar", "students.view", "lessons.view", "attendance.view",
+  "مساعد": ["dashboard", "calendar", "alerts.dismiss", "students.view", "lessons.view", "attendance.view",
             "reports.create", "reports.editOwn", "reports.exportPdf", "files.use", "files.upload", "files.createFolder", "files.rename", "files.delete", "files.share", "tasks.view", "tasks.complete", "ai"],
 };
 

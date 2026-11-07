@@ -1,23 +1,14 @@
 const nodemailer = require('nodemailer');
 
-// ملاحظة عربية
-const createTransporter = (options = {}) => {
-    try{
-    return nodemailer.createTransport({
-        host: process.env.SMTP_SERVER,
-        port: Number(process.env.SMTP_PORT),
-        secure: Number(process.env.SMTP_PORT) == 465, // ملاحظة عربية
-        auth: {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASS,
-        },
-        ...options,
-    });
-    }catch(err){
-        console.error("Error creating SMTP transporter:", err);
-        throw err;
-    }
-}
+const { createMailDelivery } = require('../services/mailDelivery');
+const deliveryStats = { accepted: 0, failed: 0, lastElapsedMs: null };
+const delivery = createMailDelivery({
+  createTransport: (options) => nodemailer.createTransport(options),
+  config: () => ({ host: process.env.SMTP_SERVER, port: Number(process.env.SMTP_PORT), secure: Number(process.env.SMTP_PORT) === 465,
+    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } }),
+  onMetric: ({ status, elapsedMs }) => { deliveryStats[status] += 1; deliveryStats.lastElapsedMs = elapsedMs; },
+});
+const createTransporter = () => delivery;
 
 const sendResetPasswordEmail = async (to, otp) => {
     const transporter = createTransporter();
@@ -135,6 +126,7 @@ const sendBugReportEmail = async (to, report) => {
 };
 
 module.exports = {
+    getDeliveryStats: () => ({ ...deliveryStats }),
     // Plain text preserves management's wording without interpreting HTML.
     sendWeeklyTaskEmail: async (to, text) => {
         if (!smtpConfigured()) throw new Error("SMTP is not configured");

@@ -941,3 +941,23 @@
     grid-template-columns: 1fr;
   }
 }
+
+.listView { display: flex; flex-direction: column; gap: 0; padding: 0; overflow-x: auto; }
+.listView .fileCard { display: grid; grid-template-columns: minmax(180px, 2fr) minmax(100px, 1fr) 150px minmax(230px, auto) 36px; grid-template-areas: "name owner date actions menu"; align-items: center; min-width: 850px; min-height: 64px; border: 0; border-bottom: 1px solid #e3e9f0; border-radius: 0; box-shadow: none; gap: 10px; }
+.listView .cardTop { grid-area: menu; }
+.listView .cardTop .fileBadge { display: none; }
+.listView .cardTitle { grid-area: name; text-align: start; }
+.listView .cardOwner { grid-area: owner; }
+.listView .cardDate { grid-area: date; }
+.listView .cardActions { grid-area: actions; }
+.listView .cardMeta { display: none; }
+.listView .inlineProgress { grid-column: 1 / -1; }
+.searchRow { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
+.searchRow label { display: grid; gap: 4px; min-width: 120px; }
+.searchRow .searchInput { flex: 1; min-width: 180px; }
+.searchRow select, .searchRow button { min-height: 40px; border: 1px solid #ccd9e1; border-radius: 8px; background: white; padding: 8px 12px; }
+.searchRow button[aria-pressed="true"] { background: #e1f0f6; color: #175971; border-color: #2a7794; }
+@media(max-width: 768px) {
+  .listView .fileCard { min-width: 0; grid-template-columns: minmax(0, 1fr) 36px; grid-template-areas: "name menu" "owner owner" "date date" "actions actions"; padding: 12px; }
+  .searchRow label { flex: 1; min-width: 100px; }
+}

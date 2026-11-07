@@ -72,6 +72,25 @@ afterEach(async () => {
 
 const byTour = (name) => container.querySelector(`[data-tour="${name}"]`);
 
+test("file explorer filters and sorts actual entries while list/grid changes preserve them", async () => {
+  Storage.getStorageEntries.mockResolvedValue({ items: [
+    { name: "B.pdf", path: "Storages/B.pdf", size: 200, ownerName: "فريق", date: "2026-11-07", isDirectory: false },
+    { name: "A.txt", path: "Storages/A.txt", size: 10, ownerName: "النظام", date: "2026-11-06", isDirectory: false },
+    { name: "Folder", path: "Storages/Folder", isDirectory: true },
+  ] });
+  await act(async () => byTour("files-refresh").click());
+  const entries = () => [...byTour("files-items").querySelectorAll('[role="listitem"]')];
+  expect(entries()).toHaveLength(3); expect(entries()[0].textContent).toContain("Folder");
+  const select = async (label, value) => act(async () => { const el = container.querySelector(`[aria-label="${label}"]`); Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value").set.call(el, value); el.dispatchEvent(new Event("change", { bubbles: true })); });
+  await select("نوع الملفات", "files"); expect(entries()).toHaveLength(2);
+  await select("ترتيب الملفات", "size"); expect(entries()[0].textContent).toContain("B.pdf");
+  const grid = [...container.querySelectorAll("button")].find((el) => el.textContent.includes("شبكة"));
+  await act(async () => grid.click()); expect(grid.getAttribute("aria-pressed")).toBe("true"); expect(entries()).toHaveLength(2);
+  const search = byTour("files-search").querySelector("input");
+  await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(search, "النظام"); search.dispatchEvent(new Event("input", { bubbles: true })); });
+  expect(entries()).toHaveLength(1); expect(entries()[0].textContent).toContain("A.txt");
+});
+
 test("in training mode the upload button uploads the demo file and never reaches the file picker", async () => {
   startDemo();
   const input = byTour("files-upload").querySelector('input[type="file"]');

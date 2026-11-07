@@ -100,6 +100,7 @@ export const getAudit = (filters = {}, page = 1) => {
   for (const [key, value] of Object.entries(filters)) if (value) query.set(key, value);
   return call(`/audit?${query}`);
 };
+export const archiveAudit = (ids, archived) => call("/audit/archive", { method: "POST", body: { ids, archived } });
 export const getDriveStatus = () => call("/storage/google/status");
 export const getDriveConnectUrl = (options = {}) => send("POST", "/storage/google/connect-url", { fullAccess: options.fullAccess === true });
 export const forceReleaseLock = (key) => send("POST", "/locks/force-release", { key });

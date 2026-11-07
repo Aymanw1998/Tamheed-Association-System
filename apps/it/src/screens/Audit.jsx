@@ -1,11 +1,13 @@
+import { formatDateTime } from "../generated/dateFormat";
 import { useCallback, useEffect, useState } from "react";
-import { errorText, getAudit } from "../api";
+import { archiveAudit, errorText, getAudit } from "../api";
+import ConfirmDialog from "../ui/ConfirmDialog";
 import { auditActions, auditModules, fillText } from "../strings";
 import FilterDialog from "../ui/FilterDialog.jsx";
 
 const PAGE_SIZE = 50;
 const FIELDS = ["from", "to", "module", "actor", "action", "targetId", "q"];
-const when = (value) => (value ? new Date(value).toLocaleString("ar", { timeZone: "Asia/Jerusalem" }) : "—");
+const when = (value) => formatDateTime(value);
 const show = (value) => (value === null || value === undefined || value === "" ? "—" : typeof value === "object" ? JSON.stringify(value) : String(value));
 
 function Changes({ changes }) {
@@ -22,7 +24,9 @@ function Changes({ changes }) {
 
 // The audit log: today's screen of the everyday app, moved here. The system
 // account's actions show as «النظام» (the server names the actor).
-export default function Audit() {
+export default function Audit({ me }) {
+  const [status, setStatus] = useState("active"), [selected, setSelected] = useState([]), [confirm, setConfirm] = useState(false), [busy, setBusy] = useState(false);
+  const canArchive = Boolean(me?.permissions?.includes("audit.archive"));
   const [filters, setFilters] = useState({});
   const [draft, setDraft] = useState({});
   const [page, setPage] = useState(1);
@@ -36,7 +40,12 @@ export default function Audit() {
     setData({ items: res.data.items || [], total: res.data.total || 0 });
   }, []);
 
-  useEffect(() => { load(filters, page); }, [load, filters, page]);
+  useEffect(() => { setSelected([]); load({ ...filters, status }, page); }, [load, filters, page, status]);
+  const archive = async () => {
+    setBusy(true); const res = await archiveAudit(selected, status !== "archived"); setBusy(false); setConfirm(false);
+    if (!res.ok) return setError(errorText(res));
+    setSelected([]); await load({ ...filters, status }, page);
+  };
 
   const set = (key) => (event) => setDraft((prev) => ({ ...prev, [key]: event.target.value }));
   const apply = () => {
@@ -53,6 +62,12 @@ export default function Audit() {
   return (
     <section>
       <h1>سجل التغييرات</h1>
+      <div className="row" role="tablist" aria-label="عرض السجل">
+        <button role="tab" aria-selected={status === "active"} onClick={() => { setStatus("active"); setPage(1); }}>السجل الحالي</button>
+        <button role="tab" aria-selected={status === "archived"} onClick={() => { setStatus("archived"); setPage(1); }}>الأرشيف</button>
+        {canArchive && <><button disabled={!data?.items.length} onClick={() => setSelected(data.items.map((item) => item._id))}>تحديد الصفحة</button><button disabled={!selected.length || busy} onClick={() => setConfirm(true)}>{status === "archived" ? "استعادة المحدد" : "أرشفة المحدد"} ({selected.length})</button></>}
+      </div>
+      {confirm && <ConfirmDialog title={status === "archived" ? "استعادة السجلات" : "أرشفة السجلات"} message={`سيتم ${status === "archived" ? "استعادة" : "أرشفة"} ${selected.length} سجلًا. يبقى سجل التغييرات محفوظًا وقابلًا للاستعادة.`} confirmText="تأكيد" cancelText="إلغاء" onCancel={() => setConfirm(false)} onConfirm={archive} />}
       <div className="toolbar">
         <FilterDialog count={count} onClear={clear} onApply={apply}>
           <label>من تاريخ<input name="from" type="date" value={draft.from || ""} onChange={set("from")} /></label>
@@ -86,7 +101,7 @@ export default function Audit() {
             <tbody>
               {data.items.map((item, index) => (
                 <tr key={item._id || index}>
-                  <td>{when(item.at)}</td>
+                  <td>{canArchive && <input type="checkbox" aria-label={`تحديد السجل ${index + 1}`} checked={selected.includes(item._id)} onChange={(event) => setSelected((old) => event.target.checked ? [...old, item._id] : old.filter((id) => id !== item._id))} />} <time dir="ltr">{when(item.at)}</time></td>
                   <td>{item.actor === "system" ? (item.realActorName ? `النظام (${item.realActorName})` : "النظام") : item.actorName || item.actor || "—"}</td>
                   <td>{auditModules[item.module] || item.module}</td>
                   <td>{auditActions[item.action] || item.action}</td>

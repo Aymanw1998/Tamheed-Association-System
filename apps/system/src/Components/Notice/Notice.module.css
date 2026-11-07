@@ -13,7 +13,7 @@
 .badge { position: absolute; top: -2px; inset-inline-end: -2px; min-width: 18px; padding: 0 4px; border-radius: 9px; background: #c62828; color: #fff; font-size: 0.7rem; line-height: 18px; }
 
 /* The bell's window */
-.bellWrap { position: relative; display: inline-flex; }
+.bellWrap { position: relative; display: inline-flex; z-index: 1400; }
 .bellPanel { position: absolute; top: calc(100% + 6px); inset-inline-start: 0; z-index: 1000; width: min(320px, calc(100vw - 24px)); display: grid; gap: 6px; padding: 10px; background: #fff; color: #1f2933; border: 1px solid #d7dee5; border-radius: 10px; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.18); text-align: start; }
 .bellTitle { font-size: 0.95rem; }
 .bellEmpty { margin: 4px 0; color: #5a6570; font-size: 0.9rem; }

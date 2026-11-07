@@ -63,6 +63,7 @@ function loadStorageController(seed = [], { users: baseUsers = [ADMIN, OTHER], e
     "../../services/storageRecipients": require("../../services/storageRecipients"),
     "../../utils/textEncoding": require("../../utils/textEncoding"),
     "../../utils/permissions": require("../../utils/permissions"),
+    "../../utils/storageOwnerLabel": require("../../utils/storageOwnerLabel"),
     "../../utils/permissionRules": require("../../utils/permissionRules"),
     "../../utils/israeliId": require("../../utils/israeliId"),
     ...audit.deps,

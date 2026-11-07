@@ -38,7 +38,7 @@ test("the lock check on a user route answers nothing for a hidden person", () =>
 
 test("a notice sent to the browser carries no list of readers", () => {
   const source = read("Entities/Notice/Notice.service.js");
-  assert.match(source, /const withRead = \(\{ readBy, readTimes, \.\.\.row \}, userId\)/);
+  assert.match(source, /const withRead = \(\{ readBy, readTimes, hiddenBy, \.\.\.row \}, userId\)/);
 });
 
 test("the assistant blanks a hidden person's ID number wherever it appears", () => {

@@ -57,8 +57,8 @@ const itActor = actorOf(itDoc, { it: true });
 const systemIt = actorOf(systemDoc, { isSystem: true, it: true });
 const systemEveryday = actorOf(systemDoc, { isSystem: true });
 
-test("IT_KEYS has the six keys that move to the IT site", () => {
-  assert.deepEqual([...IT_KEYS].sort(), ["audit.view", "permissions.manage", "storage.drive",
+test("IT_KEYS has the IT keys that move to the IT site", () => {
+  assert.deepEqual([...IT_KEYS].sort(), ["audit.archive", "audit.view", "permissions.manage", "storage.drive",
     "systemRecovery.reset", "users.passwords", "users.unlock"]);
   assert.equal(isItUser(itDoc), true);
   assert.equal(isItUser(guide), false);

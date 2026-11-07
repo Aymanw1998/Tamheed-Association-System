@@ -37,7 +37,7 @@ test("constants have the expected shape", () => {
   assert.deepEqual([...GRANT_ONLY_MODULES].sort(), ["finance", "sports"]);
   assert.deepEqual(
     [...IT_KEYS].sort(),
-    ["audit.view", "permissions.manage", "storage.drive", "systemRecovery.reset", "users.passwords", "users.unlock"],
+    ["audit.archive", "audit.view", "permissions.manage", "storage.drive", "systemRecovery.reset", "users.passwords", "users.unlock"],
   );
   assert.deepEqual(PERMISSION_TREE.users,
     ["view", "create", "edit", "approve", "delete", "changeRole", "passwords", "unlock", "resetPassword"]);

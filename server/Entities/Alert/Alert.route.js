@@ -1,6 +1,6 @@
 const express = require("express");
 const { requireAuth } = require("../../middleware/authMiddleware");
-const { loadActor } = require("../../middleware/permissionMiddleware");
+const { loadActor, requirePermission } = require("../../middleware/permissionMiddleware");
 const { logWithSource } = require("../../middleware/logger");
 const { visibleAlertTypes } = require("../../services/alertAccess");
 
@@ -38,12 +38,21 @@ function createAlertRouter({ requireAuth, loadActor, store, now = () => new Date
       const types = visibleAlertTypes(req.actor);
       const skip = Number(req.query.skip || 0);
       if (!Number.isSafeInteger(skip) || skip < 0 || skip > 1000000) return res.status(400).json({ ok: false, message: "صفحة الإشعارات غير صالحة" });
-      const { result, total } = await store.listFor(req.actor.tz, { unreadOnly, limit: LIMIT, types, skip });
+      const { result, total } = await store.listFor(req.actor.tz, { unreadOnly, limit: LIMIT, types, skip, dismissed: req.query.status === "deleted" });
       return res.status(200).json({ ok: true, alerts: (result || []).map(view), total });
     } catch (error) {
       logWithSource("Alert.list", error);
       return res.status(500).json({ ok: false, message: SERVER_ERROR });
     }
+  });
+
+  router.post("/:id/dismiss", requirePermission("alerts.dismiss"), async (req, res) => {
+    if (!OBJECT_ID.test(String(req.params.id)) || typeof req.body?.dismissed !== "boolean") return res.status(400).json({ ok: false, code: "BAD_SELECTION" });
+    try {
+      const row = await store.dismiss(req.actor.tz, req.params.id, req.body.dismissed);
+      if (!row) return res.status(404).json(NOT_FOUND);
+      return res.json({ ok: true });
+    } catch (error) { logWithSource("Alert.dismiss", error); return res.status(500).json({ ok: false, message: SERVER_ERROR }); }
   });
 
   router.post("/read-all", async (req, res) => {

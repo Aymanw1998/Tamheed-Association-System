@@ -344,7 +344,7 @@ test("requireIt builds the IT actor, and me answers from it", async () => {
 
   const me = res();
   await ctx.auth.me(req, me);
-  assert.deepEqual(me.body, { ok: true, tz: "100000009", name: "It One", isSystem: false, photo: "https://example.com/p.jpg", hasEverydayRole: false, mustChangePassword: false, isItManager: false });
+  assert.deepEqual(me.body, { ok: true, tz: "100000009", name: "It One", isSystem: false, photo: "https://example.com/p.jpg", permissions: [...req.actor.permissions], hasEverydayRole: false, mustChangePassword: false, isItManager: false });
 
   // An IT user who also has an everyday role: the same condition the pass routes use.
   const both = res();

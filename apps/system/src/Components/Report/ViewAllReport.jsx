@@ -6,7 +6,7 @@ import { getAll as getUsers } from "../../WebServer/services/user/functionsUser.
 import { getMe } from "../../WebServer/services/auth/fuctionsAuth.jsx";
 import styles from "./Report.module.css";
 import Fabtn from "../Global/Fabtn/Fabtn.jsx";
-import { exportReportPdf } from "./ExportPDF.jsx";
+import ReportPdfAction from "./ReportPdfAction";
 import Button from "../UI/Button.jsx";
 import PersonCard, { PersonCardList } from "../UI/PersonCard.jsx";
 import { joinParts } from "../../utils/personCard";
@@ -274,9 +274,7 @@ const ViewAllReport = () => {
                 tags={report.title ?? []}
                 onOpen={() => navigate(`/reports/${report._id}`)}
                 actions={
-                  <Button size="sm" variant="secondary" onClick={() => exportReportPdf(report, report.user)}>
-                    ملف التقرير
-                  </Button>
+                  <ReportPdfAction report={report} />
                 }
               />
             ))}
@@ -319,9 +317,7 @@ const ViewAllReport = () => {
                       <Button size="sm" variant="warning" data-tour="reports-open" onClick={() => navigate(`/reports/${report._id}`)}>
                         تعديل
                       </Button>
-                      <Button size="sm" variant="secondary" data-tour="reports-pdf" onClick={() => exportReportPdf(report, report.user)}>
-                        ملف التقرير
-                      </Button>
+                      <ReportPdfAction report={report} tour="reports-pdf" />
                     </div>
                   </td>
                 </tr>

@@ -2,6 +2,7 @@
 // GETs under /api/, and never the sign-in, code, photo or file endpoints.
 // Matching ignores case, because the server treats paths that way.
 const NEVER = [
+  /^\/api\/report\/[^/]+\/pdf(\/|$)/i,
   /^\/api\/auth(\/|$)/i,
   /^\/api\/sport-portal\/request-code(\/|$)/i,
   /^\/api\/sport-portal\/verify(\/|$)/i,

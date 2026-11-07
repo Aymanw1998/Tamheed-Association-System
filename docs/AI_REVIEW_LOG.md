@@ -5684,3 +5684,83 @@ Publish the tested source under existing commit/push authorization, inspect
 GitHub CI and report the resulting commit separately from deployment. Custom
 role sets and existing user grants/revokes are not automatically broadened;
 management can deliberately grant the new operations through the IT editors.
+
+## 2026-11-07 — Selected navigation, exports, delivery and file-management improvements
+
+**Owner choice / bounded scope:** Owner approved the proposed package: grouped
+top navigation (also selected the top-menu mockup), server-background report PDF,
+improve existing SMTP delivery, Drive-like file browser, recoverable IT audit
+archiving. Include bell overlay layering, owner display names, uniform dd/MM/yyyy,
+notice archived/deleted views and recovery; personal dismissal for system alerts.
+Codex is the sole implementer. Actual Claude Code is the independent source-only
+reviewer; record quota/pending honestly. Preserve existing working source and
+per-operation/record scopes; add explicit permission keys for new actions.
+
+Implement and exercise against isolated synthetic services/data. No real DB
+writes, storage migration, seed/admin creation, cloud sharing changes, SMTP
+messages, live deployment or source credentials in review payloads. Drive
+reorganization/real delivery depend on server configuration and will be reported
+separately. Run npm run verify, IT/Sport suites/builds, isolated PDF performance
+and rendering checks, and browser QA for desktop/phone navigation/overlays/files.
+
+**Implementation / local resolution:** Desktop now uses grouped dropdowns with
+keyboard/outside dismissal; phone keeps the accordion below the header. Bell
+stacking is above navigation. Shared Jerusalem DMY formatter and generated
+copies cover affected System/IT/Sport views. Files have persistent list/grid,
+type filter, search and name/date/size sort; known owners use names, known
+infrastructure is system, unknown identities do not leak database IDs. Existing
+Drive backend and record ACLs are retained; live Drive layout is not asserted.
+
+Reports now use authenticated background jobs and a separate Chromium process,
+sanitized Arabic text/tables, bounded memory/queue/TTL, cancellation, current
+export/scope rechecks and same-tab resume. No PDF API cache. Server requires
+installed Chromium and a non-root worker; synthetic preflight and configuration
+are documented in SELECTED_IMPROVEMENTS.md. Queue is process-local and assumes
+one API instance. SMTP transport is pooled across all three systems, with safe
+pre-DATA retry only; automatic pool requeues are disabled to avoid a second
+retry policy. Timing counters contain no recipient/code/body. Actual delivery
+to inboxes remains unmeasured.
+
+IT audit changes only archive metadata, with audit.archive and recoverable
+selection. Notice archive/trash/restore have separate operation permissions;
+automatic notices support personal hiding instead of global removal. Concurrent
+notice dismissals use atomic per-reader additions/removals. Personal alert
+updates are exact-recipient and never upsert. Original expiry/retention rules
+still apply. Catalog, effective role defaults and generated UI copies agree;
+custom saved grants/revokes are not rewritten.
+
+**Verification:** npm run verify completed server regressions (1,568 pass) and
+System regressions (1,157 pass), then exposed an unsupported ESLint suppression
+comment in the new PDF component. Removed that comment; final full System suite
+passed 1,159 tests in 132 suites, and final optimized System build passed.
+Final SMTP-only correction passed all 8 service behavior tests. Full IT passed
+116 tests in 18 suites and build; full Sport passed 149 tests in 26 suites and
+build. Shared-copy check and git diff --check pass. A focused file regression
+caught type filtering bypassed by empty search; corrected the early return and
+verified type/sort/search/grid behavior. Scope/revocation, own-trash recovery,
+archive restoration, cancellation/late PDF replies and authenticated download
+are covered by isolated tests. No real database/services used.
+
+Installed Chrome rendered a synthetic Arabic report of 180 sections/tables to
+45 A4 pages in 1,690ms locally; parent heartbeat max gap 25ms. Inspected first,
+middle and last rendered pages, fixed orphan headings, verified logo, Arabic
+and table pagination. Committed synthetic PDF preflight also passed. This is a
+local benchmark, not production latency. Local real-component browser fixture
+verified desktop groups/keyboard and bell overlay, phone accordion at 390px,
+no horizontal page overflow, file list/grid/type/search and PDF progress/ready.
+Screenshots are synthetic local proof, outside source. Temporary fixture and
+test output are excluded from source and review.
+
+**Actual independent peer request / response:** Sent and refreshed the final
+[source-only request](reviews/2026-11-07-selected-improvements-claude-request.md)
+through the installed actual Claude Code CLI, with no tools/edits/session
+persistence. The [actual response](reviews/2026-11-07-selected-improvements-claude-response.txt)
+reports its weekly usage limit (reset 16:00 Asia/Jerusalem). No review findings
+or agreement received; independent Claude review remains pending. Payload
+contains authorized source and synthetic tests only, no .env, credentials,
+runtime logs or real user records. Local implementation and validation are
+complete separately from peer availability and production verification.
+
+Publish the tested source using the existing commit/push authorization and
+inspect CI. This does not deploy to production, install its browser, move Drive
+folders, change Google scopes, send real mail or mutate existing user data.

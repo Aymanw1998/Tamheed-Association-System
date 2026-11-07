@@ -1,3 +1,4 @@
+import { formatDateTime } from "../generated/dateFormat";
 import RequiredMark from "../ui/RequiredMark";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -18,7 +19,7 @@ const roleOf = (user) => {
   return held.sort((a, b) => RANK[b] - RANK[a])[0] || "";
 };
 
-const when = (value) => (value ? new Date(value).toLocaleString("ar", { timeZone: "Asia/Jerusalem" }) : "—");
+const when = (value) => formatDateTime(value);
 
 // One user: role, permissions, password, unlock and signed-in devices.
 // Every action is decided by the server; a refusal is shown as its text.

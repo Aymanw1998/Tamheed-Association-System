@@ -1,3 +1,4 @@
+import { formatDateTime } from "../../generated/dateFormat";
 import { canStored } from "../../utils/session";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createConsentLink, getConsent, getRules, signConsent } from "../../WebServer/services/inviteToken/functionInviteToken.jsx";
@@ -5,10 +6,7 @@ import { toast } from "../../ALERT/SystemToasts.jsx";
 import Button from "../UI/Button.jsx";
 import RegistrationConsent from "./RegistrationConsent";
 
-const when = (value) => {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? "-" : date.toLocaleString("en-GB");
-};
+const when = (value) => formatDateTime(value);
 
 export default function ConsentView({ studentId }) {
   const [state, setState] = useState({ loading: true, consent: null, rules: null });

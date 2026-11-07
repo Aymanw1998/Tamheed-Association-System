@@ -69,7 +69,9 @@
       "view",
       "post",
       "runCheck",
-      "archive"
+      "archive",
+      "delete",
+      "restore"
     ],
     "users": [
       "view",
@@ -89,7 +91,8 @@
       "manage"
     ],
     "audit": [
-      "view"
+      "view",
+      "archive"
     ],
     "systemRecovery": [
       "reset"
@@ -113,6 +116,9 @@
       "view",
       "edit",
       "link"
+    ],
+    "alerts": [
+      "dismiss"
     ]
   },
   "itKeys": [
@@ -121,7 +127,8 @@
     "users.unlock",
     "audit.view",
     "storage.drive",
-    "systemRecovery.reset"
+    "systemRecovery.reset",
+    "audit.archive"
   ],
   "hiddenModules": [
     "finance"
@@ -148,7 +155,8 @@
         "storage": "التخزين",
         "finance": "المالية",
         "rules": "قوانين الجمعية",
-        "consents": "تواقيع أولياء الأمور"
+        "consents": "تواقيع أولياء الأمور",
+        "alerts": "تنبيهاتي"
       },
       "leaves": {
         "view": "عرض",
@@ -185,7 +193,8 @@
         "createFolder": "إنشاء مجلد",
         "rename": "إعادة تسمية",
         "link": "إنشاء رابط توقيع",
-        "share": "مشاركة وإلغاء المشاركة"
+        "share": "مشاركة وإلغاء المشاركة",
+        "restore": "استعادة"
       },
       "leavesByModule": {
         "sports": {
@@ -206,6 +215,12 @@
         },
         "consents": {
           "edit": "إضافة أو تحديث التوقيع"
+        },
+        "audit": {
+          "archive": "أرشفة واستعادة السجلات"
+        },
+        "alerts": {
+          "dismiss": "إخفاء واستعادة تنبيهاتي"
         }
       }
     }

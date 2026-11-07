@@ -87,6 +87,7 @@ function startApp({ permissions = [], rows = [] } = {}) {
   const seen = {};
   const model = {
     async page(filter, opts) { seen.filter = filter; seen.opts = opts; return { items: rows, total: rows.length }; },
+    async archive(ids, archived, actor) { seen.archive = { ids, archived, actor }; },
   };
   // Signs in and loads the actor, as requireIt does on /api/it.
   const loadActor = (req, res, next) => {
@@ -94,6 +95,7 @@ function startApp({ permissions = [], rows = [] } = {}) {
     next();
   };
   const app = express();
+  app.use(express.json());
   app.use("/api/audit", createAuditRouter({ model, loadActor }));
   const server = http.createServer(app);
   return new Promise((resolve) =>
@@ -106,6 +108,23 @@ test("GET without audit.view is 403", async () => {
   try {
     assert.equal((await fetch(base)).status, 403);
   } finally { server.close(); }
+});
+
+test("audit archiving and recovery require their own grant and validate selections", async () => {
+  const id = "a".repeat(24);
+  for (const permissions of [["audit.view"], ["audit.view", "audit.archive"]]) {
+    const { server, base, seen } = await startApp({ permissions });
+    try {
+      const send = (body) => fetch(`${base}/archive`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const response = await send({ ids: [id, id], archived: true });
+      assert.equal(response.status, permissions.length === 1 ? 403 : 200);
+      if (permissions.length === 1) { assert.equal(seen.archive, undefined); continue; }
+      assert.deepEqual(seen.archive, { ids: [id], archived: true, actor: "1" });
+      assert.equal((await send({ ids: [id], archived: false })).status, 200); assert.equal(seen.archive.archived, false);
+      for (const ids of [[], ["invalid"], Array(201).fill(id)]) assert.equal((await send({ ids, archived: true })).status, 400);
+      await fetch(`${base}?status=archived`); assert.deepEqual(seen.filter.archivedAt, { $ne: null });
+    } finally { server.close(); }
+  }
 });
 
 test("GET with audit.view returns a page of 50, newest first", async () => {

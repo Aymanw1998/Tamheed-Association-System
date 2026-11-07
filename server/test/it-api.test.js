@@ -347,7 +347,7 @@ test("audit: the IT site reads today's audit query", withApp(async ({ call, audi
   const page = await call("GET", "/audit?module=users&page=2", { as: IT_A.tz });
   assert.equal(page.status, 200);
   assert.deepEqual(page.body, { ok: true, items: [{ action: "x" }], total: 1 });
-  assert.deepEqual(auditRows[0], { filter: { module: "users" }, page: 2, pageSize: 50 });
+  assert.deepEqual(auditRows[0], { filter: { module: "users", archivedAt: null }, page: 2, pageSize: 50 });
 }));
 
 test("storage: IT gets the Drive status and a connect URL; Google's callback stays on the everyday mount", withApp(async ({ call, audit }) => {

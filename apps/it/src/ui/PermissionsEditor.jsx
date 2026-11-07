@@ -1,3 +1,4 @@
+import { formatDateTime } from "../generated/dateFormat";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { errorText, getPermissions, savePermissions } from "../api";
 import { fillText, leafName, moduleName, perms, roleLabel } from "../strings";
@@ -102,7 +103,7 @@ export default function PermissionsEditor({ tz, onSaved }) {
 
   const who = data.updatedBy === "system" ? perms.system : data.updatedBy;
   const lastChange = data.updatedAt
-    ? fillText(perms.lastChange, { who: who || "—", when: new Date(data.updatedAt).toLocaleString("ar", { timeZone: "Asia/Jerusalem" }) })
+    ? fillText(perms.lastChange, { who: who || "—", when: formatDateTime(data.updatedAt) })
     : perms.neverChanged;
   const hasSpecial = (data.grants || []).length > 0 || (data.revokes || []).length > 0;
   const canReset = isResettable(data, grantable);

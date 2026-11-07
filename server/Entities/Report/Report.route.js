@@ -6,6 +6,9 @@ const { loadActor, requirePermission } = require("../../middleware/permissionMid
 const { requireFreeOrMine } = require("../../middleware/lockGuard.js");
 const { can } = require("../../utils/permissions.js");
 const router = express.Router();
+const { reportPdf } = require("./ReportPdf.controller");
+const { rateLimit } = require("../../middleware/rateLimit");
+const pdfLimit = rateLimit({ windowMs: 60000, max: 6, scope: "report-pdf" });
 
 // An edit learns who holds the report only if the caller may edit it: for an
 // editOwn-only caller someone else's report has no key here, so the controller
@@ -29,6 +32,10 @@ router.use(requireAuth, loadActor);
 const READ_KEYS = ["reports.create", "reports.editOwn", "reports.viewAll", "reports.editAll", "reports.delete", "reports.exportPdf"];
 router.get("/", requirePermission(...READ_KEYS), getAll);
 router.get("/:id", requirePermission(...READ_KEYS), getById);
+router.post("/:id/pdf/jobs", requirePermission("reports.exportPdf"), pdfLimit, reportPdf.start);
+router.get("/:id/pdf/jobs/:job", requirePermission("reports.exportPdf"), reportPdf.status);
+router.get("/:id/pdf/jobs/:job/file", requirePermission("reports.exportPdf"), reportPdf.download);
+router.delete("/:id/pdf/jobs/:job", requirePermission("reports.exportPdf"), reportPdf.cancel);
 router.post("/", requirePermission("reports.create"), post);
 router.put("/:id", requirePermission("reports.editOwn", "reports.editAll"), lockedForEdit, put);
 router.delete("/:id", requirePermission("reports.delete"), lockedReport, remove);

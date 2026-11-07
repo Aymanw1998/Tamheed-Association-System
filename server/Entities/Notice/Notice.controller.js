@@ -3,6 +3,7 @@ const { logWithSource } = require("../../middleware/logger.js");
 const { runVehicleExpiryCheck } = require("../../services/vehicleExpiryJob.js");
 const { audit } = require("../../utils/audit.js");
 const { actorRef, actorDisplayName } = require("../../utils/permissions.js");
+const { can } = require("../../utils/permissions.js");
 const { recipientsFor } = require("../../services/alertEngine.js");
 const { push } = require("../../utils/push.js");
 
@@ -42,7 +43,8 @@ const list = handle("list", async (req, res) => {
   if (!Number.isSafeInteger(skip) || skip < 0 || skip > 1000000) return fail(res, 400, "صفحة الإشعارات غير صالحة");
   const notices = await service.listNotices({
     userId: req.actor.id,
-    status: status === "unread" ? "unread" : "all",
+    status: ["unread", "archived", "deleted"].includes(status) ? status : "all",
+    canManageTrash: req.query?.personal !== "1" && (can(req.actor?.permissions, "notices.delete") || can(req.actor?.permissions, "notices.restore")),
     category: CATEGORIES.includes(category) ? category : "",
     severity: SEVERITIES.includes(severity) ? severity : "",
     skip,
@@ -113,4 +115,11 @@ const runVehicleCheck = handle("runVehicleCheck", async (req, res) => {
   return res.status(200).json({ ok: true, ...result });
 });
 
-module.exports = { list, unreadCount, create, read, readAll, archive, runVehicleCheck };
+const stateAction = (action) => handle(action, async (req, res) => {
+  const notice = await service.changeNoticeState(req.params.id, req.actor, action);
+  if (!notice) return fail(res, 404, "الإعلان غير موجود أو لا يمكن تنفيذ العملية عليه");
+  await audit.record(req, { module: "notices", action: "update", targetType: "notice", targetId: notice._id, targetLabel: notice.title, after: { action } });
+  return res.json({ ok: true });
+});
+module.exports = { list, unreadCount, create, read, readAll, archive, runVehicleCheck,
+  trash: stateAction("delete"), restore: stateAction("restore"), hide: stateAction("hide"), unhide: stateAction("unhide") };

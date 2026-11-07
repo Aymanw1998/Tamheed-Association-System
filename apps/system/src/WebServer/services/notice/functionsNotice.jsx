@@ -19,4 +19,5 @@ export const createNotice = (payload) => call(() => api.post(namespace, payload)
 export const markNoticeRead = (id) => call(() => api.post(`${namespace}/${encodeURIComponent(id)}/read`, {}));
 export const markAllNoticesRead = () => call(() => api.post(`${namespace}/read-all`, {}));
 export const archiveNotice = (id) => call(() => api.post(`${namespace}/${encodeURIComponent(id)}/archive`, {}));
+export const changeNoticeState = (id, action) => call(() => api.post(`${namespace}/${encodeURIComponent(id)}/${encodeURIComponent(action)}`, {}));
 export const runVehicleCheck = () => call(() => api.post(`${namespace}/run-vehicle-check`, {}, { timeout: 120000 }));

@@ -1,3 +1,4 @@
+import { formatDateTime as displayDateTime } from "../../generated/dateFormat";
 import RequiredMark from "../UI/RequiredMark";
 import { useEffect, useMemo, useRef, useState } from "react";
 import styles from "./FilesPage.module.css";
@@ -46,18 +47,7 @@ const formatBytes = (bytes) => {
   return `${size.toFixed(size >= 10 ? 1 : 2)} ${units[unit]}`;
 };
 
-const formatDate = (value, locale = "ar") => {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-  return date.toLocaleString(locale, {
-    year: "numeric",
-    month: "numeric",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-};
+const formatDate = (value) => displayDateTime(value, "-");
 
 const getExtension = (name = "") => {
   const parts = String(name).split(".");
@@ -240,6 +230,8 @@ export default function FilesPage() {
 
   const [items, setItems] = useState([]);
   const [currentPath, setCurrentPath] = useState("");
+  const [viewMode, setViewMode] = useState(() => { try { return localStorage.getItem("files.view") === "grid" ? "grid" : "list"; } catch { return "list"; } });
+  const [sortBy, setSortBy] = useState("name"), [fileKind, setFileKind] = useState("all");
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -408,14 +400,13 @@ export default function FilesPage() {
 
   const filteredItems = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return items;
 
-    return items.filter((file) =>
+    return items.filter((file) => (fileKind === "all" || (fileKind === "folders" ? file.isDirectory : !file.isDirectory))).filter((file) =>
       String(`${file.displayName || ""} ${file.name || ""} ${file.filename || ""} ${file.ownerName || ""}`)
         .toLowerCase()
         .includes(q)
     );
-  }, [items, query]);
+  }, [items, query, fileKind]);
 
   const visibleFolders = useMemo(
     () =>
@@ -438,8 +429,8 @@ export default function FilesPage() {
   );
 
   const explorerItems = useMemo(
-    () => [...visibleFolders, ...visibleFiles],
-    [visibleFolders, visibleFiles]
+    () => [...visibleFolders, ...visibleFiles].sort((a, b) => Number(Boolean(b.isDirectory)) - Number(Boolean(a.isDirectory)) || (sortBy === "date" ? new Date(b.date || 0) - new Date(a.date || 0) : sortBy === "size" ? Number(b.size || 0) - Number(a.size || 0) : getDisplayName(a).localeCompare(getDisplayName(b), "ar", { numeric: true }))),
+    [visibleFolders, visibleFiles, sortBy]
   );
 
   const folderCount = items.filter((file) => file.isDirectory).length;
@@ -1023,6 +1014,9 @@ export default function FilesPage() {
         )}
 
         <div className={styles.searchRow} data-tour="files-search">
+          <label>النوع<select aria-label="نوع الملفات" value={fileKind} onChange={(event) => setFileKind(event.target.value)}><option value="all">الكل</option><option value="folders">المجلدات</option><option value="files">الملفات</option></select></label>
+          <label>الترتيب<select aria-label="ترتيب الملفات" value={sortBy} onChange={(event) => setSortBy(event.target.value)}><option value="name">الاسم</option><option value="date">الأحدث</option><option value="size">الحجم</option></select></label>
+          <div role="group" aria-label="طريقة عرض الملفات">{["list", "grid"].map((mode) => <button key={mode} type="button" aria-pressed={viewMode === mode} onClick={() => { setViewMode(mode); try { localStorage.setItem("files.view", mode); } catch {} }}>{mode === "list" ? "☷ قائمة" : "▦ شبكة"}</button>)}</div>
           <input
             className={styles.searchInput}
             value={query}
@@ -1041,7 +1035,7 @@ export default function FilesPage() {
         )}
 
         {!isInitialLoading && !!filteredItems.length && (
-          <div className={styles.cardsGrid} data-tour="files-items" data-label={t("files.foldersAndFiles")}>
+          <div className={`${styles.cardsGrid} ${viewMode === "list" ? styles.listView : ""}`} data-tour="files-items" data-label={t("files.foldersAndFiles")} role="list" aria-label="الملفات والمجلدات">
             {explorerItems.map((file) => {
               const displayName = getDisplayName(file);
               const type = getType(file);
@@ -1059,6 +1053,7 @@ export default function FilesPage() {
                 <article
                   key={getItemKey(file)}
                   className={`${styles.fileCard} ${file.isDirectory ? styles.folderCard : styles.documentCard} ${pending ? styles.pendingCard : ""}`}
+                  role="listitem"
                   onMouseDown={(event) => {
                     if (event.button === 2) {
                       openContextMenu(event, file);
@@ -1113,7 +1108,7 @@ export default function FilesPage() {
                     <span>{formatBytes(file.size)}</span>
                   </div>
 
-                  <div className={styles.cardDate}>{formatDate(file.date)}</div>
+                  <div className={styles.cardDate}><time dir="ltr">{formatDate(file.date)}</time></div>
 
                   <div className={styles.cardActions}>
                     <button disabled={Boolean(pending)} onClick={() => (file.isDirectory ? openFolder(file) : openFile(file))}>

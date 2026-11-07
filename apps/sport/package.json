@@ -5,7 +5,10 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
-    "test": "react-scripts test --watchAll=false --runInBand"
+    "test": "react-scripts test --watchAll=false --runInBand",
+    "prestart": "node ../../scripts/syncShared.js",
+    "pretest": "node ../../scripts/syncShared.js",
+    "prebuild": "node ../../scripts/syncShared.js"
   },
   "dependencies": {
     "@dicebear/collection": "9.4.3",

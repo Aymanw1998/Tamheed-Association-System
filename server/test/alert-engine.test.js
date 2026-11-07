@@ -50,8 +50,8 @@ function alertStore() {
       docs.push(saved);
       return { created: true, alert: saved };
     },
-    async listFor(recipientTz, { unreadOnly = false, limit = 50, types, skip = 0 } = {}) {
-      const mine = docs.filter((d) => d.recipientTz === recipientTz && (!unreadOnly || !d.readAt)
+    async listFor(recipientTz, { unreadOnly = false, limit = 50, types, skip = 0, dismissed = false } = {}) {
+      const mine = docs.filter((d) => d.recipientTz === recipientTz && Boolean(d.dismissedAt) === dismissed && (!unreadOnly || !d.readAt)
         && (!Array.isArray(types) || types.includes(d.type)));
       const result = mine.sort((a, b) => new Date(b.at) - new Date(a.at) || (a._id < b._id ? 1 : -1)).slice(skip, skip + limit);
       return { result, total: mine.length };
@@ -62,6 +62,7 @@ function alertStore() {
       if (!hit.readAt) hit.readAt = at;
       return hit;
     },
+    async dismiss(recipientTz, id, dismissed) { const hit = docs.find((d) => d._id === id && d.recipientTz === recipientTz); if (!hit) return null; hit.dismissedAt = dismissed ? new Date() : null; return hit; },
     async markAllRead(recipientTz, at) {
       let n = 0;
       for (const d of docs) if (d.recipientTz === recipientTz && !d.readAt) { d.readAt = at; n += 1; }
@@ -306,6 +307,7 @@ test("the system account receives no alert of a non-system type", async () => {
 
 async function startInbox(store, clock = { now: Date.UTC(2026, 9, 20, 11) }) {
   const app = express();
+  app.use(express.json());
   const requireAuth = (req, res, next) => {
     const tz = req.headers["x-tz"];
     if (!tz) return res.status(401).json({ code: "NO_TOKEN" });
@@ -330,6 +332,20 @@ async function startInbox(store, clock = { now: Date.UTC(2026, 9, 20, 11) }) {
 const seedRow = (store, recipientTz, n, extra = {}) => store.insertOnce({
   recipientTz, type: "report_missing", severity: "info", text: { ar: `a${n}`, he: `h${n}`, en: `e${n}` },
   link: "/users", dedupKey: `k${n}`, readAt: null, at: new Date(Date.UTC(2026, 9, 20, 8, n)), ...extra,
+});
+
+test("personal trash requires dismissal grant, never edits another recipient and restores", async () => {
+  const store = alertStore(); await seedRow(store, "owner", 1); const id = store.docs[0]._id;
+  const { server, base } = await startInbox(store);
+  try {
+    const post = (tz, perms, dismissed) => fetch(`${base}/${id}/dismiss`, { method: "POST", headers: { "Content-Type": "application/json", "x-tz": tz, "x-perms": perms }, body: JSON.stringify({ dismissed }) });
+    assert.equal((await post("owner", "reports.create", true)).status, 403);
+    assert.equal((await post("other", "alerts.dismiss", true)).status, 404);
+    assert.equal((await post("owner", "alerts.dismiss", true)).status, 200);
+    const list = async (status) => (await (await fetch(`${base}?status=${status}`, { headers: { "x-tz": "owner", "x-perms": "reports.create,alerts.dismiss" } })).json()).alerts;
+    assert.equal((await list("active")).length, 0); assert.equal((await list("deleted")).length, 1);
+    assert.equal((await post("owner", "alerts.dismiss", false)).status, 200); assert.equal((await list("active")).length, 1);
+  } finally { server.close(); }
 });
 
 test("GET /api/alerts lists only the caller's alerts, newest first, at most 50; unread=1 filters", async () => {

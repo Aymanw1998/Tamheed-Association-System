@@ -1,3 +1,4 @@
+import { formatDateTime } from "../generated/dateFormat";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { errorText, getRoleDefaults, resetRoleDefaults, saveRoleDefaults } from "../api";
 import { fillText, leafName, moduleName, perms, roleDefaultsText as text, roleLabel } from "../strings";
@@ -6,7 +7,7 @@ import { leavesOf, visibleModules } from "../ui/permissionTree";
 import styles from "../ui/PermissionsEditor.module.css";
 import { toast } from "../ui/toast.jsx";
 
-const when = (value) => new Date(value).toLocaleString("ar", { timeZone: "Asia/Jerusalem" });
+const when = (value) => formatDateTime(value);
 
 function TriStateBox({ state, ...rest }) {
   const ref = useRef(null);

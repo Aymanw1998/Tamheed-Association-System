@@ -73,8 +73,7 @@ export default function NavigationMenu({ groups, program, home, mobile, open, on
       <nav id="main-nav" data-tour="menu" aria-label="التنقل الرئيسي" className={styles.nav}>
         {home && <div className={styles.shortcut}>{link(home)}</div>}
         {program && <div className={styles.shortcut}>{link(program)}</div>}
-        {!mobile && groups.flatMap((group) => group.items).map(link)}
-        {mobile && groups.map((group) => <div key={group.id} className={styles.group}>
+        {groups.map((group) => <div key={group.id} className={styles.group}>
           <button ref={(element) => { triggers.current[group.id] = element; }} type="button"
             className={styles.groupButton} data-active={group.id === activeGroup}
             aria-expanded={expanded === group.id} aria-controls={`nav-group-${group.id}`}

@@ -7,6 +7,11 @@ const api = require("../api");
 const dbName = process.env.DB_NAME || "tamheed_db";
 
 const AuditModelDef = { dbName, collection: "AuditLog" };
+// Only archive metadata changes; the original evidence is never rewritten.
+AuditModelDef.archive = async function (ids, archived, actor) {
+  return api.updateMany({ dbName: this.dbName, collection: this.collection,
+    filter: { _id: { $in: ids } }, newData: { archivedAt: archived ? new Date() : null, archivedBy: archived ? actor : null } });
+};
 AuditModelDef.create = async function (data) {
   return await api.create({ dbName: this.dbName, collection: this.collection, data });
 };

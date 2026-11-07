@@ -1,9 +1,10 @@
+import { formatDate, formatDateTime } from "../../generated/dateFormat";
 import { canStored } from "../../utils/session";
 import RequiredMark from "../UI/RequiredMark";
 import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  archiveNotice, createNotice, getNotices, markAllNoticesRead, markNoticeRead, runVehicleCheck,
+  archiveNotice, changeNoticeState, createNotice, getNotices, markAllNoticesRead, markNoticeRead, runVehicleCheck,
 } from "../../WebServer/services/notice/functionsNotice.jsx";
 import { useI18n } from "../../i18n/I18nContext";
 import { toast } from "../../ALERT/SystemToasts";
@@ -92,6 +93,9 @@ export default function NoticesBoard() {
       </header>
 
       <SystemAlerts />
+      <div role="tablist" aria-label="مجلدات الإعلانات" className={styles.actions}>
+        {[ ["all", "الوارد"], ["archived", "المؤرشف"], ["deleted", "المحذوفات"] ].map(([value, label]) => <Button key={value} role="tab" aria-selected={value === filters.status || (value === "all" && filters.status === "unread")} variant={value === filters.status ? "primary" : "secondary"} onClick={() => setFilters((old) => ({ ...old, status: value }))}>{label}</Button>)}
+      </div>
 
       <div className={styles.filters} data-tour="notices-filters">
         <FilterDialog
@@ -102,6 +106,7 @@ export default function NoticesBoard() {
             <select value={filters.status} onChange={setFilter("status")}>
               <option value="all">{t("notices.filters.all")}</option>
               <option value="unread">{t("notices.filters.unread")}</option>
+              <option value="archived">المؤرشف</option><option value="deleted">المحذوفات</option>
             </select>
           </label>
           <label>{t("notices.filters.category")}
@@ -138,15 +143,18 @@ export default function NoticesBoard() {
                   <td>
                     <button type="button" className={styles.linkButton} onClick={() => open(n)}>{n.title}</button>
                     {n.body && <div className={styles.body}>{n.body}</div>}
-                    {n.endDate && <div className={styles.body}>{t("notices.endsOn").replace("{date}", n.endDate)}</div>}
+                    {n.endDate && <div className={styles.body}>{t("notices.endsOn").replace("{date}", formatDate(n.endDate))}</div>}
                   </td>
                   <td>{t(`notices.category.${n.category}`)}</td>
-                  <td>{new Date(n.createdAt).toLocaleString("ar")}</td>
+                  <td>{<time dir="ltr">{formatDateTime(n.createdAt)}</time>}</td>
                   <td>{n.createdBy === "system" ? t("notices.system") : n.createdByName}</td>
                   <td>{n.read ? t("notices.read") : <strong>{t("notices.unread")}</strong>}</td>
                   <td className={styles.rowActions}>
                     {!n.read && <Button size="sm" variant="secondary" onClick={() => act(`r${n._id}`, () => markNoticeRead(n._id))}>{t("notices.markRead")}</Button>}
-                    {canStored("notices.archive") && <Button size="sm" variant="secondary" data-tour="notices-archive" onClick={() => archive(n)}>{t("notices.archive")}</Button>}
+                    {n.category === "manual" && !n.archivedAt && !n.deletedAt && canStored("notices.archive") && <Button size="sm" variant="secondary" data-tour="notices-archive" onClick={() => archive(n)}>{t("notices.archive")}</Button>}
+                    {n.category === "manual" && !n.deletedAt && canStored("notices.delete") && <Button size="sm" variant="secondary" onClick={async () => { if (await ask("change", { title: "نقل إلى المحذوفات", message: "سيُنقل الإعلان إلى المحذوفات للجميع، ويمكن استعادته. هل تريد المتابعة؟" }).catch(() => false)) act(`d${n._id}`, () => changeNoticeState(n._id, "delete")); }}>حذف للجميع</Button>}
+                    {(n.archivedAt || n.deletedAt) && canStored("notices.restore") && <Button size="sm" onClick={() => act(`s${n._id}`, () => changeNoticeState(n._id, "restore"))}>استعادة الإعلان</Button>}
+                    {canStored("alerts.dismiss") && <Button size="sm" variant="secondary" onClick={() => act(`h${n._id}`, () => changeNoticeState(n._id, n.hiddenForMe ? "unhide" : "hide"))}>{n.hiddenForMe ? "إعادة إلى قائمتي" : "حذف من قائمتي"}</Button>}
                   </td>
                 </tr>
               ))}

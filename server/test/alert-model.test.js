@@ -73,10 +73,22 @@ test("older inbox pages keep recipient and current type restrictions in the data
   const { AlertModelDef, api } = loadModel();
   await AlertModelDef.listFor("caller", { skip: 50, limit: 50, types: ["report_missing"], unreadOnly: true });
   const query = api.calls[0][1];
-  assert.deepEqual(query.filter, { recipientTz: "caller", type: { $in: ["report_missing"] }, readAt: null });
+  assert.deepEqual(query.filter, { recipientTz: "caller", dismissedAt: null, type: { $in: ["report_missing"] }, readAt: null });
   assert.equal(query.skip, 50);
   assert.equal(query.limit, 50);
   assert.deepEqual(query.sort, { at: -1, _id: -1 });
+});
+
+test("dismiss and restore update only an existing recipient-owned alert and keep evidence", async () => {
+  const { AlertModelDef, api } = loadModel(); const id = "a".repeat(24);
+  api.rows.push({ _id: id, recipientTz: "owner", readAt: null, text: { ar: "synthetic" } });
+  assert.equal(await AlertModelDef.dismiss("other", id, true), null);
+  assert.equal(api.rows[0].dismissedAt, undefined);
+  await AlertModelDef.dismiss("owner", id, true); assert.ok(api.rows[0].dismissedAt instanceof Date);
+  await AlertModelDef.dismiss("owner", id, false); assert.equal(api.rows[0].dismissedAt, null);
+  assert.deepEqual(api.rows[0].text, { ar: "synthetic" });
+  await AlertModelDef.listFor("owner", { dismissed: true, types: ["report_missing"] });
+  assert.deepEqual(api.calls.at(-1)[1].filter, { recipientTz: "owner", dismissedAt: { $ne: null }, type: { $in: ["report_missing"] } });
 });
 
 test("read all: 30 days for ordinary rows, no limit for vehicle rows", async () => {

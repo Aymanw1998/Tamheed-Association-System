@@ -285,6 +285,7 @@ function createItAuth(deps = {}) {
     // hasEverydayRole: the pass routes' condition, so the site can show «النظام» without asking for a pass.
     return res.json({
       ok: true, tz, name, isSystem, photo: user?.photo || null, hasEverydayRole: Boolean(resolveRole(user)),
+      permissions: [...(req.actor.permissions || [])],
       // The site shows only «تغيير كلمة المرور» until it is changed (requireIt refuses the rest).
       mustChangePassword: Boolean(req.actor.mustChangePassword),
       // «مستخدمو IT»: the system account and the managers it named.

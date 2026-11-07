@@ -30,7 +30,7 @@ function Screen({ path, me }) {
   if (user) return <UserPage key={user[1]} tz={decodeURIComponent(user[1])} />;
   if (path === "/roles") return <RoleDefaults />;
   if (path === "/bug-reports") return <BugReports />;
-  if (path === "/audit") return <Audit />;
+  if (path === "/audit") return <Audit me={me} />;
   if (path === "/storage") return <Storage />;
   if (path === "/settings") return <Settings />;
   // The IT users screen: the system account and the «مدير IT» users (the server checks too).

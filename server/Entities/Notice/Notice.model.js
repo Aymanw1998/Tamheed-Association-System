@@ -31,6 +31,12 @@ NoticeModelDef.removeExcept = async function (prefix, keepKeys = []) {
 NoticeModelDef.update = async function (filter, newData) {
   return await api.update({ dbName: this.dbName, collection: this.collection, filter, newData });
 };
+// Concurrent personal dismissals must not overwrite another reader's choice.
+NoticeModelDef.setHidden = async function (id, reader, hidden) {
+  const collection = mongoose.connection.useDb(this.dbName, { useCache: true }).collection(this.collection);
+  return collection.updateOne({ _id: new mongoose.Types.ObjectId(String(id)) },
+    hidden ? { $addToSet: { hiddenBy: String(reader) } } : { $pull: { hiddenBy: String(reader) } });
+};
 
 // One row per scheduled-job run: { job, date ("YYYY-MM-DD"), trigger, created, emailed, error, finishedAt }.
 // A lock row { job, date, lockKey, lockedAt (Date) } claims one run slot across

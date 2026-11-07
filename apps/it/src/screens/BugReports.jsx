@@ -1,3 +1,4 @@
+import { formatDateTime } from "../generated/dateFormat";
 import { useCallback, useEffect, useState } from "react";
 import { bugReportImage, deleteBugReport, errorText, getBugReports } from "../api";
 import { roleLabel } from "../strings";
@@ -7,10 +8,7 @@ import { toast } from "../ui/toast.jsx";
 const TYPES = { fault: "عطل", suggestion: "اقتراح تحسين", problem: "مشكلة ملموسة" };
 const KINDS = { server: "خطأ خادم", network: "الخادم لا يجيب", crash: "تعطل الشاشة" };
 
-const when = (value) => {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? "" : date.toLocaleString("ar-EG", { dateStyle: "short", timeStyle: "short" });
-};
+const when = (value) => formatDateTime(value);
 
 function Field({ label, value }) {
   if (!value) return null;

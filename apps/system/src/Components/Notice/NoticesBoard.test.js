@@ -16,7 +16,7 @@ jest.mock("react-router-dom", () => {
 // Owner, 2026-11-02: a notice may get an end date when it is posted; the
 // board shows it.
 jest.mock("../../WebServer/services/notice/functionsNotice.jsx", () => ({
-  archiveNotice: jest.fn(), createNotice: jest.fn(), getNotices: jest.fn(),
+  archiveNotice: jest.fn(), changeNoticeState: jest.fn(), createNotice: jest.fn(), getNotices: jest.fn(),
   markAllNoticesRead: jest.fn(), markNoticeRead: jest.fn(), runVehicleCheck: jest.fn(),
 }));
 jest.mock("../../ALERT/SystemToasts", () => ({ toast: { success: jest.fn(), warn: jest.fn(), error: jest.fn() } }));
@@ -59,5 +59,5 @@ test("the end date chosen is sent with the notice", async () => {
 
 test("a notice with an end date shows it", async () => {
   await mount();
-  expect(host.textContent).toContain("2026-11-20");
+  expect(host.textContent).toContain("20/11/2026");
 });

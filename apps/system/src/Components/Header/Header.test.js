@@ -131,12 +131,15 @@ test("association rules is a separate permission-gated navigation destination", 
   await mount();
   expect(host.querySelector('#main-nav a[href="/association-rules"]').textContent).toBe("قوانين الجمعية");
 });
-test("desktop pages are direct links, mark the active page and keep phone groups after resizing", async () => {
+test("desktop groups open on click, mark the active page and preserve phone accordion behavior", async () => {
   await mount();
   expect(host.querySelector('#main-nav a').textContent).toBe("الرئيسي");
   expect(host.querySelector('#main-nav a[href="/lessons"]').getAttribute("aria-current")).toBe("page");
-  expect(host.querySelectorAll('#main-nav button')).toHaveLength(0);
+  expect(host.querySelectorAll('#main-nav button').length).toBeGreaterThan(0);
+  expect(host.querySelector('#main-nav a[href="/weekly-tasks"]').closest('[hidden]')).not.toBeNull();
+  await act(async () => groupButton("العمل اليومي").click());
   expect(host.querySelector('#main-nav a[href="/weekly-tasks"]').closest('[hidden]')).toBeNull();
+  await act(async () => groupButton("الأعضاء والطاقم").click());
   await act(async () => host.querySelector('#main-nav a[href="/students"]').click());
   expect(at()).toBe("/students");
   expect(host.querySelector('#main-nav a[href="/students"]').getAttribute("aria-current")).toBe("page");
@@ -147,7 +150,7 @@ test("desktop pages are direct links, mark the active page and keep phone groups
   window.innerWidth = 1280;
   await act(async () => window.dispatchEvent(new Event("resize")));
   expect(host.querySelector('[role="dialog"]')).toBeNull();
-  expect(host.querySelectorAll('#main-nav button')).toHaveLength(0);
+  expect(host.querySelectorAll('#main-nav button').length).toBeGreaterThan(0);
   expect(document.body.style.overflow).not.toBe("hidden");
 });
 test("phone dropdown expands groups, closes after navigation and returns focus to its toggle", async () => {

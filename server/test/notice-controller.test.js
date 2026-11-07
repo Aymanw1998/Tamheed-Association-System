@@ -54,6 +54,7 @@ function setup({ extraUsers = [], pushFails = false } = {}) {
       const doc = { _id: String(next++).padStart(24, "0"), ...structuredClone(data) }; rows.push(doc); return { result: structuredClone(doc) };
     },
     async update(filter, patch) { rows.forEach((r, i) => { if (matches(r, filter)) rows[i] = { ...r, ...structuredClone(patch) }; }); return { result: null }; },
+    async setHidden(id, reader, hidden) { const row = rows.find((r) => r._id === id); if (row) { const readers = new Set(row.hiddenBy || []); hidden ? readers.add(reader) : readers.delete(reader); row.hiddenBy = [...readers]; } },
   };
   const users = [ADMIN, GUIDE, READER, REVOKED, ...extraUsers];
   const common = {
@@ -167,7 +168,7 @@ test("publishNotice ignores a duplicate dedupKey", async () => {
 test("mark read, unread count and archive", async () => {
   const ctx = setup();
   const { service } = ctx;
-  const { notice } = await service.publishNotice({ title: "t", body: "b", category: "system", severity: "info" });
+  const { notice } = await service.publishNotice({ title: "t", body: "b", category: "manual", severity: "info" });
   assert.equal((await guarded(ctx, ADMIN, "unreadCount")).body.count, 1);
   await guarded(ctx, ADMIN, "read", { params: { id: notice._id } });
   assert.equal((await guarded(ctx, ADMIN, "unreadCount")).body.count, 0);
@@ -317,4 +318,32 @@ test("a notice read before read times were kept counts from when it was posted",
   row.createdAt = new Date(Date.now() - 40 * DAY_MS).toISOString();
   assert.equal((await guarded(ctx, ADMIN, "list")).body.notices.length, 0);
   assert.equal((await guarded(ctx, READER, "list")).body.notices.length, 1);
+});
+
+test("manual notices archive, trash and restore while automatic notices have only personal dismissal", async () => {
+  const ctx = setup();
+  const { notice } = await ctx.service.publishNotice({ title: "Synthetic", body: "", category: "manual", severity: "info" });
+  const params = { id: notice._id };
+  assert.equal((await guarded(ctx, READER, "trash", { params })).statusCode, 403);
+  assert.equal((await guarded(ctx, ADMIN, "archive", { params })).statusCode, 200);
+  assert.equal((await guarded(ctx, ADMIN, "list")).body.notices.length, 0);
+  assert.equal((await guarded(ctx, ADMIN, "list", { query: { status: "archived" } })).body.notices.length, 1);
+  await guarded(ctx, ADMIN, "restore", { params }); await guarded(ctx, ADMIN, "trash", { params });
+  assert.equal((await guarded(ctx, READER, "list", { query: { status: "deleted" } })).body.notices.length, 0);
+  assert.equal((await guarded(ctx, ADMIN, "list", { query: { status: "deleted" } })).body.notices.length, 1);
+  await guarded(ctx, ADMIN, "restore", { params });
+  assert.equal((await guarded(ctx, READER, "list")).body.notices.length, 1);
+  ctx.rows[0].category = "system";
+  assert.equal((await guarded(ctx, ADMIN, "trash", { params })).statusCode, 404);
+  assert.equal((await guarded(ctx, ADMIN, "archive", { params })).statusCode, 404);
+  await Promise.all([guarded(ctx, ADMIN, "hide", { params }), guarded(ctx, READER, "hide", { params })]);
+  assert.equal(ctx.rows[0].hiddenBy.length, 2);
+  assert.equal((await guarded(ctx, ADMIN, "list")).body.notices.length, 0);
+  const ownTrash = await guarded(ctx, READER, "list", { query: { status: "deleted" } });
+  assert.equal(ownTrash.body.notices[0].hiddenForMe, true); assert.equal(ownTrash.body.notices[0].hiddenBy, undefined);
+  await guarded(ctx, READER, "unhide", { params });
+  assert.equal((await guarded(ctx, READER, "list")).body.notices.length, 1);
+  assert.equal((await guarded(ctx, ADMIN, "list")).body.notices.length, 0);
+  const revoked = { ...READER, permissionRevokes: ["alerts.dismiss"] };
+  assert.equal((await guarded(ctx, revoked, "hide", { params })).statusCode, 403);
 });

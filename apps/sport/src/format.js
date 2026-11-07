@@ -1,3 +1,4 @@
+import { formatDate } from "./generated/dateFormat";
 // Day 1 = الأحد … 7 = السبت, like Lesson.date.day on the server.
 export const DAY_NAMES = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
 
@@ -14,7 +15,7 @@ export function lessonTime({ day, startMin, endMin }) {
 export function historyLabel({ date, status }) {
   const [y, m, d] = String(date).split("-").map(Number);
   const weekday = new Date(Date.UTC(y, m - 1, d)).getUTCDay(); // 0 = Sunday
-  return `${DAY_NAMES[weekday]} ${d}/${m} · ${status}`;
+  return `${DAY_NAMES[weekday]} ${formatDate(date)} · ${status}`;
 }
 
 export function attendanceLabel(value) {
@@ -53,8 +54,4 @@ export function lessonDays(lessons) {
 }
 
 // "2015-05-10" -> «10/05/2015».
-export function birthDateLabel(iso) {
-  if (!iso) return "—";
-  const [y, m, d] = String(iso).split("-");
-  return y && m && d ? `${d}/${m}/${y}` : "—";
-}
+export function birthDateLabel(iso) { return formatDate(iso); }

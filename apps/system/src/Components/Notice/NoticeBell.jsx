@@ -141,7 +141,7 @@ export default function NoticeBell({ canViewNotices = false }) {
           {shown.map((item) => (
             <button key={item.key} type="button" className={`${styles.bellItem} ${item.read ? "" : styles.bellUnread}`} onClick={() => openItem(item)}>
               <span dir="auto">{item.text}</span>
-              <small>{alertTime(item.at)}</small>
+              <small><time dir="ltr">{alertTime(item.at)}</time></small>
             </button>
           ))}
           {canViewNotices && (

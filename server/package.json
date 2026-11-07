@@ -19,7 +19,7 @@
     "system:recover": "node scripts/systemRecover.js",
     "permissions:migrate": "node scripts/migratePermissions.js",
     "users:encrypt-plain-passwords": "node scripts/encryptPlainPasswords.js",
-    "pretest": "node ../scripts/syncPermissions.js"
+    "pretest": "node ../scripts/syncShared.js"
   },
   "keywords": [],
   "author": "",
@@ -50,7 +50,9 @@
     "nodemailer": "^10.2.0",
     "nodemon": "^3.0.2",
     "onnxruntime-node": "^1.31.1",
+    "puppeteer-core": "24.43.1",
     "qrcode": "1.5.4",
+    "sanitize-html": "2.17.7",
     "sharp": "^0.35.5",
     "web-push": "3.6.7",
     "xss-clean": "^0.1.4"
