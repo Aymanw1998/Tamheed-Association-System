@@ -5562,3 +5562,52 @@ cannot retroactively execute new entry logic. New entries using this build or
 later automatically check before displaying the app. Offline entries can use
 the cached build and update when connectivity returns. Runtime edits defer
 reload until safe. No existing client data/cookies are cleared by this feature.
+
+## 2026-11-07 — Unified permission catalog across System and IT
+
+**Bounded objective / ownership:** Codex is the sole implementer. Actual Claude
+Code independently reviews the final source-only patch if available. Owner
+requests IT permission sections match System and stay synchronized. Existing
+IT mirror lacks tasks.manage and has old dashboard/program/roster names. Create
+one source catalog for tree, IT-only keys, labels and hidden sections; consume
+it on the server and generate CRA-local imports automatically before start,
+test and build. Keep existing role defaults, user grants/revokes and enforcement.
+Verify isolated catalog parity, default/grant restrictions and IT UI task toggles,
+then npm run verify and full IT suite/build. No real DB, permissions assignments,
+cloud services, seeds, migration commands or production deployment.
+
+**Focused correction:** Header regression caught a label mismatch introduced
+while centralizing: the existing navigation says «طاقم الجمعية». Canonical
+user, vehicle and notices labels now retain the actual System navigation names
+(«طاقم الجمعية», «المركبات والمقطورات», «لوحة الإعلانات») and IT follows them.
+Focused Header/permission tests passed 29 tests after correction. The initial
+full run passed 1,530 server tests and all but that one Header assertion; final
+full verification is rerun with the corrected canonical labels.
+
+**Implementation / peer response:** The canonical catalog is
+shared/permissions.json. Server imports its tree and IT-only keys; generated
+System/IT JSON is refreshed by npm lifecycle hooks before start/test/build.
+Permission helpers, Arabic permission labels and System navigation now consume
+that catalog. Restored IT's missing tasks.manage module with a specific task
+management label; user and role-default editors use it through existing save
+logic. No permission keys, role defaults or server grant rules were expanded.
+Focused tests cover generation after a synthetic catalog edit, all-consumer
+parity, weekly-task granting, protected IT operations and role-default editing.
+
+Sent the [source-only review request](reviews/2026-11-07-permission-catalog-claude-request.md)
+to actual Claude Code and refreshed it for the final canonical labels. The
+[actual response](reviews/2026-11-07-permission-catalog-claude-response.txt)
+reports the weekly limit until Nov 8, 16:00 Asia/Jerusalem. No review findings or
+agreement were received; actual Claude review is pending. Source payload omitted
+.env, credentials, runtime logs and real records. Continued authorized isolated
+verification. No other agent edited files.
+
+**Final System/server verification:** npm run verify passed: 1,530 isolated
+server tests, 1,146 System tests in 131 suites, and optimized System build.
+Full IT verification passed: 114 tests in 18 suites and optimized build.
+Canonical-copy check and git diff --check passed. No dependencies or lockfiles
+changed. Test logs are disposable local artifacts, excluded from review and
+commit. Publish source under existing commit/push authorization and inspect CI;
+no production deployment or real user permissions changed. Future catalog
+edits synchronize at start/test/build; running production clients receive the
+updated built release after deployment, through normal automatic updates.

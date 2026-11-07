@@ -233,12 +233,12 @@ export default function Header() {
         program={(opens("/lessons") || opens("/calendar")) ? { path: opens("/lessons") ? "/lessons" : "/calendar", label: t("nav.lessons"), tour: "menu-lessons", badge: "lessons" } : null}
         groups={[
           { id: "daily", label: "العمل اليومي", items: [
-            { path: "/weekly-tasks", label: "المهمات الأسبوعية", tour: "menu-weekly-tasks" },
+            { path: "/weekly-tasks", label: t("nav.tasks"), tour: "menu-weekly-tasks" },
             opens("/sports") && { path: "/sports", label: t("nav.sports"), tour: "menu-sports" },
           ] },
           { id: "people", label: "الأعضاء والطاقم", items: [
             canViewStudents && { path: "/students", label: t("nav.students"), tour: "menu-students", badge: "students" },
-            canViewUsers && { path: "/users", label: "طاقم الجمعية", tour: "menu-users", badge: "users" },
+            canViewUsers && { path: "/users", label: t("nav.users"), tour: "menu-users", badge: "users" },
           ] },
           { id: "followup", label: "المتابعة", items: [
             opens("/reports") && { path: "/reports", label: t("nav.reports"), tour: "menu-reports", badge: "reports" },

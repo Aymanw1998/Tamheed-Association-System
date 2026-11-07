@@ -1,10 +1,11 @@
 // Pure helpers for the permissions tab. A state is { defaults, grants, revokes }:
 // defaults are the role's leaf keys; grants/revokes may hold leaf or module
 // keys (the server expands module keys). effective = (defaults + grants) - revokes.
+import catalog from "../generated/permissions.json";
 import { PERMISSION_TREE, ALL_KEYS } from "./permissionKeys";
 
 // Reserved modules are not shown until they are built.
-export const HIDDEN_MODULES = ["finance"];
+export const HIDDEN_MODULES = catalog.hiddenModules;
 
 export const visibleModules = () => Object.keys(PERMISSION_TREE).filter((m) => !HIDDEN_MODULES.includes(m));
 

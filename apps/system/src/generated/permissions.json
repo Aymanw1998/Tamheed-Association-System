@@ -1,0 +1,173 @@
+{
+  "tree": {
+    "dashboard": [
+      "view"
+    ],
+    "calendar": [
+      "view"
+    ],
+    "students": [
+      "view",
+      "viewAll",
+      "create",
+      "edit",
+      "delete",
+      "photo",
+      "parentLink"
+    ],
+    "lessons": [
+      "view",
+      "viewAll",
+      "create",
+      "edit",
+      "roster",
+      "delete",
+      "copyMonth"
+    ],
+    "attendance": [
+      "view",
+      "record"
+    ],
+    "tasks": [
+      "manage"
+    ],
+    "reports": [
+      "create",
+      "editOwn",
+      "viewAll",
+      "editAll",
+      "delete",
+      "exportPdf"
+    ],
+    "vehicles": [
+      "view",
+      "edit",
+      "compliance",
+      "documents",
+      "archive",
+      "delete"
+    ],
+    "files": [
+      "use",
+      "manageAll"
+    ],
+    "notices": [
+      "view",
+      "post",
+      "runCheck"
+    ],
+    "users": [
+      "view",
+      "create",
+      "edit",
+      "approve",
+      "delete",
+      "changeRole",
+      "passwords",
+      "unlock",
+      "resetPassword"
+    ],
+    "ai": [
+      "use"
+    ],
+    "permissions": [
+      "manage"
+    ],
+    "audit": [
+      "view"
+    ],
+    "systemRecovery": [
+      "reset"
+    ],
+    "sports": [
+      "view",
+      "coach",
+      "manage"
+    ],
+    "finance": [
+      "view"
+    ],
+    "storage": [
+      "drive"
+    ]
+  },
+  "itKeys": [
+    "permissions.manage",
+    "users.passwords",
+    "users.unlock",
+    "audit.view",
+    "storage.drive",
+    "systemRecovery.reset"
+  ],
+  "hiddenModules": [
+    "finance"
+  ],
+  "labels": {
+    "ar": {
+      "modules": {
+        "dashboard": "الرئيسي",
+        "calendar": "برنامج الأسبوع",
+        "students": "الطلاب",
+        "lessons": "البرنامج",
+        "attendance": "الحضور والغياب",
+        "tasks": "المهمات الأسبوعية",
+        "reports": "التقارير",
+        "vehicles": "المركبات والمقطورات",
+        "files": "الملفات",
+        "notices": "لوحة الإعلانات",
+        "users": "طاقم الجمعية",
+        "ai": "المساعد الذكي",
+        "permissions": "الصلاحيات",
+        "audit": "سجل التغييرات",
+        "sports": "الرياضة",
+        "systemRecovery": "استعادة حساب النظام",
+        "storage": "التخزين",
+        "finance": "المالية"
+      },
+      "leaves": {
+        "view": "عرض",
+        "viewAll": "عرض الكل",
+        "create": "إضافة",
+        "edit": "تعديل",
+        "delete": "حذف",
+        "photo": "الصورة",
+        "parentLink": "رابط تسجيل الأهل",
+        "roster": "قائمة طلاب البرنامج",
+        "copyMonth": "نسخ شهر",
+        "record": "تسجيل",
+        "editOwn": "تعديل ما أنشأه",
+        "editAll": "تعديل الكل",
+        "exportPdf": "تصدير PDF",
+        "compliance": "الفحوصات والتأمين",
+        "documents": "المستندات",
+        "archive": "أرشفة",
+        "use": "استخدام",
+        "manageAll": "إدارة كل الملفات",
+        "post": "نشر",
+        "runCheck": "تشغيل الفحص",
+        "approve": "قبول",
+        "changeRole": "تغيير الدور",
+        "passwords": "عرض كلمات المرور",
+        "unlock": "رفع الحظر",
+        "resetPassword": "تعيين كلمة مرور جديدة",
+        "manage": "إدارة",
+        "reset": "إعادة تعيين"
+      },
+      "leavesByModule": {
+        "sports": {
+          "coach": "تدريب الفرق",
+          "manage": "إدارة الرياضة"
+        },
+        "storage": {
+          "drive": "حساب Google Drive"
+        },
+        "tasks": {
+          "manage": "إدارة المهمات الأسبوعية"
+        },
+        "permissions": {
+          "manage": "إدارة الصلاحيات"
+        }
+      }
+    }
+  }
+}

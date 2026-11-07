@@ -1,5 +1,5 @@
-// Arabic text of the IT site. The permission names are copied from the
-// everyday app (apps/system/src/i18n/accessStrings.js).
+// Arabic permission labels share the System/server catalog.
+import catalog from "./generated/permissions.json";
 
 export const GENERIC_ERROR = "حدث خطأ، حاول مرة أخرى.";
 export const TOO_MANY = "محاولات كثيرة. حاول مرة أخرى بعد قليل.";
@@ -12,25 +12,7 @@ export const ROOMS = { active: "نشط", waiting: "بانتظار القبول",
 
 export const fillText = (text, values) => String(text).replace(/\{(\w+)\}/g, (_, key) => values[key] ?? "");
 
-const modules = {
-  dashboard: "لوحة التحكم", calendar: "التقويم", students: "الطلاب", lessons: "الدروس",
-  attendance: "الحضور والغياب", tasks: "المهمات الأسبوعية", reports: "التقارير", vehicles: "المركبات", files: "الملفات",
-  notices: "الإعلانات", users: "المستخدمون", ai: "المساعد الذكي", permissions: "الصلاحيات",
-  audit: "سجل التغييرات", sports: "الرياضة", systemRecovery: "استعادة حساب النظام", storage: "التخزين",
-};
-
-const leaves = {
-  view: "عرض", viewAll: "عرض الكل", create: "إضافة", edit: "تعديل", delete: "حذف",
-  photo: "الصورة", parentLink: "رابط تسجيل الأهل", roster: "قائمة طلاب الدرس", copyMonth: "نسخ شهر",
-  record: "تسجيل", editOwn: "تعديل ما أنشأه", editAll: "تعديل الكل", exportPdf: "تصدير PDF",
-  compliance: "الفحوصات والتأمين", documents: "المستندات", archive: "أرشفة",
-  use: "استخدام", manageAll: "إدارة كل الملفات", post: "نشر", runCheck: "تشغيل الفحص",
-  approve: "قبول", changeRole: "تغيير الدور", passwords: "عرض كلمات المرور", unlock: "رفع الحظر",
-  resetPassword: "تعيين كلمة مرور جديدة", manage: "إدارة الصلاحيات", reset: "إعادة تعيين",
-};
-
-// Module-specific leaf names win over the shared ones.
-const leavesByModule = { sports: { coach: "تدريب الفرق", manage: "إدارة الرياضة" }, storage: { drive: "حساب Google Drive" } };
+const { modules, leaves, leavesByModule } = catalog.labels.ar;
 
 export const moduleName = (module) => modules[module] || module;
 export const leafName = (key) => {

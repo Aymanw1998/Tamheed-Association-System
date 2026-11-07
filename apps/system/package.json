@@ -37,7 +37,10 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
-    "test": "react-scripts test --watchAll=false --runInBand"
+    "test": "react-scripts test --watchAll=false --runInBand",
+    "prestart": "node ../../scripts/syncPermissions.js",
+    "pretest": "node ../../scripts/syncPermissions.js",
+    "prebuild": "node ../../scripts/syncPermissions.js"
   },
   "jest": {
     "moduleNameMapper": {

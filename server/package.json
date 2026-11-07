@@ -18,7 +18,8 @@
     "user:unlock": "node scripts/unlockUser.js",
     "system:recover": "node scripts/systemRecover.js",
     "permissions:migrate": "node scripts/migratePermissions.js",
-    "users:encrypt-plain-passwords": "node scripts/encryptPlainPasswords.js"
+    "users:encrypt-plain-passwords": "node scripts/encryptPlainPasswords.js",
+    "pretest": "node ../scripts/syncPermissions.js"
   },
   "keywords": [],
   "author": "",

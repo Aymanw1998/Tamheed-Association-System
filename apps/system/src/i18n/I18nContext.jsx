@@ -1,3 +1,4 @@
+import catalog from "../generated/permissions.json";
 import { createContext, useContext, useEffect } from "react";
 
 import { vehicleStrings } from "./vehicleStrings";
@@ -20,13 +21,14 @@ const translations = {
       system: "النظام",
     },
     nav: {
-      dashboard: "الرئيسي",
-      attendance: "الحضور والغياب",
-      students: "الطلاب",
-      users: "المستخدمون",
-      lessons: "البرنامج",
-      reports: "التقارير",
-      files: "الملفات",
+      tasks: catalog.labels.ar.modules.tasks,
+      dashboard: catalog.labels.ar.modules.dashboard,
+      attendance: catalog.labels.ar.modules.attendance,
+      students: catalog.labels.ar.modules.students,
+      users: catalog.labels.ar.modules.users,
+      lessons: catalog.labels.ar.modules.lessons,
+      reports: catalog.labels.ar.modules.reports,
+      files: catalog.labels.ar.modules.files,
       profile: "الملف الشخصي",
       guide: "دليل المستخدم",
       logout: "تسجيل الخروج",
@@ -98,11 +100,11 @@ const translations = {
 // The vehicles section (and a few others) keep their (large) text in their own files.
 const dictionary = translations.ar;
 dictionary.vehicles = vehicleStrings.ar;
-dictionary.nav.vehicles = vehicleStrings.ar.navTitle;
+dictionary.nav.vehicles = catalog.labels.ar.modules.vehicles;
 dictionary.sport = sportStrings.ar;
-dictionary.nav.sports = sportStrings.ar.navTitle;
+dictionary.nav.sports = catalog.labels.ar.modules.sports;
 dictionary.notices = noticeStrings.ar;
-dictionary.nav.notices = noticeStrings.ar.navTitle;
+dictionary.nav.notices = catalog.labels.ar.modules.notices;
 dictionary.roster = rosterStrings.ar;
 dictionary.record = recordStrings.ar;
 dictionary.assistant = assistantStrings.ar;

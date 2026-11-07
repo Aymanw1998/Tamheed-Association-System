@@ -1,28 +1,8 @@
 // Text for the permissions tab, role changes, approvals, unlock and the audit
 // log. Merged in I18nContext as `perms` and `audit`.
 
-const modules = {
-  ar: {
-    dashboard: "الرئيسي", calendar: "التقويم", students: "الطلاب", lessons: "البرامج",
-    attendance: "الحضور والغياب", tasks: "المهمات الأسبوعية", reports: "التقارير", vehicles: "المركبات", files: "الملفات",
-    notices: "الإعلانات", users: "المستخدمون", ai: "المساعد الذكي", permissions: "الصلاحيات",
-    audit: "سجل التغييرات", sports: "الرياضة", systemRecovery: "استعادة حساب النظام", storage: "التخزين",
-  },
-};
-
-// Operation names, shared by every module that has them.
-const leaves = {
-  ar: {
-    view: "عرض", viewAll: "عرض الكل", create: "إضافة", edit: "تعديل", delete: "حذف",
-    photo: "الصورة", parentLink: "رابط تسجيل الأهل", roster: "قائمة طلاب البرنامج", copyMonth: "نسخ شهر",
-    record: "تسجيل", editOwn: "تعديل ما أنشأه", editAll: "تعديل الكل", exportPdf: "تصدير PDF",
-    compliance: "الفحوصات والتأمين", documents: "المستندات", archive: "أرشفة",
-    use: "استخدام", manageAll: "إدارة كل الملفات", post: "نشر", runCheck: "تشغيل الفحص",
-    approve: "قبول", changeRole: "تغيير الدور", passwords: "عرض كلمات المرور", unlock: "رفع الحظر",
-    resetPassword: "تعيين كلمة مرور جديدة",
-    manage: "إدارة الصلاحيات", reset: "إعادة تعيين",
-  },
-};
+import catalog from "../generated/permissions.json";
+const { modules, leaves, leavesByModule } = catalog.labels.ar;
 
 export const accessStrings = {
   ar: {
@@ -56,9 +36,9 @@ export const accessStrings = {
       accessChanged: "عدّلت الإدارة صلاحياتك.",
       accessWaiting: "ستتحدّث الصفحة بعد أن تحفظ تعديلاتك أو تغادرها.",
       accessApplyNow: "حدّث الآن", accessClose: "إغلاق",
-      modules: modules.ar, leaves: leaves.ar,
+      modules, leaves,
       // Module-specific leaf names; they win over the shared `leaves`.
-      leavesByModule: { sports: { coach: "تدريب الفرق", manage: "إدارة الرياضة" }, storage: { drive: "حساب Google Drive" } },
+      leavesByModule,
     },
     passwordChange: {
       title: "يجب تغيير كلمة المرور",

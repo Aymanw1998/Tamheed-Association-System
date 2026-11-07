@@ -27,6 +27,18 @@ afterEach(async () => { await unmountAll(); jest.clearAllMocks(); });
 const moduleBox = (c, module) => c.querySelector(`[data-module="${module}"] input[type=checkbox]`);
 const openModule = (c, module) => click(c.querySelector(`[data-module="${module}"] button[aria-expanded]`));
 
+test("RoleDefaults includes weekly tasks from the shared catalog and keeps IT keys out", async () => {
+  api.getRoleDefaults.mockImplementation(() => ok({ ...DATA, grantable: [...DATA.grantable, "tasks.manage"] }));
+  const c = await mount(<RoleDefaults />);
+  expect(c.querySelector('[data-module="tasks"]')).not.toBeNull();
+  expect(c.querySelector('[data-module="permissions"]')).toBeNull();
+  await openModule(c, "tasks");
+  expect(c.textContent).toContain("إدارة المهمات الأسبوعية");
+  await click(c.querySelector('input[name="tasks.manage"]'));
+  await click(button(c, "حفظ"));
+  expect(c.querySelector('[role="dialog"]').textContent).toContain("المهمات الأسبوعية: إدارة المهمات الأسبوعية");
+});
+
 test("RoleDefaults: three roles; only keys that may be defaults are shown", async () => {
   const c = await mount(<RoleDefaults />);
   expect(button(c, "الإدارة")).toBeDefined();
@@ -49,7 +61,7 @@ test("RoleDefaults: a change is saved after the confirm, with what was added", a
   await click(button(c, "حفظ"));
   const dialog = c.querySelector("[role=dialog]");
   expect(dialog.textContent).toContain("4 مستخدمين");
-  expect(dialog.textContent).toContain("الدروس");
+  expect(dialog.textContent).toContain("البرنامج");
   await click(button(dialog, "حفظ"));
   await flush();
   expect(api.saveRoleDefaults).toHaveBeenCalledWith("مرشد", ["students.view", "lessons.view", "lessons.edit"]);

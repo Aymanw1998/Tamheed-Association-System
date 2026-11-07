@@ -1,22 +1,8 @@
 const { repairMisencodedText } = require("./textEncoding");
 
 /* ================= Permission tree ================= */
-const PERMISSION_TREE = {
-  dashboard: ["view"], calendar: ["view"],
-  students: ["view", "viewAll", "create", "edit", "delete", "photo", "parentLink"],
-  lessons: ["view", "viewAll", "create", "edit", "roster", "delete", "copyMonth"],
-  attendance: ["view", "record"],
-  tasks: ["manage"], // the weekly tasks: writing them and joining them to groups
-  reports: ["create", "editOwn", "viewAll", "editAll", "delete", "exportPdf"],
-  vehicles: ["view", "edit", "compliance", "documents", "archive", "delete"], // delete: admin default only
-  files: ["use", "manageAll"],
-  notices: ["view", "post", "runCheck"],
-  // passwords: view a user's password (IT); resetPassword: set a new one.
-  users: ["view", "create", "edit", "approve", "delete", "changeRole", "passwords", "unlock", "resetPassword"],
-  ai: ["use"], permissions: ["manage"], audit: ["view"], systemRecovery: ["reset"],
-  sports: ["view", "coach", "manage"], finance: ["view"], // finance reserved
-  storage: ["drive"], // the Drive account the app stores in: an IT action
-};
+const catalog = require("../../shared/permissions.json");
+const PERMISSION_TREE = catalog.tree;
 
 const ROLE_DEFAULTS = {
   "ادارة": ["dashboard", "calendar", "students", "lessons", "attendance", "reports", "vehicles",
@@ -36,10 +22,7 @@ const ROLE_RANK = { "ادارة": 3, "مرشد": 2, "مساعد": 1 };
 
 // What only the IT site does (IT-site design, 2026-11-03). No everyday set
 // ever holds one, not even the system account's.
-const IT_KEYS = new Set([
-  "permissions.manage", "users.passwords", "users.unlock",
-  "audit.view", "storage.drive", "systemRecovery.reset",
-]);
+const IT_KEYS = new Set(catalog.itKeys);
 
 // What an IT user may do on the IT site. users.approve also disables and
 // re-enables an account; users.delete deletes one; users.create makes a new
