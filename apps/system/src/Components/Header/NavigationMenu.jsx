@@ -5,7 +5,7 @@ import styles from "./NavigationMenu.module.css";
 
 const activeAt = (item, path) => item.path === "/lessons" ? /^\/(lessons|calendar)(\/|$)/.test(path) : path === item.path || path.startsWith(`${item.path}/`);
 
-export default function NavigationMenu({ groups, program, mobile, open, onClose, onNav }) {
+export default function NavigationMenu({ groups, program, home, mobile, open, onClose, onNav }) {
   const { pathname } = useLocation();
   const nav = useRef(null);
   const triggers = useRef({});
@@ -71,6 +71,7 @@ export default function NavigationMenu({ groups, program, mobile, open, onClose,
       onBlur={(event) => { if (!mobile && !event.currentTarget.contains(event.relatedTarget)) setExpanded(null); }}>
       {mobile && <div className={styles.menuHeading}><strong>القائمة الرئيسية</strong><button type="button" onClick={onClose} aria-label="إغلاق القائمة">×</button></div>}
       <nav id="main-nav" data-tour="menu" aria-label="التنقل الرئيسي" className={styles.nav}>
+        {home && <div className={styles.shortcut}>{link(home)}</div>}
         {program && <div className={styles.shortcut}>{link(program)}</div>}
         {!mobile && groups.flatMap((group) => group.items).map(link)}
         {mobile && groups.map((group) => <div key={group.id} className={styles.group}>

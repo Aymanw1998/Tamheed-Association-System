@@ -1,4 +1,5 @@
 import React, { act } from "react";
+import { Simulate } from "react-dom/test-utils";
 import { createRoot } from "react-dom/client";
 
 const mockNavigate = jest.fn();
@@ -34,6 +35,22 @@ const mount = async () => {
   await act(async () => root.render(<WeeklyTasksPage />));
 };
 const button = (text) => [...host.querySelectorAll("button")].find((b) => b.textContent.trim() === text);
+
+test("personal group filter and free search combine without changing completion or management view", async () => {
+  getMyTasks.mockResolvedValue({ ok: true, week: WEEK, tasks: [task(), task({ groupId: "g2", groupName: "المجموعة الثانية", taskId: "t2", title: "ترتيب المطبخ", done: true })] });
+  await mount();
+  await act(async () => Simulate.change(host.querySelector("select"), { target: { value: "g2" } }));
+  expect(host.textContent).not.toContain("نظافة الغرفة");
+  expect(host.textContent).toContain("ترتيب المطبخ");
+  await act(async () => Simulate.change(host.querySelector('input[type="search"]'), { target: { value: "الثانية" } }));
+  expect(host.textContent).toContain("ترتيب المطبخ");
+  await act(async () => Simulate.change(host.querySelector('input[type="search"]'), { target: { value: "غير موجود" } }));
+  expect(host.textContent).toContain("لا توجد مهمات مطابقة");
+  expect(host.textContent).not.toContain("كل المهمات المعروضة منجزة");
+  await act(async () => button("مسح الفلتر").click());
+  expect(host.querySelectorAll('input[type="checkbox"]')).toHaveLength(2);
+  expect(setMyTaskDone).not.toHaveBeenCalled();
+});
 
 beforeEach(() => {
   mockManage = false;

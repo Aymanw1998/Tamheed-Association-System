@@ -3,7 +3,7 @@
 
 const modules = {
   ar: {
-    dashboard: "لوحة التحكم", calendar: "التقويم", students: "الطلاب", lessons: "البرامج",
+    dashboard: "الرئيسي", calendar: "التقويم", students: "الطلاب", lessons: "البرامج",
     attendance: "الحضور والغياب", tasks: "المهمات الأسبوعية", reports: "التقارير", vehicles: "المركبات", files: "الملفات",
     notices: "الإعلانات", users: "المستخدمون", ai: "المساعد الذكي", permissions: "الصلاحيات",
     audit: "سجل التغييرات", sports: "الرياضة", systemRecovery: "استعادة حساب النظام", storage: "التخزين",

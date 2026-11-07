@@ -38,11 +38,14 @@ const handle = (name, fn) => async (req, res) => {
 
 const list = handle("list", async (req, res) => {
   const { status = "all", category = "", severity = "" } = req.query || {};
+  const skip = Number(req.query?.skip || 0);
+  if (!Number.isSafeInteger(skip) || skip < 0 || skip > 1000000) return fail(res, 400, "صفحة الإشعارات غير صالحة");
   const notices = await service.listNotices({
     userId: req.actor.id,
     status: status === "unread" ? "unread" : "all",
     category: CATEGORIES.includes(category) ? category : "",
     severity: SEVERITIES.includes(severity) ? severity : "",
+    skip,
   });
   return res.status(200).json({ ok: true, notices });
 });

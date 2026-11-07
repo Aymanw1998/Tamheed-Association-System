@@ -14,7 +14,9 @@ jest.mock("../../WebServer/services/student/functionsStudent.jsx", () => ({ dele
 jest.mock("../../WebServer/services/lesson/functionsLesson.jsx", () => ({ getAllLesson: jest.fn() }));
 jest.mock("../../WebServer/services/report/functionsReport.jsx", () => ({ getAll: jest.fn() }));
 jest.mock("../Vehicle/VehicleAlerts.jsx", () => () => null);
-jest.mock("../Student/ParentLinkPanel.jsx", () => () => null);
+jest.mock("../Student/CopyParentLink.jsx", () => () => <button>نسخ رابط تسجيل الأهل</button>);
+jest.mock("../Notice/SystemAlerts.jsx", () => () => <section aria-label="الإشعارات" />);
+jest.mock("../WeeklyTasks/WeeklyTasksCard.jsx", () => () => null);
 
 import { getDashboardSummary } from "../../WebServer/services/dashboard/functionsDashboard.jsx";
 import Dashboard from "./Dashboard";

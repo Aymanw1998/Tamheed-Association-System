@@ -383,7 +383,14 @@ const EditLesson = () => {
             <option value="regular">برنامج عادي</option>
             <option value="educational">برنامج تربوي</option>
           </select>
-          {lesson.kind === 'educational' && <small>كل طلاب المرشد المسؤول ينضمون إلى هذا البرنامج تلقائيًا، ولكل مرشد برنامج تربوي واحد.</small>}
+          {lesson.kind === 'educational' && <>
+            <label htmlFor="educational-roster">طلاب البرنامج التربوي</label>
+            <select id="educational-roster" name="educationalRoster" value={lesson.educationalRoster || 'all'} onChange={handleChange} disabled={!editing}>
+              <option value="all">جميع طلاب المسؤول تلقائيًا</option>
+              <option value="selected">طلاب محددون لهذا البرنامج</option>
+            </select>
+            <small>يمكن أن يكون للمسؤول أكثر من برنامج تربوي، وأن يشارك الطالب في أكثر من برنامج. في وضع «طلاب محددون» تُعدّل القائمة أدناه ولا ينضم الطلاب الجدد تلقائيًا.</small>
+          </>}
         </div>
         <div className={styles.formControl}>
           <label htmlFor="lesson-teacher">المرشد / الإدارة:<span style={{color: "red"}}>*</span></label>

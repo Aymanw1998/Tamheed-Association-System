@@ -36,7 +36,9 @@ function createAlertRouter({ requireAuth, loadActor, store, now = () => new Date
       // Only the types the caller may still see now (a demoted user stops
       // seeing alerts sent under their old permissions).
       const types = visibleAlertTypes(req.actor);
-      const { result, total } = await store.listFor(req.actor.tz, { unreadOnly, limit: LIMIT, types });
+      const skip = Number(req.query.skip || 0);
+      if (!Number.isSafeInteger(skip) || skip < 0 || skip > 1000000) return res.status(400).json({ ok: false, message: "صفحة الإشعارات غير صالحة" });
+      const { result, total } = await store.listFor(req.actor.tz, { unreadOnly, limit: LIMIT, types, skip });
       return res.status(200).json({ ok: true, alerts: (result || []).map(view), total });
     } catch (error) {
       logWithSource("Alert.list", error);

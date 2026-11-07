@@ -4,7 +4,6 @@ import { toast } from "../../ALERT/SystemToasts.jsx";
 import { ask } from "../Provides/confirmBus.js";
 import { getLink, rotateLink } from "../../WebServer/services/inviteToken/functionInviteToken.jsx";
 import styles from "./ParentLinkPanel.module.css";
-import RulesEditor from "./RulesEditor.jsx";
 
 const registrationUrl = (token) => `${window.location.origin}/register-student/${token}`;
 
@@ -94,7 +93,6 @@ export default function ParentLinkPanel() {
         {full && <small>لن يستقبل الرابط طلبات جديدة حتى ينخفض العدد.</small>}
       </div>
 
-      <RulesEditor />
 
     </div>
   );

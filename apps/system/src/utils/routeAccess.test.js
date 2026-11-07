@@ -86,6 +86,7 @@ test.each([
   ["/reports/new", ["reports.create"]],
   ["/files", ["files.use"]],
   ["/files", ["files.manageAll"]],
+  ["/association-rules", ["students.parentLink"]],
 ])("%s opens with %j and is closed with no key of its section", (path, keys) => {
   expect(canAccessPath(path, keys)).toBe(true);
   expect(canAccessPath(path, ["dashboard.view", "students.view"])).toBe(false);

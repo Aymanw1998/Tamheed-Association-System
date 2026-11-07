@@ -5,7 +5,7 @@
 export const WINDOW_MS = 2 * 60 * 1000;
 
 const SECTIONS = {
-  dashboard: "لوحة التحكم",
+  dashboard: "الرئيسي",
   calendar: "الحضور والغياب",
   attendance: "الحضور والغياب",
   students: "الطلاب",

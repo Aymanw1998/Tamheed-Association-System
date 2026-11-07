@@ -50,10 +50,10 @@ function alertStore() {
       docs.push(saved);
       return { created: true, alert: saved };
     },
-    async listFor(recipientTz, { unreadOnly = false, limit = 50, types } = {}) {
+    async listFor(recipientTz, { unreadOnly = false, limit = 50, types, skip = 0 } = {}) {
       const mine = docs.filter((d) => d.recipientTz === recipientTz && (!unreadOnly || !d.readAt)
         && (!Array.isArray(types) || types.includes(d.type)));
-      const result = mine.sort((a, b) => new Date(b.at) - new Date(a.at) || (a._id < b._id ? 1 : -1)).slice(0, limit);
+      const result = mine.sort((a, b) => new Date(b.at) - new Date(a.at) || (a._id < b._id ? 1 : -1)).slice(skip, skip + limit);
       return { result, total: mine.length };
     },
     async markRead(recipientTz, id, at) {
@@ -350,6 +350,14 @@ test("GET /api/alerts lists only the caller's alerts, newest first, at most 50; 
     const unread = await (await fetch(`${base}?unread=1`, { headers: { "x-tz": "t-a" } })).json();
     assert.equal(unread.alerts[0].text.en, "e53");
     assert.equal(unread.total, 54);
+    const older = await (await fetch(`${base}?skip=50`, { headers: { "x-tz": "t-a" } })).json();
+    assert.equal(older.alerts.length, 5);
+    assert.equal(older.total, 55);
+    assert.equal(older.alerts[0].text.en, "e4");
+    assert.ok(older.alerts.every((row) => !all.alerts.some((first) => first.id === row.id)));
+    for (const skip of ["-1", "1.5", "NaN", "1000001"]) {
+      assert.equal((await fetch(`${base}?skip=${skip}`, { headers: { "x-tz": "t-a" } })).status, 400);
+    }
   } finally { server.close(); }
 });
 

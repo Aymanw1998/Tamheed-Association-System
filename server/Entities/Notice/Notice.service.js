@@ -63,7 +63,7 @@ function stillShown(row, userId, now) {
   return now - readAt <= READ_KEEP_MS;
 }
 
-async function listNotices({ userId, status = "all", category = "", severity = "" }) {
+async function listNotices({ userId, status = "all", category = "", severity = "", skip = 0 }) {
   const now = new Date();
   return (await activeNotices(now))
     .filter((row) => stillShown(row, userId, now))
@@ -71,7 +71,7 @@ async function listNotices({ userId, status = "all", category = "", severity = "
     .filter((row) => (status === "unread" ? !row.read : true))
     .filter((row) => (category ? row.category === category : true))
     .filter((row) => (severity ? row.severity === severity : true))
-    .slice(0, MAX_LIST);
+    .slice(skip, skip + MAX_LIST);
 }
 
 async function countUnread(userId) {

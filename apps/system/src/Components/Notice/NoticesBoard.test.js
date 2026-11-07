@@ -4,6 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 import { I18nProvider } from "../../i18n/I18nContext";
 import NoticesBoard from "./NoticesBoard";
 import { createNotice, getNotices } from "../../WebServer/services/notice/functionsNotice.jsx";
+jest.mock("./SystemAlerts.jsx", () => () => null);
 
 jest.mock("react-router-dom", () => {
   const { TextEncoder, TextDecoder } = require("util");

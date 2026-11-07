@@ -4,6 +4,7 @@ import { toast } from "../../ALERT/SystemToasts.jsx";
 import { ask } from "../Provides/confirmBus.js";
 import { getRules, publishRules } from "../../WebServer/services/inviteToken/functionInviteToken.jsx";
 import { DEFAULT_RULES } from "./defaultRules";
+import { setUnsavedChanges } from "../../utils/unsavedChanges";
 
 // The rules a parent signs on the registration link. Publishing makes a new
 // version; those who already signed keep the version they signed.
@@ -14,6 +15,8 @@ export default function RulesEditor() {
   const [saved, setSaved] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  useEffect(() => { if (loaded && !error) setUnsavedChanges(text !== saved); }, [loaded, error, text, saved]);
+  useEffect(() => () => setUnsavedChanges(null), []);
 
   useEffect(() => {
     let alive = true;

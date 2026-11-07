@@ -19,13 +19,25 @@ const weekLabel = (week) => {
 
 // What the person himself must do this week: to do, then done in green.
 function MyTasks({ tasks, onToggle, busy }) {
-  const open = tasks.filter((task) => !task.done);
-  const done = tasks.filter((task) => task.done);
+  const [group, setGroup] = useState("");
+  const [search, setSearch] = useState("");
+  const groups = [...new Map(tasks.map((task) => [String(task.groupId), task.groupName])).entries()];
+  const selectedGroup = groups.some(([id]) => id === group) ? group : "";
+  const query = search.trim().toLocaleLowerCase();
+  const filtered = tasks.filter((task) => (!selectedGroup || String(task.groupId) === selectedGroup)
+    && (!query || `${task.title || ""} ${task.groupName || ""}`.toLocaleLowerCase().includes(query)));
+  const open = filtered.filter((task) => !task.done);
+  const done = filtered.filter((task) => task.done);
   return (
     <section className={styles.panel} aria-label="مهماتي">
       <h2>مهمات مجموعتي هذا الأسبوع</h2>
       <p className={styles.muted}>أكّد إنجاز المهمات حتى نهاية يوم السبت. يبدأ أسبوع جديد بعد ذلك، وتُغلق مهمات الأسبوع السابق.</p>
-      {open.length === 0 && <p className={styles.muted}>لا توجد مهمات متبقية.</p>}
+      <div className={styles.filters}>
+        {groups.length > 1 && <label>المجموعة<select value={selectedGroup} onChange={(event) => setGroup(event.target.value)}><option value="">كل مجموعاتي</option>{groups.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label>}
+        <label>بحث في مهماتي<input type="search" placeholder="اسم مجموعة أو مهمة" value={search} onChange={(event) => setSearch(event.target.value)} /></label>
+        {(selectedGroup || search) && <Button variant="secondary" onClick={() => { setGroup(""); setSearch(""); }}>مسح الفلتر</Button>}
+      </div>
+      {filtered.length === 0 ? <p className={styles.muted}>لا توجد مهمات مطابقة.</p> : open.length === 0 && <p className={styles.muted}>كل المهمات المعروضة منجزة.</p>}
       <ul className={styles.list}>
         {open.map((task) => (
           <li key={`${task.groupId}:${task.taskId}`} className={styles.item}>

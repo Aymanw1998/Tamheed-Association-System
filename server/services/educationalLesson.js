@@ -1,21 +1,23 @@
-// A responsible guide's educational lesson holds all of that guide's students
-// (owner, 2026-11-05): a student joins on approval or when added, and moves when the
-// guide changes. A waiting request is not a student yet.
+// A responsible user can have multiple educational programs. Legacy programs
+// automatically include all their students; selected programs keep manual
+// rosters. Changing the responsible user removes the student from old programs
+// and adds them only to the new user's automatic programs.
 const KIND = "educational";
 const PENDING = "ينتظر";
 
 const rows = (res) => (Array.isArray(res?.result) ? res.result : []);
 const same = (a, b) => String(a) === String(b);
+const automatic = (lesson) => lesson.kind === KIND && lesson.educationalRoster !== "selected";
 
 function createEducationalLessons({ lessons, students, now = () => new Date(), lockPrograms = async () => async () => {}, changed = () => {} }) {
-  const lessonOf = async (teacher) => (teacher ? rows(await lessons.get({ teacher: String(teacher), kind: KIND }))[0] || null : null);
+  const lessonsOf = async (teacher) => teacher ? rows(await lessons.get({ teacher: String(teacher), kind: KIND })) : [];
 
   // Retry a roster delta against the latest snapshot. Never replace a roster
   // another write changed while this request was awaiting the database.
   async function change(lesson, delta) {
     for (let attempt = 0; attempt < 8 && lesson; attempt += 1) {
       const list = lesson.list_students || [];
-      const next = delta(list);
+      const next = delta(list, lesson);
       if (next.length === list.length && next.every((id, i) => same(id, list[i]))) return 0;
       const before = lesson.updatedAt;
       const updatedAt = new Date(Math.max(now().getTime(), (new Date(before || 0).getTime() || 0) + 1));
@@ -29,39 +31,33 @@ function createEducationalLessons({ lessons, students, now = () => new Date(), l
   }
 
   async function holdForStudentChange(from, to, req) {
-    const programs = await Promise.all([lessonOf(from), lessonOf(to)]);
-    return lockPrograms(programs.filter(Boolean).map((lesson) => `lesson:${lesson._id}`), req);
+    const programs = (await Promise.all([lessonsOf(from), lessonsOf(to)])).flat();
+    return lockPrograms([...new Set(programs.map((lesson) => `lesson:${lesson._id}`))].sort(), req);
   }
 
   // Puts every student of this guide on the lesson. Returns how many joined.
-  async function enrolAll(teacher) {
-    const lesson = await lessonOf(teacher);
-    if (!lesson) return 0;
+  async function enrolAll(teacher, lessonId = null) {
+    const programs = (await lessonsOf(teacher)).filter((lesson) => automatic(lesson) && (!lessonId || same(lesson._id, lessonId)));
+    if (!programs.length) return 0;
     const own = rows(await students.get({ main_teacher: String(teacher) })).filter((s) => s.status !== PENDING);
-    return change(lesson, (list) => [...new Set([...list.map(String), ...own.map((s) => String(s._id))])]);
+    let added = 0;
+    for (const lesson of programs) added += await change(lesson, (list, current) => automatic(current) && same(current.teacher, teacher)
+      ? [...new Set([...list.map(String), ...own.map((s) => String(s._id))])] : list);
+    return added;
   }
 
   // After a student's guide changed, or a request was approved.
   async function moveStudent(studentId, fromTeacher, toTeacher) {
     if (fromTeacher && !same(fromTeacher, toTeacher ?? "")) {
-      const old = await lessonOf(fromTeacher);
-      if (old && (old.list_students || []).some((x) => same(x, studentId))) {
-        await change(old, (list) => list.filter((x) => !same(x, studentId)));
+      for (const old of await lessonsOf(fromTeacher)) {
+        await change(old, (list, current) => current.kind === KIND && same(current.teacher, fromTeacher) ? list.filter((x) => !same(x, studentId)) : list);
       }
     }
-    const next = await lessonOf(toTeacher);
-    if (next && !(next.list_students || []).some((x) => same(x, studentId))) {
-      await change(next, (list) => list.some((x) => same(x, studentId)) ? list : [...list, String(studentId)]);
+    for (const next of (await lessonsOf(toTeacher)).filter(automatic)) {
+      await change(next, (list, current) => !automatic(current) || !same(current.teacher, toTeacher) || list.some((x) => same(x, studentId)) ? list : [...list, String(studentId)]);
     }
   }
-
-  // Taken by another lesson of the same guide? A guide has one for now.
-  async function takenBy(teacher, ignoreId = null) {
-    const lesson = await lessonOf(teacher);
-    return lesson && !same(lesson._id, ignoreId ?? "") ? lesson : null;
-  }
-
-  return { enrolAll, moveStudent, takenBy, holdForStudentChange };
+  return { enrolAll, moveStudent, holdForStudentChange };
 }
 
 const educationalLessons = () => createEducationalLessons({

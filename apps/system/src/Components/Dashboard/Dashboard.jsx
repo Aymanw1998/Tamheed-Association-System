@@ -10,7 +10,8 @@ import { getAll as getAllReports } from "../../WebServer/services/report/functio
 import { toast } from "../../ALERT/SystemToasts.jsx";
 import { canStored, getStoredPermissions, getStoredUserId } from "../../utils/session";
 import { canAccessPath } from "../../utils/routeAccess";
-import ParentLinkPanel from "../Student/ParentLinkPanel.jsx";
+import CopyParentLink from "../Student/CopyParentLink.jsx";
+import SystemAlerts from "../Notice/SystemAlerts.jsx";
 import VehicleAlerts from "../Vehicle/VehicleAlerts.jsx";
 import { useI18n } from "../../i18n/I18nContext";
 import { useRolePicker, permissionError } from "../User/RolePickerDialog.jsx";
@@ -126,7 +127,7 @@ export default function Dashboard() {
         });
       } catch (err) {
         if (!cancelled) {
-          setError(err?.message || "تعذّر تحميل لوحة التحكم");
+          setError(err?.message || "تعذّر تحميل الرئيسي");
         }
       } finally {
         if (!cancelled) {
@@ -286,7 +287,7 @@ export default function Dashboard() {
       {roleDialog}
       <div className={styles.header}>
         <div>
-          <h1>لوحة التحكم</h1>
+          <h1>الرئيسي</h1>
           <p>نظرة سريعة على أهم بيانات النظام.</p>
         </div>
         <div className={styles.links} data-tour="dashboard-links">
@@ -302,6 +303,7 @@ export default function Dashboard() {
       {error && <div className={styles.error}>{error}</div>}
 
       <WeeklyTasksCard />
+      <SystemAlerts title="الإشعارات" showEmpty includeNotices={canStored("notices.view")} />
 
       <div className={styles.stats} data-tour="dashboard-stats">
         {summary.map((item) => (
@@ -404,7 +406,7 @@ export default function Dashboard() {
             <div className={styles.panelHeader}>
               <h2>رابط تسجيل الأهل</h2>
             </div>
-            <ParentLinkPanel />
+            <CopyParentLink />
           </section>
         )}
 

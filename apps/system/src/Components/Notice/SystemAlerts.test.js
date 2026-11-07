@@ -1,0 +1,50 @@
+import React, { act } from "react";
+import { createRoot } from "react-dom/client";
+const mockNavigate = jest.fn();
+jest.mock("react-router-dom", () => ({ useNavigate: () => mockNavigate }));
+jest.mock("../../WebServer/services/alerts/functionsAlerts.jsx", () => ({ getAlertPage: jest.fn(), markAlertRead: jest.fn() }));
+jest.mock("../../WebServer/services/live/liveStream", () => ({ liveEvents: { on: () => () => {} } }));
+jest.mock("../../WebServer/services/notice/functionsNotice.jsx", () => ({ getNotices: jest.fn(), markNoticeRead: jest.fn() }));
+import { getNotices, markNoticeRead } from "../../WebServer/services/notice/functionsNotice.jsx";
+import { getAlertPage, markAlertRead } from "../../WebServer/services/alerts/functionsAlerts.jsx";
+import SystemAlerts from "./SystemAlerts";
+globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+let host, root;
+const row = (n) => ({ id: String(n), text: { ar: `تنبيه ${n}` }, at: "2026-11-07T10:00:00Z", link: "/weekly-tasks", read: false });
+beforeEach(() => {
+  getAlertPage.mockImplementation(async (skip) => ({ alerts: skip ? [row(51)] : Array.from({ length: 50 }, (_, n) => row(n + 1)), total: 51 }));
+  markAlertRead.mockResolvedValue();
+  getNotices.mockResolvedValue({ ok: true, notices: [] });
+  markNoticeRead.mockResolvedValue({ ok: true });
+  host = document.createElement("div"); document.body.appendChild(host); root = createRoot(host);
+});
+afterEach(async () => { await act(async () => root.unmount()); host.remove(); });
+test("home can browse beyond fifty personal notifications and open an older task", async () => {
+  await act(async () => root.render(<SystemAlerts title="الإشعارات" showEmpty />));
+  const older = () => [...host.querySelectorAll("button")].find((button) => button.textContent === "عرض إشعارات أقدم");
+  await act(async () => older().click());
+  expect(getAlertPage).toHaveBeenLastCalledWith(50);
+  expect(host.querySelectorAll("li")).toHaveLength(51);
+  expect(older()).toBeUndefined();
+  await act(async () => [...host.querySelectorAll("li button")].find((button) => button.textContent.includes("تنبيه 51")).click());
+  expect(markAlertRead).toHaveBeenCalledWith("51");
+  expect(mockNavigate).toHaveBeenCalledWith("/weekly-tasks");
+  expect(getNotices).not.toHaveBeenCalled();
+});
+test("home includes board notices only when allowed, with their separate read action", async () => {
+  getNotices.mockResolvedValue({ ok: true, notices: [{ _id: "1", title: "إعلان اجتماع", createdAt: "2026-11-07T11:00:00Z", read: false }] });
+  await act(async () => root.render(<SystemAlerts title="الإشعارات" includeNotices />));
+  expect(host.querySelectorAll("li")).toHaveLength(52);
+  await act(async () => [...host.querySelectorAll("li button")].find((button) => button.textContent.includes("إعلان اجتماع")).click());
+  expect(markNoticeRead).toHaveBeenCalledWith("1");
+  expect(markAlertRead).not.toHaveBeenCalled();
+  expect(mockNavigate).toHaveBeenCalledWith("/notices");
+});
+test("a failure is visible and retry recovers", async () => {
+  getAlertPage.mockRejectedValueOnce(new Error("offline"));
+  await act(async () => root.render(<SystemAlerts showEmpty />));
+  expect(host.querySelector('[role="alert"]')).not.toBeNull();
+  await act(async () => host.querySelector('[role="alert"] button').click());
+  expect(host.querySelector('[role="alert"]')).toBeNull();
+  expect(host.querySelectorAll("li")).toHaveLength(51);
+});

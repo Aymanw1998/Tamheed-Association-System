@@ -160,10 +160,12 @@ const getAllS = async (req, res) => {
   try {
     const [result, visible] = await Promise.all([StudentModelDef.get({}), scope.visibleStudentIds(req.actor)]);
     const students = (result?.result || []).filter((s) => inScope(visible, s));
+    const guideNames = new Map(await Promise.all([...new Set(students.map((s) => String(s.main_teacher || "")).filter(Boolean))]
+      .map(async (id) => [id, (await contactById(UserModelDef, id, req.actor))?.name || ""])));
 
     return res.status(200).json({
       ok: true,
-      students: students.map(sanitize),
+      students: students.map((student) => ({ ...sanitize(student), responsibleGuideName: guideNames.get(String(student.main_teacher || "")) || "" })),
     });
   } catch (err) {
     logWithSource("Student.getAllS", err);

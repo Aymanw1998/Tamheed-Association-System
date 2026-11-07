@@ -5352,3 +5352,80 @@ change. The shared System/Sport registration/guard implementations match, and
 both have behavioral update/lifecycle regression suites. Publish under ongoing
 commit/push authorization and inspect GitHub CI. No production deployment or
 real-client forced refresh has occurred; actual peer review remains pending.
+
+## 2026-11-07 — Personal views, rules, filters and home inbox
+
+**Bounded objective / ownership:** Codex is sole implementer. Restore student
+filters alongside unsigned consent, default management to responsible students
+when present, copy parent links directly, isolate rules editing, add personal
+task group/search filters, rename dashboard and expose Home in navigation,
+and show a scrollable personal alert inbox with access-preserving pagination.
+Investigate educational membership and Drive architecture; request the owner's
+membership and Drive decisions before dependent changes. Actual Claude Code
+is the independent reviewer; request source-only review and record any quota.
+Preserve current user work. No real database/cloud mutations or deployment.
+**Verification plan:** isolated behavioral UI/API tests, regression verify and
+synthetic browser checks where available; source review, no secrets in payload.
+
+**Implementation / decisions:** Management with responsible students starts on
+My Students and can switch to Association Students; accounts without their own
+students see the association list. Existing server visibility is retained. Age
+range (birthday-aware), grade, gender, school and responsible-user filters coexist
+with unsigned consent and free search. Lists receive safe responsible-user names
+without requiring or exposing the user directory. Parent-link actions preload
+and copy on a direct click, with visible retry/error handling. Rules editing is
+in its own permission-guarded route and resource-menu item; its drafts take part
+in the unsaved-change guard. Dashboard is now Home (الرئيسي), with a direct nav
+link on desktop and phone. Guide/training copy was updated for the new surfaces.
+
+Personal weekly tasks have group and task/group-name search filters; completion
+continues to move tasks below pending work. Home shows a scrollable inbox of
+personal alerts and, when notices.view is granted, board announcements. Older
+pages retain recipient, current type/permission, expiry and retention filtering.
+
+After waiting for the optional educational-overlap answer without a reply, the
+implementer announced the assumption of allowing overlapping subsets. Each owner
+can have multiple educational programs: legacy/default automatic-all or selected
+manual membership. No database migration or legacy roster clearing. A student
+changing owner leaves every old educational program and joins only new automatic
+programs. All affected program locks are requested once in sorted order; CAS
+retries recheck mode/owner. Saving one program does not reconcile others.
+Focused behavioral tests cover subsets, automatic additions, old membership
+removal, concurrent mode change, multiple locks and retained visibility.
+
+**Files investigation:** [Architecture and proposed plan](FILES_AND_EDUCATIONAL_PROGRAMS.md)
+explains Drive content vs app metadata, actual folder listing, the existing
+narrow drive.file grant, and the distinction between an app-personal view and
+Google-private access. Existing general upload grants anyone-with-link read;
+private document upload is separate. Full manual-Drive discovery/native Docs
+and Sheets creation/editing requires a deliberate integration/Google access
+change. The optional Drive implementation choice received no reply during this
+work; this part remains a documented proposal. No Drive scopes, Google sharing,
+actual files, production configuration or database records were changed.
+
+**Browser verification:** Actual optimized client, with a loopback-only synthetic
+HTTP adapter (no application server/database/integrations), verified personal/all
+student views, unsigned filtering, task group/search, checked completion moving
+to green rows, isolated rules page and educational membership choices. Home
+scroll area was 280 px high; loading older pages displayed all 56 synthetic
+alerts plus the allowed board announcement. Phone width was 390 px with page
+width also 390 px; grouped navigation exposed Home and the Rules resource link.
+Saved synthetic desktop/phone screenshots outside the repository. Closed the
+tab, reset viewport, stopped the local server and removed the fixture/output
+files. No cloud or production end-to-end testing is claimed.
+
+**Actual peer review:** Requested [source-only Claude Code review](reviews/2026-11-07-personal-views-claude-request.md)
+and repeated against the revised implementation. [Actual response](reviews/2026-11-07-personal-views-claude-response.txt)
+reports the weekly limit until Nov 8, 16:00 Asia/Jerusalem. No findings or peer
+agreement were received; independent Claude review remains pending. Payloads
+contain only source and synthetic tests, not credentials, environment values,
+runtime logs or real records. Continued local source review and regression
+verification under the collaboration policy; no background reviewer started.
+
+**Final verification:** npm run verify passed on the final source with Git Bash
+in PATH: 1,503 isolated server tests, 1,124 System tests in 128 suites, and the
+optimized production build. This includes the updated short guided-tour copy
+and the new Rules route access check. The restored filters/task layout also
+passed 16 focused tests and browser inspection. No dependency/lockfile change.
+Commit/push under the owner's existing authorization; inspect remote CI after
+publishing. No live server deployment. Actual Claude review remains pending.

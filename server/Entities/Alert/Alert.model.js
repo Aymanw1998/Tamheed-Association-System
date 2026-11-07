@@ -34,7 +34,7 @@ AlertModelDef.insertOnce = async function (doc) {
 
 // The recipient's alerts, newest first; total counts every match. `types`
 // (optional) limits the result to those alert types.
-AlertModelDef.listFor = async function (recipientTz, { unreadOnly = false, limit = 50, types } = {}) {
+AlertModelDef.listFor = async function (recipientTz, { unreadOnly = false, limit = 50, types, skip = 0 } = {}) {
   const filter = { recipientTz };
   if (unreadOnly) filter.readAt = null;
   if (Array.isArray(types)) filter.type = { $in: types };
@@ -44,6 +44,7 @@ AlertModelDef.listFor = async function (recipientTz, { unreadOnly = false, limit
     filter,
     sort: { at: -1, _id: -1 },
     limit,
+    skip,
   });
   return { result: res.result, total: res.total };
 };

@@ -16,6 +16,8 @@ describe("needsLeaveConfirm", () => {
   });
 
   test("defaults to the state the page reported", () => {
+    expect(needsLeaveConfirm("/association-rules", true)).toBe(true);
+    expect(needsLeaveConfirm("/association-rules", false)).toBe(false);
     setUnsavedChanges(false);
     expect(needsLeaveConfirm("/students/1/edit")).toBe(false);
     setUnsavedChanges(true);

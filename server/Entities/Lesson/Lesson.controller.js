@@ -148,14 +148,15 @@ function buildLesson(body) {
     room: body?.room ?? "0",
     list_students: Array.isArray(body?.list_students) ? body.list_students : [],
     ...(body?.kind ? { kind: body.kind === "educational" ? "educational" : "regular" } : {}),
+    ...(body?.kind === "educational" ? { educationalRoster: body.educationalRoster === "selected" ? "selected" : "all" } : {}),
   };
 }
 
 // A guide's educational lesson (services/educationalLesson). Never fatal to the save.
 const edu = () => require("../../services/educationalLesson").educationalLessons();
-const EDUCATIONAL_TAKEN = { ok: false, code: "EDUCATIONAL_EXISTS", message: "لهذا المرشد برنامج تربوي. لكل مرشد برنامج تربوي واحد." };
-const enrolGuideStudents = (teacher) => Promise.resolve()
-  .then(() => edu().enrolAll(teacher))
+const validEducationalRoster = (body) => body?.educationalRoster === undefined || ["all", "selected"].includes(body.educationalRoster);
+const enrolGuideStudents = (teacher, lessonId) => Promise.resolve()
+  .then(() => edu().enrolAll(teacher, lessonId))
   .catch((err) => logWithSource("Lesson.enrolGuideStudents", err));
 
 const pad2 = (n) => String(n).padStart(2, "0");
@@ -314,7 +315,7 @@ const postOne = async (req, res) => {
     }
     if (await namesSystemAccount([model.teacher, model.helper])) return res.status(400).json(SYSTEM_STAFF);
     if (!validProgramHours(req.body?.date)) return res.status(400).json(PROGRAM_HOURS);
-    if (model.kind === "educational" && (await edu().takenBy(model.teacher))) return res.status(409).json(EDUCATIONAL_TAKEN);
+    if (!validEducationalRoster(req.body)) return res.status(400).json({ ok: false, message: "اختر طريقة إضافة طلاب البرنامج التربوي" });
 
     const sameDay = await LessonModelDef.get({ "date.day": model.date.day });
     const sportDay = await SportLessonModelDef.get({ "date.day": model.date.day });
@@ -338,7 +339,7 @@ const postOne = async (req, res) => {
     });
     await recordLesson(req, "create", null, created?.result || model);
     notifyChange("lesson", created?.result?._id);
-    if (model.kind === "educational") await enrolGuideStudents(model.teacher);
+    if (model.kind === "educational") await enrolGuideStudents(model.teacher, created?.result?._id);
 
     return res.status(201).json({ ok: true, lesson: created });
   } catch (err) {
@@ -392,7 +393,7 @@ const putOne = async (req, res) => {
     }
     if (await namesSystemAccount([req.body?.teacher, req.body?.helper])) return res.status(400).json(SYSTEM_STAFF);
     if (!validProgramHours(date)) return res.status(400).json(PROGRAM_HOURS);
-    if (next.kind === "educational" && (await edu().takenBy(next.teacher, id))) return res.status(409).json(EDUCATIONAL_TAKEN);
+    if (!validEducationalRoster(req.body)) return res.status(400).json({ ok: false, message: "اختر طريقة إضافة طلاب البرنامج التربوي" });
 
     const sameDay = await LessonModelDef.get({ "date.day": next.date.day });
     const sportDay = await SportLessonModelDef.get({ "date.day": next.date.day });
@@ -418,7 +419,7 @@ const putOne = async (req, res) => {
     await recordLesson(req, "update", current, { ...current, ...next });
     notifyChange("lesson", id);
     // The guide's students stay on it, whatever the submitted roster said.
-    if (next.kind === "educational") await enrolGuideStudents(next.teacher);
+    if (next.kind === "educational") await enrolGuideStudents(next.teacher, id);
 
     const lesson = visible && updated?.result ? { ...updated, result: scopeLesson(updated.result, visible) } : updated;
     return res.status(200).json({ ok: true, lesson });
@@ -511,7 +512,7 @@ const removeFromList = async (req, res) => {
     }
 
     const lesson = existingRes.result[0];
-    if (lesson.kind === "educational" && removeList.length) {
+    if (lesson.kind === "educational" && lesson.educationalRoster !== "selected" && removeList.length) {
       const own = await StudentModelDef.get({ main_teacher: String(lesson.teacher) });
       const ownIds = new Set((own?.result || []).map((s) => String(s._id)));
       if (removeList.some((r) => ownIds.has(String(r)))) {

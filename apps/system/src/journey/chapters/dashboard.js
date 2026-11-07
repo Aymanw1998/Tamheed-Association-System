@@ -3,7 +3,7 @@
 // pending student, and opens the reject confirmation only to cancel it.
 const dashboard = {
   id: "journey-dashboard",
-  title: "لوحة التحكم",
+  title: "الرئيسي",
   route: "/dashboard",
   requires: null,
   steps: [

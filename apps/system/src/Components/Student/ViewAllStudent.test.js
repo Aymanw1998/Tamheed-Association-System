@@ -1,4 +1,5 @@
 import React from "react";
+import { Simulate } from "react-dom/test-utils";
 import { createRoot } from "react-dom/client";
 import { act } from "react";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
@@ -44,7 +45,7 @@ const STUDENT = { _id: "s1", tz: "800000001", firstname: "طالب", lastname: "
 beforeEach(() => {
   getAll.mockResolvedValue({ ok: true, students: [STUDENT] });
 });
-afterEach(() => { act(() => root.unmount()); container.remove(); });
+afterEach(() => { act(() => root.unmount()); container.remove(); localStorage.clear(); });
 
 const labels = () => [...container.querySelectorAll("button")].map((b) => b.textContent.trim());
 
@@ -91,4 +92,35 @@ test("each row shows the person's photo", async () => {
   const imgs = [...container.querySelectorAll('tbody img[loading="lazy"]')];
   expect(imgs.map((i) => i.getAttribute("src"))).toEqual(["https://example.test/s1.jpg"]);
   expect(container.querySelectorAll('ul img[loading="lazy"]').length).toBe(1);
+});
+
+test("management starts with responsible students, can show everyone, and without own students sees everyone", async () => {
+  mockPerms = ["students.view", "students.viewAll"];
+  localStorage.setItem("user_id", "guide-a");
+  getAll.mockResolvedValue({ ok: true, students: [{ ...STUDENT, main_teacher: "guide-a" }, { ...STUDENT, _id: "s2", tz: "800000002", main_teacher: "guide-b" }] });
+  await mount();
+  expect(container.querySelectorAll("tbody tr")).toHaveLength(1);
+  expect(container.querySelector("h1").textContent).toContain("طلابي");
+  await act(async () => [...container.querySelectorAll("button")].find((b) => b.textContent === "عرض طلاب الجمعية").click());
+  expect(container.querySelectorAll("tbody tr")).toHaveLength(2);
+  expect(container.querySelector("h1").textContent).toBe("طلاب الجمعية");
+});
+
+test("age, grade, gender, school, guide and unsigned filters coexist and clear together", async () => {
+  mockPerms = ["students.view", "students.viewAll"];
+  getAll.mockResolvedValue({ ok: true, students: [
+    { ...STUDENT, birth_date: "2014-01-01", gender: "ذكر", layer: "السادس", school: "مدرسة أ", main_teacher: "a", responsibleGuideName: "أحمد" },
+    { ...STUDENT, _id: "s2", tz: "800000002", consentAt: "2026-01-01", birth_date: "2010-01-01", gender: "أنثى", layer: "العاشر", school: "مدرسة ب", main_teacher: "b", responsibleGuideName: "سارة" },
+  ] });
+  await mount();
+  await act(async () => [...container.querySelectorAll("button")].find((b) => b.textContent.trim() === "فلتر").click());
+  const field = (label) => [...document.querySelectorAll('[role="dialog"] label')].find((node) => node.textContent.startsWith(label)).querySelector("input,select");
+  for (const [label, value] of [["العمر من", "10"], ["العمر حتى", "14"], ["الصف", "السادس"], ["الجنس", "ذكر"], ["المدرسة", "مدرسة أ"], ["المرشد المسؤول", "a"]]) {
+    await act(async () => Simulate.change(field(label), { target: { value } }));
+  }
+  await act(async () => document.querySelector('[role="dialog"] input[type="checkbox"]').click());
+  expect(container.querySelector("tbody").textContent).toContain("800000001");
+  expect(container.querySelector("tbody").textContent).not.toContain("800000002");
+  await act(async () => [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === "مسح الفلتر").click());
+  expect(container.querySelectorAll("tbody tr")).toHaveLength(2);
 });

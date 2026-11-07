@@ -50,7 +50,7 @@ export const assistantStrings = {
         other: "البيانات",
       },
       screens: {
-        dashboard: "لوحة التحكم", students: "الطلاب", student: "ملف الطالب", lessons: "البرامج", lesson: "البرنامج",
+        dashboard: "الرئيسي", students: "الطلاب", student: "ملف الطالب", lessons: "البرامج", lesson: "البرنامج",
         attendance: "الحضور", reports: "التقارير", report: "التقرير", vehicles: "المركبات", vehicle: "المركبة",
         files: "الملفات", notices: "لوحة الإعلانات", users: "المستخدمون", user: "المستخدم", audit: "سجل التغييرات", profile: "الملف الشخصي",
       },

@@ -60,9 +60,9 @@ beforeEach(() => {
 });
 afterEach(async () => { await act(async () => root.unmount()); host.remove(); });
 
-test("the menu has the pages only: no dashboard, profile, install or sign-out", async () => {
+test("the menu starts with Home; profile, install and sign-out stay in the account menu", async () => {
   await mount();
-  expect(navText()).toEqual(["البرنامج", "المهمات الأسبوعية", "الطلاب", "طاقم الجمعية", "التقارير", "الملفات"]);
+  expect(navText()).toEqual(["الرئيسي", "البرنامج", "المهمات الأسبوعية", "الطلاب", "طاقم الجمعية", "التقارير", "الملفات"]);
 });
 
 test("the logo opens the dashboard", async () => {
@@ -122,14 +122,19 @@ test("sign-out is reachable before the user's details load", async () => {
 test("each page link follows its permission", async () => {
   mockPerms = ["students.view", "lessons.view"];
   await mount();
-  expect(navText()).toEqual(["البرنامج", "المهمات الأسبوعية", "الطلاب"]);
+  expect(navText()).toEqual(["الرئيسي", "البرنامج", "المهمات الأسبوعية", "الطلاب"]);
 });
 
 const groupButton = (name) => [...host.querySelectorAll('#main-nav button')].find((button) => button.textContent.includes(name));
+test("association rules is a separate permission-gated navigation destination", async () => {
+  mockPerms = ["students.parentLink"];
+  await mount();
+  expect(host.querySelector('#main-nav a[href="/association-rules"]').textContent).toBe("قوانين الجمعية");
+});
 test("desktop pages are direct links, mark the active page and keep phone groups after resizing", async () => {
   await mount();
-  expect(host.querySelector('#main-nav a').textContent).toBe("البرنامج");
-  expect(host.querySelector('#main-nav a').getAttribute("aria-current")).toBe("page");
+  expect(host.querySelector('#main-nav a').textContent).toBe("الرئيسي");
+  expect(host.querySelector('#main-nav a[href="/lessons"]').getAttribute("aria-current")).toBe("page");
   expect(host.querySelectorAll('#main-nav button')).toHaveLength(0);
   expect(host.querySelector('#main-nav a[href="/weekly-tasks"]').closest('[hidden]')).toBeNull();
   await act(async () => host.querySelector('#main-nav a[href="/students"]').click());
@@ -197,7 +202,7 @@ test("groups with no permitted pages are absent", async () => {
   expect(groupButton("الأعضاء والطاقم")).toBeUndefined();
   expect(groupButton("المتابعة")).toBeUndefined();
   expect(groupButton("الموارد")).toBeUndefined();
-  expect(navText()).toEqual(["المهمات الأسبوعية"]);
+  expect(navText()).toEqual(["الرئيسي", "المهمات الأسبوعية"]);
 });
 
 // The system account has no everyday role: its label is «النظام», not an assistant's.

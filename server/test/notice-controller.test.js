@@ -14,6 +14,19 @@ const READER = { _id: "c".repeat(24), tz: "333333334", firstname: "Re", lastname
 // An administrator whose notices access was revoked.
 const REVOKED = { _id: "d".repeat(24), tz: "444444442", firstname: "Re", lastname: "Voked", roles: ["ادارة"], permissionRevokes: ["notices"], email: "revoked@example.com" };
 
+test("notice pages preserve visibility, expiry and the page limit", async () => {
+  const ctx = setup();
+  for (let i = 0; i < 205; i += 1) ctx.rows.push({ _id: String(i).padStart(24, "0"), title: `notice ${i}`, createdAt: new Date(Date.UTC(2026, 10, 7, 0, i)).toISOString(), readBy: [], archivedAt: null });
+  ctx.rows.push({ _id: "f".repeat(24), title: "Expired", createdAt: "2099-01-01", expireAt: new Date("2020-01-01"), readBy: [] });
+  const first = await guarded(ctx, READER, "list");
+  const next = await guarded(ctx, READER, "list", { query: { skip: "200" } });
+  assert.equal(first.body.notices.length, 200);
+  assert.equal(next.body.notices.length, 5);
+  assert.ok(!next.body.notices.some((row) => first.body.notices.some((other) => other._id === row._id)));
+  assert.equal((await guarded(ctx, REVOKED, "list", { query: { skip: "200" } })).statusCode, 403);
+  for (const skip of ["-1", "1.5", "invalid"]) assert.equal((await guarded(ctx, READER, "list", { query: { skip } })).statusCode, 400);
+});
+
 function load(file, dependencies) {
   const filename = path.join(__dirname, "../Entities/Notice", file);
   const module = { exports: {} };

@@ -114,6 +114,7 @@ function world({ lockPrograms } = {}) {
   });
   const lesson = load("Lesson/Lesson.controller.js", {
     ...common,
+    "../../services/educationalLesson": { educationalLessons: () => require("../services/educationalLesson").createEducationalLessons({ lessons, students, lockPrograms }) },
     "./Lesson.model": { LessonModelDef: lessons },
     "../Sport/SportLesson.model": { SportLessonModelDef: { async get() { return { success: true, result: [] }; } } },
     "../../utils/lessonConflict": require("../utils/lessonConflict"),
@@ -153,6 +154,9 @@ test("a guide's student list holds only his 2 of the 5 students; an admin sees a
 
   const admin = await call(w.student.getAllS, reqAs(ADMIN));
   assert.equal(admin.body.students.length, 5);
+  assert.equal(guide.body.students.find((student) => student._id === sid(2)).responsibleGuideName, "Gu Ide");
+  assert.equal(guide.body.students.find((student) => student._id === sid(1)).responsibleGuideName, "");
+  assert.equal(guide.body.students[0].guide, undefined, "listing adds a safe name only, not the user record");
 });
 
 test("an administrator can still make an IT guide a student's responsible guide", async () => {
@@ -332,6 +336,29 @@ test("removeFromList with a hidden id leaves the roster unchanged; a visible id 
 
   await call(w.lesson.removeFromList, reqAs(ADMIN, { params: { id: "lesson-2" }, body: { list_students: [sid(3)] } }));
   assert.deepEqual(plain(w.lessons.all().find((l) => l._id === "lesson-2").list_students), [sid(4)]);
+});
+
+test("one responsible user can create separate educational subsets alongside automatic programs", async () => {
+  const w = world();
+  const create = (day, educationalRoster, ids) => call(w.lesson.postOne, reqAs(ADMIN, { body: {
+    name: `Educational ${day}`, teacher: GUIDE._id, room: "1", kind: "educational", educationalRoster,
+    date: { day, startMin: 840, endMin: 885 }, list_students: ids,
+  } }));
+  assert.equal((await create(3, "selected", [sid(1)])).statusCode, 201);
+  const selected = w.lessons.all().at(-1);
+  assert.deepEqual(plain(selected.list_students), [sid(1)], "another responsible student is not injected into a subset");
+  assert.equal((await create(4, "selected", [sid(2)])).statusCode, 201);
+  assert.equal((await create(5, "all", [])).statusCode, 201);
+  assert.deepEqual(plain(w.lessons.all().at(-1).list_students), [sid(2)]);
+  const removed = await call(w.lesson.removeFromList, reqAs(ADMIN, { params: { id: w.lessons.all().at(-2)._id }, body: { list_students: [sid(2)] } }));
+  assert.equal(removed.statusCode, 200);
+  assert.deepEqual(plain(w.lessons.all().at(-2).list_students), []);
+  const blocked = await call(w.lesson.removeFromList, reqAs(ADMIN, { params: { id: w.lessons.all().at(-1)._id }, body: { list_students: [sid(2)] } }));
+  assert.equal(blocked.statusCode, 409);
+  const changed = await call(w.lesson.putOne, reqAs(ADMIN, { params: { id: selected._id }, body: { educationalRoster: "all" } }));
+  assert.equal(changed.statusCode, 200);
+  assert.ok(w.lessons.all().find((lesson) => String(lesson._id) === String(selected._id)).list_students.includes(sid(2)));
+  assert.equal((await create(6, "invalid", [])).statusCode, 400);
 });
 
 test("a scoped addToList takes _ids only if visible; existing but hidden _ids and unknown ids are dropped", async () => {

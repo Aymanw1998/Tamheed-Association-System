@@ -12,6 +12,7 @@ function loadModel() {
   const rows = [];
   const fakeApi = {
     calls, rows,
+    async readPage(options) { calls.push(["readPage", options]); return { result: [], total: 0 }; },
     async read({ filter }) {
       calls.push(["read", filter]);
       return { result: rows.filter((r) => Object.entries(filter).every(([k, v]) => r[k] === v)) };
@@ -66,6 +67,16 @@ test("someone else's row is not read and not found", async () => {
   api.rows.push({ _id: "1".repeat(24), recipientTz: "t2", type: "absence_streak", readAt: null });
   assert.equal(await AlertModelDef.markRead("t1", "1".repeat(24), AT), null);
   assert.equal(api.rows[0].readAt, null);
+});
+
+test("older inbox pages keep recipient and current type restrictions in the database query", async () => {
+  const { AlertModelDef, api } = loadModel();
+  await AlertModelDef.listFor("caller", { skip: 50, limit: 50, types: ["report_missing"], unreadOnly: true });
+  const query = api.calls[0][1];
+  assert.deepEqual(query.filter, { recipientTz: "caller", type: { $in: ["report_missing"] }, readAt: null });
+  assert.equal(query.skip, 50);
+  assert.equal(query.limit, 50);
+  assert.deepEqual(query.sort, { at: -1, _id: -1 });
 });
 
 test("read all: 30 days for ordinary rows, no limit for vehicle rows", async () => {

@@ -9,7 +9,7 @@ import StudentStatusFilter from "./StudentStatusFilter.jsx";
 import FilterDialog from "../UI/FilterDialog.jsx";
 import Button from "../UI/Button.jsx";
 import StatusBadge from "../UI/StatusBadge.jsx";
-import { ParentLinkDialog } from "./ParentLinkPanel.jsx";
+import CopyParentLink from "./CopyParentLink.jsx";
 import MobileStudentList from "./MobileStudentList.jsx";
 import Avatar from "../UI/Avatar.jsx";
 import { passportSrc } from "../../utils/passportPhoto";
@@ -31,7 +31,9 @@ const getAge = (birthDate) => {
   if (!birthDate) return "-";
   const date = new Date(birthDate);
   if (Number.isNaN(date.getTime())) return "-";
-  return new Date().getFullYear() - date.getFullYear();
+  const today = new Date();
+  const beforeBirthday = today.getMonth() < date.getMonth() || (today.getMonth() === date.getMonth() && today.getDate() < date.getDate());
+  return today.getFullYear() - date.getFullYear() - Number(beforeBirthday);
 };
 
 const ViewAllStudent = () => {
@@ -51,10 +53,11 @@ const ViewAllStudent = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("active");
   const [onlyUnsigned, setOnlyUnsigned] = useState(false);
+  const [filters, setFilters] = useState({ minAge: "", maxAge: "", layer: "", gender: "", guide: "", school: "" });
+  const [showAll, setShowAll] = useState(false);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(null);
   const [showFab, setShowFab] = useState(false);
-  const [showParentLink, setShowParentLink] = useState(false);
   const [addBtnEl, setAddBtnEl] = useState(null);
 
   const addBtnRef = useCallback((node) => {
@@ -106,8 +109,17 @@ const ViewAllStudent = () => {
   }, [loadStudent]);
   useLiveRefresh(["student", "lesson"], () => loadStudent({ quiet: true }));
 
+  const ownId = localStorage.getItem("user_id");
+  const hasOwn = Boolean(ownId) && students.some((student) => String(student.main_teacher || "") === ownId);
+  const scopedStudents = useMemo(() => isAdmin && hasOwn && !showAll
+    ? students.filter((student) => String(student.main_teacher || "") === ownId) : students,
+  [students, isAdmin, hasOwn, showAll, ownId]);
+  const optionsFor = (key) => [...new Set(scopedStudents.map((student) => String(student[key] || "")).filter(Boolean))].sort((a, b) => a.localeCompare(b, "ar", { numeric: true }));
+  const guideOptions = [...new Map(scopedStudents.filter((student) => student.main_teacher).map((student) => [String(student.main_teacher), student.responsibleGuideName || "مرشد غير فعّال"])).entries()];
+  const changeFilter = (key, value) => setFilters((current) => ({ ...current, [key]: value }));
+
   const counts = useMemo(() => {
-    return students.reduce(
+    return scopedStudents.reduce(
       (acc, student) => {
         const key = getStudentFilterKey(student);
         acc[key] += 1;
@@ -117,16 +129,25 @@ const ViewAllStudent = () => {
       },
       { active: 0, pending: 0, inactive: 0, waiting: 0, noActive: 0 }
     );
-  }, [students]);
+  }, [scopedStudents]);
 
   const sortedFilteredStudents = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
 
-    return students
+    return scopedStudents
       .filter((student) => {
         return getStudentFilterKey(student) === statusFilter;
       })
       .filter((student) => !onlyUnsigned || !student.consentAt)
+      .filter((student) => {
+        const age = getAge(student.birth_date);
+        return (filters.minAge === "" || (typeof age === "number" && age >= Number(filters.minAge)))
+          && (filters.maxAge === "" || (typeof age === "number" && age <= Number(filters.maxAge)))
+          && (!filters.layer || String(student.layer || "") === filters.layer)
+          && (!filters.gender || String(student.gender || "") === filters.gender)
+          && (!filters.school || String(student.school || "") === filters.school)
+          && (!filters.guide || (filters.guide === "unassigned" ? !student.main_teacher : String(student.main_teacher) === filters.guide));
+      })
       .filter((student) => {
         if (!query) return true;
 
@@ -139,6 +160,7 @@ const ViewAllStudent = () => {
           student.email,
           student.school,
           student.layer,
+          student.responsibleGuideName,
           student.status,
           getAge(student.birth_date),
         ]
@@ -152,23 +174,22 @@ const ViewAllStudent = () => {
         const bName = `${b.firstname || ""} ${b.lastname || ""}`.trim();
         return aName.localeCompare(bName, "ar", { sensitivity: "base" });
       });
-  }, [students, searchTerm, statusFilter, onlyUnsigned]);
+  }, [scopedStudents, searchTerm, statusFilter, onlyUnsigned, filters]);
 
   const unsignedCount = useMemo(
-    () => students.filter((student) => getStudentFilterKey(student) === statusFilter && !student.consentAt).length,
-    [students, statusFilter]
+    () => scopedStudents.filter((student) => getStudentFilterKey(student) === statusFilter && !student.consentAt).length,
+    [scopedStudents, statusFilter]
   );
 
   const handleAddStudent = () => {
     navigate("/students/new");
   };
-  const closeParentLink = useCallback(() => setShowParentLink(false), []);
 
   return (
     <div>
       <div>
         <h1 className={styles.pageTitle}>
-          {isAdmin ? "قائمة الطلاب" : "قائمة طلابي"}
+          {isAdmin && (!hasOwn || showAll) ? "طلاب الجمعية" : "قائمة طلابي"}
         </h1>
 
         <div className={styles.toolbar} data-tour="students-toolbar">
@@ -189,10 +210,9 @@ const ViewAllStudent = () => {
           )}
 
           {canParentLink && (
-            <Button variant="secondary" data-tour="students-parent-link" onClick={() => setShowParentLink(true)}>
-              رابط تسجيل الأهل
-            </Button>
+            <CopyParentLink data-tour="students-parent-link" />
           )}
+          {isAdmin && hasOwn && <Button variant="secondary" onClick={() => setShowAll((value) => !value)}>{showAll ? "عرض طلابي" : "عرض طلاب الجمعية"}</Button>}
 
           <Button variant="secondary" data-tour="students-refresh" onClick={loadStudent} loading={loading}>
             {loading ? "جارٍ التحديث…" : "تحديث القائمة"}
@@ -216,11 +236,17 @@ const ViewAllStudent = () => {
             : "الطلاب غير الفعّالين"}: {sortedFilteredStudents.length}
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginTop: 8 }}>
-          <FilterDialog count={onlyUnsigned ? 1 : 0} onClear={() => setOnlyUnsigned(false)}>
-            <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <FilterDialog count={Number(onlyUnsigned) + Object.values(filters).filter((value) => value !== "").length} onClear={() => { setOnlyUnsigned(false); setFilters({ minAge: "", maxAge: "", layer: "", gender: "", guide: "", school: "" }); }}>
+            <div className={styles.listFilters}>
+            <label>العمر من<input type="number" min="0" max="120" value={filters.minAge} onChange={(event) => changeFilter("minAge", event.target.value)} /></label>
+            <label>العمر حتى<input type="number" min="0" max="120" value={filters.maxAge} onChange={(event) => changeFilter("maxAge", event.target.value)} /></label>
+            {[ ["layer", "الصف"], ["gender", "الجنس"], ["school", "المدرسة"] ].map(([key, label]) => <label key={key}>{label}<select value={filters[key]} onChange={(event) => changeFilter(key, event.target.value)}><option value="">الكل</option>{optionsFor(key).map((value) => <option key={value} value={value}>{value}</option>)}</select></label>)}
+            <label>المرشد المسؤول<select value={filters.guide} onChange={(event) => changeFilter("guide", event.target.value)}><option value="">الكل</option><option value="unassigned">بدون مرشد مسؤول</option>{guideOptions.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label>
+            <label style={{ display: "flex", gap: 8, alignItems: "center", gridColumn: "1 / -1" }}>
               <input type="checkbox" style={{ width: "auto" }} checked={onlyUnsigned} onChange={(event) => setOnlyUnsigned(event.target.checked)} />
               <span>بدون توقيع ولي الأمر فقط</span>
             </label>
+            </div>
           </FilterDialog>
           <small style={{ color: "var(--color-text-secondary)" }}>
             متبقٍ توقيع ولي الأمر ({unsignedCount})
@@ -301,7 +327,6 @@ const ViewAllStudent = () => {
           navigate("/students/new");
         }}
       />
-      {showParentLink && <ParentLinkDialog onClose={closeParentLink} />}
     </div>
   );
 };

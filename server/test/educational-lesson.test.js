@@ -59,11 +59,47 @@ test("an approved request joins; the same guide again adds nothing", async () =>
   assert.deepEqual(lessons.docs[0].list_students, ["s9", "s2"]);
 });
 
-test("a guide has one educational lesson: another is reported as taken", async () => {
-  const { edu } = setup();
-  assert.equal((await edu.takenBy("g1"))._id, "e1");
-  assert.equal(await edu.takenBy("g1", "e1"), null);
-  assert.equal(await edu.takenBy("nobody"), null);
+test("multiple automatic programs receive students; selected programs retain separate rosters", async () => {
+  const { edu, lessons } = setup();
+  lessons.docs.push({ _id: "e3", teacher: "g1", kind: "educational", educationalRoster: "all", list_students: [] });
+  lessons.docs.push({ _id: "e4", teacher: "g1", kind: "educational", educationalRoster: "selected", list_students: ["s9"] });
+  await edu.enrolAll("g1");
+  assert.deepEqual(lessons.docs[3].list_students, ["s1", "s9"]);
+  assert.deepEqual(lessons.docs[4].list_students, ["s9"]);
+  await edu.moveStudent("s3", "g2", "g1");
+  assert.ok(lessons.docs[0].list_students.includes("s3"));
+  assert.ok(lessons.docs[3].list_students.includes("s3"));
+  assert.deepEqual(lessons.docs[4].list_students, ["s9"]);
+});
+
+test("saving one program does not reconcile other automatic programs", async () => {
+  const { edu, lessons } = setup();
+  lessons.docs.push({ _id: "e3", teacher: "g1", kind: "educational", educationalRoster: "all", list_students: [] });
+  await edu.enrolAll("g1", "e3");
+  assert.deepEqual(lessons.docs[0].list_students, ["s9"]);
+  assert.deepEqual(lessons.docs[3].list_students, ["s1", "s9"]);
+});
+
+test("changing responsibility removes the student from every old subset; new subsets remain manual", async () => {
+  const { edu, lessons } = setup();
+  lessons.docs.push({ _id: "e3", teacher: "g2", kind: "educational", educationalRoster: "selected", list_students: ["s3"] });
+  lessons.docs.push({ _id: "e4", teacher: "g1", kind: "educational", educationalRoster: "selected", list_students: [] });
+  await edu.moveStudent("s3", "g2", "g1");
+  assert.deepEqual(lessons.docs[1].list_students, []);
+  assert.deepEqual(lessons.docs[3].list_students, []);
+  assert.deepEqual(lessons.docs[4].list_students, []);
+});
+
+test("a concurrent switch to selected membership prevents an automatic retry from adding students", async () => {
+  const { edu, lessons } = setup();
+  const update = lessons.updateExisting;
+  let raced = false;
+  lessons.updateExisting = async (filter, data) => {
+    if (!raced) { raced = true; lessons.docs[0].educationalRoster = "selected"; lessons.docs[0].updatedAt = new Date("2026-11-06"); }
+    return update(filter, data);
+  };
+  await edu.moveStudent("s1", null, "g1");
+  assert.deepEqual(lessons.docs[0].list_students, ["s9"]);
 });
 
 test("simultaneous automatic additions preserve both students using a fresh roster on conflict", async () => {
@@ -92,4 +128,7 @@ test("student guide changes request locks for old and new educational programs",
   const edu = createEducationalLessons({ lessons, students, lockPrograms: async (keys, request) => { asked.push([keys, request]); return async () => {}; } });
   await edu.holdForStudentChange("g1", "g2", req);
   assert.deepEqual(asked, [[["lesson:e1", "lesson:e2"], req]]);
+  lessons.docs.push({ _id: "e3", teacher: "g1", kind: "educational", educationalRoster: "selected", list_students: [] });
+  await edu.holdForStudentChange("g1", "g1", req);
+  assert.deepEqual(asked[1], [["lesson:e1", "lesson:e3"], req]);
 });

@@ -20,7 +20,7 @@ const translations = {
       system: "النظام",
     },
     nav: {
-      dashboard: "لوحة التحكم",
+      dashboard: "الرئيسي",
       attendance: "الحضور والغياب",
       students: "الطلاب",
       users: "المستخدمون",

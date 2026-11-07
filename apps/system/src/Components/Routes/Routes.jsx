@@ -31,6 +31,7 @@ const RegisterPage = lazyPage(() => import('../Auth/RegisterPage/RegisterPage'))
 const ParentConsentPage = lazyPage(() => import('../Student/ParentConsentPage'));
 const NoticesBoard = lazyPage(() => import('../Notice/NoticesBoard'));
 const ViewAllStudent = lazyPage(() => import('../Student/ViewAllStudent'));
+const AssociationRulesPage = lazyPage(() => import('../Student/AssociationRulesPage'));
 const EditStudent = lazyPage(() => import('../Student/EditStudent'));
 const StudentView = lazyPage(() => import('../Student/StudentView'));
 const ViewAllUser = lazyPage(() => import('../User/ViewAllUser'));
@@ -111,6 +112,7 @@ export default function CRoutes() {
             <Route path="/calendar" element={<LessonsHub active="attendance"><AttendancePage /></LessonsHub>} />
             
             <Route path="/students" element={<ViewAllStudent />} />
+            <Route path="/association-rules" element={<AssociationRulesPage />} />
             {/* A record opens on its read-only page; /new and /:id/edit open the form. */}
             <Route path="/students/:id" element={<RecordRoute view={<StudentView/>} form={<EditStudent/>} />} />
             <Route path="/students/:id/edit" element={<EditStudent/>} />
