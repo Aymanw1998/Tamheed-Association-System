@@ -13,6 +13,7 @@ export function createAutoUpdate({
   canApply = () => true,
   now = () => Date.now(),
   store = sessionStore(),
+  retryGapMs = RETRY_GAP_MS,
 } = {}) {
   let edited = false, richDraft = false;
   let path = getPath(), settleUntil = 0, lastTried = -Infinity;
@@ -41,7 +42,7 @@ export function createAutoUpdate({
     try { stored = store?.getItem(LAST_KEY); } catch {}
     const previous = stored == null ? lastTried : Number(stored);
     const age = now() - previous;
-    return Number.isFinite(previous) && age >= 0 && age < RETRY_GAP_MS;
+    return Number.isFinite(previous) && age >= 0 && age < retryGapMs;
   };
   const safeNow = () => {
     notePath();

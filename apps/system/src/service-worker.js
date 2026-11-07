@@ -5,19 +5,23 @@ import { registerRoute, NavigationRoute } from "workbox-routing";
 import { NetworkFirst } from "workbox-strategies";
 import { ExpirationPlugin } from "workbox-expiration";
 import { shouldCache } from "./pwa/shouldCache";
+import { freshNavigation } from "./pwa/freshNavigation";
 
 const API_CACHE = "tamheed-api";
 const ICON = "/icons/icon-192.png";
 
 clientsClaim();
-precacheAndRoute(self.__WB_MANIFEST);
 
 // SPA navigations fall back to the app shell, except API paths.
 registerRoute(
-  new NavigationRoute(createHandlerBoundToURL("/index.html"), {
-    denylist: [/^\/api\//i, /\/[^/?]+\.[^/]+$/],
+  new NavigationRoute(freshNavigation((context) => createHandlerBoundToURL("/index.html")(context)), {
+    denylist: [/^\/api(\/|$)/i, /\/(?!index\.html(?:\?|$))[^/?]+\.[^/]+$/],
   })
 );
+
+// Register navigation first: otherwise precache's directory-index matching
+// would intercept / and /index.html before the fresh-navigation handler.
+precacheAndRoute(self.__WB_MANIFEST);
 
 registerRoute(
   ({ url, request }) =>

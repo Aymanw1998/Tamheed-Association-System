@@ -8,7 +8,7 @@ const API_PATH_RE = /^\/api(\/|$)/;
 // deploy reaches the browser at once (without this Chrome may keep showing an
 // old build for a while). The hashed files under static/ never change, so the
 // browser keeps them for a year and does not ask again.
-const ALWAYS_CHECK = new Set(["index.html", "service-worker.js", "manifest.json"]);
+const ALWAYS_CHECK = new Set(["index.html", "service-worker.js", "manifest.json", "asset-manifest.json"]);
 const cacheHeaders = (res, file) => {
   if (ALWAYS_CHECK.has(path.basename(file))) res.set("Cache-Control", "no-cache");
   else if (file.includes(`${path.sep}static${path.sep}`)) res.set("Cache-Control", "public, max-age=31536000, immutable");

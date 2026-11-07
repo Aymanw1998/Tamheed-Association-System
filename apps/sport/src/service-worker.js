@@ -5,19 +5,22 @@ import { registerRoute, NavigationRoute } from "workbox-routing";
 import { NetworkFirst } from "workbox-strategies";
 import { ExpirationPlugin } from "workbox-expiration";
 import { shouldCache } from "./pwa/shouldCache";
+import { freshNavigation } from "./pwa/freshNavigation";
 
 const API_CACHE = "tamheed-sport-api";
 const ICON = "/icons/icon-192.png";
 
 clientsClaim();
-precacheAndRoute(self.__WB_MANIFEST);
 
 // SPA navigations fall back to the app shell, except API paths.
 registerRoute(
-  new NavigationRoute(createHandlerBoundToURL("/index.html"), {
-    denylist: [/^\/api\//, /\/[^/?]+\.[^/]+$/],
+  new NavigationRoute(freshNavigation((context) => createHandlerBoundToURL("/index.html")(context)), {
+    denylist: [/^\/api(\/|$)/i, /\/(?!index\.html(?:\?|$))[^/?]+\.[^/]+$/],
   })
 );
+
+// Navigation must precede precache's / -> /index.html matching.
+precacheAndRoute(self.__WB_MANIFEST);
 
 registerRoute(
   ({ url, request }) => url.origin === self.location.origin && shouldCache(url.href, request.method),

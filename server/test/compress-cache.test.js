@@ -26,6 +26,7 @@ test("scripts and API answers are compressed; streams are not; hashed files are 
   const script = "const value = 1;\n".repeat(5000);
   fs.writeFileSync(path.join(dir, "static", "js", "main.abc.js"), script);
   fs.writeFileSync(path.join(dir, "index.html"), "<html></html>");
+  fs.writeFileSync(path.join(dir, "asset-manifest.json"), '{"files":{"main.js":"/static/js/main.abc.js"}}');
 
   const app = express();
   app.use(compress());
@@ -51,4 +52,5 @@ test("scripts and API answers are compressed; streams are not; hashed files are 
   assert.equal((await get(port, "/api/list")).headers["content-encoding"], "gzip");
   assert.equal((await get(port, "/api/live/stream")).headers["content-encoding"], undefined);
   assert.equal((await get(port, "/index.html")).headers["cache-control"], "no-cache");
+  assert.equal((await get(port, "/asset-manifest.json?__entry_check=123")).headers["cache-control"], "no-cache");
 });

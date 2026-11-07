@@ -3,7 +3,8 @@ import { createRoot } from "react-dom/client";
 import App from "./App.jsx";
 import "./styles.css";
 import { register } from "./serviceWorkerRegistration";
+import { startFreshApp } from "./pwa/entryUpdate";
 
-createRoot(document.getElementById("root")).render(<App />);
+startFreshApp(() => createRoot(document.getElementById("root")).render(<App />));
 
 register();

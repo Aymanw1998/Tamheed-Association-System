@@ -5,7 +5,8 @@ import App from "./App";
 import reportWebVitals from "./reportWebVitals";
 import AppErrorBoundary from "./Components/Global/AppErrorBoundary";
 import { ConfirmProvider } from "./Components/Provides/ConfirmContext";
-import AppChrome from "./pwa/AppChrome";
+import AppChrome, { canApplySystemUpdate } from "./pwa/AppChrome";
+import { startFreshApp } from "./pwa/entryUpdate";
 import ReportProblem from "./Components/Global/ReportProblem/ReportProblem";
 import QueueStatus from "./pwa/QueueStatus";
 import { startClientIdGuard } from "./locks/clientId";
@@ -53,7 +54,7 @@ function DevToastPing() {
 }
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
-root.render(
+startFreshApp(() => root.render(
   <ConfirmProvider>
     <ToastProvider rtl baseZIndex={999999}>
       <AppErrorBoundary>
@@ -79,7 +80,7 @@ root.render(
       <QueueStatus />
     </ToastProvider>
   </ConfirmProvider>
-);
+), { canApply: canApplySystemUpdate });
 
 reportWebVitals();
 

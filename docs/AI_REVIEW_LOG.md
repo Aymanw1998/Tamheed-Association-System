@@ -5504,3 +5504,61 @@ agreement were received; Claude review remains pending. No environment values,
 credentials, runtime logs or real records were included. Continued independent
 local verification under the collaboration policy. Publish the tested source
 under ongoing commit/push authorization and inspect CI; no live deployment.
+
+## 2026-11-07 — Update immediately on entry
+
+**Bounded objective / ownership:** Codex implements; actual Claude Code is the
+independent reviewer (request source-only review, record quota/pending honestly).
+Owner wants every entry with an old version to update automatically. Existing
+System/Sport updates run after shell rendering; add a bounded pre-render build
+check for System/Sport/IT, resume checks, safe draft-aware adoption and per-build
+loop protection. Serve navigation HTML network-first with an offline app-shell
+fallback, keeping API/private-cache exclusions and first-install behavior.
+Maintain existing protection for typed forms/canvas and saves. Verify stale vs
+current startup, JS/CSS releases, worker activation, offline/timeout fallback,
+resume/edit safety, URL preservation and loops using isolated tests and a local
+synthetic browser fixture. Run npm run verify plus Sport/IT suites and builds.
+No production deployment or forced real-client reload, no databases/cloud data.
+**Implementation / resolution:** Added an entry gate in System, Sport and IT:
+compare main JavaScript and CSS paths with a bounded no-store asset manifest
+before mounting; preserve path, query, fragment and history state. Resume and
+minute checks adopt newer builds once local work is safe. Per-release attempt
+storage plus an URL fallback prevent stale-shell loops even when session storage
+writes fail. Controlled pages await fresh worker activation, with bounded
+fallback and retries. System/Sport navigations prefer online HTML before the
+precache route and retain coherent offline fallback. Manifest responses require
+revalidation. Existing API/privacy exclusions and safe form/canvas/save checks
+remain. No dependencies changed.
+
+The real-browser exercise exposed a distinct-build regression: a generic
+five-minute cooldown delayed a second update after finishing a draft. A focused
+regression failed first; entry guards now disable that generic cooldown and
+retain their own per-release loop guard. Existing SW guards retain the default.
+The regression and repeated browser exercise passed after the correction.
+
+**Final verification:** npm run verify passed: 1,527 isolated server tests,
+1,145 System tests in 131 suites and optimized System build. Full Sport passed
+149 tests in 26 suites and optimized build. Full IT passed 112 tests in 17
+suites and optimized build. git diff --check passed. Isolated loopback browser
+fixture used the production updater and bundled production worker: legacy
+cached old shell -> new on entry without mounting old again; a second release
+preserved the typed draft and loaded automatically after ending editing; a
+503 navigation/manifest retained the coherent latest precached app. Test tab,
+its test-origin worker/caches, and disposable source/log artifacts were cleaned.
+No real DB, cloud, credentials, user records, seed or migration commands used.
+
+**Actual peer request / response:** [Source-only request](reviews/2026-11-07-entry-update-claude-request.md)
+was sent to the installed actual Claude Code CLI with no tools or file access.
+[Actual response](reviews/2026-11-07-entry-update-claude-response.txt) reports the
+weekly limit until Nov 8, 16:00 Asia/Jerusalem. No review findings or agreement
+were received; independent Claude review is pending. Payload excluded .env,
+credentials, runtime logs and real records. Local work continued as authorized.
+
+**Publication / limits:** Commit and push under ongoing authorization, then
+inspect GitHub CI. This does not deploy to production or force existing remote
+windows to reload. Clients running a very old manual-button implementation need
+to load this implementation once (refresh/reopen); currently loaded legacy code
+cannot retroactively execute new entry logic. New entries using this build or
+later automatically check before displaying the app. Offline entries can use
+the cached build and update when connectivity returns. Runtime edits defer
+reload until safe. No existing client data/cookies are cleared by this feature.
