@@ -13,7 +13,7 @@ RulesModelDef.create = async function (data) {
 };
 
 // A parent's signature on a version of the rules, apart from the student so no
-// list ever carries it, and only the rules' editors can read it.
+// list ever carries it. Separate consent permissions and student scope guard it.
 //   { studentId, tz, rulesVersion, signerName, signature, signedAt }
 const ConsentModelDef = { dbName, collection: "StudentConsents" };
 ConsentModelDef.get = async function (filter = {}) {

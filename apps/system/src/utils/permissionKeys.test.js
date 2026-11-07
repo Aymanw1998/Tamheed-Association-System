@@ -5,7 +5,7 @@ import { accessStrings } from "../i18n/accessStrings";
 test("permission labels and keys use the same canonical catalog, including weekly tasks", () => {
   expect(PERMISSION_TREE).toEqual(catalog.tree);
   expect(accessStrings.ar.perms.modules).toEqual(catalog.labels.ar.modules);
-  expect(accessStrings.ar.perms.leavesByModule.tasks.manage).toBe("إدارة المهمات الأسبوعية");
+  expect(accessStrings.ar.perms.leavesByModule.tasks.manage).toBe("فتح صفحة تحديث المهمات");
   expect(accessStrings.ar.perms.modules.dashboard).toBe("الرئيسي");
   expect(accessStrings.ar.perms.modules.lessons).toBe("البرنامج");
   expect(ALL_KEYS).toContain("tasks.manage");

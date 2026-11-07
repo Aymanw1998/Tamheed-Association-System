@@ -21,6 +21,7 @@ const translations = {
       system: "النظام",
     },
     nav: {
+      ...catalog.labels.ar.modules,
       tasks: catalog.labels.ar.modules.tasks,
       dashboard: catalog.labels.ar.modules.dashboard,
       attendance: catalog.labels.ar.modules.attendance,

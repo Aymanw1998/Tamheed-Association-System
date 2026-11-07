@@ -1,6 +1,6 @@
 const express = require("express");
 const { requireAuth } = require("../../middleware/authMiddleware");
-const { loadActor } = require("../../middleware/permissionMiddleware");
+const { loadActor, requirePermission } = require("../../middleware/permissionMiddleware");
 const { logWithSource } = require("../../middleware/logger");
 const { can } = require("../../utils/permissions");
 
@@ -47,7 +47,7 @@ const answered = (part) => part.status >= 200 && part.status < 300 && part.body?
 function createDashboardRouter({ requireAuth, loadActor, handlers }) {
   const router = express.Router();
 
-  router.get("/summary", requireAuth, loadActor, async (req, res) => {
+  router.get("/summary", requireAuth, loadActor, requirePermission("dashboard.view"), async (req, res) => {
     try {
       const h = handlers();
       const allowed = (part) => [].concat(PARTS[part]).some((key) => can(req.actor?.permissions, key));

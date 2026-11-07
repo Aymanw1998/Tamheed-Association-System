@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import "../Provides/ConfirmContext.css";
 import { getMyTasks, markPraiseSeen } from "../../WebServer/services/weeklyTasks/functionsWeeklyTasks.jsx";
 import { isDemo } from "../../journey/demoMode";
-import { getStoredUserId } from "../../utils/session";
+import { getStoredUserId, canStored } from "../../utils/session";
 
 // Unfinished current-week tasks remind on every signed-in layout mount.
 export default function WeeklyPraise() {
@@ -15,6 +15,7 @@ export default function WeeklyPraise() {
     setNotice(null);
     if (isDemo()) return undefined;
     let alive = true;
+    if (!canStored("tasks.view")) return undefined;
     getMyTasks().then((res) => {
       if (!alive || !res.ok) return;
       const remaining = (res.tasks || []).filter((task) => !task.done).length;

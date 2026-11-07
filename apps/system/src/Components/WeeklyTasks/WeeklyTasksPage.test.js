@@ -4,12 +4,14 @@ import { createRoot } from "react-dom/client";
 
 const mockNavigate = jest.fn();
 let mockManage = false;
+let mockComplete = true;
+let mockPersonal = true;
 jest.mock("react-router-dom", () => ({ useNavigate: () => mockNavigate }));
 jest.mock("../../WebServer/services/weeklyTasks/functionsWeeklyTasks.jsx", () => ({
   getMyTasks: jest.fn(), setMyTaskDone: jest.fn(), getTaskBoard: jest.fn(), approveTask: jest.fn(),
 }));
 jest.mock("../../ALERT/SystemToasts.jsx", () => ({ toast: { warn: jest.fn(), success: jest.fn() } }));
-jest.mock("../../utils/session", () => ({ canStored: () => mockManage }));
+jest.mock("../../utils/session", () => ({ canStored: (key) => key === "tasks.complete" ? mockComplete : key === "tasks.view" ? mockPersonal : mockManage }));
 
 import { approveTask, getMyTasks, getTaskBoard, setMyTaskDone } from "../../WebServer/services/weeklyTasks/functionsWeeklyTasks.jsx";
 import WeeklyTasksPage from "./WeeklyTasksPage";
@@ -53,12 +55,34 @@ test("personal group filter and free search combine without changing completion 
 });
 
 beforeEach(() => {
+  mockPersonal = true;
+  mockComplete = true;
   mockManage = false;
   mockNavigate.mockReset();
   getMyTasks.mockResolvedValue({ ok: true, week: WEEK, tasks: [task()] });
   getTaskBoard.mockResolvedValue(BOARD);
   setMyTaskDone.mockResolvedValue({ ok: true, week: WEEK, tasks: [task({ done: true })] });
   approveTask.mockResolvedValue({ ok: true });
+});
+
+test("tasks.view without completion permission shows tasks with disabled checkboxes", async () => {
+  mockComplete = false;
+  getMyTasks.mockResolvedValue({ ok: true, week: WEEK, tasks: [task()] });
+  await mount();
+  const check = host.querySelector('input[type="checkbox"]');
+  expect(check.disabled).toBe(true);
+  await act(async () => check.click());
+  expect(setMyTaskDone).not.toHaveBeenCalled();
+});
+
+test("management with personal visibility revoked loads only the association board", async () => {
+  mockManage = true;
+  mockPersonal = false;
+  await mount();
+  expect(getMyTasks).not.toHaveBeenCalled();
+  expect(getTaskBoard).toHaveBeenCalled();
+  expect(host.textContent).toContain("سجل المهمات");
+  expect(button("عرض مهماتي")).toBeUndefined();
 });
 afterEach(async () => {
   await act(async () => root.unmount());

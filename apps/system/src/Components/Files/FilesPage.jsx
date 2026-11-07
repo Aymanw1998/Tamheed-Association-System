@@ -22,7 +22,7 @@ import {
   uploadStorageFileAuto,
 } from "../../WebServer/services/storage/functionsStorage";
 import { getAll as getAllUsers } from "../../WebServer/services/user/functionsUser";
-import { getStoredUserId } from "../../utils/session";
+import { getStoredUserId, canStored } from "../../utils/session";
 import { useI18n } from "../../i18n/I18nContext";
 import { ask } from "../Provides/confirmBus";
 import FilterDialog from "../UI/FilterDialog.jsx";
@@ -615,6 +615,7 @@ export default function FilesPage() {
   };
 
   const enqueueUploads = (files = []) => {
+    if (!canStored("files.upload")) return;
     if (isSharedView) return;
     const acceptedFiles = files.filter(Boolean);
     if (!acceptedFiles.length) return;
@@ -677,7 +678,7 @@ export default function FilesPage() {
   const openContextMenu = (event, file) => {
     event.preventDefault();
     event.stopPropagation();
-    const canEditItem = !isSharedView && (!file.shared || ["write", "manage"].includes(file.sharedRole));
+    const canEditItem = canStored("files.rename") && !isSharedView && (!file.shared || ["write", "manage"].includes(file.sharedRole));
     const canManageItem = !isSharedView && (!file.shared || file.sharedRole === "manage");
     const position = getContextMenuPosition(event.clientX, event.clientY, canEditItem || canManageItem);
 
@@ -694,7 +695,7 @@ export default function FilesPage() {
     event.preventDefault();
     event.stopPropagation();
     const rect = event.currentTarget.getBoundingClientRect();
-    const canEditItem = !isSharedView && (!file.shared || ["write", "manage"].includes(file.sharedRole));
+    const canEditItem = canStored("files.rename") && !isSharedView && (!file.shared || ["write", "manage"].includes(file.sharedRole));
     const canManageItem = !isSharedView && (!file.shared || file.sharedRole === "manage");
     const position = getContextMenuPosition(rect.left, rect.bottom + 6, canEditItem || canManageItem);
 
@@ -708,6 +709,7 @@ export default function FilesPage() {
   };
 
   const handleDelete = async (file) => {
+    if (!canStored("files.delete")) return;
     if (isSharedView) return;
     closeContextMenu();
 
@@ -742,6 +744,7 @@ export default function FilesPage() {
   };
 
   const handleRename = async (file) => {
+    if (!canStored("files.rename")) return;
     if (isSharedView) return;
     closeContextMenu();
 
@@ -779,6 +782,7 @@ export default function FilesPage() {
   };
 
   const submitShareToUser = async (user) => {
+    if (!canStored("files.share")) return;
     if (!shareModalFile) return;
 
     try {
@@ -817,12 +821,14 @@ export default function FilesPage() {
   };
 
   const openFolderDialog = () => {
+    if (!canStored("files.createFolder")) return;
     if (isSharedView) return;
     closeContextMenu();
     setFolderName("");
   };
 
   const createFolder = async (event) => {
+    if (!canStored("files.createFolder")) return;
     event?.preventDefault?.();
     if (isSharedView) return;
     const cleanName = String(folderName || "").trim();
@@ -886,7 +892,7 @@ export default function FilesPage() {
       className={`${styles.shell} ${dragActive ? styles.dragActive : ""}`}
       onDragEnter={(event) => {
         event.preventDefault();
-        if (!isSharedView) setDragActive(true);
+        if (!isSharedView && canStored("files.upload")) setDragActive(true);
       }}
       onDragOver={(event) => event.preventDefault()}
       onDragLeave={() => setDragActive(false)}
@@ -937,12 +943,12 @@ export default function FilesPage() {
               <button className={styles.secondaryBtn} data-tour="files-refresh" onClick={loadFiles} disabled={loading}>
                 {t("files.refresh")}
               </button>
-              <button className={styles.secondaryBtn} data-tour="files-new-folder" onClick={openFolderDialog} disabled={loading}>
+              {canStored("files.createFolder") && <button className={styles.secondaryBtn} data-tour="files-new-folder" onClick={openFolderDialog} disabled={loading}>
                 {t("files.newFolder")}
-              </button>
+              </button>}
               {/* Training mode: the guide «chooses» a demo file built in memory;
                   the real file picker never opens. */}
-              <label
+              {canStored("files.upload") && <label
                 className={styles.primaryBtn}
                 data-tour="files-upload"
                 onClick={(event) => {
@@ -959,7 +965,7 @@ export default function FilesPage() {
                   multiple
                   onChange={(event) => enqueueUploads(Array.from(event.target.files || []))}
                 />
-              </label>
+              </label>}
             </div>
           )}
         </header>
@@ -1043,7 +1049,7 @@ export default function FilesPage() {
               const extension = file.isDirectory
                 ? "DIR"
                 : typeMeta.badge || getExtension(file.filename).toUpperCase() || "FILE";
-              const canEditItem = !isSharedView && (!file.shared || ["write", "manage"].includes(file.sharedRole));
+              const canEditItem = canStored("files.rename") && !isSharedView && (!file.shared || ["write", "manage"].includes(file.sharedRole));
               const canManageItem = !isSharedView && (!file.shared || file.sharedRole === "manage");
               const pending = file._pending;
               const pendingText = pendingLabel[pending];
@@ -1121,9 +1127,9 @@ export default function FilesPage() {
 
                     {(canEditItem || canManageItem) && (
                       <>
-                        {canManageItem && <button data-tour="files-share" disabled={Boolean(pending)} onClick={() => setShareModalFile(file)}>{t("files.share")}</button>}
+                        {canManageItem && canStored("files.share") && <button data-tour="files-share" disabled={Boolean(pending)} onClick={() => setShareModalFile(file)}>{t("files.share")}</button>}
                         {canEditItem && <button disabled={Boolean(pending)} onClick={() => handleRename(file)}>{t("files.rename")}</button>}
-                        {canManageItem && <button data-tour="files-delete" disabled={Boolean(pending) || uploading} className={styles.deleteBtn} onClick={() => handleDelete(file)}>{t("files.delete")}</button>}
+                        {canManageItem && canStored("files.delete") && <button data-tour="files-delete" disabled={Boolean(pending) || uploading} className={styles.deleteBtn} onClick={() => handleDelete(file)}>{t("files.delete")}</button>}
                       </>
                     )}
                   </div>
@@ -1261,7 +1267,7 @@ export default function FilesPage() {
 
           {(contextMenu.canEditItem || contextMenu.canManageItem) && (
             <>
-              {contextMenu.canManageItem && (
+              {contextMenu.canManageItem && canStored("files.share") && (
                 <button
                   className={styles.contextMenuItem}
                   onClick={() => {
@@ -1280,7 +1286,7 @@ export default function FilesPage() {
                   {t("files.rename")}
                 </button>
               )}
-              {contextMenu.canManageItem && (
+              {contextMenu.canManageItem && canStored("files.delete") && (
                 <button
                   className={`${styles.contextMenuItem} ${styles.contextMenuDanger}`}
                   onClick={() => handleDelete(contextMenu.file)}

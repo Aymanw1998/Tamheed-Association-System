@@ -22,13 +22,13 @@ test("IT shows current System names and saves weekly task permissions without ad
   const row = [...c.querySelectorAll("li")].find((el) => el.querySelector("span")?.textContent === "المهمات الأسبوعية");
   expect(row).toBeDefined();
   await click(row.querySelector("button"));
-  expect(row.textContent).toContain("إدارة المهمات الأسبوعية");
-  const boxes = row.querySelectorAll("input[type=checkbox]");
-  expect(boxes[1].disabled).toBe(false);
-  await click(boxes[1]);
+  expect(row.textContent).toContain("فتح صفحة تحديث المهمات");
+  const manageBox = [...row.querySelectorAll("label")].find((label) => label.textContent.trim() === "فتح صفحة تحديث المهمات").querySelector("input");
+  expect(manageBox.disabled).toBe(false);
+  await click(manageBox);
   await click(button(c, "حفظ"));
   const dialog = c.querySelector('[role="dialog"]');
-  expect(dialog.textContent).toContain("المهمات الأسبوعية: إدارة المهمات الأسبوعية");
+  expect(dialog.textContent).toContain("المهمات الأسبوعية: فتح صفحة تحديث المهمات");
   await click(button(dialog, "حفظ"));
   await flush();
   expect(api.savePermissions).toHaveBeenCalledWith("synthetic-user", { grants: ["tasks.manage"], revokes: [] });

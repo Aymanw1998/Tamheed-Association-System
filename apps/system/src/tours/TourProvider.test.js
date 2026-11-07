@@ -129,8 +129,8 @@ test("«شرح هذه الشاشة» runs the open screen's chapter alone", asyn
 });
 
 test("the help center lists the chapters with their marks, including the assistant", async () => {
-  localStorage.setItem("permissions", JSON.stringify(["students.view", "files.use", "ai.use"]));
-  loadTourState.mockResolvedValue({ tours: {}, knownKeys: ["students.view", "files.use", "ai.use"], seenReleases: ALL_SEEN });
+  localStorage.setItem("permissions", JSON.stringify(["dashboard.view", "students.view", "files.use", "ai.use"]));
+  loadTourState.mockResolvedValue({ tours: {}, knownKeys: ["dashboard.view", "students.view", "files.use", "ai.use"], seenReleases: ALL_SEEN });
   mockJourney = journey({ tours: { "journey-students": { status: "done" }, "journey-files": { status: "skipped" } } });
   await mount("/profile");
   await act(async () => {

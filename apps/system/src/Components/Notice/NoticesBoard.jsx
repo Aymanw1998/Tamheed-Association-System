@@ -1,3 +1,4 @@
+import { canStored } from "../../utils/session";
 import RequiredMark from "../UI/RequiredMark";
 import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -83,10 +84,10 @@ export default function NoticesBoard() {
         <h1>{t("notices.title")}</h1>
         <div className={styles.actions} data-tour="notices-actions">
           <Button size="sm" variant="secondary" data-tour="notices-mark-all" loading={busy === "all"} onClick={() => act("all", markAllNoticesRead)}>{t("notices.markAll")}</Button>
-          <Button size="sm" variant="secondary" data-tour="notices-run-check" loading={busy === "run"}
+          {canStored("notices.runCheck") && <Button size="sm" variant="secondary" data-tour="notices-run-check" loading={busy === "run"}
             onClick={() => act("run", runVehicleCheck, (res) => fillText(t("notices.runDone"), { n: res.created || 0 }))}>
             {t("notices.runCheck")}
-          </Button>
+          </Button>}
         </div>
       </header>
 
@@ -145,7 +146,7 @@ export default function NoticesBoard() {
                   <td>{n.read ? t("notices.read") : <strong>{t("notices.unread")}</strong>}</td>
                   <td className={styles.rowActions}>
                     {!n.read && <Button size="sm" variant="secondary" onClick={() => act(`r${n._id}`, () => markNoticeRead(n._id))}>{t("notices.markRead")}</Button>}
-                    <Button size="sm" variant="secondary" data-tour="notices-archive" onClick={() => archive(n)}>{t("notices.archive")}</Button>
+                    {canStored("notices.archive") && <Button size="sm" variant="secondary" data-tour="notices-archive" onClick={() => archive(n)}>{t("notices.archive")}</Button>}
                   </td>
                 </tr>
               ))}
@@ -154,7 +155,7 @@ export default function NoticesBoard() {
         </div>
       )}
 
-      <form className={styles.form} data-tour="notices-publish" onSubmit={publish} noValidate>
+      {canStored("notices.post") && <form className={styles.form} data-tour="notices-publish" onSubmit={publish} noValidate>
         <h2>{t("notices.newTitle")}</h2>
         <label><span>{t("notices.f.title")}<RequiredMark /></span>
           <input data-tour="notices-title" value={draft.title} maxLength={120} required onChange={(e) => setDraft({ ...draft, title: e.target.value })} />
@@ -175,7 +176,7 @@ export default function NoticesBoard() {
           {errors.endDate && <span role="alert">{errors.endDate}</span>}
         </label>
         <Button type="submit" data-tour="notices-submit" loading={busy === "publish"}>{t("notices.publish")}</Button>
-      </form>
+      </form>}
     </section>
   );
 }

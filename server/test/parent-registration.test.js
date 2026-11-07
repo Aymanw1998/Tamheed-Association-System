@@ -343,6 +343,7 @@ function loadRoutes({ multerError = null } = {}) {
     "../../middleware/authMiddleware": require("../middleware/authMiddleware"),
     "../../middleware/permissionMiddleware": require("./helpers/actors").permissionMiddlewareStub(),
     "../../middleware/rateLimit": require("../middleware/rateLimit"),
+    "../../middleware/consentScope": { consentScope: (req, res, next) => next() },
   });
   const find = (method, routePath) => routes.find((r) => r.method === method && r.path === routePath);
   return { find, calls, multerOptions };

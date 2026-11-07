@@ -1,3 +1,4 @@
+jest.mock("../../utils/session", () => ({ ...jest.requireActual("../../utils/session"), canStored: jest.fn(() => true) }));
 import React, { act } from "react";
 import { createRoot } from "react-dom/client";
 import ManageWeeklyTasks from "./ManageWeeklyTasks";
@@ -11,6 +12,7 @@ jest.mock("../../WebServer/services/weeklyTasks/functionsWeeklyTasks.jsx", () =>
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 let host, root;
 beforeEach(() => {
+  require("../../utils/session").canStored.mockReturnValue(true);
   jest.clearAllMocks();
   getTaskBoard.mockResolvedValue({ ok: true, guides: [{ id: "owner", name: "Same owner" }],
     groups: [{ id: "first", name: "First lesson", ownerNames: ["Same owner"] }, { id: "second", name: "Second lesson", ownerNames: ["Same owner"] }],

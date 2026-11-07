@@ -21,7 +21,7 @@ let container;
 
 // Lessons, attendance and reports need their keys too (owner, 2026-11-03);
 // a guide-like user has them. A test passes the keys it adds.
-const BASIC = ["lessons.view", "attendance.view", "reports.viewAll"];
+const BASIC = ["dashboard.view", "calendar.view", "lessons.view", "attendance.view", "reports.viewAll"];
 const mount = async (permissions = [], { bare = false } = {}) => {
   localStorage.setItem("permissions", JSON.stringify(bare ? permissions : [...BASIC, ...permissions]));
   localStorage.setItem("user_id", "u1");
@@ -60,9 +60,9 @@ test("shows a card per screen the user can open, folded", async () => {
   expect(card("lessons").textContent).not.toContain("برنامج جديد");
 });
 
-test("with no keys only the dashboard is shown", async () => {
+test("with no keys no business screen is shown", async () => {
   await mount([], { bare: true });
-  expect(cards()).toEqual(["dashboard"]);
+  expect(cards()).toEqual([]);
 });
 
 test("a user who can create lessons sees how", async () => {

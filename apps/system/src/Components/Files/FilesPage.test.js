@@ -35,8 +35,21 @@ global.IS_REACT_ACT_ENVIRONMENT = true;
 let container;
 let root;
 
+test("revoked file write permissions remove upload, folder, rename, delete and share controls", async () => {
+  localStorage.setItem("permissions", JSON.stringify(["files.use"]));
+  Storage.getStorageEntries.mockResolvedValue({ items: [{ name: "record.txt", path: "Storages/record.txt", type: "file" }] });
+  await act(async () => root.unmount());
+  root = createRoot(container);
+  await act(async () => root.render(<I18nProvider><FilesPage /></I18nProvider>));
+  for (const action of ["files-upload", "files-new-folder", "files-share", "files-delete"]) {
+    expect(container.querySelector(`[data-tour="${action}"]`)).toBeNull();
+  }
+  expect([...container.querySelectorAll("button")].some((b) => b.textContent.trim() === "إعادة تسمية")).toBe(false);
+});
+
 // CRA resets mock implementations before each test.
 beforeEach(async () => {
+  localStorage.setItem("permissions", JSON.stringify(["files.use", "files.upload", "files.createFolder", "files.rename", "files.delete", "files.share"]));
   Storage.getStorageEntries.mockResolvedValue({ items: [] });
   Storage.getStorageStats.mockResolvedValue(null);
   Storage.uploadStorageFileAuto.mockResolvedValue({ ok: true });

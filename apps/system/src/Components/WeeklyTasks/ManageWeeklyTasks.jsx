@@ -1,3 +1,4 @@
+import { canStored } from "../../utils/session";
 import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { addTask, assignTask, editTask, getTaskBoard, removeTask, unassignTask } from "../../WebServer/services/weeklyTasks/functionsWeeklyTasks.jsx";
@@ -64,7 +65,7 @@ export default function ManageWeeklyTasks() {
     if (picked === task.id) setPicked("");
   };
   const join = async (taskId, guideId) => {
-    if (taskId) await run(() => assignTask(taskId, guideId));
+    if (canStored("tasks.assign") && taskId) await run(() => assignTask(taskId, guideId));
   };
 
   if (error && !board) return <div className={styles.page} dir="rtl"><div role="alert" className={styles.error}>{error}</div></div>;
@@ -76,26 +77,26 @@ export default function ManageWeeklyTasks() {
       {greeting && <GreetingDialog guides={board.guides} defaultText={board.defaultGreeting} onClose={() => setGreeting(false)} />}
       <header className={styles.head}>
         <h1>تعديل المهمات والمجموعات</h1>
-        <Button disabled={!board.guides.length} onClick={() => setGreeting(true)}>إرسال بركة</Button>
+        {canStored("tasks.greet") && <Button disabled={!board.guides.length} onClick={() => setGreeting(true)}>إرسال بركة</Button>}
         <Button variant="secondary" onClick={() => navigate("/weekly-tasks")}>العودة إلى المهمات</Button>
       </header>
 
       <section className={styles.panel} aria-label="المهمات">
         <h2>المهمات</h2>
-        <form className={styles.form} onSubmit={create}>
+        {canStored("tasks.create") && <form className={styles.form} onSubmit={create}>
           <label htmlFor="task-title">اسم المهمة<RequiredMark /></label>
           <input id="task-title" maxLength={120} value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} />
           <label htmlFor="task-details">تفاصيل</label>
           <input id="task-details" maxLength={500} value={draft.details} onChange={(event) => setDraft({ ...draft, details: event.target.value })} />
           <div><Button type="submit" loading={saving} disabled={!draft.title.trim()}>إضافة مهمة</Button></div>
-        </form>
+        </form>}
         {board.tasks.length === 0 && <p className={styles.muted}>لا توجد مهمات بعد.</p>}
         <ul className={styles.list}>
           {board.tasks.map((task) => (
             <li
               key={task.id}
               className={`${styles.item} ${picked === task.id ? styles.picked : ""}`}
-              draggable={!editing}
+              draggable={!editing && canStored("tasks.assign")}
               onDragStart={(event) => event.dataTransfer.setData("text/plain", task.id)}
             >
               {editing?.id === task.id ? (
@@ -114,8 +115,8 @@ export default function ManageWeeklyTasks() {
                     {task.details && <small dir="auto">{task.details}</small>}
                   </button>
                   <span className={styles.row}>
-                    <Button size="sm" variant="secondary" onClick={() => setEditing({ ...task })}>تعديل</Button>
-                    <Button size="sm" variant="danger" onClick={() => remove(task)}>حذف</Button>
+                    {canStored("tasks.edit") && <Button size="sm" variant="secondary" onClick={() => setEditing({ ...task })}>تعديل</Button>}
+                    {canStored("tasks.delete") && <Button size="sm" variant="danger" onClick={() => remove(task)}>حذف</Button>}
                   </span>
                 </>
               )}
@@ -140,7 +141,7 @@ export default function ManageWeeklyTasks() {
                 onDragOver={(event) => event.preventDefault()}
                 onDrop={(event) => { event.preventDefault(); join(event.dataTransfer.getData("text/plain"), guide.id); }}
               >
-                <button type="button" className={styles.groupHead} disabled={!picked} onClick={() => join(picked, guide.id)}>
+                <button type="button" className={styles.groupHead} disabled={!picked || !canStored("tasks.assign")} onClick={() => join(picked, guide.id)}>
                   <h3 dir="auto">{guide.name}</h3>
                   <small dir="auto">{guide.ownerNames?.join("، ")}</small>
                 </button>
@@ -150,7 +151,7 @@ export default function ManageWeeklyTasks() {
                     return task && (
                       <li key={row.taskId} className={styles.chip}>
                         <span dir="auto">{task.title}</span>
-                        <button type="button" aria-label={`إزالة ${task.title} من ${guide.name}`} onClick={() => run(() => unassignTask(row.taskId, guide.id))}>×</button>
+                        {canStored("tasks.assign") && <button type="button" aria-label={`إزالة ${task.title} من ${guide.name}`} onClick={() => run(() => unassignTask(row.taskId, guide.id))}>×</button>}
                       </li>
                     );
                   })}

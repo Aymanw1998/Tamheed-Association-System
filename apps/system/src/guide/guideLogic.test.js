@@ -19,12 +19,12 @@ const guide = [
 afterEach(() => localStorage.clear());
 
 test("shows only screens the user can open, and only the steps they can do", () => {
-  const shown = visibleGuide(["users.approve"], guide);
+  const shown = visibleGuide(["dashboard.view", "calendar.view", "users.approve"], guide);
   expect(shown.map((e) => e.id)).toEqual(["dashboard"]);
   expect(shown[0].steps.map((s) => s.text.ar)).toEqual(["أرقام", "قبول"]);
-  expect(visibleGuide([], guide).map((e) => e.id)).toEqual(["dashboard"]);
-  expect(visibleGuide([], guide)[0].steps).toHaveLength(1);
-  expect(visibleGuide(["users.view", "lessons.view", "lessons.create"], guide).map((e) => e.id)).toEqual(["dashboard", "users", "lessons"]);
+  expect(visibleGuide([], guide).map((e) => e.id)).toEqual([]);
+  expect(visibleGuide(["dashboard.view"], guide)[0].steps).toHaveLength(1);
+  expect(visibleGuide(["dashboard.view", "calendar.view", "users.view", "lessons.view", "lessons.create"], guide).map((e) => e.id)).toEqual(["dashboard", "users", "lessons"]);
 });
 
 test("never changes the content it is given", () => {
@@ -81,7 +81,7 @@ test("requiresAny needs one of its keys", () => {
 
 test("PDF sections: the summary, then numbered steps", () => {
   const ui = { whatFor: "الشاشة" };
-  const [first] = guidePdfSections(visibleGuide(["users.approve"], guide), "ar", ui);
+  const [first] = guidePdfSections(visibleGuide(["dashboard.view", "calendar.view", "users.approve"], guide), "ar", ui);
   expect(first.title).toBe("عنوان dashboard");
   expect(first.rows).toEqual([
     { key: "الشاشة", value: "ملخص", full: true },

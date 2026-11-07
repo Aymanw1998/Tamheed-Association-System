@@ -1,11 +1,11 @@
 import { canAccessPath, blockedRedirect } from "./routeAccess";
 
-const ADMIN = ["users.view", "users.create", "users.edit", "notices.view", "students.view", "students.create", "students.edit",
+const ADMIN = ["dashboard.view", "calendar.view", "tasks.view", "users.view", "users.create", "users.edit", "notices.view", "students.view", "students.create", "students.edit",
   "lessons.view", "lessons.create", "lessons.edit", "vehicles.view", "audit.view",
   "attendance.view", "reports.create", "reports.viewAll", "files.use"];
 // Only an admin edits students, lessons and users (owner, 2026-11-01).
-const GUIDE = ["students.view", "lessons.view", "attendance.view", "reports.create", "files.use"];
-const ASSISTANT = ["dashboard.view", "lessons.view", "attendance.view", "reports.create", "files.use"];
+const GUIDE = ["dashboard.view", "calendar.view", "tasks.view", "students.view", "lessons.view", "attendance.view", "reports.create", "files.use"];
+const ASSISTANT = ["dashboard.view", "calendar.view", "lessons.view", "attendance.view", "reports.create", "files.use"];
 
 test.each([
   ["/dashboard", true, true, true],
@@ -44,7 +44,7 @@ test("/users is denied without users.view", () => {
 });
 
 test("a user without permissions (legacy session) only reaches the shared pages", () => {
-  expect(canAccessPath("/dashboard", [])).toBe(true);
+  expect(canAccessPath("/dashboard", [])).toBe(false);
   expect(canAccessPath("/students", [])).toBe(false);
   expect(canAccessPath("/users", undefined)).toBe(false);
 });
@@ -74,20 +74,29 @@ test("an allowed page is not redirected", () => {
   expect(blockedRedirect("/lessons/abc", GUIDE, "1")).toBe(null);
 });
 
+test("unclassified business pages fail closed and a revoked dashboard falls back to profile", () => {
+  expect(canAccessPath("/new-business-section", ADMIN)).toBe(false);
+  expect(canAccessPath("/weekly-tasks", ["tasks.view"])).toBe(true);
+  expect(canAccessPath("/weekly-tasks", [])).toBe(false);
+  expect(blockedRedirect("/dashboard", [], "me")).toBe("/profile");
+  expect(canAccessPath("/association-rules", ["students.parentLink"])).toBe(false);
+  expect(canAccessPath("/lessons", ["lessons.view"])).toBe(false);
+  expect(canAccessPath("/lessons/record", ["lessons.view"])).toBe(true);
+});
+
 
 // Owner, 2026-11-03: a section taken away disappears from the menu and its
 // page is closed, like the others: attendance, lessons, reports and files.
 test.each([
   ["/calendar", ["attendance.view"]],
-  ["/lessons", ["lessons.view"]],
+  ["/lessons", ["lessons.view", "calendar.view"]],
   ["/lessons/6ab7d576de1b6cee14016499", ["lessons.view"]],
   ["/reports", ["reports.create"]],
   ["/reports", ["reports.viewAll"]],
   ["/reports/new", ["reports.create"]],
   ["/files", ["files.use"]],
-  ["/files", ["files.manageAll"]],
-  ["/association-rules", ["students.parentLink"]],
+  ["/association-rules", ["rules.view"]],
 ])("%s opens with %j and is closed with no key of its section", (path, keys) => {
   expect(canAccessPath(path, keys)).toBe(true);
-  expect(canAccessPath(path, ["dashboard.view", "students.view"])).toBe(false);
+  expect(canAccessPath(path, ["dashboard.view", "calendar.view", "students.view"])).toBe(false);
 });

@@ -16,7 +16,7 @@ router.post("/", requirePermission("notices.post"), controller.create);
 router.post("/read-all", requirePermission("notices.view"), controller.readAll);
 router.post("/run-vehicle-check", requirePermission("notices.runCheck"), checkRateLimit, controller.runVehicleCheck);
 router.post("/:id/read", requirePermission("notices.view"), controller.read);
-// Archiving removes a notice from everyone's board, so it sits with posting.
-router.post("/:id/archive", requirePermission("notices.post"), controller.archive);
+// Archiving removes a notice from everyone's board: independently revocable.
+router.post("/:id/archive", requirePermission("notices.archive"), controller.archive);
 
 module.exports = router;

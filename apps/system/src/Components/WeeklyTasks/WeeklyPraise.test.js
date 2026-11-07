@@ -4,7 +4,7 @@ import WeeklyPraise from "./WeeklyPraise";
 import { getMyTasks, markPraiseSeen } from "../../WebServer/services/weeklyTasks/functionsWeeklyTasks.jsx";
 const mockNavigate = jest.fn();
 jest.mock("react-router-dom", () => ({ useNavigate: () => mockNavigate }));
-jest.mock("../../utils/session", () => ({ getStoredUserId: () => "owner" }));
+jest.mock("../../utils/session", () => ({ getStoredUserId: () => "owner", canStored: () => true }));
 jest.mock("../../journey/demoMode", () => ({ isDemo: () => false }));
 jest.mock("../../WebServer/services/weeklyTasks/functionsWeeklyTasks.jsx", () => ({ getMyTasks: jest.fn(), markPraiseSeen: jest.fn() }));
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;

@@ -5,6 +5,8 @@ import {
 import { PERMISSION_TREE } from "./permissionKeys";
 
 const studentLeaves = PERMISSION_TREE.students.map((l) => `students.${l}`);
+const fileLeaves = PERMISSION_TREE.files.map((l) => `files.${l}`);
+const fileWrites = fileLeaves.filter((key) => !["files.use", "files.manageAll"].includes(key));
 
 describe("visible modules", () => {
   test("only finance is hidden; sports is visible", () => {
@@ -22,7 +24,7 @@ describe("expandKeys / effectiveOf", () => {
 
   test("effective = (defaults + grants) - revokes", () => {
     const eff = effectiveOf({ defaults: ["students.view", "ai.use"], grants: ["files"], revokes: ["ai.use"] });
-    expect(eff).toEqual(["students.view", "files.use", "files.manageAll"]);
+    expect(eff).toEqual(["students.view", ...fileLeaves]);
   });
 });
 
@@ -73,7 +75,7 @@ describe("toggleKey", () => {
 
   test("splits a module grant into the leaves that are not defaults", () => {
     const state = { defaults: ["files.use"], grants: ["files"], revokes: [] };
-    expect(toggleKey(state, "files.manageAll", false)).toEqual({ grants: [], revokes: [] });
+    expect(toggleKey(state, "files.manageAll", false)).toEqual({ grants: fileWrites, revokes: [] });
   });
 
   test("leaves unrelated entries alone", () => {
@@ -90,7 +92,7 @@ describe("toggleModule", () => {
 
   test("module on drops its revokes and grants only the non-default leaves", () => {
     const state = { defaults: ["ai.use", "files.use"], grants: [], revokes: ["files"] };
-    expect(toggleModule(state, "files", true)).toEqual({ grants: ["files.manageAll"], revokes: [] });
+    expect(toggleModule(state, "files", true)).toEqual({ grants: fileLeaves.filter((key) => key !== "files.use"), revokes: [] });
   });
 
   test("module on with no defaults grants the module key", () => {
@@ -106,7 +108,7 @@ describe("toggleModule", () => {
 
 describe("isModuleGrantable", () => {
   test("needs every leaf", () => {
-    expect(isModuleGrantable("files", ["files.use", "files.manageAll"])).toBe(true);
+    expect(isModuleGrantable("files", fileLeaves)).toBe(true);
     expect(isModuleGrantable("files", ["files.use"])).toBe(false);
   });
 });
@@ -146,11 +148,11 @@ describe("fix round 1", () => {
     expect(isLeafEditable("files", { grants: ["files"], revokes: [] }, grantable)).toBe(false);
     expect(isLeafEditable("files", { grants: [], revokes: ["files"] }, grantable)).toBe(false);
     expect(isLeafEditable("files", { grants: ["files.manageAll"], revokes: [] }, grantable)).toBe(true);
-    expect(isLeafEditable("files", { grants: ["files"], revokes: [] }, ["files.use", "files.manageAll"])).toBe(true);
+    expect(isLeafEditable("files", { grants: ["files"], revokes: [] }, fileLeaves)).toBe(true);
   });
 
   test("isResettable: every existing grant and revoke must be grantable", () => {
-    expect(isResettable({ grants: ["ai.use"], revokes: ["files"] }, ["ai.use", "files.use", "files.manageAll"])).toBe(true);
+    expect(isResettable({ grants: ["ai.use"], revokes: ["files"] }, ["ai.use", ...fileLeaves])).toBe(true);
     expect(isResettable({ grants: ["ai.use"], revokes: ["files"] }, ["ai.use", "files.use"])).toBe(false);
     expect(isResettable({ grants: [], revokes: [] }, [])).toBe(true);
   });

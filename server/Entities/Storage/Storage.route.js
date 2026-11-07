@@ -90,17 +90,17 @@ router.get("/share-status", requireAuth, loadActor, requirePermission("files.use
 router.get("/share-link/:token", requireAuth, loadActor, requirePermission("files.use"), getShareLinkInfo);
 router.get("/share-link/:token/items", requireAuth, loadActor, requirePermission("files.use"), listSharedLinkItems);
 router.post("/share-link/:token/open-link", requireAuth, loadActor, requirePermission("files.use"), getSharedLinkOpenLink);
-router.post("/folder", requireAuth, loadActor, requirePermission("files.use"), createFolder);
+router.post("/folder", requireAuth, loadActor, requirePermission("files.use"), requirePermission("files.createFolder"), createFolder);
 router.get("/upload-status", requireAuth, loadActor, requirePermission("files.use"), getUploadStatus);
 router.post("/cancel-upload", requireAuth, loadActor, requirePermission("files.use"), express.json({ limit: "1mb" }), cancelUpload);
-router.post("/upload-chunk", requireAuth, loadActor, requirePermission("files.use"), storageUploadRateLimit, chunkUpload.single("chunk"), uploadChunk);
-router.post("/merge-chunks", requireAuth, loadActor, requirePermission("files.use"), storageUploadRateLimit, express.json({ limit: "5mb" }), mergeChunks);
-router.post("/upload", requireAuth, loadActor, requirePermission("files.use"), storageUploadRateLimit, uploadSingleFile, uploadFile);
-router.post("/share", requireAuth, loadActor, requirePermission("files.use"), shareEntry);
-router.post("/unshare", requireAuth, loadActor, requirePermission("files.use"), unshareEntry);
-router.patch("/rename", requireAuth, loadActor, requirePermission("files.use"), renameFile);
-router.post("/rename", requireAuth, loadActor, requirePermission("files.use"), renameFile);
-router.delete("/delete", requireAuth, loadActor, requirePermission("files.use"), deleteEntry);
-router.delete("/*", requireAuth, loadActor, requirePermission("files.use"), deleteEntry);
+router.post("/upload-chunk", requireAuth, loadActor, requirePermission("files.use"), requirePermission("files.upload"), storageUploadRateLimit, chunkUpload.single("chunk"), uploadChunk);
+router.post("/merge-chunks", requireAuth, loadActor, requirePermission("files.use"), requirePermission("files.upload"), storageUploadRateLimit, express.json({ limit: "5mb" }), mergeChunks);
+router.post("/upload", requireAuth, loadActor, requirePermission("files.use"), requirePermission("files.upload"), storageUploadRateLimit, uploadSingleFile, uploadFile);
+router.post("/share", requireAuth, loadActor, requirePermission("files.use"), requirePermission("files.share"), shareEntry);
+router.post("/unshare", requireAuth, loadActor, requirePermission("files.use"), requirePermission("files.share"), unshareEntry);
+router.patch("/rename", requireAuth, loadActor, requirePermission("files.use"), requirePermission("files.rename"), renameFile);
+router.post("/rename", requireAuth, loadActor, requirePermission("files.use"), requirePermission("files.rename"), renameFile);
+router.delete("/delete", requireAuth, loadActor, requirePermission("files.use"), requirePermission("files.delete"), deleteEntry);
+router.delete("/*", requireAuth, loadActor, requirePermission("files.use"), requirePermission("files.delete"), deleteEntry);
 
 module.exports = router;

@@ -59,8 +59,6 @@ const PUBLIC_ROUTES = {
   // with a single-use 60 s ticket from POST /ticket, and the handler re-loads
   // the user (active, not locked) exactly as loadActor does before streaming.
   "Live/Live.route.js": ["GET /stream"],
-  // Only the signed-in user's own tasks (services/weeklyTasks).
-  "WeeklyTask/WeeklyTask.route.js": ["GET /me", "POST /me/praise-seen", "POST /me/:taskId"],
   // Student sport site (sign-in, me, photo): its own cookie and requireSportStudent, never staff auth.
   "SportPortal/SportPortal.route.js": ["POST /request-code", "POST /verify", "POST /card", "POST /passkey/login-options", "POST /passkey/login", "POST /passkey/register-options", "POST /passkey/register", "POST /logout", "GET /me", "GET /photo", "GET /id", "GET /notices", "GET /live", "POST /push/subscribe", "DELETE /push/subscribe"],
   // IT site sign-in: IT_HOST only (router.use(requireItHost)), its own cookie, never staff auth.
@@ -76,8 +74,6 @@ const PUBLIC_ROUTES = {
 // Routes any active signed-in user may call (loadActor, no key): the
 // controller scopes the answer to the caller.
 const ANY_ACTOR_ROUTES = {
-  // The dashboard summary checks, per part, the permission of that part's own route.
-  "Dashboard/Dashboard.route.js": ["GET /summary"],
   "Vehicle/Vehicle.route.js": ["GET /me/permissions", "GET /alerts"], // own permissions / assigned vehicles
   "User/Auth.route.js": ["POST /change-password", "GET /sessions", "POST /sessions/sign-out-others", "DELETE /sessions/:sid", "POST /it-pass", "POST /passkey/register-options", "POST /passkey/register"], // one's own password (checks the current one), one's own devices, one's own pass to the IT site (the handler checks IT)
   "Live/Live.route.js": ["POST /ticket"], // a ticket for one's own live channel
@@ -103,6 +99,19 @@ const LOADS_ACTOR = /loadActor|requireIt\b/;
 const fileOf = (name) => (name.startsWith("routes/") ? path.join(SERVER, name) : path.join(ENTITIES, name));
 
 const rel = (file) => path.relative(ENTITIES, file).split(path.sep).join("/").replace(/^\.\.\/routes\//, "routes/");
+
+test("permission guards on all routers reference the canonical permission catalog", () => {
+  const { ALL_KEYS, PERMISSION_TREE } = require("../utils/permissions");
+  for (const file of ROUTE_FILES) {
+    const source = stripComments(fs.readFileSync(file, "utf8"));
+    for (const match of source.matchAll(/requirePermission\(([^)]*)\)/g)) {
+      for (const quoted of match[1].matchAll(/["'`]([^"'`]+)["'`]/g)) {
+        const key = quoted[1];
+        assert.ok(ALL_KEYS.includes(key) || Object.hasOwn(PERMISSION_TREE, key), `${rel(file)}: unknown permission ${key}`);
+      }
+    }
+  }
+});
 
 function stripComments(source) {
   return source
@@ -195,7 +204,13 @@ const EXACT_GUARDS = {
     "DELETE /users/:tz/sessions/:sid": "users.unlock",
     "POST /system/recover": "systemRecovery.reset",
   },
-  "Notice/Notice.route.js": { "POST /:id/archive": "notices.post" },
+  "Notice/Notice.route.js": { "POST /:id/archive": "notices.archive" },
+  "InviteToken/InviteToken.route.js": {
+    "POST /rules": "rules.edit",
+    "GET /consent/:studentId": "consents.view",
+    "POST /consent/:studentId": "consents.edit",
+    "POST /consent/:studentId/link": "consents.link",
+  },
   "Lesson/Lesson.route.js": {
     "POST /copy-month": "lessons.copyMonth",
     "DELETE /delete-perMonth/:month/:year": "lessons.copyMonth",

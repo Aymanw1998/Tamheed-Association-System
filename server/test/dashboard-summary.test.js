@@ -5,10 +5,10 @@ const express = require("express");
 
 const { createDashboardRouter } = require("../Entities/Dashboard/Dashboard.route");
 
-async function start({ permissions, handlers }) {
+async function start({ permissions, handlers, dashboard = true }) {
   const seen = [];
   const requireAuth = (req, res, next) => { req.user = { tz: "t1" }; next(); };
-  const loadActor = (req, res, next) => { req.actor = { id: "a1", tz: "t1", permissions: new Set(permissions) }; next(); };
+  const loadActor = (req, res, next) => { req.actor = { id: "a1", tz: "t1", permissions: new Set([...(dashboard ? ["dashboard.view"] : []), ...permissions]) }; next(); };
   const spy = (name, fn) => async (req, res) => { seen.push([name, req.actor?.id, req.get("x-client-id")]); return fn(req, res); };
   const wrapped = Object.fromEntries(Object.entries(handlers).map(([k, fn]) => [k, spy(k, fn)]));
   const app = express();
@@ -23,6 +23,14 @@ async function start({ permissions, handlers }) {
 }
 
 const ok = (key, rows) => (req, res) => res.status(200).json({ ok: true, [key]: rows });
+
+test("revoking dashboard.view prevents every summary data handler", async () => {
+  const { server, get, seen } = await start({ permissions: ["users.view", "students.view"], dashboard: false, handlers: {} });
+  try {
+    assert.equal((await get()).status, 403);
+    assert.deepEqual(seen, []);
+  } finally { server.close(); }
+});
 
 test("one request answers all four parts, through the existing handlers with the caller's request", async () => {
   const { server, get, seen } = await start({

@@ -312,6 +312,7 @@ route("delete", /^\/student\/([^/]+)$/, (s, [key]) => {
 const lessonView = (lesson) => ({ ...lesson, num_in_list: lesson.list_students.length });
 const todayDay = () => new Date().getDay() + 1;
 route("get", /^\/lesson$/, (s) => ok({ lessons: s.lessons.map(lessonView) }));
+route("get", /^\/lesson\/week-schedule$/, (s) => ok({ lessons: s.lessons.map(lessonView) }));
 route("get", /^\/lesson\/today$/, (s) => ok({ lessons: s.lessons.filter((l) => l.date.day === todayDay()).map(lessonView) }));
 route("get", /^\/lesson\/query$/, (s, _, { params }) =>
   ok({

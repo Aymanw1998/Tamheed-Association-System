@@ -26,10 +26,10 @@ const ALERT_ACCESS = {
   lesson_no_attendance: always,
   report_missing: always,
   access_changed: always,
-  weekly_tasks: always,
-  weekly_task_added: always,
-  weekly_tasks_overdue: always,
-  weekly_tasks_greeting: always,
+  weekly_tasks: has("tasks.view"),
+  weekly_task_added: has("tasks.view"),
+  weekly_tasks_overdue: has("tasks.view"),
+  weekly_tasks_greeting: has("tasks.view"),
 };
 
 function canSeeAlertType(actor, type) {

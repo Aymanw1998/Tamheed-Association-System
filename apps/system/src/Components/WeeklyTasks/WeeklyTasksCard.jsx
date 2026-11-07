@@ -1,3 +1,4 @@
+import { canStored } from "../../utils/session";
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getMyTasks } from "../../WebServer/services/weeklyTasks/functionsWeeklyTasks.jsx";
@@ -11,6 +12,7 @@ export default function WeeklyTasksCard() {
 
   useEffect(() => {
     let alive = true;
+    if (!canStored("tasks.view")) return undefined;
     getMyTasks().then((res) => {
       if (alive && res.ok) setLeft((res.tasks || []).filter((task) => !task.done).length);
     });

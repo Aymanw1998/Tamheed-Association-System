@@ -33,10 +33,10 @@ test("RoleDefaults includes weekly tasks from the shared catalog and keeps IT ke
   expect(c.querySelector('[data-module="tasks"]')).not.toBeNull();
   expect(c.querySelector('[data-module="permissions"]')).toBeNull();
   await openModule(c, "tasks");
-  expect(c.textContent).toContain("إدارة المهمات الأسبوعية");
+  expect(c.textContent).toContain("فتح صفحة تحديث المهمات");
   await click(c.querySelector('input[name="tasks.manage"]'));
   await click(button(c, "حفظ"));
-  expect(c.querySelector('[role="dialog"]').textContent).toContain("المهمات الأسبوعية: إدارة المهمات الأسبوعية");
+  expect(c.querySelector('[role="dialog"]').textContent).toContain("المهمات الأسبوعية: فتح صفحة تحديث المهمات");
 });
 
 test("RoleDefaults: three roles; only keys that may be defaults are shown", async () => {

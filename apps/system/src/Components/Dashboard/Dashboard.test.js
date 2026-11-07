@@ -49,13 +49,13 @@ beforeEach(() => {
 afterEach(async () => { await act(async () => root.unmount()); host.remove(); localStorage.clear(); });
 
 test("a guide without any reports key sees no reports shortcut or card", async () => {
-  await mount(["students.view", "lessons.view", "attendance.view"]);
+  await mount(["students.view", "lessons.view", "calendar.view", "attendance.view"]);
   expect(links()).toEqual(["الطلاب", "البرامج"]);
   expect(cards()).toEqual(["الطلاب", "برامج اليوم"]);
 });
 
 test("any reports key brings the reports shortcut and card back", async () => {
-  await mount(["students.view", "lessons.view", "reports.create"]);
+  await mount(["students.view", "lessons.view", "calendar.view", "reports.create"]);
   expect(links()).toEqual(["الطلاب", "البرامج", "التقارير"]);
   expect(cards()).toEqual(["الطلاب", "برامج اليوم", "التقارير"]);
 });
@@ -68,6 +68,13 @@ test("without lessons.view the lessons shortcut, card and panel are gone", async
 });
 
 test("without students.view the students card is gone", async () => {
-  await mount(["lessons.view"]);
+  await mount(["lessons.view", "calendar.view"]);
   expect(cards()).toEqual(["برامج اليوم"]);
+});
+
+test("revoking calendar.view hides the weekly timetable shortcut and panel", async () => {
+  await mount(["lessons.view"]);
+  expect(links()).toEqual([]);
+  expect(cards()).toEqual([]);
+  expect(lessonsPanel()).toBeNull();
 });

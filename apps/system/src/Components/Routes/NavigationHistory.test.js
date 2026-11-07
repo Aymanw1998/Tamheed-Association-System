@@ -7,7 +7,7 @@ jest.mock("react-router-dom", () => {
   return jest.requireActual("react-router");
 });
 jest.mock("../../utils/unsavedChanges", () => ({ confirmLeave: jest.fn() }));
-jest.mock("../../utils/session", () => ({ getStoredPermissions: () => ["students.view", "lessons.view", "lessons.edit", "reports.create"] }));
+jest.mock("../../utils/session", () => ({ getStoredPermissions: () => ["dashboard.view", "students.view", "lessons.view", "lessons.edit", "reports.create"] }));
 import { confirmLeave } from "../../utils/unsavedChanges";
 import NavigationHistory from "./NavigationHistory";
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;

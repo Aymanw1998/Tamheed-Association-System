@@ -22,3 +22,13 @@ together on stability. Read `docs/AI_COLLABORATION.md` and the current
 
 These instructions govern active work. They do not start background agents or
 schedule unattended changes.
+
+## Business permissions
+
+Every business section and meaningful operation must have a grantable/revocable
+capability in `shared/permissions.json`, a server-side guard, matching page/button
+gates and isolated grant/revoke tests. Preserve record scope, hierarchy and lock
+checks. A broad section permission must not bypass a revoked operation. Register
+new frontend business paths explicitly; unknown sections fail closed. Keep the
+server route audit current and document any public/self-only infrastructure
+exception. See `docs/FEATURE_PERMISSIONS.md` for the existing operation map.

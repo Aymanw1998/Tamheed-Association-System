@@ -1,3 +1,4 @@
+jest.mock("../../utils/session", () => ({ ...jest.requireActual("../../utils/session"), canStored: jest.fn(() => true) }));
 import React, { act, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Simulate } from "react-dom/test-utils";
@@ -13,7 +14,7 @@ jest.mock("../../WebServer/services/student/functionsStudent.jsx", () => ({ getO
 jest.mock("../../WebServer/services/user/functionsUser.jsx", () => ({ getAll: jest.fn() }));
 jest.mock("../../ALERT/SystemToasts", () => ({ toast: { success: jest.fn(), warn: jest.fn(), error: jest.fn() } }));
 jest.mock("../../i18n/I18nContext", () => ({ useI18n: () => ({ t: (key) => key }) }));
-jest.mock("../../utils/session", () => ({ canStored: () => false }));
+
 jest.mock("../../locks/useItemLock", () => () => ({ status: "held" }));
 jest.mock("../../locks/LockLostBanner", () => ({ useLockRecovery: () => ({ element: null }) }));
 jest.mock("./SignaturePad", () => ({ onChange }) => <button type="button" data-testid="signature-pad" onClick={() => onChange("drawn-png")}>ارسم الختم</button>);
@@ -33,6 +34,7 @@ const fillStudent = async () => {
   for (const [name, value] of Object.entries({ tz: "123456782", firstname: "Child", lastname: "Family", birth_date: "2015-03-01", gender: "ذكر", street: "Street" })) await change(`[name="${name}"]`, value);
 };
 beforeEach(() => {
+  require("../../utils/session").canStored.mockReturnValue(true);
   jest.clearAllMocks(); window.location.hash = "personal-secret";
   host = document.createElement("div"); document.body.appendChild(host); root = createRoot(host);
   validate.mockResolvedValue({ valid: true, open: true, rules });

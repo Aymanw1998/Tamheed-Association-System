@@ -52,7 +52,7 @@ const accountMenu = () => host.querySelector('[data-testid="account-menu"]');
 const item = (label) => [...(accountMenu()?.querySelectorAll("a, button") || [])].find((el) => el.textContent.trim() === label);
 
 beforeEach(() => {
-  mockPerms = ["students.view", "users.view", "attendance.view", "lessons.view", "reports.create", "files.use"];
+  mockPerms = ["dashboard.view", "calendar.view", "tasks.view", "students.view", "users.view", "attendance.view", "lessons.view", "reports.create", "files.use"];
   window.innerWidth = 1280;
   getMe.mockResolvedValue({ firstname: "أيمن", lastname: "و", roles: ["ادارة"] });
   getMyPermissions.mockResolvedValue({ ok: true, permissions: [] });
@@ -120,14 +120,14 @@ test("sign-out is reachable before the user's details load", async () => {
 // Owner, 2026-11-03: taking a section away (e.g. reports from a guide) takes
 // its link out of the menu too.
 test("each page link follows its permission", async () => {
-  mockPerms = ["students.view", "lessons.view"];
+  mockPerms = ["students.view", "lessons.view", "calendar.view"];
   await mount();
-  expect(navText()).toEqual(["الرئيسي", "البرنامج", "المهمات الأسبوعية", "الطلاب"]);
+  expect(navText()).toEqual(["البرنامج", "الطلاب"]);
 });
 
 const groupButton = (name) => [...host.querySelectorAll('#main-nav button')].find((button) => button.textContent.includes(name));
 test("association rules is a separate permission-gated navigation destination", async () => {
-  mockPerms = ["students.parentLink"];
+  mockPerms = ["rules.view"];
   await mount();
   expect(host.querySelector('#main-nav a[href="/association-rules"]').textContent).toBe("قوانين الجمعية");
 });
@@ -202,7 +202,7 @@ test("groups with no permitted pages are absent", async () => {
   expect(groupButton("الأعضاء والطاقم")).toBeUndefined();
   expect(groupButton("المتابعة")).toBeUndefined();
   expect(groupButton("الموارد")).toBeUndefined();
-  expect(navText()).toEqual(["الرئيسي", "المهمات الأسبوعية"]);
+  expect(navText()).toEqual([]);
 });
 
 // The system account has no everyday role: its label is «النظام», not an assistant's.

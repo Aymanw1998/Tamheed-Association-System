@@ -11,6 +11,7 @@ const {
 } = require("./InviteToken.controller");
 const { requireAuth: protect } = require("../../middleware/authMiddleware");
 const { loadActor, requirePermission } = require("../../middleware/permissionMiddleware");
+const { consentScope } = require("../../middleware/consentScope");
 const { rateLimit } = require("../../middleware/rateLimit");
 
 const PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -40,11 +41,11 @@ const acceptPhoto = (req, res, next) => {
 
 router.get("/link", protect, loadActor, requirePermission("students.parentLink"), getLink);
 router.post("/link/rotate", protect, loadActor, requirePermission("students.parentLink"), rotateLink);
-router.get("/rules", protect, loadActor, requirePermission("students.parentLink"), getRules);
-router.post("/rules", protect, loadActor, requirePermission("students.parentLink"), publishRules);
-router.get("/consent/:studentId", protect, loadActor, requirePermission("students.parentLink"), getConsent);
-router.post("/consent/:studentId", protect, loadActor, requirePermission("students.parentLink"), signConsent);
-router.post("/consent/:studentId/link", protect, loadActor, requirePermission("students.parentLink"), createConsentLink);
+router.get("/rules", protect, loadActor, requirePermission("rules.view", "consents.view", "consents.edit"), getRules);
+router.post("/rules", protect, loadActor, requirePermission("rules.edit"), publishRules);
+router.get("/consent/:studentId", protect, loadActor, requirePermission("consents.view"), requirePermission("students.view"), consentScope, getConsent);
+router.post("/consent/:studentId", protect, loadActor, requirePermission("consents.edit"), requirePermission("students.view"), consentScope, signConsent);
+router.post("/consent/:studentId/link", protect, loadActor, requirePermission("consents.link"), requirePermission("students.view"), consentScope, createConsentLink);
 const limitConsent = rateLimit({ windowMs: 60 * 1000, max: 30, scope: "parent-consent" });
 router.post("/consent-link/validate", limitConsent, validateConsentLink);
 router.post("/consent-link/submit", limitConsent, submitConsentLink);

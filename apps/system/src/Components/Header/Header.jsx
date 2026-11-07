@@ -229,11 +229,11 @@ export default function Header() {
       </div>
 
       <NavigationMenu mobile={isMobile} open={menuOpen} onClose={() => setMenuOpen(false)} onNav={onNavClick}
-        home={{ path: "/dashboard", label: t("nav.dashboard"), tour: "menu-home" }}
+        home={opens("/dashboard") ? { path: "/dashboard", label: t("nav.dashboard"), tour: "menu-home" } : null}
         program={(opens("/lessons") || opens("/calendar")) ? { path: opens("/lessons") ? "/lessons" : "/calendar", label: t("nav.lessons"), tour: "menu-lessons", badge: "lessons" } : null}
         groups={[
           { id: "daily", label: "العمل اليومي", items: [
-            { path: "/weekly-tasks", label: t("nav.tasks"), tour: "menu-weekly-tasks" },
+            opens("/weekly-tasks") && { path: "/weekly-tasks", label: t("nav.tasks"), tour: "menu-weekly-tasks" },
             opens("/sports") && { path: "/sports", label: t("nav.sports"), tour: "menu-sports" },
           ] },
           { id: "people", label: "الأعضاء والطاقم", items: [
@@ -245,7 +245,7 @@ export default function Header() {
             canViewNotices && { path: "/notices", label: t("nav.notices"), tour: "menu-notices", badge: "notices" },
           ] },
           { id: "resources", label: "الموارد", items: [
-            opens("/association-rules") && { path: "/association-rules", label: "قوانين الجمعية", tour: "menu-rules" },
+            opens("/association-rules") && { path: "/association-rules", label: t("nav.rules"), tour: "menu-rules" },
             opens("/files") && { path: "/files", label: t("nav.files"), tour: "menu-files", badge: "files" },
             canViewVehicles && { path: "/vehicles", label: t("nav.vehicles"), tour: "menu-vehicles", badge: "vehicles" },
           ] },

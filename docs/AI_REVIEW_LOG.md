@@ -5611,3 +5611,76 @@ commit. Publish source under existing commit/push authorization and inspect CI;
 no production deployment or real user permissions changed. Future catalog
 edits synchronize at start/test/build; running production clients receive the
 updated built release after deployment, through normal automatic updates.
+
+## 2026-11-07 — Explicit grant/revoke for association features and operations
+
+**Bounded objective / ownership:** Codex implements alone; actual Claude Code
+reviews final authorized source without tools or edits. Owner requires each
+business section/action to have grantable/revocable permission, specifically
+association rules. Separate rules and signatures from registration-link access;
+add personal/all/completion and management operations for weekly tasks, global
+file-write operation gates (retaining per-path ACL), notice archive, and enforce
+the existing dashboard permission. Keep public parent capabilities and personal
+account/security infrastructure working. Preserve stored grants/revokes and
+role defaults except explicit new defaults matching existing role behavior.
+No real data changes/migration/seeding/deployment. Audit other business routes,
+document their existing permission families and prevent silent unknown frontend
+business pages. Add isolated grant/revoke and UI regressions; run npm run verify
+and full IT suites/build. Record actual peer availability and remaining limits.
+
+**Calendar audit resolution:** calendar.view existed but did not guard the
+weekly timetable. The weekly page and new lesson/week-schedule projection now
+require calendar.view plus lessons.view; the football schedule checks it too.
+Program records still use lessons.view. Built-in roles already held calendar;
+no data migration. Added scoped projection-denial/record-access regression and
+updated the isolated demo endpoint. Focused affected client suites passed 95
+tests; release verification reruns npm run verify on final production source.
+
+**Final implementation / local review:** Rules now have view/edit-and-publish
+keys, independent of parentLink. Parent signatures have view/edit/link keys,
+additionally guarded by students.view and current student scope. Weekly tasks
+have personal view/completion, all-board view, management-entry and separate
+create/edit/delete/assign/approve/greet keys. Global file operations require
+specific keys in addition to files.use and existing path ACL. Notice archive is
+independent of posting. Dashboard.view now guards its route and summary; revoked
+weekly visibility hides current task alerts as well as cards/prompts. UI controls
+follow operation keys; readonly rules never mark a default-text draft as edited;
+board-only viewers do not request or link to a revoked personal task list.
+The original calendar.view now protects the actual weekly schedule projection.
+Rule navigation names also read the shared label catalog. Unknown business paths
+fail closed. The route audit checks guards against canonical keys and no longer
+exempts personal task or dashboard routes. AGENTS.md and FEATURE_PERMISSIONS.md
+record the owner's future-feature permission requirement and explicit exceptions.
+
+Built-in role defaults retain previous behavior, with new explicit operation
+keys; custom role defaults and saved grants/revokes are preserved without DB
+writes. Custom sets may need explicit grants for new keys. Public token-based
+parent flow, self-account security and external Google ACL remain separate.
+AI tools still recheck the underlying operation guards. No migration, seed,
+administrator creation, cloud or real-database test commands were run.
+
+**Actual peer request / response:** Sent the authorized
+[source-only request](reviews/2026-11-07-business-capabilities-claude-request.md)
+to actual Claude Code, including final corrections and timetable follow-up.
+[Actual response](reviews/2026-11-07-business-capabilities-claude-response.txt)
+reports the weekly limit until Nov 8, 16:00 Asia/Jerusalem. No findings or
+agreement received; actual Claude review remains pending. Payload omitted
+.env, credentials, runtime logs and real records. Codex continued isolated local
+verification as authorized, with one writer for all changed files.
+
+**Verification / resolution:** Ran npm run verify during implementation. The
+final server regression suite passed 1,556 tests. Client regressions exposed old
+fixtures assuming unconditional dashboard access, a two-leaf files module, and
+weekly timetable access with lessons.view alone. Updated the fixtures to the
+explicit new capabilities, retaining negative/revocation assertions. Final full
+System suite passed 1,151 tests in 131 suites and optimized build. Full IT passed
+114 tests in 18 suites and optimized build. After centralizing the rules nav
+label, focused Header tests and the final optimized System build were rerun.
+The generated-catalog parity check and git diff --check pass. No dependencies or
+lockfiles changed. Temporary local test output is removed, not committed or
+included in peer payloads. No production/browser rollout is claimed.
+
+Publish the tested source under existing commit/push authorization, inspect
+GitHub CI and report the resulting commit separately from deployment. Custom
+role sets and existing user grants/revokes are not automatically broadened;
+management can deliberately grant the new operations through the IT editors.

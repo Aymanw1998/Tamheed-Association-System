@@ -11,9 +11,9 @@ export const normalizeLesson = (lesson) => {
     };
 };
 
-export const getAllLesson = async() => {
+export const getAllLesson = async({ weekly = false } = {}) => {
     try{
-        const {data, status} = await api.get('/lesson');
+        const {data, status} = await api.get(weekly ? '/lesson/week-schedule' : '/lesson');
         if(![200,201].includes(status) || !data.ok) throw new Error ('تعذّر تحميل البرامج');
         // names: the staff's full names by user _id (the server's lesson list carries them).
         return {ok: true, lessons: (data.lessons || data.schema || []).map(normalizeLesson).filter(Boolean), names: data.names || {}};

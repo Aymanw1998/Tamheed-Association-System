@@ -1,3 +1,4 @@
+import { canStored } from "../../utils/session";
 import React, { useEffect, useState } from "react";
 import Button from "../UI/Button.jsx";
 import { toast } from "../../ALERT/SystemToasts.jsx";
@@ -9,13 +10,14 @@ import { setUnsavedChanges } from "../../utils/unsavedChanges";
 // The rules a parent signs on the registration link. Publishing makes a new
 // version; those who already signed keep the version they signed.
 export default function RulesEditor() {
+  const canEdit = canStored("rules.edit");
   const [loaded, setLoaded] = useState(false);
   const [version, setVersion] = useState(0);
   const [text, setText] = useState("");
   const [saved, setSaved] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  useEffect(() => { if (loaded && !error) setUnsavedChanges(text !== saved); }, [loaded, error, text, saved]);
+  useEffect(() => { if (loaded && !error) setUnsavedChanges(canEdit && text !== saved); }, [loaded, error, canEdit, text, saved]);
   useEffect(() => () => setUnsavedChanges(null), []);
 
   useEffect(() => {
@@ -33,6 +35,7 @@ export default function RulesEditor() {
   }, []);
 
   const publish = async () => {
+    if (!canEdit) return;
     let confirmed = false;
     try {
       confirmed = await ask("", {
@@ -64,11 +67,11 @@ export default function RulesEditor() {
       <h3 style={{ margin: 0 }}>نظام الجمعية{version ? ` (الإصدار ${version})` : ""}</h3>
       <small>يظهر للأهل في رابط «قوانين الجمعية». الموافقة والتوقيع/الختم مطلوبان لإرسال الطلب. يمكن استكمال توقيع طالب أضافته الجمعية من ملفه أو برابط شخصي لولي الأمر. النص الافتراضي متاح ما لم تنشر الإدارة نصًا آخر.</small>
       {!saved.trim() && version > 0 && <strong role="alert" style={{ color: "#b91c1c" }}>النص المنشور فارغ: رابط التسجيل لا يستقبل طلبات.</strong>}
-      <textarea aria-label="نص نظام الجمعية" rows={8} maxLength={20000} value={text} onChange={(event) => setText(event.target.value)} />
-      <div>
+      <textarea readOnly={!canEdit} aria-label="نص نظام الجمعية" rows={8} maxLength={20000} value={text} onChange={(event) => canEdit && setText(event.target.value)} />
+      {canEdit && <div>
         <Button size="sm" variant="secondary" disabled={busy || text === DEFAULT_RULES} onClick={() => setText(DEFAULT_RULES)}>استعادة النص الافتراضي</Button>{" "}
         <Button size="sm" loading={busy} disabled={text === saved} onClick={publish}>نشر</Button>
-      </div>
+      </div>}
     </div>
   );
 }

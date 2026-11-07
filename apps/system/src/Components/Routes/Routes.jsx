@@ -106,9 +106,9 @@ export default function CRoutes() {
       <Route element={<RequireAuth />}>
         <Route element={<ProtectedLayout />}>
           {/* ادارة الاثنينعربيالاثنينالأربعاء */}
-          <Route path='/dashboard' element={<Dashboard />} />
           <Route path='/guide' element={<GuidePage />} />
           <Route element={<RoleGuard />}>
+            <Route path='/dashboard' element={<Dashboard />} />
             <Route path="/calendar" element={<LessonsHub active="attendance"><AttendancePage /></LessonsHub>} />
             
             <Route path="/students" element={<ViewAllStudent />} />

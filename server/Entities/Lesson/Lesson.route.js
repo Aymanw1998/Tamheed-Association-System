@@ -34,9 +34,10 @@ router.use(protect, loadActor);
 
 // ملاحظة عربية
 router.get('/', requirePermission('lessons.view'), getAll);
+router.get('/week-schedule', requirePermission('lessons.view'), requirePermission('calendar.view'), getAll);
 router.get('/query', requirePermission('lessons.view'), getLessonsByQuery);
 router.get('/today', requirePermission('lessons.view'), getLessonsByToDay);
-router.get('/sport-schedule', requirePermission('lessons.view'), getSportSchedule);
+router.get('/sport-schedule', requirePermission('lessons.view'), requirePermission('calendar.view'), getSportSchedule);
 router.get('/:id', requirePermission('lessons.view'), getOne);
 // ملاحظة عربية
 router.post('/addToList/:id', requirePermission('lessons.roster'), lockedLesson, addToList);

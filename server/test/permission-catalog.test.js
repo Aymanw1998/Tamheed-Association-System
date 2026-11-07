@@ -14,7 +14,8 @@ test("System, IT and server share the complete permission catalog", () => {
   for (const app of ["system", "it"]) {
     assert.deepEqual(require(`../../apps/${app}/src/generated/permissions.json`), catalog);
   }
-  assert.deepEqual(catalog.tree.tasks, ["manage"]);
+  assert.ok(catalog.tree.tasks.includes("manage"));
+  assert.deepEqual(catalog.tree.rules, ["view", "edit"]);
 });
 
 test("new shared labels never grant access or make IT actions role defaults", () => {

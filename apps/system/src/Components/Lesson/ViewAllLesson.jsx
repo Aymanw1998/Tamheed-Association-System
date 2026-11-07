@@ -487,7 +487,7 @@ export default function ViewAllLesson() {
   const loadData = async ({ quiet = false } = {}) => {
     try {
       if (!quiet) setIsLoading(true);
-      const [res, sportRes] = await Promise.all([getAllLesson(), getSportSchedule()]);
+      const [res, sportRes] = await Promise.all([getAllLesson({ weekly: true }), getSportSchedule()]);
       if (!res?.ok) throw new Error(res?.message || "Load failed");
 
       // Football lessons are extra and read-only: the schedule still loads without them.

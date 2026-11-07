@@ -18,7 +18,7 @@ const weekLabel = (week) => {
 };
 
 // What the person himself must do this week: to do, then done in green.
-function MyTasks({ tasks, onToggle, busy }) {
+function MyTasks({ tasks, onToggle, busy, canComplete }) {
   const [group, setGroup] = useState("");
   const [search, setSearch] = useState("");
   const groups = [...new Map(tasks.map((task) => [String(task.groupId), task.groupName])).entries()];
@@ -42,7 +42,7 @@ function MyTasks({ tasks, onToggle, busy }) {
         {open.map((task) => (
           <li key={`${task.groupId}:${task.taskId}`} className={styles.item}>
             <span className={styles.text}><strong dir="auto">{task.title}</strong><small dir="auto">{task.groupName}</small>{task.details && <small dir="auto">{task.details}</small>}</span>
-            <TaskCheck checked={false} disabled={busy === `${task.groupId}:${task.taskId}`} label={`إنجاز ${task.title} — ${task.groupName}`} onChange={(checked) => onToggle(task, checked)} />
+            <TaskCheck checked={false} disabled={!canComplete || busy === `${task.groupId}:${task.taskId}`} label={`إنجاز ${task.title} — ${task.groupName}`} onChange={(checked) => onToggle(task, checked)} />
           </li>
         ))}
       </ul>
@@ -53,7 +53,7 @@ function MyTasks({ tasks, onToggle, busy }) {
             {done.map((task) => (
               <li key={`${task.groupId}:${task.taskId}`} className={`${styles.item} ${styles.done}`}>
                 <span className={styles.text}><strong dir="auto">{task.title}</strong><small dir="auto">{task.groupName}</small>{task.approved && <small>أكّدتها الإدارة</small>}</span>
-                <TaskCheck checked disabled={task.approved || busy === `${task.groupId}:${task.taskId}`} label={`إنجاز ${task.title} — ${task.groupName}`} onChange={(checked) => onToggle(task, checked)} />
+                <TaskCheck checked disabled={!canComplete || task.approved || busy === `${task.groupId}:${task.taskId}`} label={`إنجاز ${task.title} — ${task.groupName}`} onChange={(checked) => onToggle(task, checked)} />
               </li>
             ))}
           </ul>
@@ -64,7 +64,7 @@ function MyTasks({ tasks, onToggle, busy }) {
 }
 
 // The management's register: each group and its tasks, each with its check.
-function Register({ board, onToggle, busy }) {
+function Register({ board, onToggle, busy, canApprove }) {
   const groups = useMemo(() => board.groups.map((group) => ({
     ...group,
     tasks: board.assignments
@@ -94,7 +94,7 @@ function Register({ board, onToggle, busy }) {
                     <TaskCheck
                       checked={task.done}
                       label={`${task.done ? "إلغاء إنجاز" : "تأكيد إنجاز"} ${task.title} — ${group.name}`}
-                      disabled={busy === key}
+                      disabled={!canApprove || busy === key}
                       onChange={(checked) => onToggle(task, group, checked)}
                     />
                     <span className={styles.text}>
@@ -118,6 +118,8 @@ function Register({ board, onToggle, busy }) {
 export default function WeeklyTasksPage() {
   const navigate = useNavigate();
   const canManage = canStored("tasks.manage");
+  const canViewAll = canStored("tasks.viewAll");
+  const canViewMine = canStored("tasks.view");
   const [mine, setMine] = useState(null);
   const [board, setBoard] = useState(null);
   const [error, setError] = useState("");
@@ -125,15 +127,15 @@ export default function WeeklyTasksPage() {
   const [showAll, setShowAll] = useState(false);
 
   const load = useCallback(async () => {
-    const own = await getMyTasks();
+    const own = canViewMine ? await getMyTasks() : { ok: true, tasks: [] };
     if (!own.ok) setError(own.message);
     else { setError(""); setMine(own); }
-    if (canManage && showAll) {
+    if (canViewAll && (showAll || !canViewMine)) {
       const res = await getTaskBoard();
       if (res.ok) setBoard(res);
       else setError(res.message);
     }
-  }, [canManage, showAll]);
+  }, [canViewAll, canViewMine, showAll]);
   useEffect(() => { load(); }, [load]);
 
   const toggleMine = async (task, done) => {
@@ -148,7 +150,7 @@ export default function WeeklyTasksPage() {
   const toggleRegister = async (task, group, approved) => {
     const key = `${task.id}:${group.id}`;
     setBusy(key);
-    const res = await approveTask(task.id, group.id, approved, board.week || mine.week);
+    const res = await approveTask(task.id, group.id, approved, board.week || mine?.week);
     setBusy("");
     if (!res.ok) { if (res.code === "WEEK_CLOSED") await load(); return toast.warn(res.message); }
     return load();
@@ -159,16 +161,16 @@ export default function WeeklyTasksPage() {
       <header className={styles.head}>
         <div>
           <h1>المهمات الأسبوعية</h1>
-          {mine?.week && <p className={styles.muted}>الأسبوع الذي بدأ في {weekLabel(mine.week)}</p>}
+          {(mine?.week || board?.week) && <p className={styles.muted}>الأسبوع الذي بدأ في {weekLabel(mine?.week || board.week)}</p>}
         </div>
-        {canManage && <div className={styles.row}>
-          <Button variant="secondary" onClick={() => setShowAll((shown) => !shown)}>{showAll ? "عرض مهماتي" : "عرض مهمات الجمعية"}</Button>
-          {showAll && <Button onClick={() => navigate("/weekly-tasks/manage")}>تعديل المهمات والمجموعات</Button>}
+        {canViewAll && <div className={styles.row}>
+          {canViewMine && <Button variant="secondary" onClick={() => setShowAll((shown) => !shown)}>{showAll ? "عرض مهماتي" : "عرض مهمات الجمعية"}</Button>}
+          {canManage && (showAll || !canViewMine) && <Button onClick={() => navigate("/weekly-tasks/manage")}>تعديل المهمات والمجموعات</Button>}
         </div>}
       </header>
       {error && <div role="alert" className={styles.error}>{error}</div>}
-      {mine && !showAll && <MyTasks tasks={mine.tasks} onToggle={toggleMine} busy={busy} />}
-      {canManage && showAll && board && <Register board={board} onToggle={toggleRegister} busy={busy} />}
+      {canViewMine && mine && !showAll && <MyTasks canComplete={canStored("tasks.complete")} tasks={mine.tasks} onToggle={toggleMine} busy={busy} />}
+      {canViewAll && (showAll || !canViewMine) && board && <Register canApprove={canStored("tasks.approve")} board={board} onToggle={toggleRegister} busy={busy} />}
     </div>
   );
 }

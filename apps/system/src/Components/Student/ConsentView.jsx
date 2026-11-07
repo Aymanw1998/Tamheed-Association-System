@@ -1,3 +1,4 @@
+import { canStored } from "../../utils/session";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createConsentLink, getConsent, getRules, signConsent } from "../../WebServer/services/inviteToken/functionInviteToken.jsx";
 import { toast } from "../../ALERT/SystemToasts.jsx";
@@ -27,6 +28,7 @@ export default function ConsentView({ studentId }) {
   useEffect(() => { setLink(null); setState({ loading: true }); load(); return () => { request.current += 1; }; }, [load]);
 
   const submit = async () => {
+    if (!canStored("consents.edit")) return false;
     if (!form.accepted || !form.signerName.trim() || !form.signature) {
       setError("يجب الموافقة على قوانين الجمعية وكتابة اسم ولي الأمر والتوقيع قبل الإرسال.");
       return false;
@@ -43,6 +45,7 @@ export default function ConsentView({ studentId }) {
     return true;
   };
   const makeLink = async () => {
+    if (!canStored("consents.link")) return;
     setLinkBusy(true);
     const result = await createConsentLink(studentId);
     setLinkBusy(false);
@@ -67,8 +70,8 @@ export default function ConsentView({ studentId }) {
       <details><summary>النص الذي تم التوقيع عليه</summary><div dir="auto" style={{ whiteSpace: "pre-wrap" }}>{consent.rulesText}</div></details>
     </> : <p>متبقٍ توقيع ولي الأمر{consent?.acceptedAt ? ` — تمت الموافقة بتاريخ ${when(consent.acceptedAt)}، ولم يُستكمل التوقيع بعد.` : ""}</p>}
     {state.rules?.text ? <>
-      <RegistrationConsent key={`${state.rules.version}:${consent?.revision || "none"}`} rules={state.rules} value={form} onChange={setForm} nameId="consent-signer" onConfirm={submit} busy={busy} error={error} linkLabel={consent?.signature ? "تحديث التوقيع" : "قوانين الجمعية والتوقيع"} confirmLabel="حفظ التوقيع" />
-      <div><Button size="sm" loading={linkBusy} onClick={makeLink}>إنشاء رابط لولي الأمر</Button></div>
+      {canStored("consents.edit") && <RegistrationConsent key={`${state.rules.version}:${consent?.revision || "none"}`} rules={state.rules} value={form} onChange={setForm} nameId="consent-signer" onConfirm={submit} busy={busy} error={error} linkLabel={consent?.signature ? "تحديث التوقيع" : "قوانين الجمعية والتوقيع"} confirmLabel="حفظ التوقيع" />}
+      {canStored("consents.link") && <div><Button size="sm" loading={linkBusy} onClick={makeLink}>إنشاء رابط لولي الأمر</Button></div>}
     </> : <p>التوقيع غير متاح حتى تنشر الإدارة قوانين الجمعية.</p>}
     {link && <section aria-label="رابط توقيع ولي الأمر" style={{ display: "grid", gap: 8 }}>
       <input readOnly dir="ltr" aria-label="رابط التوقيع" value={link.url} onFocus={(event) => event.target.select()} />

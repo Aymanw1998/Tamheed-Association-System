@@ -136,7 +136,7 @@ export default function StudentView() {
       label: t("record.guide"),
       content: <GuideCard contact={s.guide} to={guideLink(s.guide, getStoredUserId(), s.main_teacher)} empty={t("record.noGuide")} />,
     },
-    canStored("students.parentLink") && {
+    canStored("consents.view") && {
       id: "consent",
       label: "التوقيع",
       content: <ConsentView studentId={s._id} />,

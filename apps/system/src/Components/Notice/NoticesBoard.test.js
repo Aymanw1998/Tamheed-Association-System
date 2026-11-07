@@ -1,3 +1,4 @@
+jest.mock("../../utils/session", () => ({ ...jest.requireActual("../../utils/session"), canStored: jest.fn(() => true) }));
 import React, { act } from "react";
 import { createRoot } from "react-dom/client";
 import { MemoryRouter } from "react-router-dom";
@@ -23,6 +24,7 @@ jest.mock("../../ALERT/SystemToasts", () => ({ toast: { success: jest.fn(), warn
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 let host, root;
 beforeEach(() => {
+  require("../../utils/session").canStored.mockReturnValue(true);
   getNotices.mockResolvedValue({ ok: true, notices: [
     { _id: "n1", title: "اجتماع", body: "", severity: "info", category: "manual", createdAt: "2026-11-02T08:00:00Z", read: true, endDate: "2026-11-20" },
   ] });

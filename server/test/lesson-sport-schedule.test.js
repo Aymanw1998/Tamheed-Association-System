@@ -125,5 +125,5 @@ test("the sport-schedule route sits before /:id and needs lessons.view", () => {
   const src = fs.readFileSync(path.join(__dirname, "../Entities/Lesson/Lesson.route.js"), "utf8");
   const at = src.indexOf("'/sport-schedule'");
   assert.ok(at > 0 && at < src.indexOf("'/:id'"));
-  assert.match(src, /router\.get\('\/sport-schedule', requirePermission\('lessons\.view'\), getSportSchedule\)/);
+  assert.match(src, /router\.get\('\/sport-schedule', requirePermission\('lessons\.view'\), requirePermission\('calendar\.view'\), getSportSchedule\)/);
 });
