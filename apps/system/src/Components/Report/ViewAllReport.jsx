@@ -1,3 +1,4 @@
+import EmptyState from "../UI/EmptyState";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getAll } from "../../WebServer/services/report/functionsReport.jsx";
@@ -13,6 +14,7 @@ import { joinParts } from "../../utils/personCard";
 import { canStored } from "../../utils/session";
 import FilterDialog from "../UI/FilterDialog.jsx";
 import { EMPTY_REPORT_FILTERS, countReportFilters, matchesReportFilters } from "./reportFilters";
+import Skeleton from "../UI/Skeleton";
 
 
 
@@ -260,11 +262,11 @@ const ViewAllReport = () => {
       </div>
 
       {err && <div className={styles.formError}>{err}</div>}
-      {!err && loading && <div className={styles.summary}>جارٍ تحديث البيانات…</div>}
+      {!err && loading && <Skeleton rows={6} label="جارٍ تحديث البيانات…" />}
 
       {!loading && !err && (
         <div className={styles.mobileOnly}>
-          <PersonCardList emptyText="لا توجد بيانات لعرضها">
+          <PersonCardList emptyText="لا توجد بيانات لعرضها" emptyIcon="report" emptyHint="جرّب تغيير البحث أو الفلتر.">
             {sortedFilteredReports.map((report) => (
               <PersonCard
                 key={report._id}
@@ -297,8 +299,8 @@ const ViewAllReport = () => {
 
           <tbody>
             {sortedFilteredReports.length > 0 ? (
-              sortedFilteredReports.map((report) => (
-                <tr key={report._id}>
+              sortedFilteredReports.map((report, index) => (
+                <tr key={report._id} className="rise-in" style={{ "--i": index }}>
                   <td data-label="التاريخ">{formatDate(report.date)}</td>
                   <td data-label="اليوم">{dayName(report.date)}</td>
                   <td data-label="عنوان التقرير">{report.stitle}</td>
@@ -324,8 +326,8 @@ const ViewAllReport = () => {
               ))
             ) : (
               <tr>
-                <td colSpan={6} style={{ textAlign: "center", padding: 16 }}>
-                  لا توجد بيانات لعرضها
+                <td colSpan={6}>
+                  <EmptyState icon="report" title="لا توجد بيانات لعرضها" hint="جرّب تغيير البحث أو الفلتر. أو أضف تقريرًا جديدًا." />
                 </td>
               </tr>
             )}

@@ -1,3 +1,4 @@
+import TabIndicator from "../UI/TabIndicator";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "../../i18n/I18nContext";
 import { canStored } from "../../utils/session";
@@ -46,6 +47,7 @@ export default function SportPage() {
             {t(`sport.tabs.${key}`)}
           </button>
         ))}
+        <TabIndicator variant="underline" />
       </div>
       {loading && <div className={styles.emptyState}>{t("sport.loading")}</div>}
       {!loading && error && <div className={styles.formError} role="alert">{error}</div>}

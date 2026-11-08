@@ -1,3 +1,4 @@
+import PageFade from "./ui/PageFade";
 import { useCallback, useEffect, useState } from "react";
 import { getMe, logout, setPasswordChangeHandler, setSignedOutHandler, systemPass } from "./api";
 import { usePath } from "./router.jsx";
@@ -95,7 +96,7 @@ export default function App() {
       <Header links={links} path={path} me={me} onOpenSystem={hasSystem ? openSystem : null} onSignOut={signOut} />
       <main className="page">
         <PasskeyOffer key={me.tz} account={me.tz} />
-        <Screen path={path} me={me} />
+        <PageFade path={path}><Screen path={path} me={me} /></PageFade>
       </main>
       <Toaster />
     </div>

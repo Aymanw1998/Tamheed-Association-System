@@ -3,7 +3,7 @@
   margin: 0 auto;
   padding: 16px;
   font-family: inherit;
-  color: #1b2327;
+  color: var(--color-text-primary);
 }
 
 .head {
@@ -14,7 +14,7 @@
   flex-wrap: wrap;
 }
 
-.title { margin: 0; font-size: 22px; color: #164d63; }
+.title { margin: 0; font-size: 22px; color: var(--color-primary-700); }
 
 .langs {
   display: inline-flex;
@@ -30,13 +30,13 @@
   min-height: 36px;
   font: inherit;
   font-size: 14px;
-  color: #164d63;
+  color: var(--color-primary-700);
   cursor: pointer;
 }
 
 .langOn { background: #164d63; color: #fff; font-weight: 700; }
 
-.intro { margin: 8px 0 12px; font-size: 14px; line-height: 1.6; color: #475569; }
+.intro { margin: 8px 0 12px; font-size: 14px; line-height: 1.6; color: var(--color-text-secondary); }
 
 .ghost:disabled { opacity: 0.6; cursor: default; }
 
@@ -52,14 +52,14 @@
   font-size: 16px; /* 16px keeps iOS from zooming in on focus */
 }
 
-.empty { color: #64748b; }
+.empty { color: var(--color-text-secondary); }
 
 .list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 8px; }
 
 .card {
-  border: 1px solid #e2ebef;
+  border: 1px solid var(--color-border);
   border-radius: 12px;
-  background: #fff;
+  background: var(--color-surface);
 }
 
 .card[open] { border-color: #9cc3d1; }
@@ -80,13 +80,13 @@
   gap: 8px;
   font-size: 16px;
   font-weight: 800;
-  color: #164d63;
+  color: var(--color-primary-700);
 }
 
 .cardTitle::after {
   content: "‹";
   margin-inline-start: auto;
-  color: #94a3b8;
+  color: var(--color-text-muted);
   transition: transform 0.15s ease;
 }
 
@@ -94,7 +94,7 @@
 
 .cardSummary {
   font-size: 14px;
-  color: #475569;
+  color: var(--color-text-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -108,7 +108,7 @@
   padding: 2px 8px;
   border-radius: 999px;
   background: #fef3c7;
-  color: #92400e;
+  color: var(--color-warning-700);
 }
 
 .steps {
@@ -141,9 +141,9 @@
 
 .primary { border: 0; background: #164d63; color: #fff; }
 
-.ghost { border: 1px solid #c9dbe2; background: #fff; color: #164d63; }
+.ghost { border: 1px solid #c9dbe2; background: var(--color-surface); color: var(--color-primary-700); }
 
-.updated { margin-inline-start: auto; font-size: 12px; color: #64748b; }
+.updated { margin-inline-start: auto; font-size: 12px; color: var(--color-text-secondary); }
 
 @media (prefers-reduced-motion: reduce) {
   .cardTitle::after { transition: none; }

@@ -1,3 +1,6 @@
+import ThemeSwitch from "../UI/ThemeSwitch";
+import BottomNav from "./BottomNav";
+import QuickSearch from "./QuickSearch";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import styles from "./Header.module.css";
@@ -78,6 +81,7 @@ function AccountMenu({ label, onNav, onLogout, t, showIt, onItRefused }) {
           )}
           {/* Phones only, until the app is installed. */}
           <InstallAppButton className={styles.installButton} />
+          <ThemeSwitch />
           <button type="button" role="menuitem" onClick={onLogout} className={styles.logoutButton}>{t("nav.logout")}</button>
         </div>
       )}
@@ -130,6 +134,19 @@ export default function Header() {
     return () => {
       live = false;
     };
+  }, []);
+
+  // Table headers stick right under this header (package B, 2026-11-08): its
+  // height, whatever the screen, is --sticky-top.
+  useEffect(() => {
+    const node = headerRef.current;
+    if (!node) return undefined;
+    const root = document.documentElement;
+    const apply = () => root.style.setProperty("--sticky-top", `${node.offsetHeight}px`);
+    apply();
+    const watch = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(apply);
+    watch?.observe(node);
+    return () => { watch?.disconnect(); root.style.removeProperty("--sticky-top"); };
   }, []);
 
   useEffect(() => {
@@ -190,6 +207,39 @@ export default function Header() {
     />
   );
 
+  const home = opens("/dashboard") ? { path: "/dashboard", label: t("nav.dashboard"), tour: "menu-home" } : null;
+  const program = (opens("/lessons") || opens("/calendar")) ? { path: opens("/lessons") ? "/lessons" : "/calendar", label: t("nav.lessons"), tour: "menu-lessons", badge: "lessons" } : null;
+  const groups = [
+    { id: "daily", label: "العمل اليومي", items: [
+      opens("/weekly-tasks") && { path: "/weekly-tasks", label: t("nav.tasks"), tour: "menu-weekly-tasks", icon: "check_list" },
+      opens("/sports") && { path: "/sports", label: t("nav.sports"), tour: "menu-sports", icon: "ball" },
+    ] },
+    { id: "people", label: "الأعضاء والطاقم", items: [
+      canViewStudents && { path: "/students", label: t("nav.students"), tour: "menu-students", badge: "students", icon: "student" },
+      canViewUsers && { path: "/users", label: t("nav.users"), tour: "menu-users", badge: "users", icon: "users" },
+    ] },
+    { id: "followup", label: "المتابعة", items: [
+      opens("/reports") && { path: "/reports", label: t("nav.reports"), tour: "menu-reports", badge: "reports", icon: "report" },
+      canViewNotices && { path: "/notices", label: t("nav.notices"), tour: "menu-notices", badge: "notices", icon: "bell" },
+    ] },
+    { id: "resources", label: "الموارد", items: [
+      opens("/association-rules") && { path: "/association-rules", label: t("nav.rules"), tour: "menu-rules", icon: "report" },
+      opens("/files") && { path: "/files", label: t("nav.files"), tour: "menu-files", badge: "files", icon: "folder" },
+      canViewVehicles && { path: "/vehicles", label: t("nav.vehicles"), tour: "menu-vehicles", badge: "vehicles", icon: "car" },
+    ] },
+  ].map((group) => ({ ...group, items: group.items.filter(Boolean) })).filter((group) => group.items.length);
+  // Every page the menu offers, for quick search; the phone bar takes the
+  // everyday ones (package B, 2026-11-08).
+  const pages = [
+    home && { ...home, icon: "home" },
+    program && { ...program, icon: "calendar" },
+    ...groups.flatMap((group) => group.items),
+    opens("/calendar") && program?.path !== "/calendar" && { path: "/calendar", label: "الحضور والغياب", icon: "check_list" },
+    { path: "/profile", label: "الملف الشخصي", icon: "users" },
+  ].filter(Boolean);
+  const byPath = (path) => pages.find((page) => page.path === path);
+  const barItems = [byPath("/dashboard"), program && { ...program, icon: "calendar" }, byPath("/reports") || byPath("/students"), byPath("/notices") || byPath("/weekly-tasks")].filter(Boolean);
+
   return (
     <header id="header" className={styles.header} ref={headerRef} dir={dir} data-menu-open={isMobile && menuOpen}>
       <div className={styles.headerContent}>
@@ -220,6 +270,7 @@ export default function Header() {
             <span />
           </button>
         )}
+        <QuickSearch pages={pages} onNav={onNavClick} canStudents={canViewStudents} canUsers={canViewUsers} canLessons={opens("/lessons")} />
         <span data-tour="notice-bell" style={{ display: "inline-flex", alignItems: "center" }}>
           <NoticeBell canViewNotices={canViewNotices} />
           {canViewNotices && <NewBadge section="notices" />}
@@ -229,28 +280,11 @@ export default function Header() {
       </div>
 
       <NavigationMenu mobile={isMobile} open={menuOpen} onClose={() => setMenuOpen(false)} onNav={onNavClick}
-        home={opens("/dashboard") ? { path: "/dashboard", label: t("nav.dashboard"), tour: "menu-home" } : null}
-        program={(opens("/lessons") || opens("/calendar")) ? { path: opens("/lessons") ? "/lessons" : "/calendar", label: t("nav.lessons"), tour: "menu-lessons", badge: "lessons" } : null}
-        groups={[
-          { id: "daily", label: "العمل اليومي", items: [
-            opens("/weekly-tasks") && { path: "/weekly-tasks", label: t("nav.tasks"), tour: "menu-weekly-tasks" },
-            opens("/sports") && { path: "/sports", label: t("nav.sports"), tour: "menu-sports" },
-          ] },
-          { id: "people", label: "الأعضاء والطاقم", items: [
-            canViewStudents && { path: "/students", label: t("nav.students"), tour: "menu-students", badge: "students" },
-            canViewUsers && { path: "/users", label: t("nav.users"), tour: "menu-users", badge: "users" },
-          ] },
-          { id: "followup", label: "المتابعة", items: [
-            opens("/reports") && { path: "/reports", label: t("nav.reports"), tour: "menu-reports", badge: "reports" },
-            canViewNotices && { path: "/notices", label: t("nav.notices"), tour: "menu-notices", badge: "notices" },
-          ] },
-          { id: "resources", label: "الموارد", items: [
-            opens("/association-rules") && { path: "/association-rules", label: t("nav.rules"), tour: "menu-rules" },
-            opens("/files") && { path: "/files", label: t("nav.files"), tour: "menu-files", badge: "files" },
-            canViewVehicles && { path: "/vehicles", label: t("nav.vehicles"), tour: "menu-vehicles", badge: "vehicles" },
-          ] },
-        ].map((group) => ({ ...group, items: group.items.filter(Boolean) })).filter((group) => group.items.length)}
+        home={home}
+        program={program}
+        groups={groups}
       />
+      {isMobile && <BottomNav items={barItems} onNav={onNavClick} onMore={() => setMenuOpen((value) => !value)} moreOpen={menuOpen} />}
     </header>
   );
 }

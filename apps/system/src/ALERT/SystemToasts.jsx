@@ -1,8 +1,11 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, MotionConfig, motion } from "framer-motion";
 import { createPortal } from "react-dom";
 import styles from "./SystemToasts.module.css";
 import api from "../WebServer/services/api";
+import Icon from "../Components/UI/Icon";
+
+const VARIANT_ICON = { success: "check", info: "info", warning: "warning", destructive: "error" };
 
 const HEALTH_EVENT = "server-health";
 let _serverHealthy = null; 
@@ -56,8 +59,12 @@ export function ToastProvider({ children, rtl = true, baseZIndex = 50 }) {
       variant: t.variant || "info",
       duration: t.duration ?? (t.variant === "destructive" ? 8000 : t.variant === "warning" ? 7000 : 5000),
       sticky: !!t.sticky,
+      // { label, onClick }: one action in the toast, e.g. "تراجع" after a move to the trash.
+      action: t.action && typeof t.action.onClick === "function" ? t.action : null,
     };
-    setToasts((prev) => [withDefaults, ...prev]);
+    // A toast with a fixed id replaces its earlier copy (a repeated status
+    // check never stacks the same sticky warning).
+    setToasts((prev) => [withDefaults, ...prev.filter((x) => x.id !== id)]);
     return id;
   }, []);
 
@@ -85,11 +92,14 @@ function ToastViewport({ baseZIndex = 50 }) {
   const view = (
     <div className={styles.toastViewport} style={{ zIndex: baseZIndex }}>
       <div className={styles.toastStack}>
-        <AnimatePresence>
-          {toasts.map((t) => (
-            <ToastItem key={t.id} t={t} onClose={() => dismiss(t.id)} />
-          ))}
-        </AnimatePresence>
+        {/* reducedMotion="user": the phone's "reduce motion" setting also stops these. */}
+        <MotionConfig reducedMotion="user">
+          <AnimatePresence>
+            {toasts.map((t) => (
+              <ToastItem key={t.id} t={t} onClose={() => dismiss(t.id)} />
+            ))}
+          </AnimatePresence>
+        </MotionConfig>
       </div>
     </div>
   );
@@ -100,21 +110,14 @@ function ToastViewport({ baseZIndex = 50 }) {
 function ToastItem({ t, onClose }) {
   const [hover, setHover] = useState(false);
   const isSticky = !!t.sticky;
-  const total = 5000;
+  // Each toast runs for its own duration; a sticky one stays until closed.
+  const total = t.duration || 5000;
 
   const [remaining, setRemaining] = useState(total);
 
   const intervalRef = useRef(null);
   const endAtRef = useRef(null); // ملاحظة عربية
 
-  // ملاحظة عربية
-  const formatMMSS = (ms) => {
-    if (ms == null) return "∞";
-    const s = Math.max(0, Math.ceil(ms / 1000));
-    const mm = String(Math.floor(s / 60)).padStart(2, "0");
-    const ss = String(s % 60).padStart(2, "0");
-    return `${s}s`;
-  };
 
   const stopTick = () => {
     if (intervalRef.current) {
@@ -125,6 +128,7 @@ function ToastItem({ t, onClose }) {
 
   const startTick = () => {
     stopTick();
+    if (isSticky) return;
     // ملاحظة عربية
     endAtRef.current = Date.now() + (remaining ?? total);
     intervalRef.current = setInterval(() => {
@@ -171,23 +175,27 @@ function ToastItem({ t, onClose }) {
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       className={variantClass}
-      role="status"
-      aria-live="polite"
+      role={t.variant === "destructive" ? "alert" : "status"}
+      aria-live={t.variant === "destructive" ? "assertive" : "polite"}
     >
       <div className={styles.toastRow}>
+        <span className={styles.toastIcon}><Icon name={VARIANT_ICON[t.variant] || "info"} size={18} strokeWidth={2.2} /></span>
         <div className={styles.toastBody}>
           {t.title && <div className={styles.toastTitle}>{t.title}</div>}
           {t.description && <div className={styles.toastDesc}>{t.description}</div>}
         </div>
 
-        <div className={styles.toastTimer} aria-label="المتبقي">
-          {formatMMSS(remaining)}
-        </div>
+        {t.action && (
+          <button type="button" className={styles.toastAction} onClick={() => { t.action.onClick(); onClose(); }}>
+            {t.action.icon && <Icon name={t.action.icon} size={16} />}
+            {t.action.label}
+          </button>
+        )}
 
         <button onClick={onClose} aria-label="إغلاق" className={styles.toastClose}>×</button>
       </div>
 
-      {(
+      {!isSticky && (
         <div className={styles.progressBar} aria-hidden="true">
           <div className={styles.progressFill} style={{ width: `${pct}%` }} />
         </div>
@@ -199,7 +207,7 @@ function ToastItem({ t, onClose }) {
 
 // ---------- Watcher: Health + Token ----------
 export function SystemStatusWatcher({ options }) {
-  const { push } = useToast();
+  const { push, dismiss } = useToast();
   const healthUrl = options?.healthUrl || "/api/health";
   const intervalMs = options?.intervalMs || 30000;
   const getToken = options?.getToken || (() => (typeof window !== "undefined" ? localStorage.getItem("accessToken") : null));
@@ -214,6 +222,7 @@ export function SystemStatusWatcher({ options }) {
         if (!r.data.ok) throw new Error(String(r.status));
         emitHealth(true);
         if (mounted && fails > 0) {
+          dismiss("server-down");
           push({ variant: "success", description: "تمت استعادة الاتصال بالخادم", duration: 3000 });
 
           fails = 0;
@@ -222,14 +231,14 @@ export function SystemStatusWatcher({ options }) {
         emitHealth(false);
         fails++;
         if (mounted && fails === 1) {
-          push({ variant: "warning", sticky: true, description: "انقطع الاتصال بالخادم. جارٍ إعادة الاتصال…", duration: 10000 });
+          push({ id: "server-down", variant: "warning", sticky: true, description: "انقطع الاتصال بالخادم. جارٍ إعادة الاتصال…", duration: 10000 });
         }
       }
     };
     const id = window.setInterval(check, intervalMs);
     check();
     return () => { mounted = false; window.clearInterval(id); };
-  }, [healthUrl, intervalMs, push]);
+  }, [healthUrl, intervalMs, push, dismiss]);
 
   useEffect(() => {
     const checkExp = () => {
@@ -240,10 +249,10 @@ export function SystemStatusWatcher({ options }) {
       const now = Math.floor(Date.now() / 1000);
       const left = exp - now;
       if (left <= 0) {
-        push({ variant: "destructive", sticky: true, description: "انتهت الجلسة. يُرجى تسجيل الدخول مرة أخرى." });
+        push({ id: "session-expired", variant: "destructive", sticky: true, description: "انتهت الجلسة. يُرجى تسجيل الدخول مرة أخرى." });
       } else if (left < warnBeforeExpirySec) {
         const min = Math.max(1, Math.floor(left / 60));
-        push({ variant: "info", description: `ستنتهي جلستك بعد نحو ${min} د.` });
+        push({ id: "session-expiring", variant: "info", description: `ستنتهي جلستك بعد نحو ${min} د.` });
       }
     };
     const id = window.setInterval(checkExp, 20000);

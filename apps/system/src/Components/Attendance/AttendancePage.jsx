@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import styles from "./AttendancePage.module.css";
+import Button from "../UI/Button";
+import useSavedFlash from "../../utils/useSavedFlash";
 import { useLocation } from "react-router-dom";
 import { getLessonsToday, getAllLesson as getAllLessons } from "../../WebServer/services/lesson/functionsLesson";
 import { getAttendanceSheet, saveAttendanceSheet, getLessonDates } from "../../WebServer/services/attendance/functionsAttendance";
@@ -79,6 +81,7 @@ export default function AttendancePage() {
     // sheet
     const [sheet, setSheet] = useState(null);
     const [dirty, setDirty] = useState(false);
+    const [saved, flashSaved] = useSavedFlash();
     const [notice, setNotice] = useState(null);
 
     // One sheet = one lesson on one date. The lock key is made of the same
@@ -300,6 +303,7 @@ export default function AttendancePage() {
         setNotice(null);
         setDirty(false);
         await reloadSheet(); // the saved sheet has a new version
+        flashSaved();
         toast?.success ? toast.success("تم حفظ الحضور بنجاح") : console.log("saved");
         if (r.overwritten?.length) toast.warn(OVERWRITTEN_MESSAGE);
         } catch (e) {
@@ -585,9 +589,9 @@ export default function AttendancePage() {
                     </div>
                     <div className={styles.actions}>
                     {dirty && <span className={styles.miniInfo}>توجد تغييرات لم تُحفظ</span>}
-                    <button className={styles.saveBtn} data-tour="calendar-save" onClick={onSave} disabled={loadingSheet || !dirty || readonly}>
+                    <Button data-tour="calendar-save" onClick={onSave} disabled={loadingSheet || !dirty || readonly} success={saved}>
                         حفظ
-                    </button>
+                    </Button>
                     </div>
                 </div>
                 </div>

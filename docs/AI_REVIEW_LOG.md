@@ -5813,3 +5813,63 @@ real database, which tests may not use. No database, migration, seed or
 deployment commands were run. The new TTL indexes take effect when the server
 next ensures indexes; existing trashed notices (before this change) have no
 purge date until restored and re-deleted or purged manually.
+
+## 2026-11-08 — Motion, ease of use and unified design (packages A, B, C)
+
+**Owner request / scope:** After the QA scan the owner asked for design, usability
+and animation proposals, then chose "all of them, in order". Claude Code was the
+sole implementer; Codex the independent reviewer. Client-only: no server, permission
+catalog, database or deployment changes.
+
+**A — motion:** shared motion tokens and a global reduced-motion rule; Skeleton
+loaders (routes, student/user/report/vehicle lists); PageTransition (class restart,
+no remount); staggered row entry; TabIndicator (sliding underline/pill following
+aria-selected) on six tablists; toasts with real durations, sticky toasts that stay,
+icon, optional action, brand colors, MotionConfig reducedMotion="user"; confirm
+dialog with brand look, scale-in / phone bottom sheet, Escape/backdrop cancel and a
+danger color from options.danger instead of the button text; Button success state
+(attendance save); notices delete-for-everyone and personal hide with undo (the old
+confirm stays without notices.restore); dashboard CountUp. IT/Sport: page/tab fade,
+dialog/toast restyle, button press.
+
+**B — ease of use:** phone BottomNav (permitted items only, "more" opens the menu);
+QuickSearch (Ctrl/⌘+K or "/"; pages, students, staff, programs; Arabic
+normalization; lazy loading of only the lists the user may view; navigation through
+the header's leave check); EmptyState on lists; useFormDraft + DraftBanner on the
+report/student/user forms (localStorage draft:<user>:<form>:<id>, 24h TTL, never
+password/photo/roles, never restored silently, cleared on save, sign-out clears all
+storage, off when read-only and on the public parent form); revealFirstError (scroll,
+focus, aria-invalid, shake); sticky table headers under the measured header; 44px
+touch targets on coarse pointers.
+
+**C — unified design:** shared/tokens.css synced by scripts/syncShared.js to
+apps/{system,it}/src/generated/tokens.css and imported first; duplicated :root token
+blocks replaced by aliases. Dark theme (:root[data-theme="dark"]) with an
+automatic/light/dark ThemeSwitch in both account menus (data-bs-theme for Bootstrap).
+About 180 hard-coded light colors mapped to tokens by property; brand-colored text
+uses a new --color-link token (42 places). Plain unclassed buttons share the
+secondary look; legacy .formContainer button rules exclude the shared Button
+(data-ui="button"); the main form actions use Button. One inline SVG Icon set.
+
+**Browser QA (local, synthetic only):** production build served with a mock API and
+synthetic records, no database or network. Checked desktop/phone, bottom bar, tab
+pill, undo after delete-for-everyone, quick search, light and dark themes. Found and
+fixed: quick-search box hidden under the header menu (now portaled to body), white
+menu button and low-contrast links in dark mode (surface token, --color-link). The
+mock server and fixture are outside the repository.
+
+**Self-review fix before peer review:** with sticky toasts now really sticky, the
+expired-session warning (every 20s) would have stacked; status toasts now use fixed
+ids that replace earlier copies, and the server-down warning is dismissed on recovery.
+
+**Verification:** server 1,571 pass; System 1,174 tests (135 suites) and build;
+IT 116 (18 suites) and build; Sport 149 (26 suites) and build; syncShared --check and
+git diff --check pass. New tests: quick search (normalization, permission-gated
+loading, keyboard), draft hook (save, restore, discard, expiry, read-only), notices
+undo with/without notices.restore, toast dedupe/sticky/action.
+
+**Actual peer request / response:** Sent the
+[request](reviews/2026-11-08-ux-motion-design-codex-request.md) to actual Codex CLI.
+The [response](reviews/2026-11-08-ux-motion-design-codex-response.txt) is a usage-limit
+stop (resets Nov 11, 2026 18:18) with no findings. Independent Codex review is
+PENDING; resend the same request when the limit resets. Not committed.

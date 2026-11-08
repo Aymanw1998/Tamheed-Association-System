@@ -526,3 +526,32 @@ svg.id-img { height: 86%; }
 .login .btn-passkey { background: var(--navy); color: #fff; }
 .login .btn-ghost { background: transparent; color: var(--navy); }
 .login-form input { padding: 12px; font-size: 17px; letter-spacing: 2px; }
+
+/* ---- Motion (2026-11-08) ------------------------------------------------ */
+:root {
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+  --dur-slow: 320ms;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-spring: cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+@keyframes tab-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.tab-enter { animation: tab-in var(--dur-slow) var(--ease-out) both; }
+@keyframes rise-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.notice-list li { animation: rise-in var(--dur-slow) var(--ease-out) both; }
+.notice-list li:nth-child(2) { animation-delay: 40ms; }
+.notice-list li:nth-child(3) { animation-delay: 80ms; }
+.notice-list li:nth-child(4) { animation-delay: 120ms; }
+.notice-list li:nth-child(n+5) { animation-delay: 160ms; }
+/* The opened tab's icon gives a small hop. */
+@keyframes tab-hop { 0% { transform: none; } 40% { transform: translateY(-4px) scale(1.12); } 100% { transform: none; } }
+.tabs button.on svg { animation: tab-hop var(--dur-slow) var(--ease-spring); }
+.tabs button { transition: color var(--dur-base) ease; }
+.btn { transition: transform var(--dur-fast) ease, box-shadow var(--dur-base) ease, opacity var(--dur-base) ease; }
+.btn:active:not(:disabled) { transform: scale(0.97); }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important; animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important;
+  }
+}

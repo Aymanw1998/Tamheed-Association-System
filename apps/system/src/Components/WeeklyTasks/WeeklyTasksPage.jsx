@@ -1,3 +1,4 @@
+import EmptyState from "../UI/EmptyState";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { approveTask, getMyTasks, getTaskBoard, setMyTaskDone } from "../../WebServer/services/weeklyTasks/functionsWeeklyTasks.jsx";
@@ -37,7 +38,7 @@ function MyTasks({ tasks, onToggle, busy, canComplete }) {
         <label>بحث في مهماتي<input type="search" placeholder="اسم مجموعة أو مهمة" value={search} onChange={(event) => setSearch(event.target.value)} /></label>
         {(selectedGroup || search) && <Button variant="secondary" onClick={() => { setGroup(""); setSearch(""); }}>مسح الفلتر</Button>}
       </div>
-      {filtered.length === 0 ? <p className={styles.muted}>لا توجد مهمات مطابقة.</p> : open.length === 0 && <p className={styles.muted}>كل المهمات المعروضة منجزة.</p>}
+      {filtered.length === 0 ? <EmptyState compact icon="check_list" title="لا توجد مهمات مطابقة." hint={selectedGroup || search ? "جرّب تغيير البحث أو الفلتر." : undefined} /> : open.length === 0 && <EmptyState compact icon="check" title="كل المهمات المعروضة منجزة." hint="عمل رائع! المهمات الجديدة ستظهر هنا." />}
       <ul className={styles.list}>
         {open.map((task) => (
           <li key={`${task.groupId}:${task.taskId}`} className={styles.item}>

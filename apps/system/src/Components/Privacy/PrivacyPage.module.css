@@ -3,8 +3,8 @@
   margin: 0 auto;
   padding: 24px 16px 48px;
   line-height: 1.7;
-  color: #1f2a33;
-  background: #ffffff;
+  color: var(--color-text-primary);
+  background: var(--color-surface);
   min-height: 100vh;
   box-sizing: border-box;
 }
@@ -29,7 +29,7 @@
 }
 
 .updated {
-  color: #5a6570;
+  color: var(--color-text-secondary);
   font-size: 0.9rem;
   margin-top: 0;
 }

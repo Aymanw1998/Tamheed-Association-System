@@ -203,7 +203,10 @@ export default function App() {
       <main className="content">
         {tab === "home" && !guideOpen && <PasskeyOffer key={studentKey} account={studentKey} />}
         {tab === "home" && <InstallAppButton className="btn btn-ghost install-app" />}
-        {tab === "home" ? <HomePage me={me} /> : <NoticesPage notices={notices} seenBefore={seenBefore} failed={noticesFailed} />}
+        {/* key: each tab's page fades in when it opens (2026-11-08). */}
+        <div key={tab} className="tab-enter">
+          {tab === "home" ? <HomePage me={me} /> : <NoticesPage notices={notices} seenBefore={seenBefore} failed={noticesFailed} />}
+        </div>
       </main>
       {chrome}
       <BottomTabs tab={tab} onChange={openTab} badges={{ notices: tab === "notices" ? 0 : unseenCount(notices, readSeen(studentKey)) }} />

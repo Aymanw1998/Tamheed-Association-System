@@ -1,3 +1,4 @@
+import CountUp from "../UI/CountUp";
 import WeeklyTasksCard from "../WeeklyTasks/WeeklyTasksCard.jsx";
 import GuidePickerDialog from "../Student/GuidePickerDialog.jsx";
 import React, { useEffect, useMemo, useState } from "react";
@@ -306,11 +307,11 @@ export default function Dashboard() {
       <SystemAlerts title="الإشعارات" showEmpty includeNotices={canStored("notices.view")} />
 
       <div className={styles.stats} data-tour="dashboard-stats">
-        {summary.map((item) => (
-          <div key={item.label} className={styles.statCard}>
+        {summary.map((item, index) => (
+          <div key={item.label} className={`${styles.statCard} rise-in`} style={{ "--i": index }}>
             <span>{item.label}</span>
             <strong className={!loading && item.failed ? styles.statValueFailed : ""}>
-              {loading ? "..." : item.failed ? "-" : item.value}
+              {loading ? <em className={styles.statLoading} aria-label="جارٍ التحميل">...</em> : item.failed ? "-" : <CountUp value={item.value} />}
             </strong>
             {!loading && item.failed && <small className={styles.statHint}>تعذّر تحميل هذه البيانات</small>}
           </div>

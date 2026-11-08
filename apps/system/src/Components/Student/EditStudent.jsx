@@ -1,3 +1,4 @@
+import Button from "../UI/Button";
 import { isDemo } from "../../journey/demoMode";
 import { gradeOptions } from "../../utils/grades";
 import RegistrationConsent from "./RegistrationConsent.jsx";
@@ -25,6 +26,12 @@ import SaveNotice from "../../locks/SaveNotice";
 import useReloadOnUnblock from "../../locks/useReloadOnUnblock";
 import { handleSaveError, withBaseVersion } from "../../locks/staleSave";
 import { useLockRecovery } from "../../locks/LockLostBanner";
+import useFormDraft from "../../utils/useFormDraft";
+import { clearFieldError, revealFirstError } from "../../utils/revealError";
+import DraftBanner from "../UI/DraftBanner";
+
+// Kept as a draft on this device until saved (never the password, photo or roles).
+const DRAFT_FIELDS = ["tz","firstname","lastname","birth_date","gender","phone","email","city","street","father_name","mother_name","father_phone","mother_phone","father_work","mother_work","school","layer","health_status","notes"];
 
 const EditStudent = ({parent = false}) => {
   const params = useParams();              // "new" الأحدالجمعة _id
@@ -98,6 +105,13 @@ const EditStudent = ({parent = false}) => {
   const lockKey = isEdit && !parent && opened?._id ? `student:${opened._id}` : null;
   const lock = useItemLock(lockKey, { enabled: canStored("students.edit") });
   const readonly = lock.status === "readonly";
+  // Unsaved changes survive a closed tab (package B, 2026-11-08).
+  const [emptyForm] = useState(form);
+  const draftBaseline = isEdit ? opened : emptyForm;
+  const draft = useFormDraft({
+    key: !parent && !readonly && draftBaseline ? `draft:${localStorage.getItem("user_id") || "anon"}:student:${id}` : null,
+    form, baseline: draftBaseline, fields: DRAFT_FIELDS, setForm,
+  });
 
 
   // Parents arrive through the fixed registration link /register-student/:token.
@@ -313,11 +327,13 @@ const EditStudent = ({parent = false}) => {
     if (b) { toast.warn(b); return; }
     b = true
     const ff = ['tz', 'firstname', 'lastname', 'birth_date', 'gender', 'city', 'street', 'school', 'layer', 'health_status'];
+    const wrong = [];
     for(const nameTag in ff){
       const tag = document.getElementsByName(ff[nameTag])[0];
       // console.log('tag', tag, tag.name, tag.value);
       const msg = await validate(tag.name, tag.value);
       setError((prev) => ({ ...prev, [tag.name]: msg }));
+      if (msg) wrong.push(tag.name); else clearFieldError(tag.name);
       // console.log('msg', msg)
       if(msg && msg !== ''){
         b = false;
@@ -329,7 +345,7 @@ const EditStudent = ({parent = false}) => {
       setError((prev) => ({ ...prev, main_teacher: "يجب اختيار المرشد المسؤول" }));
       b = false;
     }
-    if(!b) return toast.warn("يُرجى تعبئة الحقول المطلوبة");
+    if(!b) { revealFirstError(wrong); return toast.warn("يُرجى تعبئة الحقول المطلوبة"); }
     const rules = parent ? inviteStatus.rules : null;
     e.preventDefault();
     try {
@@ -369,6 +385,7 @@ const EditStudent = ({parent = false}) => {
         throw new Error(res.message);
       }
       setNotice(null);
+      draft.clear();
       toast.success(isEdit ? "تم حفظ بيانات الطالب بنجاح" : "تمت إضافة الطالب بنجاح");
 
       if (photoChange === "remove") {
@@ -455,6 +472,7 @@ const EditStudent = ({parent = false}) => {
 
       <SaveNotice notice={notice} />
       {recovery.element}
+      <DraftBanner draft={draft.pending} onRestore={draft.restore} onDiscard={draft.discard} />
       <ReadOnlyArea readonly={readonly} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <fieldset className={sectionStyles.formSection} data-tour="student-details">
         <legend>بيانات الطالب</legend>
@@ -618,15 +636,15 @@ const EditStudent = ({parent = false}) => {
       {parent && consentError && <p role="alert" className={styles.formError}>{consentError}</p>}
 
       <div className={styles.buttonRow} style={{ gap: 8, flexWrap: "wrap" }}>
-        <button type="submit" data-tour="student-save" onClick={handleSubmit} disabled={readonly || saving} style={{width:"100%"}}>
+        <Button type="submit" className="form-action" data-tour="student-save" onClick={handleSubmit} disabled={readonly} loading={saving}>
           {saving ? "جارٍ الحفظ…" : parent ? "إرسال الطلب" : (isEdit ? "حفظ التعديلات" : "إضافة الطالب")}
-        </button>
+        </Button>
 
         {/* Deleting is on the student's page (owner, 2026-11-02). */}
 
-        {!parent && (<button type="button" data-tour="student-back" style={{ background: "#6b7280", width: "100%" }} onClick={() => navigate(-1)}>
+        {!parent && (<Button type="button" variant="secondary" className="form-action" data-tour="student-back" onClick={() => navigate(-1)}>
           العودة إلى القائمة
-        </button>)}
+        </Button>)}
       </div>
     </div>
   );

@@ -1,3 +1,4 @@
+import EmptyState from "../UI/EmptyState";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { getAll } from "../../WebServer/services/student/functionsStudent.jsx";
@@ -13,6 +14,7 @@ import CopyParentLink from "./CopyParentLink.jsx";
 import MobileStudentList from "./MobileStudentList.jsx";
 import Avatar from "../UI/Avatar.jsx";
 import { passportSrc } from "../../utils/passportPhoto";
+import Skeleton from "../UI/Skeleton";
 
 const ACTIVE_STATUS = "عادي";
 const PENDING_STATUS = "ينتظر";
@@ -255,7 +257,7 @@ const ViewAllStudent = () => {
       </div>
 
       {err && <div className={styles.formError}>{err}</div>}
-      {!err && loading && <div className={styles.emptyState}>جارٍ تحديث البيانات…</div>}
+      {!err && loading && <Skeleton rows={6} label="جارٍ تحديث البيانات…" />}
 
       {!loading && !err && (
         <div className={styles.mobileOnly}>
@@ -282,10 +284,11 @@ const ViewAllStudent = () => {
           </thead>
           <tbody>
             {sortedFilteredStudents.length > 0 ? (
-              sortedFilteredStudents.map((student) => (
+              sortedFilteredStudents.map((student, index) => (
                 <tr
                   key={student._id || student.tz}
-                  className={styles.openRow}
+                  className={`${styles.openRow} rise-in`}
+                  style={{ "--i": index }}
                   onClick={(e) => openStudent(e, student)}
                 >
                   <td data-label="رقم الهوية">{student.tz}</td>
@@ -310,8 +313,8 @@ const ViewAllStudent = () => {
               ))
             ) : (
               <tr>
-                <td colSpan={6} className={styles.emptyState}>
-                  لا يوجد طلاب في هذه القائمة
+                <td colSpan={6}>
+                  <EmptyState icon="student" title="لا يوجد طلاب في هذه القائمة" hint="جرّب تغيير البحث أو الفلتر. لإضافة طالب جديد استخدم زر الإضافة." />
                 </td>
               </tr>
             )}

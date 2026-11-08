@@ -1,3 +1,4 @@
+import EmptyState from "../UI/EmptyState";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { getAll } from "../../WebServer/services/user/functionsUser.jsx";
@@ -16,6 +17,7 @@ import { resolveRole, roleLabel } from "../../utils/roles";
 import { ask } from "../Provides/confirmBus";
 import Avatar from "../UI/Avatar.jsx";
 import { passportSrc } from "../../utils/passportPhoto";
+import Skeleton from "../UI/Skeleton";
 
 const ViewAllUser = () => {
   const { t } = useI18n();
@@ -236,7 +238,7 @@ const ViewAllUser = () => {
       </div>
 
       {err && <div className={styles.formError}>{err}</div>}
-      {!err && loading && <div className={styles.emptyState}>جارٍ تحديث البيانات…</div>}
+      {!err && loading && <Skeleton rows={6} label="جارٍ تحديث البيانات…" />}
 
       {!loading && !err && (
         <div className={styles.mobileOnly}>
@@ -261,10 +263,11 @@ const ViewAllUser = () => {
           </thead>
           <tbody>
             {sortedFilteredUsers.length > 0 ? (
-              sortedFilteredUsers.map((user) => (
+              sortedFilteredUsers.map((user, index) => (
                 <tr
                   key={user._id}
-                  className={styles.openRow}
+                  className={`${styles.openRow} rise-in`}
+                  style={{ "--i": index }}
                   onClick={(e) => openUser(e, user)}
                 >
                   <td data-label="رقم الهوية">{user.tz}</td>
@@ -288,8 +291,8 @@ const ViewAllUser = () => {
               ))
             ) : (
               <tr>
-                <td colSpan={6} className={styles.emptyState}>
-                  لا توجد بيانات لعرضها
+                <td colSpan={6}>
+                  <EmptyState icon="users" title="لا توجد بيانات لعرضها" hint="جرّب تغيير البحث أو الفلتر." />
                 </td>
               </tr>
             )}

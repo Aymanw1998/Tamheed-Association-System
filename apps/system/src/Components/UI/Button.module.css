@@ -14,7 +14,8 @@
   white-space: nowrap;
   cursor: pointer;
   transition: filter var(--transition-fast), border-color var(--transition-fast),
-    box-shadow var(--transition-fast), opacity var(--transition-fast);
+    box-shadow var(--transition-fast), opacity var(--transition-fast),
+    transform var(--dur-fast) ease, background-color var(--dur-base) ease, color var(--dur-base) ease;
 }
 
 .button:hover:not(:disabled) {
@@ -23,6 +24,7 @@
 
 .button:active:not(:disabled) {
   filter: brightness(0.92);
+  transform: scale(0.97);
 }
 
 .button:focus-visible {
@@ -69,7 +71,7 @@
 
 .ghost {
   background: transparent;
-  color: var(--color-primary-600);
+  color: var(--color-link);
 }
 
 .ghost:hover:not(:disabled) {
@@ -97,8 +99,34 @@
   align-items: center;
 }
 
+/* Just saved: green with a check that pops in. */
+.done,
+.done:disabled,
+.done:hover:not(:disabled) {
+  opacity: 1;
+  cursor: default;
+  background: var(--color-success-500);
+  border-color: transparent;
+  color: #fff;
+  filter: none;
+}
+.check {
+  display: inline-flex;
+  animation: check-pop var(--dur-slow) var(--ease-spring) both;
+}
+@keyframes check-pop {
+  from { transform: scale(0.3) rotate(-25deg); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
   }
+}
+
+/* Touch screens: a finger-sized target (44px; small buttons 40px). */
+@media (pointer: coarse) {
+  .button { min-height: 44px; }
+  .sm { min-height: 40px; padding-inline: 14px; }
 }

@@ -1,3 +1,4 @@
+import Button from "../UI/Button";
 import { formatDateTime } from "../../generated/dateFormat";
 import RequiredMark from "../UI/RequiredMark";
 import React, { useEffect, useState } from "react";
@@ -30,6 +31,12 @@ import SaveNotice from "../../locks/SaveNotice";
 import useReloadOnUnblock from "../../locks/useReloadOnUnblock";
 import { handleSaveError, withBaseVersion } from "../../locks/staleSave";
 import { useLockRecovery } from "../../locks/LockLostBanner";
+import useFormDraft from "../../utils/useFormDraft";
+import { clearFieldError, revealFirstError } from "../../utils/revealError";
+import DraftBanner from "../UI/DraftBanner";
+
+// Kept as a draft on this device until saved (never the password, photo or roles).
+const DRAFT_FIELDS = ["tz","firstname","lastname","birth_date","gender","phone","email","city","street"];
 
 const safeAsk = async (options) => {
   try { return await ask("change", options); } catch { return false; }
@@ -115,6 +122,13 @@ const EditUser = () => {
   const lockKey = isEdit && opened?._id ? `user:${opened._id}` : null;
   const lock = useItemLock(lockKey, { enabled: canSubmit });
   const readonly = lock.status === "readonly";
+  // Unsaved changes survive a closed tab (package B, 2026-11-08).
+  const [emptyForm] = useState(form);
+  const draftBaseline = isEdit ? opened : emptyForm;
+  const draft = useFormDraft({
+    key: !readonly && draftBaseline ? `draft:${localStorage.getItem("user_id") || "anon"}:user:${id}` : null,
+    form, baseline: draftBaseline, fields: DRAFT_FIELDS, setForm,
+  });
   // Roles below the viewer's own (all for the system account); the server
   // applies the same rule to approvals, new accounts and role changes.
   const viewerRoles = viewerAssignableRoles();
@@ -311,12 +325,14 @@ const EditUser = () => {
     b = true
     // A read-only email (no users.passwords) is not sent, so it is not required.
     const ff = requiredUserFields();
+    const wrong = [];
     for(const nameTag in ff){
       const tag = document.getElementsByName(ff[nameTag])[0];
       //console.log('Tag', tag, ff[nameTag]);
       // //console.log('tag', tag, tag.name, tag.value);
       const msg = await validate(tag.name, tag.value);
       setError((prev) => ({ ...prev, [tag.name]: msg }));
+      if (msg) wrong.push(tag.name); else clearFieldError(tag.name);
       // //console.log('msg', msg)
       if(msg && msg !== ''){
         b = false;
@@ -324,7 +340,7 @@ const EditUser = () => {
     }
     // A new user needs a role and a first password.
     if (isNew && (!form.roles?.[0] || !form.password?.trim())) b = false;
-    if(!b) return toast.warn("يُرجى تعبئة الحقول المطلوبة");
+    if(!b) { revealFirstError(wrong); return toast.warn("يُرجى تعبئة الحقول المطلوبة"); }
     e.preventDefault();
     try {
       setSaving(true);
@@ -355,6 +371,7 @@ const EditUser = () => {
         if (handleSaveError(res, { draft: [form.firstname, form.lastname].filter(Boolean).join(" "), setNotice, onReload: load })) return;
         throw new Error(res.message);
       }
+      draft.clear();
       toast.success(isEdit ? "تم حفظ بيانات المستخدم بنجاح" : "تمت إضافة المستخدم بنجاح");
 
       if (photoChange === "remove") {
@@ -430,6 +447,7 @@ const EditUser = () => {
       <SaveNotice notice={notice} />
       {detailsOnly && <p className="alert alert-info" role="note">{t("record.itDetailsOnly")}</p>}
       {recovery.element}
+      <DraftBanner draft={draft.pending} onRestore={draft.restore} onDiscard={draft.discard} />
 
       <ReadOnlyArea readonly={readonly} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <fieldset className={sectionStyles.formSection} data-tour="user-account">
@@ -604,15 +622,14 @@ const EditUser = () => {
 
       <div className={styles.buttonRow} style={{ gap: 8, flexWrap: "wrap" }}>
         {canSubmit && (
-          <button type="submit" data-tour="user-save" onClick={handleSubmit} disabled={readonly} style={{width:"100%"}}>
+          <Button type="submit" className="form-action" data-tour="user-save" onClick={handleSubmit} disabled={readonly} loading={saving}>
             {saving ? "جارٍ الحفظ…" : (isEdit ? "حفظ التعديلات" : "إضافة المستخدم")}
-          </button>
+          </Button>
         )}
         {/* Suspending and deleting are on the user's page (owner, 2026-11-02). */}
-        <br/>
-        {(<button type="button" style={{ background: "#6b7280", width: "100%" }} onClick={() => navigate(-1)}>
+        <Button type="button" variant="secondary" className="form-action" onClick={() => navigate(-1)}>
           العودة إلى القائمة
-        </button>)}
+        </Button>
       </div>
 
     </div>

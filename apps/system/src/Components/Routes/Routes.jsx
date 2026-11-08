@@ -26,6 +26,8 @@ import useAccessUpdates from './AccessChangeNotice';
 import GuidanceProviders from './GuidanceProviders';
 import LiveEventsProvider from '../../locks/LiveEventsProvider';
 import { lazyPage } from '../../utils/lazyPage';
+import Skeleton from '../UI/Skeleton';
+import PageTransition from './PageTransition';
 
 const RegisterPage = lazyPage(() => import('../Auth/RegisterPage/RegisterPage'));
 const ParentConsentPage = lazyPage(() => import('../Student/ParentConsentPage'));
@@ -56,7 +58,7 @@ const LessonsHub = lazyPage(() => import('../Lesson/LessonsHub'));
 const WeeklyTasksPage = lazyPage(() => import('../WeeklyTasks/WeeklyTasksPage'));
 const ManageWeeklyTasks = lazyPage(() => import('../WeeklyTasks/ManageWeeklyTasks'));
 const WeeklyPraise = lazyPage(() => import('../WeeklyTasks/WeeklyPraise'));
-const PageLoading = () => <div role="status" style={{ padding: 24, textAlign: "center" }}>جارٍ التحميل…</div>;
+const PageLoading = () => <div style={{ padding: 24 }}><Skeleton rows={6} /></div>;
 
 // The assistant (alerts now, chat later) shows for accounts with ai.use.
 
@@ -82,7 +84,7 @@ function ProtectedLayout() {
         <PasskeyOffer />
         <Suspense fallback={null}><WeeklyPraise /></Suspense>
         {notice}
-        <Suspense fallback={<PageLoading />}><Outlet key={`outlet-${epoch}-${applied}`} /></Suspense>
+        <PageTransition><Suspense fallback={<PageLoading />}><Outlet key={`outlet-${epoch}-${applied}`} /></Suspense></PageTransition>
         {/* {canStored("ai.use") && <FloatingAIButton key={`ai-${epoch}`} />} */}
       </GuidanceProviders>
     </div>

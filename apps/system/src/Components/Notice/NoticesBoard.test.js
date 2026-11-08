@@ -85,3 +85,29 @@ test("without notices.purge the trash has no permanent delete", async () => {
   expect(buttonNamed("حذف نهائي")).toBeUndefined();
   expect(buttonNamed("استعادة الإعلان")).toBeDefined();
 });
+
+// Package A (2026-11-08): moving to the trash slides the row out and offers "تراجع".
+test("delete for everyone moves to the trash at once and the toast's undo restores it", async () => {
+  const { changeNoticeState } = require("../../WebServer/services/notice/functionsNotice.jsx");
+  const { toast } = require("../../ALERT/SystemToasts");
+  changeNoticeState.mockResolvedValue({ ok: true });
+  await mount();
+  await act(async () => { buttonNamed("حذف للجميع").click(); await new Promise((r) => setTimeout(r, 250)); });
+  expect(changeNoticeState).toHaveBeenCalledWith("n1", "delete");
+  expect(require("../Provides/confirmBus").ask).not.toHaveBeenCalled();
+  const [, options] = toast.success.mock.calls.at(-1);
+  expect(options.action.label).toBe("تراجع");
+  await act(async () => { await options.action.onClick(); });
+  expect(changeNoticeState).toHaveBeenLastCalledWith("n1", "restore");
+});
+
+test("without notices.restore there is no undo: deleting asks first", async () => {
+  require("../../utils/session").canStored.mockImplementation((key) => key !== "notices.restore");
+  const { changeNoticeState } = require("../../WebServer/services/notice/functionsNotice.jsx");
+  changeNoticeState.mockResolvedValue({ ok: true });
+  require("../Provides/confirmBus").ask.mockResolvedValue(true);
+  await mount();
+  await act(async () => { buttonNamed("حذف للجميع").click(); });
+  expect(require("../Provides/confirmBus").ask).toHaveBeenCalledWith("change", expect.any(Object));
+  expect(changeNoticeState).toHaveBeenCalledWith("n1", "delete");
+});

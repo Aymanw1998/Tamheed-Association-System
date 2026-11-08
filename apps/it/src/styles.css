@@ -1,60 +1,7 @@
 /* The IT site: the everyday app's look (apps/system/src/index.css tokens), right to left. */
 :root {
-  --color-primary-50: #eaf5f9;
-  --color-primary-100: #cfe6f0;
-  --color-primary-300: #7fc3da;
-  --color-primary-400: #3299ba;
-  --color-primary-500: #257a97;
-  --color-primary-600: #1e6580;
-  --color-primary-700: #164d63;
-  --color-primary-900: #0d3040;
-  --color-accent-100: #ffecd1;
-  --color-accent-500: #fe9900;
-  --color-accent-600: #d97f00;
-  --color-success-100: #dcfce7;
-  --color-success-500: #16a34a;
-  --color-success-700: #166534;
-  --color-warning-100: #fef3c7;
-  --color-warning-500: #d97706;
-  --color-warning-700: #92400e;
-  --color-danger-100: #fee2e2;
-  --color-danger-500: #dc2626;
-  --color-danger-700: #991b1b;
-  --color-info-100: #dbeafe;
-  --color-info-500: #2563eb;
-  --color-info-700: #1e40af;
-  --color-surface: #ffffff;
-  --color-background: #f5f7f9;
-  --color-border: #e3e8ec;
-  --color-border-strong: #c8d3da;
-  --color-text-primary: #1b2327;
-  --color-text-secondary: #566268;
-  --color-text-muted: #87939a;
-  --color-text-on-primary: #ffffff;
-  --background-header: var(--color-primary-600);
-  --background-navbar: var(--color-primary-700);
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 24px;
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-full: 999px;
-  --shadow-sm: 0 1px 2px rgba(17, 26, 32, 0.06);
-  --shadow-md: 0 4px 12px rgba(17, 26, 32, 0.08);
-  --shadow-lg: 0 12px 32px rgba(17, 26, 32, 0.14);
-  --font-sans: "IBM Plex Sans Arabic", "IBM Plex Sans", "Segoe UI", Tahoma, sans-serif;
-  --fs-xs: 12px;
-  --fs-sm: 14px;
-  --fs-base: 16px;
-  --fs-lg: 18px;
-  --fs-xl: 20px;
-  --fs-2xl: 24px;
-  --transition-fast: 120ms ease;
-
-  /* Older names still used by the IT screens' modules. */
+  /* Tokens: shared/tokens.css (generated/tokens.css, loaded first by index.js).
+     Older names still used by the IT screens' modules: */
   --navy: var(--color-primary-600);
   --ink: var(--color-text-primary);
   --muted: var(--color-text-secondary);
@@ -80,7 +27,7 @@ h1, h2, h3 { font-weight: 600; line-height: 1.3; color: var(--color-text-primary
 h1 { font-size: var(--fs-2xl); margin: 0 0 var(--space-4); }
 h2 { font-size: var(--fs-lg); margin: 0 0 var(--space-3); }
 p { margin: 0 0 var(--space-2); }
-a { color: var(--color-primary-600); }
+a { color: var(--color-link); }
 :focus-visible { outline: 2px solid var(--color-primary-400); outline-offset: 2px; }
 
 /* Buttons: the everyday app's Button (secondary by default, .primary / .danger). */
@@ -99,7 +46,7 @@ button {
   font-weight: 600;
   line-height: 1;
   cursor: pointer;
-  transition: filter var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast);
+  transition: filter var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
 }
 button:hover:not(:disabled) { filter: brightness(0.96); }
 button:active:not(:disabled) { filter: brightness(0.92); }
@@ -151,7 +98,7 @@ label.check { display: flex; align-items: center; gap: 8px; font-weight: 500; co
 .signin-brand { display: flex; flex-direction: column; align-items: center; text-align: center; margin-bottom: 20px; }
 .signin-brand h1 { margin: 14px 0 0; font-size: var(--fs-2xl); font-weight: 800; color: #fff; }
 .signin-brand p { margin: 2px 0 0; font-size: var(--fs-sm); font-weight: 700; color: #ffc46b; }
-.signin-logo { display: grid; place-items: center; width: 96px; height: 96px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 4px var(--color-accent-500), 0 10px 26px rgba(0, 0, 0, .3); overflow: hidden; }
+.signin-logo { display: grid; place-items: center; width: 96px; height: 96px; border-radius: 50%; background: var(--color-surface); box-shadow: 0 0 0 4px var(--color-accent-500), 0 10px 26px rgba(0, 0, 0, .3); overflow: hidden; }
 .signin-logo img { width: 80%; height: 80%; object-fit: contain; }
 .signin-logo-small { margin: 0 auto 10px; }
 .signin .signin-submit { min-height: 48px; background: var(--color-accent-500); border-color: var(--color-accent-500); color: var(--color-primary-900); font-weight: 800; }
@@ -175,7 +122,7 @@ label.check { display: flex; align-items: center; gap: 8px; font-weight: 500; co
   border: none; background: transparent; color: var(--color-text-secondary);
   border-radius: var(--radius-sm);
 }
-.signin .toggle-password:hover:not(:disabled), .password-form .toggle-password:hover:not(:disabled) { filter: none; color: var(--color-primary-600); background: var(--color-primary-50); }
+.signin .toggle-password:hover:not(:disabled), .password-form .toggle-password:hover:not(:disabled) { filter: none; color: var(--color-link); background: var(--color-primary-50); }
 
 /* Page */
 .page { max-width: 1000px; margin: 0 auto; padding: var(--space-4); }
@@ -260,3 +207,17 @@ th, td { padding: 10px 12px; text-align: start; border-bottom: 1px solid var(--c
 /* «البلاغات» */
 .report-field { margin: var(--space-1) 0; overflow-wrap: anywhere; }
 .report-image { display: block; max-width: min(320px, 100%); max-height: 240px; margin: var(--space-2) 0; border-radius: 8px; }
+
+/* ---- Motion (2026-11-08), the same as the everyday app ---------------- */
+@keyframes page-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.page-enter { animation: page-in var(--dur-slow) var(--ease-out) both; }
+@keyframes rise-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.list > li, tbody tr { animation: rise-in var(--dur-slow) var(--ease-out) both; }
+button[role="tab"] { transition: background-color var(--dur-base) ease, color var(--dur-base) ease, filter var(--transition-fast); }
+button:active:not(:disabled) { transform: scale(0.97); }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important; animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important;
+  }
+}

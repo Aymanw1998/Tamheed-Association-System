@@ -1,3 +1,5 @@
+import EmptyState from "../UI/EmptyState";
+import TabIndicator from "../UI/TabIndicator";
 import { formatDate, formatDateTime } from "../../generated/dateFormat";
 import { canStored } from "../../utils/session";
 import RequiredMark from "../UI/RequiredMark";
@@ -30,6 +32,8 @@ export default function NoticesBoard() {
   const [draft, setDraft] = useState(emptyDraft);
   const [errors, setErrors] = useState({});
   const [busy, setBusy] = useState("");
+  // Rows sliding out (moved to the trash or out of my list) before the reload.
+  const [leaving, setLeaving] = useState(() => new Set());
 
   const load = useCallback(async () => {
     const res = await getNotices(filters);
@@ -46,6 +50,32 @@ export default function NoticesBoard() {
     if (success) toast.success(typeof success === "function" ? success(res) : success);
     notifyChanged();
     return load();
+  };
+
+  // Move with undo (package A, 2026-11-08): the row slides out at once and a
+  // toast offers "تراجع" for its own duration. The undo is the opposite state
+  // change, so it is offered only where that change is allowed.
+  const moveWithUndo = async (notice, action, undoAction, message) => {
+    setLeaving((old) => new Set(old).add(notice._id));
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    const res = await changeNoticeState(notice._id, action);
+    setLeaving((old) => { const next = new Set(old); next.delete(notice._id); return next; });
+    if (!res.ok) return toast.warn(res.message);
+    notifyChanged();
+    await load();
+    const undo = async () => {
+      const back = await changeNoticeState(notice._id, undoAction);
+      if (!back.ok) return toast.warn(back.message);
+      notifyChanged();
+      load();
+    };
+    return toast.success(message, { duration: 6000, action: undoAction ? { label: "تراجع", icon: "undo", onClick: undo } : undefined });
+  };
+  const trash = async (notice) => {
+    if (canStored("notices.restore")) return moveWithUndo(notice, "delete", "restore", "نُقل الإعلان إلى المحذوفات. يُحذف نهائيًا بعد 30 يومًا.");
+    const ok = await ask("change", { title: "نقل إلى المحذوفات", message: "سيُنقل الإعلان إلى المحذوفات للجميع. يمكن استعادته خلال 30 يومًا، وبعدها يُحذف نهائيًا. هل تريد المتابعة؟" }).catch(() => false);
+    if (ok) act(`d${notice._id}`, () => changeNoticeState(notice._id, "delete"));
+    return undefined;
   };
 
   const open = async (notice) => {
@@ -101,6 +131,7 @@ export default function NoticesBoard() {
       <SystemAlerts />
       <div role="tablist" aria-label="مجلدات الإعلانات" className={styles.actions}>
         {[ ["all", "الوارد"], ["archived", "المؤرشف"], ["deleted", "المحذوفات"] ].map(([value, label]) => <Button key={value} role="tab" aria-selected={value === folder} variant={value === folder ? "primary" : "secondary"} onClick={() => setFilters((old) => ({ ...old, status: value }))}>{label}</Button>)}
+        <TabIndicator variant="pill" />
       </div>
       {folder === "deleted" && <p className={styles.hint}>تُحذف الإعلانات من المحذوفات نهائيًا بعد 30 يومًا من حذفها.</p>}
 
@@ -131,7 +162,7 @@ export default function NoticesBoard() {
       </div>
 
       {state.error && <p role="alert">{state.error}</p>}
-      {!state.loading && !state.error && state.notices.length === 0 && <p>{t("notices.empty")}</p>}
+      {!state.loading && !state.error && state.notices.length === 0 && <EmptyState icon={folder === "deleted" ? "trash" : "bell"} title={t("notices.empty")} hint={folder === "all" ? "الإعلانات الجديدة تظهر هنا. يمكنك نشر إعلان من النموذج أدناه." : undefined} />}
 
       {state.notices.length > 0 && (
         <div className={styles.tableWrap} data-tour="notices-list">
@@ -143,8 +174,8 @@ export default function NoticesBoard() {
               </tr>
             </thead>
             <tbody>
-              {state.notices.map((n) => (
-                <tr key={n._id} className={n.read ? "" : styles.unreadRow}>
+              {state.notices.map((n, index) => (
+                <tr key={n._id} className={`${n.read ? "" : styles.unreadRow} ${leaving.has(n._id) ? "row-out" : "rise-in"}`} style={{ "--i": index }}>
                   <td><StatusBadge tone={TONE[n.severity]}>{t(`notices.severity.${n.severity}`)}</StatusBadge></td>
                   <td>
                     <button type="button" className={styles.linkButton} onClick={() => open(n)}>{n.title}</button>
@@ -158,10 +189,10 @@ export default function NoticesBoard() {
                   <td className={styles.rowActions}>
                     {!n.read && <Button size="sm" variant="secondary" onClick={() => act(`r${n._id}`, () => markNoticeRead(n._id))}>{t("notices.markRead")}</Button>}
                     {n.category === "manual" && !n.archivedAt && !n.deletedAt && canStored("notices.archive") && <Button size="sm" variant="secondary" data-tour="notices-archive" onClick={() => archive(n)}>{t("notices.archive")}</Button>}
-                    {n.category === "manual" && !n.deletedAt && canStored("notices.delete") && <Button size="sm" variant="danger" onClick={async () => { if (await ask("change", { title: "نقل إلى المحذوفات", message: "سيُنقل الإعلان إلى المحذوفات للجميع. يمكن استعادته خلال 30 يومًا، وبعدها يُحذف نهائيًا. هل تريد المتابعة؟" }).catch(() => false)) act(`d${n._id}`, () => changeNoticeState(n._id, "delete")); }}>حذف للجميع</Button>}
+                    {n.category === "manual" && !n.deletedAt && canStored("notices.delete") && <Button size="sm" variant="danger" onClick={() => trash(n)}>حذف للجميع</Button>}
                     {(n.archivedAt || n.deletedAt) && canStored("notices.restore") && <Button size="sm" onClick={() => act(`s${n._id}`, () => changeNoticeState(n._id, "restore"))}>استعادة الإعلان</Button>}
                     {n.category === "manual" && n.deletedAt && canStored("notices.purge") && <Button size="sm" variant="danger" loading={busy === `p${n._id}`} onClick={() => purge(n)}>حذف نهائي</Button>}
-                    {canStored("alerts.dismiss") && <Button size="sm" variant="secondary" onClick={() => act(`h${n._id}`, () => changeNoticeState(n._id, n.hiddenForMe ? "unhide" : "hide"))}>{n.hiddenForMe ? "إعادة إلى قائمتي" : "حذف من قائمتي"}</Button>}
+                    {canStored("alerts.dismiss") && <Button size="sm" variant="secondary" onClick={() => (n.hiddenForMe ? act(`h${n._id}`, () => changeNoticeState(n._id, "unhide")) : moveWithUndo(n, "hide", "unhide", "أُزيل الإعلان من قائمتك."))}>{n.hiddenForMe ? "إعادة إلى قائمتي" : "حذف من قائمتي"}</Button>}
                   </td>
                 </tr>
               ))}

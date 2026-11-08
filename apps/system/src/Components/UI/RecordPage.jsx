@@ -1,3 +1,4 @@
+import TabIndicator from "./TabIndicator";
 import React from "react";
 import { useSearchParams } from "react-router-dom";
 import Button from "./Button";
@@ -91,6 +92,7 @@ export function RecordTabs({ tabs = [], keepMounted = false }) {
                 {t.label}
               </button>
             ))}
+            <TabIndicator variant="underline" />
           </div>
         )}
         {keepMounted

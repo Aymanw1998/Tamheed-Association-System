@@ -1,28 +1,51 @@
+/* Confirm dialog: the same look and entrance as the everyday app (2026-11-08). */
 .c-overlay {
-  position: fixed; inset: 0; background: rgba(0,0,0,.45);
-  display: flex; align-items: center; justify-content: center; z-index: 1000;
+  position: fixed; inset: 0; z-index: 1000;
+  display: flex; align-items: center; justify-content: center;
+  padding: var(--space-4);
+  background: rgba(13, 48, 64, 0.45);
+  animation: c-fade var(--dur-base) ease both;
 }
 .c-dialog {
-  width: min(520px, 92vw);
-  background: #fff; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.2);
-  overflow: hidden; font-family: system-ui, Arial, sans-serif;
+  width: min(480px, 100%);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  font-family: inherit;
+  border-top: 4px solid var(--color-primary-500);
+  animation: c-grow var(--dur-slow) var(--ease-spring) both;
 }
-.c-header { padding: 16px 20px; border-bottom: 1px solid #eee; }
-.c-body   { padding: 16px 20px; line-height: 1.5; }
+.c-dialog-danger { border-top-color: var(--color-danger-500); }
+.c-header { padding: var(--space-4) var(--space-5) 0; }
+.c-header h3 { margin: 0; font-size: var(--fs-lg); }
+.c-body { padding: var(--space-3) var(--space-5) var(--space-4); line-height: 1.6; color: var(--color-text-secondary); }
+.c-body p { margin: 0; }
 .c-actions {
-  display: flex; gap: 8px; justify-content: flex-end;
-  padding: 12px 16px; border-top: 1px solid #eee;
+  display: flex; gap: var(--space-2); justify-content: flex-end; flex-wrap: wrap;
+  padding: var(--space-3) var(--space-5) var(--space-4);
+  background: var(--color-background);
 }
 .c-btn {
-  padding: 8px 14px; border-radius: 8px; border: 1px solid #d0d7de;
-  background: #fff; cursor: pointer;
+  min-height: 40px; padding: 8px 18px;
+  border-radius: var(--radius-md); border: 1px solid var(--color-border-strong);
+  background: var(--color-surface); color: var(--color-text-primary);
+  font: inherit; font-weight: 600; cursor: pointer;
+  transition: filter var(--dur-fast) ease, transform var(--dur-fast) ease;
 }
-.c-btn:hover { background: #f6f8fa; }
-.c-btn-primary {
-  background: #2563eb; border-color: #2563eb; color: #fff;
+.c-btn:hover { filter: brightness(0.96); }
+.c-btn:active { transform: scale(0.97); }
+.c-btn-primary { background: var(--color-primary-500); border-color: transparent; color: var(--color-text-on-primary); }
+.c-btn-danger { background: var(--color-danger-500); border-color: transparent; color: #fff; }
+
+@keyframes c-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes c-grow { from { opacity: 0; transform: translateY(8px) scale(0.94); } to { opacity: 1; transform: none; } }
+
+@media (max-width: 560px) {
+  .c-overlay { align-items: flex-end; padding: 0; }
+  .c-dialog { border-radius: var(--radius-lg) var(--radius-lg) 0 0; animation-name: c-sheet; }
+  .c-actions { padding-bottom: calc(var(--space-4) + env(safe-area-inset-bottom, 0px)); }
+  .c-actions .c-btn { flex: 1; }
 }
-.c-btn-primary:hover { filter: brightness(0.95); }
-.c-btn-danger {
-  background: #dc2626; border-color: #dc2626; color: #fff;
-}
-.c-btn-danger:hover { filter: brightness(0.95); }
+@keyframes c-sheet { from { transform: translateY(100%); } to { transform: none; } }

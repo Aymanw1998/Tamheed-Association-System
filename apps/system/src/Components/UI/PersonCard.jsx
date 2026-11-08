@@ -1,12 +1,13 @@
 import React from "react";
 import styles from "./PersonCard.module.css";
 import Avatar from "./Avatar.jsx";
+import EmptyState from "./EmptyState.jsx";
 
 // Compact card for people lists on phones (students, users). With `onOpen`,
 // tapping the main area opens the person; `actions` stay as separate buttons.
-export function PersonCardList({ emptyText, children }) {
+export function PersonCardList({ emptyText, emptyHint, emptyIcon = "inbox", children }) {
   const items = React.Children.toArray(children);
-  if (!items.length) return <p className={styles.empty}>{emptyText}</p>;
+  if (!items.length) return <EmptyState compact icon={emptyIcon} title={emptyText} hint={emptyHint} />;
   return <ul className={styles.list}>{items}</ul>;
 }
 

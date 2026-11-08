@@ -32,7 +32,7 @@
   padding: 4px;
   box-sizing: border-box;
   object-fit: contain;
-  background: #fff;
+  background: var(--color-surface);
   border: 1.5px solid #164d63;
   border-radius: 50%;
 }
@@ -43,11 +43,11 @@
   max-width: calc(100vw - 200px);
   margin-bottom: 40px;
   padding: 14px 16px;
-  background: #fff;
+  background: var(--color-surface);
   border: 2px solid #257a97;
   border-radius: 16px;
   box-shadow: 0 8px 24px rgba(13, 48, 64, 0.2);
-  color: #1b2327;
+  color: var(--color-text-primary);
   text-align: right;
   animation: bubbleIn 0.25s ease-out;
 }
@@ -60,15 +60,15 @@
   bottom: 20px;
   width: 16px;
   height: 16px;
-  background: #fff;
+  background: var(--color-surface);
   border-left: 2px solid #257a97;
   border-bottom: 2px solid #257a97;
   transform: rotate(45deg);
 }
 
-.name { font-size: 13px; font-weight: 700; color: #257a97; margin-bottom: 2px; }
-.title { margin: 0 0 6px; font-size: 18px; line-height: 1.4; color: #164d63; }
-.body { margin: 0 0 12px; font-size: 15px; line-height: 1.7; color: #1b2327; }
+.name { font-size: 13px; font-weight: 700; color: var(--color-primary-700); margin-bottom: 2px; }
+.title { margin: 0 0 6px; font-size: 18px; line-height: 1.4; color: var(--color-primary-700); }
+.body { margin: 0 0 12px; font-size: 15px; line-height: 1.7; color: var(--color-text-primary); }
 
 .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 
@@ -85,10 +85,10 @@
 
 .primary { background: #257a97; color: #fff; border: 1px solid #257a97; font-weight: 700; }
 .primary:hover { background: #164d63; }
-.secondary { background: #fff; color: #164d63; border: 1px solid #c8d3da; }
-.secondary:hover:not(:disabled) { background: #eaf5f9; }
+.secondary { background: var(--color-surface); color: var(--color-primary-700); border: 1px solid var(--color-border-strong); }
+.secondary:hover:not(:disabled) { background: var(--color-primary-50); }
 .secondary:disabled { opacity: 0.5; cursor: default; }
-.link { background: transparent; color: #566268; border: 1px solid transparent; text-decoration: underline; }
+.link { background: transparent; color: var(--color-text-secondary); border: 1px solid transparent; text-decoration: underline; }
 
 .confetti {
   position: fixed;

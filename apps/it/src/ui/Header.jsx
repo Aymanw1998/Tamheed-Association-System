@@ -1,3 +1,4 @@
+import ThemeSwitch from "./ThemeSwitch";
 import { useEffect, useRef, useState } from "react";
 import { Link, navigate } from "../router.jsx";
 import logo from "../logo.png";
@@ -62,6 +63,7 @@ export default function Header({ links, path, me, onOpenSystem, onSignOut }) {
               </span>
             </button>
           )}
+          <ThemeSwitch />
           <button type="button" role="menuitem" onClick={onSignOut} className={styles.logoutButton}>تسجيل الخروج</button>
         </div>
       )}

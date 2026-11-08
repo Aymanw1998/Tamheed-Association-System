@@ -70,31 +70,58 @@
 /* ============================
    Toast item
    ============================ */
+/* A white card with a colored edge and icon (2026-11-08): readable in every
+   variant (the old yellow warning had white text on yellow). */
 .toast{
-  min-width: 240px;
+  --tone: var(--color-primary-600);
+  --tone-bg: var(--color-primary-50);
+  min-width: 260px;
   max-width: min(92vw, 420px);
-  background: #111;
-  color: #fff;
-  border-radius: 12px;
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  border-radius: var(--radius-lg, 12px);
   padding: 12px 14px;
-  box-shadow: 0 12px 30px rgba(0,0,0,.35);
-  border: 1px solid rgba(255,255,255,.08);
+  box-shadow: var(--shadow-lg, 0 12px 32px rgba(17,26,32,.14));
+  border: 1px solid var(--color-border);
+  border-inline-start: 4px solid var(--tone);
   font-size: 14px;
   direction: rtl;
 }
+.toastIcon{
+  display: inline-grid; place-items: center;
+  width: 30px; height: 30px; border-radius: 50%;
+  background: var(--tone-bg); color: var(--tone);
+  flex: none;
+  animation: toast-icon-pop var(--dur-slow, 320ms) var(--ease-spring, ease) both;
+  animation-delay: 80ms;
+}
+@keyframes toast-icon-pop{
+  from{ transform: scale(.4); opacity: 0; }
+  to{ transform: none; opacity: 1; }
+}
+.toastAction{
+  display: inline-flex; align-items: center; gap: 6px;
+  margin-inline-start: auto;
+  padding: 6px 12px; min-height: 32px;
+  border: 1px solid var(--tone); border-radius: var(--radius-md, 8px);
+  background: transparent; color: var(--tone);
+  font: inherit; font-weight: 600; cursor: pointer;
+  white-space: nowrap;
+}
+.toastAction:hover{ background: var(--tone-bg); }
 
 /* ملاحظة عربية */
 .toastRow { display: flex; align-items: center; gap: 12px; }
-.toastBody { display: flex; flex-direction: column; }
+.toastBody { display: flex; flex-direction: column; flex: 1; min-width: 0; }
 .toastTitle { font-weight: 700; margin-bottom: 4px; }
 .toastDesc { opacity: .95; line-height: 1.35; }
 
 /* ملاحظة عربية */
 .toastClose{
-  background: transparent; border: 0; color: inherit; font-size: 18px;
-  cursor: pointer; line-height: 1; padding: 4px 8px; opacity: .8;
+  background: transparent; border: 0; color: var(--color-text-secondary); font-size: 18px;
+  cursor: pointer; line-height: 1; padding: 4px 8px;
 }
-.toastClose:hover{ color: var(--text); }
+.toastClose:hover{ color: var(--color-text-primary); }
 
 /* ملاحظة عربية */
 @media (max-width: 768px){
@@ -105,10 +132,10 @@
 /* ============================
    Variants
    ============================ */
-.info        { background: #0f172a; border-color: #334155; }
-.success     { background:#10b981; }
-.warning     { background:#e2e60a; }
-.destructive { background:#ef4444; }
+.info        { --tone: var(--color-info-500); --tone-bg: var(--color-info-100); }
+.success     { --tone: var(--color-success-500); --tone-bg: var(--color-success-100); }
+.warning     { --tone: var(--color-warning-500); --tone-bg: var(--color-warning-100); }
+.destructive { --tone: var(--color-danger-500); --tone-bg: var(--color-danger-100); }
 
 /* ============================
    Status badge (عربيالأحد عربيالجمعةالاثنينالخميس)
@@ -160,7 +187,7 @@
   position: relative;
   height: 3px;
   width: 100%;
-  background: rgba(0,0,0,0.08);
+  background: var(--color-border);
   border-radius: 999px;
   overflow: hidden;
   margin-top: 6px;
@@ -169,7 +196,6 @@
 .progressFill {
   height: 100%;
   width: 0%;
-  background: currentColor;    /* ملاحظة عربية */
-  opacity: 0.65;
+  background: var(--tone);
   transition: width 120ms linear;
 }

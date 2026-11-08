@@ -61,21 +61,22 @@ export function ConfirmProvider({ children }) {
       {children}
 
       {state.open && (
-        <div className="c-overlay" role="dialog" aria-modal="true">
-          <div className="c-dialog">
+        <div className="c-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) close(false); }}
+          onKeyDown={(e) => { if (e.key === "Escape") { e.stopPropagation(); close(false); } }}>
+          <div className={`c-dialog ${state.options.danger ? "c-dialog-danger" : ""}`} role="dialog" aria-modal="true" aria-labelledby="c-dialog-title" aria-describedby="c-dialog-message">
             <div className="c-header">
-              <h3>{state.options.title}</h3>
+              <h3 id="c-dialog-title">{state.options.title}</h3>
             </div>
             <div className="c-body">
-              <p>{state.options.message}</p>
+              <p id="c-dialog-message">{state.options.message}</p>
             </div>
             <div className="c-actions">
               <button className="c-btn" data-confirm="cancel" data-tour="confirm-cancel" onClick={() => close(false)}>
                 {state.options.cancelText} {/* cancelled*/}
               </button>
+              {/* The confirm button's color follows the action (danger for a delete), not its text. */}
               <button
-                className={`c-btn`}
-                style={{ backgroundColor: state.options.confirmText == "حفظ" ? '#d94fd2ff' : (state.options.confirmText == "نعم" ? '#09d802ff': (state.options.confirmText == "حذف" ? '#f53615ff': '')), color: 'black' }}
+                className={`c-btn ${state.options.danger ? "c-btn-danger" : "c-btn-primary"}`}
                 data-tour="confirm-ok"
                 onClick={() => close(true)}
                 autoFocus

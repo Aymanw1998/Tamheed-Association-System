@@ -1,3 +1,4 @@
+import TabIndicator from "../UI/TabIndicator";
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { canAccessPath } from "../../utils/routeAccess";
@@ -26,6 +27,7 @@ export default function LessonsHub({ active, children }) {
               {label}
             </button>
           ))}
+          <TabIndicator variant="pill" />
         </div>
       )}
       {children}

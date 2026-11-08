@@ -97,11 +97,11 @@
 }
 
 .tab:hover {
-  color: var(--color-primary-600);
+  color: var(--color-link);
 }
 
 .tabOn {
-  color: var(--color-primary-600);
+  color: var(--color-link);
   border-bottom-color: var(--color-primary-600);
   font-weight: 600;
 }

@@ -9,8 +9,8 @@
   font: inherit;
   font-size: 13px;
   font-weight: 600;
-  color: #164d63;
-  background: #fff;
+  color: var(--color-primary-700);
+  background: var(--color-surface);
   border: 1px solid #cfe6f0;
   border-radius: 999px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, .15);
@@ -38,7 +38,7 @@
   max-height: 100%;
   overflow: auto;
   padding: 20px;
-  background: #fff;
+  background: var(--color-surface);
   border-radius: 12px;
 }
 .report-dialog h3 { margin: 0 0 12px; }
@@ -51,16 +51,16 @@
   box-sizing: border-box;
   padding: 8px;
   font: inherit;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--color-border-strong);
   border-radius: 8px;
 }
-.report-error { margin: 8px 0 0; color: #991b1b; }
+.report-error { margin: 8px 0 0; color: var(--color-danger-700); }
 .report-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
 .report-actions button {
   padding: 8px 16px;
   font: inherit;
-  background: #fff;
-  border: 1px solid #cbd5e1;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
   border-radius: 8px;
   cursor: pointer;
 }

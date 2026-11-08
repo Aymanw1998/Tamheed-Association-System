@@ -1,7 +1,7 @@
 /* ===== Page Layout ===== */
 .page {
   padding: 16px;
-  background: linear-gradient(180deg, #f7f8ff 0%, #ffffff 70%);
+  background: linear-gradient(180deg, var(--color-primary-50) 0%, var(--color-background) 70%);
   min-height: calc(100vh - 60px);
 }
 
@@ -29,16 +29,16 @@
 .tabBtn {
   padding: 8px 14px;
   border-radius: 14px;
-  border: 1px solid #ddd;
-  background: #fff;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
   cursor: pointer;
   font-weight: 600;
 }
 
 .tabActive {
-  background: #1b1b1f;
+  background: var(--color-primary-600);
   color: #fff;
-  border-color: #1b1b1f;
+  border-color: var(--color-primary-600);
 }
 
 /* ===== Body Grid ===== */
@@ -56,16 +56,16 @@
 
 /* ===== Left Panel ===== */
 .left {
-  background: #fff;
+  background: var(--color-surface);
   border-radius: 18px;
-  border: 1px solid #ececf3;
+  border: 1px solid var(--color-border);
   overflow: hidden;
 }
 
 .leftHeader {
   padding: 14px;
   font-weight: 700;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .lessonList {
@@ -75,8 +75,8 @@
 }
 
 .lessonCard {
-  background: #fafafa;
-  border: 1px solid #eee;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
   border-radius: 14px;
   padding: 10px;
   cursor: pointer;
@@ -84,12 +84,12 @@
 }
 
 .lessonCard:hover {
-  background: #f1f2ff;
+  background: var(--color-primary-50);
 }
 
 .lessonActive {
-  background: #fff;
-  border-color: #1b1b1f;
+  background: var(--color-surface);
+  border-color: var(--color-primary-600);
 }
 
 .lessonName {
@@ -104,9 +104,9 @@
 
 /* ===== Right Panel ===== */
 .right {
-  background: #fff;
+  background: var(--color-surface);
   border-radius: 18px;
-  border: 1px solid #ececf3;
+  border: 1px solid var(--color-border);
   padding: 14px;
 }
 
@@ -146,14 +146,14 @@
 .quickBtn {
   padding: 8px 12px;
   border-radius: 12px;
-  border: 1px solid #ddd;
-  background: #fff;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
   cursor: pointer;
   font-size: 13px;
 }
 
 .quickBtn:hover {
-  background: #f3f3ff;
+  background: var(--color-primary-50);
 }
 
 /* ===== Table ===== */
@@ -161,7 +161,7 @@
   overflow-x: auto;
   margin-top: 12px;
   border-radius: 14px;
-  border: 1px solid #eee;
+  border: 1px solid var(--color-border);
 }
 
 .table {
@@ -171,7 +171,7 @@
 }
 
 .table th {
-  background: #fafafa;
+  background: var(--color-background);
   padding: 10px;
   text-align: right;
   font-size: 13px;
@@ -179,7 +179,7 @@
 
 .table td {
   padding: 10px;
-  border-top: 1px solid #eee;
+  border-top: 1px solid var(--color-border);
 }
 
 /* ===== Student Cell ===== */
@@ -205,16 +205,16 @@
 .pill {
   padding: 6px 12px;
   border-radius: 999px;
-  border: 1px solid #ddd;
-  background: #fff;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
   font-size: 13px;
   cursor: pointer;
 }
 
 .pillActive {
-  background: #1b1b1f;
+  background: var(--color-primary-600);
   color: #fff;
-  border-color: #1b1b1f;
+  border-color: var(--color-primary-600);
 }
 
 /* ===== Notes ===== */
@@ -222,7 +222,7 @@
   width: 100%;
   padding: 8px 10px;
   border-radius: 10px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--color-border);
 }
 
 /* ===== Footer ===== */
@@ -241,7 +241,7 @@
 }
 
 .saveBtn {
-  background: #1b1b1f;
+  background: var(--color-primary-600);
   color: #fff;
   border: none;
   border-radius: 14px;
@@ -318,11 +318,11 @@
 
 /* ===== Mobile vertical table ===== */
 .mobileRow {
-  border: 1px solid #eee;
+  border: 1px solid var(--color-border);
   border-radius: 16px;
   padding: 12px;
   margin-bottom: 12px;
-  background: #fff;
+  background: var(--color-surface);
 }
 
 .mobileHeader {
@@ -336,7 +336,7 @@
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: #1b1b1f;
+  background: var(--color-primary-600);
   color: #fff;
   font-size: 13px;
   font-weight: 700;

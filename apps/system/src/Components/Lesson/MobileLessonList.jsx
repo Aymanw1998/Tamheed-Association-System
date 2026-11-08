@@ -1,3 +1,4 @@
+import TabIndicator from "../UI/TabIndicator";
 import React, { useEffect, useMemo, useRef } from "react";
 import styles from "./MobileLessonList.module.css";
 import { DAY_NAMES, countLessonsByDay, endOf, lessonsForDay, startOf, toHHMM } from "../../utils/lessonSchedule";
@@ -37,6 +38,7 @@ export default function MobileLessonList({ lessons, day, onDayChange, teacherNam
             </button>
           );
         })}
+        <TabIndicator variant="pill" />
       </div>
 
       <p className={styles.note}>

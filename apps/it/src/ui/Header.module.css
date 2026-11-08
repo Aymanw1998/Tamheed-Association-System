@@ -24,7 +24,7 @@
   padding: 6px; /* 12% of the circle: the text fits inside it */
   object-fit: contain;
   border-radius: 50%;
-  background: #fff;
+  background: var(--color-surface);
   box-shadow: 0 0 0 3px var(--color-accent-500), 0 4px 12px rgba(0, 0, 0, 0.35);
   cursor: pointer;
   flex-shrink: 0;
@@ -320,7 +320,7 @@
 }
 
 .systemButton:hover:not(:disabled) {
-  background: #fff;
+  background: var(--color-surface);
 }
 
 .headerContent + .navbarV {

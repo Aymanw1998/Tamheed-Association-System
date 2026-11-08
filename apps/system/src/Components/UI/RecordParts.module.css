@@ -6,7 +6,7 @@
   margin: 0 0 var(--space-1);
   font-size: var(--fs-sm);
   font-weight: 600;
-  color: var(--color-primary-600);
+  color: var(--color-link);
 }
 
 .row {
@@ -84,11 +84,11 @@
 }
 
 a.guideName {
-  color: var(--color-primary-600);
+  color: var(--color-link);
 }
 
 .phone {
-  color: var(--color-primary-600);
+  color: var(--color-link);
   align-self: flex-start;
 }
 

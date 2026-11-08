@@ -184,7 +184,7 @@
   direction: ltr;
   white-space: nowrap;
   background: #ffd84d;
-  color: #1b2327;
+  color: var(--color-text-primary);
   border: 1px solid #1b2327;
   border-radius: var(--radius-sm);
 }
@@ -284,7 +284,7 @@
   font-size: var(--fs-xs);
   font-weight: 600;
   line-height: 20px;
-  color: var(--color-primary-600);
+  color: var(--color-link);
   background: var(--color-primary-50);
   border-radius: var(--radius-full);
 }

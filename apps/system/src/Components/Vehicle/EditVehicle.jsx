@@ -1,3 +1,4 @@
+import TabIndicator from "../UI/TabIndicator";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
@@ -376,6 +377,7 @@ export default function EditVehicle() {
             {item.count > 0 && <span className={styles.tabCount}>{item.count}</span>}
           </button>
         ))}
+        <TabIndicator variant="pill" />
       </div>
       {isNew && <p className={styles.note}>{t("vehicles.savedFirst")}</p>}
       <SaveNotice notice={notice} />

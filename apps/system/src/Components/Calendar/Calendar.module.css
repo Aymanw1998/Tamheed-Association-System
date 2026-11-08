@@ -3,7 +3,7 @@
   max-width: 750px;
   margin: 0 auto;
   padding: 20px;
-  background: #ffffff;
+  background: var(--color-surface);
   border-radius: 14px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.08);
   direction: rtl;
@@ -20,7 +20,7 @@
 .monthYear {
   font-size: 22px;
   font-weight: bold;
-  color: #333;
+  color: var(--color-text-primary);
 }
 
 .navButton {
@@ -44,12 +44,12 @@
   text-align: center;
   font-weight: bold;
   margin-bottom: 10px;
-  color: #444;
+  color: var(--color-text-primary);
 }
 
 .weekDay {
   padding: 8px 0;
-  background: #f2f2f2;
+  background: var(--color-danger-100);
   border-radius: 6px;
 }
 
@@ -68,27 +68,27 @@
   min-height: 90px;
   padding: 6px;
   border-radius: 8px;
-  background: #fafafa;
-  border: 1px solid #e3e3e3;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
   transition: 0.2s;
   overflow: hidden;
 }
 
 .dateCell:hover {
     cursor: pointer;
-    background: #f0f6ff;
+    background: var(--color-primary-50);
     border-color: #90caf9;
 }
 .dateCell.today {
   border: 2px solid #3df12d;
-  background-color: #f0f5ef;
+  background-color: var(--color-success-100);
 }
 
 .dateNumber {
   font-size: 16px;
   font-weight: bold;
   margin-bottom: 4px;
-  color: #333;
+  color: var(--color-text-primary);
 }
 
 .eventsContainer {
@@ -197,7 +197,7 @@
 }
 
 .popup {
-  background: white;
+  background: var(--color-surface);
   padding: 20px;
   border-radius: 12px;
   min-width: 300px;
@@ -219,7 +219,7 @@
 .noEvents {
   text-align: center;
   padding: 20px 0;
-  color: #777;
+  color: var(--color-text-secondary);
 }
 
 .eventList {
@@ -268,7 +268,7 @@
 .attTable th,
 .attTable td{
   padding: 8px 10px;
-  border-bottom: 1px solid #e6e6e6;
+  border-bottom: 1px solid var(--color-border);
   vertical-align: middle;
 }
 

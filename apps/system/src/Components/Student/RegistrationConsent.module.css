@@ -1,16 +1,16 @@
 .section { margin: 12px 0 20px; }
-.link { background: transparent !important; color: #1769a8 !important; text-decoration: underline; padding: 4px !important; width: auto !important; }
+.link { background: transparent !important; color: var(--color-primary-700) !important; text-decoration: underline; padding: 4px !important; width: auto !important; }
 .overlay { position: fixed; inset: 0; background: #0008; z-index: 16000; display: flex; align-items: center; justify-content: center; padding: 16px; }
-.dialog { background: white; color: #17283b; width: min(620px, 100%); max-height: 90dvh; overflow-y: auto; border-radius: 14px; padding: 20px; display: grid; gap: 12px; box-sizing: border-box; }
+.dialog { background: var(--color-surface); color: var(--color-primary-700); width: min(620px, 100%); max-height: 90dvh; overflow-y: auto; border-radius: 14px; padding: 20px; display: grid; gap: 12px; box-sizing: border-box; }
 .heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .heading h2 { margin: 0; }
 .heading button { width: auto; }
-.rules { white-space: pre-wrap; border: 1px solid #d1d5db; border-radius: 8px; padding: 12px; }
+.rules { white-space: pre-wrap; border: 1px solid var(--color-border-strong); border-radius: 8px; padding: 12px; }
 .fields { display: grid; gap: 8px; min-width: 0; margin: 0; padding: 0; border: 0; }
 .fields input:not([type='checkbox']) { box-sizing: border-box; width: 100%; padding: 8px 10px; min-height: 42px; font: inherit; border: 1px solid #9ca3af; border-radius: 8px; }
 .agreement { display: flex; align-items: center; gap: 10px; min-height: 44px; font-weight: 600; }
 .agreement input { width: 22px !important; height: 22px; margin: 0; flex: 0 0 auto; accent-color: var(--color-success-700, #247343); }
 .fields[disabled] canvas { pointer-events: none; }
-.page { max-width: 640px; margin: 24px auto; padding: 20px; display: grid; gap: 14px; background: var(--color-surface, #fff); border: 1px solid var(--color-border, #d1d5db); border-radius: 14px; }
+.page { max-width: 640px; margin: 24px auto; padding: 20px; display: grid; gap: 14px; background: var(--color-surface, #fff); border: 1px solid var(--color-border, var(--color-border-strong)); border-radius: 14px; }
 .page h1 { margin: 0; font-size: 1.4rem; }
-.signature { max-width: 100%; width: 400px; border: 1px solid #d1d5db; }
+.signature { max-width: 100%; width: 400px; border: 1px solid var(--color-border-strong); }

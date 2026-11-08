@@ -1,3 +1,4 @@
+import EmptyState from "../UI/EmptyState";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { archiveVehicle, getAllVehicles, restoreVehicle } from "../../WebServer/services/vehicle/functionsVehicle.jsx";
@@ -20,6 +21,7 @@ import {
   insuranceTone,
 } from "../../utils/vehicleDisplay";
 import styles from "./Vehicle.module.css";
+import Skeleton from "../UI/Skeleton";
 
 const STATUS_TONE = { active: "success", out_of_service: "warning", archived: "neutral" };
 
@@ -229,7 +231,7 @@ export default function ViewAllVehicle() {
         </FilterDialog>
       </div>
 
-      {loading && <div className={styles.state} role="status">{t("vehicles.loading")}</div>}
+      {loading && <Skeleton rows={6} label={t("vehicles.loading")} />}
 
       {!loading && error && (
         <div className={`${styles.state} ${styles.stateError}`} role="alert">
@@ -239,7 +241,7 @@ export default function ViewAllVehicle() {
       )}
 
       {!loading && !error && visible.length === 0 && (
-        <div className={styles.state}>{vehicles.length === 0 ? t("vehicles.emptyFirst") : t("vehicles.empty")}</div>
+        <EmptyState icon="car" title={vehicles.length === 0 ? t("vehicles.emptyFirst") : t("vehicles.empty")} hint={vehicles.length === 0 ? undefined : "جرّب تغيير البحث أو الفلتر."} />
       )}
 
       {!loading && !error && visible.length > 0 && (
@@ -254,8 +256,8 @@ export default function ViewAllVehicle() {
                 </tr>
               </thead>
               <tbody>
-                {visible.map((vehicle) => (
-                  <tr key={vehicle._id}>
+                {visible.map((vehicle, index) => (
+                  <tr key={vehicle._id} className="rise-in" style={{ "--i": index }}>
                     <td>
                       <span className={styles.plate}>{formatPlate(vehicle.plate)}</span>
                       {vehicle.nickname && <span className={styles.sub}>{vehicle.nickname}</span>}

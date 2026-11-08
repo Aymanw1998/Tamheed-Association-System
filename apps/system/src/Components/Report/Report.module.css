@@ -74,7 +74,7 @@
   font-size: 1rem;
 }
 
-.formContainer button {
+.formContainer button:not([data-ui="button"]) {
   align-self: flex-start;
   padding: 10px 20px;
   background-color: var(--color-primary-500);
@@ -85,7 +85,7 @@
   transition: background-color 0.2s;
 }
 
-.formContainer button:hover {
+.formContainer button:not([data-ui="button"]):hover {
   background-color: var(--color-primary-600);
 }
 

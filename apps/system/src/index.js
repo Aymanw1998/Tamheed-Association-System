@@ -1,5 +1,6 @@
 import React, { useEffect } from "react";
 import ReactDOM from "react-dom/client";
+import "./generated/tokens.css";
 import "./index.css";
 import App from "./App";
 import reportWebVitals from "./reportWebVitals";
@@ -12,6 +13,7 @@ import QueueStatus from "./pwa/QueueStatus";
 import { startClientIdGuard } from "./locks/clientId";
 import * as serviceWorkerRegistration from "./serviceWorkerRegistration";
 import { ToastProvider, SystemStatusWatcher, StatusBadge, useToast, toast } from "./ALERT/SystemToasts";
+import { startTheme } from "./utils/theme";
 
 const installSafeStorageDefaults = () => {
   if (typeof window === "undefined" || !window.Storage) return;
@@ -53,6 +55,7 @@ function DevToastPing() {
   return null;
 }
 
+startTheme();
 const root = ReactDOM.createRoot(document.getElementById("root"));
 startFreshApp(() => root.render(
   <ConfirmProvider>

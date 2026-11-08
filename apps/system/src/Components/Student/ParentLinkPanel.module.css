@@ -50,7 +50,7 @@
 
 .usage strong {
   font-size: var(--fs-2xl);
-  color: var(--color-primary-600);
+  color: var(--color-link);
 }
 
 .usage strong.full {

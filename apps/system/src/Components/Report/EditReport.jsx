@@ -1,3 +1,4 @@
+import Button from "../UI/Button";
 import React, { useEffect, useState, useMemo } from "react";
 import { isValidIsraeliId } from "../../utils/israeliId";
 import { useParams, useNavigate } from "react-router-dom";
@@ -16,6 +17,11 @@ import SaveNotice from "../../locks/SaveNotice";
 import useReloadOnUnblock from "../../locks/useReloadOnUnblock";
 import { handleSaveError, withBaseVersion } from "../../locks/staleSave";
 import { useLockRecovery } from "../../locks/LockLostBanner";
+import useFormDraft from "../../utils/useFormDraft";
+import { revealFirstError } from "../../utils/revealError";
+import DraftBanner from "../UI/DraftBanner";
+
+const DRAFT_FIELDS = ["date", "attendance", "title", "stitle", "info"];
 
 const MultiTagSelect = ({
   options = [],
@@ -174,6 +180,14 @@ const EditReport = ({parent = false}) => {
   const lockKey = isEdit ? `report:${id}` : null;
   const lock = useItemLock(lockKey, { enabled: canStored("reports.editOwn") || canStored("reports.editAll") });
   const readonly = lock.status === "readonly";
+  // Unsaved text is kept on this device until saved (package B, 2026-11-08):
+  // a new report against the empty form, an edit against the report as opened.
+  const [emptyForm] = useState(form);
+  const draftBaseline = isEdit ? opened : emptyForm;
+  const draft = useFormDraft({
+    key: !parent && !readonly && draftBaseline ? `draft:${localStorage.getItem("user_id") || "anon"}:report:${id}` : null,
+    form, baseline: draftBaseline, fields: DRAFT_FIELDS, setForm,
+  });
 
 
   const load = async () => {
@@ -348,7 +362,10 @@ const EditReport = ({parent = false}) => {
     if (b) { toast.warn(b); return; }
     b = true
     
-    if(form.stitle.length === 0 || form.info === "") return toast.warn("يُرجى تعبئة الحقول المطلوبة");
+    if(form.stitle.length === 0 || form.info === "") {
+      revealFirstError([form.stitle.length === 0 && "stitle", form.info === "" && "info"].filter(Boolean));
+      return toast.warn("يُرجى تعبئة الحقول المطلوبة");
+    }
     e.preventDefault();
     try {
       setSaving(true);
@@ -362,6 +379,7 @@ const EditReport = ({parent = false}) => {
         if (handleSaveError(res, { draft: form.info, setNotice, onReload: load })) return;
         throw new Error(res.message);
       }
+      draft.clear();
       toast.success(isEdit ? "تم حفظ التقرير بنجاح" : "تمت إضافة التقرير بنجاح");
       navigate(-1);
     } catch (e) {
@@ -400,6 +418,7 @@ const EditReport = ({parent = false}) => {
 
       <SaveNotice notice={notice} />
       {recovery.element}
+      <DraftBanner draft={draft.pending} onRestore={draft.restore} onDiscard={draft.discard} />
       <ReadOnlyArea readonly={readonly} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <fieldset className={sectionStyles.formSection} data-tour="report-title">
         <legend>بيانات التقرير</legend>
@@ -460,21 +479,21 @@ const EditReport = ({parent = false}) => {
       )}
       </ReadOnlyArea>
       <div className={styles.buttonRow} style={{ gap: 8, flexWrap: "wrap" }}>
-        <button type="submit" data-tour="report-save" onClick={handleSubmit} disabled={readonly} style={{width:"100%"}}>
+        <Button type="submit" className="form-action" data-tour="report-save" onClick={handleSubmit} disabled={readonly} loading={saving}>
           {saving ? "جارٍ الحفظ…" : parent ? "إرسال الطلب" : (isEdit ? "حفظ التعديلات" : "إضافة التقرير")}
-        </button>
+        </Button>
 
         {isEdit && (
           <>
-            <button type="button" data-tour="report-delete" style={{ background: "#7f1d1d", width:"100%" }} onClick={handleHardDelete} disabled={readonly}>
+            <Button type="button" variant="danger" className="form-action" data-tour="report-delete" onClick={handleHardDelete} disabled={readonly}>
               حذف
-            </button>
+            </Button>
           </>
         )}
 
-        {!parent && (<button type="button" style={{ background: "#6b7280", width:"100%"}} onClick={() => navigate(-1)}>
+        {!parent && (<Button type="button" variant="secondary" className="form-action" onClick={() => navigate(-1)}>
           العودة إلى القائمة
-        </button>)}
+        </Button>)}
       </div>
     </div>
   );
