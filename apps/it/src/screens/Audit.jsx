@@ -1,5 +1,5 @@
 import { formatDateTime } from "../generated/dateFormat";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { archiveAudit, errorText, getAudit } from "../api";
 import ConfirmDialog from "../ui/ConfirmDialog";
 import { auditActions, auditModules, fillText } from "../strings";
@@ -33,8 +33,12 @@ export default function Audit({ me }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
 
+  // Only the newest request may fill the table (a slow answer for the other tab is dropped).
+  const latest = useRef(0);
   const load = useCallback(async (nextFilters, nextPage) => {
+    const ticket = ++latest.current;
     const res = await getAudit(nextFilters, nextPage);
+    if (ticket !== latest.current) return;
     if (!res.ok) return setError(res.data?.code === "BAD_DATE" ? "تاريخ غير صالح" : errorText(res));
     setError("");
     setData({ items: res.data.items || [], total: res.data.total || 0 });
@@ -67,7 +71,7 @@ export default function Audit({ me }) {
         <button role="tab" aria-selected={status === "archived"} onClick={() => { setStatus("archived"); setPage(1); }}>الأرشيف</button>
         {canArchive && <><button disabled={!data?.items.length} onClick={() => setSelected(data.items.map((item) => item._id))}>تحديد الصفحة</button><button disabled={!selected.length || busy} onClick={() => setConfirm(true)}>{status === "archived" ? "استعادة المحدد" : "أرشفة المحدد"} ({selected.length})</button></>}
       </div>
-      {confirm && <ConfirmDialog title={status === "archived" ? "استعادة السجلات" : "أرشفة السجلات"} message={`سيتم ${status === "archived" ? "استعادة" : "أرشفة"} ${selected.length} سجلًا. يبقى سجل التغييرات محفوظًا وقابلًا للاستعادة.`} confirmText="تأكيد" cancelText="إلغاء" onCancel={() => setConfirm(false)} onConfirm={archive} />}
+      {confirm && <ConfirmDialog title={status === "archived" ? "استعادة السجلات" : "أرشفة السجلات"} message={`سيتم ${status === "archived" ? "استعادة" : "أرشفة"} ${selected.length} سجلًا. ${status === "archived" ? "تعود السجلات إلى السجل الحالي ولا تُحذف." : "يمكن استعادتها خلال 6 أشهر، وبعدها تُحذف السجلات المؤرشفة نهائيًا."}`} confirmText="تأكيد" cancelText="إلغاء" onCancel={() => setConfirm(false)} onConfirm={archive} />}
       <div className="toolbar">
         <FilterDialog count={count} onClear={clear} onApply={apply}>
           <label>من تاريخ<input name="from" type="date" value={draft.from || ""} onChange={set("from")} /></label>

@@ -43,10 +43,21 @@ function load(file, dependencies) {
 function setup({ extraUsers = [], pushFails = false } = {}) {
   const rows = [];
   let next = 1;
+  // The MongoDB filter subset the service sends: $and/$or, null matching a
+  // missing field, arrays matching any element, $ne/$gt/$regex/$exists.
+  const same = (a, b) => (a == null || b == null ? a == null && b == null : String(a instanceof Date ? a.toISOString() : a) === String(b instanceof Date ? b.toISOString() : b));
+  const holds = (value, cond) => {
+    if (cond && typeof cond === "object" && !(cond instanceof Date)) return Object.entries(cond).every(([op, arg]) => {
+      if (op === "$regex") return new RegExp(arg).test(value || "");
+      if (op === "$exists") return (value !== undefined && value !== null) === arg;
+      if (op === "$ne") return !holds(value, arg);
+      if (op === "$gt") return value != null && new Date(value) > new Date(arg);
+      throw new Error(`unsupported operator ${op}`);
+    });
+    return Array.isArray(value) ? value.some((v) => same(v, cond)) : same(value, cond);
+  };
   const matches = (doc, filter) => Object.entries(filter).every(([k, v]) =>
-    v && typeof v === "object" && "$regex" in v ? new RegExp(v.$regex).test(doc[k] || "")
-      : v && typeof v === "object" && "$exists" in v ? (doc[k] !== undefined && doc[k] !== null) === v.$exists
-      : String(doc[k]) === String(v));
+    k === "$and" ? v.every((part) => matches(doc, part)) : k === "$or" ? v.some((part) => matches(doc, part)) : holds(doc[k], v));
   const NoticeModelDef = {
     async get(filter = {}) { return { result: rows.filter((r) => matches(r, filter)).map((r) => structuredClone(r)) }; },
     async create(data) {
@@ -54,6 +65,9 @@ function setup({ extraUsers = [], pushFails = false } = {}) {
       const doc = { _id: String(next++).padStart(24, "0"), ...structuredClone(data) }; rows.push(doc); return { result: structuredClone(doc) };
     },
     async update(filter, patch) { rows.forEach((r, i) => { if (matches(r, filter)) rows[i] = { ...r, ...structuredClone(patch) }; }); return { result: null }; },
+    async updateIf(filter, patch) { const i = rows.findIndex((r) => matches(r, filter)); if (i < 0) return null; rows[i] = { ...rows[i], ...structuredClone(patch) }; return structuredClone(rows[i]); },
+    async remove(filter) { const before = rows.length; for (let i = rows.length - 1; i >= 0; i -= 1) if (matches(rows[i], filter)) rows.splice(i, 1); return before - rows.length; },
+    async markReadMany(ids, reader, at) { for (const row of rows) if (ids.includes(row._id) && !(row.readBy || []).includes(reader)) { row.readBy = [...(row.readBy || []), reader]; row.readTimes = { ...(row.readTimes || {}), [reader]: at }; } },
     async setHidden(id, reader, hidden) { const row = rows.find((r) => r._id === id); if (row) { const readers = new Set(row.hiddenBy || []); hidden ? readers.add(reader) : readers.delete(reader); row.hiddenBy = [...readers]; } },
   };
   const users = [ADMIN, GUIDE, READER, REVOKED, ...extraUsers];
@@ -76,7 +90,7 @@ function setup({ extraUsers = [], pushFails = false } = {}) {
     "../../utils/push.js": { push: { async sendToStaff(...args) { if (pushFails) throw new Error("push down"); pushes.push(args); return { sent: 1, removed: 0 }; } } },
     "../../services/vehicleExpiryJob.js": { async runVehicleExpiryCheck() { return { created: 0, emailed: 0 }; } },
   });
-  return { service, controller, rows, audit, pushes, routes: loadRoutes(controller) };
+  return { service, controller, rows, audit, pushes, model: NoticeModelDef, routes: loadRoutes(controller) };
 }
 
 // The real Notice router, recording each route's chain (router.use first).
@@ -97,6 +111,82 @@ function loadRoutes(controller) {
 }
 
 const res = () => ({ statusCode: 200, body: undefined, status(c) { this.statusCode = c; return this; }, json(v) { this.body = v; return this; } });
+test("trash purges after 30 days, restores the end date, and permanent delete needs notices.purge", async () => {
+  const ctx = setup();
+  const ends = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
+  const { notice } = await ctx.service.publishNotice({ title: "Synthetic", body: "", category: "manual", severity: "info", endDate: "2099-01-01", expireAt: ends });
+  const params = { id: notice._id };
+  const before = Date.now();
+  assert.equal((await guarded(ctx, ADMIN, "trash", { params })).statusCode, 200);
+  const purgeAt = ctx.rows[0].expireAt.getTime();
+  assert.ok(purgeAt >= before + ctx.service.TRASH_KEEP_MS && purgeAt <= Date.now() + ctx.service.TRASH_KEEP_MS);
+  assert.equal(ctx.rows[0].keptExpireAt.getTime(), ends.getTime());
+  assert.equal((await guarded(ctx, ADMIN, "trash", { params })).statusCode, 404, "already in the trash");
+  await guarded(ctx, ADMIN, "restore", { params });
+  assert.equal(ctx.rows[0].expireAt.getTime(), ends.getTime()); assert.equal(ctx.rows[0].keptExpireAt, null);
+  // An end date sooner than the purge stays the deletion time.
+  const soon = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  ctx.rows[0].expireAt = soon;
+  await guarded(ctx, ADMIN, "trash", { params });
+  assert.equal(ctx.rows[0].expireAt.getTime(), soon.getTime());
+  // Without an end date a restore leaves none.
+  const plain = (await ctx.service.publishNotice({ title: "Plain", body: "", category: "manual", severity: "info" })).notice;
+  await guarded(ctx, ADMIN, "trash", { params: { id: plain._id } });
+  assert.ok(ctx.rows[1].expireAt instanceof Date);
+  await guarded(ctx, ADMIN, "restore", { params: { id: plain._id } });
+  assert.equal(ctx.rows[1].expireAt, null);
+  // Purge: only from the trash, only with notices.purge.
+  assert.equal((await guarded(ctx, ADMIN, "purge", { params: { id: plain._id } })).statusCode, 404, "not in the trash");
+  const noPurge = { ...ADMIN, permissionRevokes: ["notices.purge"] };
+  assert.equal((await guarded(ctx, noPurge, "purge", { params })).statusCode, 403);
+  assert.equal((await guarded(ctx, READER, "purge", { params })).statusCode, 403);
+  assert.equal(ctx.rows.length, 2);
+  assert.equal((await guarded(ctx, ADMIN, "purge", { params })).statusCode, 200);
+  assert.deepEqual(ctx.rows.map((row) => row.title), ["Plain"]);
+  assert.ok(ctx.audit.calls.some((r) => r.action === "delete" && r.targetId === notice._id));
+});
+
+// Runs fn once right after the next read of a notice (another request acting in between).
+const afterNextRead = (ctx, fn) => {
+  const get = ctx.model.get;
+  ctx.model.get = async function (...args) { const found = await get.apply(this, args); ctx.model.get = get; await fn(); return found; };
+};
+
+test("trash, restore and purge racing each other never leave a mixed or recreated notice", async () => {
+  const ctx = setup();
+  const { notice } = await ctx.service.publishNotice({ title: "Race", body: "", category: "manual", severity: "info" });
+  const params = { id: notice._id };
+  // Archived; a restore reads it, then a trash lands before the restore writes.
+  await guarded(ctx, ADMIN, "archive", { params });
+  afterNextRead(ctx, () => ctx.service.changeNoticeState(notice._id, ADMIN, "delete"));
+  assert.equal((await guarded(ctx, ADMIN, "restore", { params })).statusCode, 404);
+  assert.ok(ctx.rows[0].deletedAt && ctx.rows[0].expireAt instanceof Date, "still in the trash, purge date intact");
+  // A restore reads the trashed notice, then a purge deletes it: no row comes back.
+  afterNextRead(ctx, () => ctx.service.purgeNotice(notice._id));
+  assert.equal((await guarded(ctx, ADMIN, "restore", { params })).statusCode, 404);
+  assert.equal(ctx.rows.length, 0);
+  // A purge reads a trashed notice, then a restore brings it back: nothing deleted, no audit.
+  const other = (await ctx.service.publishNotice({ title: "Kept", body: "", category: "manual", severity: "info" })).notice;
+  await guarded(ctx, ADMIN, "trash", { params: { id: other._id } });
+  afterNextRead(ctx, () => ctx.service.changeNoticeState(other._id, ADMIN, "restore"));
+  assert.equal((await guarded(ctx, ADMIN, "purge", { params: { id: other._id } })).statusCode, 404);
+  assert.equal(ctx.rows.length, 1); assert.equal(ctx.rows[0].deletedAt, null);
+  assert.ok(!ctx.audit.calls.some((r) => r.action === "delete" && r.targetId === other._id));
+});
+
+test("read-all marks every unread visible notice in one update and skips hidden ones", async () => {
+  const ctx = setup();
+  let bulk = 0; const many = ctx.model.markReadMany; ctx.model.markReadMany = async function (...args) { bulk += 1; return many.apply(this, args); };
+  for (const title of ["one", "two", "hidden"]) await ctx.service.publishNotice({ title, body: "", category: "manual", severity: "info" });
+  ctx.rows[2].hiddenBy = [READER._id];
+  assert.equal((await guarded(ctx, READER, "unreadCount")).body.count, 2);
+  assert.equal((await guarded(ctx, READER, "readAll")).body.updated, 2);
+  assert.equal((await guarded(ctx, READER, "unreadCount")).body.count, 0);
+  assert.ok(!ctx.rows[2].readBy.includes(READER._id));
+  assert.ok(ctx.rows[0].readTimes[READER._id]);
+  assert.equal(bulk, 1, "one bulk update for a real ObjectId reader");
+});
+
 // req.user plays the DB user for loadActor, so it carries grants/revokes too.
 const as = (user, extra = {}) => ({
   user: { id: user._id, tz: user.tz, roles: user.roles, permissionGrants: user.permissionGrants, permissionRevokes: user.permissionRevokes },

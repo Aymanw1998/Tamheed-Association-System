@@ -28,14 +28,22 @@ AuditModelDef.page = async function (filter = {}, { page = 1, pageSize = 50 } = 
   return { items: res.result, total: res.total };
 };
 
+// An archived row is deleted this long after it was archived (owner,
+// 2026-11-08): the TTL index on archivedAt. Current rows (archivedAt null)
+// are never deleted; restoring a row clears archivedAt and so keeps it.
+const ARCHIVE_KEEP_DAYS = 183;
+const ARCHIVE_KEEP_SECONDS = ARCHIVE_KEEP_DAYS * 24 * 60 * 60;
+
 // api.js never creates indexes. The list is newest first and the edit pages
 // ask for one target's rows. `collection` is injectable for tests.
 const AUDIT_INDEXES = [{ at: -1 }, { targetId: 1, at: -1 }];
+const AUDIT_TTL_INDEX = { key: { archivedAt: 1 }, options: { expireAfterSeconds: ARCHIVE_KEEP_SECONDS } };
 async function ensureAuditIndexes(collection) {
   const target = collection || require("mongoose").connection
     .useDb(dbName, { useCache: true })
     .collection(AuditModelDef.collection);
   for (const spec of AUDIT_INDEXES) await target.createIndex(spec);
+  await target.createIndex(AUDIT_TTL_INDEX.key, AUDIT_TTL_INDEX.options);
 }
 
-module.exports = { AuditModelDef, AUDIT_INDEXES, ensureAuditIndexes };
+module.exports = { AuditModelDef, AUDIT_INDEXES, AUDIT_TTL_INDEX, ARCHIVE_KEEP_DAYS, ensureAuditIndexes };

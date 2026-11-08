@@ -38,6 +38,24 @@ NoticeModelDef.setHidden = async function (id, reader, hidden) {
     hidden ? { $addToSet: { hiddenBy: String(reader) } } : { $pull: { hiddenBy: String(reader) } });
 };
 
+// Marks the notices read by one reader in a single update (readBy may only
+// grow; a reader already in it keeps the first read time).
+NoticeModelDef.markReadMany = async function (ids, reader, at) {
+  const collection = mongoose.connection.useDb(this.dbName, { useCache: true }).collection(this.collection);
+  const key = String(reader);
+  return collection.updateMany({ _id: { $in: ids.map((id) => new mongoose.Types.ObjectId(String(id))) }, readBy: { $ne: key } },
+    { $addToSet: { readBy: key }, $set: { [`readTimes.${key}`]: at } });
+};
+// Sets fields on the one row matching filter, never inserting; the updated
+// row, or null when none matched (a state change in between).
+NoticeModelDef.updateIf = async function (filter, newData) {
+  return (await api.updateExisting({ dbName: this.dbName, collection: this.collection, filter, newData }))?.result || null;
+};
+// Permanent delete of the rows matching filter (the trash's purge).
+NoticeModelDef.remove = async function (filter) {
+  return (await api.delete({ dbName: this.dbName, collection: this.collection, filter }))?.result?.deletedCount || 0;
+};
+
 // One row per scheduled-job run: { job, date ("YYYY-MM-DD"), trigger, created, emailed, error, finishedAt }.
 // A lock row { job, date, lockKey, lockedAt (Date) } claims one run slot across
 // server processes (the alert job): lockKey is unique when set.
@@ -51,7 +69,8 @@ JobRunModelDef.create = async function (data) {
 
 // api.js never creates indexes; this makes a repeated dedupKey impossible even
 // if two checks race. Manual notices have no dedupKey, hence the partial filter.
-// A notice with an end date is deleted at its expireAt (rows without one stay).
+// A notice with an end date is deleted at its expireAt (rows without one stay);
+// a notice moved to the trash gets one 30 days later (Notice.service).
 async function ensureNoticeIndexes() {
   const collection = mongoose.connection.useDb(dbName, { useCache: true }).collection(NoticeModelDef.collection);
   await collection.createIndex({ dedupKey: 1 }, { unique: true, partialFilterExpression: { dedupKey: { $type: "string" } } });

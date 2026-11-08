@@ -13,7 +13,7 @@ its UI gate, record scope checks and a behavioral grant/revoke test.
 | Weekly tasks | `tasks.view`, `tasks.complete`, `tasks.viewAll`, `tasks.manage`, `tasks.create`, `tasks.edit`, `tasks.delete`, `tasks.assign`, `tasks.approve`, `tasks.greet` |
 | Files | `files.use` to enter/read; separate `upload`, `createFolder`, `rename`, `delete`, `share`; per-path and sharing ACL remain additional requirements; `manageAll` does not bypass a revoked global operation |
 | Main page | `dashboard.view`; each data card additionally checks its own section permission |
-| Notices | `notices.view`, `notices.post`, `notices.archive`, `notices.runCheck` |
+| Notices | `notices.view`, `notices.post`, `notices.archive`, `notices.runCheck`, `notices.delete` (to trash; purged automatically after 30 days), `notices.restore`, `notices.purge` (permanent delete from trash) |
 | Students | `students.view`, `viewAll`, `create`, `edit`, `delete`, `photo`, `parentLink`; existing student scope stays enforced |
 | Programs / weekly timetable | Program records use `lessons.view`, `viewAll`, `create`, `edit`, `roster`, `delete`, `copyMonth`; the weekly timetable additionally needs `calendar.view` on its page and schedule endpoints. Ownership, scoped roster and record locks stay enforced |
 | Attendance | `attendance.view`, `attendance.record`; existing group/lesson scope stays enforced |

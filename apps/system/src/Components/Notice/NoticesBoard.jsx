@@ -78,6 +78,12 @@ export default function NoticesBoard() {
   };
 
   const setFilter = (key) => (event) => setFilters((prev) => ({ ...prev, [key]: event.target.value }));
+  // The tabs pick the folder; "unread" is a filter inside the inbox.
+  const folder = filters.status === "unread" ? "all" : filters.status;
+  const purge = async (notice) => {
+    const ok = await ask("delete", { title: "حذف نهائي", message: "سيُحذف الإعلان نهائيًا من النظام ولا يمكن استعادته. هل تريد المتابعة؟" }).catch(() => false);
+    if (ok) act(`p${notice._id}`, () => changeNoticeState(notice._id, "purge"));
+  };
 
   return (
     <section className={styles.page}>
@@ -94,21 +100,21 @@ export default function NoticesBoard() {
 
       <SystemAlerts />
       <div role="tablist" aria-label="مجلدات الإعلانات" className={styles.actions}>
-        {[ ["all", "الوارد"], ["archived", "المؤرشف"], ["deleted", "المحذوفات"] ].map(([value, label]) => <Button key={value} role="tab" aria-selected={value === filters.status || (value === "all" && filters.status === "unread")} variant={value === filters.status ? "primary" : "secondary"} onClick={() => setFilters((old) => ({ ...old, status: value }))}>{label}</Button>)}
+        {[ ["all", "الوارد"], ["archived", "المؤرشف"], ["deleted", "المحذوفات"] ].map(([value, label]) => <Button key={value} role="tab" aria-selected={value === folder} variant={value === folder ? "primary" : "secondary"} onClick={() => setFilters((old) => ({ ...old, status: value }))}>{label}</Button>)}
       </div>
+      {folder === "deleted" && <p className={styles.hint}>تُحذف الإعلانات من المحذوفات نهائيًا بعد 30 يومًا من حذفها.</p>}
 
       <div className={styles.filters} data-tour="notices-filters">
         <FilterDialog
-          count={(filters.status !== "all") + Boolean(filters.category) + Boolean(filters.severity)}
-          onClear={() => setFilters({ status: "all", category: "", severity: "" })}
+          count={(filters.status === "unread") + Boolean(filters.category) + Boolean(filters.severity)}
+          onClear={() => setFilters({ status: folder, category: "", severity: "" })}
         >
-          <label>{t("notices.filters.status")}
+          {folder === "all" && <label>{t("notices.filters.status")}
             <select value={filters.status} onChange={setFilter("status")}>
               <option value="all">{t("notices.filters.all")}</option>
               <option value="unread">{t("notices.filters.unread")}</option>
-              <option value="archived">المؤرشف</option><option value="deleted">المحذوفات</option>
             </select>
-          </label>
+          </label>}
           <label>{t("notices.filters.category")}
             <select value={filters.category} onChange={setFilter("category")}>
               <option value="">{t("notices.filters.all")}</option>
@@ -152,8 +158,9 @@ export default function NoticesBoard() {
                   <td className={styles.rowActions}>
                     {!n.read && <Button size="sm" variant="secondary" onClick={() => act(`r${n._id}`, () => markNoticeRead(n._id))}>{t("notices.markRead")}</Button>}
                     {n.category === "manual" && !n.archivedAt && !n.deletedAt && canStored("notices.archive") && <Button size="sm" variant="secondary" data-tour="notices-archive" onClick={() => archive(n)}>{t("notices.archive")}</Button>}
-                    {n.category === "manual" && !n.deletedAt && canStored("notices.delete") && <Button size="sm" variant="secondary" onClick={async () => { if (await ask("change", { title: "نقل إلى المحذوفات", message: "سيُنقل الإعلان إلى المحذوفات للجميع، ويمكن استعادته. هل تريد المتابعة؟" }).catch(() => false)) act(`d${n._id}`, () => changeNoticeState(n._id, "delete")); }}>حذف للجميع</Button>}
+                    {n.category === "manual" && !n.deletedAt && canStored("notices.delete") && <Button size="sm" variant="danger" onClick={async () => { if (await ask("change", { title: "نقل إلى المحذوفات", message: "سيُنقل الإعلان إلى المحذوفات للجميع. يمكن استعادته خلال 30 يومًا، وبعدها يُحذف نهائيًا. هل تريد المتابعة؟" }).catch(() => false)) act(`d${n._id}`, () => changeNoticeState(n._id, "delete")); }}>حذف للجميع</Button>}
                     {(n.archivedAt || n.deletedAt) && canStored("notices.restore") && <Button size="sm" onClick={() => act(`s${n._id}`, () => changeNoticeState(n._id, "restore"))}>استعادة الإعلان</Button>}
+                    {n.category === "manual" && n.deletedAt && canStored("notices.purge") && <Button size="sm" variant="danger" loading={busy === `p${n._id}`} onClick={() => purge(n)}>حذف نهائي</Button>}
                     {canStored("alerts.dismiss") && <Button size="sm" variant="secondary" onClick={() => act(`h${n._id}`, () => changeNoticeState(n._id, n.hiddenForMe ? "unhide" : "hide"))}>{n.hiddenForMe ? "إعادة إلى قائمتي" : "حذف من قائمتي"}</Button>}
                   </td>
                 </tr>

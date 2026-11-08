@@ -44,7 +44,7 @@ const list = handle("list", async (req, res) => {
   const notices = await service.listNotices({
     userId: req.actor.id,
     status: ["unread", "archived", "deleted"].includes(status) ? status : "all",
-    canManageTrash: req.query?.personal !== "1" && (can(req.actor?.permissions, "notices.delete") || can(req.actor?.permissions, "notices.restore")),
+    canManageTrash: req.query?.personal !== "1" && ["notices.delete", "notices.restore", "notices.purge"].some((key) => can(req.actor?.permissions, key)),
     category: CATEGORIES.includes(category) ? category : "",
     severity: SEVERITIES.includes(severity) ? severity : "",
     skip,
@@ -121,5 +121,12 @@ const stateAction = (action) => handle(action, async (req, res) => {
   await audit.record(req, { module: "notices", action: "update", targetType: "notice", targetId: notice._id, targetLabel: notice.title, after: { action } });
   return res.json({ ok: true });
 });
-module.exports = { list, unreadCount, create, read, readAll, archive, runVehicleCheck,
+// Permanent delete from the trash; the audit keeps only that it happened.
+const purge = handle("purge", async (req, res) => {
+  const notice = await service.purgeNotice(req.params?.id);
+  if (!notice) return fail(res, 404, "الإعلان غير موجود في المحذوفات");
+  await audit.record(req, { module: "notices", action: "delete", targetType: "notice", targetId: notice._id, targetLabel: notice.title });
+  return res.json({ ok: true });
+});
+module.exports = { list, purge, unreadCount, create, read, readAll, archive, runVehicleCheck,
   trash: stateAction("delete"), restore: stateAction("restore"), hide: stateAction("hide"), unhide: stateAction("unhide") };

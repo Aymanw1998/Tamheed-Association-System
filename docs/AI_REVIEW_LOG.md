@@ -5764,3 +5764,52 @@ complete separately from peer availability and production verification.
 Publish the tested source using the existing commit/push authorization and
 inspect CI. This does not deploy to production, install its browser, move Drive
 folders, change Google scopes, send real mail or mutate existing user data.
+
+## 2026-11-08 — QA scan: data retention first, then design consistency
+
+**Owner request / decisions:** After Codex's overnight changes the owner asked
+actual Claude Code (as expert QA) to scan all systems, flagged that some data has
+a trash but no deletion (database load), and chose "both, data first". Owner
+decisions: notices trash is purged automatically 30 days after deletion, with a
+manual permanent delete; archived IT audit rows are deleted 6 months after
+archiving (current rows never). Claude Code was the sole implementer; Codex the
+independent reviewer.
+
+**QA findings (static scan):** notice reads loaded the whole collection
+(`get({})`) on every list/unread count, and the bell repeats this every 60s per
+window, while trashed/archived notices without an end date stayed forever;
+read-all was N+1; the audit log only archived and grew without bound. Design:
+IT tab buttons had no active state; the Drive-like files page used its own
+non-brand palette; Sport loaded IBM Plex Sans Arabic but used Segoe UI; notices
+board duplicated its folder control and lost the inbox highlight on "unread";
+debug logs in confirmBus; PDF error text unstyled. Not changed (reported):
+dismissed alerts with no expiry (vehicle alerts would be re-raised if purged),
+mixed raw buttons/inline styles in older forms, duplicated token blocks.
+
+**Implementation:** Notice service narrows reads with Mongo filters (in-memory
+rules kept), trash sets expireAt to min(end date, +30 days) with keptExpireAt
+for restore, new `notices.purge` permission/route/button, read-all is one
+update. Delete/restore/archive/read use a non-upserting compare-and-set
+(`updateIf`) and purge checks the deleted count. Audit TTL index on archivedAt
+(183 days). IT active-tab style and stale-response guard; files page chrome on
+brand tokens (file-type badges unchanged); Sport font; board tabs/filter fix,
+danger delete, trash hint.
+
+**Actual peer request / response:** Sent the
+[request](reviews/2026-11-08-data-retention-design-codex-request.md) to actual
+Codex CLI (read-only sandbox, ephemeral). The [first response](reviews/2026-11-08-data-retention-design-codex-response.txt)
+reported four P2 findings: a broken bulk-read regex (escaped `\w` lost), a
+restore/trash race keeping the purge date, restore recreating a purged row via
+upsert, and purge reporting success with nothing deleted. All four were fixed
+with regression tests (plus markRead made non-upserting). The
+[follow-up response](reviews/2026-11-08-data-retention-design-codex-response-2.txt)
+states no remaining findings.
+
+**Verification:** npm run verify passed: server 1,570, System 1,161 tests (132
+suites) and System build. After the review fixes the full server suite passed
+1,571. Full IT passed 116 tests (18 suites) and build; Sport build passed.
+Shared-copy check and git diff --check pass. No browser QA: the apps need a
+real database, which tests may not use. No database, migration, seed or
+deployment commands were run. The new TTL indexes take effect when the server
+next ensures indexes; existing trashed notices (before this change) have no
+purge date until restored and re-deleted or purged manually.

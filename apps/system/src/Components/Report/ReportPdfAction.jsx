@@ -49,6 +49,6 @@ export default function ReportPdfAction({ report, tour }) {
     {working ? <><small role="status">{job.state === "queued" ? "بانتظار تجهيز PDF…" : "جارٍ تجهيز PDF بالخلفية…"}</small><Button size="sm" variant="secondary" disabled={!job.id} onClick={cancel}>إلغاء</Button></>
       : job?.state === "ready" ? <Button size="sm" onClick={download}>تنزيل PDF</Button>
         : <Button size="sm" variant="secondary" data-tour={tour} onClick={start}>ملف التقرير</Button>}
-    {(error || job?.state === "failed") && <small role="alert">{error || (job.code === "PDF_UNAVAILABLE" ? "تصدير PDF غير متاح مؤقتًا. تواصل مع مسؤول النظام." : "تعذّر تجهيز الملف. يمكنك إعادة المحاولة.")}</small>}
+    {(error || job?.state === "failed") && <small role="alert" style={{ color: "var(--color-danger-700)" }}>{error || (job.code === "PDF_UNAVAILABLE" ? "تصدير PDF غير متاح مؤقتًا. تواصل مع مسؤول النظام." : "تعذّر تجهيز الملف. يمكنك إعادة المحاولة.")}</small>}
   </span>;
 }

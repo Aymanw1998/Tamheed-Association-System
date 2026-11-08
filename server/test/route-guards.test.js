@@ -204,7 +204,7 @@ const EXACT_GUARDS = {
     "DELETE /users/:tz/sessions/:sid": "users.unlock",
     "POST /system/recover": "systemRecovery.reset",
   },
-  "Notice/Notice.route.js": { "POST /:id/archive": "notices.archive" },
+  "Notice/Notice.route.js": { "POST /:id/archive": "notices.archive", "POST /:id/purge": "notices.purge" },
   "InviteToken/InviteToken.route.js": {
     "POST /rules": "rules.edit",
     "GET /consent/:studentId": "consents.view",

@@ -1,0 +1,11 @@
+Four findings:
+
+- **P2 — Bulk-read optimization never runs for real user IDs** — [Notice.service.js:129](C:/Users/ayman/Desktop/projects/Tamheed/server/Entities/Notice/Notice.service.js:129). `/^[w-]+$/` matches only literal `w` and `-`, excluding Mongo ObjectIds. Every real user falls back to sequential per-notice reads and writes, preserving the data-load problem. The new test never asserts that the bulk method was called.
+
+- **P2 — Restored notices can retain trash expiry** — [Notice.service.js:162](C:/Users/ayman/Desktop/projects/Tamheed/server/Entities/Notice/Notice.service.js:162). If restore reads an archived notice before a concurrent trash operation, then writes afterward, it clears `deletedAt` without resetting the newly assigned `expireAt`. The restored notice remains scheduled for permanent deletion. The update needs an atomic state condition.
+
+- **P2 — Restore can recreate a permanently deleted row** — [Notice.service.js:164](C:/Users/ayman/Desktop/projects/Tamheed/server/Entities/Notice/Notice.service.js:164). If purge deletes the notice between restore’s read and write, `NoticeModelDef.update` uses `api.update` with `upsert: true`. Restore recreates an incomplete row containing state fields but no title, body, or category. Use a conditional, non-upserting update.
+
+- **P2 — Purge reports deletion when nothing was deleted** — [Notice.service.js:172](C:/Users/ayman/Desktop/projects/Tamheed/server/Entities/Notice/Notice.service.js:172). If restore clears `deletedAt` after purge reads the notice, the guarded removal deletes zero rows. Its count is ignored, so the endpoint returns success and records a permanent-delete audit event despite the notice remaining active.
+
+Confirmed using isolated in-memory reproductions. No files edited; full verification/build was not run.

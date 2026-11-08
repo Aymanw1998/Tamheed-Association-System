@@ -34,13 +34,10 @@ export function cancelOpenConfirm() {
  * @returns {Promise<boolean>}
  */
 export async function ask(kind, overrides = {}) {
-  console.log("confirmBus ask", kind, overrides);
-  console.log("_askImpl", _askImpl, typeof _askImpl);
   if (typeof _askImpl !== 'function') {
     console.warn('[confirmBus] not initialized – auto-approve.');
     return Promise.reject(new Error('Confirm not ready yet'));
   }
   const base = typeof kind === 'string' ? (PRESETS[kind] || PRESETS.change) : (kind || {});
-  console.log("confirmBus ask base", base);
   return _askImpl({ ...base, ...overrides });
 }

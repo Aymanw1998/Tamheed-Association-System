@@ -1,0 +1,10 @@
+No remaining findings. All four original P2 findings are resolved:
+
+- **Bulk-read regex:** accepts real ObjectIds; the test confirms one bulk update.
+- **Restore/trash race:** conditional state matching rejects stale writes, preserving trash expiry.
+- **Restore recreating purged rows:** `updateIf` uses non-upserting `api.updateExisting`; a missing row returns failure.
+- **False purge success:** zero deletions return 404 and produce no deletion audit event.
+
+No new concrete defect found in the reviewed changes.
+
+Validation: all **22 notice-controller tests passed**, including the race regressions. Database-helper behavior was inspected; no live database was exercised. Full `npm run verify` was skipped because its sync/build steps write files. No files edited.

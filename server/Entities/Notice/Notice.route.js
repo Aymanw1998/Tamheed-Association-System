@@ -20,6 +20,7 @@ router.post("/:id/read", requirePermission("notices.view"), controller.read);
 router.post("/:id/archive", requirePermission("notices.archive"), controller.archive);
 router.post("/:id/delete", requirePermission("notices.view"), requirePermission("notices.delete"), controller.trash);
 router.post("/:id/restore", requirePermission("notices.view"), requirePermission("notices.restore"), controller.restore);
+router.post("/:id/purge", requirePermission("notices.purge"), requirePermission("notices.view"), controller.purge);
 router.post("/:id/hide", requirePermission("notices.view"), requirePermission("alerts.dismiss"), controller.hide);
 router.post("/:id/unhide", requirePermission("notices.view"), requirePermission("alerts.dismiss"), controller.unhide);
 

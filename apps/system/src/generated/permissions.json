@@ -71,7 +71,8 @@
       "runCheck",
       "archive",
       "delete",
-      "restore"
+      "restore",
+      "purge"
     ],
     "users": [
       "view",
@@ -194,7 +195,8 @@
         "rename": "إعادة تسمية",
         "link": "إنشاء رابط توقيع",
         "share": "مشاركة وإلغاء المشاركة",
-        "restore": "استعادة"
+        "restore": "استعادة",
+        "purge": "حذف نهائي"
       },
       "leavesByModule": {
         "sports": {

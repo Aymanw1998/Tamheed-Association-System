@@ -107,6 +107,8 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 button.primary { background: var(--color-primary-500); border-color: transparent; color: var(--color-text-on-primary); }
 button.danger { background: var(--color-danger-100); border-color: transparent; color: var(--color-danger-700); }
 button.success { background: var(--color-success-100); border-color: transparent; color: var(--color-success-700); }
+/* Tabs (role="tab"): the open one looks like a primary button. */
+button[role="tab"][aria-selected="true"] { background: var(--color-primary-500); border-color: transparent; color: var(--color-text-on-primary); }
 
 input, select, textarea {
   min-height: 40px;

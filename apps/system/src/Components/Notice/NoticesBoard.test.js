@@ -61,3 +61,27 @@ test("a notice with an end date shows it", async () => {
   await mount();
   expect(host.textContent).toContain("20/11/2026");
 });
+
+// Owner, 2026-11-08: the trash has a permanent delete of its own (notices.purge).
+jest.mock("../Provides/confirmBus", () => ({ ask: jest.fn(() => Promise.resolve(true)) }));
+const trashed = { _id: "t1", title: "قديم", body: "", severity: "info", category: "manual", createdAt: "2026-11-02T08:00:00Z", read: true, deletedAt: "2026-11-05T08:00:00Z" };
+const buttonNamed = (name) => [...host.querySelectorAll("button")].find((b) => b.textContent === name);
+
+test("a trashed notice can be deleted for good only with notices.purge", async () => {
+  const { changeNoticeState } = require("../../WebServer/services/notice/functionsNotice.jsx");
+  changeNoticeState.mockResolvedValue({ ok: true });
+  require("../Provides/confirmBus").ask.mockResolvedValue(true);
+  getNotices.mockResolvedValue({ ok: true, notices: [trashed] });
+  await mount();
+  await act(async () => buttonNamed("حذف نهائي").click());
+  expect(require("../Provides/confirmBus").ask).toHaveBeenCalledWith("delete", expect.any(Object));
+  expect(changeNoticeState).toHaveBeenCalledWith("t1", "purge");
+});
+
+test("without notices.purge the trash has no permanent delete", async () => {
+  require("../../utils/session").canStored.mockImplementation((key) => key !== "notices.purge");
+  getNotices.mockResolvedValue({ ok: true, notices: [trashed] });
+  await mount();
+  expect(buttonNamed("حذف نهائي")).toBeUndefined();
+  expect(buttonNamed("استعادة الإعلان")).toBeDefined();
+});
