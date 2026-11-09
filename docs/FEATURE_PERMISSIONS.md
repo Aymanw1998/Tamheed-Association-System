@@ -15,7 +15,7 @@ its UI gate, record scope checks and a behavioral grant/revoke test.
 | Main page | `dashboard.view`; each data card additionally checks its own section permission |
 | Notices | `notices.view`, `notices.post`, `notices.archive`, `notices.runCheck`, `notices.delete` (to trash; purged automatically after 30 days), `notices.restore`, `notices.purge` (permanent delete from trash) |
 | Students | `students.view`, `viewAll`, `create`, `edit`, `delete`, `photo`, `parentLink`; existing student scope stays enforced |
-| Programs / weekly timetable | Program records use `lessons.view`, `viewAll`, `create`, `edit`, `roster`, `delete`, `copyMonth`; the weekly timetable additionally needs `calendar.view` on its page and schedule endpoints. Ownership, scoped roster and record locks stay enforced |
+| Programs / weekly timetable | Program records use `lessons.view`, `viewAll`, `create`, `edit`, `roster`, `staffRoster` (users as participants), `delete`, `copyMonth`; the weekly timetable additionally needs `calendar.view` on its page and schedule endpoints. Ownership, scoped roster and record locks stay enforced |
 | Attendance | `attendance.view`, `attendance.record`; existing group/lesson scope stays enforced |
 | Reports | `reports.create`, `editOwn`, `viewAll`, `editAll`, `delete`, `exportPdf`; author/record checks stay enforced |
 | Vehicles | `vehicles.view`, `edit`, `compliance`, `documents`, `archive`, `delete`; vehicle assignment and record locks stay enforced |

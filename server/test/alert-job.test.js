@@ -338,3 +338,16 @@ test("the sport alert pushes once to the sport recipients; the next run pushes n
   await runAlertJob({ now: sun("19:15"), deps });
   assert.equal(sent.length, 1);
 });
+
+// Users taking part in a lesson (owner, 2026-11-09): their rows carry `user`,
+// not `student`, and never count toward a student's absence streak.
+test("absence rows of a participating user never look up a student", async () => {
+  const userRow = (dateKey) => ({ lesson: "2".repeat(24), user: "7".repeat(24), dateKey, status: ABSENT });
+  const deps = fakeDeps({ attendance: [userRow(20261013), userRow(20261015), userRow(TODAY)] });
+  const looked = [];
+  deps.attendanceOfStudent = async (studentId) => { looked.push(studentId); return []; };
+  deps.findStudent = async (studentId) => { looked.push(studentId); return null; };
+  await runAlertJob({ now: at("14:00"), deps });
+  assert.deepEqual(looked, []);
+  assert.deepEqual(recipientsOf(deps.store, "absence_streak"), []);
+});

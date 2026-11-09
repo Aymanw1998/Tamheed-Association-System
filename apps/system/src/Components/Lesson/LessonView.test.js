@@ -12,6 +12,7 @@ jest.mock("react-router-dom", () => {
 jest.mock("../../WebServer/services/api", () => ({ __esModule: true, default: { get: jest.fn(), post: jest.fn() }, API_BASE_URL: "/api" }));
 jest.mock("../../WebServer/services/lesson/functionsLesson.jsx", () => ({
   getOneLesson: jest.fn(), getAllLesson: jest.fn(), addToList: jest.fn(), removeFromList: jest.fn(), deleteLesson: jest.fn(),
+  addUsers: jest.fn(), removeUsers: jest.fn(), getAddableUsers: jest.fn(),
 }));
 // One mock serves both specifiers (LessonRoster imports it without ".jsx").
 jest.mock("../../WebServer/services/student/functionsStudent.jsx", () => ({ getAll: jest.fn(), lookupStudent: jest.fn() }));
@@ -378,4 +379,26 @@ test("a cancelled delete stays on the lesson; no «حذف» without lessons.dele
   mockPerms = ["lessons.view", "lessons.edit"];
   await mount();
   expect(deleteLessonButton()).toBeUndefined();
+});
+
+// Users (staff) taking part (owner, 2026-11-09).
+test("the staff tab lists the participating users for anyone who sees the lesson", async () => {
+  getOneLesson.mockResolvedValue({ ok: true, lesson: { ...LESSON, participants: [{ _id: "u1", name: "موظف مشارك" }], num_users: 1 } });
+  await mount();
+  await openTab("الموظفون المشاركون");
+  expect(container.textContent).toContain("موظف مشارك");
+  expect(container.textContent).not.toContain("إضافة موظف");
+});
+
+test("without participants or lessons.staffRoster there is no staff tab", async () => {
+  await mount();
+  const tabs = [...container.querySelectorAll('[role="tab"]')].map((t) => t.textContent);
+  expect(tabs).not.toContain("الموظفون المشاركون");
+});
+
+test("a lessons.staffRoster holder gets the staff tab with the add button", async () => {
+  mockPerms = ["lessons.view", "lessons.staffRoster"];
+  await mount();
+  await openTab("الموظفون المشاركون");
+  expect(container.textContent).toContain("إضافة موظف");
 });

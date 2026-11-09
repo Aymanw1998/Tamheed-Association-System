@@ -11,6 +11,9 @@ const { checkVersion, editorStamp } = require("../../middleware/lockGuard");
 const { notifyChange } = require("../../services/liveHub");
 // Without lessons.viewAll: attendance only for the lessons one teaches or assists in.
 const { mayOpenLesson } = require("../../utils/lessonAccess");
+// Users taking part in a lesson (owner, 2026-11-09): rows keyed by `user`.
+const { activeUsers } = require("../../utils/lessonParticipants");
+const participantsOf = (lesson) => activeUsers(UserModelDef, lesson?.list_users);
 const NOT_FOUND = { ok: false, message: "غير موجود" };
 
 // Student scope: null (students.viewAll) or the Set of visible student _ids.
@@ -107,6 +110,19 @@ async function ensureMissingRows({ students, lessonId, y, m, d, existingMap, dat
   );
 }
 
+// The participants' rows for this date, created present when missing.
+async function ensureMissingUserRows({ users, lessonId, y, m, d, existing, dateKey, stamp = new Date() }) {
+  const missing = users.filter((user) => !existing.has(user._id));
+  await Promise.all(missing.map((user) =>
+    AttendanceModelDef.create({
+      lesson: String(lessonId), user: user._id, year: y, month: m, day: d, dateKey,
+      status: DEFAULT_STATUS, notes: "", createdAt: stamp, updatedAt: stamp,
+    }).catch((error) => {
+      logWithSource("Attendance.ensureMissingUserRows", error);
+      return null;
+    })));
+}
+
 const getSheet = async (req, res) => {
   try {
     const { lessonId, year, month, day } = req.query;
@@ -152,8 +168,10 @@ const getSheet = async (req, res) => {
       : [];
 
     const existingMap = new Map(
-      existingRows.map((row) => [String(row.student), row])
+      existingRows.filter((row) => !row.user).map((row) => [String(row.student), row])
     );
+    const userRows = new Map(existingRows.filter((row) => row.user).map((row) => [String(row.user), row]));
+    const participants = await participantsOf(baseLesson);
 
     const stamp = new Date();
     await ensureMissingRows({
@@ -166,6 +184,7 @@ const getSheet = async (req, res) => {
       dateKey,
       stamp,
     });
+    await ensureMissingUserRows({ users: participants, lessonId, y, m, d, existing: userRows, dateKey, stamp });
     // The sheet's version (what bulk-save compares baseVersion with): only the
     // rows a person saved count, not the rows created just now.
     const { version } = sheetVersion(existingRows);
@@ -184,6 +203,17 @@ const getSheet = async (req, res) => {
         notes: row?.notes ?? "",
       };
     });
+    // Then the participating users, marked as staff (kind "user").
+    for (const user of participants) {
+      const row = userRows.get(user._id);
+      items.push({
+        userId: user._id,
+        studentName: user.name,
+        kind: "user",
+        status: row?.status ?? DEFAULT_STATUS,
+        notes: row?.notes ?? "",
+      });
+    }
 
     return res.status(200).json({
       ok: true,
@@ -231,21 +261,32 @@ const bulkSave = async (req, res) => {
     // A scoped actor's rows are written only for students he can see who are
     // on this lesson's roster; the rest are ignored (never written).
     const visible = await scope.visibleStudentIds(req.actor);
-    let items = submitted;
+    const isUserItem = (item) => item?.userId != null && item.userId !== "";
+    let studentItems = submitted.filter((item) => !isUserItem(item));
     if (visible) {
       const roster = new Set(((await getLessonById(String(lessonId)))?.list_students || []).map(String));
-      items = submitted.filter((item) => {
+      studentItems = studentItems.filter((item) => {
         const key = String(item?.studentId);
         return visible.has(key) && roster.has(key);
       });
     }
+    // A participating user's row only for an active user on this lesson (users
+    // are not scoped by students: whoever may open the lesson records them).
+    const onLesson = new Set((await participantsOf(lessonDoc)).map((u) => u._id));
+    const userItems = submitted.filter((item) => isUserItem(item) && onLesson.has(String(item.userId)));
+    // One list of writes: `key` tells students ("s:") and users ("u:") apart.
+    const items = [
+      ...studentItems.map((item) => ({ item, key: `s:${item.studentId}`, field: { student: String(item.studentId) } })),
+      ...userItems.map((item) => ({ item, key: `u:${item.userId}`, field: { user: String(item.userId) } })),
+    ];
 
     const dateKey = calcDateKey(y, m, d);
     const actorId = String(req.actor.id);
 
     // Rows as they were before the save, to count what this save changed.
     const previous = await AttendanceModelDef.get({ lesson: String(lessonId), dateKey }).catch(() => null);
-    const previousByStudent = new Map((previous?.result || []).map((row) => [String(row.student), row]));
+    const rowKey = (row) => (row.user ? `u:${row.user}` : `s:${row.student}`);
+    const previousByKey = new Map((previous?.result || []).map((row) => [rowKey(row), row]));
 
     // A save made on top of an older sheet is refused (the screen keeps the
     // draft). Only rows a person saved count (utils/attendanceMarks).
@@ -254,11 +295,11 @@ const bulkSave = async (req, res) => {
     if (stale) return res.status(409).json(stale);
 
     const results = await Promise.all(
-      items.map((item) =>
+      items.map(({ item, field }) =>
         AttendanceModelDef.update(
           {
             lesson: String(lessonId),
-            student: String(item.studentId),
+            ...field,
             dateKey,
           },
           {
@@ -278,13 +319,14 @@ const bulkSave = async (req, res) => {
     );
 
     // Marks this save replaced that another person had saved with a different status.
-    const overwritten = [...new Set(items.filter((item) => {
-      const old = previousByStudent.get(String(item.studentId));
+    // Students by their id (as before), users as "u:<id>".
+    const overwritten = [...new Set(items.filter(({ item, key }) => {
+      const old = previousByKey.get(key);
       return old && old.status !== (item.status ?? DEFAULT_STATUS) && old.updatedBy && String(old.updatedBy) !== actorId;
-    }).map((item) => String(item.studentId)))];
+    }).map(({ item, key }) => (key.startsWith("u:") ? key : String(item.studentId))))];
 
-    const rowsChanged = items.filter((item) => {
-      const old = previousByStudent.get(String(item.studentId));
+    const rowsChanged = items.filter(({ item, key }) => {
+      const old = previousByKey.get(key);
       return !old || old.status !== (item.status ?? DEFAULT_STATUS) || (old.notes ?? "") !== (item.notes ?? "");
     }).length;
     // One audit row per save (not per student), and none when nothing was written.
@@ -386,7 +428,11 @@ async function runDailyAbsenceJob({ year, month, day, dow1to7 }) {
     const studentIds = (Array.isArray(lesson.list_students) ? lesson.list_students : []).map(
       (id) => String(id)
     );
-    if (!studentIds.length) continue;
+    // The active participating users are marked absent the same way.
+    const userIds = (Array.isArray(lesson.list_users) && lesson.list_users.length)
+      ? (await participantsOf(lesson).catch(() => [])).map((u) => u._id)
+      : [];
+    if (!studentIds.length && !userIds.length) continue;
 
     const existingResult = await AttendanceModelDef.get({
       lesson: String(lesson._id),
@@ -396,20 +442,21 @@ async function runDailyAbsenceJob({ year, month, day, dow1to7 }) {
       return null;
     });
 
-    const existingStudentIds = new Set(
-      (Array.isArray(existingResult?.result) ? existingResult.result : []).map((row) =>
-        String(row.student)
-      )
-    );
+    const existingRows = Array.isArray(existingResult?.result) ? existingResult.result : [];
+    const existingStudentIds = new Set(existingRows.filter((row) => !row.user).map((row) => String(row.student)));
+    const existingUserIds = new Set(existingRows.filter((row) => row.user).map((row) => String(row.user)));
 
-    const missingStudentIds = studentIds.filter((id) => !existingStudentIds.has(id));
-    if (!missingStudentIds.length) continue;
+    const missing = [
+      ...studentIds.filter((id) => !existingStudentIds.has(id)).map((id) => ({ student: id })),
+      ...userIds.filter((id) => !existingUserIds.has(id)).map((id) => ({ user: id })),
+    ];
+    if (!missing.length) continue;
 
     await Promise.all(
-      missingStudentIds.map((studentId) =>
+      missing.map((who) =>
         AttendanceModelDef.create({
           lesson: String(lesson._id),
-          student: studentId,
+          ...who,
           year,
           month,
           day,
@@ -427,7 +474,7 @@ async function runDailyAbsenceJob({ year, month, day, dow1to7 }) {
       )
     );
 
-    createdAbsences += missingStudentIds.length;
+    createdAbsences += missing.length;
   }
 
   logWithSource(

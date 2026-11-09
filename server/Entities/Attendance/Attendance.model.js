@@ -10,7 +10,10 @@ const AttendanceModelDef = {
 
   fields: {
     lesson: { type: "string", required: true },
-    student: { type: "string", required: true },
+    // A row is either a student's or a participating user's (owner,
+    // 2026-11-09): exactly one of `student` / `user` is set.
+    student: { type: "string", required: false },
+    user: { type: "string", required: false },
 
     dateKey: { type: "number", required: true },
     status: { type: "string", required: true, default: "حاضر" },

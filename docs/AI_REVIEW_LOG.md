@@ -5873,3 +5873,57 @@ undo with/without notices.restore, toast dedupe/sticky/action.
 The [response](reviews/2026-11-08-ux-motion-design-codex-response.txt) is a usage-limit
 stop (resets Nov 11, 2026 18:18) with no findings. Independent Codex review is
 PENDING; resend the same request when the limit resets. Not committed.
+
+## 2026-11-09 — Quick search: a close button on phones (Claude Code)
+
+**Owner report:** on the phone the quick-search box could not be closed. Root cause:
+at ≤768px the panel fills the screen (no backdrop left to tap) and the only "close"
+was a `<kbd>Esc</kbd>` label, while phones have no Escape key.
+
+**Change:** `apps/system/src/Components/Header/QuickSearch.jsx` replaces the label
+with a real button (`aria-label="إغلاق البحث"`, ✕ icon, title "إغلاق (Esc)");
+`QuickSearch.module.css` adds `.close` (44px on coarse pointers). Escape and the
+desktop backdrop click still close. New test in `QuickSearch.test.js`.
+
+**Verification:** the new test failed before the fix and passes after; Header tests
+28/28; System production build with CI=true. Local phone-size check (375px, synthetic
+mock API only): the ✕ shows beside the field and closes the dialog.
+
+**Actual peer request / response:** Codex is at its usage limit until Nov 11, 2026
+18:18 (see the 2026-11-08 entry). Independent Codex review of this change is PENDING;
+send it together with the 2026-11-08 request. Not committed.
+
+## 2026-11-09 — Users (staff) as lesson participants, stage 1 (Claude Code)
+
+**Owner request:** register an existing user on a lesson instead of opening a
+duplicate student record; a lesson's teacher or helper is never also its
+participant; managed with a new permission, also visible in IT; attendance like
+students; the user sees his programs at the bottom of his own page. Spec
+`docs/superpowers/specs/2026-11-09-users-as-lesson-participants-design.md`, plan
+`docs/superpowers/plans/2026-11-09-users-as-lesson-participants-stage1.md`.
+Stage 2 (sport: user players with an empty card, Sport app sign-in) not started.
+
+**Changed:** `shared/permissions.json` (+ generated copies), `docs/FEATURE_PERMISSIONS.md`;
+server `utils/lessonParticipants.js` (new), `Entities/Lesson/{Lesson.model,Lesson.controller,Lesson.route}.js`,
+`Entities/Attendance/{Attendance.model,Attendance.controller}.js`, `services/alertJob.js`;
+System `WebServer/services/lesson/functionsLesson.jsx`, `Components/Lesson/{LessonParticipants,LessonView}`,
+`Components/Attendance/AttendancePage`, `Components/Profile/{MyParticipations,ProfilePage}`,
+`utils/attendanceRows.js` (new). Tests: server `lesson-participants`, `lesson-users`,
+`lesson-users-attendance` (new), `alert-job`, `permission-catalog`, `route-guards`,
+`helpers/liveStubs`; System `LessonParticipants`, `MyParticipations`, `attendanceRows` (new),
+`LessonView`, `ProfilePage`, `permissionKeys`.
+
+**Verification:** server 1,605 pass; System 1,190 tests (138 suites) and CI build;
+IT 116 (18 suites) and build; syncShared --check; git diff --check. Sport untouched.
+Local browser check with a mock API and synthetic data only: staff tab, picker
+(staff and current participants disabled), add, Profile section.
+
+**Open owner decision:** a legacy unique index `{lesson, student, dateKey}` from the
+old Mongoose schema (commented in `Attendance.model.js`) would, if still present in
+production, reject a second user row per lesson and date. Not changed: check the
+Atlas indexes before deploying.
+
+**Actual peer request / response:** request written to
+[2026-11-09-users-in-lessons-codex-request.md](reviews/2026-11-09-users-in-lessons-codex-request.md).
+Codex is at its usage limit until Nov 11, 2026 18:18: independent review PENDING.
+Final review so far is a self-review by the author. Not committed.

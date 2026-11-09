@@ -86,6 +86,8 @@ const ANY_ACTOR_ROUTES = {
   "Lock/Lock.route.js": ["POST /acquire", "POST /heartbeat", "POST /release", "GET /:key"],
   // «الإبلاغ عن مشكلة»: anyone signed in may report; it is rate limited and reads nothing back.
   "BugReport/BugReport.route.js": ["POST /"],
+  // One's own lesson participations: filtered by the caller's id (owner, 2026-11-09).
+  "Lesson/Lesson.route.js": ["GET /participating"],
   // One's own tour state: every write targets the caller's own record.
   "routes/tours.routes.js": ["GET /", "POST /item/:id", "POST /known-keys", "POST /releases/seen"],
   // The IT actor (requireIt) about himself: who he is, his pass to the everyday app (the handler checks the role), his own passkey.
@@ -214,6 +216,10 @@ const EXACT_GUARDS = {
   "Lesson/Lesson.route.js": {
     "POST /copy-month": "lessons.copyMonth",
     "DELETE /delete-perMonth/:month/:year": "lessons.copyMonth",
+    // Users as participants (owner, 2026-11-09).
+    "POST /addUsers/:id": "lessons.staffRoster",
+    "POST /removeUsers/:id": "lessons.staffRoster",
+    "GET /:id/addable-users": "lessons.staffRoster",
   },
   "Student/Student.route.js": {
     "DELETE /:tz": "students.delete",

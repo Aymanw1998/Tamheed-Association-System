@@ -120,7 +120,11 @@ export default function QuickSearch({ pages, canStudents, canUsers, canLessons, 
                 placeholder="ابحث عن طالب، موظف، برنامج أو صفحة…" aria-label="نص البحث"
                 role="combobox" aria-expanded="true" aria-controls="quick-search-results"
                 aria-activedescendant={flat[active] ? `qs-${active}` : undefined} />
-              <kbd className={styles.kbd}>Esc</kbd>
+              {/* A real button: a phone has no Escape key, and there the panel
+                  fills the screen, leaving no backdrop to tap. */}
+              <button type="button" className={styles.close} onClick={close} aria-label="إغلاق البحث" title="إغلاق (Esc)">
+                <Icon name="x" size={20} />
+              </button>
             </div>
             <div id="quick-search-results" role="listbox" className={styles.results}>
               {query && !data && (canStudents || canUsers || canLessons) && <p className={styles.note} role="status">جارٍ تحميل السجلات…</p>}

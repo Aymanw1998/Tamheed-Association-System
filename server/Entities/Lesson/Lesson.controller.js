@@ -12,6 +12,10 @@ const { contactById } = require("../../utils/guideContact");
 const { isOnLesson, mayOpenLesson, mayViewLesson, ownLessons, responsibleStudentIds, seesAllLessons } = require("../../utils/lessonAccess");
 const { checkVersion, editorStamp, sameVersion, nextStamp, raceLost } = require("../../middleware/lockGuard");
 const { notifyChange } = require("../../services/liveHub");
+const { can } = require("../../utils/permissions");
+// Users as participants (owner, 2026-11-09): list_users, lessons.staffRoster.
+const { CLASH, staffIds, staffClash, addableUsers, activeUsers, fullName } = require("../../utils/lessonParticipants");
+const mayManageUsers = (actor) => can(actor, "lessons.staffRoster");
 
 // Student scope: null (students.viewAll, today's behaviour) or the Set of
 // student _ids the actor may see. Hidden ids never leave the server; the
@@ -147,6 +151,7 @@ function buildLesson(body) {
     helper: body?.helper || null,
     room: body?.room ?? "0",
     list_students: Array.isArray(body?.list_students) ? body.list_students : [],
+    list_users: Array.isArray(body?.list_users) ? body.list_users.map(String) : [],
     ...(body?.kind ? { kind: body.kind === "educational" ? "educational" : "regular" } : {}),
     ...(body?.kind === "educational" ? { educationalRoster: body.educationalRoster === "selected" ? "selected" : "all" } : {}),
   };
@@ -233,7 +238,10 @@ const getOne = async (req, res) => {
       contactById(UserModelDef, lesson.helper, req.actor),
     ]);
 
-    return res.status(200).json({ ok: true, lesson: { ...scopeLesson(lesson, visible), teacherContact, helperContact } });
+    // The participating users still active, by name (never their contacts).
+    const participants = await activeUsers(UserModelDef, lesson.list_users);
+
+    return res.status(200).json({ ok: true, lesson: { ...scopeLesson(lesson, visible), teacherContact, helperContact, participants, num_users: participants.length } });
   } catch (err) {
     logWithSource("Lesson.getOne", err);
     return res.status(500).json({ ok: false, message: err.message });
@@ -314,6 +322,15 @@ const postOne = async (req, res) => {
       model.list_students = appendNew(model.list_students, await idsFromTz(req.body.list_tz));
     }
     if (await namesSystemAccount([model.teacher, model.helper])) return res.status(400).json(SYSTEM_STAFF);
+    // Participating users only from a lessons.staffRoster holder; the
+    // lesson's own teacher or helper is refused, never quietly dropped.
+    if (mayManageUsers(req.actor)) {
+      const { ids, refused } = await addableUsers(UserModelDef, model.list_users, { ...model, list_users: [] });
+      if (refused.some((r) => r.reason === "STAFF")) return res.status(409).json(CLASH);
+      model.list_users = ids;
+    } else {
+      model.list_users = [];
+    }
     if (!validProgramHours(req.body?.date)) return res.status(400).json(PROGRAM_HOURS);
     if (!validEducationalRoster(req.body)) return res.status(400).json({ ok: false, message: "اختر طريقة إضافة طلاب البرنامج التربوي" });
 
@@ -392,6 +409,20 @@ const putOne = async (req, res) => {
       });
     }
     if (await namesSystemAccount([req.body?.teacher, req.body?.helper])) return res.status(400).json(SYSTEM_STAFF);
+    // Participating users: kept as stored unless a lessons.staffRoster holder
+    // sends a list (then: those still listed, plus newly addable ones).
+    const storedUsers = (Array.isArray(current.list_users) ? current.list_users : []).map(String);
+    if (mayManageUsers(req.actor) && Array.isArray(req.body?.list_users)) {
+      const wanted = req.body.list_users.map(String);
+      const kept = storedUsers.filter((u) => wanted.includes(u));
+      const { ids, refused } = await addableUsers(UserModelDef, wanted, { ...next, list_users: kept });
+      if (refused.some((r) => r.reason === "STAFF")) return res.status(409).json(CLASH);
+      next.list_users = [...kept, ...ids];
+    } else {
+      next.list_users = storedUsers;
+    }
+    // A new teacher or helper who is already a participant is refused too.
+    if (staffClash(next).length) return res.status(409).json(CLASH);
     if (!validProgramHours(date)) return res.status(400).json(PROGRAM_HOURS);
     if (!validEducationalRoster(req.body)) return res.status(400).json({ ok: false, message: "اختر طريقة إضافة طلاب البرنامج التربوي" });
 
@@ -546,6 +577,124 @@ const removeFromList = async (req, res) => {
   }
 };
 
+/* ===================== participating users (owner, 2026-11-09) ===================== */
+
+const NOT_A_USER_LIST = { ok: false, code: "BAD_LIST", message: "قائمة الموظفين غير صالحة" };
+
+// The lesson for a users write or the picker: null when missing, and when the
+// actor may not open it (a scoped guide on someone else's lesson).
+async function lessonForUsers(req) {
+  const found = await LessonModelDef.get({ _id: req.params.id });
+  const lesson = found?.result?.[0];
+  return lesson && mayOpenLesson(req.actor, lesson) ? lesson : null;
+}
+
+// Writes list_users on the version that was read. Answers the new version,
+// or null when another save came first.
+async function writeUsers(req, lesson, list) {
+  const updatedAt = nextStamp(lesson);
+  const saved = await LessonModelDef.updateExisting(
+    sameVersion({ _id: req.params.id }, lesson),
+    { list_users: list, updatedAt, ...editorStamp(req) }
+  );
+  if (!saved?.result) return null;
+  await recordLesson(req, "update", lesson, { ...lesson, list_users: list });
+  notifyChange("lesson", req.params.id);
+  return updatedAt;
+}
+const lostRace = async (req, res) => res.status(409).json(await raceLost(() => LessonModelDef.get({ _id: req.params.id })));
+
+// POST /lesson/addUsers/:id { list_users }: adds active users; the lesson's
+// own teacher or helper refuses the whole request (nothing is written).
+const addUsers = async (req, res) => {
+  try {
+    if (!Array.isArray(req.body?.list_users)) return res.status(400).json(NOT_A_USER_LIST);
+    const lesson = await lessonForUsers(req);
+    if (!lesson) return res.status(404).json({ ok: false, message: "غير موجود" });
+    const { ids, refused } = await addableUsers(UserModelDef, req.body.list_users, lesson);
+    if (refused.some((r) => r.reason === "STAFF")) return res.status(409).json(CLASH);
+    const updatedAt = await writeUsers(req, lesson, [...(lesson.list_users || []), ...ids]);
+    if (!updatedAt) return lostRace(req, res);
+    return res.status(200).json({ ok: true, updatedAt, refused });
+  } catch (err) {
+    logWithSource("Lesson.addUsers", err);
+    return res.status(500).json({ ok: false });
+  }
+};
+
+// POST /lesson/removeUsers/:id { list_users }: compared as strings (the
+// lesson may hold ObjectIds, the request strings).
+const removeUsers = async (req, res) => {
+  try {
+    if (!Array.isArray(req.body?.list_users)) return res.status(400).json(NOT_A_USER_LIST);
+    const lesson = await lessonForUsers(req);
+    if (!lesson) return res.status(404).json({ ok: false, message: "غير موجود" });
+    const drop = new Set(req.body.list_users.map(String));
+    const updatedAt = await writeUsers(req, lesson, (lesson.list_users || []).filter((u) => !drop.has(String(u))));
+    if (!updatedAt) return lostRace(req, res);
+    return res.status(200).json({ ok: true, updatedAt });
+  } catch (err) {
+    logWithSource("Lesson.removeUsers", err);
+    return res.status(500).json({ ok: false });
+  }
+};
+
+// GET /lesson/:id/addable-users: every active everyday user by name, so a
+// lessons.staffRoster holder picks without needing users.view. The lesson's
+// teacher and helper carry reason "STAFF", its participants "ON_LESSON".
+const addableUsersList = async (req, res) => {
+  try {
+    const lesson = await lessonForUsers(req);
+    if (!lesson) return res.status(404).json({ ok: false, message: "غير موجود" });
+    const all = await UserModelDef.get({}, "active");
+    const rows = (all?.result || []).filter((u) => !isHiddenUser(u)).map((u) => ({ _id: String(u._id), name: fullName(u) }));
+    const staff = staffIds(lesson);
+    const on = new Set((lesson.list_users || []).map(String));
+    const users = rows.map((u) => ({
+      ...u,
+      ...(staff.has(u._id) ? { reason: "STAFF" } : on.has(u._id) ? { reason: "ON_LESSON" } : {}),
+    }));
+    return res.status(200).json({ ok: true, users });
+  } catch (err) {
+    logWithSource("Lesson.addableUsersList", err);
+    return res.status(500).json({ ok: false });
+  }
+};
+
+// GET /lesson/participating: the lessons the signed-in user takes part in,
+// for «البرامج المسجّل فيها» on his own page. His own data only: no roster,
+// no other participant, and the lesson itself stays closed to him.
+const MY_ATTENDANCE_ROWS = 10;
+const myParticipations = async (req, res) => {
+  try {
+    const me = String(req.actor?.id ?? "");
+    if (!me) return res.status(200).json({ ok: true, lessons: [] });
+    const { AttendanceModelDef } = require("../Attendance/Attendance.model");
+    const found = await LessonModelDef.get({ list_users: me });
+    const mine = (found?.result || []).filter((l) => (l.list_users || []).some((u) => String(u) === me));
+    const nameOf = async (uid) => (await activeUsers(UserModelDef, uid ? [uid] : []))[0]?.name || "";
+    const lessons = await Promise.all(mine.map(async (l) => {
+      const rows = (await AttendanceModelDef.get({ lesson: String(l._id), user: me }))?.result || [];
+      return {
+        _id: String(l._id),
+        name: l.name,
+        date: l.date,
+        room: l.room,
+        teacherName: await nameOf(l.teacher),
+        helperName: await nameOf(l.helper),
+        attendance: rows
+          .sort((a, b) => Number(b.dateKey) - Number(a.dateKey))
+          .slice(0, MY_ATTENDANCE_ROWS)
+          .map((r) => ({ dateKey: Number(r.dateKey), status: r.status })),
+      };
+    }));
+    return res.status(200).json({ ok: true, lessons });
+  } catch (err) {
+    logWithSource("Lesson.myParticipations", err);
+    return res.status(500).json({ ok: false });
+  }
+};
+
 const getLessonsByToDay = async (req, res) => {
   try {
     const dow = getDow1to7(new Date());
@@ -589,6 +738,10 @@ module.exports = {
   deleteOne,
   addToList,
   removeFromList,
+  addUsers,
+  removeUsers,
+  addableUsersList,
+  myParticipations,
   copyMonth,
   // The list_tz rule, for the assistant's add-student action (actionRunner).
   idsFromTz,

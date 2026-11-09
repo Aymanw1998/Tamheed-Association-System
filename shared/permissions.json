@@ -21,6 +21,7 @@
       "create",
       "edit",
       "roster",
+      "staffRoster",
       "delete",
       "copyMonth"
     ],
@@ -168,6 +169,7 @@
         "photo": "الصورة",
         "parentLink": "رابط تسجيل الأهل",
         "roster": "قائمة طلاب البرنامج",
+        "staffRoster": "إضافة موظفين كمشاركين",
         "copyMonth": "نسخ شهر",
         "record": "تسجيل",
         "editOwn": "تعديل ما أنشأه",

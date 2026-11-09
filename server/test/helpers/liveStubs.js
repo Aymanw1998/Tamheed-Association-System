@@ -50,6 +50,7 @@ for (const suffix of ["", ".js"]) {
   deps[`../../utils/guideContact${suffix}`] = require("../../utils/guideContact");
   deps[`../../utils/refreshSessions${suffix}`] = require("../../utils/refreshSessions");
   deps[`../../utils/lessonAccess${suffix}`] = require("../../utils/lessonAccess");
+  deps[`../../utils/lessonParticipants${suffix}`] = require("../../utils/lessonParticipants");
   deps[`../../utils/tzUnique${suffix}`] = require("../../utils/tzUnique");
   deps[`../../utils/photoVersion${suffix}`] = { photoVersion };
   deps[`./SportPlayerPhoto.model${suffix}`] = { SportPlayerPhotoModelDef: noPhotos };

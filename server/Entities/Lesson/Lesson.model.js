@@ -28,6 +28,10 @@ const LessonModelDef = {
         // ملاحظة عربية
         list_students: { type: "array", required: false, default: [] },
 
+        // Users (staff) taking part, by user _id (owner, 2026-11-09; see
+        // utils/lessonParticipants). Never the lesson's teacher or helper.
+        list_users: { type: "array", required: false, default: [] },
+
         room: { type: "string", required: true },
 
         updatedBy: { type: "string", required: false },

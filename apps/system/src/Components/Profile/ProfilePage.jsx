@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Profile from "./Profile";
+import MyParticipations from "./MyParticipations";
 import { getAll as getStudents } from "../../WebServer/services/student/functionsStudent.jsx";
 import { getAllLesson } from "../../WebServer/services/lesson/functionsLesson.jsx";
 import { canStored, getStoredUserId } from "../../utils/session";
@@ -39,6 +40,8 @@ export default function ProfilePage(props) {
   return (
     <div className={styles.profileTabs} dir="rtl">
       <RecordTabs keepMounted tabs={[{ id: "details", label: t("record.myDetails"), content: form }, ...extra]} />
+      {/* The programs he takes part in as a participant (owner, 2026-11-09). */}
+      <MyParticipations />
     </div>
   );
 }

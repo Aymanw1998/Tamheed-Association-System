@@ -26,6 +26,16 @@ test("new shared labels never grant access or make IT actions role defaults", ()
   assert.equal(checkRoleDefaults(["tasks.manage"]).ok, true);
 });
 
+// Users as lesson participants (owner, 2026-11-09): its own key, held by an
+// admin through the lessons module and never by a guide or helper by default.
+test("lessons.staffRoster exists with its label and is an admin default only", () => {
+  assert.ok(catalog.tree.lessons.includes("staffRoster"));
+  assert.equal(catalog.labels.ar.leaves.staffRoster, "إضافة موظفين كمشاركين");
+  assert.ok(can(effectivePermissions({ role: "ادارة" }), "lessons.staffRoster"));
+  assert.ok(!can(effectivePermissions({ role: "مرشد" }), "lessons.staffRoster"));
+  assert.ok(!can(effectivePermissions({ role: "مساعد" }), "lessons.staffRoster"));
+});
+
 test("changing the canonical catalog updates both clients without hand editing mirrors", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "tamheed-catalog-"));
   try {

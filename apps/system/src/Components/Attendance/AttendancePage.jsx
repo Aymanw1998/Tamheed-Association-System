@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { rowKey, isStaffRow, toSaveItems, sheetCounts } from "../../utils/attendanceRows";
 import styles from "./AttendancePage.module.css";
 import Button from "../UI/Button";
 import useSavedFlash from "../../utils/useSavedFlash";
@@ -243,11 +244,12 @@ export default function AttendancePage() {
         }
     };
 
-    const updateItem = (studentId, patch) => {
+    // Rows are keyed by rowKey: a student's id, or "u:<id>" for a participating user.
+    const updateItem = (key, patch) => {
         setSheet((prev) => {
         if (!prev) return prev;
         const items = prev.items.map((it) =>
-            it.studentId === studentId ? { ...it, ...patch } : it
+            rowKey(it) === key ? { ...it, ...patch } : it
         );
         return { ...prev, items };
         });
@@ -268,11 +270,7 @@ export default function AttendancePage() {
 
         setLoadingSheet(true);
         try {
-        const items = sheet.items.map(it => ({
-            studentId: it.studentId,
-            status: it.status,
-            notes: it.notes || "",
-        }));
+        const items = toSaveItems(sheet.items);
 
         const lessonId = selectedLesson._id;
         const queued = {
@@ -512,15 +510,15 @@ export default function AttendancePage() {
                     </thead>
                     <tbody>
                     {sheet.items.map((it, idx) => (
-                        <tr key={it.studentId}>
+                        <tr key={rowKey(it)}>
                         <td className={styles.studentCell}>
-                            <div className={styles.studentName}>{it.studentName}</div>
+                            <div className={styles.studentName}>{it.studentName}{isStaffRow(it) && <span className={styles.staffBadge}>موظف</span>}</div>
                             {it.tz && <div className={styles.studentTz}>{it.tz}</div>}
                         </td>
                         <td>
                             <StatusPill
                             value={it.status}
-                            onChange={(s) => updateItem(it.studentId, { status: s })}
+                            onChange={(s) => updateItem(rowKey(it), { status: s })}
                             tourStatus={["غائب", "متأخر", "حاضر"][idx] || null}
                             disabled={readonly}
                             />
@@ -531,7 +529,7 @@ export default function AttendancePage() {
                             disabled={readonly}
                             value={it.notes || ""}
                             onChange={(e) =>
-                                updateItem(it.studentId, { notes: e.target.value })
+                                updateItem(rowKey(it), { notes: e.target.value })
                             }
                             />
                         </td>
@@ -544,11 +542,11 @@ export default function AttendancePage() {
                 {/* Mobile vertical table */}
                 <div className={styles.mobileOnly}>
                 {sheet.items.map((it, idx) => (
-                    <div key={it.studentId} className={styles.mobileRow}>
+                    <div key={rowKey(it)} className={styles.mobileRow}>
                     <div className={styles.mobileHeader}>
                         <span className={styles.mobileIndex}>{idx + 1}</span>
                         <div>
-                        <div className={styles.studentName}>{it.studentName}</div>
+                        <div className={styles.studentName}>{it.studentName}{isStaffRow(it) && <span className={styles.staffBadge}>موظف</span>}</div>
                         {it.tz && <div className={styles.studentTz}>{it.tz}</div>}
                         </div>
                     </div>
@@ -557,7 +555,7 @@ export default function AttendancePage() {
                         <label>الحالة</label>
                         <StatusPill
                         value={it.status}
-                        onChange={(s) => updateItem(it.studentId, { status: s })}
+                        onChange={(s) => updateItem(rowKey(it), { status: s })}
                         tourStatus={["غائب", "متأخر", "حاضر"][idx] || null}
                         disabled={readonly}
                         />
@@ -571,7 +569,7 @@ export default function AttendancePage() {
                         disabled={readonly}
                         value={it.notes || ""}
                         onChange={(e) =>
-                            updateItem(it.studentId, { notes: e.target.value })
+                            updateItem(rowKey(it), { notes: e.target.value })
                         }
                         />
                     </div>
@@ -582,11 +580,22 @@ export default function AttendancePage() {
 
                 {/* Save sits with the sheet it saves and stays visible while scrolling. */}
                 <div className={styles.footer}>
-                    <div className={styles.counts}>
-                    حاضر: {sheet.items.filter(x => x.status === "حاضر").length} •{" "}
-                    متأخر: {sheet.items.filter(x => x.status === "متأخر").length} •{" "}
-                    غائب: {sheet.items.filter(x => x.status === "غائب").length}
-                    </div>
+                    {/* Students and participating staff are counted apart. */}
+                    {(() => {
+                        const c = sheetCounts(sheet.items);
+                        return (
+                            <div className={styles.counts}>
+                            حاضر: {c.students["حاضر"]} •{" "}
+                            متأخر: {c.students["متأخر"]} •{" "}
+                            غائب: {c.students["غائب"]}
+                            {c.staffTotal > 0 && (
+                                <span className={styles.staffCounts}>
+                                {" "}| الموظفون: حاضر {c.staff["حاضر"]} • متأخر {c.staff["متأخر"]} • غائب {c.staff["غائب"]}
+                                </span>
+                            )}
+                            </div>
+                        );
+                    })()}
                     <div className={styles.actions}>
                     {dirty && <span className={styles.miniInfo}>توجد تغييرات لم تُحفظ</span>}
                     <Button data-tour="calendar-save" onClick={onSave} disabled={loadingSheet || !dirty || readonly} success={saved}>

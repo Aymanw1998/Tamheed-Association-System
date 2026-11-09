@@ -16,7 +16,7 @@ jest.mock("./Profile", () => {
 });
 jest.mock("../../WebServer/services/api", () => ({ __esModule: true, default: { get: jest.fn(), post: jest.fn() }, API_BASE_URL: "/api" }));
 jest.mock("../../WebServer/services/student/functionsStudent.jsx", () => ({ getAll: jest.fn() }));
-jest.mock("../../WebServer/services/lesson/functionsLesson.jsx", () => ({ getAllLesson: jest.fn() }));
+jest.mock("../../WebServer/services/lesson/functionsLesson.jsx", () => ({ getAllLesson: jest.fn(), getMyParticipations: jest.fn() }));
 let mockPerms = [];
 jest.mock("../../utils/session", () => ({
   ...jest.requireActual("../../utils/session"),
@@ -25,7 +25,7 @@ jest.mock("../../utils/session", () => ({
 }));
 
 import { getAll as getStudents } from "../../WebServer/services/student/functionsStudent.jsx";
-import { getAllLesson } from "../../WebServer/services/lesson/functionsLesson.jsx";
+import { getAllLesson, getMyParticipations } from "../../WebServer/services/lesson/functionsLesson.jsx";
 import ProfilePage from "./ProfilePage";
 import { I18nProvider } from "../../i18n/I18nContext";
 
@@ -92,4 +92,13 @@ test("the form is not rebuilt when the tabs arrive (edits already typed are kept
   await act(async () => release({ ok: true, students: [{ _id: "s1", tz: "800000001", firstname: "أول", lastname: "طالب", main_teacher: "g1" }] }));
   expect(tabs().length).toBe(2);
   expect(mockMounts).toBe(1);
+});
+
+// «البرامج المسجّل فيها» (owner, 2026-11-09): under the tabs, for anyone.
+test("the programs the user takes part in show at the bottom of his page", async () => {
+  mockPerms = [];
+  getMyParticipations.mockResolvedValue({ ok: true, lessons: [{ _id: "L9", name: "برنامج مشاركة", room: "2", date: { day: 2, startMin: 900, endMin: 960 }, teacherName: "مرشد", helperName: "", attendance: [] }] });
+  await mount();
+  expect(container.textContent).toContain("البرامج المسجّل فيها");
+  expect(container.textContent).toContain("برنامج مشاركة");
 });

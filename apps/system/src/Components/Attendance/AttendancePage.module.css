@@ -533,3 +533,17 @@
 .filterGroup input {
   width: 100%;
 }
+
+/* A participating user's row (owner, 2026-11-09). */
+.staffBadge {
+  display: inline-block;
+  margin-inline-start: var(--space-2);
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--color-accent-100);
+  color: var(--color-warning-700);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  vertical-align: middle;
+}
+.staffCounts { color: var(--color-text-secondary); }

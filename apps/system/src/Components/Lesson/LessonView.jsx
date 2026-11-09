@@ -12,6 +12,7 @@ import { useI18n } from "../../i18n/I18nContext";
 import RecordPage from "../UI/RecordPage";
 import { DetailGroup, GuideCard } from "../UI/RecordParts";
 import LessonRoster from "./LessonRoster";
+import LessonParticipants from "./LessonParticipants";
 import withLock from "../../locks/withLock";
 
 const nameOf = (s) => `${s?.firstname || ""} ${s?.lastname || ""}`.trim();
@@ -131,6 +132,11 @@ export default function LessonView() {
 
   if (!lesson) return <RecordPage loading={!error} error={error} />;
 
+  const confirmRemoveUser = (user) =>
+    ask("delete", { title: "إزالة موظف", message: t("record.removeConfirm").replace("{name}", user.name) }).catch(() => false);
+  const participants = lesson.participants || [];
+  const canStaff = canStored("lessons.staffRoster");
+
   const viewer = getStoredUserId();
   const actions = [
     canStored("lessons.edit") && { label: t("record.edit"), onClick: openForm, tour: "lesson-view-edit" },
@@ -173,7 +179,22 @@ export default function LessonView() {
         />
       ),
     },
-  ];
+    // Users (staff) taking part (owner, 2026-11-09): shown when there are any,
+    // or to a lessons.staffRoster holder who may add them.
+    (participants.length > 0 || canStaff) && {
+      id: "staff",
+      label: "الموظفون المشاركون",
+      content: (
+        <LessonParticipants
+          lessonId={id}
+          participants={participants}
+          canEdit={canStaff && !opening}
+          apply={apply}
+          confirmRemove={confirmRemoveUser}
+        />
+      ),
+    },
+  ].filter(Boolean);
 
   return (
     <RecordPage

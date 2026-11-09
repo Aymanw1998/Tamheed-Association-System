@@ -66,4 +66,15 @@ describe("the dialog", () => {
     expect(document.body.querySelector('[role="dialog"]')).toBeNull();
     expect(getAllStudents).not.toHaveBeenCalled();
   });
+
+  // A phone has no Escape key and the full-screen panel leaves no backdrop to
+  // tap, so the dialog needs its own close button (owner, 2026-11-09).
+  test("a visible close button closes it", async () => {
+    await act(async () => root.render(<QuickSearch pages={[]} canStudents={false} canUsers={false} canLessons={false} onNav={jest.fn()} />));
+    await act(async () => { host.querySelector("button").click(); });
+    const closeButton = document.body.querySelector('[role="dialog"] button[aria-label="إغلاق البحث"]');
+    expect(closeButton).not.toBeNull();
+    await act(async () => { closeButton.click(); });
+    expect(document.body.querySelector('[role="dialog"]')).toBeNull();
+  });
 });

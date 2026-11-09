@@ -136,6 +136,54 @@ export async function removeFromList(lessonId, studentIds = []) {
     }
 }
 
+// Users (staff) taking part in a lesson (owner, 2026-11-09). Each needs
+// lessons.staffRoster; the server refuses the lesson's own teacher or helper
+// (409 STAFF_IS_PARTICIPANT) and answers the lesson's new version.
+const failed = (err) => ({ ok: false, status: err.response?.status, data: err.response?.data, message: err.response?.data?.message || err.message || 'تعذّر إتمام العملية.' });
+
+export async function addUsers(lessonId, userIds = []) {
+    try {
+        const { data } = await api.post(`/lesson/addUsers/${encodeURIComponent(lessonId)}`, { list_users: userIds });
+        if (!data?.ok) throw new Error(data?.message || 'تعذّرت إضافة الموظف إلى البرنامج');
+        return { ok: true, updatedAt: data.updatedAt, refused: data.refused || [] };
+    } catch (err) {
+        return failed(err);
+    }
+}
+
+export async function removeUsers(lessonId, userIds = []) {
+    try {
+        const { data } = await api.post(`/lesson/removeUsers/${encodeURIComponent(lessonId)}`, { list_users: userIds });
+        if (!data?.ok) throw new Error(data?.message || 'تعذّرت إزالة الموظف من البرنامج');
+        return { ok: true, updatedAt: data.updatedAt };
+    } catch (err) {
+        return failed(err);
+    }
+}
+
+// Every active user by name; reason "STAFF" (the lesson's guide or assistant)
+// or "ON_LESSON" (already taking part) marks those who cannot be added.
+export async function getAddableUsers(lessonId) {
+    try {
+        const { data } = await api.get(`/lesson/${encodeURIComponent(lessonId)}/addable-users`);
+        if (!data?.ok) throw new Error(data?.message || 'تعذّر تحميل قائمة الموظفين');
+        return { ok: true, users: data.users || [] };
+    } catch (err) {
+        return { ...failed(err), users: [] };
+    }
+}
+
+// The signed-in user's own participations, for his Profile page.
+export async function getMyParticipations() {
+    try {
+        const { data } = await api.get('/lesson/participating');
+        if (!data?.ok) throw new Error(data?.message || 'تعذّر تحميل البرامج');
+        return { ok: true, lessons: data.lessons || [] };
+    } catch (err) {
+        return { ...failed(err), lessons: [] };
+    }
+}
+
 export async function copyLessonsMonth(params = {}) {
     try {
         const res = await api.post(`/lesson/copy-month`);

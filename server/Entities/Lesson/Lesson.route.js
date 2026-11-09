@@ -12,6 +12,10 @@ const {
   deleteOne,
   addToList,
   removeFromList,
+  addUsers,
+  removeUsers,
+  addableUsersList,
+  myParticipations,
   copyMonth,
   deletePerMonth,
   getLessonsByToDay,
@@ -38,10 +42,16 @@ router.get('/week-schedule', requirePermission('lessons.view'), requirePermissio
 router.get('/query', requirePermission('lessons.view'), getLessonsByQuery);
 router.get('/today', requirePermission('lessons.view'), getLessonsByToDay);
 router.get('/sport-schedule', requirePermission('lessons.view'), requirePermission('calendar.view'), getSportSchedule);
+// One's own participations (any signed-in user; filtered by his id).
+router.get('/participating', myParticipations);
+router.get('/:id/addable-users', requirePermission('lessons.staffRoster'), addableUsersList);
 router.get('/:id', requirePermission('lessons.view'), getOne);
 // ملاحظة عربية
 router.post('/addToList/:id', requirePermission('lessons.roster'), lockedLesson, addToList);
 router.post('/removeFromList/:id', requirePermission('lessons.roster'), lockedLesson, removeFromList);
+// Users (staff) as participants (owner, 2026-11-09).
+router.post('/addUsers/:id', requirePermission('lessons.staffRoster'), lockedLesson, addUsers);
+router.post('/removeUsers/:id', requirePermission('lessons.staffRoster'), lockedLesson, removeUsers);
 
 // ملاحظة عربية
 

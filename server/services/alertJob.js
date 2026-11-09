@@ -144,7 +144,8 @@ function currentAbsenceRun(rows) {
 
 async function checkAbsenceStreaks(deps, clock) {
   const recent = ((await deps.recentAbsences(dateKeyDaysBefore(clock, STREAK_LOOKBACK_DAYS), clock.dateKey)) || [])
-    .filter((r) => !isAutoAbsence(r));
+    // A participating user's row (`user`, no `student`) is not a student's.
+    .filter((r) => !isAutoAbsence(r) && r.student != null && r.student !== "");
   const studentIds = [...new Set(recent.map((r) => String(r.student)).filter(Boolean))];
   let raised = 0;
   for (const studentId of studentIds) {

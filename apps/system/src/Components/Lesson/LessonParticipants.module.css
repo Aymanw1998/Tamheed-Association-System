@@ -1,0 +1,81 @@
+.wrap { display: flex; flex-direction: column; gap: var(--space-3); }
+
+.list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.avatar {
+  display: inline-grid; place-items: center; flex: none;
+  width: 34px; height: 34px; border-radius: 50%;
+  background: var(--color-primary-50); color: var(--color-link);
+}
+
+.name { flex: 1; min-width: 0; font-weight: 600; color: var(--color-text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.badge {
+  flex: none;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--color-accent-100);
+  color: var(--color-warning-700);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+}
+
+.addButton { align-self: flex-start; }
+
+.picker {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+  animation: picker-in var(--dur-base) var(--ease-out) both;
+}
+
+.pickerHead {
+  display: flex; gap: var(--space-2); align-items: center;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.search {
+  flex: 1; min-width: 0;
+  padding: 8px var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font: inherit;
+}
+
+.options { max-height: 280px; overflow-y: auto; padding: var(--space-2); display: flex; flex-direction: column; gap: 2px; }
+
+.option {
+  display: flex; align-items: center; gap: var(--space-2);
+  width: 100%;
+  padding: 10px var(--space-3);
+  border: 0; border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-primary);
+  font: inherit; text-align: start;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) ease;
+}
+.option:hover:not(:disabled) { background: var(--color-primary-50); }
+.option:disabled { cursor: not-allowed; color: var(--color-text-muted); }
+.optionName { flex: 1; min-width: 0; }
+.reason { font-size: var(--fs-xs); color: var(--color-text-muted); }
+.plus { color: var(--color-link); }
+
+.note { margin: 0; padding: var(--space-4); text-align: center; color: var(--color-text-secondary); font-size: var(--fs-sm); }
+
+@keyframes picker-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
