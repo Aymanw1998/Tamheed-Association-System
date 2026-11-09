@@ -1,4 +1,5 @@
 import TabIndicator from "../UI/TabIndicator";
+import { participantCount } from "../../utils/lessonRoster";
 import React, { useEffect, useMemo, useRef } from "react";
 import styles from "./MobileLessonList.module.css";
 import { DAY_NAMES, countLessonsByDay, endOf, lessonsForDay, startOf, toHHMM } from "../../utils/lessonSchedule";
@@ -59,7 +60,7 @@ export default function MobileLessonList({ lessons, day, onDayChange, teacherNam
                 {lesson.readOnly
                   ? <span>{SYSTEM_TEACHER}</span>
                   : teacherNames?.[lesson.teacher] && <span>{teacherNames[lesson.teacher]}</span>}
-                <span>{lesson.readOnly ? `اللاعبون: ${lesson.playersCount ?? 0}` : `الطلاب: ${(lesson.list_students || []).length}`}</span>
+                <span>{lesson.readOnly ? `اللاعبون: ${lesson.playersCount ?? 0}` : `المشتركون: ${participantCount(lesson)}`}</span>
               </span>
             </>
           );

@@ -98,3 +98,14 @@ export const countAdded = (before, after) => Math.max(0, totalOf(after) - totalO
 // POST /lesson answers { ok, lesson: { result: {...} } } (the stored document
 // sits inside a wrapper, unscoped). Returns the document itself.
 export const unwrapCreated = (lesson) => (lesson && lesson.result ? lesson.result : lesson || null);
+
+// «المشتركون» (owner, 2026-11-09): every student on the lesson (num_in_list is
+// the true total when some are hidden from a scoped actor) plus its staff
+// participants (list_users).
+export const participantCount = (lesson) => {
+  const students = Number.isFinite(Number(lesson?.num_in_list)) && lesson?.num_in_list != null
+    ? Number(lesson.num_in_list)
+    : (Array.isArray(lesson?.list_students) ? lesson.list_students.length : 0);
+  const users = Array.isArray(lesson?.list_users) ? lesson.list_users.length : 0;
+  return students + users;
+};

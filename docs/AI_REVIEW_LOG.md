@@ -5959,3 +5959,17 @@ synthetic data only: staff badge, «—» stats, picker staff tab.
 **Actual peer request / response:** request written to
 [2026-11-09-users-as-sport-players-codex-request.md](reviews/2026-11-09-users-as-sport-players-codex-request.md).
 Independent review PENDING (run when the owner chooses). Self-review only. Not committed.
+
+## 2026-11-09 — Lesson list: «المشتركون» counts students and staff (Claude Code)
+
+**Owner request:** the lesson list showed «الطلاب: N»; with staff on lessons it should read
+«المشتركون: N», students plus staff users.
+
+**Changed:** System `utils/lessonRoster.js` (`participantCount`: `num_in_list`, else the visible
+students, plus `list_users`), `Components/Lesson/MobileLessonList.jsx`; test `utils/lessonRoster.test.js`.
+Sport lessons keep «اللاعبون» (their count already includes staff players).
+
+**Verification:** System 1,195 tests (139 suites) and CI build; git diff --check.
+
+**Actual peer request / response:** small follow-up to the stage 1 request; Codex review
+PENDING (run when the owner chooses). Not committed.

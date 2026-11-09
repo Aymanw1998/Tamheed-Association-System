@@ -145,3 +145,18 @@ describe("unwrapCreated", () => {
     expect(unwrapCreated(null)).toBeNull();
   });
 });
+
+// «المشتركون» on the lesson list (owner, 2026-11-09): students + staff users.
+describe("participantCount", () => {
+  const { participantCount } = require("./lessonRoster");
+  test("adds the staff participants to the students", () => {
+    expect(participantCount({ list_students: ["s1", "s2"], list_users: ["u1"] })).toBe(3);
+  });
+  test("counts every student when some are hidden from a scoped actor", () => {
+    expect(participantCount({ list_students: ["s1"], num_in_list: 4, list_users: ["u1", "u2"] })).toBe(6);
+  });
+  test("tolerates a lesson without lists", () => {
+    expect(participantCount({})).toBe(0);
+    expect(participantCount(null)).toBe(0);
+  });
+});
