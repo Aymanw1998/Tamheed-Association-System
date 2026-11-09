@@ -245,10 +245,42 @@ test("Attendances has a { student, dateKey: -1 } index for the absence-streak re
   const { ATTENDANCE_INDEXES, ensureAttendanceIndexes } = require("../Entities/Attendance/Attendance.model");
   assert.deepEqual(JSON.parse(JSON.stringify(ATTENDANCE_INDEXES)), [{ key: { student: 1, dateKey: -1 } }]);
   const made = [];
-  await ensureAttendanceIndexes({ createIndex: async (key, options) => made.push([key, options]) });
+  await ensureAttendanceIndexes({ indexes: async () => [], createIndex: async (key, options) => made.push([key, options]) });
   assert.deepEqual(made, [[{ student: 1, dateKey: -1 }, {}]]);
   const server = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "server.js"), "utf8");
   assert.match(server, /ensureAttendanceIndexes\(\)/, "server.js does not create the Attendance index at startup");
+});
+
+// The retired Mongoose schema made { lesson, student, dateKey } unique. A user
+// row has no student, so with that index a second user on the same lesson and
+// day would collide: startup drops it (and only it) if it is still there.
+test("startup drops the old unique { lesson, student, dateKey } index and nothing else", async () => {
+  const { ensureAttendanceIndexes } = require("../Entities/Attendance/Attendance.model");
+  const dropped = [];
+  const existing = [
+    { name: "_id_", key: { _id: 1 } },
+    { name: "lesson_1_student_1_dateKey_1", key: { lesson: 1, student: 1, dateKey: 1 }, unique: true },
+    { name: "lesson_1_dateKey_-1", key: { lesson: 1, dateKey: -1 } },
+    { name: "student_1_dateKey_-1", key: { student: 1, dateKey: -1 } },
+  ];
+  await ensureAttendanceIndexes({ indexes: async () => existing, dropIndex: async (name) => dropped.push(name), createIndex: async () => {} });
+  assert.deepEqual(dropped, ["lesson_1_student_1_dateKey_1"]);
+});
+
+test("startup leaves a non-unique { lesson, student, dateKey } index alone", async () => {
+  const { ensureAttendanceIndexes } = require("../Entities/Attendance/Attendance.model");
+  const dropped = [];
+  const existing = [{ name: "lesson_1_student_1_dateKey_1", key: { lesson: 1, student: 1, dateKey: 1 } }];
+  await ensureAttendanceIndexes({ indexes: async () => existing, dropIndex: async (name) => dropped.push(name), createIndex: async () => {} });
+  assert.deepEqual(dropped, []);
+});
+
+test("on a new database (no Attendances collection yet) startup still creates the index", async () => {
+  const { ensureAttendanceIndexes } = require("../Entities/Attendance/Attendance.model");
+  const made = [];
+  const missing = Object.assign(new Error("ns does not exist"), { code: 26, codeName: "NamespaceNotFound" });
+  await ensureAttendanceIndexes({ indexes: async () => { throw missing; }, createIndex: async (key) => made.push(key) });
+  assert.deepEqual(made, [{ student: 1, dateKey: -1 }]);
 });
 
 /* ---------------------- assistant conversations unused for 90 days */

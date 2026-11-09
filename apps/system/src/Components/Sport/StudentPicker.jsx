@@ -1,18 +1,21 @@
 import React, { useEffect, useState } from "react";
 import { useI18n } from "../../i18n/I18nContext";
 import Button from "../UI/Button.jsx";
-import { searchStudents } from "../../WebServer/services/sport/functionsSport";
+import { searchStudents, searchUsers } from "../../WebServer/services/sport/functionsSport";
 import styles from "./Sport.module.css";
 import { passportSrc } from "../../utils/passportPhoto";
 
 const fullName = (p) => `${p.firstname || ""} ${p.lastname || ""}`.trim();
 export const SEARCH_DELAY = 300;
 
-// One search box over every student: ID number or name. The whole list loads
-// when it opens (empty search). `isDisabled(student)` returns the Arabic note
-// shown instead of the pick button, or a falsy value when the row can be picked.
+// One search box over every student, or (second tab, owner 2026-11-09) every
+// staff user: ID number or name. The whole list loads when it opens (empty
+// search). `isDisabled(person)` returns the Arabic note shown instead of the
+// pick button, or a falsy value when the row can be picked. Staff rows come
+// with kind: "user".
 export default function StudentPicker({ onPick, isDisabled, pickLabel }) {
   const { t } = useI18n();
+  const [kind, setKind] = useState("student");
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -22,16 +25,33 @@ export default function StudentPicker({ onPick, isDisabled, pickLabel }) {
     // The first load is immediate; typing waits for a short pause.
     const timer = setTimeout(async () => {
       setLoading(true);
-      const res = await searchStudents({ q: query.trim() });
+      const staff = kind === "user";
+      const res = await (staff ? searchUsers : searchStudents)({ q: query.trim() });
       if (!live) return;
-      setResults(res.ok ? res.students || [] : []);
+      setResults(res.ok ? (staff ? res.users : res.students) || [] : []);
       setLoading(false);
     }, query === "" ? 0 : SEARCH_DELAY);
     return () => { live = false; clearTimeout(timer); };
-  }, [query]);
+  }, [query, kind]);
+
+  const kindTab = (value, label) => (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={kind === value}
+      className={`${styles.kindTab} ${kind === value ? styles.kindTabActive : ""}`}
+      onClick={() => { if (kind !== value) { setResults([]); setKind(value); } }}
+    >
+      {label}
+    </button>
+  );
 
   return (
     <>
+      <div className={styles.kindTabs} role="tablist" aria-label={t("sport.dialog.kinds")}>
+        {kindTab("student", t("sport.dialog.students"))}
+        {kindTab("user", t("sport.dialog.staff"))}
+      </div>
       <input
         type="search"
         className={styles.dialogSearch}
@@ -42,7 +62,7 @@ export default function StudentPicker({ onPick, isDisabled, pickLabel }) {
         onKeyDown={(e) => { if (e.key === "Enter") e.preventDefault(); }}
         autoFocus
       />
-      {loading && <div className={styles.emptyState}>{t("sport.dialog.loadingStudents")}</div>}
+      {loading && <div className={styles.emptyState}>{t(kind === "user" ? "sport.dialog.loadingStaff" : "sport.dialog.loadingStudents")}</div>}
       {!loading && results.length === 0 && <div className={styles.emptyState}>{t("sport.dialog.noResults")}</div>}
       <ul className={styles.results}>
         {results.map((s) => {
@@ -55,6 +75,7 @@ export default function StudentPicker({ onPick, isDisabled, pickLabel }) {
                   : <span className={styles.thumb} aria-hidden="true" />}
                 <span>
                   <span className={styles.name}>{fullName(s)}</span>
+                  {s.kind === "user" && <span className={styles.staffBadge} data-staff-badge>{t("sport.dialog.staffBadge")}</span>}
                   <span className={styles.muted}>
                     {` · ${t("sport.dialog.tz")} ${s.tz || t("sport.players.none")} · ${s.age ?? t("sport.players.none")}${s.layer ? ` · ${s.layer}` : ""}`}
                   </span>

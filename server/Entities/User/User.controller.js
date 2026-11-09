@@ -344,6 +344,10 @@ function sanitize(u) {
   // IT-site passkeys (Entities/It/It.passkey.js) never leave the server.
   delete o.itPasskeys;
   delete o.systemPasskeys;
+  // A staff user who plays football (owner, 2026-11-09): his Sport-app card
+  // hash and passkeys (SportPortal.auth / SportPortal.passkey).
+  delete o.sportCardHash;
+  delete o.sportPasskeys;
   return o;
 }
 

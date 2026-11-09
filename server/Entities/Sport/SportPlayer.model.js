@@ -9,7 +9,9 @@ const SportPlayerModelDef = {
     },
 
     fields: {
+        // A student's _id, or a user's when kind is "user" (owner, 2026-11-09).
         studentId: { type: "string", required: true },
+        kind: { type: "string", required: false, default: "student" }, // student | user
         sportId: { type: "string", required: true },
         jerseyNumber: { type: "number", required: false, default: null },
         position: { type: "string", required: false, default: "" },

@@ -5926,4 +5926,36 @@ Atlas indexes before deploying.
 **Actual peer request / response:** request written to
 [2026-11-09-users-in-lessons-codex-request.md](reviews/2026-11-09-users-in-lessons-codex-request.md).
 Codex is at its usage limit until Nov 11, 2026 18:18: independent review PENDING.
-Final review so far is a self-review by the author. Not committed.
+Final review so far is a self-review by the author. Committed as `1eb80a2` (owner's go-ahead)
+and pushed. The index point is answered by the stage 2 entry below.
+
+## 2026-11-09 — Users (staff) as sport players, stage 2, and the attendance index (Claude Code)
+
+**Owner request:** a staff user can be a football player (any user, no responsible rule
+in sport), with a card but no statistics, attendance like any player, and his own Sport
+app sign-in. The production database is reached only from the server, so the old
+unique attendance index is handled by the server at startup. Codex reviews run when
+the owner chooses. Plan
+`docs/superpowers/plans/2026-11-09-users-as-lesson-participants-stage2-sport.md`.
+
+**Changed:** server `utils/sportPeople.js` (new), `utils/sportCards.js`,
+`Entities/Sport/{Sport.controller,Sport.route,SportPlayer.model}.js`,
+`Entities/SportPortal/{SportPortal.auth,SportPortal.passkey}.js`, `Entities/User/User.controller.js`
+(sanitize), `Entities/Attendance/Attendance.model.js` (drops a unique `{lesson, student, dateKey}`
+index at startup); System `WebServer/services/sport/functionsSport.jsx`, `i18n/sportStrings.js`,
+`Components/Sport/{StudentPicker,PlayersTab,LessonRosterDialog,AttendanceTab}.jsx`, `Sport.module.css`.
+Tests: server `sport-people`, `sport-portal-users` (new), `sport-staff`, `alert-job`,
+`helpers/liveStubs`; System `Sport/StaffPlayers` (new).
+
+**Writer's calls:** a user player is stored with his user `_id` in the existing
+`studentId` fields plus `kind: "user"` on his player row; one ID number naming several
+people signs in only the one who is a football player; the placeholder email
+`test@test.com` is never mailed; add-player labels read «إضافة لاعب».
+
+**Verification:** server 1,629 pass; System 1,192 tests (139 suites) and CI build;
+git diff --check. Sport app and IT unchanged. Local browser check with a mock API and
+synthetic data only: staff badge, «—» stats, picker staff tab.
+
+**Actual peer request / response:** request written to
+[2026-11-09-users-as-sport-players-codex-request.md](reviews/2026-11-09-users-as-sport-players-codex-request.md).
+Independent review PENDING (run when the owner chooses). Self-review only. Not committed.

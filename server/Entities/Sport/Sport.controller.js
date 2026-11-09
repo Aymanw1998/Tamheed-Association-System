@@ -19,6 +19,7 @@ const { SportNoticeModelDef } = require("./SportNotice.model");
 const { push } = require("../../utils/push");
 const { playerPhotoJob, cutoutReady } = require("../../services/playerPhotoJob");
 const { photoVersion } = require("../../utils/photoVersion");
+const { createSportPeople, isUserPlayer, NO_STATS } = require("../../utils/sportPeople");
 
 const SERVER_ERROR = "حدث خطأ غير متوقع، حاول مرة أخرى";
 const NOT_FOUND = { student: "الطالب غير موجود", player: "اللاعب غير موجود", lesson: "الدرس غير موجود", notice: "الإعلان غير موجود" };
@@ -165,7 +166,11 @@ const setStats = handle("setStats", async (req, res) => {
 
 /* ---------- players ---------- */
 
-const studentMap = async () => new Map(rows(await StudentModelDef.get({})).map((s) => [String(s._id), s]));
+// Users as players (owner, 2026-11-09): a player is a student or an active,
+// non-hidden user (kind "user"), both by id in the same `studentId` fields.
+const people = createSportPeople({ students: StudentModelDef, users: UserModelDef });
+const kindOf = (person) => (person?.kind === "user" ? "user" : "student");
+const studentMap = () => people.peopleMap();
 // Staff names by user id, for the student's mentor (main_teacher) on the card.
 const staffNames = async () => new Map(rows(await UserModelDef.get({})).map((u) => [String(u._id), isHiddenUser(u) ? SYSTEM_ACTOR_NAME : fullName(u)]));
 const inLesson = (lesson, studentId) => (lesson.players || []).some((p) => String(p.studentId) === String(studentId));
@@ -230,7 +235,7 @@ const listPlayers = handle("listPlayers", async (req, res) => {
     const version = photoVersion(s.photo);
     if (version && !cutout && p.photoCutoutFailed !== version) playerPhotoJob.schedule(p.studentId);
     out.push({
-      studentId: String(p.studentId), firstname: s.firstname, lastname: s.lastname, age: ageOn(s.birth_date, now),
+      studentId: String(p.studentId), kind: kindOf(s), firstname: s.firstname, lastname: s.lastname, age: ageOn(s.birth_date, now),
       gender: s.gender, layer: s.layer || "", school: s.school || "",
       tz: String(s.tz || ""), photo: s.photo || "", photoCutout: cutout, birthDate: birthDateOf(s.birth_date),
       jerseyNumber: card.jerseyNumber, position: card.position, mentor: staff.get(String(s.main_teacher || "")) || "",
@@ -265,8 +270,26 @@ const searchStudents = handle("searchStudents", async (req, res) => {
   return res.status(200).json({ ok: true, students });
 });
 
+// The staff a coach may add as players (owner, 2026-11-09): active, non-hidden
+// users. q matches the ID number or the name. Contact details never go out.
+const searchUsers = handle("searchUsers", async (req, res) => {
+  const needle = text(req.query?.q).toLowerCase();
+  const sport = await ensureFootball();
+  const playerIds = new Set(rows(await SportPlayerModelDef.get({ sportId: String(sport._id) })).map((p) => String(p.studentId)));
+  const now = new Date();
+  const users = [...(await people.peopleMap()).values()]
+    .filter((u) => u.kind === "user")
+    .filter((u) => !needle || [String(u.tz || ""), u.firstname, u.lastname, fullName(u)].some((v) => String(v || "").toLowerCase().includes(needle)))
+    .sort((a, b) => fullName(a).localeCompare(fullName(b), "ar"))
+    .map((u) => ({
+      _id: String(u._id), firstname: u.firstname || "", lastname: u.lastname || "", tz: String(u.tz || ""),
+      age: ageOn(u.birth_date, now), kind: "user", isPlayer: playerIds.has(String(u._id)),
+    }));
+  return res.status(200).json({ ok: true, users });
+});
+
 const savePlayer = handle("savePlayer", async (req, res) => {
-  const student = await findOne(StudentModelDef, req.params.studentId);
+  const student = await people.findPerson(req.params.studentId);
   if (!student) return fail(res, 404, NOT_FOUND.student);
   const raw = req.body?.jerseyNumber;
   let jerseyNumber = null;
@@ -295,7 +318,7 @@ const savePlayer = handle("savePlayer", async (req, res) => {
   const now = new Date();
   const saved = existing
     ? await SportPlayerModelDef.updateExisting({ _id: existing._id }, { jerseyNumber, position, updatedAt: now })
-    : await SportPlayerModelDef.create({ studentId, sportId, jerseyNumber, position, stats: {}, createdAt: now, updatedAt: now });
+    : await SportPlayerModelDef.create({ studentId, sportId, kind: kindOf(student), jerseyNumber, position, stats: {}, createdAt: now, updatedAt: now });
 
   const changedLessons = [];
   for (const lesson of toChange) {
@@ -337,7 +360,7 @@ const deletePlayer = handle("deletePlayer", async (req, res) => {
 
 // The player's cut-out photo, when it matches the student's current photo.
 const playerPhoto = handle("playerPhoto", async (req, res) => {
-  const student = await findOne(StudentModelDef, req.params.studentId);
+  const student = await people.findPerson(req.params.studentId);
   const found = student ? await playerPhotoJob.read(student._id, student.photo) : null;
   if (!found) return fail(res, 404, NOT_FOUND.player);
   res.set("Content-Type", found.contentType);
@@ -355,6 +378,7 @@ const bumpStat = handle("bumpStat", async (req, res) => {
   if (!STAT_KEY.test(key) || !(sport.stats || []).some((s) => s.key === key)) return fail(res, 400, "الإحصائية غير معرّفة");
   const player = rows(await SportPlayerModelDef.get({ studentId: String(req.params.studentId), sportId: String(sport._id) }))[0];
   if (!player) return fail(res, 404, NOT_FOUND.player);
+  if (isUserPlayer(player)) return res.status(409).json(NO_STATS);
   const value = await SportPlayerModelDef.bumpStat(player._id, key, delta);
   cardChanged([String(player.studentId)]);
   notifyChange("player", String(player.studentId));
@@ -400,7 +424,7 @@ async function lessonPlayers(lesson, students) {
   // A player whose student no longer exists is skipped, so no blank-name row appears.
   return (lesson.players || []).filter((p) => map.has(String(p.studentId))).map((p) => {
     const s = map.get(String(p.studentId));
-    return { studentId: String(p.studentId), firstname: s.firstname || "", lastname: s.lastname || "", joinedAt: p.joinedAt };
+    return { studentId: String(p.studentId), kind: kindOf(s), firstname: s.firstname || "", lastname: s.lastname || "", joinedAt: p.joinedAt };
   });
 }
 
@@ -493,7 +517,7 @@ const deleteLesson = handle("deleteLesson", async (req, res) => {
 const addLessonPlayer = handle("addLessonPlayer", async (req, res) => {
   const lesson = await findOne(SportLessonModelDef, req.params.id);
   if (!lesson) return fail(res, 404, NOT_FOUND.lesson);
-  const student = await findOne(StudentModelDef, req.body?.studentId);
+  const student = await people.findPerson(req.body?.studentId);
   if (!student) return fail(res, 404, NOT_FOUND.student);
   const sport = await ensureFootball();
   const sportId = String(sport._id);
@@ -501,7 +525,7 @@ const addLessonPlayer = handle("addLessonPlayer", async (req, res) => {
   const now = new Date();
   let player = rows(await SportPlayerModelDef.get({ studentId, sportId }))[0];
   if (!player) {
-    player = (await SportPlayerModelDef.create({ studentId, sportId, jerseyNumber: null, position: "", stats: {}, createdAt: now, updatedAt: now }))?.result;
+    player = (await SportPlayerModelDef.create({ studentId, sportId, kind: kindOf(student), jerseyNumber: null, position: "", stats: {}, createdAt: now, updatedAt: now }))?.result;
     await record(req, "create", "player", player, fullName(student));
     notifyChange("player", studentId);
   }
@@ -550,7 +574,7 @@ const getAttendance = handle("getAttendance", async (req, res) => {
   const marked = new Map(rows(await SportAttendanceModelDef.get({ sportLessonId: String(lesson._id), date }))
     .map((r) => [String(r.studentId), r.status]));
   const players = (await lessonPlayers(lesson)).map((p) => ({
-    studentId: p.studentId, firstname: p.firstname, lastname: p.lastname, status: marked.get(p.studentId) || null,
+    studentId: p.studentId, kind: p.kind, firstname: p.firstname, lastname: p.lastname, status: marked.get(p.studentId) || null,
   }));
   return res.status(200).json({ ok: true, date, players });
 });
@@ -671,7 +695,7 @@ const deleteNotice = handle("deleteNotice", async (req, res) => {
 });
 
 module.exports = {
-  ensureFootball, getSport, setStats, listPlayers, searchStudents, savePlayer, deletePlayer, playerPhoto, bumpStat,
+  ensureFootball, getSport, setStats, listPlayers, searchStudents, searchUsers, savePlayer, deletePlayer, playerPhoto, bumpStat,
   listLessons, createLesson, updateLesson, deleteLesson, addLessonPlayer, removeLessonPlayer, getAttendance, saveAttendance, todayLessons,
   listNotices, createNotice, deleteNotice,
 };

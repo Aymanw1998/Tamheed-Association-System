@@ -130,3 +130,11 @@
   .loginCard { position: absolute; top: 10mm; left: 10mm; max-width: none; }
   .loginCardQr { width: 40mm; }
 }
+
+/* Users (staff) as players (owner, 2026-11-09): the picker's two tabs and the staff badge. */
+.kindTabs { display: flex; gap: var(--space-1); margin-bottom: var(--space-3); padding: 3px; border-radius: var(--radius-full); background: var(--color-background); width: fit-content; }
+.kindTab { min-height: 36px; padding: var(--space-1) var(--space-4); border: 0; border-radius: var(--radius-full); background: transparent; color: var(--color-text-secondary); font: inherit; font-weight: 600; cursor: pointer; }
+.kindTab:focus-visible { outline: 2px solid var(--color-link); outline-offset: 2px; }
+.kindTabActive { background: var(--color-surface); color: var(--color-text-primary); box-shadow: var(--shadow-sm); }
+@media (pointer: coarse) { .kindTab { min-height: 44px; } }
+.staffBadge { display: inline-block; margin-inline-start: var(--space-2); padding: 2px var(--space-2); border-radius: var(--radius-full); background: var(--color-accent-100); color: var(--color-warning-700); font-size: var(--fs-xs); font-weight: 700; vertical-align: middle; }

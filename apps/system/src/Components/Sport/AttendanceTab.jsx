@@ -206,7 +206,7 @@ export default function AttendanceTab({ lessons, canCoach, reload }) {
                   <tbody>
                     {sheet.map((p) => (
                       <tr key={p.studentId}>
-                        <td data-label={t("sport.attendance.player")}><span className={styles.name}>{fullName(p)}</span></td>
+                        <td data-label={t("sport.attendance.player")}><span className={styles.name}>{fullName(p)}</span>{p.kind === "user" && <span className={styles.staffBadge} data-staff-badge>{t("sport.dialog.staffBadge")}</span>}</td>
                         <td data-label={t("sport.attendance.status")}>
                           <div className={styles.pills}>
                             {STATUSES.map((s) => (

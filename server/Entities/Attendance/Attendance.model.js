@@ -90,10 +90,19 @@ AttendanceModelDef.delete = async function (filter) {
 // latestOfStudent (the absence-streak check) reads one student's rows by
 // dateKey, newest first.
 const ATTENDANCE_INDEXES = [{ key: { student: 1, dateKey: -1 } }];
-const ensureAttendanceIndexes = (collection) => ensureIndexes(
-  collection || collectionOf({ dbName: AttendanceModelDef.dbName, collection: AttendanceModelDef.collections.active }),
-  ATTENDANCE_INDEXES,
-);
+// The retired Mongoose schema made { lesson, student, dateKey } unique. Since
+// 2026-11-09 a lesson's user participants get rows with no student, so that
+// index would refuse the second one per lesson and day: drop it if present.
+const isOldUnique = (index) => index.unique === true
+  && JSON.stringify(index.key) === JSON.stringify({ lesson: 1, student: 1, dateKey: 1 });
+async function ensureAttendanceIndexes(collection) {
+  const target = collection || collectionOf({ dbName: AttendanceModelDef.dbName, collection: AttendanceModelDef.collections.active });
+  // A new database has no collection yet (NamespaceNotFound): nothing to drop.
+  const listed = await target.indexes().catch((err) => { if (err && err.code === 26) return []; throw err; });
+  const old = (listed || []).filter(isOldUnique);
+  for (const index of old) await target.dropIndex(index.name);
+  await ensureIndexes(target, ATTENDANCE_INDEXES);
+}
 
 module.exports = { AttendanceModelDef, ATTENDANCE_INDEXES, ensureAttendanceIndexes };
 

@@ -1,6 +1,6 @@
 # Users (staff) as lesson participants
 
-Date: 2026-11-09. Status: approved by the owner; stage 1 built 2026-11-09 (uncommitted), stage 2 (sport) not started. Builder check
+Date: 2026-11-09. Status: approved by the owner; stage 1 built and committed 2026-11-09 (`1eb80a2`); stage 2 (sport) built 2026-11-09 (uncommitted). Builder check
 done by the writer (no subagent run); the owner answered its two questions
 (see "Owner's answers").
 

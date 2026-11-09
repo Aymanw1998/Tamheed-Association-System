@@ -23,6 +23,8 @@ router.get("/", requirePermission("sports.view", "sports.coach", "sports.manage"
 router.put("/stats", requirePermission("sports.manage"), controller.setStats);
 router.get("/players", requirePermission("sports.view", "sports.coach", "sports.manage"), controller.listPlayers);
 router.get("/students/search", requirePermission("sports.coach", "sports.manage"), controller.searchStudents);
+// Staff users a coach may add as players (owner, 2026-11-09).
+router.get("/users/search", requirePermission("sports.coach", "sports.manage"), controller.searchUsers);
 router.get("/players/:studentId/photo", requirePermission("sports.view", "sports.coach", "sports.manage"), controller.playerPhoto);
 router.put("/players/:studentId", requirePermission("sports.coach", "sports.manage"), lockedPlayer, controller.savePlayer);
 router.delete("/players/:studentId", requirePermission("sports.coach", "sports.manage"), lockedPlayer, controller.deletePlayer);

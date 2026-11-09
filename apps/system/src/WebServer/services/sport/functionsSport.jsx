@@ -30,6 +30,8 @@ export const setStats = (stats) => call(() => api.put(`${namespace}/stats`, { st
 // removes the player from every lesson.
 export const getPlayers = () => call(() => api.get(`${namespace}/players`));
 export const searchStudents = (params) => call(() => api.get(`${namespace}/students/search`, { params }));
+// Staff users a coach may add as players (owner, 2026-11-09): { users }.
+export const searchUsers = (params) => call(() => api.get(`${namespace}/users/search`, { params }));
 export const savePlayer = (studentId, payload) =>
   call(() => api.put(`${namespace}/players/${enc(studentId)}`, payload));
 export const deletePlayer = (studentId) => call(() => api.delete(`${namespace}/players/${enc(studentId)}`));

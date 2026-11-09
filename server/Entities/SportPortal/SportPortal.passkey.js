@@ -29,7 +29,7 @@ function defaultSite() {
 function createSportPasskeys(deps = {}) {
   const {
     webauthn = require("@simplewebauthn/server"),
-    students = require("../Student/Student.model").StudentModelDef,
+    students = require("../../utils/sportPeople").sportPeople,
     isPlayer = (id) => require("./SportPortal.auth").isPlayer(id),
     signIn = (res, id) => require("./SportPortal.auth").signIn(res, id),
     site = defaultSite,

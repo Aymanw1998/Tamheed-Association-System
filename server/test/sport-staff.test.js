@@ -69,7 +69,7 @@ const LESSON_B = hex("e");
 const STAT = "s_00000001";
 const STAT2 = "s_00000002";
 
-function world({ players, withSport = true } = {}) {
+function world({ players, withSport = true, staff } = {}) {
   const sports = createStore(withSport ? [
     { _id: SPORT, name: "كرة القدم", icon: "⚽", stats: [{ key: STAT, label: "أهداف" }, { key: STAT2, label: "تمريرات" }] },
   ] : []);
@@ -104,6 +104,7 @@ function world({ players, withSport = true } = {}) {
     { _id: hex("8"), sportLessonId: LESSON_B, studentId: sid(2), date: "2026-02-03", status: "غائب" },
   ]);
   const students = createStore(STUDENTS);
+  const userStore = createStore(staff || [{ _id: hex("9"), firstname: "إبراهيم", lastname: "الوهباني" }]);
   const audit = auditStub();
   const controller = load("Sport/Sport.controller.js", {
     crypto: require("node:crypto"),
@@ -112,7 +113,7 @@ function world({ players, withSport = true } = {}) {
     "./SportLesson.model": { SportLessonModelDef: lessons },
     "./SportAttendance.model": { SportAttendanceModelDef: attendance },
     "../Student/Student.model": { StudentModelDef: students },
-    "../User/User.model": { UserModelDef: createStore([{ _id: hex("9"), firstname: "إبراهيم", lastname: "الوهباني" }]) },
+    "../User/User.model": { UserModelDef: userStore },
     "../../middleware/logger": { logWithSource() {} },
     "../../utils/cardPush": { notifyCardChanged: async () => 0 },
     "../Lesson/Lesson.model": { LessonModelDef: createStore([]) },
@@ -120,7 +121,7 @@ function world({ players, withSport = true } = {}) {
     "../../utils/lessonConflict": require("../utils/lessonConflict"),
     ...audit.deps,
   });
-  return { controller, routes: loadRoutes(controller), sports, students, players: playerStore, lessons, attendance, audit };
+  return { controller, routes: loadRoutes(controller), sports, students, users: userStore, players: playerStore, lessons, attendance, audit };
 }
 
 // The real router, recording each route's chain (router.use first).
@@ -160,7 +161,7 @@ async function call(ctx, u, method, routePath, extra = {}) {
 test("the route table is exactly the football staff API", () => {
   const ctx = world();
   assert.deepEqual(ctx.routes.map((r) => `${r.method.toUpperCase()} ${r.path}`), [
-    "GET /", "PUT /stats", "GET /players", "GET /students/search",
+    "GET /", "PUT /stats", "GET /players", "GET /students/search", "GET /users/search",
     "GET /players/:studentId/photo", "PUT /players/:studentId", "DELETE /players/:studentId", "POST /players/:studentId/sign-out", "POST /players/:studentId/login-card", "POST /players/:studentId/stats",
     "GET /lessons", "POST /lessons", "PUT /lessons/:id", "DELETE /lessons/:id",
     "POST /lessons/:id/players", "DELETE /lessons/:id/players/:studentId",
@@ -236,7 +237,7 @@ test("GET /players lists football players with lessons, values and attendance, a
   const r = await call(ctx, VIEWER, "get", "/players");
   assert.equal(r.statusCode, 200);
   assert.equal(r.body.players.length, 2);
-  const expected = ["age", "attendance", "birthDate", "cardIssuedAt", "firstname", "gender", "jerseyNumber", "lastname", "layer", "lessons", "mentor", "photo", "photoCutout", "position", "school", "studentId", "tz", "values"];
+  const expected = ["age", "attendance", "birthDate", "cardIssuedAt", "firstname", "gender", "jerseyNumber", "kind", "lastname", "layer", "lessons", "mentor", "photo", "photoCutout", "position", "school", "studentId", "tz", "values"];
   for (const p of r.body.players) assert.deepEqual(Object.keys(p).sort(), expected);
   const one = r.body.players.find((p) => p.studentId === sid(1));
   assert.deepEqual(plain(one.lessons), [{ _id: LESSON_A, name: "أشبال الأحد", day: 1, startMin: 1000 }]);
@@ -604,4 +605,66 @@ test("a viewer reads notices but cannot post or delete; a coach deletes", async 
   assert.equal((await call(ctx, COACH, "delete", "/notices/:id", { params: { id } })).statusCode, 200);
   assert.equal(live.notices.length, 0);
   assert.equal((await call(ctx, COACH, "delete", "/notices/:id", { params: { id } })).statusCode, 404);
+});
+
+/* ================= users (staff) as players (owner, 2026-11-09) ================= */
+const STAFF_P = user("6", "900000006", { email: "test@test.com", password: "hash", birth_date: "1990-01-01" });
+const IT_ONLY = { _id: hex("4"), tz: "900000004", firstname: "تقني", lastname: "", isIT: true };
+const staffWorld = () => world({ staff: [MANAGER, COACH, STAFF_P, IT_ONLY] });
+
+test("GET /users/search lists visible users for a coach, with isPlayer and no private fields", async () => {
+  const ctx = staffWorld();
+  assert.equal((await call(ctx, VIEWER, "get", "/users/search")).statusCode, 403);
+  await call(ctx, COACH, "put", "/players/:studentId", { params: { studentId: STAFF_P._id }, body: { lessonIds: [] } });
+  const r = await call(ctx, COACH, "get", "/users/search", { query: { q: "U6" } });
+  assert.equal(r.statusCode, 200);
+  assert.deepEqual(plain(r.body.users), [{ _id: STAFF_P._id, firstname: "U6", lastname: "N6", tz: "900000006", age: r.body.users[0].age, kind: "user", isPlayer: true }]);
+  const all = await call(ctx, COACH, "get", "/users/search");
+  assert.ok(!all.body.users.some((u) => u._id === IT_ONLY._id), "a hidden IT account is listed");
+});
+
+test("a user becomes a player with kind user, an empty card and no mentor", async () => {
+  const ctx = staffWorld();
+  const saved = await call(ctx, COACH, "put", "/players/:studentId", { params: { studentId: STAFF_P._id }, body: { jerseyNumber: 10, lessonIds: [LESSON_A] } });
+  assert.equal(saved.statusCode, 200);
+  const row = ctx.players.all().find((p) => p.studentId === STAFF_P._id);
+  assert.equal(row.kind, "user");
+  const list = await call(ctx, VIEWER, "get", "/players");
+  const me = list.body.players.find((p) => p.studentId === STAFF_P._id);
+  assert.equal(me.kind, "user");
+  assert.deepEqual(plain(me.values), {});
+  assert.equal(me.mentor, "");
+  assert.equal(me.jerseyNumber, 10);
+  assert.equal(list.body.players.find((p) => p.studentId === sid(1)).kind, "student");
+});
+
+test("a user player's stats cannot be bumped", async () => {
+  const ctx = staffWorld();
+  await call(ctx, COACH, "put", "/players/:studentId", { params: { studentId: STAFF_P._id }, body: { lessonIds: [] } });
+  const r = await call(ctx, COACH, "post", "/players/:studentId/stats", { params: { studentId: STAFF_P._id }, body: { key: STAT, delta: 1 } });
+  assert.equal(r.statusCode, 409);
+  assert.equal(r.body.code, "NO_STATS_FOR_STAFF");
+  assert.deepEqual(plain(ctx.players.all().find((p) => p.studentId === STAFF_P._id).stats), {});
+});
+
+test("a user is added to a lesson roster, shows on its sheet and gets attendance", async () => {
+  const ctx = staffWorld();
+  const added = await call(ctx, COACH, "post", "/lessons/:id/players", { params: { id: LESSON_A }, body: { studentId: STAFF_P._id } });
+  assert.equal(added.statusCode, 200);
+  const onRoster = added.body.lesson.players.find((p) => p.studentId === STAFF_P._id);
+  assert.equal(onRoster.kind, "user");
+  assert.equal(ctx.players.all().find((p) => p.studentId === STAFF_P._id).kind, "user");
+  const sheet = await call(ctx, COACH, "get", "/lessons/:id/attendance", { params: { id: LESSON_A }, query: { date: "2026-02-01" } });
+  assert.equal(sheet.statusCode, 200);
+  assert.equal(sheet.body.players.find((p) => p.studentId === STAFF_P._id).kind, "user");
+  const saved = await call(ctx, COACH, "put", "/lessons/:id/attendance", { params: { id: LESSON_A }, body: { date: "2026-02-01", marks: [{ studentId: STAFF_P._id, status: "حاضر" }] } });
+  assert.equal(saved.statusCode, 200);
+  assert.ok(ctx.attendance.all().some((r) => r.studentId === STAFF_P._id && r.status === "حاضر"));
+});
+
+test("a hidden IT account can be neither a player nor on a roster", async () => {
+  const ctx = staffWorld();
+  assert.equal((await call(ctx, COACH, "put", "/players/:studentId", { params: { studentId: IT_ONLY._id }, body: { lessonIds: [] } })).statusCode, 404);
+  assert.equal((await call(ctx, COACH, "post", "/lessons/:id/players", { params: { id: LESSON_A }, body: { studentId: IT_ONLY._id } })).statusCode, 404);
+  assert.equal(ctx.players.all().some((p) => p.studentId === IT_ONLY._id), false);
 });

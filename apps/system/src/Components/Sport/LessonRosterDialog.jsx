@@ -111,7 +111,10 @@ export default function LessonRosterDialog({ lesson, canEdit, onClose, reload })
             <ul className={styles.rosterList}>
               {players.map((p) => (
                 <li key={p.studentId} className={styles.result}>
-                  <span className={styles.name}>{fullName(p)}</span>
+                  <span className={styles.name}>
+                    {fullName(p)}
+                    {p.kind === "user" && <span className={styles.staffBadge} data-staff-badge>{t("sport.dialog.staffBadge")}</span>}
+                  </span>
                   {mayEdit && <Button size="sm" variant="danger" disabled={busy} onClick={() => remove(p)}>{t("sport.lessons.removePlayer")}</Button>}
                 </li>
               ))}

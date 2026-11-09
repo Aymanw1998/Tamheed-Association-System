@@ -1,7 +1,7 @@
 const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const QRCode = require("qrcode");
-const { StudentModelDef } = require("../Student/Student.model");
+const { sportPeople } = require("../../utils/sportPeople");
 const { SportPlayerModelDef } = require("../Sport/SportPlayer.model");
 const { SportLoginCodeModelDef } = require("../Sport/SportLoginCode.model");
 const { sha256 } = require("../../utils/jwt");
@@ -51,7 +51,8 @@ const cookieOptions = () => ({
 // Dependencies are injectable so the flow can be tested without a database.
 function createSportAuth(deps = {}) {
   const {
-    students = StudentModelDef,
+    // A player is a student or a staff user (utils/sportPeople.js, owner 2026-11-09).
+    students = sportPeople,
     players = SportPlayerModelDef,
     // Loaded on first use, so requiring this file does not pull in the staff controller.
     ensureSport = () => require("../Sport/Sport.controller").ensureFootball(),
@@ -92,6 +93,16 @@ function createSportAuth(deps = {}) {
     return rows(await players.get({ studentId: String(studentId), sportId: String(sport._id) })).length > 0;
   };
 
+  // One ID number may name a student record and a user record (a staff member
+  // entered as a student before users could play): only the football players
+  // among them count. When none is a player, the list is left as it was.
+  const playersOnly = async (found) => {
+    if (found.length <= 1) return found;
+    const flags = await Promise.all(found.map((p) => hasSportRow(p._id)));
+    const kept = found.filter((_, i) => flags[i]);
+    return kept.length ? kept : found;
+  };
+
   const requestCode = async (req, res) => {
     const generic = () => res.json({ ok: true, message: GENERIC_CODE_MESSAGE });
     try {
@@ -102,7 +113,7 @@ function createSportAuth(deps = {}) {
       if (!tz) return notInSport();
       secret(); // fails closed before any code is created or sent
 
-      const found = rows(await students.get({ tz }));
+      const found = await playersOnly(rows(await students.get({ tz })));
       if (found.length > 1) {
         // Ids only: the ID number never goes into the log.
         log("SportPortal.requestCode", new Error("duplicate student tz"), { ids: found.map((s) => String(s._id)) });
@@ -151,7 +162,7 @@ function createSportAuth(deps = {}) {
       const secretValue = secret();
       if (!tz || !/^[0-9]{6}$/.test(code)) return bad();
 
-      const found = rows(await students.get({ tz }));
+      const found = await playersOnly(rows(await students.get({ tz })));
       if (found.length !== 1) return bad();
       const studentId = String(found[0]._id);
 

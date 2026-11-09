@@ -59,8 +59,9 @@ function nextLesson(lessons, now) {
   return { name: best.l.name, day: d, startMin, endMin };
 }
 
+// A staff (user) player's card has no statistics (owner, 2026-11-09).
 function buildCard({ player, sport, lessons, records }) {
-  const statDefs = sport.stats || [];
+  const statDefs = player.kind === "user" ? [] : sport.stats || [];
   const given = player.stats || {};
   return {
     jerseyNumber: player.jerseyNumber ?? null,

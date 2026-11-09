@@ -175,6 +175,7 @@ export default function PlayersTab({ sport, players, lessons, canCoach, canManag
                       ? <img className={styles.thumb} src={passportSrc(p.photo)} alt={label("photoAlt")} />
                       : <Silhouette className={`${styles.thumb} ${styles.thumbEmpty}`} />}
                     <span className={styles.name}>{fullName(p)}</span>
+                    {p.kind === "user" && <span className={styles.staffBadge} data-staff-badge>{t("sport.dialog.staffBadge")}</span>}
                   </button>
                 </td>
                 <td data-label={label("tz")}>{p.tz || label("none")}</td>
@@ -184,6 +185,8 @@ export default function PlayersTab({ sport, players, lessons, canCoach, canManag
                 <td data-label={label("position")}>{p.position || label("none")}</td>
                 <td data-label={label("attendance")}>{attendanceText(p.attendance)}</td>
                 {stats.map((s) => {
+                  // A staff player has no statistics (owner, 2026-11-09).
+                  if (p.kind === "user") return <td key={s.key} data-label={s.label}>{label("none")}</td>;
                   const value = p.values?.[s.key] ?? 0;
                   const busy = Boolean(pending[`${p.studentId}:${s.key}`]);
                   return (
@@ -219,7 +222,7 @@ export default function PlayersTab({ sport, players, lessons, canCoach, canManag
       </div>
 
       {cardOf && rows.find((p) => p.studentId === cardOf) && (
-        <PlayerCardModal player={rows.find((p) => p.studentId === cardOf)} stats={stats} onClose={() => setCardOf(null)} />
+        <PlayerCardModal player={rows.find((p) => p.studentId === cardOf)} stats={rows.find((p) => p.studentId === cardOf).kind === "user" ? [] : stats} onClose={() => setCardOf(null)} />
       )}
 
       {loginCard && <LoginCardModal player={loginCard.player} card={loginCard.card} onClose={() => setLoginCard(null)} />}
