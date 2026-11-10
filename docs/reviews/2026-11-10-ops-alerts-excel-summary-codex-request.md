@@ -6,6 +6,11 @@ untracked new files). Do not edit files, run seed/migration/admin/data-clearing
 commands, touch `.env`, or start another reviewer. The repository is public;
 this request contains no credentials or real records.
 
+> **Withdrawn part (owner, 2026-11-10, after commit `b8c953c`):** the server-down
+> alerts were cancelled and removed (`opsAlerts.js`, its test, `OPS_ALERT_EMAIL`,
+> the DEPLOY.md section; `/api/health` is back to `{ ok, ts }`). Review only the
+> Excel export, the monthly summary and the 30-minute grace; skip item 1 below.
+
 ## Owner request (2026-11-10)
 
 1. Be told when the server goes down. The address lives in `.env`

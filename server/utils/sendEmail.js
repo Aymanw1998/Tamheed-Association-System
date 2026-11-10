@@ -132,11 +132,6 @@ module.exports = {
         if (!smtpConfigured()) throw new Error("SMTP is not configured");
         await createTransporter().sendMail({ from: process.env.SMTP_FROM, to, subject, html });
     },
-    // Server-down alerts to OPS_ALERT_EMAIL (services/opsAlerts.js); plain text.
-    sendOpsAlertEmail: async (to, subject, text) => {
-        if (!smtpConfigured()) throw new Error("SMTP is not configured");
-        await createTransporter().sendMail({ from: process.env.SMTP_FROM, to, subject, text });
-    },
     // Plain text preserves management's wording without interpreting HTML.
     sendWeeklyTaskEmail: async (to, text) => {
         if (!smtpConfigured()) throw new Error("SMTP is not configured");

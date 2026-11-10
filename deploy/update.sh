@@ -96,6 +96,13 @@ swap_in sport
 step "IT" "Moving the new build into place"
 swap_in it
 
+# The sites' packages are needed only to build them; the next update installs
+# them again (npm ci starts from an empty folder anyway). Freeing ~1-1.5GB on a
+# small disk. The server's own packages (server/node_modules) stay.
+SITES_STATE="The new version of the sites is in place; the server was not restarted yet."
+step "Sites" "Removing the build-only packages"
+rm -rf apps/system/node_modules apps/sport/node_modules apps/it/node_modules
+
 SITES_STATE="The new version of the sites is already in place, but the server may be down or running the previous code."
 FAILURE_HINT="For details: pm2 logs tamheed"
 step "Server" "Restarting"

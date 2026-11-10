@@ -5996,3 +5996,30 @@ a real exceljs write/read round trip. Not checked in a browser or on the server.
 
 **Actual peer request / response:** [2026-11-10-ops-alerts-excel-summary-codex-request.md](reviews/2026-11-10-ops-alerts-excel-summary-codex-request.md).
 Independent review PENDING (run when the owner chooses). Not committed.
+
+## 2026-11-10 — Free disk space on the server after each update (Claude Code)
+
+**Owner request:** the physical server has a 20GB disk; drop whatever the running system does not need.
+
+**Changes:**
+
+- `deploy/update.sh`: after all three builds are swapped in, removes `apps/{system,sport,it}/node_modules` (build-only; `npm ci` reinstalls them on the next update). `server/node_modules` stays.
+- `deploy/DEPLOY.md`: notes the step and a short disk-space section (pm2-logrotate, npm cache, apt clean, journal vacuum).
+
+**Verification:** `bash -n deploy/update.sh` passed. Not run on the server.
+
+**Owner-run on the server (2026-11-10):** pm2-logrotate set to 10M / 7 / compressed; npm cache cleaned (731M freed); `apt autoremove --dry-run` had nothing to remove. Disk was 59% used.
+
+**Open finding, not changed:** pm2 runs as root and `server/services/reportPdfWorker.js` refuses to launch Chrome as root, so server PDF reports likely always answer `PDF_UNAVAILABLE` on this server. Unverified in production.
+
+**Codex review:** not requested (deploy script only); owner may request one.
+
+## 2026-11-10 — Server-down alerts cancelled and removed (Claude Code)
+
+**Owner request:** cancel and delete the server-down alerts built earlier today.
+
+**Changes:** deleted `server/services/opsAlerts.js` and `server/test/ops-alerts.test.js`; `server.js` no longer records crashes or watches the database, and `/api/health` is back to `{ ok: true, ts }` (200 always, as before); `sendOpsAlertEmail` and `OPS_ALERT_EMAIL` removed from `sendEmail.js` and `.env.example`; the DEPLOY.md env row and section «התראה כשהשרת נופל» (including the UptimeRobot steps) removed. The Excel export, monthly summary and 30-minute grace from `b8c953c` stay.
+
+**Owner action:** if `OPS_ALERT_EMAIL` was added to the server's `.env`, it is now unused and may be removed.
+
+**Codex review:** the 2026-11-10 request is marked: its alert part is withdrawn.
