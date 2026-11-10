@@ -402,3 +402,19 @@ test("a lessons.staffRoster holder gets the staff tab with the add button", asyn
   await openTab("الموظفون المشاركون");
   expect(container.textContent).toContain("إضافة موظف");
 });
+
+// Excel export of the lesson's attendance (owner, 2026-11-10).
+test("an attendance viewer gets «تصدير الحضور إلى Excel», which opens the export window", async () => {
+  mockPerms = ["lessons.view", "attendance.view"];
+  await mount();
+  const exportButton = [...container.querySelectorAll("button")].find((b) => b.textContent === "تصدير الحضور إلى Excel");
+  expect(exportButton).toBeTruthy();
+  await act(async () => exportButton.click());
+  expect(container.ownerDocument.body.textContent).toContain("تنزيل Excel");
+});
+
+test("without attendance.view there is no export action", async () => {
+  mockPerms = ["lessons.view"];
+  await mount();
+  expect([...container.querySelectorAll("button")].some((b) => b.textContent === "تصدير الحضور إلى Excel")).toBe(false);
+});

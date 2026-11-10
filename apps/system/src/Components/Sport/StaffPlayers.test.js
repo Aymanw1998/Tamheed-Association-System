@@ -13,11 +13,13 @@ jest.mock("../../ALERT/SystemToasts", () => ({ toast: { success() {}, warn() {},
 jest.mock("../../locks/useLiveRefresh", () => () => {});
 jest.mock("../../locks/withLock", () => (key, fn) => fn());
 jest.mock("./AddPlayerDialog", () => () => null);
+jest.mock("../../utils/excelExport", () => ({ ...jest.requireActual("../../utils/excelExport"), downloadWorkbook: jest.fn(() => Promise.resolve()) }));
 jest.mock("./PlayerCardModal", () => ({ __esModule: true, default: () => null, Silhouette: () => null }));
 
 import { searchStudents, searchUsers } from "../../WebServer/services/sport/functionsSport";
 import StudentPicker from "./StudentPicker";
 import PlayersTab from "./PlayersTab";
+import { downloadWorkbook } from "../../utils/excelExport";
 import { I18nProvider } from "../../i18n/I18nContext";
 
 global.IS_REACT_ACT_ENVIRONMENT = true;
@@ -70,4 +72,16 @@ test("a staff player has a «موظف» badge and no stat buttons", async () => 
   expect(studentRow.querySelector('[data-staff-badge]')).toBeNull();
   expect(staffRow.querySelector('[aria-label="زيادة أهداف"]')).toBeNull();
   expect(studentRow.querySelector('[aria-label="زيادة أهداف"]')).not.toBeNull();
+});
+
+test("«تصدير Excel» downloads the players on screen, a staff player without stats", async () => {
+  const sport = { stats: [{ key: "g", label: "أهداف" }] };
+  const players = [
+    { studentId: "s1", kind: "student", firstname: "طالب", lastname: "أ", tz: "1", lessons: [], values: { g: 2 }, attendance: { rate: 80, late: 1 } },
+    { studentId: "u1", kind: "user", firstname: "موظف", lastname: "ب", tz: "2", lessons: [], values: {}, attendance: { rate: null, late: 0 } },
+  ];
+  await mount(<PlayersTab sport={sport} players={players} lessons={[]} reload={() => {}} />);
+  await act(async () => buttons().find((b) => b.textContent === "تصدير Excel").click());
+  const [, sheets] = downloadWorkbook.mock.calls[0];
+  expect(sheets[0].rows.map((r) => [r[0], r[1], r[r.length - 1]])).toEqual([["طالب أ", "طالب", 2], ["موظف ب", "موظف", ""]]);
 });

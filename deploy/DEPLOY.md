@@ -70,6 +70,7 @@ nano server/config/.env
 | `GOOGLE_REDIRECT_URI` | `https://הדומיין-שלך/api/storage/google/callback` |
 | `STORAGE_SIGNED_URL_SECRET`, `STORAGE_SHARE_LINK_SECRET` | מחרוזות אקראיות חדשות |
 | `AI_ENABLED` | `false` (אלא אם תרצה להפעיל) |
+| `OPS_ALERT_EMAIL` | המייל שמקבל התראה כשהשרת קורס או מאבד את מסד הנתונים (ראו «התראה כשהשרת נופל»). ריק = בלי התראות |
 
 הגנה על הקובץ:
 
@@ -478,6 +479,25 @@ mongorestore --uri="mongodb://admin@127.0.0.1:27017/?authSource=admin" --gzip --
 mongosh "mongodb://admin@127.0.0.1:27017/tamheed_db?authSource=admin" --quiet --eval 'db.getCollectionNames().sort().forEach(c => print(c, db.getCollection(c).countDocuments()))'
 pm2 start tamheed
 ```
+
+## התראה כשהשרת נופל
+
+שני חלקים, כי שרת שכבה לגמרי לא יכול להודיע על עצמו:
+
+**1. מתוך השרת (מייל ל-`OPS_ALERT_EMAIL`):**
+
+- השרת קרס ו-pm2 הפעיל אותו מחדש: מייל עם השעה וסיבת הקריסה, מיד כשהוא עולה שוב. העלאת גרסה (`update.sh`) לא שולחת כלום.
+- החיבור למסד הנתונים נפל ליותר מ-2 דקות: מייל, ומייל נוסף כשהחיבור חוזר.
+- לכל סוג נשלח לכל היותר מייל אחד בחצי שעה, גם אם השרת קורס שוב ושוב.
+- צריך `SMTP_*` תקין. בדיקה: `pm2 logs tamheed` לא מראה `[ops-alerts] send failed`.
+
+**2. מבחוץ (חינם, פעם אחת):** בודק שהשרת עונה גם כשהמחשב כולו כבוי.
+
+1. נרשמים ל-[UptimeRobot](https://uptimerobot.com) (התוכנית החינמית מספיקה).
+2. **Add New Monitor** ← סוג **HTTP(s)**.
+3. URL: `https://הדומיין-שלך/api/health`. הכתובת עונה 200 רק כשהשרת פועל ומחובר למסד הנתונים, ואחרת 503.
+4. Monitoring Interval: 5 דקות. Alert Contacts: המייל שלך (אפשר להוסיף גם את אפליקציית UptimeRobot לטלפון).
+5. שומרים. ההתראה מגיעה כשהכתובת לא עונה פעמיים ברצף, ושוב כשהיא חוזרת.
 
 ## אם משהו לא עובד
 

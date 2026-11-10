@@ -127,6 +127,16 @@ const sendBugReportEmail = async (to, report) => {
 
 module.exports = {
     getDeliveryStats: () => ({ ...deliveryStats }),
+    // The monthly summary to management (services/monthlySummaryJob.js); RTL HTML.
+    sendMonthlySummaryEmail: async (to, subject, html) => {
+        if (!smtpConfigured()) throw new Error("SMTP is not configured");
+        await createTransporter().sendMail({ from: process.env.SMTP_FROM, to, subject, html });
+    },
+    // Server-down alerts to OPS_ALERT_EMAIL (services/opsAlerts.js); plain text.
+    sendOpsAlertEmail: async (to, subject, text) => {
+        if (!smtpConfigured()) throw new Error("SMTP is not configured");
+        await createTransporter().sendMail({ from: process.env.SMTP_FROM, to, subject, text });
+    },
     // Plain text preserves management's wording without interpreting HTML.
     sendWeeklyTaskEmail: async (to, text) => {
         if (!smtpConfigured()) throw new Error("SMTP is not configured");

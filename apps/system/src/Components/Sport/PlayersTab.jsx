@@ -12,6 +12,7 @@ import styles from "./Sport.module.css";
 import { passportSrc } from "../../utils/passportPhoto";
 import withLock from "../../locks/withLock";
 import useLiveRefresh from "../../locks/useLiveRefresh";
+import { downloadWorkbook, playersSheet } from "../../utils/excelExport";
 import { handleSaveError } from "../../locks/staleSave";
 
 const fullName = (p) => `${p.firstname || ""} ${p.lastname || ""}`.trim();
@@ -19,6 +20,7 @@ const fullName = (p) => `${p.firstname || ""} ${p.lastname || ""}`.trim();
 export default function PlayersTab({ sport, players, lessons, canCoach, canManage, reload }) {
   const { t } = useI18n();
   const stats = sport?.stats || [];
+  const [exportingPlayers, setExportingPlayers] = useState(false);
   const [rows, setRows] = useState(players);
   const [search, setSearch] = useState("");
   const [lessonId, setLessonId] = useState("");
@@ -146,6 +148,24 @@ export default function PlayersTab({ sport, players, lessons, canCoach, canManag
             </select>
           </label>
         </FilterDialog>
+        {/* Excel export of the players on screen (owner, 2026-11-10). */}
+        <Button
+          variant="secondary"
+          disabled={!visible.length}
+          loading={exportingPlayers}
+          onClick={async () => {
+            setExportingPlayers(true);
+            try {
+              await downloadWorkbook(`اللاعبون ${new Date().toISOString().slice(0, 10)}`, [playersSheet(visible, stats)]);
+            } catch {
+              toast.error("تعذّر إنشاء الملف، حاول مرة أخرى");
+            } finally {
+              setExportingPlayers(false);
+            }
+          }}
+        >
+          تصدير Excel
+        </Button>
         {canCoach && <Button onClick={() => setDialog({})}>{label("add")}</Button>}
       </div>
 

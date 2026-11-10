@@ -51,14 +51,14 @@ function attendanceStore(rows = []) {
   });
 }
 
-function world({ attendance = [] } = {}) {
+function world({ attendance = [], extraStudents = [] } = {}) {
   const lessons = memoryModel([{
     _id: LESSON_ID, name: "برنامج", teacher: GUIDE._id, helper: null, room: "1",
     date: { day: 4, startMin: 900, endMin: 960 },
     list_students: [STUDENT._id], list_users: [STAFF1._id, FORMER._id],
   }]);
   const users = memoryModel({ active: [ADMIN, GUIDE, STAFF1, STAFF2], noActive: [FORMER] });
-  const students = memoryModel([STUDENT]);
+  const students = memoryModel([STUDENT, ...extraStudents]);
   const rows = attendanceStore(attendance);
   const controller = load("Attendance/Attendance.controller.js", {
     "./Attendance.model": { AttendanceModelDef: rows },
@@ -141,4 +141,57 @@ test("being a participant does not open the lesson's attendance sheet", async ()
   const save = await call(w.controller.bulkSave, STAFF1, { body: { lessonId: LESSON_ID, ...DATE, items: [{ userId: STAFF1._id, status: "حاضر" }] } });
   assert.equal(save.statusCode, 404);
   assert.equal(w.rows.length, 0);
+});
+
+/* ================= Excel export (owner, 2026-11-10) ================= */
+// A student who left the lesson; his guide is someone else.
+const OLD = { _id: id("7"), tz: "800000002", firstname: "قديم", lastname: "ز", main_teacher: ADMIN._id };
+const exportWorld = () => world({
+  extraStudents: [OLD],
+  attendance: [
+    { lesson: LESSON_ID, student: STUDENT._id, dateKey: 20261104, status: "حاضر", notes: "" },
+    { lesson: LESSON_ID, student: STUDENT._id, dateKey: 20261111, status: "غائب", notes: "مرض", auto: false },
+    { lesson: LESSON_ID, user: STAFF1._id, dateKey: 20261111, status: "متأخر", notes: "" },
+    { lesson: LESSON_ID, student: OLD._id, dateKey: 20261028, status: "حاضر", notes: "" },
+    { lesson: LESSON_ID, student: STUDENT._id, dateKey: 20261201, status: "حاضر", notes: "" },
+    { lesson: id("2"), student: STUDENT._id, dateKey: 20261111, status: "غائب", notes: "" },
+  ],
+});
+const range = { lessonId: LESSON_ID, from: "2026-10-01", to: "2026-11-30" };
+
+test("export lists one lesson's marks in the range, students and staff, oldest first", async () => {
+  const w = exportWorld();
+  const res = await call(w.controller.exportAttendance, ADMIN, { query: range });
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.lesson.name, "برنامج");
+  assert.deepEqual(res.body.rows.map((r) => [r.dateKey, r.name, r.kind, r.status]), [
+    [20261028, "قديم ز", "student", "حاضر"],
+    [20261104, "طالب هـ", "student", "حاضر"],
+    [20261111, "طالب هـ", "student", "غائب"],
+    [20261111, "موظف د", "user", "متأخر"],
+  ]);
+  assert.equal(res.body.rows[2].notes, "مرض");
+  assert.ok(!JSON.stringify(res.body).includes("800000001"), "ID numbers never go out");
+});
+
+test("a guide exports only the students he may see", async () => {
+  const w = exportWorld();
+  const res = await call(w.controller.exportAttendance, GUIDE, { query: range });
+  assert.equal(res.statusCode, 200);
+  assert.ok(!res.body.rows.some((r) => r.name === "قديم ز"));
+  assert.ok(res.body.rows.some((r) => r.name === "طالب هـ"));
+});
+
+test("export refuses a lesson the actor cannot open, and bad ranges", async () => {
+  const w = exportWorld();
+  assert.equal((await call(w.controller.exportAttendance, STAFF1, { query: range })).statusCode, 404);
+  for (const bad of [{ from: "2026-11-30", to: "2026-10-01" }, { from: "2026-13-01", to: "2026-11-30" }, { from: "2025-01-01", to: "2026-11-30" }, { from: "", to: "" }]) {
+    const res = await call(w.controller.exportAttendance, ADMIN, { query: { lessonId: LESSON_ID, ...bad } });
+    assert.equal(res.statusCode, 400, JSON.stringify(bad));
+  }
+});
+
+test("GET /export is guarded by attendance.view", () => {
+  const route = fs.readFileSync(path.join(__dirname, "../Entities/Attendance/Attendance.route.js"), "utf8");
+  assert.ok(route.includes('router.get("/export", requirePermission("attendance.view"), exportAttendance);'));
 });

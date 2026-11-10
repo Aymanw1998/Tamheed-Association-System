@@ -39,3 +39,15 @@ export const getLessonDates = async (lessonId) => {
         return {ok: false, status: err.response?.status, data: err.response?.data, message: err?.response?.data?.message || err.message };
     }
 };
+
+// One lesson's marks over a period, for the Excel export (owner, 2026-11-10):
+// { ok, lesson: { name }, rows: [{ dateKey, name, kind, status, notes, auto }] }.
+export const exportAttendance = async (lessonId, { from, to }) => {
+    try {
+        const { data } = await api.get("/attendance/export", { params: { lessonId, from, to } });
+        if (!data?.ok) throw new Error(data?.message || "failed");
+        return { ok: true, lesson: data.lesson, rows: data.rows || [] };
+    } catch (err) {
+        return { ok: false, status: err?.response?.status || 0, message: err?.response?.data?.message || err.message };
+    }
+};

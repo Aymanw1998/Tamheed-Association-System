@@ -485,10 +485,71 @@ async function runDailyAbsenceJob({ year, month, day, dow1to7 }) {
   return { ok: true, lessonsChecked: lessons.length, createdAbsences };
 }
 
+// GET /api/attendance/export?lessonId&from&to (owner, 2026-11-10): one
+// lesson's marks over a period, for the Excel file the browser builds. Only
+// what the actor may see: the lesson must open for him, and student rows are
+// kept for students in his scope (users on the lesson are shown on its sheet
+// too). Names only; no ID numbers. At most EXPORT_MAX_DAYS days.
+const EXPORT_MAX_DAYS = 366;
+const DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+function dayOf(value) {
+  const m = DATE_RE.exec(String(value || ""));
+  if (!m) return null;
+  const t = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  if (new Date(t).toISOString().slice(0, 10) !== value) return null;
+  return { t, key: calcDateKey(Number(m[1]), Number(m[2]), Number(m[3])) };
+}
+const personName = (p) => `${p?.firstname || ""} ${p?.lastname || ""}`.trim();
+
+const exportAttendance = async (req, res) => {
+  try {
+    const { lessonId } = req.query;
+    const from = dayOf(req.query.from);
+    const to = dayOf(req.query.to);
+    if (!lessonId || !from || !to || to.t < from.t || (to.t - from.t) / 86400000 >= EXPORT_MAX_DAYS) {
+      return res.status(400).json({ ok: false, message: "الفترة غير صحيحة (حتى سنة واحدة)" });
+    }
+    const lesson = await getLessonById(lessonId);
+    if (!lesson || !mayOpenLesson(req.actor, lesson)) return res.status(404).json(NOT_FOUND);
+    const visible = await scope.visibleStudentIds(req.actor);
+    const found = await AttendanceModelDef.get({ lesson: String(lesson._id), dateKey: { $gte: from.key, $lte: to.key } });
+    const marks = (found?.result || []).map(normalizeAttendanceRow)
+      .filter((r) => (r.user ? true : r.student != null && r.student !== "" && (!visible || visible.has(String(r.student)))));
+
+    const studentIds = [...new Set(marks.filter((r) => !r.user).map((r) => String(r.student)))];
+    const userIds = [...new Set(marks.filter((r) => r.user).map((r) => String(r.user)))];
+    const [studentRows, activeRows, formerRows] = await Promise.all([
+      studentIds.length ? StudentModelDef.get({ _id: { $in: studentIds } }) : null,
+      userIds.length ? UserModelDef.get({ _id: { $in: userIds } }, "active") : null,
+      userIds.length ? UserModelDef.get({ _id: { $in: userIds } }, "noActive") : null,
+    ]);
+    const names = new Map([
+      ...(studentRows?.result || []).map((s) => ["s:" + String(s._id), personName(s)]),
+      ...[...(formerRows?.result || []), ...(activeRows?.result || [])]
+        .map((u) => ["u:" + String(u._id), isHiddenUser(u) ? SYSTEM_ACTOR_NAME : personName(u)]),
+    ]);
+    const rows = marks.map((r) => {
+      const kind = r.user ? "user" : "student";
+      const key = r.user ? "u:" + String(r.user) : "s:" + String(r.student);
+      return {
+        dateKey: Number(r.dateKey), name: names.get(key) || "—", kind,
+        status: r.status || "", notes: r.notes || "", auto: Boolean(r.auto),
+      };
+    }).sort((a, b) => a.dateKey - b.dateKey
+      || (a.kind === b.kind ? 0 : a.kind === "student" ? -1 : 1)
+      || a.name.localeCompare(b.name, "ar"));
+    return res.status(200).json({ ok: true, lesson: { _id: String(lesson._id), name: lesson.name || "" }, rows });
+  } catch (err) {
+    logWithSource("Attendance.exportAttendance", err);
+    return res.status(500).json({ ok: false, message: "حدث خطأ غير متوقع، حاول مرة أخرى" });
+  }
+};
+
 module.exports = {
   getSheet,
   bulkSave,
   getLessonDates,
+  exportAttendance,
   runDailyAbsenceJob,
 };
 

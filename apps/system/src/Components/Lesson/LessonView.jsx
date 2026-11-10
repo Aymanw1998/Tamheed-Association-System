@@ -13,6 +13,7 @@ import RecordPage from "../UI/RecordPage";
 import { DetailGroup, GuideCard } from "../UI/RecordParts";
 import LessonRoster from "./LessonRoster";
 import LessonParticipants from "./LessonParticipants";
+import AttendanceExportDialog from "./AttendanceExportDialog";
 import withLock from "../../locks/withLock";
 
 const nameOf = (s) => `${s?.firstname || ""} ${s?.lastname || ""}`.trim();
@@ -40,6 +41,7 @@ export default function LessonView() {
   // is written behind the form. Cleared when the page shows another lesson.
   const leaving = useRef(false);
   const [opening, setOpening] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const mounted = useRef(true);
   useEffect(() => () => { mounted.current = false; }, []);
 
@@ -140,6 +142,8 @@ export default function LessonView() {
   const viewer = getStoredUserId();
   const actions = [
     canStored("lessons.edit") && { label: t("record.edit"), onClick: openForm, tour: "lesson-view-edit" },
+    // Excel export of this lesson's attendance (owner, 2026-11-10).
+    canStored("attendance.view") && { label: "تصدير الحضور إلى Excel", onClick: () => setExporting(true) },
     canStored("lessons.delete") && { label: t("record.delete"), onClick: remove, variant: "danger", tour: "lesson-delete" },
   ].filter(Boolean);
 
@@ -197,12 +201,15 @@ export default function LessonView() {
   ].filter(Boolean);
 
   return (
-    <RecordPage
-      photo={null}
-      title={lesson.name}
-      subtitle={`${lessonWhen(lesson)} · ${roomLabel(lesson.room)}`}
-      actions={actions}
-      tabs={tabs}
-    />
+    <>
+      <RecordPage
+        photo={null}
+        title={lesson.name}
+        subtitle={`${lessonWhen(lesson)} · ${roomLabel(lesson.room)}`}
+        actions={actions}
+        tabs={tabs}
+      />
+      {exporting && <AttendanceExportDialog lessonId={id} lessonName={lesson.name} onClose={() => setExporting(false)} />}
+    </>
   );
 }

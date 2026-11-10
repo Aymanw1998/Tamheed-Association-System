@@ -20,6 +20,7 @@ const {
     getSheet,
     bulkSave,
     getLessonDates,
+    exportAttendance,
 } = require("./Attendance.controller");
 
 router.use(requireAuth, loadActor);
@@ -27,5 +28,7 @@ router.use(requireAuth, loadActor);
 router.get("/sheet", requirePermission("attendance.view"), getSheet);
 router.post("/bulk-save", requirePermission("attendance.record"), lockedSheet, bulkSave);
 router.get("/dates", requirePermission("attendance.view"), getLessonDates);
+// One lesson's marks over a period, for the Excel export (owner, 2026-11-10).
+router.get("/export", requirePermission("attendance.view"), exportAttendance);
 
 module.exports = router;

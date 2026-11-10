@@ -154,6 +154,8 @@ startVehicleExpiryJob();
 const { startAlertJob } = require('./services/alertJob');
 startAlertJob();
 require('./services/gradePromotionJob').startGradePromotionJob();
+// The monthly summary email to management (owner, 2026-11-10).
+require('./services/monthlySummaryJob').startMonthlySummaryJob();
 require('./services/weeklyTasks').startWeeklyTasksJob();
 // Training reminders to sport players, every 5 minutes.
 require('./services/sportPushJob').startSportPushJob();
@@ -175,7 +177,9 @@ app.get('/', (req, res) => {console.log("Server is up and running");res.send('Se
 const { errorPublisher } = require('./utils/errorPublisher');
 
 // ملاحظة عربية
-app.get('/api/health', (req, res) => res.json({ ok: true, ts: Date.now() }));
+// 503 while the database is not connected (services/opsAlerts.js).
+const { opsAlerts, healthHandler } = require('./services/opsAlerts');
+app.get('/api/health', healthHandler(mongoose.connection));
 
 // Development-only route that throws, to see the error path end to end.
 if (process.env.NODE_ENV !== 'production') {
@@ -199,6 +203,8 @@ app.use(require("express").json({ limit: "50mb" }));
 const StartServer = async () => {
   try {
     await connectDB();
+    // The owner is emailed when the database stays unreachable, and when it is back.
+    opsAlerts.watchDb(mongoose.connection);
     // The role defaults IT set («صلاحيات الأدوار») replace the code's before
     // the first request; without them every role keeps the code's set.
     await require('./Entities/It/RoleDefaults.controller').roleDefaults().load()
@@ -216,6 +222,8 @@ const StartServer = async () => {
         resolve();
       });
     });
+    // A crash of the previous process is told now, by email (never blocks the start).
+    opsAlerts.onStartup().catch((err) => console.error('Ops alert:', err.message));
     // Runs after listen() so any self-referencing HTTP calls it makes
     // (e.g. storage folder provisioning) can actually reach this server.
     await ensureSystemAdmin();
@@ -279,6 +287,7 @@ const StartServer = async () => {
     process.on('unhandledRejection', (err, promise) => {
       console.error('💥 Unhandled Rejection:', err?.message);
       console.error(err?.stack);
+      opsAlerts.recordCrash('unhandledRejection', err);
       fatalShutdown();
     });
 
@@ -286,10 +295,12 @@ const StartServer = async () => {
     process.on('uncaughtException', (err) => {
       console.error('💥 Uncaught Exception:', err.message);
       console.error(err.stack);
+      opsAlerts.recordCrash('uncaughtException', err);
       process.exit(1); // Exit immediately
     })
   } catch (err) {
     console.error('Failed to connect to DB:', err);
+    opsAlerts.recordCrash('startup', err);
     process.exit(1);
   }
 }

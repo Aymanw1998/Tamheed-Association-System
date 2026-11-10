@@ -312,6 +312,24 @@ test("a failed conversation cleanup is reported and does not stop the alert chec
   assert.ok(recipientsOf(deps.store, "lesson_no_attendance").length > 0);
 });
 
+// The guide gets 30 minutes after the end to record (owner, 2026-11-10).
+test("lesson_no_attendance waits ATTENDANCE_GRACE_MIN (30) minutes after the lesson ends", async () => {
+  const { ATTENDANCE_GRACE_MIN } = require("../services/alertJob");
+  assert.equal(ATTENDANCE_GRACE_MIN, 30);
+  const early = fakeDeps();
+  await runAlertJob({ now: at("11:15"), deps: early });
+  assert.deepEqual(recipientsOf(early.store, "lesson_no_attendance"), []);
+  const due = fakeDeps();
+  await runAlertJob({ now: at("11:30"), deps: due });
+  assert.ok(recipientsOf(due.store, "lesson_no_attendance").includes(TEACHER.tz));
+});
+
+test("a lesson with staff participants only also gets lesson_no_attendance", async () => {
+  const deps = fakeDeps({ lessons: [lesson({ list_students: [], list_users: ["7".repeat(24)] })] });
+  await runAlertJob({ now: at("14:00"), deps });
+  assert.ok(recipientsOf(deps.store, "lesson_no_attendance").includes(TEACHER.tz));
+});
+
 /* ---------------------- sport lessons without attendance */
 
 const COACH = { _id: "c".repeat(24), tz: "t-coach", firstname: "Co", lastname: "Ach", role: HELPER, roles: [HELPER], permissionGrants: ["sports.coach"] };

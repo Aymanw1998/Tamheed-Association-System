@@ -5973,3 +5973,26 @@ Sport lessons keep «اللاعبون» (their count already includes staff play
 
 **Actual peer request / response:** small follow-up to the stage 1 request; Codex review
 PENDING (run when the owner chooses). Not committed.
+
+## 2026-11-10 — Server-down alerts, Excel export, monthly summary, 30-minute attendance grace (Claude Code)
+
+**Owner request:** alerts to the owner when the server goes down (address in `.env` only); Excel
+export by the default rule (export what you see); a monthly summary email to management; the guide's
+missing-attendance alert 30 minutes after the lesson. No backup work (deploy/mongo-backup.sh exists),
+no deploy automation (deploy/update.sh exists), the assistant stays off.
+
+**Changed:** server `services/opsAlerts.js`, `services/monthlySummaryJob.js` (new), `server.js`,
+`utils/sendEmail.js`, `services/alertJob.js`, `Entities/Attendance/{Attendance.controller,Attendance.route}.js`,
+`config/.env.example`, `deploy/DEPLOY.md`; System `utils/excelExport.js`, `Components/Lesson/AttendanceExportDialog`
+(new), `LessonView`, `Student/ViewAllStudent`, `Sport/PlayersTab`, `functionsAttendance.jsx`, `package.json`
+(`exceljs@4.4.0`). Tests: server `ops-alerts`, `monthly-summary` (new), `alert-job`, `lesson-users-attendance`;
+System `excelExport`, `AttendanceExportDialog` (new), `LessonView`, `ViewAllStudent`, `Sport/StaffPlayers`.
+
+**Writer's calls:** the monthly email names students with 3+ absences (admins only); the first month
+summarised is 11/2026; crash notes in the OS temp dir unless `OPS_STATE_DIR`; Excel is built in the browser.
+
+**Verification:** server 1,654 pass; System 1,208 tests (141 suites) and CI build; git diff --check;
+a real exceljs write/read round trip. Not checked in a browser or on the server.
+
+**Actual peer request / response:** [2026-11-10-ops-alerts-excel-summary-codex-request.md](reviews/2026-11-10-ops-alerts-excel-summary-codex-request.md).
+Independent review PENDING (run when the owner chooses). Not committed.

@@ -14,6 +14,7 @@ jest.mock("../../WebServer/services/api", () => ({ __esModule: true, default: { 
 jest.mock("../../WebServer/services/student/functionsStudent.jsx", () => ({ getAll: jest.fn(), deleteS: jest.fn(), update: jest.fn() }));
 jest.mock("../../locks/useLiveRefresh", () => ({ __esModule: true, default: () => {} }));
 jest.mock("../ExportPDF/ExportPDF.jsx", () => ({ exportStudentPdf: jest.fn() }));
+jest.mock("../../utils/excelExport", () => ({ ...jest.requireActual("../../utils/excelExport"), downloadWorkbook: jest.fn(() => Promise.resolve()) }));
 let mockPerms = [];
 jest.mock("../../utils/session.js", () => ({
   ...jest.requireActual("../../utils/session.js"),
@@ -22,6 +23,7 @@ jest.mock("../../utils/session.js", () => ({
 
 import { getAll } from "../../WebServer/services/student/functionsStudent.jsx";
 import ViewAllStudent from "./ViewAllStudent";
+import { downloadWorkbook } from "../../utils/excelExport";
 import { I18nProvider } from "../../i18n/I18nContext";
 
 global.IS_REACT_ACT_ENVIRONMENT = true;
@@ -123,4 +125,17 @@ test("age, grade, gender, school, guide and unsigned filters coexist and clear t
   expect(container.querySelector("tbody").textContent).not.toContain("800000002");
   await act(async () => [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === "مسح الفلتر").click());
   expect(container.querySelectorAll("tbody tr")).toHaveLength(2);
+});
+
+// Excel export of the list as filtered on screen (owner, 2026-11-10).
+test("«تصدير Excel» downloads the students on screen", async () => {
+  getAll.mockResolvedValue({ ok: true, students: [{ ...STUDENT, layer: "ط3", school: "مدرسة", responsibleGuideName: "مرشد" }] });
+  await mount();
+  const button = [...container.querySelectorAll("button")].find((b) => b.textContent.trim() === "تصدير Excel");
+  expect(button.disabled).toBe(false);
+  await act(async () => button.click());
+  expect(downloadWorkbook).toHaveBeenCalledTimes(1);
+  const [fileName, sheets] = downloadWorkbook.mock.calls[0];
+  expect(fileName).toMatch(/^الطلاب \d{4}-\d{2}-\d{2}$/);
+  expect(sheets[0].rows).toEqual([["طالب تجربة", "800000001", "ط3", "مدرسة", "", "مرشد"]]);
 });

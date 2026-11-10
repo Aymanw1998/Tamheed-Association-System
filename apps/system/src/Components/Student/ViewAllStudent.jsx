@@ -15,6 +15,8 @@ import MobileStudentList from "./MobileStudentList.jsx";
 import Avatar from "../UI/Avatar.jsx";
 import { passportSrc } from "../../utils/passportPhoto";
 import Skeleton from "../UI/Skeleton";
+import { downloadWorkbook, studentsSheet } from "../../utils/excelExport";
+import { toast } from "../../ALERT/SystemToasts";
 
 const ACTIVE_STATUS = "عادي";
 const PENDING_STATUS = "ينتظر";
@@ -177,6 +179,18 @@ const ViewAllStudent = () => {
         return aName.localeCompare(bName, "ar", { sensitivity: "base" });
       });
   }, [scopedStudents, searchTerm, statusFilter, onlyUnsigned, filters]);
+  const [exportingList, setExportingList] = useState(false);
+  const exportList = async () => {
+    setExportingList(true);
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      await downloadWorkbook(`الطلاب ${today}`, [studentsSheet(sortedFilteredStudents.map((student) => ({ ...student, mainTeacherName: student.responsibleGuideName || "" })))]);
+    } catch {
+      toast.error("تعذّر إنشاء الملف، حاول مرة أخرى");
+    } finally {
+      setExportingList(false);
+    }
+  };
 
   const unsignedCount = useMemo(
     () => scopedStudents.filter((student) => getStudentFilterKey(student) === statusFilter && !student.consentAt).length,
@@ -215,6 +229,11 @@ const ViewAllStudent = () => {
             <CopyParentLink data-tour="students-parent-link" />
           )}
           {isAdmin && hasOwn && <Button variant="secondary" onClick={() => setShowAll((value) => !value)}>{showAll ? "عرض طلابي" : "عرض طلاب الجمعية"}</Button>}
+
+          {/* Excel export of the list as filtered on screen (owner, 2026-11-10). */}
+          <Button variant="secondary" disabled={!sortedFilteredStudents.length} loading={exportingList} onClick={exportList}>
+            تصدير Excel
+          </Button>
 
           <Button variant="secondary" data-tour="students-refresh" onClick={loadStudent} loading={loading}>
             {loading ? "جارٍ التحديث…" : "تحديث القائمة"}

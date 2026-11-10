@@ -1,6 +1,8 @@
 // Periodic alerts, every 15 minutes between 07:00 and 21:00 Asia/Jerusalem:
-//   lesson_no_attendance  a lesson that ended today has no attendance rows
-//                         -> its teacher and helper, and lessons.viewAll holders
+//   lesson_no_attendance  a lesson that ended ATTENDANCE_GRACE_MIN minutes ago or
+//                         more today has no attendance rows (owner, 2026-11-10:
+//                         the guide gets half an hour to record) -> its teacher
+//                         and helper, and lessons.viewAll holders
 //   sport_lesson_no_attendance  a sport lesson that ended today has no
 //                         SportAttendance rows for today -> sports.coach and
 //                         sports.manage holders
@@ -84,9 +86,14 @@ async function raise(deps, type, { params, rule, link, dedupKey }) {
   return created.length;
 }
 
+// Minutes after a lesson's end before its missing attendance is alerted.
+const ATTENDANCE_GRACE_MIN = 30;
+const hasParticipants = (l) => (Array.isArray(l.list_students) && l.list_students.length > 0)
+  || (Array.isArray(l.list_users) && l.list_users.length > 0);
+
 async function checkLessonsWithoutAttendance(deps, clock, lessons) {
   const ended = lessonsToday(lessons, clock).filter((l) =>
-    Number(l?.date?.endMin) <= clock.minutes && Array.isArray(l.list_students) && l.list_students.length > 0);
+    Number(l?.date?.endMin) + ATTENDANCE_GRACE_MIN <= clock.minutes && hasParticipants(l));
   if (!ended.length) return 0;
   const recorded = new Set(((await deps.attendanceForDay(clock.dateKey)) || []).map((r) => String(r.lesson)));
   let raised = 0;
@@ -292,4 +299,4 @@ function startAlertJob() {
     runAlertJob().catch((err) => console.error("[alertJob] run failed:", err?.message || err)), { timezone: TIME_ZONE });
 }
 
-module.exports = { runAlertJob, startAlertJob, jerusalemClock, createDeps, acquireLock };
+module.exports = { runAlertJob, startAlertJob, jerusalemClock, createDeps, acquireLock, ATTENDANCE_GRACE_MIN };
