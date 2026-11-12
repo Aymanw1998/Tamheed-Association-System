@@ -170,7 +170,9 @@ table {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: none; }
 }
-.page-enter { animation: page-in var(--dur-slow) var(--ease-out) both; }
+/* backwards, not both: a transform kept after the animation would pin every
+   fixed window inside the page to the page instead of the screen (owner, 2026-11-12). */
+.page-enter { animation: page-in var(--dur-slow) var(--ease-out) backwards; }
 
 /* Rows of a list arrive one after another (style="--i: n" on each). */
 @keyframes rise-in {

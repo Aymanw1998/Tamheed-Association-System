@@ -10,11 +10,12 @@ import { fillText } from "../../utils/vehicleDisplay";
 export const viewerAssignableRoles = () =>
   assignableRoles({ role: getStoredRole(), isSystem: isStoredSystem(), adminPowers: isStoredAdminPowers() });
 
-// Asks which role a user gets on approval (see viewerAssignableRoles).
+// Asks which role a user gets on approval (see viewerAssignableRoles). No role
+// is picked in advance: the administrator always chooses (owner, 2026-11-12).
 function RolePickerDialog({ user, onClose }) {
   const { t } = useI18n();
   const options = viewerAssignableRoles();
-  const [role, setRole] = useState(options[options.length - 1] || "");
+  const [role, setRole] = useState("");
   const name = `${user?.firstname || ""} ${user?.lastname || ""}`.trim() || String(user?.tz || "");
 
   return (
@@ -28,6 +29,7 @@ function RolePickerDialog({ user, onClose }) {
             <label style={{ display: "grid", gap: 6 }}>
               {fillText(t("perms.approveMessage"), { name })}
               <select data-tour="role-picker-select" value={role} onChange={(e) => setRole(e.target.value)} autoFocus>
+                <option value="" disabled>{t("perms.role")}</option>
                 {options.map((r) => <option key={r} value={r}>{t(ROLE_LABEL_KEY[r], r)}</option>)}
               </select>
             </label>

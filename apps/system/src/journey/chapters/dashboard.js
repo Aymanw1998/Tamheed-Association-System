@@ -39,7 +39,8 @@ const dashboard = {
       requires: ["users.view", "users.approve"],
       mood: "explain",
       title: "اختيار الدور",
-      body: "سأعتمد الدور الافتراضي، ويمكنك اختيار غيره.",
+      body: "لا دور مختار مسبقًا. سأختار «مساعد مرشد» للتجربة.",
+      action: { type: "select", target: "role-picker-select", value: "مساعد" },
     },
     {
       target: "role-picker-approve",

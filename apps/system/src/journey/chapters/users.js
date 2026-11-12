@@ -39,7 +39,8 @@ const users = {
       requires: ["users.view", "users.approve"],
       mood: "explain",
       title: "اختيار الدور",
-      body: "تعرض القائمة الأدوار الأدنى من دورك، وسأعتمد المقترح.",
+      body: "الأدوار الأدنى من دورك، ولا دور مختار مسبقًا. سأختار «مساعد مرشد».",
+      action: { type: "select", target: "role-picker-select", value: "مساعد" },
     },
     {
       target: "role-picker-approve",
