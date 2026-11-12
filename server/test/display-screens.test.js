@@ -56,8 +56,8 @@ function setup({ lessons, sport, users } = {}) {
 
 const req = () => ({ actor: { id: "f".repeat(24) }, headers: {} });
 
-test("layouts are week, today and rotate", () => {
-  assert.deepEqual(LAYOUTS, ["week", "today", "rotate"]);
+test("layouts are week, today, rotate and rooms", () => {
+  assert.deepEqual(LAYOUTS, ["week", "today", "rotate", "rooms"]);
 });
 
 test("create stores only the digest and returns the secret once", async () => {
@@ -76,7 +76,7 @@ test("create stores only the digest and returns the secret once", async () => {
 
 test("bad name or layout is BAD_INPUT", async () => {
   const { svc, screens } = setup();
-  for (const body of [{ name: "", layout: "week" }, { name: "   ", layout: "week" }, { name: "x".repeat(61), layout: "week" }, { name: "شاشة", layout: "grid" }, { name: 5, layout: "week" }]) {
+  for (const body of [{ name: "", layout: "week" }, { name: "   ", layout: "week" }, { name: "x".repeat(61), layout: "week" }, { name: "شاشة", layout: "grid" }, { name: 5, layout: "week" }, { name: "شاشة" }, { name: "شاشة", layout: "" }]) {
     await assert.rejects(svc.create(body, req()), { status: 400, code: "BAD_INPUT" });
   }
   assert.equal(screens.all().length, 0);
@@ -168,11 +168,11 @@ test("malformed, unknown, rotated and removed secrets are LINK_CLOSED", async ()
 test("layout and name change is in the next feed", async () => {
   const { svc } = setup();
   const { screen, secret } = await svc.create({ name: "a", layout: "week" }, req());
-  const { screen: changed } = await svc.update(screen.id, { layout: "rotate", name: " b " }, req());
-  assert.equal(changed.layout, "rotate");
+  const { screen: changed } = await svc.update(screen.id, { layout: "rooms", name: " b " }, req());
+  assert.equal(changed.layout, "rooms");
   assert.equal(changed.name, "b");
   const feed = await svc.feed(secret);
-  assert.equal(feed.layout, "rotate");
+  assert.equal(feed.layout, "rooms");
   assert.equal(feed.name, "b");
 });
 

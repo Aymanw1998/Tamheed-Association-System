@@ -165,3 +165,19 @@ test("a TV clock 3 hours fast still shows Israel time from the server", async ()
   render(<DisplayPage />);
   expect((await flush(), byText("16:20"))).toBeTruthy();
 });
+
+test("rooms: after today's last lesson the header names tomorrow and its date", async () => {
+  fetchDisplayFeed.mockImplementation(ok({ layout: "rooms" }));
+  render(<DisplayPage />);
+  expect((await flush(), byText(/تمهيد · برنامج الغد/))).toBeTruthy();
+  expect(byText("الأربعاء 11/11/2026")).toBeTruthy();
+  expect(byText("16:20")).toBeTruthy();
+  expect(byText("كرة قدم")).toBeTruthy();
+});
+
+test("rooms: while today still has a lesson the header says today", async () => {
+  fetchDisplayFeed.mockImplementation(ok({ layout: "rooms", lessons: [lesson("مساء", 3, 1000, 1100)] }));
+  render(<DisplayPage />);
+  expect((await flush(), byText(/تمهيد · برنامج اليوم/))).toBeTruthy();
+  expect(byText("الثلاثاء 10/11/2026")).toBeTruthy();
+});

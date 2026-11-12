@@ -3,7 +3,7 @@ const api = require("../api");
 const dbName = process.env.DB_NAME || "tamheed_db";
 
 // Wall display screens (owner, 2026-11-12).
-// { name, layout ("week" | "today" | "rotate"), tokenHash (sha256 hex of the
+// { name, layout ("week" | "today" | "rotate" | "rooms"), tokenHash (sha256 hex of the
 //   link secret; the secret itself is never stored), createdAt, updatedAt }
 const modelFor = (collection) => ({
   dbName,

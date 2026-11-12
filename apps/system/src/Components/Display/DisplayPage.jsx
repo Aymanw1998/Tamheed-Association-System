@@ -5,6 +5,8 @@ import { DAY_NAMES, clearFeed, clockOffset, israelDayMinute, loadStored, saveFee
 import WeekLayout from "./WeekLayout";
 import TodayLayout from "./TodayLayout";
 import RotateLayout from "./RotateLayout";
+import RoomsLayout from "./RoomsLayout";
+import { boardDay, boardTitle } from "./roomBoard";
 
 // The wall display (owner, 2026-11-12), opened from /display#<secret> with no
 // sign-in. It shows the program in the screen's layout, refreshes every
@@ -14,7 +16,25 @@ import RotateLayout from "./RotateLayout";
 const REFRESH_MS = 60 * 1000;
 const TICK_MS = 15 * 1000;
 const STALE_MS = 5 * 60 * 1000;
-const LAYOUTS = { week: WeekLayout, today: TodayLayout, rotate: RotateLayout };
+const LAYOUTS = { week: WeekLayout, today: TodayLayout, rotate: RotateLayout, rooms: RoomsLayout };
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// The title and the date in the top bar. The rooms board may show a coming
+// day (after the last lesson of today), so it names that day and its date.
+function headerOf(feed, at, serverMs) {
+  if (feed.layout === "rooms") {
+    const board = boardDay(feed.lessons, at.day, at.minute);
+    if (board && board.ahead > 0) {
+      const then = israelDayMinute(serverMs + board.ahead * DAY_MS);
+      return { title: `تمهيد · ${boardTitle(board)}`, date: `${DAY_NAMES[then.day - 1]} ${then.date}` };
+    }
+    return { title: "تمهيد · برنامج اليوم", date: `${DAY_NAMES[at.day - 1]} ${at.date}` };
+  }
+  return {
+    title: feed.layout === "today" ? "تمهيد · برنامج اليوم" : "تمهيد · برنامج الأسبوع",
+    date: `${DAY_NAMES[at.day - 1]} ${at.date}`,
+  };
+}
 const CLOSED_TEXT = "رابط هذه الشاشة لم يعد صالحًا. اطلبوا رابطًا جديدًا من الجمعية.";
 const LOADING_TEXT = "جارٍ تحميل البرنامج…";
 
@@ -77,12 +97,13 @@ function Board({ token }) {
 
   const at = israelDayMinute(nowMs + offset);
   const Layout = LAYOUTS[feed.layout] || WeekLayout;
+  const head = headerOf(feed, at, nowMs + offset);
   const updated = Date.parse(feed.serverTime);
   return (
     <div className={styles.board}>
       <header className={styles.top}>
-        <span className={styles.title}>{feed.layout === "today" ? "تمهيد · برنامج اليوم" : "تمهيد · برنامج الأسبوع"}</span>
-        <span className={styles.date}>{`${DAY_NAMES[at.day - 1]} ${at.date}`}</span>
+        <span className={styles.title}>{head.title}</span>
+        <span className={styles.date}>{head.date}</span>
         <span className={styles.clock}>{at.time}</span>
       </header>
       <main className={styles.body}>

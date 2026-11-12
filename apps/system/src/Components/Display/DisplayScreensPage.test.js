@@ -33,13 +33,33 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-test("lists screens with their layout label", async () => {
+const cardsIn = (scope) => [...scope.querySelectorAll("[role=radio]")];
+const cardNamed = (scope, label) => cardsIn(scope).find((c) => c.querySelector("b").textContent === label);
+
+test("lists screens with their layout; the cards show the four layouts with a picture", async () => {
   render(<DisplayScreensPage />);
   await flush();
-  expect(byText("المدخل")).toBeTruthy();
-  const select = rowOf("المدخل").querySelector("select");
-  expect(select.value).toBe("today");
-  expect([...select.options].map((o) => o.textContent)).toEqual(["كل الأسبوع", "اليوم بالتفصيل", "يومًا بعد يوم"]);
+  const row = rowOf("المدخل");
+  expect(byText("اليوم بالتفصيل", row)).toBeTruthy();
+  expect(cardsIn(row)).toHaveLength(0);
+  await click(byText("تغيير طريقة العرض", row));
+  const cards = cardsIn(row);
+  expect(cards.map((c) => c.querySelector("b").textContent)).toEqual(["كل الأسبوع", "اليوم بالتفصيل", "يومًا بعد يوم", "اليوم حسب الغرف"]);
+  cards.forEach((c) => expect(c.querySelector("svg")).toBeTruthy());
+  expect(cardNamed(row, "اليوم بالتفصيل").getAttribute("aria-checked")).toBe("true");
+});
+
+test("a new screen has no layout until one is picked", async () => {
+  render(<DisplayScreensPage />);
+  await flush();
+  const form = document.querySelector("form[data-new-screen]");
+  await act(async () => { setValue(form.querySelector("input"), "القاعة"); });
+  expect(cardsIn(form).every((c) => c.getAttribute("aria-checked") === "false")).toBe(true);
+  expect(form.querySelector("button[type=submit]").disabled).toBe(true);
+  expect(byText("اختر شكل العرض أولاً.", form)).toBeTruthy();
+  await click(cardNamed(form, "اليوم حسب الغرف"));
+  expect(cardNamed(form, "اليوم حسب الغرف").getAttribute("aria-checked")).toBe("true");
+  expect(form.querySelector("button[type=submit]").disabled).toBe(false);
 });
 
 test("create shows the link once; reopening the page never shows it again", async () => {
@@ -47,7 +67,8 @@ test("create shows the link once; reopening the page never shows it again", asyn
   render(<DisplayScreensPage />);
   await flush();
   const form = document.querySelector("form[data-new-screen]");
-  await act(async () => { setValue(form.querySelector("input"), "القاعة"); setValue(form.querySelector("select"), "rotate"); });
+  await act(async () => { setValue(form.querySelector("input"), "القاعة"); });
+  await click(cardNamed(form, "يومًا بعد يوم"));
   await act(async () => { form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })); });
   await flush();
   expect(createDisplay).toHaveBeenCalledWith({ name: "القاعة", layout: "rotate" });
@@ -68,9 +89,11 @@ test("changing the layout saves at once", async () => {
   updateDisplay.mockResolvedValue({ ok: true, screen: { ...SCREEN, layout: "week" } });
   render(<DisplayScreensPage />);
   await flush();
-  await act(async () => { setValue(rowOf("المدخل").querySelector("select"), "week"); });
-  await flush();
+  await click(byText("تغيير طريقة العرض", rowOf("المدخل")));
+  await click(cardNamed(rowOf("المدخل"), "كل الأسبوع"));
   expect(updateDisplay).toHaveBeenCalledWith(SCREEN.id, { layout: "week" });
+  expect(cardsIn(rowOf("المدخل"))).toHaveLength(0);
+  expect(byText("كل الأسبوع", rowOf("المدخل"))).toBeTruthy();
 });
 
 test("a new link is issued only after confirm, then shown once", async () => {

@@ -1,15 +1,24 @@
-/* Wall display (owner, 2026-11-12): a dark 16:9 board read from a few metres.
-   Sizes are in vh so a 1080p and a 4K TV look the same. */
+/* Wall display (owner, 2026-11-12): a light 16:9 board read from a few
+   metres. White, the running lesson light green «الآن», the next one blue
+   «التالي», ended lessons dimmed. Sizes are in vh so a 1080p and a 4K TV
+   look the same. Kept to CSS that Android TV WebView has long supported. */
 .board {
-  --bg: #0f1724;
-  --bar: #17233a;
-  --ink: #eef2f8;
-  --muted: #9aa8bf;
-  --accent: #2fbf8f;
-  --now: #f4b740;
-  --now-ink: #1b1400;
-  --now-muted: #4a3a00;
-  --card: #22314f;
+  --bg: #f4f6fa;
+  --bar: #ffffff;
+  --ink: #16213a;
+  --muted: #5f6b82;
+  --line: #e3e8f0;
+  --card: #ffffff;
+  --accent: #2f6fe4;
+  --accent-soft: #e3edff;
+  --now: #dcf7e9;
+  --now-edge: #22a06b;
+  --now-ink: #0f3d2a;
+  --now-muted: #2f6b51;
+  --next: #e3edff;
+  --next-edge: #2f6fe4;
+  --red: #e5484d;
+  --shadow: 0 0.2vh 0.8vh rgba(22, 33, 58, 0.08);
   position: fixed;
   inset: 0;
   top: 0; right: 0; bottom: 0; left: 0;
@@ -31,12 +40,16 @@
   align-items: center;
   padding: 1.4vh 2.4vw;
   background: var(--bar);
+  border-bottom: 0.3vh solid var(--accent);
+  box-shadow: var(--shadow);
   font-size: 3vh;
   flex: none;
+  position: relative;
+  z-index: 2;
 }
-.title { font-weight: 700; font-size: 3.8vh; }
+.title { font-weight: 700; font-size: 3.8vh; animation: fade-in 600ms ease-out backwards; }
 .date { color: var(--muted); }
-.clock { font-weight: 700; font-size: 5vh; font-variant-numeric: tabular-nums; }
+.clock { font-weight: 700; font-size: 5vh; font-variant-numeric: tabular-nums; color: var(--accent); }
 
 .body { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 1.4vh 1.2vw; }
 
@@ -49,6 +62,7 @@
   font-size: 4.4vh;
   padding: 0 8vw;
   line-height: 1.6;
+  animation: fade-in 600ms ease-out backwards;
 }
 .muted { color: var(--muted); }
 
@@ -58,7 +72,12 @@
   left: 1.2vw;
   font-size: 1.8vh;
   color: var(--muted);
-  opacity: 0.85;
+  background: var(--bar);
+  border: 1px solid var(--line);
+  border-radius: 2vh;
+  padding: 0.2vh 1vw;
+  opacity: 0.9;
+  z-index: 3;
 }
 
 .tag {
@@ -69,9 +88,28 @@
   padding: 0 0.6vw;
   margin-inline-start: 0.6vw;
   vertical-align: middle;
+  color: #ffffff;
 }
-.tag[data-tag="now"] { background: var(--now-ink); color: var(--now); }
-.tag[data-tag="next"] { background: var(--accent); color: #04261a; }
+.tag[data-tag="now"] { background: var(--now-edge); animation: tag-pulse 2.4s ease-in-out infinite; }
+.tag[data-tag="next"] { background: var(--next-edge); }
+
+/* Shared states for every lesson box on every layout. */
+[data-state] { transition: background-color 800ms ease, opacity 800ms ease, box-shadow 800ms ease; }
+.lesson, .row, .card { background: var(--card); box-shadow: var(--shadow); border: 1px solid var(--line); }
+.lesson[data-state="now"], .row[data-state="now"], .card[data-state="now"] {
+  background: var(--now);
+  color: var(--now-ink);
+  border-color: var(--now-edge);
+  box-shadow: inset -0.5vh 0 0 var(--now-edge), var(--shadow);
+  animation: now-glow 2.4s ease-in-out infinite;
+}
+.lesson[data-state="next"], .row[data-state="next"], .card[data-state="next"] {
+  background: var(--next);
+  border-color: var(--next-edge);
+  box-shadow: inset -0.5vh 0 0 var(--next-edge), var(--shadow);
+}
+.lesson[data-state="past"], .row[data-state="past"], .card[data-state="past"] { opacity: 0.45; box-shadow: none; }
+[data-state="now"] .meta, [data-state="now"] .guide, [data-state="now"] .room { color: var(--now-muted); }
 
 /* A. Whole week */
 .week { flex: 1; min-height: 0; display: grid; gap: 0.6vw; }
@@ -83,9 +121,11 @@
   gap: 0.7vh;
   padding: 1vh 0.6vw;
   border-radius: 0.8vh;
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(22, 33, 58, 0.03);
+  border: 1px solid var(--line);
+  animation: rise 500ms ease-out backwards;
 }
-.day[data-today="true"] { background: rgba(47, 191, 143, 0.12); outline: 0.3vh solid var(--accent); }
+.day[data-today="true"] { background: var(--accent-soft); outline: 0.3vh solid var(--accent); }
 .dayHead {
   display: flex;
   justify-content: center;
@@ -94,12 +134,11 @@
   font-weight: 700;
   font-size: 2.8vh;
   padding-bottom: 0.6vh;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid var(--line);
 }
 .day[data-today="true"] .dayHead { color: var(--accent); }
 .todayMark { font-size: 0.75em; }
 .lesson {
-  background: var(--card);
   border-radius: 0.6vh;
   padding: 0.7vh 0.6vw;
   line-height: 1.3;
@@ -107,10 +146,6 @@
 }
 .lesson .name { font-weight: 700; font-size: 1.2em; overflow-wrap: anywhere; }
 .lesson .meta, .lesson .guide { display: block; color: var(--muted); }
-.lesson[data-state="now"] { background: var(--now); color: var(--now-ink); }
-.lesson[data-state="now"] .meta, .lesson[data-state="now"] .guide { color: var(--now-muted); }
-.lesson[data-state="past"] { opacity: 0.45; }
-.lesson[data-state="next"] { outline: 0.25vh solid var(--accent); }
 .dayList { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 0.7vh; overflow: hidden; }
 .dayList[data-split="true"] { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-content: start; gap: 0.5vh 0.4vw; }
 .empty { color: var(--muted); text-align: center; margin-top: 3vh; font-size: 2vh; }
@@ -129,7 +164,6 @@
   grid-template-columns: 22% 1fr 20%;
   align-items: center;
   gap: 1vw;
-  background: var(--card);
   border-radius: 0.8vh;
   padding: 1.4vh 1.4vw;
   font-size: calc(3.2vh * var(--fit, 1));
@@ -138,10 +172,6 @@
 .row .name { font-weight: 700; }
 .row .guide { display: block; font-size: 0.7em; color: var(--muted); font-weight: 400; }
 .row .room { color: var(--muted); text-align: left; }
-.row[data-state="past"] { opacity: 0.4; }
-.row[data-state="now"] { background: var(--now); color: var(--now-ink); }
-.row[data-state="now"] .guide, .row[data-state="now"] .room { color: var(--now-muted); }
-.row[data-state="next"] { outline: 0.3vh solid var(--accent); }
 .rows[data-density="normal"] .row { font-size: calc(2.7vh * var(--fit, 1)); padding: 1.1vh 1.3vw; }
 .rows[data-density="crowded"] .row { font-size: calc(2.3vh * var(--fit, 1)); padding: 0.9vh 1.2vw; }
 .rows[data-density="packed"] { grid-template-columns: 1fr 1fr; }
@@ -153,43 +183,169 @@
   gap: 1.4vh;
   padding: 1.6vh 1.2vw;
   border-radius: 0.8vh;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--card);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
   font-size: calc(2.3vh * var(--fit, 1));
   overflow: hidden;
 }
 .sideTitle { color: var(--muted); font-weight: 700; font-size: calc(2.4vh * var(--fit, 1)); }
-.sideDay { border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 1vh; line-height: 1.4; }
-.sideDay b { display: block; margin-bottom: 0.3vh; }
+.sideDay { border-bottom: 1px solid var(--line); padding-bottom: 1vh; line-height: 1.4; }
+.sideDay b { display: block; margin-bottom: 0.3vh; color: var(--accent); }
 .sideDay span { color: var(--muted); }
 
 /* C. Day by day */
 .rot { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 1.6vh; }
 .dots { display: flex; gap: 0.6vw; justify-content: center; font-size: 2.2vh; color: var(--muted); flex-wrap: wrap; }
-.dots span { padding: 0.3vh 1vw; border-radius: 2vh; }
-.dots span[data-on="true"] { background: var(--accent); color: #04261a; font-weight: 700; }
-.rotDay { text-align: center; font-weight: 700; font-size: 4vh; color: var(--accent); }
+.dots span { padding: 0.3vh 1vw; border-radius: 2vh; transition: background-color 600ms ease, color 600ms ease; }
+.dots span[data-on="true"] { background: var(--accent); color: #ffffff; font-weight: 700; }
+.rotDay { text-align: center; font-weight: 700; font-size: 4vh; color: var(--accent); animation: fade-in 600ms ease-out backwards; }
 .cards { flex: 1; min-height: 0; display: grid; gap: 1.4vw; align-content: start; overflow: hidden; }
 .card {
-  background: var(--card);
   border-radius: 1vh;
   padding: 2vh 1.6vw;
   font-size: calc(3vh * var(--fit, 1));
   line-height: 1.45;
+  animation: rise 500ms ease-out backwards;
 }
 .card .time { display: block; font-weight: 700; font-size: 1.3em; font-variant-numeric: tabular-nums; }
 .card .name { font-weight: 700; }
 .card .guide, .card .room { display: block; color: var(--muted); }
-.card[data-state="now"] { background: var(--now); color: var(--now-ink); }
-.card[data-state="now"] .guide, .card[data-state="now"] .room { color: var(--now-muted); }
-.card[data-state="past"] { opacity: 0.45; }
-.card[data-state="next"] { outline: 0.3vh solid var(--accent); }
+.card[data-state="now"] { animation: rise 500ms ease-out backwards, now-glow 2.4s ease-in-out 500ms infinite; }
 .card { font-size: calc(3.6vh * var(--fit, 1)); }
 .cards[data-density="normal"] .card { font-size: calc(3vh * var(--fit, 1)); }
 .cards[data-density="crowded"] .card { font-size: calc(2.2vh * var(--fit, 1)); padding: 1.2vh 1.1vw; }
 .cards[data-density="packed"] .card { font-size: calc(1.7vh * var(--fit, 1)); padding: 0.8vh 0.8vw; line-height: 1.3; }
-.bar { height: 0.5vh; background: rgba(255, 255, 255, 0.1); border-radius: 0.3vh; overflow: hidden; flex: none; }
+.bar { height: 0.5vh; background: var(--line); border-radius: 0.3vh; overflow: hidden; flex: none; }
 .barFill { display: block; height: 100%; width: 100%; background: var(--accent); transform-origin: right; animation: fill 15s linear forwards; }
 @keyframes fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+/* D. Today by room: rooms are columns, hours run down the right side. */
+.rooms { --axis: 6vw; flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 0.8vh; animation: fade-in 700ms ease-out backwards; }
+.roomHeads { display: grid; gap: 0 0.5vw; flex: none; }
+.roomHead {
+  text-align: center;
+  font-weight: 700;
+  font-size: 2.5vh;
+  padding: 0.8vh 0.4vw;
+  border-radius: 0.6vh;
+  background: var(--bar);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  animation: rise 500ms ease-out backwards;
+  animation-delay: calc(var(--i, 0) * 60ms);
+}
+.roomView { position: relative; flex: 1; min-height: 0; overflow: hidden; border-radius: 0.6vh; }
+/* The whole day, taller than the screen when only part of it is shown; it
+   slides up smoothly as the clock moves on. Nothing fixed to the screen
+   lives inside it. */
+.roomTrack { position: relative; transition: transform 1.6s cubic-bezier(0.22, 1, 0.36, 1), height 1.6s cubic-bezier(0.22, 1, 0.36, 1); will-change: transform; }
+.hourLayer { position: absolute; top: 0; right: 0; bottom: 0; left: 0; pointer-events: none; }
+.hourLine { position: absolute; right: 0; left: 0; height: 0; border-top: 1px solid var(--line); }
+.halfLine { position: absolute; right: var(--axis); left: 0; height: 0; border-top: 1px dashed var(--line); opacity: 0.7; }
+.hourLabel {
+  position: absolute;
+  right: 0;
+  width: var(--axis);
+  transform: translateY(-50%);
+  text-align: center;
+  font-size: 2.2vh;
+  font-weight: 700;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  background: var(--bg);
+}
+.roomCols { position: absolute; top: 0; right: 0; bottom: 0; left: 0; display: grid; gap: 0 0.5vw; }
+.roomCol { position: relative; min-width: 0; background: rgba(22, 33, 58, 0.025); border-radius: 0.4vh; }
+.slot { position: absolute; padding: 0.25vh 0.15vw; box-sizing: border-box; transition: top 1s ease, height 1s ease; }
+.block {
+  height: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+  border-radius: 0.6vh;
+  padding: 0.6vh 0.6vw;
+  background: var(--card);
+  border: 1px solid var(--line);
+  box-shadow: inset -0.5vh 0 0 #b8c3d6, var(--shadow);
+  font-size: 2.1vh;
+  line-height: 1.25;
+  animation: pop 550ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation-delay: calc(var(--i, 0) * 40ms);
+}
+.block { position: relative; }
+.block .name { font-weight: 700; font-size: 1.12em; }
+/* The name may take two lines; the «الآن» / «التالي» tag sits in the corner
+   so it never squeezes the name. */
+.blockName { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
+.block[data-state="now"] .blockName, .block[data-state="next"] .blockName { padding-left: 3.6vw; }
+.block .tag { position: absolute; top: 0.6vh; left: 0.4vw; margin: 0; }
+.block[data-size="xs"] .blockName { -webkit-line-clamp: 1; }
+.blockTime { display: block; color: var(--muted); font-variant-numeric: tabular-nums; }
+.block .guide { display: block; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.block[data-size="sm"] .guide { display: none; }
+.block[data-size="xs"] { padding: 0.2vh 0.5vw; font-size: 1.8vh; }
+.block[data-size="xs"] .guide, .block[data-size="xs"] .blockTime { display: none; }
+.block[data-state="now"] {
+  background: var(--now);
+  color: var(--now-ink);
+  border-color: var(--now-edge);
+  box-shadow: inset -0.6vh 0 0 var(--now-edge), var(--shadow);
+  animation: pop 550ms cubic-bezier(0.22, 1, 0.36, 1) backwards, now-glow 2.4s ease-in-out 600ms infinite;
+}
+.block[data-state="now"] .blockTime, .block[data-state="now"] .guide { color: var(--now-muted); }
+.block[data-state="next"] { background: var(--next); border-color: var(--next-edge); box-shadow: inset -0.6vh 0 0 var(--next-edge), var(--shadow); }
+.block[data-state="past"] { opacity: 0.42; box-shadow: none; }
+.nowLine {
+  position: absolute;
+  right: 0;
+  left: 0;
+  height: 0;
+  border-top: 0.35vh solid var(--red);
+  z-index: 2;
+  transition: top 1s linear;
+  pointer-events: none;
+}
+.nowLine::after {
+  content: "";
+  position: absolute;
+  right: calc(var(--axis) - 0.9vh);
+  top: -1.05vh;
+  width: 1.4vh;
+  height: 1.4vh;
+  border-radius: 50%;
+  background: var(--red);
+  animation: dot-pulse 2s ease-out infinite;
+}
+.nowLabel {
+  position: absolute;
+  right: 0;
+  width: calc(var(--axis) - 1.4vh);
+  top: -1.6vh;
+  text-align: center;
+  font-size: 2vh;
+  font-weight: 700;
+  color: #ffffff;
+  background: var(--red);
+  border-radius: 0.5vh;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Motion. The phone/TV "reduce motion" setting turns it off (index.css). */
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes rise { from { opacity: 0; transform: translateY(1.2vh); } to { opacity: 1; transform: none; } }
+@keyframes pop { from { opacity: 0; transform: scale(0.94); } to { opacity: 1; transform: none; } }
+@keyframes now-glow {
+  0%, 100% { box-shadow: inset -0.6vh 0 0 var(--now-edge), 0 0 0 0 rgba(34, 160, 107, 0); }
+  50% { box-shadow: inset -0.6vh 0 0 var(--now-edge), 0 0 0 0.5vh rgba(34, 160, 107, 0.22); }
+}
+@keyframes tag-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.72; } }
+@keyframes dot-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(229, 72, 77, 0.55); }
+  100% { box-shadow: 0 0 0 1.6vh rgba(229, 72, 77, 0); }
+}
 
 /* A day still too full at the smallest text: «+N» says how many are hidden. */
 .board [data-cut="true"] { display: none !important; }
@@ -202,7 +358,7 @@
   padding: 0.2vh 1vw;
   border-radius: 2vh;
   background: var(--accent);
-  color: #04261a;
+  color: #ffffff;
   font-weight: 700;
   font-size: 2vh;
 }

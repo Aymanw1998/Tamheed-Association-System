@@ -5995,7 +5995,7 @@ summarised is 11/2026; crash notes in the OS temp dir unless `OPS_STATE_DIR`; Ex
 a real exceljs write/read round trip. Not checked in a browser or on the server.
 
 **Actual peer request / response:** [2026-11-10-ops-alerts-excel-summary-codex-request.md](reviews/2026-11-10-ops-alerts-excel-summary-codex-request.md).
-Independent review PENDING (run when the owner chooses). Not committed.
+Independent review PENDING (run when the owner chooses). Committed 2026-11-12 at the owner’s request («תדחוף»).
 
 ## 2026-11-10 — Free disk space on the server after each update (Claude Code)
 
@@ -6049,4 +6049,16 @@ Independent review PENDING (run when the owner chooses). Not committed.
 
 **Verification:** System tests 1,277 passed, build ok. Synthetic browser preview (no database): at 375×812 the window covers the screen (0..812), approve sends the chosen role; at desktop width the role change on the edit page sends `PUT /user/:tz/role`. Not verified on a real phone.
 
-**Codex review:** PENDING (owner triggers). Not committed.
+**Codex review:** PENDING (owner triggers). Committed 2026-11-12 at the owner’s request.
+
+## 2026-11-12 — Wall display: rooms board, light look, picture picker (Claude Code)
+
+**Owner request:** a professional board for 7 days a week and 6–7 rooms a day: a fourth layout with rooms as columns and hours down the side that moves with the clock and shows tomorrow after the last lesson; all layouts light (white, green «الآن», blue «التالي»); the layout always chosen, from picture cards; "with animation", then push.
+
+**Spec:** `docs/superpowers/specs/2026-11-12-display-room-board-design.md` (builder check done; the owner asked to build without answering whether "show tomorrow" covers the old layouts, so it is rooms-board only, marked as the writer's call). No separate plan file: built straight from the spec at the owner's request.
+
+**Changes:** server accepts layout `rooms`; `Components/Display/roomBoard.js` (board day, room columns, hour range, 4-hour window, side-by-side lanes) and `RoomsLayout.jsx`; header names tomorrow / the coming day and its date (`DisplayPage.jsx`); `Display.module.css` light look and motion (entry fade/rise/pop, glow on «الآن», smooth slide, red now-line; entry animations fill `backwards` so ended lessons stay dimmed); `LayoutCards.jsx` picture cards in `DisplayScreensPage.jsx` (no default for a new screen, cards in the row to change a screen).
+
+**Verification:** written failing first: `roomBoard.test.js` (18), `RoomsLayout.test.js` (8), two header tests, picker tests, server layout tests, `displayMotion.test.js` (caught on the browser check: ended lessons were not dimmed because the entry animation kept its last frame). `npm run verify` passed (server 1,666, System 1,307, build). Browser on synthetic in-memory data only (no database): all four layouts at 1920×1080; picker at desktop and 375×812 (no default, button off with «اختر شكل العرض أولاً.», picking enables it). Not verified: the "tomorrow" board live in a browser (covered by tests), a real Android TV.
+
+**Actual peer request / response:** [2026-11-12-display-room-board-codex-request.md](reviews/2026-11-12-display-room-board-codex-request.md). Independent review PENDING (owner triggers).

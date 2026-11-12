@@ -7,7 +7,7 @@
 const crypto = require("node:crypto");
 const { findActive, fullName } = require("../utils/lessonParticipants");
 
-const LAYOUTS = ["week", "today", "rotate"];
+const LAYOUTS = ["week", "today", "rotate", "rooms"];
 const MAX_NAME = 60;
 const SECRET = /^[A-Za-z0-9_-]{43}$/;
 

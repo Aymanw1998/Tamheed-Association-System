@@ -5,15 +5,12 @@ import { toast } from "../../ALERT/SystemToasts.jsx";
 import {
   createDisplay, deleteDisplay, displayLink, listDisplays, rotateDisplayLink, updateDisplay,
 } from "../../WebServer/services/display/functionsDisplay.jsx";
+import LayoutCards, { LayoutThumb, layoutLabel } from "./LayoutCards";
 
 // Wall display screens (owner, 2026-11-12): each screen has a name, a layout
 // and a secret link. The link is shown once, when the screen is created or a
-// new link is issued; the server keeps only its fingerprint.
-const LAYOUTS = [
-  { value: "week", label: "كل الأسبوع" },
-  { value: "today", label: "اليوم بالتفصيل" },
-  { value: "rotate", label: "يومًا بعد يوم" },
-];
+// new link is issued; the server keeps only its fingerprint. The layout is
+// always picked from picture cards; nothing is picked in advance.
 const MAX_NAME = 60;
 
 const formatDate = (iso) => {
@@ -21,14 +18,6 @@ const formatDate = (iso) => {
   if (!Number.isFinite(t)) return "";
   try { return new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Jerusalem", day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(t)); } catch { return ""; }
 };
-
-function LayoutSelect({ value, onChange, disabled, label }) {
-  return (
-    <select className={styles.select} value={value} disabled={disabled} aria-label={label} onChange={(e) => onChange(e.target.value)}>
-      {LAYOUTS.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
-    </select>
-  );
-}
 
 function LinkDialog({ link, screenName, onClose }) {
   const field = useRef(null);
@@ -62,7 +51,11 @@ function LinkDialog({ link, screenName, onClose }) {
 
 function ScreenRow({ screen, busy, onLayout, onRename, onRotate, onDelete }) {
   const [renaming, setRenaming] = useState(false);
+  const [picking, setPicking] = useState(false);
   const [name, setName] = useState(screen.name);
+  const pick = async (value) => {
+    if (value === screen.layout || await onLayout(value)) setPicking(false);
+  };
   const submit = async (e) => {
     e.preventDefault();
     const clean = name.trim();
@@ -84,16 +77,24 @@ function ScreenRow({ screen, busy, onLayout, onRename, onRotate, onDelete }) {
             {screen.createdAt ? <span className={styles.date}>{`أُضيفت ${formatDate(screen.createdAt)}`}</span> : null}
           </div>
         )}
-        <label className={styles.layoutLine}>
-          <span>طريقة العرض</span>
-          <LayoutSelect value={screen.layout} disabled={busy} label={`طريقة العرض للشاشة ${screen.name}`} onChange={onLayout} />
-        </label>
+        <div className={styles.layoutLine}>
+          <span className={styles.miniThumb}><LayoutThumb value={screen.layout} /></span>
+          <span>طريقة العرض: <b>{layoutLabel(screen.layout)}</b></span>
+          <button type="button" className="c-btn" disabled={busy} aria-expanded={picking ? "true" : "false"} onClick={() => setPicking((v) => !v)}>
+            {picking ? "إلغاء" : "تغيير طريقة العرض"}
+          </button>
+        </div>
       </div>
       <div className={styles.actions}>
         {!renaming ? <button type="button" className="c-btn" disabled={busy} onClick={() => setRenaming(true)}>إعادة تسمية</button> : null}
         <button type="button" className="c-btn" disabled={busy} onClick={onRotate}>رابط جديد</button>
         <button type="button" className="c-btn c-btn-danger" disabled={busy} onClick={onDelete}>حذف</button>
       </div>
+      {picking ? (
+        <div className={styles.rowCards}>
+          <LayoutCards value={screen.layout} disabled={busy} label={`طريقة العرض للشاشة ${screen.name}`} onPick={pick} />
+        </div>
+      ) : null}
     </li>
   );
 }
@@ -104,7 +105,7 @@ export default function DisplayScreensPage() {
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState("");
   const [name, setName] = useState("");
-  const [layout, setLayout] = useState("week");
+  const [layout, setLayout] = useState("");
   const [creating, setCreating] = useState(false);
   const [shown, setShown] = useState(null); // { link, name }: only in memory, only until closed
 
@@ -123,13 +124,14 @@ export default function DisplayScreensPage() {
   const add = async (e) => {
     e.preventDefault();
     const clean = name.trim();
-    if (!clean) return;
+    if (!clean || !layout) return;
     setCreating(true);
     const res = await createDisplay({ name: clean, layout });
     setCreating(false);
     if (!res || !res.ok) { toast.error((res && res.message) || "تعذّر إضافة الشاشة"); return; }
     setScreens((list) => [...(list || []), res.screen]);
     setName("");
+    setLayout("");
     setShown({ link: displayLink(res.token), name: res.screen.name });
   };
 
@@ -140,7 +142,9 @@ export default function DisplayScreensPage() {
 
   const changeLayout = (screen) => (value) => work(screen, async () => {
     const res = await updateDisplay(screen.id, { layout: value });
-    if (res && res.ok) { replace(res.screen); toast.success("تم الحفظ. تتغيّر الشاشة خلال دقيقة."); } else toast.error((res && res.message) || "تعذّر حفظ الشاشة");
+    if (res && res.ok) { replace(res.screen); toast.success("تم الحفظ. تتغيّر الشاشة خلال دقيقة."); return true; }
+    toast.error((res && res.message) || "تعذّر حفظ الشاشة");
+    return false;
   });
 
   const rename = (screen) => (value) => work(screen, async () => {
@@ -192,11 +196,14 @@ export default function DisplayScreensPage() {
           <span>اسم الشاشة</span>
           <input className={styles.input} value={name} maxLength={MAX_NAME} placeholder="مثلًا: المدخل الرئيسي" onChange={(e) => setName(e.target.value)} />
         </label>
-        <label className={styles.field}>
+        <div className={styles.pickField}>
           <span>طريقة العرض</span>
-          <LayoutSelect value={layout} label="طريقة العرض للشاشة الجديدة" onChange={setLayout} />
-        </label>
-        <button type="submit" className="c-btn c-btn-primary" disabled={creating || !name.trim()}>{creating ? "جارٍ الإضافة…" : "إضافة شاشة"}</button>
+          <LayoutCards value={layout} disabled={creating} label="طريقة العرض للشاشة الجديدة" onPick={setLayout} />
+        </div>
+        <div className={styles.submitLine}>
+          <button type="submit" className="c-btn c-btn-primary" disabled={creating || !name.trim() || !layout}>{creating ? "جارٍ الإضافة…" : "إضافة شاشة"}</button>
+          {!layout ? <span className={styles.hint}>اختر شكل العرض أولاً.</span> : null}
+        </div>
       </form>
 
       {error ? <p className={styles.error} role="alert">{error}</p> : null}
