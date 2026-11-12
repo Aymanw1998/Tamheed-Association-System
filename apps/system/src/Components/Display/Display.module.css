@@ -1,6 +1,7 @@
 /* Wall display (owner, 2026-11-12): a light 16:9 board read from a few
-   metres. White, the running lesson light green «الآن», the next one blue
-   «التالي», ended lessons dimmed. Sizes are in vh so a 1080p and a 4K TV
+   metres, in the association colours (teal and orange, as in the System
+   header) with its logo. The running lesson light green «الآن», the next one
+   blue «التالي», ended lessons dimmed. Sizes are in vh so a 1080p and a 4K TV
    look the same. Kept to CSS that Android TV WebView has long supported. */
 .board {
   --bg: #f4f6fa;
@@ -9,8 +10,11 @@
   --muted: #5f6b82;
   --line: #e3e8f0;
   --card: #ffffff;
-  --accent: #2f6fe4;
-  --accent-soft: #e3edff;
+  --brand-dark: #164d63;
+  --brand: #1e6580;
+  --orange: #fe9900;
+  --accent: #1e6580;
+  --accent-soft: #eaf5f9;
   --now: #dcf7e9;
   --now-edge: #22a06b;
   --now-ink: #0f3d2a;
@@ -38,18 +42,32 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1.4vh 2.4vw;
-  background: var(--bar);
-  border-bottom: 0.3vh solid var(--accent);
-  box-shadow: var(--shadow);
+  padding: 1.2vh 2.4vw;
+  background: linear-gradient(135deg, var(--brand-dark), var(--brand));
+  color: #ffffff;
+  border-bottom: 0.5vh solid var(--orange);
+  box-shadow: 0 0.4vh 1.2vh rgba(13, 48, 64, 0.25);
   font-size: 3vh;
   flex: none;
   position: relative;
   z-index: 2;
 }
+.brand { display: flex; align-items: center; gap: 1.2vw; min-width: 0; }
+/* The logo in a white circle with the orange ring, as in the System header. */
+.logo {
+  width: 7vh;
+  height: 7vh;
+  box-sizing: border-box;
+  padding: 0.8vh;
+  object-fit: contain;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 0 0 0.4vh var(--orange), 0 0.4vh 1.2vh rgba(0, 0, 0, 0.3);
+  flex: none;
+}
 .title { font-weight: 700; font-size: 3.8vh; animation: fade-in 600ms ease-out backwards; }
-.date { color: var(--muted); }
-.clock { font-weight: 700; font-size: 5vh; font-variant-numeric: tabular-nums; color: var(--accent); }
+.date { color: rgba(255, 255, 255, 0.85); }
+.clock { font-weight: 700; font-size: 5vh; font-variant-numeric: tabular-nums; color: #ffffff; }
 
 .body { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 1.4vh 1.2vw; }
 
@@ -93,89 +111,11 @@
 .tag[data-tag="now"] { background: var(--now-edge); animation: tag-pulse 2.4s ease-in-out infinite; }
 .tag[data-tag="next"] { background: var(--next-edge); }
 
-/* Shared states for every lesson box on every layout. */
 [data-state] { transition: background-color 800ms ease, opacity 800ms ease, box-shadow 800ms ease; }
-.lesson, .row, .card { background: var(--card); box-shadow: var(--shadow); border: 1px solid var(--line); }
-.lesson[data-state="now"], .row[data-state="now"], .card[data-state="now"] {
-  background: var(--now);
-  color: var(--now-ink);
-  border-color: var(--now-edge);
-  box-shadow: inset -0.5vh 0 0 var(--now-edge), var(--shadow);
-  animation: now-glow 2.4s ease-in-out infinite;
-}
-.lesson[data-state="next"], .row[data-state="next"], .card[data-state="next"] {
-  background: var(--next);
-  border-color: var(--next-edge);
-  box-shadow: inset -0.5vh 0 0 var(--next-edge), var(--shadow);
-}
-.lesson[data-state="past"], .row[data-state="past"], .card[data-state="past"] { opacity: 0.45; box-shadow: none; }
-[data-state="now"] .meta, [data-state="now"] .guide, [data-state="now"] .room { color: var(--now-muted); }
 
-/* A. Whole week */
-.week { flex: 1; min-height: 0; display: grid; gap: 0.6vw; }
-.day {
-  min-width: 0;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.7vh;
-  padding: 1vh 0.6vw;
-  border-radius: 0.8vh;
-  background: rgba(22, 33, 58, 0.03);
-  border: 1px solid var(--line);
-  animation: rise 500ms ease-out backwards;
-}
-.day[data-today="true"] { background: var(--accent-soft); outline: 0.3vh solid var(--accent); }
-.dayHead {
-  display: flex;
-  justify-content: center;
-  align-items: baseline;
-  gap: 0.6vw;
-  font-weight: 700;
-  font-size: 2.8vh;
-  padding-bottom: 0.6vh;
-  border-bottom: 1px solid var(--line);
-}
-.day[data-today="true"] .dayHead { color: var(--accent); }
-.todayMark { font-size: 0.75em; }
-.lesson {
-  border-radius: 0.6vh;
-  padding: 0.7vh 0.6vw;
-  line-height: 1.3;
-  font-size: calc(2.6vh * var(--fit, 1));
-}
-.lesson .name { font-weight: 700; font-size: 1.2em; overflow-wrap: anywhere; }
-.lesson .meta, .lesson .guide { display: block; color: var(--muted); }
-.dayList { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 0.7vh; overflow: hidden; }
-.dayList[data-split="true"] { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-content: start; gap: 0.5vh 0.4vw; }
-.empty { color: var(--muted); text-align: center; margin-top: 3vh; font-size: 2vh; }
-.week[data-density="normal"] .lesson { font-size: calc(2vh * var(--fit, 1)); }
-.week[data-density="crowded"] .lesson { font-size: calc(1.6vh * var(--fit, 1)); padding: 0.45vh 0.5vw; }
-.week[data-density="packed"] .lesson { font-size: calc(1.3vh * var(--fit, 1)); padding: 0.3vh 0.45vw; line-height: 1.2; }
-.week[data-density="packed"] .dayList { gap: 0.4vh; }
-
-/* B. Today large */
-.split { flex: 1; min-height: 0; display: grid; grid-template-columns: 2.3fr 1fr; gap: 1.2vw; }
-.todayBox { min-height: 0; display: flex; flex-direction: column; gap: 1vh; }
-.sectionTitle { color: var(--accent); font-weight: 700; font-size: 3vh; }
-.rows { flex: 1; min-height: 0; display: grid; grid-auto-rows: min-content; gap: 1vh; overflow: hidden; }
-.row {
-  display: grid;
-  grid-template-columns: 22% 1fr 20%;
-  align-items: center;
-  gap: 1vw;
-  border-radius: 0.8vh;
-  padding: 1.4vh 1.4vw;
-  font-size: calc(3.2vh * var(--fit, 1));
-}
-.row .time { font-weight: 700; font-variant-numeric: tabular-nums; }
-.row .name { font-weight: 700; }
-.row .guide { display: block; font-size: 0.7em; color: var(--muted); font-weight: 400; }
-.row .room { color: var(--muted); text-align: left; }
-.rows[data-density="normal"] .row { font-size: calc(2.7vh * var(--fit, 1)); padding: 1.1vh 1.3vw; }
-.rows[data-density="crowded"] .row { font-size: calc(2.3vh * var(--fit, 1)); padding: 0.9vh 1.2vw; }
-.rows[data-density="packed"] { grid-template-columns: 1fr 1fr; }
-.rows[data-density="packed"] .row { font-size: calc(1.9vh * var(--fit, 1)); padding: 0.7vh 0.9vw; }
+/* B. Today: the timetable and, on the side, the coming days. */
+.split { flex: 1; min-height: 0; display: grid; grid-template-columns: 2.6fr 1fr; gap: 1.2vw; }
+.todayBox { min-height: 0; min-width: 0; display: flex; flex-direction: column; }
 .side {
   min-height: 0;
   display: flex;
@@ -186,41 +126,25 @@
   background: var(--card);
   border: 1px solid var(--line);
   box-shadow: var(--shadow);
-  font-size: calc(2.3vh * var(--fit, 1));
+  font-size: 2.2vh;
   overflow: hidden;
 }
-.sideTitle { color: var(--muted); font-weight: 700; font-size: calc(2.4vh * var(--fit, 1)); }
+.sideTitle { color: var(--muted); font-weight: 700; font-size: 2.4vh; }
 .sideDay { border-bottom: 1px solid var(--line); padding-bottom: 1vh; line-height: 1.4; }
 .sideDay b { display: block; margin-bottom: 0.3vh; color: var(--accent); }
 .sideDay span { color: var(--muted); }
 
-/* C. Day by day */
-.rot { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 1.6vh; }
-.dots { display: flex; gap: 0.6vw; justify-content: center; font-size: 2.2vh; color: var(--muted); flex-wrap: wrap; }
-.dots span { padding: 0.3vh 1vw; border-radius: 2vh; transition: background-color 600ms ease, color 600ms ease; }
+/* C. Day by day: the day's name, the row of days, its rooms board, the bar. */
+.rot { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 1vh; }
+.dots { display: flex; gap: 0.5vw; justify-content: center; font-size: 2.1vh; color: var(--muted); flex-wrap: wrap; }
+.dots span { padding: 0.3vh 0.9vw; border-radius: 2vh; transition: background-color 600ms ease, color 600ms ease; }
 .dots span[data-on="true"] { background: var(--accent); color: #ffffff; font-weight: 700; }
-.rotDay { text-align: center; font-weight: 700; font-size: 4vh; color: var(--accent); animation: fade-in 600ms ease-out backwards; }
-.cards { flex: 1; min-height: 0; display: grid; gap: 1.4vw; align-content: start; overflow: hidden; }
-.card {
-  border-radius: 1vh;
-  padding: 2vh 1.6vw;
-  font-size: calc(3vh * var(--fit, 1));
-  line-height: 1.45;
-  animation: rise 500ms ease-out backwards;
-}
-.card .time { display: block; font-weight: 700; font-size: 1.3em; font-variant-numeric: tabular-nums; }
-.card .name { font-weight: 700; }
-.card .guide, .card .room { display: block; color: var(--muted); }
-.card[data-state="now"] { animation: rise 500ms ease-out backwards, now-glow 2.4s ease-in-out 500ms infinite; }
-.card { font-size: calc(3.6vh * var(--fit, 1)); }
-.cards[data-density="normal"] .card { font-size: calc(3vh * var(--fit, 1)); }
-.cards[data-density="crowded"] .card { font-size: calc(2.2vh * var(--fit, 1)); padding: 1.2vh 1.1vw; }
-.cards[data-density="packed"] .card { font-size: calc(1.7vh * var(--fit, 1)); padding: 0.8vh 0.8vw; line-height: 1.3; }
+.rotDay { font-weight: 700; font-size: 3.6vh; color: var(--accent); animation: fade-in 600ms ease-out backwards; }
 .bar { height: 0.5vh; background: var(--line); border-radius: 0.3vh; overflow: hidden; flex: none; }
 .barFill { display: block; height: 100%; width: 100%; background: var(--accent); transform-origin: right; animation: fill 15s linear forwards; }
 @keyframes fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 
-/* D. Today by room: rooms are columns, hours run down the right side. */
+/* The timetable (TimeGrid): columns across, hours down the right side. */
 .rooms { --axis: 6vw; flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 0.8vh; animation: fade-in 700ms ease-out backwards; }
 .roomHeads { display: grid; gap: 0 0.5vw; flex: none; }
 .roomHead {
@@ -232,12 +156,17 @@
   background: var(--bar);
   border: 1px solid var(--line);
   box-shadow: var(--shadow);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  /* With every room shown a long name takes two lines, never cut. */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
   animation: rise 500ms ease-out backwards;
   animation-delay: calc(var(--i, 0) * 60ms);
 }
+/* A room with no lesson that day stays on the board, quieter. */
+.roomHead[data-empty="true"] { color: var(--muted); box-shadow: none; }
 .roomView { position: relative; flex: 1; min-height: 0; overflow: hidden; border-radius: 0.6vh; }
 /* The whole day, taller than the screen when only part of it is shown; it
    slides up smoothly as the clock moves on. Nothing fixed to the screen
@@ -347,18 +276,34 @@
   100% { box-shadow: 0 0 0 1.6vh rgba(229, 72, 77, 0); }
 }
 
-/* A day still too full at the smallest text: «+N» says how many are hidden. */
-.board [data-cut="true"] { display: none !important; }
-.board [data-fit][data-more]::after {
-  content: attr(data-more);
-  direction: ltr;
-  align-self: center;
-  justify-self: center;
-  margin-top: 0.4vh;
-  padding: 0.2vh 1vw;
-  border-radius: 2vh;
-  background: var(--accent);
-  color: #ffffff;
-  font-weight: 700;
-  font-size: 2vh;
-}
+/* The shared timetable (TimeGrid) inside every layout (owner, 2026-11-12). */
+.gridBox { flex: 1; min-height: 0; min-width: 0; display: flex; flex-direction: column; }
+.blockRoom { display: block; color: var(--muted); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+[data-state="now"] .blockRoom { color: var(--now-muted); }
+/* Tiny blocks: the name only; small ones add the room (time is the grid). */
+.block[data-size="xxs"] { padding: 0.1vh 0.4vw; font-size: 1.6vh; }
+.block[data-size="xxs"] .blockRoom, .block[data-size="xxs"] .blockTime, .block[data-size="xxs"] .guide { display: none; }
+/* Many lessons at once in one column: name (and room) only, smaller. */
+.block[data-narrow="true"] { font-size: 1.6vh; padding: 0.3vh 0.3vw; }
+.block[data-narrow="true"] .blockTime, .block[data-narrow="true"] .guide { display: none; }
+.block[data-narrow="true"] .tag { position: static; display: block; width: max-content; margin-bottom: 0.2vh; }
+.block[data-narrow="true"][data-state] .blockName { padding-left: 0; }
+/* Today's column on the week: tinted, its title in the accent colour. */
+.roomHead[data-today="true"] { background: var(--accent); color: #ffffff; border-color: var(--accent); }
+.roomCol[data-today="true"] { background: var(--accent-soft); }
+/* The day-by-day title and the row of day names above its grid. */
+.rotHead { display: flex; align-items: center; justify-content: space-between; gap: 1vw; flex: none; }
+/* A red line inside one column (the week's today): no time label over the
+   lessons, the clock in the top bar says it; the dot sits on the column edge. */
+.roomCol .nowLabel { display: none; }
+.roomCol .nowLine::after { right: -0.7vh; }
+/* The room beside the name, only where the block is too short for its own
+   room line (the week, the today timetable). */
+.roomInline { display: none; font-weight: 400; color: var(--muted); }
+.block[data-size="xxs"] .blockName { display: flex; align-items: baseline; gap: 0.2vw; white-space: nowrap; }
+.block[data-size="xxs"] .blockName .name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.block[data-size="xxs"] .roomInline { display: inline; flex: none; }
+/* «+N» after a coming day's first lessons. */
+/* One line per coming day, ending in … when it is long. */
+.sideLine { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sideDay .sideMore { display: inline-block; margin-inline-start: 0.6vw; padding: 0 0.6vw; border-radius: 2vh; background: var(--accent-soft); color: var(--accent); font-size: 0.9em; }

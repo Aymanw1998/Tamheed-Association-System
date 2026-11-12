@@ -6062,3 +6062,86 @@ Independent review PENDING (run when the owner chooses). Not committed.
 **Verification:** written failing first: `roomBoard.test.js` (18), `RoomsLayout.test.js` (8), two header tests, picker tests, server layout tests, `displayMotion.test.js` (caught on the browser check: ended lessons were not dimmed because the entry animation kept its last frame). `npm run verify` passed (server 1,666, System 1,307, build). Browser on synthetic in-memory data only (no database): all four layouts at 1920×1080; picker at desktop and 375×812 (no default, button off with «اختر شكل العرض أولاً.», picking enables it). Not verified: the "tomorrow" board live in a browser (covered by tests), a real Android TV.
 
 **Actual peer request / response:** [2026-11-12-display-room-board-codex-request.md](reviews/2026-11-12-display-room-board-codex-request.md). Independent review PENDING (owner triggers).
+
+## 2026-11-12 — Codex review of the three display / approve-user commits, and fixes (Claude Code)
+
+**Codex (actual, `codex exec --sandbox read-only`, at the owner's request):**
+- `a58244d` (approve-user window): **no findings**. Recommendation only: a real-browser regression for the overlay position. The CSS-text test cannot see geometry; the synthetic browser check covered it once.
+- `b57963a` (display screens): two P2.
+  1. A logout in another tab of the same site (the `LOGOUT_BROADCAST` storage listener in `api.jsx`) moved the TV from `/display` to `/`, losing its link.
+  2. A new link opened in the same tab, which changes only the fragment, kept polling the old secret.
+- `7c13d6d` (rooms board): two P2.
+  1. The coming-day header date was wrong across daylight-saving changes (it added 24-hour steps).
+  2. Short lessons were clipped with no sign.
+
+**Fixes (uncommitted when written).** Each has a test that failed first.
+- `utils/wallDisplay.js`: the storage listener leaves `/display` alone. Tested through the real listener in `WebServer/services/api.logout.test.js`.
+- `DisplayPage` listens for `hashchange` and remounts with the new link.
+- `displayBoard.dayAhead` adds calendar days. Tested on the spring and autumn nights.
+- `roomBoard.lanes(…, minMinutes)` gives every block a minimum readable height. A block drawn taller stands beside the lesson it reaches, and the board extends to its last drawn block.
+
+**Codex round 2 on the fixes:** the four fixes hold, with three follow-ups, all fixed:
+- A short **last** lesson was still clipped (fixed: the board extends to the last drawn block).
+- The logout test covered only the helper (now the real listener).
+- The autumn fixture passed without the fix (time corrected).
+
+Both new tests were run against the old code and failed there.
+
+**Verification:** `npm run verify` passed: server 1,666, System 1,319, build. One run had a single timeout in `server/test/sport-live.test.js`, which this change does not touch. It passed 3/3 when rerun alone and in the full rerun.
+
+**Deferred (Codex recommendations, not findings):**
+- A test that a failed layout save keeps the cards open and a retry works (the behaviour exists).
+- A check on a real Android TV / Chromium 85, and an offline reload through the production service worker.
+
+**Owner change, same day:** the rooms board shows **every room** as a column, even with no lesson that day. An empty room's title is quieter. «بدون غرفة» and text rooms appear only when a lesson uses them. Long room names wrap to two lines instead of being cut. Tests changed first (`roomBoard.test.js`, `RoomsLayout.test.js`). Browser at 1920×1080: 10 columns, no header cut. `npm run verify` passed: server 1,666, System 1,321, build. Not committed.
+
+**Owner change, same day: every layout is a timetable.** The owner asked that the week, today and day-by-day layouts also show lessons by their hours, like the rooms board, and that a layout change show at once without a reload. The owner chose from proposals:
+- **Week:** always Sunday to Saturday; today's column is marked and twice as wide; the red line runs in that column only.
+- **Today:** a time grid plus the coming days on the side.
+- **Day by day:** Sunday to Saturday, each day a rooms board, empty days included.
+- **Layout change:** the TV checks every 10 seconds.
+
+**Changes:**
+- New `Components/Display/TimeGrid.jsx`, shared by all four layouts.
+- `WeekLayout`, `TodayLayout` and `RotateLayout` rewritten on it.
+- The old fitting code is removed (`fitBoard`, `useFit`, `density`, `Meta`, and the list CSS).
+- `DisplayPage` checks every 10 seconds (the crash retry stays at 60 seconds).
+- The server feed limit goes from 30 to 90 a minute per address.
+
+**Tests (failing first):**
+- New `layouts.test.js`: time grid; Sunday to Saturday; now line in today's column only; today twice as wide; the rotation through all 7 days.
+- Rate-limit test.
+- 10-second layout test.
+- One old test counted calls on the 60-second interval; it now uses 10 seconds and checks the same thing.
+
+**Verification:**
+- `npm run verify` passed: server 1,666, System 1,325, build.
+- Browser on synthetic data only, at 1920×1080: all four layouts. A layout change made on the server showed on the same page within about 10 seconds, with no reload.
+
+**Not verified:** a real TV.
+
+**Not committed.** Codex has not reviewed this change.
+
+**Owner change, same day: association colours and logo.**
+- The top bar uses the association's teal (`#164d63` → `#1e6580`, the System's primary tokens) with an orange line (`#fe9900`) and white text. On its right is the association logo in a white circle with the orange ring, as in the System header.
+- Today's column, the day dots and the progress bar are teal. «التالي» stays blue and «الآن» stays green, as the owner chose.
+- If the logo cannot load offline, it is hidden; it never shows as a broken image.
+- Logo test written failing first. `npm run verify` passed: server 1,666, System 1,326, build.
+- Browser on synthetic data at 1920×1080: the logo loads (76 px) and the bar is teal.
+
+Not committed.
+
+**Codex round 3 (whole uncommitted timetable change):** three P2 and one P3, all fixed with tests that failed first.
+- Two lessons at once in one room of nine lost their names. The compact look now depends on the block's share of the board's width, not on 3+ lanes.
+- The coming-days panel clipped silently.
+- A short week lesson lost its room.
+- The obsolete `weekDays` / `rotationDays` helpers and their tests are removed.
+
+**Codex round 4 (re-check):** two of those fixes confirmed. Two were still open, both now fixed.
+- The panel could still overflow with long names. Each coming day is now one line ending in «…», with «+N» beside the day's name.
+- In a tiny block, a long name could push the room out of view. Name and room now sit in a row: the room never shrinks and the name ends in «…».
+- `displayLayoutCss.test.js` pins both in the CSS (jsdom cannot see layout).
+
+No round 5 was run.
+
+**Verification:** `npm run verify` passed: server 1,666, System 1,329, build. One run had a timeout in `server/test/it-api.test.js`, which this change does not touch; it passed 2/2 alone and in the full rerun. Committed and pushed at the owner's request («תמשיך עם שאר האפשריות»).

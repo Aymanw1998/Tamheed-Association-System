@@ -24,7 +24,8 @@ const handle = (work) => async (req, res) => {
 // travels in the body (the page keeps it in the URL fragment), so it never
 // reaches a path, query string or access log. Answers 410 for any link that
 // is malformed, unknown or revoked.
-const limitFeed = rateLimit({ windowMs: 60 * 1000, max: 30, scope: "display-feed" });
+// A TV checks every 10 seconds; 90 a minute lets 15 screens share one address.
+const limitFeed = rateLimit({ windowMs: 60 * 1000, max: 90, scope: "display-feed" });
 router.post("/feed", limitFeed, noStore, handle(async (req) => ({ feed: await displayScreens().feed(req.body?.token) })));
 
 router.use(requireAuth, loadActor);

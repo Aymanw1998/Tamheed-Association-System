@@ -3,15 +3,18 @@ import { act, allByTestId, allByText, byTestId, byText, cleanup, queryByText, re
 import WeekLayout from "./WeekLayout";
 import TodayLayout from "./TodayLayout";
 import RotateLayout from "./RotateLayout";
-import { fitBoard } from "./displayParts";
 
-// The three wall layouts (owner, 2026-11-12): every lesson of a day is on
-// screen, however many there are; the guide line shows only when known.
+// The wall layouts as real timetables (owner, 2026-11-12): hours down the
+// side and every lesson at its time, not a list; the week and the day-by-day
+// rotation always run Sunday to Saturday.
 
 afterEach(cleanup);
 
 const L = (name, day, startMin, endMin, extra = {}) => ({ name, day, startMin, endMin, room: "1", guide: null, kind: "lesson", ...extra });
 const many = Array.from({ length: 14 }, (_, i) => L(`برنامج ${i + 1}`, 3, 600 + i * 30, 630 + i * 30));
+const DAYS = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+const heads = () => allByTestId("display-room-head").map((el) => el.textContent);
+const stateOf = (name) => byText(name).closest("[data-state]").getAttribute("data-state");
 
 describe.each([
   ["week", WeekLayout],
@@ -23,17 +26,23 @@ describe.each([
     for (let i = 1; i <= 14; i += 1) expect(byText(`برنامج ${i}`)).toBeTruthy();
   });
 
-  test("time, room label and guide; no guide line without a guide", () => {
+  test("lessons sit on a time grid: hours down the side, each block at its time", () => {
+    render(<Layout lessons={[L("أ", 3, 600, 660), L("ب", 3, 720, 780)]} today={3} minute={0} />);
+    expect(allByTestId("display-hour").map((el) => el.textContent)).toEqual(["10:00", "11:00", "12:00", "13:00"]);
+    const top = (name) => parseFloat(byText(name).closest("[data-lane]").style.top);
+    expect(top("أ")).toBe(0);
+    expect(top("ب")).toBeCloseTo(66.67, 1);
+  });
+
+  test("time, room and guide; no guide line without a guide", () => {
     render(<Layout lessons={[
       L("رياضيات", 3, 840, 900, { guide: "سامي حداد" }),
       L("كرة قدم", 3, 960, 1050, { room: "9", kind: "sport" }),
-      L("بلا غرفة", 3, 1080, 1100, { room: null }),
     ]} today={3} minute={980} />);
     expect(byText("سامي حداد")).toBeTruthy();
     expect(allByTestId("display-guide")).toHaveLength(1);
     expect(allByText(/14:00–15:00/).length).toBeGreaterThan(0);
     expect(allByText(/التدريب الخارجي/).length).toBeGreaterThan(0);
-    expect(queryByText(/بدون غرفة/)).toBeNull();
   });
 
   test("times read left to right inside the right-to-left board", () => {
@@ -45,53 +54,91 @@ describe.each([
   test("the running lesson is marked now", () => {
     render(<Layout lessons={[L("أ", 3, 840, 900), L("ب", 3, 960, 1050), L("ج", 3, 1080, 1100)]} today={3} minute={980} />);
     const running = byText("ب").closest("[data-state]");
-    expect((running).getAttribute("data-state")).toBe("now");
+    expect(running.getAttribute("data-state")).toBe("now");
     expect(byText("الآن", running)).toBeTruthy();
   });
 });
 
-test("week: Sunday to Thursday, Saturday only when it has lessons, today outlined", () => {
-  const { rerender } = render(<WeekLayout lessons={[L("أ", 3, 600, 660)]} today={3} minute={0} />);
-  expect(queryByText("السبت")).toBeNull();
-  expect(byText("الخميس")).toBeTruthy();
-  expect((byText("الثلاثاء").closest("[data-today]")).getAttribute("data-today")).toBe("true");
-  rerender(<WeekLayout lessons={[L("أ", 3, 600, 660), L("س", 7, 600, 660)]} today={3} minute={0} />);
-  expect(byText("السبت")).toBeTruthy();
+describe("week", () => {
+  test("Sunday to Saturday always, even days with no lessons; today marked", () => {
+    render(<WeekLayout lessons={[L("أ", 3, 600, 660)]} today={3} minute={0} />);
+    expect(heads()).toEqual(DAYS);
+    const todayHead = allByTestId("display-room-head").find((h) => h.textContent === "الثلاثاء");
+    expect(todayHead.getAttribute("data-today")).toBe("true");
+  });
+
+  test("each lesson in its day's column, with its room written on it", () => {
+    render(<WeekLayout lessons={[L("أ", 5, 600, 660, { room: "6" }), L("ب", 1, 600, 660, { room: null })]} today={3} minute={0} />);
+    expect(byText("أ").closest("[data-room]").getAttribute("data-room")).toBe("5");
+    expect(byText("المصلى")).toBeTruthy();
+    expect(queryByText(/بدون غرفة/)).toBeNull();
+  });
+
+  test("the red now line runs only in today's column", () => {
+    render(<WeekLayout lessons={[L("أ", 3, 600, 700), L("ب", 4, 600, 700)]} today={3} minute={650} />);
+    const line = byTestId("display-now-line");
+    expect(line.closest("[data-room]").getAttribute("data-room")).toBe("3");
+    expect(allByTestId("display-now-line")).toHaveLength(1);
+  });
+
+  test("other days carry no «الآن» or «التالي»", () => {
+    render(<WeekLayout lessons={[L("أ", 3, 600, 700), L("ب", 4, 600, 700)]} today={3} minute={650} />);
+    expect(stateOf("ب")).toBe("day");
+  });
 });
 
-test("today: finished dimmed, next marked, coming days on the side", () => {
-  render(<TodayLayout lessons={[L("أ", 3, 840, 900), L("ب", 3, 1000, 1050), L("ج", 4, 600, 660), L("د", 1, 700, 760)]} today={3} minute={950} />);
-  expect((byText("أ").closest("[data-state]")).getAttribute("data-state")).toBe("past");
-  const next = byText("ب").closest("[data-state]");
-  expect((next).getAttribute("data-state")).toBe("next");
-  expect(byText("التالي", next)).toBeTruthy();
-  const side = byTestId("display-coming");
-  expect(allByTestId("display-coming-day", side).map((el) => el.textContent)).toEqual([
-    expect.stringContaining("الأربعاء"), expect.stringContaining("الأحد"),
-  ]);
-  expect(byText(/ج 10:00/, side)).toBeTruthy();
-});
+describe("today", () => {
+  test("finished dimmed, next marked, coming days on the side", () => {
+    render(<TodayLayout lessons={[L("أ", 3, 840, 900), L("ب", 3, 1000, 1050), L("ج", 4, 600, 660), L("د", 1, 700, 760)]} today={3} minute={950} />);
+    expect(stateOf("أ")).toBe("past");
+    const next = byText("ب").closest("[data-state]");
+    expect(next.getAttribute("data-state")).toBe("next");
+    expect(byText("التالي", next)).toBeTruthy();
+    const side = byTestId("display-coming");
+    expect(allByTestId("display-coming-day", side).map((el) => el.textContent)).toEqual([
+      expect.stringContaining("الأربعاء"), expect.stringContaining("الأحد"),
+    ]);
+    expect(byText(/ج 10:00/, side)).toBeTruthy();
+  });
 
-test("today: a day with no lessons says so and keeps the side column", () => {
-  render(<TodayLayout lessons={[L("ج", 4, 600, 660)]} today={3} minute={950} />);
-  expect(byText("لا برامج اليوم")).toBeTruthy();
-  expect(byTestId("display-coming")).toBeTruthy();
+  test("a day with no lessons says so and keeps the side column", () => {
+    render(<TodayLayout lessons={[L("ج", 4, 600, 660)]} today={3} minute={950} />);
+    expect(byText("لا برامج اليوم")).toBeTruthy();
+    expect(byTestId("display-coming")).toBeTruthy();
+  });
+
+  test("a long day moves with the clock", () => {
+    const day = [L("أ", 3, 540, 600), L("ب", 3, 1200, 1260)];
+    const { rerender } = render(<TodayLayout lessons={day} today={3} minute={800} />);
+    expect(byTestId("display-room-track").getAttribute("data-from")).toBe("740");
+    rerender(<TodayLayout lessons={day} today={3} minute={900} />);
+    expect(byTestId("display-room-track").getAttribute("data-from")).toBe("840");
+  });
 });
 
 describe("rotate", () => {
   beforeEach(() => jest.useFakeTimers());
   afterEach(() => jest.useRealTimers());
 
-  test("starts on today and moves to the next day after 15 seconds, then wraps", () => {
+  test("Sunday to Saturday, from today, 15 seconds each, empty days included", () => {
     render(<RotateLayout lessons={[L("أ", 3, 600, 660), L("ب", 5, 600, 660)]} today={3} minute={0} />);
+    expect(allByTestId("display-rotate-dot").map((d) => d.textContent)).toEqual(DAYS);
     expect(byTestId("display-rotate-day").textContent).toContain("الثلاثاء");
     expect(byText("أ")).toBeTruthy();
-    expect(queryByText("ب")).toBeNull();
+    act(() => { jest.advanceTimersByTime(15000); });
+    expect(byTestId("display-rotate-day").textContent).toContain("الأربعاء");
+    expect(byText("لا برامج في هذا اليوم")).toBeTruthy();
     act(() => { jest.advanceTimersByTime(15000); });
     expect(byTestId("display-rotate-day").textContent).toContain("الخميس");
     expect(byText("ب")).toBeTruthy();
-    act(() => { jest.advanceTimersByTime(15000); });
+    act(() => { jest.advanceTimersByTime(15000 * 5); });
     expect(byTestId("display-rotate-day").textContent).toContain("الثلاثاء");
+  });
+
+  test("each day is a rooms board: every room a column", () => {
+    render(<RotateLayout lessons={[L("أ", 3, 600, 660, { room: "2" })]} today={3} minute={0} />);
+    expect(heads()).toEqual(["غرفة 1", "غرفة 2", "غرفة 3", "غرفة 4", "غرفة 5", "المصلى", "مقر قديم", "الساحة", "التدريب الخارجي"]);
+    expect(byText("أ").closest("[data-room]").getAttribute("data-room")).toBe("n2");
   });
 
   test("an empty week says so", () => {
@@ -100,85 +147,24 @@ describe("rotate", () => {
   });
 });
 
-describe("fitting a crowded board", () => {
-  // jsdom has no layout: each box reports a content height that shrinks
-  // with the --fit scale set on the root.
-  const boxOf = (root, height, room) => {
-    const box = document.createElement("div");
-    box.setAttribute("data-fit", "");
-    Object.defineProperty(box, "clientHeight", { get: () => room });
-    Object.defineProperty(box, "scrollHeight", { get: () => height * Number(root.style.getPropertyValue("--fit") || 1) });
-    root.appendChild(box);
-    return box;
-  };
+test("week: today's column is twice as wide (owner, 2026-11-12: a busy day stays readable)", () => {
+  render(<WeekLayout lessons={[L("أ", 3, 600, 660)]} today={3} minute={0} />);
+  const template = document.querySelector("[data-testid=display-room-track]").parentElement.parentElement.firstChild.style.gridTemplateColumns;
+  expect(template).toBe("var(--axis) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr)");
+});
 
-  test("shrinks until every box fits", () => {
-    const root = document.createElement("div");
-    boxOf(root, 1339, 933);
-    boxOf(root, 300, 933);
-    const scale = fitBoard(root);
-    expect(scale).toBeLessThanOrEqual(933 / 1339);
-    expect(scale).toBeGreaterThan(0.6);
-    expect(root.style.getPropertyValue("--fit")).toBe(String(scale));
-  });
+test("week: a short lesson keeps its room beside its name (Codex review)", () => {
+  render(<WeekLayout lessons={[L("قصير", 2, 600, 630, { room: "6" }), L("آخر", 2, 1260, 1320)]} today={3} minute={0} />);
+  const block = byText("قصير").closest("[data-size]");
+  expect(block.getAttribute("data-size")).toBe("xxs");
+  expect(block.querySelector("[data-room-inline]").textContent).toContain("المصلى");
+});
 
-  test("a board that fits keeps full size", () => {
-    const root = document.createElement("div");
-    boxOf(root, 500, 933);
-    expect(fitBoard(root)).toBe(1);
-  });
-
-  test("a box with its own scope shrinks alone", () => {
-    const root = document.createElement("div");
-    boxOf(root, 500, 933);
-    const side = document.createElement("div");
-    side.setAttribute("data-fit", "");
-    side.setAttribute("data-fit-scope", "");
-    Object.defineProperty(side, "clientHeight", { get: () => 900 });
-    Object.defineProperty(side, "scrollHeight", { get: () => 1400 * Number(side.style.getPropertyValue("--fit") || 1) });
-    root.appendChild(side);
-    expect(fitBoard(root)).toBe(1);
-    expect(Number(side.style.getPropertyValue("--fit"))).toBeLessThanOrEqual(900 / 1400);
-  });
-
-  test("still too full at the floor: the lessons past the bottom hide behind «+N»", () => {
-    const root = document.createElement("div");
-    const box = boxOf(root, 10000, 500);
-    box.getBoundingClientRect = () => ({ top: 0, bottom: 500 });
-    for (let i = 0; i < 10; i += 1) {
-      const item = document.createElement("div");
-      item.getBoundingClientRect = () => ({ top: i * 100, bottom: (i + 1) * 100 });
-      box.appendChild(item);
-    }
-    fitBoard(root);
-    const cut = [...box.children].map((item) => item.getAttribute("data-cut") === "true");
-    expect(cut).toEqual([false, false, false, false, true, true, true, true, true, true]);
-    expect(box.getAttribute("data-more")).toBe("+6");
-  });
-
-  test("a later fit that fits shows everything again", () => {
-    const root = document.createElement("div");
-    let height = 10000;
-    const box = document.createElement("div");
-    box.setAttribute("data-fit", "");
-    Object.defineProperty(box, "clientHeight", { get: () => 500 });
-    Object.defineProperty(box, "scrollHeight", { get: () => height });
-    box.getBoundingClientRect = () => ({ top: 0, bottom: 500 });
-    const item = document.createElement("div");
-    item.getBoundingClientRect = () => ({ top: 450, bottom: 600 });
-    box.appendChild(item);
-    root.appendChild(box);
-    fitBoard(root);
-    expect(item.getAttribute("data-cut")).toBe("true");
-    height = 300;
-    fitBoard(root);
-    expect(item.hasAttribute("data-cut")).toBe(false);
-    expect(box.hasAttribute("data-more")).toBe(false);
-  });
-
-  test("never shrinks below the floor", () => {
-    const root = document.createElement("div");
-    boxOf(root, 10000, 100);
-    expect(fitBoard(root)).toBeCloseTo(0.4, 5);
-  });
+test("today: a busy coming day shows its first three lessons and how many more (Codex review)", () => {
+  const busy = Array.from({ length: 7 }, (_, i) => L(`درس ${i + 1}`, 4, 600 + i * 60, 650 + i * 60));
+  render(<TodayLayout lessons={[L("أ", 3, 600, 660)].concat(busy)} today={3} minute={0} />);
+  const day = allByTestId("display-coming-day")[0];
+  expect(day.textContent).toContain("درس 3");
+  expect(day.textContent).not.toContain("درس 4");
+  expect(day.querySelector("b").textContent).toContain("+4");
 });

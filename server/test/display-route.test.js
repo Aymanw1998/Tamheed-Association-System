@@ -152,17 +152,20 @@ test("feed works with no sign-in, is no-store, and passes 410 through", async ()
   } finally { await ctx.close(); }
 });
 
-test("the 31st feed call in a minute from one address is 429", async () => {
+// A TV checks every 10 seconds (6 a minute); up to 15 screens may share
+// one address (owner, 2026-11-12: a layout change shows within seconds).
+test("the 91st feed call in a minute from one address is 429", async () => {
   const ctx = await setup();
   try {
     // Earlier tests in this file already spent part of this address's budget.
     let last;
-    for (let i = 0; i < 40; i += 1) {
+    for (let i = 0; i < 100; i += 1) {
       last = await ctx.call("POST", "/feed", { body: { token: SECRET }, auth: false });
       if (last.status === 429) break;
     }
     assert.equal(last.status, 429);
     const served = ctx.calls.filter((c) => c === "feed").length;
-    assert.ok(served <= 30, `served ${served}`);
+    assert.ok(served <= 90, `served ${served}`);
+    assert.ok(served > 30, `served ${served}`);
   } finally { await ctx.close(); }
 });

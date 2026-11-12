@@ -8,6 +8,7 @@ import { dropDevicePush } from '../../pwa/pushOptIn';
 import { getClientId } from '../../locks/clientId';
 import { clearTraffic, wrapTraffic } from './traffic';
 import { noteFailure } from './problemLog';
+import { logoutBroadcastTarget } from '../../utils/wallDisplay';
 
 // The API is always reached on the same origin as the page: in development the
 // CRA dev server proxies /api to the local server (see "proxy" in package.json),
@@ -194,11 +195,10 @@ installDemoAdapter(publicApi);
 installDemoAdapter(api);
 
 // ملاحظة عربية
+// The wall display (/display) stays where it is (Codex review, 2026-11-12).
 window.addEventListener('storage', (e) => {
-  if (e.key === 'LOGOUT_BROADCAST' && e.newValue) {
-    // ملاحظة عربية
-    window.location.assign('/');
-  }
+  const target = logoutBroadcastTarget(e, window.location.pathname);
+  if (target) window.location.assign(target);
 });
 
 export default api;

@@ -1,5 +1,5 @@
-import {
-  DAY_NAMES, byDay, clearFeed, clockOffset, comingDays, israelDayMinute, loadFeed, loadStored, markDay, rotationDays, saveFeed, weekDays,
+import { dayAhead,
+  DAY_NAMES, byDay, clearFeed, clockOffset, comingDays, israelDayMinute, loadFeed, loadStored, markDay, saveFeed,
 } from "./displayBoard";
 
 // Wall display board (owner, 2026-11-12): today and now follow Israel time
@@ -54,22 +54,10 @@ test("markDay: a lesson ends at its end minute", () => {
   expect(markDay([L("a", 1, 600, 660)], 599)[0].state).toBe("next");
 });
 
-test("weekDays: Sunday to Thursday always, Friday and Saturday only with lessons", () => {
-  expect(weekDays(byDay([]))).toEqual([1, 2, 3, 4, 5]);
-  expect(weekDays(byDay([L("s", 7, 600, 660)]))).toEqual([1, 2, 3, 4, 5, 7]);
-});
-
 test("comingDays starts tomorrow, wraps, skips empty days and today", () => {
   const grouped = byDay([L("a", 1, 600, 660), L("b", 3, 600, 660), L("c", 5, 600, 660)]);
   expect(comingDays(grouped, 3).map((d) => d.day)).toEqual([5, 1]);
   expect(comingDays(grouped, 5)[0].lessons[0].name).toBe("a");
-});
-
-test("rotationDays starts on today or the next day with lessons", () => {
-  const grouped = byDay([L("a", 1, 600, 660), L("b", 3, 600, 660), L("c", 5, 600, 660)]);
-  expect(rotationDays(grouped, 3)).toEqual([3, 5, 1]);
-  expect(rotationDays(grouped, 4)).toEqual([5, 1, 3]);
-  expect(rotationDays(byDay([]), 4)).toEqual([]);
 });
 
 test("DAY_NAMES runs Sunday to Saturday", () => {
@@ -114,5 +102,14 @@ describe("stored copy", () => {
       expect(() => saveFeed(feed, 1000, A)).not.toThrow();
       expect(() => clearFeed(A)).not.toThrow();
     } finally { spy.mockRestore(); set.mockRestore(); remove.mockRestore(); }
+  });
+});
+
+describe("dayAhead (Codex review: calendar days, not 24-hour steps)", () => {
+  test("adds calendar days to an Israeli date and names the weekday", () => {
+    expect(dayAhead("26/03/2026", 1)).toEqual({ day: 6, date: "27/03/2026" });
+    expect(dayAhead("25/10/2026", 1)).toEqual({ day: 2, date: "26/10/2026" });
+    expect(dayAhead("31/12/2026", 2)).toEqual({ day: 7, date: "02/01/2027" });
+    expect(dayAhead("12/11/2026", 7)).toEqual({ day: 5, date: "19/11/2026" });
   });
 });

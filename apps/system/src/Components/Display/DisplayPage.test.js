@@ -70,7 +70,7 @@ test.each([["500"], ["429"]])("a %s keeps the stored program and is not a closed
   fetchDisplayFeed.mockResolvedValue({ ok: false });
   render(<DisplayPage />);
   expect(byText("رياضيات")).toBeTruthy();
-  await tick(60000);
+  await tick(10000);
   expect(fetchDisplayFeed).toHaveBeenCalledTimes(2);
   expect(byText("رياضيات")).toBeTruthy();
   expect(queryByText(CLOSED)).toBeNull();
@@ -180,4 +180,53 @@ test("rooms: while today still has a lesson the header says today", async () => 
   render(<DisplayPage />);
   expect((await flush(), byText(/تمهيد · برنامج اليوم/))).toBeTruthy();
   expect(byText("الثلاثاء 10/11/2026")).toBeTruthy();
+});
+
+test("a new link opened in the same tab is used at once (Codex review)", async () => {
+  const NEW = "N".repeat(43);
+  fetchDisplayFeed.mockImplementation((token) => Promise.resolve(token === SECRET ? { ok: false, closed: true } : { ok: true, feed: feedOf() }));
+  render(<DisplayPage />);
+  expect((await flush(), byText(CLOSED))).toBeTruthy();
+  await act(async () => {
+    window.location.hash = `#${NEW}`;
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+  });
+  await flush();
+  expect(fetchDisplayFeed).toHaveBeenLastCalledWith(NEW);
+  expect(byText("رياضيات")).toBeTruthy();
+  expect(queryByText(CLOSED)).toBeNull();
+});
+
+test("rooms: tomorrow's date is right on the night the clocks move (Codex review)", async () => {
+  jest.setSystemTime(Date.parse("2026-03-26T21:30:00Z")); // Thursday 23:30 in Israel; summer time starts that night
+  fetchDisplayFeed.mockImplementation(ok({ layout: "rooms", serverTime: new Date().toISOString(), lessons: [lesson("أ", 5, 600, 660), lesson("ب", 6, 600, 660)] }));
+  render(<DisplayPage />);
+  expect((await flush(), byText(/تمهيد · برنامج الغد/))).toBeTruthy();
+  expect(byText("الجمعة 27/03/2026")).toBeTruthy();
+});
+
+test("rooms: a day further ahead across the autumn change keeps its date (Codex review)", async () => {
+  jest.setSystemTime(Date.parse("2026-10-24T21:30:00Z")); // Sunday 00:30 in Israel, 25/10, winter time from 02:00
+  fetchDisplayFeed.mockImplementation(ok({ layout: "rooms", serverTime: new Date().toISOString(), lessons: [lesson("ب", 2, 600, 660)] }));
+  render(<DisplayPage />);
+  expect((await flush(), byText(/تمهيد · برنامج الغد/))).toBeTruthy();
+  expect(byText("الاثنين 26/10/2026")).toBeTruthy();
+});
+
+test("a layout change in the System shows within 10 seconds, with no reload (owner)", async () => {
+  fetchDisplayFeed.mockImplementationOnce(ok());
+  fetchDisplayFeed.mockImplementation(ok({ layout: "today" }));
+  render(<DisplayPage />);
+  expect((await flush(), byText(/تمهيد · برنامج الأسبوع/))).toBeTruthy();
+  await tick(10000);
+  expect(byText(/تمهيد · برنامج اليوم/)).toBeTruthy();
+});
+
+test("the top bar carries the association's logo (owner)", async () => {
+  fetchDisplayFeed.mockImplementation(ok());
+  render(<DisplayPage />);
+  await flush();
+  const logo = document.querySelector("header img");
+  expect(logo).toBeTruthy();
+  expect(logo.getAttribute("alt")).toBe("شعار جمعية تمهيد");
 });

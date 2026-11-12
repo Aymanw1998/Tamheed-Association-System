@@ -58,6 +58,31 @@ empty in the evening.
    layouts keep their structure, as decision 5 says.)
 10. **A lesson saved without a room gets its own column, «بدون غرفة».**
 
+## Owner change, same day: every layout is a timetable
+
+After seeing it built, the owner asked that all layouts look like a real
+timetable by hours, like the rooms board, not lists of lessons. The owner
+chose these answers:
+
+- **كل الأسبوع:** always Sunday to Saturday, even a day with no lessons.
+  Hours run down the side and each lesson sits at its time, with its room
+  written on it. Today's column is marked and twice as wide (*writer's call*:
+  a busy day stays readable). Only today carries «الآن», «التالي» and the
+  red line, which has no time label inside the column.
+- **اليوم بالتفصيل:** today's lessons on a wide timetable, with room and
+  guide on each and moving with the clock on a long day. The summary of the
+  coming days stays on the side.
+- **يومًا بعد يوم:** every day from Sunday to Saturday in turn, starting on
+  today, 15 seconds each, a day with no lessons included («لا برامج في هذا
+  اليوم»). Each day is a rooms board.
+- **Changing the layout:** the TV checks every 10 seconds instead of every
+  minute, so a change shows within seconds with no reload. The feed's
+  per-address limit rises from 30 to 90 a minute, so about 15 screens can
+  share one network address.
+
+All four draw with one shared component (`TimeGrid.jsx`). The old list
+layouts, their text shrinking and «+N» are gone.
+
 ## The rooms board in detail
 
 **Which day it shows** (*writer's call*, extends decision 9): the board day
@@ -74,8 +99,9 @@ board day is today; «تمهيد · برنامج الغد» with tomorrow's day 
 date when it is tomorrow; «تمهيد · برنامج يوم <day name>» with that date
 when it is further ahead. The large clock always shows the current time.
 
-**Columns** (*writer's call*): only rooms that have a lesson on the board
-day get a column, in room order: غرفة 1–5, المصلى (6), مقر قديم (7), الساحة
+**Columns** (owner, 2026-11-12, after seeing it built: "show all the rooms
+even if there is no lesson"): every room gets a column, even with no lesson
+that day; an empty room's title is quieter. In room order: غرفة 1–5, المصلى (6), مقر قديم (7), الساحة
 (8), التدريب الخارجي (9), then any room the System stores as text, then
 «بدون غرفة» last. Column titles use the same names as
 `apps/system/src/utils/rooms.js`. Sport (football) lessons are room 9, as

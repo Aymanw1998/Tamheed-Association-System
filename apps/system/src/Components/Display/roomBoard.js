@@ -2,7 +2,7 @@
 // shows, its room columns, the hours on screen and side-by-side lessons.
 // Runs on Android TV WebView, so it sticks to long-supported APIs.
 import { DAY_NAMES, byDay } from "./displayBoard";
-import { roomLabel } from "../../utils/rooms";
+import { ROOM_OPTIONS, roomLabel } from "../../utils/rooms";
 
 const FIT_WHOLE = 5 * 60; // a day this long or shorter fits on one screen
 const WINDOW = 4 * 60; // otherwise 4 hours are shown…
@@ -37,11 +37,17 @@ function roomKey(room) {
   return { group: 1, order: 0, key: `t${text}`, label: text };
 }
 
-// Only rooms with lessons: numbered rooms in order, then rooms stored as
-// text, then «بدون غرفة».
+// Every room of the association, in order, even with no lesson that day
+// (owner, 2026-11-12), so the board always looks the same; then rooms
+// stored as text and «بدون غرفة», only when a lesson uses them.
 export function roomColumns(lessons) {
   const map = {};
   const cols = [];
+  ROOM_OPTIONS.forEach((option) => {
+    const k = roomKey(option.value);
+    map[k.key] = { key: k.key, label: k.label, group: k.group, order: k.order, lessons: [] };
+    cols.push(map[k.key]);
+  });
   (Array.isArray(lessons) ? lessons : []).forEach((lesson) => {
     const k = roomKey(lesson.room);
     if (!map[k.key]) {
@@ -72,8 +78,10 @@ export function viewWindow(range, minute, live) {
 }
 
 // Lessons of one room that overlap stand side by side: each gets a lane and
-// the number of lanes in its group of overlapping lessons.
-export function lanes(roomLessons) {
+// the number of lanes in its group of overlapping lessons. A block is drawn
+// at least minMinutes tall so a short lesson keeps its name readable; its
+// drawn end counts for overlap, so it never covers the next lesson.
+export function lanes(roomLessons, minMinutes = 0) {
   const sorted = roomLessons.slice().sort((a, b) => a.startMin - b.startMin || a.endMin - b.endMin);
   const out = [];
   let group = [];
@@ -81,11 +89,12 @@ export function lanes(roomLessons) {
   let groupEnd = -Infinity;
   const close = () => { group.forEach((item) => { item.laneCount = laneEnds.length; }); group = []; laneEnds = []; };
   sorted.forEach((lesson) => {
+    const drawnEnd = Math.max(lesson.endMin, lesson.startMin + minMinutes);
     if (lesson.startMin >= groupEnd) close();
     let lane = laneEnds.findIndex((end) => end <= lesson.startMin);
-    if (lane === -1) { lane = laneEnds.length; laneEnds.push(lesson.endMin); } else laneEnds[lane] = lesson.endMin;
-    groupEnd = group.length ? Math.max(groupEnd, lesson.endMin) : lesson.endMin;
-    const item = Object.assign({}, lesson, { lane, laneCount: 1 });
+    if (lane === -1) { lane = laneEnds.length; laneEnds.push(drawnEnd); } else laneEnds[lane] = drawnEnd;
+    groupEnd = group.length ? Math.max(groupEnd, drawnEnd) : drawnEnd;
+    const item = Object.assign({}, lesson, { lane, laneCount: 1, drawnEnd });
     group.push(item);
     out.push(item);
   });

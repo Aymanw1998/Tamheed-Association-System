@@ -1,31 +1,34 @@
 import React, { useEffect, useRef, useState } from "react";
 import styles from "./Display.module.css";
 import { fetchDisplayFeed } from "../../WebServer/services/display/functionsDisplay.jsx";
-import { DAY_NAMES, clearFeed, clockOffset, israelDayMinute, loadStored, saveFeed } from "./displayBoard";
+import { DAY_NAMES, clearFeed, clockOffset, dayAhead, israelDayMinute, loadStored, saveFeed } from "./displayBoard";
 import WeekLayout from "./WeekLayout";
 import TodayLayout from "./TodayLayout";
 import RotateLayout from "./RotateLayout";
 import RoomsLayout from "./RoomsLayout";
+import LOGO from "../../images/logo.png";
 import { boardDay, boardTitle } from "./roomBoard";
 
 // The wall display (owner, 2026-11-12), opened from /display#<secret> with no
-// sign-in. It shows the program in the screen's layout, refreshes every
-// minute, keeps the last program through network trouble (also across a
+// sign-in. It shows the program in the screen's layout, checks every 10
+// seconds, keeps the last program through network trouble (also across a
 // reload, from the copy kept on the TV), and closes only when the server
 // says the link is no longer valid.
-const REFRESH_MS = 60 * 1000;
+// The TV checks every 10 seconds, so a layout or lesson change shows
+// within seconds, with no reload (owner, 2026-11-12).
+const REFRESH_MS = 10 * 1000;
+const RETRY_MS = 60 * 1000;
 const TICK_MS = 15 * 1000;
 const STALE_MS = 5 * 60 * 1000;
 const LAYOUTS = { week: WeekLayout, today: TodayLayout, rotate: RotateLayout, rooms: RoomsLayout };
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 // The title and the date in the top bar. The rooms board may show a coming
 // day (after the last lesson of today), so it names that day and its date.
-function headerOf(feed, at, serverMs) {
+function headerOf(feed, at) {
   if (feed.layout === "rooms") {
     const board = boardDay(feed.lessons, at.day, at.minute);
     if (board && board.ahead > 0) {
-      const then = israelDayMinute(serverMs + board.ahead * DAY_MS);
+      const then = dayAhead(at.date, board.ahead);
       return { title: `تمهيد · ${boardTitle(board)}`, date: `${DAY_NAMES[then.day - 1]} ${then.date}` };
     }
     return { title: "تمهيد · برنامج اليوم", date: `${DAY_NAMES[at.day - 1]} ${at.date}` };
@@ -97,12 +100,16 @@ function Board({ token }) {
 
   const at = israelDayMinute(nowMs + offset);
   const Layout = LAYOUTS[feed.layout] || WeekLayout;
-  const head = headerOf(feed, at, nowMs + offset);
+  const head = headerOf(feed, at);
   const updated = Date.parse(feed.serverTime);
   return (
     <div className={styles.board}>
       <header className={styles.top}>
-        <span className={styles.title}>{head.title}</span>
+        <span className={styles.brand}>
+          {/* The association logo, as in the System header; hidden if it cannot load offline. */}
+          <img className={styles.logo} src={LOGO} alt="شعار جمعية تمهيد" onError={(e) => { e.currentTarget.style.display = "none"; }} />
+          <span className={styles.title}>{head.title}</span>
+        </span>
         <span className={styles.date}>{head.date}</span>
         <span className={styles.clock}>{at.time}</span>
       </header>
@@ -123,7 +130,7 @@ class DisplayBoundary extends React.Component {
     console.error("Display crashed:", error);
     // The stored copy may be what crashed: drop it, so the reload fetches.
     clearFeed(this.props.token);
-    this.timer = setTimeout(() => { try { window.location.reload(); } catch (e) { /* stay */ } }, REFRESH_MS);
+    this.timer = setTimeout(() => { try { window.location.reload(); } catch (e) { /* stay */ } }, RETRY_MS);
   }
   componentWillUnmount() { clearTimeout(this.timer); }
   render() {
@@ -131,7 +138,14 @@ class DisplayBoundary extends React.Component {
   }
 }
 
+// A new link opened in the same tab changes only the fragment, so the page
+// listens for it and starts over with the new link (Codex review, 2026-11-12).
 export default function DisplayPage() {
-  const [token] = useState(readToken);
-  return <DisplayBoundary token={token}><Board token={token} /></DisplayBoundary>;
+  const [token, setToken] = useState(readToken);
+  useEffect(() => {
+    const onHash = () => setToken(readToken());
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+  return <DisplayBoundary key={token} token={token}><Board token={token} /></DisplayBoundary>;
 }

@@ -64,15 +64,12 @@ export function markDay(dayLessons, minute) {
   });
 }
 
-export const weekDays = (grouped) => DAYS.filter((day) => day <= 5 || (grouped[day] && grouped[day].length));
-
 const following = (today) => DAYS.map((_, i) => ((today - 1 + i) % 7) + 1);
 
 export const comingDays = (grouped, today) => following(today).slice(1)
   .filter((day) => grouped[day] && grouped[day].length)
   .map((day) => ({ day, lessons: grouped[day] }));
 
-export const rotationDays = (grouped, today) => following(today).filter((day) => grouped[day] && grouped[day].length);
 
 // The copy kept on the TV belongs to one screen link. Only a short
 // fingerprint of the link is stored, never the link itself.
@@ -121,4 +118,14 @@ export function clearFeed(token) {
   const stored = readStore();
   if (stored && stored.link !== linkPrint(token)) return;
   try { window.localStorage.removeItem(STORE_KEY); } catch (e) { /* nothing to clear */ }
+}
+
+// The Israeli calendar date `ahead` days after `date` ("DD/MM/YYYY") and its
+// weekday (1 = Sunday). Calendar days, not 24-hour steps, so the night the
+// clocks move does not skip or repeat a date (Codex review, 2026-11-12).
+export function dayAhead(date, ahead) {
+  const parts = String(date || "").split("/").map(Number);
+  const at = new Date(Date.UTC(parts[2], parts[1] - 1, parts[0] + (Number(ahead) || 0)));
+  const pad = (n) => (n < 10 ? `0${n}` : String(n));
+  return { day: at.getUTCDay() + 1, date: `${pad(at.getUTCDate())}/${pad(at.getUTCMonth() + 1)}/${at.getUTCFullYear()}` };
 }

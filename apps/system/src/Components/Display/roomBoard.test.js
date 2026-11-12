@@ -50,18 +50,23 @@ describe("boardTitle", () => {
 });
 
 describe("roomColumns", () => {
-  test("only rooms with lessons, in room order, text rooms then «بدون غرفة» last", () => {
+  test("every room in order, even with no lessons (owner), then text rooms, then «بدون غرفة»", () => {
     const cols = roomColumns([
       L("a", 1, 600, 660, "9"), L("b", 1, 600, 660, null), L("c", 1, 600, 660, "2"),
       L("d", 1, 600, 660, "مختبر"), L("e", 1, 600, 660, "6"), L("f", 1, 700, 760, "2"), L("g", 1, 600, 660, "0"),
     ]);
-    expect(cols.map((c) => c.label)).toEqual(["غرفة 2", "المصلى", "التدريب الخارجي", "مختبر", "بدون غرفة"]);
-    expect(cols[0].lessons.map((l) => l.name)).toEqual(["c", "f"]);
-    expect(cols[4].lessons.map((l) => l.name)).toEqual(["b", "g"]);
+    expect(cols.map((c) => c.label)).toEqual(["غرفة 1", "غرفة 2", "غرفة 3", "غرفة 4", "غرفة 5", "المصلى", "مقر قديم", "الساحة", "التدريب الخارجي", "مختبر", "بدون غرفة"]);
+    expect(cols[1].lessons.map((l) => l.name)).toEqual(["c", "f"]);
+    expect(cols[0].lessons).toEqual([]);
+    expect(cols[10].lessons.map((l) => l.name)).toEqual(["b", "g"]);
   });
 
   test("a room stored as \"02\" is the same column as \"2\"", () => {
-    expect(roomColumns([L("a", 1, 600, 660, "2"), L("b", 1, 700, 760, "02")])).toHaveLength(1);
+    expect(roomColumns([L("a", 1, 600, 660, "2"), L("b", 1, 700, 760, "02")])[1].lessons).toHaveLength(2);
+  });
+
+  test("«بدون غرفة» and text rooms appear only when a lesson uses them", () => {
+    expect(roomColumns([]).map((c) => c.label)).toEqual(["غرفة 1", "غرفة 2", "غرفة 3", "غرفة 4", "غرفة 5", "المصلى", "مقر قديم", "الساحة", "التدريب الخارجي"]);
   });
 });
 
@@ -108,5 +113,17 @@ describe("lanes", () => {
   test("a lane frees up when its lesson ends", () => {
     const out = lanes([L("a", 1, 600, 700), L("b", 1, 610, 650), L("c", 1, 660, 690)]);
     expect(out.map((l) => [l.name, l.lane, l.laneCount])).toEqual([["a", 0, 2], ["b", 1, 2], ["c", 1, 2]]);
+  });
+});
+
+describe("lanes with a minimum height (Codex review: short lessons were cut off)", () => {
+  test("a short lesson drawn taller stands beside the lesson its block now reaches", () => {
+    const out = lanes([L("a", 1, 600, 615), L("b", 1, 615, 675), L("c", 1, 700, 760)], 30);
+    expect(out.map((l) => [l.name, l.lane, l.laneCount])).toEqual([["a", 0, 2], ["b", 1, 2], ["c", 0, 1]]);
+  });
+
+  test("without a minimum, touching lessons share one lane", () => {
+    const out = lanes([L("a", 1, 600, 615), L("b", 1, 615, 675)]);
+    expect(out.map((l) => l.laneCount)).toEqual([1, 1]);
   });
 });
