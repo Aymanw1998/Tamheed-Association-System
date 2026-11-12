@@ -55,6 +55,7 @@ const PrivacyPage = lazyPage(() => import('../Privacy/PrivacyPage'));
 const GuidePage = lazyPage(() => import('../../guide/GuidePage'));
 
 const LessonsHub = lazyPage(() => import('../Lesson/LessonsHub'));
+const DisplayScreensPage = lazyPage(() => import('../Display/DisplayScreensPage'));
 const WeeklyTasksPage = lazyPage(() => import('../WeeklyTasks/WeeklyTasksPage'));
 const ManageWeeklyTasks = lazyPage(() => import('../WeeklyTasks/ManageWeeklyTasks'));
 const WeeklyPraise = lazyPage(() => import('../WeeklyTasks/WeeklyPraise'));
@@ -124,6 +125,7 @@ export default function CRoutes() {
             <Route path="/users/:id/edit" element={<EditUser/>} />
 
             <Route path="/lessons" element={<LessonsHub active="lessons"><ViewAllLesson/></LessonsHub>} />
+            <Route path="/lessons/displays" element={<LessonsHub active="displays"><DisplayScreensPage/></LessonsHub>} />
             <Route path="/lessons/:id" element={<RecordRoute view={<LessonView/>} form={<EditLesson/>} />} />
             <Route path="/lessons/:id/edit" element={<EditLesson/>} />
 

@@ -16,6 +16,7 @@ its UI gate, record scope checks and a behavioral grant/revoke test.
 | Notices | `notices.view`, `notices.post`, `notices.archive`, `notices.runCheck`, `notices.delete` (to trash; purged automatically after 30 days), `notices.restore`, `notices.purge` (permanent delete from trash) |
 | Students | `students.view`, `viewAll`, `create`, `edit`, `delete`, `photo`, `parentLink`; existing student scope stays enforced |
 | Programs / weekly timetable | Program records use `lessons.view`, `viewAll`, `create`, `edit`, `roster`, `staffRoster` (users as participants), `delete`, `copyMonth`; the weekly timetable additionally needs `calendar.view` on its page and schedule endpoints. Ownership, scoped roster and record locks stay enforced |
+| Wall display screens | `displays.manage` (list, create, rename, change layout, new link, delete; nobody's role default, granted in IT). The TV reads `POST /api/displays/feed` with no sign-in: the link secret is a capability (only its SHA-256 is stored), rate-limited, `no-store`, and returns only lesson name, day, times, room and guide name |
 | Attendance | `attendance.view`, `attendance.record`; existing group/lesson scope stays enforced |
 | Reports | `reports.create`, `editOwn`, `viewAll`, `editAll`, `delete`, `exportPdf`; author/record checks stay enforced |
 | Vehicles | `vehicles.view`, `edit`, `compliance`, `documents`, `archive`, `delete`; vehicle assignment and record locks stay enforced |

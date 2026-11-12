@@ -100,3 +100,8 @@ test.each([
   expect(canAccessPath(path, keys)).toBe(true);
   expect(canAccessPath(path, ["dashboard.view", "calendar.view", "students.view"])).toBe(false);
 });
+
+test("/lessons/displays needs displays.manage only", () => {
+  expect(canAccessPath("/lessons/displays", ["displays.manage"])).toBe(true);
+  expect(canAccessPath("/lessons/displays", ["lessons.view", "calendar.view"])).toBe(false);
+});

@@ -12,6 +12,8 @@ const RESTRICTED = [
   { pattern: /^\/users\/new$/, key: "users.create" },
   { pattern: /^\/users\/[^/]+\/edit$/, key: "users.edit" },
   { pattern: /^\/students\/[^/]+\/edit$/, key: "students.edit" },
+  // Wall display screens (owner, 2026-11-12): their own key, not lessons.view.
+  { pattern: /^\/lessons\/displays$/, key: "displays.manage" },
   { pattern: /^\/lessons\/[^/]+\/edit$/, key: "lessons.edit" },
   { pattern: /^\/users(\/|$)/, key: "users.view" },
   { pattern: /^\/notices(\/|$)/, key: "notices.view" },

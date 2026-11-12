@@ -7,6 +7,8 @@ import { getStoredPermissions } from "../../utils/session";
 const TABS = [
   { key: "lessons", path: "/lessons", label: "برنامج الأسبوع" },
   { key: "attendance", path: "/calendar", label: "الحضور والغياب" },
+  // Wall display screens (owner, 2026-11-12): displays.manage only.
+  { key: "displays", path: "/lessons/displays", label: "شاشات العرض" },
 ];
 
 const bar = { display: "flex", gap: 8, margin: "12px 16px 0", flexWrap: "wrap" };

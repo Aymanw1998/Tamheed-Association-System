@@ -36,6 +36,21 @@ test("lessons.staffRoster exists with its label and is an admin default only", (
   assert.ok(!can(effectivePermissions({ role: "مساعد" }), "lessons.staffRoster"));
 });
 
+// Wall display screens (owner, 2026-11-12): its own section, granted in IT
+// only; no role has it by default.
+test("displays.manage exists with its labels and is nobody's default", () => {
+  assert.deepEqual(catalog.tree.displays, ["manage"]);
+  assert.equal(catalog.labels.ar.modules.displays, "شاشات العرض");
+  assert.equal(catalog.labels.ar.leavesByModule.displays.manage, "إدارة شاشات العرض");
+  for (const role of ["ادارة", "مرشد", "مساعد"]) assert.ok(!can(effectivePermissions({ role }), "displays.manage"));
+  assert.ok(can(effectivePermissions({ role: "مرشد", permissionGrants: ["displays.manage"] }), "displays.manage"));
+  assert.ok(can(effectivePermissions({}, { isSystem: true }), "displays.manage"));
+});
+
+test("displays.manage granted and then revoked is gone", () => {
+  assert.ok(!can(effectivePermissions({ role: "ادارة", permissionGrants: ["displays.manage"], permissionRevokes: ["displays.manage"] }), "displays.manage"));
+});
+
 test("changing the canonical catalog updates both clients without hand editing mirrors", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "tamheed-catalog-"));
   try {

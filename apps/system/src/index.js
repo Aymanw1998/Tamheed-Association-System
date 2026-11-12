@@ -14,6 +14,7 @@ import { startClientIdGuard } from "./locks/clientId";
 import * as serviceWorkerRegistration from "./serviceWorkerRegistration";
 import { ToastProvider, SystemStatusWatcher, StatusBadge, useToast, toast } from "./ALERT/SystemToasts";
 import { startTheme } from "./utils/theme";
+import DisplayPage from "./Components/Display/DisplayPage";
 
 const installSafeStorageDefaults = () => {
   if (typeof window === "undefined" || !window.Storage) return;
@@ -55,9 +56,17 @@ function DevToastPing() {
   return null;
 }
 
+// A wall display (owner, 2026-11-12) gets only its board: no App shell, no
+// sign-in, menus, notices, tours or report button that could take it away.
+const isDisplay = /^\/display\/?$/.test(window.location.pathname);
+
 startTheme();
 const root = ReactDOM.createRoot(document.getElementById("root"));
-startFreshApp(() => root.render(
+startFreshApp(() => root.render(isDisplay ? (
+  <AppErrorBoundary>
+    <DisplayPage />
+  </AppErrorBoundary>
+) : (
   <ConfirmProvider>
     <ToastProvider rtl baseZIndex={999999}>
       <AppErrorBoundary>
@@ -83,7 +92,7 @@ startFreshApp(() => root.render(
       <QueueStatus />
     </ToastProvider>
   </ConfirmProvider>
-), { canApply: canApplySystemUpdate });
+)), { canApply: canApplySystemUpdate });
 
 reportWebVitals();
 

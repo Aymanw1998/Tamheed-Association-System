@@ -68,4 +68,4 @@ async function activeUsers(userModel, ids) {
   return out;
 }
 
-module.exports = { OBJECT_ID, CLASH, staffIds, staffClash, isParticipant, addableUsers, activeUsers, fullName };
+module.exports = { OBJECT_ID, CLASH, staffIds, staffClash, isParticipant, findActive, addableUsers, activeUsers, fullName };

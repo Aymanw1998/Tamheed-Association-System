@@ -125,6 +125,7 @@ app.use('/api/report', require('./Entities/Report/Report.route'));
 app.use('/api/vehicle', require('./Entities/Vehicle/Vehicle.route'));
 app.use('/api/notices', require('./Entities/Notice/Notice.route'));
 app.use('/api/weekly-tasks', require('./Entities/WeeklyTask/WeeklyTask.route'));
+app.use('/api/displays', require('./Entities/Display/Display.route'));
 // The audit log is on the IT site only (/api/it/audit, Entities/It/It.route.js).
 // Signed-in live channel (ticket + SSE); replaces the old open /api/events.
 app.use('/api/live', require('./Entities/Live/Live.route'));
@@ -238,6 +239,8 @@ const StartServer = async () => {
       .catch((err) => console.error('Attendances index:', err.message));
     await require('./Entities/AiConversation/AiConversation.model').ensureConversationIndexes()
       .catch((err) => console.error('AiConversations index:', err.message));
+    await require('./Entities/Display/DisplayScreen.model').ensureDisplayScreenIndexes()
+      .catch((err) => console.error('DisplayScreens index:', err.message));
     await require('./Entities/AiUsage/AiRate.model').ensureAiRateIndexes()
       .catch((err) => console.error('AiRates index:', err.message));
     await require('./Entities/AiPendingAction/AiPendingAction.model').ensurePendingActionIndexes()

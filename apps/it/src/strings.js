@@ -46,11 +46,12 @@ export const auditActions = {
   passkey_add: "حفظ دخول بالبصمة",
   admin_powers_change: "تغيير صلاحيات المديرين", request_alerts_change: "تغيير تنبيهات الطلبات",
   role_defaults_change: "تغيير صلاحيات دور", role_defaults_reset: "إرجاع صلاحيات دور إلى الأصل",
+  rotateLink: "رابط جديد",
 };
 export const auditModules = {
   users: "المستخدمون", students: "الطلاب", lessons: "الدروس", attendance: "الحضور", reports: "التقارير",
   vehicles: "المركبات", files: "الملفات", notices: "الإعلانات", it: "موقع IT", storage: "التخزين",
-  permissions: "الصلاحيات",
+  permissions: "الصلاحيات", displays: "شاشات العرض",
 };
 
 // «صلاحيات الأدوار»

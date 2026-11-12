@@ -11,6 +11,8 @@ describe("shouldCache", () => {
     ["/api/report/aaaaaaaaaaaaaaaaaaaaaaaa/pdf/jobs/job", "GET"],
     ["/api/attendance/bulk-save", "POST"],
     ["/api/auth/refresh", "GET"],
+    ["/api/displays", "GET"],
+    ["/api/displays/feed", "POST"],
     ["/api/AUTH/refresh", "GET"],
     ["/api/storage/file/1", "GET"],
     ["/api/sport-portal/photo", "GET"],

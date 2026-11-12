@@ -51,6 +51,11 @@ const PUBLIC_ROUTES = {
     "POST /consent-link/validate",
     "POST /consent-link/submit",
   ],
+  // Wall display screens: the secret link is a capability checked in
+  // services/displayScreens.js; the feed is rate-limited and read-only.
+  "Display/Display.route.js": [
+    "POST /feed",
+  ],
   "Storage/Storage.route.js": [
     "GET /open-signed", // signed, time-limited link
     "GET /download-signed",

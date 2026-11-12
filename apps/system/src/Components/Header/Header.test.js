@@ -125,6 +125,13 @@ test("each page link follows its permission", async () => {
   expect(navText()).toEqual(["البرنامج", "الطلاب"]);
 });
 
+test("with only displays.manage the program link opens the display screens page", async () => {
+  mockPerms = ["displays.manage"];
+  await mount();
+  const link = [...host.querySelectorAll("#main-nav a")].find((a) => a.textContent.trim() === "البرنامج");
+  expect(link && link.getAttribute("href")).toBe("/lessons/displays");
+});
+
 const groupButton = (name) => [...host.querySelectorAll('#main-nav button')].find((button) => button.textContent.includes(name));
 test("association rules is a separate permission-gated navigation destination", async () => {
   mockPerms = ["rules.view"];

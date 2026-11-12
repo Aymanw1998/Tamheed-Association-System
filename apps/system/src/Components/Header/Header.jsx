@@ -208,7 +208,10 @@ export default function Header() {
   );
 
   const home = opens("/dashboard") ? { path: "/dashboard", label: t("nav.dashboard"), tour: "menu-home" } : null;
-  const program = (opens("/lessons") || opens("/calendar")) ? { path: opens("/lessons") ? "/lessons" : "/calendar", label: t("nav.lessons"), tour: "menu-lessons", badge: "lessons" } : null;
+  // The program section's first page this user may open; display screens
+  // (displays.manage) alone also lead here.
+  const programPath = ["/lessons", "/calendar", "/lessons/displays"].find((path) => opens(path));
+  const program = programPath ? { path: programPath, label: t("nav.lessons"), tour: "menu-lessons", badge: "lessons" } : null;
   const groups = [
     { id: "daily", label: "العمل اليومي", items: [
       opens("/weekly-tasks") && { path: "/weekly-tasks", label: t("nav.tasks"), tour: "menu-weekly-tasks", icon: "check_list" },

@@ -6023,3 +6023,30 @@ Independent review PENDING (run when the owner chooses). Not committed.
 **Owner action:** if `OPS_ALERT_EMAIL` was added to the server's `.env`, it is now unused and may be removed.
 
 **Codex review:** the 2026-11-10 request is marked: its alert part is withdrawn.
+
+## 2026-11-12 — Wall display screens (Claude Code)
+
+**Owner request:** a TV on the wall shows the weekly lesson program by itself, with no computer and no way to move it elsewhere; three ready layouts, one chosen per screen; the guide's name on each lesson.
+
+**Spec / plan:** `docs/superpowers/specs/2026-11-11-display-screen-design.md`, `docs/superpowers/plans/2026-11-12-display-screen.md`.
+
+**Changes:** permission `displays.manage` (nobody's default); `DisplayScreens` store and `services/displayScreens.js` (secret link, SHA-256 only, feed of name/day/times/room/guide); `/api/displays` (public rate-limited `POST /feed`, guarded management); System `/display` page with three layouts, outside the app shell, keeping the last program on the TV; management tab «شاشات العرض» in the lessons hub; IT audit labels; Hebrew TV setup section in `deploy/DEPLOY.md`; row in `docs/FEATURE_PERMISSIONS.md`.
+
+**Verification:** `npm run verify` passed (server 1,665, System 1,270, build); IT 116; `syncShared --check` and `git diff --check` passed. Browser check on the production build with synthetic in-memory data only (no database): three layouts at 1920×1080, layout change reached the TV within a minute, 20 lessons in a day fit, reload during API 503 kept the program, 410 closed the screen and wiped its copy. Not verified: offline reload through the service worker (the browser pane cannot register service workers), a real Android TV device.
+
+**Fresh Claude review (whole change):** ready with fixes, no critical. Fixed with failing-first tests: the today layout's side column no longer shrinks today's rows; a stored copy that crashes the page is dropped; edit audited as `update` with IT labels; the program menu opens `/lessons/displays` for a user with only `displays.manage`; revoke tests added; minimum browser (Chromium 85) documented. The four deferred minors were then done at the owner's request (2026-11-12), each with a failing-first test: after a restart with no network the stored copy brings back its save time and server-clock correction, and the note reads «آخر تحديث DD/MM/YYYY HH:MM»; a box still too full at the smallest text hides the rest behind «+N»; guide names are looked up in parallel; the stored copy is tied to its screen link by a short fingerprint (never the link). Verify after: server 1,666, System 1,275, build ok.
+
+**Actual peer request / response:** [2026-11-12-display-screen-codex-request.md](reviews/2026-11-12-display-screen-codex-request.md).
+Independent review PENDING (run when the owner chooses). Not committed.
+
+## 2026-11-12 — Approve-user window off-screen; no role picked in advance (Claude Code)
+
+**Owner report:** approving a new user, the role came pre-picked and could not be changed (seen on a phone).
+
+**Cause:** `.page-enter` kept its last animation frame (`animation-fill-mode: both`), leaving a transform on the page wrapper. A transform makes every `position: fixed` window inside the page sit relative to the page, not the screen, so on a long page the approve window (and other in-page windows: guide picker, filter, export, display-link dialogs) could open off-screen with only the dimmed backdrop visible. Reproduced on a synthetic preview: overlay at −949..760 px instead of 0..812.
+
+**Changes:** `apps/system/src/index.css` — fill mode `backwards`; `Components/User/RolePickerDialog.jsx` — no role picked in advance, «قبول» disabled until one is chosen; journey chapters `dashboard.js` / `users.js` — the tour now selects «مساعد مرشد» before approving. Tests: `Components/Routes/PageTransition.test.js`, `Components/User/RolePickerDialog.test.js` (both failed first).
+
+**Verification:** System tests 1,277 passed, build ok. Synthetic browser preview (no database): at 375×812 the window covers the screen (0..812), approve sends the chosen role; at desktop width the role change on the edit page sends `PUT /user/:tz/role`. Not verified on a real phone.
+
+**Codex review:** PENDING (owner triggers). Not committed.

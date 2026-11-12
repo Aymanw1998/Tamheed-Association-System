@@ -25,6 +25,9 @@
       "delete",
       "copyMonth"
     ],
+    "displays": [
+      "manage"
+    ],
     "attendance": [
       "view",
       "record"
@@ -142,6 +145,7 @@
         "calendar": "برنامج الأسبوع",
         "students": "الطلاب",
         "lessons": "البرنامج",
+        "displays": "شاشات العرض",
         "attendance": "الحضور والغياب",
         "tasks": "المهمات الأسبوعية",
         "reports": "التقارير",
@@ -225,6 +229,9 @@
         },
         "alerts": {
           "dismiss": "إخفاء واستعادة تنبيهاتي"
+        },
+        "displays": {
+          "manage": "إدارة شاشات العرض"
         }
       }
     }
