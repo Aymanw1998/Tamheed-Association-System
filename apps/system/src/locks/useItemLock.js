@@ -233,3 +233,8 @@ export default function useItemLock(key, { enabled = true } = {}) {
   if (state.key !== key) return { status: "loading", holder: null, reason: null, release, retry };
   return { status: state.status, holder: state.holder, reason: state.reason ?? null, release, retry };
 }
+
+// The lock was lost because no heartbeat got through (no connection), not
+// taken by a manager or released for idleness: a screen that keeps its saves
+// on the device (attendance) may go on (Codex full review, 2026-11-18).
+export const lapsedForConnection = (lock) => lock?.status === "readonly" && lock?.reason === "expired";

@@ -32,3 +32,14 @@ describe("photoUrl", () => {
     expect(photoUrl(null)).toBe("/api/sport-portal/photo");
   });
 });
+
+// Codex full review, 2026-11-18.
+test("no email, or not in the sport department: the server's explanation is shown, not «try again»", () => {
+  const { shapeResult } = require("./api");
+  const noEmail = shapeResult(404, { ok: false, code: "NO_EMAIL", message: "لا يوجد بريد. توجّه إلى المرشد" });
+  expect(noEmail.data.message).toBe("لا يوجد بريد. توجّه إلى المرشد");
+  expect(noEmail.data.code).toBe("NO_EMAIL");
+  expect(shapeResult(404, { ok: false, code: "NOT_IN_SPORT", message: "لست في قسم الرياضة" }).data.message).toBe("لست في قسم الرياضة");
+  // Any other 404 stays generic.
+  expect(shapeResult(404, { ok: false, code: "OTHER", message: "x" }).data.message).toBe("حدث خطأ، حاول مرة أخرى.");
+});

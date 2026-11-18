@@ -113,3 +113,16 @@ test("months before the job existed are never sent (the first is 11/2026)", asyn
   assert.equal(d.sent.length, 0);
   assert.equal(d.marked.length, 0);
 });
+
+// Codex full review, 2026-11-18: the summary goes only to managers who may
+// read all of it now, and never to a locked account.
+test("the summary goes to an active manager who may read it, not to a locked or revoked one", () => {
+  const { mayReceiveSummary } = require("../services/monthlySummaryJob");
+  const manager = { _id: "m", tz: "1", roles: ["ادارة"], email: "m@example.test" };
+  assert.equal(mayReceiveSummary(manager), true);
+  assert.equal(mayReceiveSummary({ ...manager, lockedAt: new Date() }), false);
+  assert.equal(mayReceiveSummary({ ...manager, permissionRevokes: ["attendance.view"] }), false);
+  assert.equal(mayReceiveSummary({ ...manager, permissionRevokes: ["students.viewAll"] }), false);
+  assert.equal(mayReceiveSummary({ _id: "g", tz: "2", roles: ["مرشد"], permissionGrants: ["attendance.view", "students.viewAll", "lessons.viewAll"] }), false);
+  assert.equal(mayReceiveSummary(null), false);
+});

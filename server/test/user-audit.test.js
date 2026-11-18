@@ -223,3 +223,17 @@ test("a room move into a room that got the same ID number a moment ago gets 409 
   assert.equal(moved.body.code, "TZ_EXISTS");
   assert.equal(users.rooms.waiting.length, 1, "the user stays where he was");
 });
+
+// Codex full review, 2026-11-18: suspending and reactivating keeps the _id
+// that lessons and responsible-guide assignments name.
+test("a user keeps their _id through suspend and reactivate", async () => {
+  const users = createUsers({ active: [{ _id: "g1", tz: "300000007", firstname: "Guide", lastname: "One", role: "مرشد", roles: ["مرشد"] }] });
+  const { controller } = loadController(users);
+  const off = res();
+  await controller.changeRoom(req({ params: { tz: "300000007" }, body: { from: "active", to: "noActive" } }), off);
+  assert.equal(off.statusCode, 200);
+  const on = res();
+  await controller.changeRoom(req({ params: { tz: "300000007" }, body: { from: "noActive", to: "active" } }), on);
+  assert.equal(on.statusCode, 200);
+  assert.equal(on.body.user._id, "g1");
+});

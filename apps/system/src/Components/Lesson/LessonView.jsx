@@ -154,7 +154,8 @@ export default function LessonView() {
   const actions = [
     canStored("lessons.edit") && { label: t("record.edit"), onClick: openForm, tour: "lesson-view-edit" },
     // Excel export of this lesson's attendance (owner, 2026-11-10).
-    canStored("attendance.view") && { label: "تصدير الحضور إلى Excel", onClick: () => setExporting(true) },
+    // Its own key (Codex full review, 2026-11-18).
+    canStored("attendance.view") && canStored("attendance.exportExcel") && { label: "تصدير الحضور إلى Excel", onClick: () => setExporting(true) },
     // A clean A4 list of the program's students (owner, 2026-11-16).
     { label: "طباعة قائمة الطلاب", onClick: printRoster },
     canStored("lessons.delete") && { label: t("record.delete"), onClick: remove, variant: "danger", tour: "lesson-delete" },

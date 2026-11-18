@@ -47,3 +47,6 @@ apps/it/node_modules
 # deploy/update.sh builds aside before swapping
 apps/*/build.new
 apps/*/build.old
+
+# deploy/update.sh and deploy/mongo-backup.sh: one maintenance job at a time
+deploy/.maintenance.lock

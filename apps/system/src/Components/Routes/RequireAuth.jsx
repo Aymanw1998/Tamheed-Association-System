@@ -5,7 +5,8 @@ import { refreshSession, setAuthTokens } from '../../WebServer/services/api';
 import { scheduleAccessRefresh } from '../../WebServer/utils/accessScheduler';
 import { getAccessExpiryMs } from '../../WebServer/utils/authTiming';
 import { getLogoutDeadline, scheduleAutoLogout } from '../../WebServer/utils/logoutScheduler';
-import { getMe } from '../../WebServer/services/auth/fuctionsAuth';
+import { getMeChecked } from '../../WebServer/services/auth/fuctionsAuth';
+import { isConnectionFailure, mayStayOffline } from '../../WebServer/utils/authNetwork';
 import { rememberSessionUser } from '../../utils/session';
 import { syncSavedPasskey } from '../../utils/passkey';
 
@@ -15,9 +16,20 @@ export default function RequireAuth() {
   const navigate  = useNavigate();
   const location  = useLocation();
   const [checking, setChecking] = useState(true);
+  // Checked again when the connection comes back.
+  const [online, setOnline] = useState(0);
+  useEffect(() => {
+    const back = () => setOnline((n) => n + 1);
+    window.addEventListener('online', back);
+    return () => window.removeEventListener('online', back);
+  }, []);
 
   useEffect(() => {
     let alive = true;
+    // No connection is not a sign-out: someone already signed in on this
+    // device keeps the app (and its drafts) until the server can answer
+    // (Codex full review, 2026-11-18).
+    let offline = false;
     (async () => {
       try {
         // ملاحظة عربية
@@ -41,10 +53,12 @@ export default function RequireAuth() {
             } else {
               token = null;
             }
-          } catch {
-            token = null;
+          } catch (err) {
+            if (isConnectionFailure(err) && mayStayOffline()) offline = true;
+            else token = null;
           }
         }
+        if (offline) return;
 
         if (!alive) return;
 
@@ -55,8 +69,9 @@ export default function RequireAuth() {
         }
 
         // ملاحظة عربية
-        const me = await getMe();
+        const { me, connectionFailed } = await getMeChecked();
         if (!alive) return;
+        if (!me && connectionFailed && mayStayOffline()) return;
 
         if (!me) {
           localStorage.removeItem('accessToken');
@@ -71,7 +86,7 @@ export default function RequireAuth() {
     })();
 
     return () => { alive = false; };
-  }, [location.pathname, navigate]);
+  }, [location.pathname, navigate, online]);
 
   if (checking) return null; // ملاحظة عربية
   return <Outlet />;

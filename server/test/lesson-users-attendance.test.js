@@ -60,6 +60,7 @@ function world({ attendance = [], extraStudents = [] } = {}) {
   const users = memoryModel({ active: [ADMIN, GUIDE, STAFF1, STAFF2], noActive: [FORMER] });
   const students = memoryModel([STUDENT, ...extraStudents]);
   const rows = attendanceStore(attendance);
+  const audit = auditStub();
   const controller = load("Attendance/Attendance.controller.js", {
     "./Attendance.model": { AttendanceModelDef: rows },
     "../Lesson/Lesson.model": { LessonModelDef: lessons },
@@ -69,9 +70,9 @@ function world({ attendance = [], extraStudents = [] } = {}) {
     "../../utils/studentScope": require("../utils/studentScope"),
     "../../utils/attendanceMarks": require("../utils/attendanceMarks"),
     "../../middleware/logger": { logWithSource() {} },
-    ...auditStub().deps,
+    ...audit.deps,
   });
-  return { controller, rows: rows.rows };
+  return { controller, rows: rows.rows, audit, auditStub: audit };
 }
 
 async function call(handler, user, req = {}) {
@@ -191,7 +192,25 @@ test("export refuses a lesson the actor cannot open, and bad ranges", async () =
   }
 });
 
-test("GET /export is guarded by attendance.view", () => {
+test("GET /export is guarded by attendance.view and its own attendance.exportExcel", () => {
   const route = fs.readFileSync(path.join(__dirname, "../Entities/Attendance/Attendance.route.js"), "utf8");
-  assert.ok(route.includes('router.get("/export", requirePermission("attendance.view"), exportAttendance);'));
+  assert.ok(route.includes('router.get("/export", requirePermission("attendance.view"), requirePermission("attendance.exportExcel"), exportAttendance);'));
+});
+
+// Codex full review, 2026-11-18: every export leaves a row in the audit log,
+// and with no row there is no file.
+test("an export is recorded in the audit log; when it cannot be, nothing goes out", async () => {
+  const w = exportWorld();
+  const res = await call(w.controller.exportAttendance, ADMIN, { query: range });
+  assert.equal(res.statusCode, 200);
+  const [row] = w.audit.find({ module: "attendance", action: "export_excel" });
+  assert.ok(row, "recorded");
+  assert.equal(row.targetId, LESSON_ID);
+
+  const failing = exportWorld();
+  failing.auditStub.deps["../../utils/audit"].audit.recordRequired = async () => false;
+  const refused = await call(failing.controller.exportAttendance, ADMIN, { query: range });
+  assert.equal(refused.statusCode, 503);
+  assert.equal(refused.body.code, "AUDIT_FAILED");
+  assert.equal(refused.body.rows, undefined);
 });

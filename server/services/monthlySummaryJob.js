@@ -126,13 +126,26 @@ function createMonthlySummary({ listLessons, listAttendance, studentNames, listR
   };
 }
 
+// Who gets the month's summary (association-wide numbers and named
+// absences): a visible manager whose account is not locked and who may still
+// read all of it now (Codex full review, 2026-11-18).
+const SUMMARY_KEYS = ["lessons.viewAll", "students.viewAll", "attendance.view"];
+function mayReceiveSummary(user, { systemTz } = {}) {
+  const { resolveRole, isHiddenUser, isSystemTz, effectivePermissions, can } = require("../utils/permissions");
+  const { isLocked } = require("../utils/loginLockout");
+  if (!user || isHiddenUser(user) || resolveRole(user) !== "ادارة") return false;
+  const realSystem = isSystemTz(String(user.tz || ""), systemTz);
+  if (isLocked(user, { isSystem: realSystem })) return false;
+  const permissions = effectivePermissions(user, { isSystem: realSystem });
+  return SUMMARY_KEYS.every((key) => can(permissions, key));
+}
+
 function createDeps() {
   const { LessonModelDef } = require("../Entities/Lesson/Lesson.model");
   const { AttendanceModelDef } = require("../Entities/Attendance/Attendance.model");
   const { StudentModelDef } = require("../Entities/Student/Student.model");
   const { UserModelDef } = require("../Entities/User/User.model");
   const { JobRunModelDef } = require("../Entities/Notice/Notice.model");
-  const { resolveRole, isHiddenUser } = require("../utils/permissions");
   const { sendMonthlySummaryEmail } = require("../utils/sendEmail");
   const { logWithSource } = require("../middleware/logger");
   const rows = (r) => r?.result || [];
@@ -143,7 +156,7 @@ function createDeps() {
       ? rows(await StudentModelDef.get({ _id: { $in: ids } })).map((s) => [String(s._id), `${s.firstname || ""} ${s.lastname || ""}`.trim()])
       : []),
     listRecipients: async () => [...new Set(rows(await UserModelDef.get({}, "active"))
-      .filter((u) => !isHiddenUser(u) && resolveRole(u) === "ادارة")
+      .filter((u) => mayReceiveSummary(u, { systemTz: process.env.SYSTEM_ADMIN_TZ }))
       .map((u) => String(u.email || "").trim().toLowerCase())
       .filter((email) => email.includes("@") && email !== PLACEHOLDER_EMAIL))],
     hasSent: async (period) => rows(await JobRunModelDef.get({ job: JOB, date: period })).length > 0,
@@ -161,4 +174,4 @@ function startMonthlySummaryJob() {
   setTimeout(run, 2 * 60 * 1000).unref?.();
 }
 
-module.exports = { buildMonthlySummary, createMonthlySummary, previousPeriod, startMonthlySummaryJob, MANY_ABSENCES, FIRST_PERIOD };
+module.exports = { buildMonthlySummary, createMonthlySummary, previousPeriod, startMonthlySummaryJob, mayReceiveSummary, SUMMARY_KEYS, MANY_ABSENCES, FIRST_PERIOD };

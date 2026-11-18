@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import useDialogFocus from "../../utils/useDialogFocus";
 import "../Provides/ConfirmContext.css";
 import styles from "./FilterDialog.module.css";
 
@@ -12,6 +13,9 @@ import styles from "./FilterDialog.module.css";
 //   <FilterDialog count={n} onClear={reset} tour="users-status-filter">…</FilterDialog>
 export default function FilterDialog({ label = "فلتر", defaultOpen = false, count = 0, onClear, onApply, applying = false, tour, clearTour, closeTour, applyTour, children }) {
   const [open, setOpen] = useState(defaultOpen);
+  // Focus moves into the window, stays there, and returns to «فلتر» on close.
+  const dialogRef = useRef(null);
+  useDialogFocus(open, dialogRef);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -38,7 +42,7 @@ export default function FilterDialog({ label = "فلتر", defaultOpen = false, 
       )}
       {open && (
         <div className="c-overlay" onClick={(event) => { if (event.target === event.currentTarget) setOpen(false); }}>
-          <Body className="c-dialog" role="dialog" aria-modal="true" aria-labelledby="filter-dialog-title" dir="rtl" onSubmit={onApply ? submit : undefined}>
+          <Body ref={dialogRef} className="c-dialog" role="dialog" aria-modal="true" aria-labelledby="filter-dialog-title" dir="rtl" onSubmit={onApply ? submit : undefined}>
             <div className="c-header"><h3 id="filter-dialog-title">{label}</h3></div>
             <div className={`c-body ${styles.fields}`}>{children}</div>
             <div className="c-actions">

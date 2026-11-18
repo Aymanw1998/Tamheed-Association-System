@@ -10,7 +10,7 @@
     "start": "concurrently \"npm run server\" \"npm run client\" \"npm run sport\"",
     "server": "cd server && npm start",
     "client": "cd apps/system && npm start",
-    "sport": "cd apps/sport && npm run dev",
+    "sport": "cd apps/sport && npm start",
     "it": "cd apps/it && npm start",
     "build": "npm run build --prefix apps/system && npm run build --prefix apps/sport && npm run build --prefix apps/it"
   },

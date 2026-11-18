@@ -90,3 +90,20 @@ test("OFFSITE=no keeps the backup on the server only", () => {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+// Codex full review, 2026-11-18: the backup waits for an update (they share
+// deploy/.maintenance.lock) and dumps only while holding it.
+test("the backup takes the maintenance lock before it stops the app or dumps", () => {
+  const dir = setup();
+  try {
+    const r = run(dir);
+    assert.equal(r.status, 0, r.out);
+    const lines = r.calls.split("\n");
+    const lock = lines.findIndex((l) => l.startsWith("flock -w"));
+    const dump = lines.findIndex((l) => l.startsWith("mongodump"));
+    assert.ok(lock >= 0 && lock < dump, r.calls);
+    assert.ok(fs.existsSync(path.join(dir, "deploy/.maintenance.lock")));
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

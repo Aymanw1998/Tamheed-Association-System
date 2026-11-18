@@ -1612,8 +1612,10 @@ const changeRoom = async (req, res) => {
       return res.status(409).json({ ok: false, code: "TZ_EXISTS", message: "المستخدم مسجّل مسبقًا" });
     }
 
+    // The user keeps their _id in every room: lessons, responsible-guide
+    // assignments and other records name it, so a suspend and reactivate must
+    // not cut them off (Codex full review, 2026-11-18).
     const raw = { ...user };
-    delete raw._id;
     delete raw.createdAt;
     delete raw.updatedAt;
     const before = { ...raw, room: from };

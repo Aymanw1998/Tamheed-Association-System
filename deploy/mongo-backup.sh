@@ -71,6 +71,15 @@ if ! flock -n 9; then
   echo "another backup is running: none made" >&2
   exit 1
 fi
+# And never while an update runs: it restarts the app (Codex full review,
+# 2026-11-18). The lock is shared with deploy/update.sh; waits up to an hour.
+MAINT_LOCK="${MAINT_LOCK:-$(cd "$(dirname "$0")/.." && pwd)/deploy/.maintenance.lock}"
+[ -e "$MAINT_LOCK" ] || (umask 000; : >> "$MAINT_LOCK")
+exec 8<"$MAINT_LOCK"
+if ! flock -w "${MAINT_WAIT_SEC:-3600}" 8; then
+  echo "an update has been running for an hour: no backup made" >&2
+  exit 1
+fi
 stamp="$(date +%F-%H%M%S)"
 final="$BACKUP_DIR/tamheed-$stamp.archive.gz"
 partial="$BACKUP_DIR/.tamheed-$stamp-$$.partial"
@@ -82,7 +91,7 @@ cleanup() {
   local code=$?
   rm -f "$config" "$partial"
   if [ "$stopped" = yes ]; then
-    pm2 start "$APP_NAME" >/dev/null 2>&1 || echo "WARNING: could not start $APP_NAME again: run 'pm2 start $APP_NAME'" >&2
+    pm2 start "$APP_NAME" >/dev/null 2>&1 8<&- 9<&- || echo "WARNING: could not start $APP_NAME again: run 'pm2 start $APP_NAME'" >&2
   fi
   if [ "$succeeded" != yes ]; then report failed "the backup did not finish (exit $code); see /var/log/tamheed-backup.log"; fi
 }
@@ -94,7 +103,7 @@ if [ "$STOP_APP" = yes ]; then
   status="$(app_status)"
   case "$status" in
     online | launching | "waiting restart")
-      pm2 stop "$APP_NAME" >/dev/null
+      pm2 stop "$APP_NAME" >/dev/null 8<&- 9<&-
       stopped=yes
       ;;
     stopped | errored) ;; # not running (maintenance or a crash): left as it is
@@ -112,7 +121,7 @@ fi
 mongodump --config="$config" --db="$db" --gzip --archive="$partial" --quiet
 
 if [ "$stopped" = yes ]; then
-  pm2 start "$APP_NAME" >/dev/null
+  pm2 start "$APP_NAME" >/dev/null 8<&- 9<&-
   stopped=no
 fi
 

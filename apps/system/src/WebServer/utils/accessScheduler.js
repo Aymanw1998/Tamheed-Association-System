@@ -5,6 +5,12 @@ import { getLogoutDeadline } from './logoutScheduler';
 import { clearApiCache } from '../../pwa/clearApiCache';
 import { dropDevicePush } from '../../pwa/pushOptIn';
 import { clearStorageKeepingTextSize } from '../../utils/textSize';
+import { isConnectionFailure, mayStayOffline } from './authNetwork';
+
+// No connection when the token is due: try again in a while, or as soon as
+// the connection is back, instead of signing out and wiping the device
+// (Codex full review, 2026-11-18).
+export const RETRY_OFFLINE_MS = 30_000;
 
 let refreshTimerId = null;
 
@@ -21,8 +27,12 @@ export function scheduleAccessRefresh(accessToken, skewMs = 60_000) {
   const delay = Math.max(Math.min(nextPlanned, timeToLogout - 5_000), 0);
   if (!Number.isFinite(delay) || delay <= 0) return;
 
-  refreshTimerId = setTimeout(async () => {
-    // ملاحظة عربية
+  refreshTimerId = setTimeout(() => refreshNow(accessToken, skewMs), delay);
+}
+
+async function refreshNow(accessToken, skewMs) {
+  {
+    // The session's own end has come: sign out, connection or not.
     const now = Date.now();
     const logoutDeadline = getLogoutDeadline();
     if (logoutDeadline && now >= logoutDeadline - 2_000) {
@@ -36,6 +46,7 @@ export function scheduleAccessRefresh(accessToken, skewMs = 60_000) {
     try {
       const data = await refreshSession();
       if (data?.accessToken) {
+        window.removeEventListener('online', retryWhenOnline);
         setAuthTokens(data.accessToken, data.expirationTime);
 
         // ملاحظة عربية
@@ -48,10 +59,29 @@ export function scheduleAccessRefresh(accessToken, skewMs = 60_000) {
       } else {
         hardResetToLogin();
       }
-    } catch {
+    } catch (err) {
+      if (isConnectionFailure(err) && mayStayOffline()) {
+        retryLater(accessToken, skewMs);
+        return;
+      }
       hardResetToLogin();
     }
-  }, delay);
+  }
+}
+
+let retryArgs = null;
+function retryWhenOnline() {
+  window.removeEventListener('online', retryWhenOnline);
+  if (!retryArgs) return;
+  clearAccessRefresh();
+  refreshNow(...retryArgs);
+}
+function retryLater(accessToken, skewMs) {
+  retryArgs = [accessToken, skewMs];
+  clearAccessRefresh();
+  refreshTimerId = setTimeout(() => refreshNow(accessToken, skewMs), RETRY_OFFLINE_MS);
+  window.removeEventListener('online', retryWhenOnline);
+  window.addEventListener('online', retryWhenOnline);
 }
 
 export function clearAccessRefresh() {

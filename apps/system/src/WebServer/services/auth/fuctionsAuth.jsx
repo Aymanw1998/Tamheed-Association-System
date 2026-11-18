@@ -12,6 +12,8 @@ import { dropDevicePush, unsubscribeStaff } from "../../../pwa/pushOptIn";
 import { ask } from "../../../Components/Provides/confirmBus";
 import { getStoredUserTz } from "../../../utils/session";
 import { clearStorageKeepingTextSize } from "../../../utils/textSize";
+import { isConnectionFailure } from "../../utils/authNetwork";
+import { markSignOutPending, signOutReached } from "../../../utils/pendingSignOut";
 
 function markSignedIn(user, accessToken, expirationTime) {
   // A new session never starts on top of the previous person's cached data.
@@ -65,7 +67,9 @@ export async function refresh() {
   return { accessToken: data.accessToken, expirationTime: data.expirationTime };
 }
 
-export async function getMe() {
+// getMe, telling a refusal from a missing connection: { me, connectionFailed }
+// (Codex full review, 2026-11-18).
+export async function getMeChecked() {
   try {
     const token = localStorage.getItem("accessToken");
     const res = await api.post(
@@ -79,19 +83,23 @@ export async function getMe() {
 
     const { data, status } = res;
 
-    if (![200, 201].includes(status) || !data?.ok) {
-      throw new Error(data?.message || "تعذّر التعرّف على المستخدم.");
-    }
+    // The server answered, but not with a user: a refusal, not a lost connection.
+    if (![200, 201].includes(status) || !data?.ok) return { me: null, connectionFailed: false };
 
     // Keep what the server granted next to the user so the app can hide UI.
     // isSystem is sent only for the system account.
-    return data.user
+    const me = data.user
       ? { ...data.user, role: data.role, permissions: data.permissions, isSystem: data.isSystem === true, adminPowers: data.adminPowers === true,
         ...(typeof data.hasPasskey === "boolean" && { hasPasskey: data.hasPasskey }) }
-      : data.user;
+      : null;
+    return { me, connectionFailed: false };
   } catch (err) {
-    return null;
+    return { me: null, connectionFailed: isConnectionFailure(err) };
   }
+}
+
+export async function getMe() {
+  return (await getMeChecked()).me;
 }
 
 // Resolves false when the user chose to keep their unsent attendance (the
@@ -121,9 +129,15 @@ export async function logout() {
   try {
     await Promise.race([unsubscribeStaff(), new Promise((resolve) => setTimeout(resolve, 3000))]);
   } catch {}
+  // No answer from the server: the sign-out is remembered and finished later,
+  // and the session is not brought back meanwhile (utils/pendingSignOut.js).
+  let reached = false;
   try {
     await api.post("/auth/logout", {}, { withCredentials: true });
-  } catch {}
+    reached = true;
+  } catch (err) {
+    reached = signOutReached(err?.response?.status || 0);
+  }
 
   // Drop cached API answers so the next person on this device sees none of
   // them. Never throws, so it cannot stop the sign-out.
@@ -133,6 +147,7 @@ export async function logout() {
   clearAccessRefresh();
   setAuthTokens(null);
   clearStorageKeepingTextSize();
+  if (!reached) markSignOutPending();
   localStorage.setItem("LOGOUT_BROADCAST", String(Date.now()));
   window.location.assign("/");
 }

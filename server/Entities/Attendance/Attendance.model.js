@@ -1,8 +1,9 @@
+const { DB_NAME } = require("../../utils/dbName");
 const api = require("../api");
 const { ensureIndexes, collectionOf } = require("../../utils/ensureIndexes");
 
 const AttendanceModelDef = {
-  dbName: "tamheed_db",
+  dbName: DB_NAME,
 
   collections: {
     active: "Attendances",

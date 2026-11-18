@@ -538,6 +538,12 @@ const exportAttendance = async (req, res) => {
     }).sort((a, b) => a.dateKey - b.dateKey
       || (a.kind === b.kind ? 0 : a.kind === "student" ? -1 : 1)
       || a.name.localeCompare(b.name, "ar"));
+    // No row in the audit log, no file (as for the other exports).
+    const written = await audit.recordRequired(req, {
+      module: "attendance", action: "export_excel", targetType: "lesson", targetId: String(lesson._id),
+      targetLabel: `${lesson.name || ""} ${req.query.from} - ${req.query.to} (${rows.length})`.trim(),
+    });
+    if (!written) return res.status(503).json({ ok: false, code: "AUDIT_FAILED", message: "تعذر تسجيل العملية في سجل التغييرات، لذلك لم يُصدَّر الملف. حاول مرة أخرى" });
     return res.status(200).json({ ok: true, lesson: { _id: String(lesson._id), name: lesson.name || "" }, rows });
   } catch (err) {
     logWithSource("Attendance.exportAttendance", err);

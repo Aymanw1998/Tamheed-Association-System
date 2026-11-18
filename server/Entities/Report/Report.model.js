@@ -1,8 +1,9 @@
+const { DB_NAME } = require("../../utils/dbName");
 const api = require("../api");
 
 // ملاحظة عربية
 const ReportModelDef = {
-    dbName: "tamheed_db",
+    dbName: DB_NAME,
 
     collections: {
         active: "Reports",

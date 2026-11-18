@@ -18,6 +18,7 @@ import Storage from "./screens/Storage.jsx";
 import Settings from "./screens/Settings.jsx";
 import RoleDefaults from "./screens/RoleDefaults.jsx";
 import ChangePassword from "./screens/ChangePassword.jsx";
+import { clearSignOutPending, finishPendingSignOut, markSignOutPending, signOutReached } from "./pendingSignOut";
 
 const NAV = [
   { to: "/", label: "المستخدمون" },
@@ -53,6 +54,9 @@ export default function App() {
   const path = usePath();
 
   const loadMe = useCallback(async () => {
+    // A sign-out that never reached the server is finished first; until then
+    // the session is not brought back (pendingSignOut.js).
+    if (!(await finishPendingSignOut(async () => (await logout()).status))) return setState("out");
     const res = await getMe();
     if (res.status === 401) return setState("out");
     if (!res.ok) return setState("error");
@@ -81,7 +85,8 @@ export default function App() {
   };
 
   const signOut = async () => {
-    await logout();
+    const res = await logout();
+    if (!signOutReached(res?.status || 0)) markSignOutPending();
     setMe(null);
     setState("out");
     window.history.replaceState(null, "", "/");
@@ -89,7 +94,7 @@ export default function App() {
 
   if (state === "loading") return <p className="center" role="status">…</p>;
   if (state === "error") return <p className="center" role="alert">تعذّر الاتصال بالخادم. <button type="button" onClick={loadMe}>إعادة المحاولة</button></p>;
-  if (state === "out") return <><SignIn pass={pass} onSignedIn={loadMe} /><Toaster /></>;
+  if (state === "out") return <><SignIn pass={pass} onSignedIn={() => { clearSignOutPending(); loadMe(); }} /><Toaster /></>;
   // A temporary password: only «تغيير كلمة المرور» until it is changed (the server refuses the rest).
   if (me.mustChangePassword) return <><ChangePassword onDone={loadMe} onSignOut={signOut} /><Toaster /></>;
 

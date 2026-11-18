@@ -18,6 +18,7 @@ import { hasSeenGuide, markGuideSeen } from "./guide/guideSteps.js";
 import { GUIDE_ENABLED } from "./guide/guideSwitch.js";
 import { attachRefresh } from "./refreshOnReturn";
 import { openLiveMe } from "./liveMe";
+import { clearSignOutPending, finishPendingSignOut, markSignOutPending, signOutReached } from "./pendingSignOut";
 
 // Session ended: forget cached answers and stop pushes for this device (best effort, 3s cap).
 async function endSession() {
@@ -46,6 +47,12 @@ export default function App() {
 
   const load = async () => {
     try {
+      // A sign-out that never reached the server is finished first; until
+      // then the session is not brought back (pendingSignOut.js).
+      if (!(await finishPendingSignOut(async () => (await logout()).status))) {
+        setState("out");
+        return;
+      }
       const r = await getMe();
       if (r.status === 401) {
         setState("out");
@@ -65,7 +72,7 @@ export default function App() {
     (async () => {
       try {
         const card = await signInFromCard({ location: window.location, history: window.history, signIn: signInWithCard });
-        if (card.tried && card.ok) await clearApiCache();
+        if (card.tried && card.ok) { clearSignOutPending(); await clearApiCache(); }
         if (card.tried && !card.ok) setCardError(card.message || "البطاقة غير صالحة. اطلب بطاقة جديدة من المرشد");
       } catch {
         // The usual sign-in page is shown.
@@ -105,11 +112,15 @@ export default function App() {
   const onLogout = async () => {
     // Unsubscribe first: it needs the sport cookie that logout removes.
     await endSession();
+    // On a network failure we still leave the screen, and remember the
+    // sign-out until the server gets it (pendingSignOut.js).
+    let status = 0;
     try {
-      await logout();
+      status = (await logout())?.status || 0;
     } catch {
-      // On a network failure we still leave the screen.
+      status = 0;
     }
+    if (!signOutReached(status)) markSignOutPending();
     setMe(null);
     setNoticeBox({ key: "", list: [] });
     setTab("home");
@@ -184,7 +195,7 @@ export default function App() {
       </>
     );
   }
-  if (state === "out") return (<><LoginPage onSignedIn={load} notice={cardError} />{chrome}</>);
+  if (state === "out") return (<><LoginPage onSignedIn={() => { clearSignOutPending(); load(); }} notice={cardError} />{chrome}</>);
   if (state === "error") {
     return (
       <>

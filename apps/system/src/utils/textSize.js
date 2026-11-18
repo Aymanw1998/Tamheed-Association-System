@@ -43,11 +43,17 @@ export function setTextSize(id) {
 
 // Signing out empties this device's storage, but the text size belongs to the
 // device, not the user: it stays (Codex review, 2026-11-18).
+// A sign-out still waiting for the server stays too (utils/pendingSignOut.js).
+const DEVICE_KEYS = [TEXT_SIZE_KEY, "tamheed.system.pendingSignOut"];
 export function clearStorageKeepingTextSize() {
-  let kept = null;
-  try { kept = window.localStorage.getItem(TEXT_SIZE_KEY); } catch { /* blocked storage */ }
+  const kept = {};
+  for (const key of DEVICE_KEYS) {
+    try { kept[key] = window.localStorage.getItem(key); } catch { /* blocked storage */ }
+  }
   window.localStorage.clear();
-  if (kept) {
-    try { window.localStorage.setItem(TEXT_SIZE_KEY, kept); } catch { /* blocked storage */ }
+  for (const key of DEVICE_KEYS) {
+    if (kept[key]) {
+      try { window.localStorage.setItem(key, kept[key]); } catch { /* blocked storage */ }
+    }
   }
 }

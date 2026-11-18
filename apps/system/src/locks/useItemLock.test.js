@@ -349,3 +349,15 @@ test("after a 409 the notice offers «تحميل أحدث نسخة», which relo
   expect(host.querySelector("textarea").value).toBe("my text");
   await act(async () => r.unmount());
 });
+
+// Codex full review, 2026-11-18: attendance keeps recording when the lock
+// lapsed for want of a connection, and only then.
+test("a lock lost to a dropped connection, and only that, lets attendance go on offline", () => {
+  const { lapsedForConnection } = require("./useItemLock");
+  expect(lapsedForConnection({ status: "readonly", reason: "expired" })).toBe(true);
+  expect(lapsedForConnection({ status: "readonly", reason: "forced" })).toBe(false);
+  expect(lapsedForConnection({ status: "readonly", reason: "idle" })).toBe(false);
+  expect(lapsedForConnection({ status: "held" })).toBe(false);
+  expect(lapsedForConnection({ status: "blocked" })).toBe(false);
+  expect(lapsedForConnection(null)).toBe(false);
+});

@@ -13,7 +13,7 @@ import { attendanceDateLabel } from "../../utils/attendanceDates";
 import { ask } from "../Provides/confirmBus";
 import { dropQueuedSheet, isOffline, noResponse, queueAttendance } from "../../pwa/queuedSave";
 import { OVERWRITTEN_MESSAGE, SAVED_OFFLINE_MESSAGE } from "../../pwa/attendanceQueue";
-import useItemLock from "../../locks/useItemLock";
+import useItemLock, { lapsedForConnection } from "../../locks/useItemLock";
 import LockedScreen from "../../locks/LockedScreen";
 import SaveNotice from "../../locks/SaveNotice";
 import useReloadOnUnblock from "../../locks/useReloadOnUnblock";
@@ -92,7 +92,14 @@ export default function AttendancePage() {
         ? `attendance:${selectedLesson._id}:${usedDate.year}-${pad2(usedDate.month)}-${pad2(usedDate.day)}`
         : null;
     const lock = useItemLock(lockKey, { enabled: canStored("attendance.record") });
-    const readonly = lock.status === "readonly";
+    // The lock lapsed for want of a connection (no heartbeat got through): the
+    // guide keeps recording, and every save stays on this device until the
+    // connection is back. The server still checks the sheet version, so a save
+    // that would overwrite someone else's newer one is refused and shown
+    // (owner, Codex full review, 2026-11-18). Released by a manager, or for
+    // idleness, stays read-only.
+    const offlineCapture = lapsedForConnection(lock);
+    const readonly = lock.status === "readonly" && !offlineCapture;
     const blocked = lock.status === "blocked";
 
     //searchText
@@ -281,8 +288,9 @@ export default function AttendancePage() {
             body: { lessonId, ...usedDate, items, baseVersion: sheet.version },
             label: selectedLesson.name || "حضور",
         };
-        const r = isOffline() ? { ok: false, status: 0 } : await saveAttendanceSheet(lessonId, usedDate, items, sheet.version);
-        if (!r.ok && (isOffline() || noResponse(r))) {
+        const keepHere = isOffline() || offlineCapture;
+        const r = keepHere ? { ok: false, status: 0 } : await saveAttendanceSheet(lessonId, usedDate, items, sheet.version);
+        if (!r.ok && (keepHere || noResponse(r))) {
             // No connection: keep the save on this device and send it later.
             const kept = await queueAttendance(queued);
             if (kept) {
@@ -599,6 +607,7 @@ export default function AttendancePage() {
                     })()}
                     <div className={styles.actions}>
                     {dirty && <span className={styles.miniInfo}>توجد تغييرات لم تُحفظ</span>}
+                    {offlineCapture && <span className={styles.miniInfo}>بدون اتصال: الحفظ يبقى على هذا الجهاز ويُرسل عند عودة الاتصال</span>}
                     <Button data-tour="calendar-save" onClick={onSave} disabled={loadingSheet || !dirty || readonly} success={saved}>
                         حفظ
                     </Button>

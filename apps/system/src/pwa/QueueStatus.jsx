@@ -8,12 +8,16 @@ import { flushCurrentUser } from "./queuedSave";
 import { subscribeDemo } from "../journey/demoMode";
 import { liveEvents } from "../WebServer/services/live/liveStream";
 
-// A sheet held by someone else (423) is tried again after 30 s, then 1, 2, 4
-// minutes, up to 5 minutes, while anything is waiting.
+// A sheet held by someone else (423), or a send that failed for a passing
+// reason (no answer, 408, 429, 5xx: Codex full review, 2026-11-18), is tried
+// again after 30 s, then 1, 2, 4 minutes, up to 5 minutes, while anything is
+// waiting. Only an expired session (401) waits for the next sign-in.
 export const LOCKED_RETRY_MS = 30 * 1000;
 export const LOCKED_RETRY_MAX_MS = 5 * 60 * 1000;
 
 export const SIGNED_IN_EVENT = "tamheed:signed-in";
+// A newly kept save is sent this long after it was put in line.
+export const SEND_SOON_MS = 2000;
 
 const box = {
   position: "fixed",
@@ -41,6 +45,8 @@ export default function QueueStatus() {
   const waiting = useRef(0);
   const retryTimer = useRef(null);
   const retryDelay = useRef(LOCKED_RETRY_MS);
+  const syncing = useRef(false);
+  const soonTimer = useRef(null);
 
   // Resolves to the number of items still waiting to be sent.
   const refresh = useCallback(async () => {
@@ -66,10 +72,19 @@ export default function QueueStatus() {
   const sync = useCallback(async () => {
     clearTimeout(retryTimer.current);
     retryTimer.current = null;
-    const res = await flushCurrentUser();
+    clearTimeout(soonTimer.current);
+    soonTimer.current = null;
+    syncing.current = true;
+    let res;
+    try {
+      res = await flushCurrentUser();
+    } finally {
+      syncing.current = false;
+    }
     if (res?.overwritten?.length) setOverwritten(true);
     const left = await refresh();
-    if (left > 0 && res?.stoppedStatus === 423) {
+    const stopped = res?.stoppedStatus;
+    if (left > 0 && stopped != null && stopped !== 401) {
       const delay = retryDelay.current;
       retryDelay.current = Math.min(delay * 2, LOCKED_RETRY_MAX_MS);
       retryTimer.current = setTimeout(() => { sync(); }, delay);
@@ -83,7 +98,18 @@ export default function QueueStatus() {
     window.addEventListener("online", sync);
     window.addEventListener(SIGNED_IN_EVENT, sync);
     const offDemo = subscribeDemo((on) => { if (!on) sync(); }); // training mode ended
-    window.addEventListener(QUEUE_CHANGED_EVENT, refresh);
+    // Something new was put in line (a save kept on the device): try to send
+    // it shortly, unless a send or a planned retry is already on its way.
+    const onChanged = async () => {
+      // A change made by a send (rows sent or kept) is not a new save.
+      const busy = syncing.current;
+      const before = waiting.current;
+      const left = await refresh();
+      if (left > before && !busy && !syncing.current && !retryTimer.current && !soonTimer.current) {
+        soonTimer.current = setTimeout(() => { soonTimer.current = null; sync(); }, SEND_SOON_MS);
+      }
+    };
+    window.addEventListener(QUEUE_CHANGED_EVENT, onChanged);
     // A released lock may free a held sheet: send at once.
     const offLock = liveEvents.on("lock", () => { if (waiting.current > 0) sync(); });
     return () => {
@@ -92,7 +118,8 @@ export default function QueueStatus() {
       window.removeEventListener("online", sync);
       window.removeEventListener(SIGNED_IN_EVENT, sync);
       offDemo();
-      window.removeEventListener(QUEUE_CHANGED_EVENT, refresh);
+      clearTimeout(soonTimer.current);
+      window.removeEventListener(QUEUE_CHANGED_EVENT, onChanged);
     };
   }, [sync, refresh]);
 
@@ -118,7 +145,12 @@ export default function QueueStatus() {
 
   return (
     <div dir="rtl" style={box} data-testid="queue-status">
-      {count > 0 && <div role="status" style={card}>بانتظار الإرسال: {count}</div>}
+      {count > 0 && (
+        <div role="status" style={card}>
+          بانتظار الإرسال: {count}{" "}
+          <button type="button" style={btn} onClick={() => sync()}>إرسال الآن</button>
+        </div>
+      )}
       {failed.length > 0 && (
         <div role="alert" style={card}>
           {failed.map((r) => (

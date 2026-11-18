@@ -1,3 +1,4 @@
+const { DB_NAME } = require("../../utils/dbName");
 const api = require("../api");
 const { ensureIndexes, collectionOf } = require("../../utils/ensureIndexes");
 const { TZ_UNIQUE_INDEX } = require("../../utils/tzUnique");
@@ -8,7 +9,7 @@ const isBcryptHash = (val) =>
 
 // ملاحظة عربية
 const UserModelDef = {
-  dbName: 'tamheed_db',
+  dbName: DB_NAME,
 
   collections: {
     active: 'Users',

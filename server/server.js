@@ -209,6 +209,15 @@ app.use(require("express").json({ limit: "50mb" }));
 const StartServer = async () => {
   try {
     await connectDB();
+    // One database for every record (utils/dbName.js): refuse to serve an
+    // empty system when the records are still in tamheed_db.
+    {
+      const mongoose = require("mongoose");
+      const { checkDbName } = require("./utils/dbName");
+      const countUsers = (name) => mongoose.connection.useDb(name, { useCache: true }).collection("Users").estimatedDocumentCount();
+      const dbCheck = await checkDbName(countUsers);
+      if (!dbCheck.ok) throw new Error(dbCheck.message);
+    }
     // The role defaults IT set («صلاحيات الأدوار») replace the code's before
     // the first request; without them every role keeps the code's set.
     await require('./Entities/It/RoleDefaults.controller').roleDefaults().load()

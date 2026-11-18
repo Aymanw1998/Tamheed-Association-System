@@ -52,7 +52,7 @@ function runKeeping(env) {
     fs.mkdirSync(path.join(dir, "apps", app, "build"), { recursive: true });
     fs.writeFileSync(path.join(dir, "apps", app, "build/index.html"), "old");
   }
-  for (const name of ["git", "npm", "node", "pm2", "curl", "sleep"]) {
+  for (const name of ["git", "npm", "node", "pm2", "curl", "sleep", "flock"]) {
     fs.writeFileSync(path.join(dir, "bin", name), STUB, { mode: 0o755 });
   }
   for (const [name, body] of Object.entries(ACCOUNT_STUBS)) {
@@ -209,4 +209,23 @@ test("before the move (folder still root's) root updates as before, with a note"
   assert.doesNotMatch(r.calls, /sudo /);
   assert.match(r.out, /running as root/);
   assert.deepEqual(r.sites, { system: "new", sport: "new", it: "new" });
+});
+
+// Codex full review, 2026-11-18: an update and the nightly backup never run
+// at once (they share deploy/.maintenance.lock).
+test("the update takes the maintenance lock before it installs anything", () => {
+  const r = runKeeping({});
+  assert.equal(r.status, 0, r.out);
+  const lines = r.calls.split("\n");
+  const lock = lines.findIndex((l) => l.startsWith("flock -w"));
+  const install = lines.findIndex((l) => l.includes("npm ci --omit=dev"));
+  assert.ok(lock >= 0 && lock < install, r.calls);
+});
+
+test("a backup that holds the lock too long stops the update before any change", () => {
+  const r = runKeeping({ FAIL_ON: "flock -w" });
+  assert.notEqual(r.status, 0);
+  assert.match(r.out, /A backup has been running/);
+  assert.deepEqual(r.sites, { system: "old", sport: "old", it: "old" });
+  assert.doesNotMatch(r.calls, /npm ci/);
 });

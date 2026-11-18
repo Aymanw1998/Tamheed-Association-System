@@ -404,8 +404,8 @@ test("a lessons.staffRoster holder gets the staff tab with the add button", asyn
 });
 
 // Excel export of the lesson's attendance (owner, 2026-11-10).
-test("an attendance viewer gets «تصدير الحضور إلى Excel», which opens the export window", async () => {
-  mockPerms = ["lessons.view", "attendance.view"];
+test("an attendance viewer with the export key gets «تصدير الحضور إلى Excel», which opens the export window", async () => {
+  mockPerms = ["lessons.view", "attendance.view", "attendance.exportExcel"];
   await mount();
   const exportButton = [...container.querySelectorAll("button")].find((b) => b.textContent === "تصدير الحضور إلى Excel");
   expect(exportButton).toBeTruthy();
@@ -415,6 +415,13 @@ test("an attendance viewer gets «تصدير الحضور إلى Excel», which 
 
 test("without attendance.view there is no export action", async () => {
   mockPerms = ["lessons.view"];
+  await mount();
+  expect([...container.querySelectorAll("button")].some((b) => b.textContent === "تصدير الحضور إلى Excel")).toBe(false);
+});
+
+// Codex full review, 2026-11-18: the export has its own key.
+test("attendance.view without attendance.exportExcel: no export action", async () => {
+  mockPerms = ["lessons.view", "attendance.view"];
   await mount();
   expect([...container.querySelectorAll("button")].some((b) => b.textContent === "تصدير الحضور إلى Excel")).toBe(false);
 });

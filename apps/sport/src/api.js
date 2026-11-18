@@ -2,11 +2,19 @@ const BASE = "/api/sport-portal";
 
 export const TOO_MANY_MESSAGE = "محاولات كثيرة. حاول مرة أخرى بعد قليل.";
 export const GENERIC_ERROR_MESSAGE = "حدث خطأ، حاول مرة أخرى.";
+const ACTIONABLE_CODES = new Set(["NO_EMAIL", "NOT_IN_SPORT"]);
 
 // Only 200 and 400 bodies carry a server message that is safe to show as is.
 // Everything else (429 from the shared limiter, 500, network) gets a fixed Arabic message.
 export function shapeResult(status, data) {
   if (status === 429) return { status, ok: false, data: { ok: false, message: TOO_MANY_MESSAGE } };
+  // The sign-in answers that tell the student what to do (no email on file,
+  // not in the sport department: ask a guide) keep their text: retrying
+  // cannot help there (Codex full review, 2026-11-18).
+  if (status === 404 && ACTIONABLE_CODES.has(data?.code)) {
+    const message = typeof data?.message === "string" && data.message.trim() ? data.message : GENERIC_ERROR_MESSAGE;
+    return { status, ok: false, data: { ok: false, code: data.code, message } };
+  }
   if (status === 200 || status === 400) {
     return { status, ok: status === 200 && data?.ok !== false, data };
   }

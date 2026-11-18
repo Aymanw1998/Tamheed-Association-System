@@ -14,7 +14,7 @@ const ROLE_DEFAULTS = {
            "lessons.view",
            "attendance", "reports.create", "reports.editOwn", "reports.exportPdf",
            "files.use", "files.upload", "files.createFolder", "files.rename", "files.delete", "files.share", "tasks.view", "tasks.complete", "ai"],
-  "مساعد": ["dashboard", "calendar", "alerts.dismiss", "students.view", "lessons.view", "attendance.view",
+  "مساعد": ["dashboard", "calendar", "alerts.dismiss", "students.view", "lessons.view", "attendance.view", "attendance.exportExcel",
             "reports.create", "reports.editOwn", "reports.exportPdf", "files.use", "files.upload", "files.createFolder", "files.rename", "files.delete", "files.share", "tasks.view", "tasks.complete", "ai"],
 };
 

@@ -29,6 +29,8 @@ router.get("/sheet", requirePermission("attendance.view"), getSheet);
 router.post("/bulk-save", requirePermission("attendance.record"), lockedSheet, bulkSave);
 router.get("/dates", requirePermission("attendance.view"), getLessonDates);
 // One lesson's marks over a period, for the Excel export (owner, 2026-11-10).
-router.get("/export", requirePermission("attendance.view"), exportAttendance);
+// Its own key, so IT can take the export away and keep viewing (Codex full
+// review, 2026-11-18).
+router.get("/export", requirePermission("attendance.view"), requirePermission("attendance.exportExcel"), exportAttendance);
 
 module.exports = router;

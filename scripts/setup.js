@@ -39,6 +39,8 @@ console.log("== Tamheed setup ==");
 
 run("npm", ["install"], ROOT);
 run("npm", ["install"], path.join(ROOT, "apps", "system"));
+run("npm", ["install"], path.join(ROOT, "apps", "sport"));
+run("npm", ["install"], path.join(ROOT, "apps", "it"));
 run("npm", ["install"], path.join(ROOT, "server"));
 
 console.log("\n== Environment files ==");

@@ -89,6 +89,20 @@ if [ -z "${TAMHEED_UPDATE_RESTARTED:-}" ]; then
   TAMHEED_UPDATE_RESTARTED=1 exec bash deploy/update.sh "$@"
 fi
 
+# One maintenance job at a time (Codex full review, 2026-11-18): the nightly
+# backup stops the app while it dumps the database, so an update must not
+# restart it then, and the backup waits for an update to finish. The lock is
+# shared with deploy/mongo-backup.sh and opened read-only, so root (the
+# backup's cron) and the app user (the update) can both take it.
+MAINT_LOCK="deploy/.maintenance.lock"
+[ -e "$MAINT_LOCK" ] || (umask 000; : >> "$MAINT_LOCK")
+exec 8<"$MAINT_LOCK"
+step "Code" "Waiting for a backup in progress, if any"
+if ! flock -w "${MAINT_WAIT_SEC:-1800}" 8; then
+  FAILURE_HINT="A backup has been running for 30 minutes. Nothing was changed; try again later."
+  false
+fi
+
 step "Server" "Installing packages"
 # The portrait model runs on the CPU: skip the GPU (CUDA) libraries that
 # onnxruntime-node would otherwise download on Linux x64.
@@ -145,12 +159,13 @@ rm -rf apps/system/node_modules apps/sport/node_modules apps/it/node_modules
 SITES_STATE="The new version of the sites is already in place, but the server may be down or running the previous code."
 FAILURE_HINT="For details: pm2 logs tamheed"
 step "Server" "Restarting"
-if pm2 describe tamheed >/dev/null 2>&1; then
-  pm2 reload deploy/ecosystem.config.js
+# 8<&-: a pm2 daemon started here must not inherit (and keep) the lock.
+if pm2 describe tamheed >/dev/null 2>&1 8<&-; then
+  pm2 reload deploy/ecosystem.config.js 8<&-
 else
-  pm2 start deploy/ecosystem.config.js
+  pm2 start deploy/ecosystem.config.js 8<&-
 fi
-pm2 save
+pm2 save 8<&-
 
 # Settings from the server's own file; a missing one is simply empty.
 setting() {

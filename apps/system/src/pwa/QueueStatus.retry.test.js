@@ -69,3 +69,56 @@ test("a lock event sends the waiting items at once", async () => {
   expect(api.post).toHaveBeenCalledTimes(2);
   expect(await pending("B")).toHaveLength(0);
 });
+
+// Codex full review, 2026-11-18.
+test("a send with no answer, or a 503, is tried again too (not only 423)", async () => {
+  api.post.mockRejectedValueOnce(new Error("Network Error"));
+  await mount();
+  expect(api.post).toHaveBeenCalledTimes(1);
+  api.post.mockRejectedValueOnce(Object.assign(new Error("busy"), { response: { status: 503, data: {} } }));
+  await act(async () => { jest.advanceTimersByTime(30000); });
+  await flushAll();
+  expect(api.post).toHaveBeenCalledTimes(2);
+  api.post.mockResolvedValue({ data: { ok: true } });
+  await act(async () => { jest.advanceTimersByTime(60000); });
+  await flushAll();
+  expect(api.post).toHaveBeenCalledTimes(3);
+  expect(await pending("B")).toHaveLength(0);
+});
+
+test("an expired session (401) waits for the next sign-in instead of retrying", async () => {
+  api.post.mockRejectedValue(Object.assign(new Error("401"), { response: { status: 401, data: {} } }));
+  await mount();
+  await act(async () => { jest.advanceTimersByTime(10 * 60000); });
+  await flushAll();
+  expect(api.post).toHaveBeenCalledTimes(1);
+});
+
+test("a save newly kept on the device is sent shortly, and «إرسال الآن» sends at once", async () => {
+  api.post.mockRejectedValueOnce(Object.assign(new Error("401"), { response: { status: 401, data: {} } }));
+  await mount();
+  expect(api.post).toHaveBeenCalledTimes(1);
+  api.post.mockResolvedValue({ data: { ok: true } });
+  await act(async () => {
+    await enqueue("B", { kind: "general", url: "/attendance/bulk-save", body: { lessonId: "L2", year: 2026, month: 10, day: 26 }, label: "y", queuedAt: 2 });
+  });
+  await flushAll();
+  await act(async () => { jest.advanceTimersByTime(2000); });
+  await flushAll();
+  expect(await pending("B")).toHaveLength(0);
+
+  api.post.mockReset();
+  api.post.mockRejectedValueOnce(Object.assign(new Error("401"), { response: { status: 401, data: {} } }));
+  await act(async () => {
+    await enqueue("B", { kind: "general", url: "/attendance/bulk-save", body: { lessonId: "L3", year: 2026, month: 10, day: 27 }, label: "z", queuedAt: 3 });
+  });
+  await flushAll();
+  await act(async () => { jest.advanceTimersByTime(2000); });
+  await flushAll();
+  api.post.mockResolvedValue({ data: { ok: true } });
+  const button = [...container.querySelectorAll("button")].find((b) => b.textContent === "إرسال الآن");
+  expect(button).toBeTruthy();
+  await act(async () => { button.click(); });
+  await flushAll();
+  expect(await pending("B")).toHaveLength(0);
+});

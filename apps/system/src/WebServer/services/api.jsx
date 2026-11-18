@@ -9,6 +9,7 @@ import { getClientId } from '../../locks/clientId';
 import { clearTraffic, wrapTraffic } from './traffic';
 import { noteFailure } from './problemLog';
 import { logoutBroadcastTarget } from '../../utils/wallDisplay';
+import { clearSignOutPending, finishPendingSignOut } from '../../utils/pendingSignOut';
 
 // The API is always reached on the same origin as the page: in development the
 // CRA dev server proxies /api to the local server (see "proxy" in package.json),
@@ -18,11 +19,21 @@ export const API_BASE_URL = '/api';
 
 // Every refresh in the app goes through here, so overlapping callers share one
 // request instead of racing the server's rotating refresh cookie.
-export const refreshSession = singleFlight(() =>
-  axios
-    .post(`${API_BASE_URL}/auth/refresh`, null, { withCredentials: true, timeout: 15000 })
-    .then((res) => res.data)
-);
+// A sign-out still waiting for the server is finished first; while it cannot
+// be, no session is brought back (utils/pendingSignOut.js).
+const sendLogout = () => axios
+  .post(`${API_BASE_URL}/auth/logout`, {}, { withCredentials: true, timeout: 15000 })
+  .then((res) => res.status, (err) => err?.response?.status || 0);
+export const refreshSession = singleFlight(async () => {
+  if (!(await finishPendingSignOut(sendLogout))) {
+    throw Object.assign(new Error("SIGN_OUT_PENDING"), { code: "SIGN_OUT_PENDING" });
+  }
+  const res = await axios.post(`${API_BASE_URL}/auth/refresh`, null, { withCredentials: true, timeout: 15000 });
+  return res.data;
+});
+if (typeof window !== "undefined") {
+  window.addEventListener("online", () => { finishPendingSignOut(sendLogout); });
+}
 
 // ملاحظة عربية
 let accessToken = localStorage.getItem('accessToken') || null;
@@ -33,6 +44,8 @@ export function setAuthTokens(at, expirationTime /* انتهاء الصلاحي�
   if ((at || null) !== accessToken) clearTraffic();
   accessToken = at || null;
   if (at) {
+    // A new sign-in: an older sign-out that never reached the server is moot.
+    clearSignOutPending();
     localStorage.setItem('accessToken', at);
   } else {
     console.warn("Clearing access token");
