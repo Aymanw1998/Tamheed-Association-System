@@ -118,9 +118,10 @@ export const deletePhoto = async(tz) => {
 
 /* ملاحظة عربية */
 // `from` is the room the user is in; the edit page only shows active users.
+// Asks first, then «سلة المحذوفات» with "تراجع" (owner, 2026-11-17): see deleteS.
 export const deleteU = async (tz, from = "active", {confirm = true} = {}) => {
   if(confirm) {
-            const ok = await ask("delete");
+            const ok = await ask("trash").catch(() => false);
             if(!ok) {
                 return null;
             }
@@ -128,7 +129,7 @@ export const deleteU = async (tz, from = "active", {confirm = true} = {}) => {
   try {
     const {status, data} = await api.delete(`/user/${tz}/${from}`);
     if (![200,201].includes(status) || !data?.ok) throw new Error ('تعذّر حذف المستخدم');
-    return { ok: true, user: null };
+    return { ok: true, user: null, trashId: data.trashId };
   } catch (err) {
     return {ok: false, status: err.response?.status, data: err.response?.data, message: err.response?.data?.message || err.message || 'تعذّر إتمام العملية.'};
   }

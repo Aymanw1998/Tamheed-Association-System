@@ -4,6 +4,7 @@ import { getAccessExpiryMs } from './authTiming';
 import { getLogoutDeadline } from './logoutScheduler';
 import { clearApiCache } from '../../pwa/clearApiCache';
 import { dropDevicePush } from '../../pwa/pushOptIn';
+import { clearStorageKeepingTextSize } from '../../utils/textSize';
 
 let refreshTimerId = null;
 
@@ -27,7 +28,7 @@ export function scheduleAccessRefresh(accessToken, skewMs = 60_000) {
     if (logoutDeadline && now >= logoutDeadline - 2_000) {
       clearApiCache();
       dropDevicePush();
-      try { localStorage.clear(); sessionStorage.clear(); } catch {}
+      try { clearStorageKeepingTextSize(); sessionStorage.clear(); } catch {}
       window.location.assign('/');
       return;
     }
@@ -71,7 +72,7 @@ function hardResetToLogin() {
   clearApiCache();
   dropDevicePush();
   try { 
-    localStorage.clear(); 
+    clearStorageKeepingTextSize(); 
     sessionStorage.clear(); 
     localStorage.setItem('LOGOUT_BROADCAST', String(Date.now())); 
   } catch {}

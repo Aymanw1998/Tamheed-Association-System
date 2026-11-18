@@ -171,7 +171,7 @@ const sectionHtml = (sec) => `
           (r) => `
         <div class="field${r.full ? " field-full" : ""}">
           <div class="field-label">${esc(r.key)}</div>
-          <div class="field-value">${esc(r.value)}</div>
+          ${r.image ? `<img src="${esc(r.image)}" alt="${esc(r.key)}" style="max-width:70mm;max-height:35mm"/>` : `<div class="field-value"${r.pre ? " style=\"white-space:pre-line\"" : ""}>${esc(r.value)}</div>`}
         </div>
       `
         )
@@ -259,6 +259,72 @@ const fitSectionCount = (measureEl, sections, startIdx, maxHeight) => {
   return count === 0 ? 1 : count;
 };
 
+// A section taller than a page is cut into parts that each fit, by measured
+// height, not by character count: many short lines are as tall as one long
+// text (Codex re-review, 2026-11-18). Rows are split first; a single text row
+// by its lines, a line too tall by itself by its words, and a word too tall
+// by itself (no spaces at all) by its characters. measure(section)
+// answers the section's rendered height; with nothing measured (0), nothing
+// is cut.
+const CONTINUED = "(تابع)";
+const continuedTitle = (title) => (String(title || "").endsWith(CONTINUED) ? title : `${title || ""} ${CONTINUED}`);
+const packUnits = (units, join, fits) => {
+  const out = [];
+  let cur = [];
+  for (const unit of units) {
+    if (cur.length && !fits([...cur, unit].join(join))) { out.push(cur.join(join)); cur = []; }
+    cur.push(unit);
+  }
+  if (cur.length) out.push(cur.join(join));
+  return out;
+};
+// The longest start of text that fits (at least one character), found by
+// halving, so a long run costs a few measures, not one per character.
+const cutToFit = (text, fits) => {
+  const out = [];
+  let rest = text;
+  while (rest && !fits(rest)) {
+    let lo = 1;
+    let hi = rest.length - 1;
+    while (lo < hi) {
+      const mid = Math.ceil((lo + hi) / 2);
+      if (fits(rest.slice(0, mid))) lo = mid;
+      else hi = mid - 1;
+    }
+    out.push(rest.slice(0, lo));
+    rest = rest.slice(lo);
+  }
+  if (rest) out.push(rest);
+  return out;
+};
+export const splitTallSections = (sections, measure, maxHeight) => {
+  if (!(maxHeight > 0)) return sections;
+  const out = [];
+  for (const sec of sections) {
+    if (!(measure(sec) > maxHeight)) { out.push(sec); continue; }
+    const named = (rows, i) => ({ ...sec, title: i ? continuedTitle(sec.title) : sec.title, rows });
+    if (sec.rows.length > 1) {
+      const groups = [];
+      let cur = [];
+      for (const row of sec.rows) {
+        if (cur.length && measure(named([...cur, row], groups.length)) > maxHeight) { groups.push(cur); cur = []; }
+        cur.push(row);
+      }
+      if (cur.length) groups.push(cur);
+      if (groups.length > 1) out.push(...splitTallSections(groups.map((rows, i) => named(rows, i)), measure, maxHeight));
+      else out.push(sec);
+      continue;
+    }
+    const [row] = sec.rows;
+    if (!row || row.image || typeof row.value !== "string") { out.push(sec); continue; }
+    const fits = (text) => measure(named([{ ...row, value: text }], 1)) <= maxHeight;
+    const words = (line) => line.split(" ").flatMap((word) => (fits(word) ? [word] : cutToFit(word, fits)));
+    const lines = row.value.split(/\r?\n/).flatMap((line) => (fits(line) ? [line] : packUnits(words(line), " ", fits)));
+    packUnits(lines, "\n", fits).forEach((text, i) => out.push(named([{ ...row, key: i ? "" : row.key, value: text }], i)));
+  }
+  return out;
+};
+
 /* =======================
    Base PDF Template (letterhead)
 ======================= */
@@ -273,9 +339,10 @@ export const exportCardPdf = async ({
   quickBadges = [], // [string]
   profile = true, // false: no photo / name row (a document, not a person's card)
   labels = {}, // { issued, footerNote, preview: { download, print, close, ... } }; Arabic by default
-  sections = [], // [{ title, rows: [{ key, value, full? }] }]
+  sections: givenSections = [], // [{ title, rows: [{ key, value, full? }] }]
   fileNameBase,
 }) => {
+  let sections = givenSections;
   const safeDate = date ? new Date(date) : new Date();
   const fileName = `${safeFile(fileNameBase)}.pdf`;
   const now = new Date();
@@ -314,6 +381,13 @@ export const exportCardPdf = async ({
     const styleTag = document.createElement("style");
     styleTag.textContent = PAGE_CSS;
     container.appendChild(styleTag);
+
+    // No section is taller than the smaller page (Codex re-review, 2026-11-18).
+    measureEl.style.width = `${continuedBudget.width}px`;
+    sections = splitTallSections(sections, (sec) => {
+      measureEl.innerHTML = sectionHtml(sec);
+      return measureEl.scrollHeight;
+    }, Math.min(firstBudget.availableHeight, continuedBudget.availableHeight));
 
     const pageChunks = []; // [{ isFirst, sections: [...] }]
     let idx = 0;
@@ -491,4 +565,198 @@ export const exportStudentPdf = async (s, teacherName = "") => {
     sections,
     fileNameBase: `ملف الطالب - ${fullName} - ${s?.tz || "noid"}`,
   });
+};
+
+/* =======================
+   SIGNED RULES (copy for the parent)
+======================= */
+
+// The rules, cut into page-sized parts so a long text can run over pages.
+// A line longer than a part is cut at a space first (at RULES_PART when it has
+// none), so no part is ever longer than a page (Codex review, 2026-11-18).
+const RULES_PART = 1400;
+const cutLongLine = (line) => {
+  const pieces = [];
+  let rest = line;
+  while (rest.length > RULES_PART) {
+    const space = rest.lastIndexOf(" ", RULES_PART);
+    const at = space > RULES_PART / 2 ? space : RULES_PART;
+    pieces.push(rest.slice(0, at));
+    rest = rest.slice(at).replace(/^ /, "");
+  }
+  pieces.push(rest);
+  return pieces;
+};
+export const rulesParts = (text) => {
+  const parts = [];
+  let part = "";
+  for (const line of String(text ?? "").split(/\r?\n/).flatMap(cutLongLine)) {
+    if (part && part.length + line.length + 1 > RULES_PART) { parts.push(part); part = ""; }
+    part = part ? `${part}\n${line}` : line;
+  }
+  if (part.trim()) parts.push(part);
+  return parts;
+};
+
+// After signing (owner, 2026-11-16): the parent downloads a copy of what they
+// signed: the rules, the name, the date and the signature.
+export const exportConsentPdf = async ({ studentName = "", rules = {}, signerName = "", signature = "", signedAt = new Date() }) => {
+  const when = new Date(signedAt);
+  const sections = [
+    {
+      title: "الموافقة",
+      rows: [
+        { key: "الطالب", value: studentName || "-" },
+        { key: "اسم ولي الأمر", value: signerName || "-" },
+        { key: "تاريخ التوقيع", value: `${when.toLocaleDateString("en-GB")} - ${when.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}` },
+        ...(rules.version ? [{ key: "نسخة القوانين", value: String(rules.version) }] : []),
+      ],
+    },
+    ...rulesParts(rules.text).map((part, i) => ({ title: i ? "قوانين الجمعية (تابع)" : "قوانين الجمعية", rows: [{ key: "", value: part, full: true, pre: true }] })),
+    { title: "التوقيع", rows: [{ key: "توقيع / ختم ولي الأمر", image: signature, full: true }] },
+  ];
+  return exportCardPdf({
+    title: `موافقة على قوانين الجمعية - ${studentName}`.trim(),
+    docBadge: "نسخة لولي الأمر",
+    date: when,
+    profile: false,
+    // What was sent, not proof it was stored: a registration for an ID that
+    // is already registered answers the same and saves nothing (Codex review, 2026-11-18).
+    labels: { footerNote: "نسخة من الموافقة والتوقيع كما أُرسلت إلى جمعية تمهيد" },
+    sections,
+    fileNameBase: `موافقة قوانين الجمعية - ${studentName || "طالب"}`,
+  });
+};
+
+/* =======================
+   A4 TABLE (print-outs)
+======================= */
+
+const TABLE_CSS = `
+  .print-table{ width:100%; border-collapse: collapse; font-size: 19px; }
+  .print-table th{ background:#164d63; color:#fff; padding: 2.2mm 2mm; text-align:right; font-weight:700; }
+  .print-table td{ border-bottom: 1px solid #d9e3e8; padding: 2mm; vertical-align: top; }
+  .print-table tr:nth-child(even) td{ background:#f4f9fb; }
+`;
+
+// A clean A4 table (owner, 2026-11-16): letterhead, title, the date, and the
+// rows, the header repeated on every page. Rows go on a page by their rendered
+// height, so long names that wrap never fall off the page (Codex review,
+// 2026-11-18); ROWS_PER_PAGE only where nothing can be measured.
+const ROWS_PER_PAGE = 24;
+
+// Pages of row indexes: rows fill a page while their heights fit its budget
+// (the first page has the title, so less room). A first row too tall for the
+// first page but not for the next starts on the next, leaving the first page
+// to the title (Codex re-review, 2026-11-18). A row taller than every page
+// goes alone (exportTablePdf cuts such rows first). With no heights to go by,
+// ROWS_PER_PAGE per page.
+export const packRows = (heights, firstBudget, nextBudget, fallback = ROWS_PER_PAGE) => {
+  const pages = [];
+  const measured = heights.some((h) => h > 0) && firstBudget > 0 && nextBudget > 0;
+  let page = [];
+  let used = 0;
+  heights.forEach((h, i) => {
+    const budget = pages.length ? nextBudget : firstBudget;
+    const titleOnly = measured && !pages.length && !page.length && h > firstBudget && h <= nextBudget;
+    const full = titleOnly || (measured ? page.length > 0 && used + h > budget : page.length >= fallback);
+    if (full) { pages.push(page); page = []; used = 0; }
+    page.push(i);
+    used += h;
+  });
+  if (page.length || !pages.length) pages.push(page);
+  return pages;
+};
+// A row taller than a page becomes several rows, each cell's text cut into
+// that many pieces at spaces (Codex re-review, 2026-11-18).
+// Pieces of at most size characters (at a space when there is one), so a
+// short cell, like a phone number, stays whole on the first row.
+const cutText = (text, parts, size) => {
+  let rest = String(text ?? "");
+  const out = [];
+  for (let i = 0; i < parts - 1; i++) {
+    if (rest.length <= size) { out.push(rest); rest = ""; continue; }
+    const space = rest.lastIndexOf(" ", size);
+    const at = space > size / 2 ? space : size;
+    out.push(rest.slice(0, at));
+    rest = rest.slice(at).replace(/^ /, "");
+  }
+  out.push(rest);
+  return out;
+};
+export const splitRow = (row, parts) => {
+  if (!(parts > 1)) return [row];
+  const size = Math.ceil(Math.max(...row.map((cell) => String(cell ?? "").length)) / parts);
+  const cells = row.map((cell) => cutText(cell, parts, size));
+  return Array.from({ length: parts }, (_, i) => cells.map((c) => c[i])).filter((r, i) => i === 0 || r.some(Boolean));
+};
+
+// Rows cut until none is taller than a later page. measure(rows) answers
+// { heights, firstRoom, nextRoom } for exactly these rows, and is asked again
+// after every cut, so the heights always belong to the rows returned (Codex
+// re-review, 2026-11-18). Stops when a round cuts nothing more, or after
+// maxRounds; a row that still does not fit then goes alone on a page.
+export const fitRows = (rows, measure, maxRounds = 4) => {
+  let body = rows;
+  let m = measure(body);
+  for (let round = 0; round < maxRounds; round++) {
+    const limit = m.nextRoom;
+    if (!(limit > 0) || !m.heights.some((h) => h > limit)) break;
+    const cut = body.flatMap((row, i) => (m.heights[i] > limit ? splitRow(row, Math.ceil(m.heights[i] / (limit * 0.8))) : [row]));
+    if (cut.length === body.length) break;
+    body = cut;
+    m = measure(body);
+  }
+  return { body, ...m };
+};
+
+export const exportTablePdf = async ({ title, docBadge = "للطباعة", columns = [], rows = [], subtitle = "", fileNameBase }) => {
+  const now = new Date();
+  const generatedAt = `${now.toLocaleDateString("en-GB")} - ${now.toLocaleTimeString("en-GB")}`;
+  const head = `<tr>${columns.map((c) => `<th>${esc(c)}</th>`).join("")}</tr>`;
+  const rowHtml = (row) => `<tr>${row.map((cell) => `<td>${esc(cell)}</td>`).join("")}</tr>`;
+  const page = (i, total, bodyRows, withTitle) => `
+    <div class="pdf-page">
+      ${letterheadHtml(docBadge)}
+      <div class="wrap">
+        ${withTitle ? `<div class="title-block"><h1>${esc(title)}</h1></div>
+        <div class="meta-strip"><span class="meta-chip">${esc(CARD_LABELS.issued)}: ${esc(now.toLocaleDateString("en-GB"))}</span>${subtitle ? `<span class="meta-chip">${esc(subtitle)}</span>` : ""}</div>` : ""}
+        <table class="print-table"><thead>${head}</thead><tbody>${bodyRows}</tbody></table>
+      </div>
+      ${footerHtml(i + 1, total, generatedAt)}
+    </div>`;
+
+  const container = document.createElement("div");
+  Object.assign(container.style, { position: "fixed", left: "-10000px", top: "0" });
+  document.body.appendChild(container);
+  try {
+    // Measure: the room under the table header on a first and a later page,
+    // and each row's height at the page's width.
+    // A row taller than a later page is cut and measured again.
+    const room = (el) => el.querySelector(".doc-footer").getBoundingClientRect().top - el.querySelector("thead").getBoundingClientRect().bottom - 8;
+    const { body, heights, firstRoom, nextRoom } = fitRows(rows, (bodyRows) => {
+      container.innerHTML = `<style>${PAGE_CSS}${TABLE_CSS}</style>${page(0, 1, bodyRows.map(rowHtml).join(""), true)}${page(1, 1, "", false)}`;
+      const [firstEl, nextEl] = container.querySelectorAll(".pdf-page");
+      return {
+        heights: [...firstEl.querySelectorAll("tbody tr")].map((tr) => tr.getBoundingClientRect().height),
+        firstRoom: room(firstEl),
+        nextRoom: room(nextEl),
+      };
+    });
+    const chunks = packRows(heights, firstRoom, nextRoom).map((idx) => idx.map((n) => body[n]));
+    container.innerHTML = `<style>${PAGE_CSS}${TABLE_CSS}</style><div id="pdfRoot">${chunks.map((chunk, i) => page(i, chunks.length, chunk.map(rowHtml).join(""), i === 0)).join("")}</div>`;
+    const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
+    const images = [];
+    const pageEls = container.querySelectorAll(".pdf-page");
+    for (let i = 0; i < pageEls.length; i++) {
+      const canvas = await html2canvas(pageEls[i], { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
+      const imgData = canvas.toDataURL("image/jpeg", 0.95);
+      images.push(imgData);
+      if (i > 0) pdf.addPage();
+      pdf.addImage(imgData, "JPEG", 0, 0, 210, 297);
+    }
+    showPdfPreview({ pdf, images, fileName: `${safeFile(fileNameBase || title)}.pdf`, title });
+  } finally {
+    document.body.removeChild(container);
+  }
 };

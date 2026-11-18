@@ -10,6 +10,10 @@ function auditStub() {
         // JSON round-trip: objects built inside a vm context have foreign prototypes.
         const plain = JSON.parse(JSON.stringify({ ...entry, before: entry.before ?? null, after: entry.after ?? null }));
         calls.push({ req, ...plain });
+        return true;
+      },
+      async recordRequired(req, entry) {
+        return exportsObject.audit.record(req, entry);
       },
     },
   };

@@ -42,6 +42,20 @@ const CHANGE = {
 const changeOf = (p, lang) => (CHANGE[p.change] || CHANGE.permissions)[lang];
 
 const ALERT_TEMPLATES = {
+  // To who manages the association's weekly tasks (owner, 2026-11-17).
+  weekly_tasks_overdue_staff: {
+    severity: "important",
+    ar: (p) => `مهمات الأسبوع: انتهى أسبوع ${p.week} وبقيت ${Number(p.remaining) || 0} مهمات لم تنجزها مجموعة ${nameOf(p)}.`,
+    he: (p) => `משימות שבועיות: השבוע שהחל ב־${p.week} הסתיים עם ${Number(p.remaining) || 0} משימות שלא הושלמו בקבוצה של ${nameOf(p)}.`,
+    en: (p) => `Weekly tasks: ${nameOf(p)}'s group left ${Number(p.remaining) || 0} tasks unfinished in the week of ${p.week}.`,
+  },
+  // During the lesson, to its teacher and helper (owner, 2026-11-17).
+  lesson_attendance_reminder: {
+    severity: "info",
+    ar: (p) => `بدأ درس ${clip(p.lesson) || "—"}: لا تنسَ تسجيل الحضور`,
+    he: (p) => `השיעור ${clip(p.lesson) || "—"} התחיל: לא לשכוח לרשום נוכחות`,
+    en: (p) => `Lesson ${clip(p.lesson) || "—"} has started: remember to take attendance`,
+  },
   weekly_tasks_overdue: {
     severity: "important",
     ar: (p) => `تنبيه: انتهى أسبوع ${p.week} وبقيت ${Number(p.remaining) || 0} مهمات لم تنجزها مجموعتك. يُرجى الالتزام بموعد مهمات الأسبوع الجديد.`,

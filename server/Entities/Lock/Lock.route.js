@@ -57,7 +57,7 @@ const LOCK_RULES = {
     view: selfOr(["users.view"]),
   },
   vehicle: {
-    edit: (actor) => vehicle(["edit", "compliance", "documents", "archive"])(actor) || can(actor?.permissions, "vehicles.delete"),
+    edit: (actor) => vehicle(["edit", "compliance", "documents"])(actor) || can(actor?.permissions, "vehicles.delete"),
     view: vehicle(["view"]),
   },
 };

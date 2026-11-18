@@ -11,8 +11,8 @@ test("permission labels and keys use the same canonical catalog, including weekl
   expect(ALL_KEYS).toContain("tasks.manage");
 });
 
-test("vehicles has six leaves including delete", () => {
-  expect(PERMISSION_TREE.vehicles).toEqual(["view", "edit", "compliance", "documents", "archive", "delete"]);
+test("vehicles has six leaves including delete and purge (no archive since 2026-11-15)", () => {
+  expect(PERMISSION_TREE.vehicles).toEqual(["view", "edit", "compliance", "documents", "delete", "purge"]);
   expect(ALL_KEYS).toContain("vehicles.delete");
 });
 
@@ -34,7 +34,7 @@ test("unknown keys and bad input are denied", () => {
 });
 
 test("lessons has a viewAll leaf", () => {
-  expect(PERMISSION_TREE.lessons).toEqual(["view", "viewAll", "create", "edit", "roster", "staffRoster", "delete", "copyMonth"]);
+  expect(PERMISSION_TREE.lessons).toEqual(["view", "viewAll", "create", "edit", "roster", "staffRoster", "delete", "copyMonth", "exportExcel"]);
   expect(hasPermission(["lessons.viewAll"], "lessons.viewAll")).toBe(true);
 });
 

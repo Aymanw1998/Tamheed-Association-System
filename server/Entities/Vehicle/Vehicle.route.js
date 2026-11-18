@@ -55,8 +55,6 @@ router.get("/:id/audit", requireVehiclePermission("view"), controller.getAudit);
 
 // Permanent deletion needs vehicles.delete (not a delegable vehicle permission).
 router.delete("/:id", requirePermission("vehicles.delete"), lockedVehicle, controller.remove); // = controller.DELETE_KEY
-router.post("/:id/archive", requireVehiclePermission("archive"), lockedVehicle, controller.archive);
-router.post("/:id/restore", requireVehiclePermission("archive"), lockedVehicle, controller.restore);
 
 router.post("/:id/licenses", requireVehiclePermission("compliance"), lockedVehicle, controller.addLicense);
 router.put("/:id/licenses/:recordId", requireVehiclePermission("compliance"), lockedVehicle, controller.updateLicense);

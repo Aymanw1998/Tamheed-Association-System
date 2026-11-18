@@ -56,16 +56,35 @@ function setup({ lessons, sport, users } = {}) {
 
 const req = () => ({ actor: { id: "f".repeat(24) }, headers: {} });
 
-test("layouts are week, today, rotate and rooms", () => {
-  assert.deepEqual(LAYOUTS, ["week", "today", "rotate", "rooms"]);
+test("layouts are week and rooms only (owner, 2026-11-14)", () => {
+  assert.deepEqual(LAYOUTS, ["week", "rooms"]);
+});
+
+test("the removed day layouts can no longer be chosen", async () => {
+  const { svc } = setup();
+  for (const layout of ["today", "rotate"]) {
+    await assert.rejects(svc.create({ name: "a", layout }, req()), { status: 400, code: "BAD_INPUT" });
+  }
+  const { screen } = await svc.create({ name: "a", layout: "week" }, req());
+  await assert.rejects(svc.update(screen.id, { layout: "rotate" }, req()), { status: 400, code: "BAD_INPUT" });
+});
+
+test("a screen saved with a removed day layout is listed and shown as the rooms board", async () => {
+  const { svc, screens } = setup();
+  const { screen, secret } = await svc.create({ name: "a", layout: "week" }, req());
+  for (const old of ["today", "rotate"]) {
+    await screens.updateExisting({ _id: screen.id }, { layout: old });
+    assert.equal((await svc.list())[0].layout, "rooms");
+    assert.equal((await svc.feed(secret)).layout, "rooms");
+  }
 });
 
 test("create stores only the digest and returns the secret once", async () => {
   const { svc, screens } = setup();
-  const { screen, secret } = await svc.create({ name: " المدخل ", layout: "today" }, req());
+  const { screen, secret } = await svc.create({ name: " المدخل ", layout: "rooms" }, req());
   assert.match(secret, /^[A-Za-z0-9_-]{43}$/);
   assert.equal(screen.name, "المدخل");
-  assert.equal(screen.layout, "today");
+  assert.equal(screen.layout, "rooms");
   assert.equal(screens.all()[0].tokenHash, sha256(secret));
   assert.ok(!JSON.stringify(screens.all()).includes(secret));
   const listed = (await svc.list())[0];
@@ -179,11 +198,11 @@ test("layout and name change is in the next feed", async () => {
 test("an edit is audited as update, like every other module", async () => {
   const { svc, audit } = setup();
   const { screen } = await svc.create({ name: "a", layout: "week" }, req());
-  await svc.update(screen.id, { layout: "today" }, req());
+  await svc.update(screen.id, { layout: "rooms" }, req());
   const row = audit.calls[1];
   assert.equal(row.action, "update");
   assert.deepEqual(row.before, { name: "a", layout: "week" });
-  assert.deepEqual(row.after, { name: "a", layout: "today" });
+  assert.deepEqual(row.after, { name: "a", layout: "rooms" });
 });
 
 test("create, rotate and remove are audited without the secret", async () => {

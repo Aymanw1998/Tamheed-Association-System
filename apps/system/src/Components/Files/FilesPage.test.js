@@ -99,7 +99,8 @@ test("in training mode the upload button uploads the demo file and never reaches
 
   await act(async () => {
     byTour("files-upload").dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    // Uploads go through the async picture check first (item 31).
+    for (let i = 0; i < 50 && !Storage.uploadStorageFileAuto.mock.calls.length; i++) await new Promise((resolve) => setTimeout(resolve, 10));
   });
 
   expect(reached).not.toHaveBeenCalled();

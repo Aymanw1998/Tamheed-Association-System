@@ -10,11 +10,13 @@ jest.mock("../api", () => ({
   setAdminPowers: jest.fn(),
   forceReleaseLock: jest.fn(),
   recoverSystem: jest.fn(),
+  getOpsStatus: jest.fn(),
 }));
 
 beforeEach(() => {
   api.getPushSettings.mockImplementation(() => ok({ enabled: true, keysFrom: "env" }));
   api.getAdminPowers.mockImplementation(() => ok({ enabled: true }));
+  api.getOpsStatus.mockImplementation(() => ok({ checks: [] }));
 });
 afterEach(async () => { await unmountAll(); jest.clearAllMocks(); });
 

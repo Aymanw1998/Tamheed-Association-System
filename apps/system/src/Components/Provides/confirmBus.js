@@ -8,6 +8,8 @@ const PRESETS = {
   create:   { title: 'تأكيد الإنشاء', message: 'هل تريد إنشاء هذا العنصر؟', confirmText: 'نعم',  cancelText: 'إلغاء' },
   change:   { title: 'تأكيد الحفظ', message: 'هل تريد حفظ التغييرات؟', confirmText: 'نعم', cancelText: 'إلغاء' },
   delete:   { title: 'تأكيد الحذف', message: 'هل تريد حذف هذا العنصر؟ لا يمكن التراجع عن هذا الإجراء.', confirmText: 'نعم', cancelText: 'إلغاء', danger: true },
+  // Students, vehicles and staff go to «سلة المحذوفات» (owner, 2026-11-17).
+  trash:    { title: 'تأكيد الحذف', message: 'هل تريد الحذف؟ سينتقل إلى «سلة المحذوفات» لمدة 30 يومًا، ويمكن استعادته منها.', confirmText: 'نعم', cancelText: 'إلغاء', danger: true },
 };
 
 // ملاحظة عربية

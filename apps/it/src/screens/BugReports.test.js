@@ -2,7 +2,7 @@ import BugReports from "./BugReports.jsx";
 import * as api from "../api";
 import { mount, unmountAll, ok, fail, button, click, toastText } from "../testUtils";
 
-jest.mock("../api", () => ({ ...jest.requireActual("../api"), getBugReports: jest.fn(), deleteBugReport: jest.fn() }));
+jest.mock("../api", () => ({ ...jest.requireActual("../api"), getBugReports: jest.fn(), deleteBugReport: jest.fn(), getErrorSummary: jest.fn() }));
 
 const AUTO = {
   _id: "r1", type: "fault", source: "auto", reporterName: "ليلى", reporterRole: "مرشد", section: "الطلاب",
@@ -19,6 +19,7 @@ const MANUAL = {
 beforeEach(() => {
   api.getBugReports.mockImplementation(() => ok({ reports: [AUTO, MANUAL] }));
   api.deleteBugReport.mockImplementation(() => ok());
+  api.getErrorSummary.mockImplementation(() => ok({ summary: { total: 0, groups: [], perDay: [] } }));
 });
 afterEach(async () => { await unmountAll(); jest.clearAllMocks(); });
 
@@ -70,4 +71,22 @@ test("an empty list says so", async () => {
   api.getBugReports.mockImplementation(() => ok({ reports: [] }));
   const c = await mount(<BugReports />);
   expect(c.textContent).toContain("لا توجد بلاغات");
+});
+
+// «ملخص الأخطاء» (owner, 2026-11-16).
+test("the week's server errors are summed up above the reports, the most frequent first", async () => {
+  api.getErrorSummary.mockImplementation(() => ok({ summary: { total: 3, perDay: [], groups: [
+    { source: "Student.putS", code: "E1", message: "boom", action: "PUT /api/student/:id", status: 500, count: 2, lastAt: "2026-11-15T10:00:00Z" },
+    { source: "Vehicle.getAll", code: "", message: "drive down", action: "GET /api/vehicle", status: 502, count: 1, lastAt: "2026-11-14T10:00:00Z" },
+  ] } }));
+  const c = await mount(<BugReports />);
+  const card = c.querySelector(".error-summary");
+  expect(card.textContent).toContain("آخر 7 أيام");
+  expect(card.textContent).toContain("2×");
+  expect(card.textContent.indexOf("boom")).toBeLessThan(card.textContent.indexOf("drive down"));
+});
+
+test("a quiet week says so", async () => {
+  const c = await mount(<BugReports />);
+  expect(c.querySelector(".error-summary").textContent).toContain("لم يقع أي خطأ");
 });

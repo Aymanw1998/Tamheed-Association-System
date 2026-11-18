@@ -52,7 +52,7 @@ export const assistantStrings = {
       screens: {
         dashboard: "الرئيسي", students: "الطلاب", student: "ملف الطالب", lessons: "البرامج", lesson: "البرنامج",
         attendance: "الحضور", reports: "التقارير", report: "التقرير", vehicles: "المركبات", vehicle: "المركبة",
-        files: "الملفات", notices: "لوحة الإعلانات", users: "المستخدمون", user: "المستخدم", audit: "سجل التغييرات", profile: "الملف الشخصي",
+        files: "الملفات", notices: "لوحة الإعلانات", users: "الطاقم", user: "عضو الطاقم", audit: "سجل التغييرات", profile: "الملف الشخصي",
       },
       suggest: {
         pending: "ما الذي ينتظر موافقتي؟",

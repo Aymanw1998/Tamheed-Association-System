@@ -1,4 +1,5 @@
 import { formatDateTime as displayDateTime } from "../../generated/dateFormat";
+import { shrinkImage } from "../../utils/imageShrink";
 import RequiredMark from "../UI/RequiredMark";
 import { useEffect, useMemo, useRef, useState } from "react";
 import styles from "./FilesPage.module.css";
@@ -29,6 +30,7 @@ import { ask } from "../Provides/confirmBus";
 import FilterDialog from "../UI/FilterDialog.jsx";
 import { isDemo } from "../../journey/demoMode";
 import { demoUploadFile } from "../../journey/demoData";
+import { asButton } from "../../utils/keyActivate";
 
 const formatBytes = (bytes) => {
   if (bytes === null || bytes === undefined || Number.isNaN(Number(bytes))) return "-";
@@ -247,6 +249,7 @@ export default function FilesPage() {
   const [contextMenu, setContextMenu] = useState(null);
   const [storageStats, setStorageStats] = useState(null);
   const [uploadQueue, setUploadQueue] = useState([]);
+  const [keepOriginal, setKeepOriginal] = useState(false);
   // The new-folder window: null when closed, else the name being typed.
   const [folderName, setFolderName] = useState(null);
 
@@ -261,7 +264,7 @@ export default function FilesPage() {
       if (result?.ok) {
         setUsers(result.users || []);
       } else {
-        setError(result?.message || "تعذّر تحميل المستخدمين");
+        setError(result?.message || "تعذّر تحميل الطاقم");
       }
 
       const nextSharedUsers = {};
@@ -270,7 +273,7 @@ export default function FilesPage() {
       });
       setSharedUsersMap(nextSharedUsers);
     } catch (err) {
-      setError(err?.response?.data?.message || err.message || "تعذّر تحميل المستخدمين");
+      setError(err?.response?.data?.message || err.message || "تعذّر تحميل الطاقم");
     } finally {
       setUsersLoading(false);
     }
@@ -605,11 +608,13 @@ export default function FilesPage() {
     }
   };
 
-  const enqueueUploads = (files = []) => {
+  const enqueueUploads = async (files = []) => {
     if (!canStored("files.upload")) return;
     if (isSharedView) return;
-    const acceptedFiles = files.filter(Boolean);
-    if (!acceptedFiles.length) return;
+    const picked = files.filter(Boolean);
+    if (!picked.length) return;
+    // Pictures over about 1 MB go smaller unless «الجودة الأصلية» is ticked (owner, 2026-11-16).
+    const acceptedFiles = keepOriginal ? picked : await Promise.all(picked.map((file) => shrinkImage(file).catch(() => file)));
 
     setError("");
     const createdAt = Date.now();
@@ -941,6 +946,7 @@ export default function FilesPage() {
                   the real file picker never opens. */}
               {canStored("files.upload") && <label
                 className={styles.primaryBtn}
+                {...asButton()}
                 data-tour="files-upload"
                 onClick={(event) => {
                   if (!isDemo()) return;
@@ -956,6 +962,10 @@ export default function FilesPage() {
                   multiple
                   onChange={(event) => enqueueUploads(Array.from(event.target.files || []))}
                 />
+              </label>}
+              {canStored("files.upload") && <label style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
+                <input type="checkbox" style={{ width: "auto" }} checked={keepOriginal} onChange={(event) => setKeepOriginal(event.target.checked)} />
+                <span>الصور بالجودة الأصلية</span>
               </label>}
             </div>
           )}
@@ -1164,7 +1174,7 @@ export default function FilesPage() {
               </select>
             </div>
             <div className={styles.userList}>
-              {usersLoading && <div className={styles.empty}>جارٍ تحميل المستخدمين…</div>}
+              {usersLoading && <div className={styles.empty}>جارٍ تحميل الطاقم…</div>}
               {!usersLoading && !filteredUsers.length && (
                 <div className={styles.empty}>لا يوجد مستخدمون مطابقون</div>
               )}

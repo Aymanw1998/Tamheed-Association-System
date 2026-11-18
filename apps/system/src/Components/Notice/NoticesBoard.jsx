@@ -6,7 +6,7 @@ import RequiredMark from "../UI/RequiredMark";
 import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  archiveNotice, changeNoticeState, createNotice, getNotices, markAllNoticesRead, markNoticeRead, runVehicleCheck,
+  changeNoticeState, createNotice, getNotices, markAllNoticesRead, markNoticeRead, runVehicleCheck,
 } from "../../WebServer/services/notice/functionsNotice.jsx";
 import { useI18n } from "../../i18n/I18nContext";
 import { toast } from "../../ALERT/SystemToasts";
@@ -72,8 +72,8 @@ export default function NoticesBoard() {
     return toast.success(message, { duration: 6000, action: undoAction ? { label: "تراجع", icon: "undo", onClick: undo } : undefined });
   };
   const trash = async (notice) => {
-    if (canStored("notices.restore")) return moveWithUndo(notice, "delete", "restore", "نُقل الإعلان إلى المحذوفات. يُحذف نهائيًا بعد 30 يومًا.");
-    const ok = await ask("change", { title: "نقل إلى المحذوفات", message: "سيُنقل الإعلان إلى المحذوفات للجميع. يمكن استعادته خلال 30 يومًا، وبعدها يُحذف نهائيًا. هل تريد المتابعة؟" }).catch(() => false);
+    if (canStored("notices.restore")) return moveWithUndo(notice, "delete", "restore", "نُقل الإعلان إلى المحذوفات. يُحذف نهائيًا بعد 14 يومًا.");
+    const ok = await ask("change", { title: "نقل إلى المحذوفات", message: "سيُنقل الإعلان إلى المحذوفات للجميع. يمكن استعادته خلال 14 يومًا، وبعدها يُحذف نهائيًا. هل تريد المتابعة؟" }).catch(() => false);
     if (ok) act(`d${notice._id}`, () => changeNoticeState(notice._id, "delete"));
     return undefined;
   };
@@ -95,16 +95,6 @@ export default function NoticesBoard() {
     toast.success(t("notices.published"));
     notifyChanged();
     load();
-  };
-
-  const archive = async (notice) => {
-    let ok = false;
-    try {
-      ok = await ask("change", { title: t("notices.archive"), message: t("notices.archiveConfirm") });
-    } catch {
-      ok = false;
-    }
-    if (ok) act(`a${notice._id}`, () => archiveNotice(notice._id));
   };
 
   const setFilter = (key) => (event) => setFilters((prev) => ({ ...prev, [key]: event.target.value }));
@@ -130,10 +120,10 @@ export default function NoticesBoard() {
 
       <SystemAlerts />
       <div role="tablist" aria-label="مجلدات الإعلانات" className={styles.actions}>
-        {[ ["all", "الوارد"], ["archived", "المؤرشف"], ["deleted", "المحذوفات"] ].map(([value, label]) => <Button key={value} role="tab" aria-selected={value === folder} variant={value === folder ? "primary" : "secondary"} onClick={() => setFilters((old) => ({ ...old, status: value }))}>{label}</Button>)}
+        {[ ["all", "الوارد"], ["deleted", "المحذوفات"] ].map(([value, label]) => <Button key={value} role="tab" aria-selected={value === folder} variant={value === folder ? "primary" : "secondary"} onClick={() => setFilters((old) => ({ ...old, status: value }))}>{label}</Button>)}
         <TabIndicator variant="pill" />
       </div>
-      {folder === "deleted" && <p className={styles.hint}>تُحذف الإعلانات من المحذوفات نهائيًا بعد 30 يومًا من حذفها.</p>}
+      {folder === "deleted" && <p className={styles.hint}>تُحذف الإعلانات من المحذوفات نهائيًا بعد 14 يومًا من حذفها.</p>}
 
       <div className={styles.filters} data-tour="notices-filters">
         <FilterDialog
@@ -188,9 +178,8 @@ export default function NoticesBoard() {
                   <td>{n.read ? t("notices.read") : <strong>{t("notices.unread")}</strong>}</td>
                   <td className={styles.rowActions}>
                     {!n.read && <Button size="sm" variant="secondary" onClick={() => act(`r${n._id}`, () => markNoticeRead(n._id))}>{t("notices.markRead")}</Button>}
-                    {n.category === "manual" && !n.archivedAt && !n.deletedAt && canStored("notices.archive") && <Button size="sm" variant="secondary" data-tour="notices-archive" onClick={() => archive(n)}>{t("notices.archive")}</Button>}
                     {n.category === "manual" && !n.deletedAt && canStored("notices.delete") && <Button size="sm" variant="danger" onClick={() => trash(n)}>حذف للجميع</Button>}
-                    {(n.archivedAt || n.deletedAt) && canStored("notices.restore") && <Button size="sm" onClick={() => act(`s${n._id}`, () => changeNoticeState(n._id, "restore"))}>استعادة الإعلان</Button>}
+                    {n.deletedAt && canStored("notices.restore") && <Button size="sm" onClick={() => act(`s${n._id}`, () => changeNoticeState(n._id, "restore"))}>استعادة الإعلان</Button>}
                     {n.category === "manual" && n.deletedAt && canStored("notices.purge") && <Button size="sm" variant="danger" loading={busy === `p${n._id}`} onClick={() => purge(n)}>حذف نهائي</Button>}
                     {canStored("alerts.dismiss") && <Button size="sm" variant="secondary" onClick={() => (n.hiddenForMe ? act(`h${n._id}`, () => changeNoticeState(n._id, "unhide")) : moveWithUndo(n, "hide", "unhide", "أُزيل الإعلان من قائمتك."))}>{n.hiddenForMe ? "إعادة إلى قائمتي" : "حذف من قائمتي"}</Button>}
                   </td>

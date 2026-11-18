@@ -66,11 +66,22 @@ test("a long day today moves the board with the clock", () => {
 
 test("no lessons at all", () => {
   render(<RoomsLayout lessons={[]} today={3} minute={0} />);
-  expect(byText("لا برامج")).toBeTruthy();
+  expect(byText("لا برامج اليوم")).toBeTruthy();
+  expect(queryByText(/البرنامج القادم/)).toBeNull();
+});
+
+test("a day with no lessons says «لا برامج اليوم» and names the next day with a program (owner)", () => {
+  render(<RoomsLayout lessons={[L("غد", 4, 600, 660), L("بعده", 6, 600, 660)]} today={3} minute={0} />);
+  expect(byText("لا برامج اليوم")).toBeTruthy();
+  expect(byText("البرنامج القادم: غدًا")).toBeTruthy();
+  expect(queryByText("غد")).toBeNull();
+  cleanup();
+  render(<RoomsLayout lessons={[L("بعده", 6, 600, 660)]} today={3} minute={0} />);
+  expect(byText("البرنامج القادم: يوم الجمعة")).toBeTruthy();
 });
 
 test("a 15-minute lesson on a long coming day keeps a readable block (Codex review)", () => {
-  render(<RoomsLayout lessons={[L("قصير", 4, 780, 795), L("طويل", 4, 795, 1320)]} today={3} minute={1300} />);
+  render(<RoomsLayout lessons={[L("انتهى", 3, 480, 540), L("قصير", 4, 780, 795), L("طويل", 4, 795, 1320)]} today={3} minute={1300} />);
   const slot = byText("قصير").closest("[data-lane]");
   expect(parseFloat(slot.style.height)).toBeGreaterThanOrEqual(4.5);
   expect(slot.getAttribute("data-lane")).toBe("0/2");
@@ -78,7 +89,7 @@ test("a 15-minute lesson on a long coming day keeps a readable block (Codex revi
 });
 
 test("a short last lesson of the day is not cut off at the bottom (Codex review)", () => {
-  render(<RoomsLayout lessons={[L("أول", 4, 480, 540), L("أخير", 4, 1305, 1320)]} today={3} minute={1300} />);
+  render(<RoomsLayout lessons={[L("انتهى", 3, 480, 540), L("أول", 4, 480, 540), L("أخير", 4, 1305, 1320)]} today={3} minute={1300} />);
   const slot = byText("أخير").closest("[data-lane]");
   expect(parseFloat(slot.style.top) + parseFloat(slot.style.height)).toBeLessThanOrEqual(100.01);
   expect(parseFloat(slot.style.height)).toBeGreaterThanOrEqual(4.2);

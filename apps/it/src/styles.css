@@ -221,3 +221,11 @@ button:active:not(:disabled) { transform: scale(0.97); }
     animation-delay: 0ms !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important;
   }
 }
+
+/* The server's checks (owner, 2026-11-16). */
+.ops-banner { border-color: var(--color-danger-700); background: var(--color-danger-100); color: var(--color-danger-700); }
+.ops-banner ul { margin: var(--space-2) 0; padding-inline-start: 1.2em; }
+.ops-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
+
+/* The password shown on request (owner, 2026-11-16). */
+.shown-password { font-family: monospace; font-size: 1.1em; padding: 2px 8px; border-radius: 6px; background: rgba(0, 0, 0, 0.06); user-select: all; }

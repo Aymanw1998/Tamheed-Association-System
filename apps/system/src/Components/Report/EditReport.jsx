@@ -20,6 +20,7 @@ import { useLockRecovery } from "../../locks/LockLostBanner";
 import useFormDraft from "../../utils/useFormDraft";
 import { revealFirstError } from "../../utils/revealError";
 import DraftBanner from "../UI/DraftBanner";
+import { asButton } from "../../utils/keyActivate";
 
 const DRAFT_FIELDS = ["date", "attendance", "title", "stitle", "info"];
 
@@ -116,6 +117,7 @@ const MultiTagSelect = ({
       <div style={{ marginTop: 8, border: "1px solid #eee", borderRadius: 8, overflow: "hidden" }}>
         {canCreate && (
           <div
+            {...asButton()}
             onClick={() => add(q)}
             style={{ padding: 10, cursor: "pointer", borderBottom: "1px solid #f0f0f0", background: "#f9fafb" }}
           >
@@ -127,6 +129,7 @@ const MultiTagSelect = ({
           <div
             key={String(o.value)}
             data-tour={tour && index === 0 ? "report-tag-option" : undefined}
+            {...asButton()}
             onClick={() => add(o.value)}
             style={{ padding: 10, cursor: "pointer", borderBottom: "1px solid #f0f0f0" }}
           >
@@ -228,7 +231,7 @@ const EditReport = ({parent = false}) => {
           const s = res.users;
           setUsers(s);
         } else {
-          setErr("تعذّر العثور على المستخدمين");
+          setErr("تعذّر العثور على الطاقم");
         }
       } catch (e) {
         setErr("تعذّر تحميل البيانات");
@@ -422,8 +425,8 @@ const EditReport = ({parent = false}) => {
       <ReadOnlyArea readonly={readonly} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <fieldset className={sectionStyles.formSection} data-tour="report-title">
         <legend>بيانات التقرير</legend>
-        <label>عنوان التقرير:<span style={{color: "red"}}>*</span></label>
-        <input
+        <label htmlFor="report-stitle">عنوان التقرير:<span style={{color: "red"}}>*</span></label>
+        <input id="report-stitle"
           type="text"
           name="stitle"
           data-tour="report-stitle"

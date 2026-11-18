@@ -576,8 +576,6 @@ route("put", /^\/vehicle\/([^/]+)$/, withVehicle((s, v, _, { body }) => {
   return vehicleWrite(s, v, "update", patch);
 }));
 route("get", /^\/vehicle\/([^/]+)\/audit$/, withVehicle((s, v) => ok({ entries: s.vehicleAudit.filter((e) => same(e.vehicleId, v._id)) })));
-route("post", /^\/vehicle\/([^/]+)\/archive$/, withVehicle((s, v) => vehicleWrite(s, v, "archive", { status: "archived", archivedAt: nowIso() })));
-route("post", /^\/vehicle\/([^/]+)\/restore$/, withVehicle((s, v) => vehicleWrite(s, v, "restore", { status: "active", archivedAt: "" })));
 route("delete", /^\/vehicle\/([^/]+)$/, withVehicle((s, v) => {
   s.vehicles = s.vehicles.filter((item) => item !== v);
   recordAudit(s, { module: "vehicles", action: "delete", targetType: "vehicle", targetId: v._id, targetLabel: v.plate });
@@ -677,12 +675,6 @@ route("post", /^\/notices\/([^/]+)\/read$/, (s, [id]) => {
   const notice = s.notices.find((n) => same(n._id, id));
   if (!notice) return notFound();
   notice.read = true;
-  return ok({});
-});
-route("post", /^\/notices\/([^/]+)\/archive$/, (s, [id]) => {
-  const notice = s.notices.find((n) => same(n._id, id));
-  if (!notice) return notFound();
-  notice.archivedAt = nowIso();
   return ok({});
 });
 

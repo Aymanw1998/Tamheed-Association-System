@@ -77,7 +77,7 @@ export default function ManageWeeklyTasks() {
       {greeting && <GreetingDialog guides={board.guides} defaultText={board.defaultGreeting} onClose={() => setGreeting(false)} />}
       <header className={styles.head}>
         <h1>تعديل المهمات والمجموعات</h1>
-        {canStored("tasks.greet") && <Button disabled={!board.guides.length} onClick={() => setGreeting(true)}>إرسال بركة</Button>}
+        {canStored("tasks.greet") && <Button disabled={!board.guides.length} onClick={() => setGreeting(true)}>إرسال تهنئة</Button>}
         <Button variant="secondary" onClick={() => navigate("/weekly-tasks")}>العودة إلى المهمات</Button>
       </header>
 

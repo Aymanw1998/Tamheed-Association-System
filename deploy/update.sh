@@ -41,6 +41,45 @@ on_failure() {
 }
 trap 'on_failure "$?" "$LINENO" "$BASH_COMMAND"' ERR
 
+# The app runs as its own limited user (APP_USER, default tamheed), not root
+# (owner, 2026-11-16; see deploy/DEPLOY.md). Once that user exists and owns the
+# project folder, the whole update runs as it: started by root, it hands
+# itself over; started by anyone else, it stops and says how to run it.
+# Before the move (no such user, or the folder still root's) nothing changes.
+APP_USER="${APP_USER:-tamheed}"
+step "Code" "Checking which user runs the update"
+ME="$(id -un)"
+if [ "$ME" != "$APP_USER" ] && id -u "$APP_USER" >/dev/null 2>&1 \
+  && [ "$(stat -c %U .)" = "$APP_USER" ]; then
+  if [ "$ME" = "root" ]; then
+    echo "==> Running the update as $APP_USER (started by root)"
+    # sudo starts from a clean environment: carry the build settings over.
+    keep=()
+    while IFS= read -r name; do keep+=("$name=${!name}"); done < <(compgen -e | grep -E '^(REACT_APP_|APP_USER$|ALLOW_DAY_UPDATE$)' || true)
+    exec sudo -H -u "$APP_USER" env ${keep[@]+"${keep[@]}"} bash deploy/update.sh "$@"
+  fi
+  FAILURE_HINT="Run it as $APP_USER:  sudo -u $APP_USER bash deploy/update.sh"
+  echo "The project belongs to $APP_USER, but the update was started by $ME." >&2
+  false
+fi
+if [ "$ME" = "root" ]; then
+  echo "==> Note: running as root. Moving the app to its own user: deploy/DEPLOY.md"
+fi
+
+# The server stops for a few seconds while it restarts: only at night, Israel
+# time, 20:00-08:00 (owner, 2026-11-16). An urgent fix in the day:
+#   ALLOW_DAY_UPDATE=yes bash deploy/update.sh
+if [ -z "${TAMHEED_UPDATE_RESTARTED:-}" ] && [ "${ALLOW_DAY_UPDATE:-}" != "yes" ]; then
+  step "Code" "Checking the time (updates run 20:00-08:00 Israel time)"
+  HOUR="$(TZ=Asia/Jerusalem date +%H)"
+  HOUR="$((10#$HOUR))"
+  if [ "$HOUR" -ge 8 ] && [ "$HOUR" -lt 20 ]; then
+    FAILURE_HINT="Staff are working now. Run it after 20:00, or for an urgent fix: ALLOW_DAY_UPDATE=yes bash deploy/update.sh"
+    echo "It is $HOUR:00 in Israel: updates run between 20:00 and 08:00." >&2
+    false
+  fi
+fi
+
 step "Code" "git pull"
 git pull --ff-only
 

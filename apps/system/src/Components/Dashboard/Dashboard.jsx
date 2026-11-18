@@ -12,7 +12,6 @@ import { toast } from "../../ALERT/SystemToasts.jsx";
 import { canStored, getStoredPermissions, getStoredUserId } from "../../utils/session";
 import { canAccessPath } from "../../utils/routeAccess";
 import CopyParentLink from "../Student/CopyParentLink.jsx";
-import SystemAlerts from "../Notice/SystemAlerts.jsx";
 import VehicleAlerts from "../Vehicle/VehicleAlerts.jsx";
 import { useI18n } from "../../i18n/I18nContext";
 import { useRolePicker, permissionError } from "../User/RolePickerDialog.jsx";
@@ -106,7 +105,7 @@ export default function Dashboard() {
         if (cancelled) return;
 
         // The system account never reaches the client (GET /user leaves it
-        // out); the viewer doesn't count toward "المستخدمون".
+        // out); the viewer doesn't count toward "الطاقم".
         const currentUserId = String(getStoredUserId() || "");
         const users = (usersRes?.ok ? usersRes.users || [] : []).filter(
           (user) => String(user?._id ?? "") !== currentUserId
@@ -158,7 +157,7 @@ export default function Dashboard() {
       const activeUsers = data.users.filter((user) => user.room === "active").length;
       const waitingUsers = data.users.filter((user) => user.room === "waiting").length;
       cards.push(
-        { label: "المستخدمون", value: activeUsers, failed: loadFailed.users },
+        { label: "الطاقم", value: activeUsers, failed: loadFailed.users },
         { label: "مستخدمون بانتظار الموافقة", value: waitingUsers, failed: loadFailed.users }
       );
     }
@@ -292,7 +291,7 @@ export default function Dashboard() {
           <p>نظرة سريعة على أهم بيانات النظام.</p>
         </div>
         <div className={styles.links} data-tour="dashboard-links">
-          {canViewUsers && <Link to="/users">المستخدمون</Link>}
+          {canViewUsers && <Link to="/users">الطاقم</Link>}
           {canViewStudents && <Link to="/students">الطلاب</Link>}
           {canOpenLessons && <Link to="/lessons">البرامج</Link>}
           {canOpenReports && <Link to="/reports">التقارير</Link>}
@@ -304,7 +303,6 @@ export default function Dashboard() {
       {error && <div className={styles.error}>{error}</div>}
 
       <WeeklyTasksCard />
-      <SystemAlerts title="الإشعارات" showEmpty includeNotices={canStored("notices.view")} />
 
       <div className={styles.stats} data-tour="dashboard-stats">
         {summary.map((item, index) => (

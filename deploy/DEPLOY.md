@@ -227,6 +227,10 @@ curl -s -o /dev/null -w "%{http_code}" https://<domain>/api/it/me -H "X-Forwarde
 cd /var/www/tamheed && bash deploy/update.sh
 ```
 
+העדכון רץ רק בלילה, בין 20:00 ל-08:00 שעון ישראל, כי השרת נעצר לכמה שניות בזמן ההפעלה מחדש. ביום הסקריפט עוצר לפני שהוא נוגע במשהו. לתיקון דחוף ביום מריצים: `ALLOW_DAY_UPDATE=yes bash deploy/update.sh`.
+
+אחרי המעבר למשתמש `tamheed` (סעיף "משתמש נפרד למערכת" למטה) אפשר להמשיך להריץ את אותה פקודה כ-root. `update.sh` רואה שהתיקייה שייכת ל-`tamheed` ומריץ את כל העדכון בשמו. משתמש אחר (לא root ולא `tamheed`) נעצר עם הודעה איך להריץ. לפני המעבר שום דבר לא משתנה, חוץ מהערה שהעדכון רץ כ-root.
+
 בסוף הבנייה, `update.sh` מוחק את `node_modules` של שלושת האתרים (`apps/system`, `apps/sport`, `apps/it`). הם נחוצים רק לבנייה, והעדכון הבא מתקין אותם מחדש בכל מקרה. כך נחסכים כ-1–1.5GB בדיסק. החבילות של השרת (`server/node_modules`) נשארות.
 
 ### מקום בדיסק
@@ -498,6 +502,41 @@ sudo crontab -e
 30 2 * * * bash /var/www/tamheed/deploy/mongo-backup.sh >> /var/log/tamheed-backup.log 2>&1
 ```
 
+אחרי המעבר למשתמש `tamheed`, ה-cron נשאר של root (כדי ש-`tamheed` לא יוכל לגעת בגיבויים). הסקריפט מוצא בעצמו את ה-pm2 של `tamheed` (`/home/tamheed/.pm2`), כך שאותה שורה ממשיכה לעבוד. אפשר גם לכתוב את זה במפורש:
+
+```
+30 2 * * * PM2_HOME=/home/tamheed/.pm2 bash /var/www/tamheed/deploy/mongo-backup.sh >> /var/log/tamheed-backup.log 2>&1
+```
+
+**מה עוד הגיבוי עושה (2026-11-16):**
+
+- הגיבוי הראשון בכל חודש נשמר גם ב-`/var/backups/tamheed/monthly`, למשך שנה.
+- כל גיבוי מוצפן ומועתק לתיקייה פרטית בשם «النسخ الاحتياطية» ב-Google Drive של העמותה. ב-Drive נשמרים 7 עותקים יומיים ו-12 חודשיים. לשם כך צריך:
+  1. שחשבון Drive יהיה מחובר באתר ה-IT («التخزين»).
+  2. מפתח הצפנה בקובץ ההגדרות. מייצרים אותו פעם אחת עם `openssl rand -hex 32` ומוסיפים ל-`server/config/.env` את השורה `BACKUP_ENC_KEY_HEX=<המפתח>`. **שומרים עותק של המפתח מחוץ לשרת** (במסמך החירום, לא במאגר). בלי המפתח אי אפשר לקרוא את העותקים שב-Drive.
+- תוצאת כל ריצה (גיבוי ועותק ב-Drive) מופיעה באתר ה-IT, בכרטיס «حالة الخادم» בהגדרות. כשמשהו נכשל, או לא רץ יותר מ-36 שעות, מופיעה התראה אדומה בכל מסך באתר ה-IT. באותו כרטיס מופיע גם המקום הפנוי בדיסק (נבדק כל שעה, התראה מתחת ל-15%).
+- `OFFSITE=no` מגבה רק על השרת.
+
+**בדיקת שחזור שבועית.** פעם בשבוע הגיבוי האחרון משוחזר למסד נתונים זמני ונפרד (`tamheed_restore_check`), נבדק שחשבונות הצוות חזרו, והמסד הזמני נמחק. המסד האמיתי לא נוגעים בו. פעם אחת נותנים למשתמש של האפליקציה הרשאה על המסד הזמני (עם משתמש המנהל של סעיף 4):
+
+```bash
+mongosh "mongodb://admin@127.0.0.1:27017/admin" --eval 'db.getSiblingDB("tamheed_db").grantRolesToUser("tamheed", [{ role: "readWrite", db: "tamheed_restore_check" }])'
+```
+
+ומוסיפים ל-cron של root (כל יום ראשון ב-03:30):
+
+```
+30 3 * * 0 cd /var/www/tamheed && node server/scripts/restoreCheck.js >> /var/log/tamheed-backup.log 2>&1
+```
+
+**שחזור מעותק שב-Drive** (כשהשרת אבד): מורידים את הקובץ `.enc` מהתיקייה «النسخ الاحتياطية», ובשרת החדש (אחרי התקנת הקוד וקובץ ההגדרות עם אותו `BACKUP_ENC_KEY_HEX`):
+
+```bash
+node server/scripts/backupOffsite.js decrypt tamheed-<...>.archive.gz.enc /tmp/restore.archive.gz
+```
+
+ואז משחזרים את `/tmp/restore.archive.gz` כמו בפקודת השחזור שלמטה.
+
 בדיקה מיידית:
 
 ```bash
@@ -505,7 +544,7 @@ bash /var/www/tamheed/deploy/mongo-backup.sh
 ls -lh /var/backups/tamheed
 ```
 
-> הגיבויים יושבים על אותו שרת. אם השרת עצמו נהרס, הם הולכים יחד איתו. עד שהגיבוי ל-Drive של שלב ב' ייבנה, מורידים מדי פעם עותק למחשב שלך (מהמחשב, לא מהשרת):
+> אפשר גם להוריד עותק למחשב שלך (מהמחשב, לא מהשרת):
 > ```bash
 > scp root@system.tamheed-ramla.org:/var/backups/tamheed/tamheed-*.archive.gz .
 > ```
@@ -518,6 +557,78 @@ mongorestore --uri="mongodb://admin@127.0.0.1:27017/?authSource=admin" --gzip --
 mongosh "mongodb://admin@127.0.0.1:27017/tamheed_db?authSource=admin" --quiet --eval 'db.getCollectionNames().sort().forEach(c => print(c, db.getCollection(c).countDocuments()))'
 pm2 start tamheed
 ```
+
+## משתמש נפרד למערכת (במקום root)
+
+עד 2026-11 המערכת רצה ב-pm2 של root. כך, חור עתידי במערכת היה נותן גישה לכל השרת: למפתחות שב-`.env`, לגיבויים ולהתקנת תוכנות. מעבירים אותה למשתמש מוגבל בשם `tamheed`. אתה ממשיך להתחבר לשרת כ-root כרגיל. Mongo כבר רץ כ-`mongodb` ולא נוגעים בו. עושים את זה בלילה, והמערכת למטה כמה דקות (משלב 3 עד שלב 5).
+
+0. בדיקות: `ps -o user= -p $(pgrep -f "server.js" | head -1)` (צריך לצאת `root`), `ps -o user= -C mongod` (צריך לצאת `mongodb`), `pm2 ls` (רק `tamheed` ו-`pm2-logrotate`), ו-`git remote -v` בתיקיית הפרויקט (כתובת `https://`; אם היא `git@`, צריך קודם לתת ל-`tamheed` גישה ל-GitHub).
+1. גיבוי: `bash /var/www/tamheed/deploy/mongo-backup.sh`
+2. יצירת המשתמש (בלי סיסמה, אי אפשר להתחבר איתו מבחוץ):
+   ```bash
+   useradd -m -s /bin/bash tamheed
+   sudo -iu tamheed bash -c 'node -v && pm2 -v'
+   ```
+3. עצירה אצל root: `pm2 delete tamheed && pm2 save --force && pm2 unstartup systemd`
+4. העברת התיקייה:
+   ```bash
+   chown -R tamheed:tamheed /var/www/tamheed
+   chmod 600 /var/www/tamheed/server/config/.env
+   ```
+5. הפעלה אצל `tamheed`:
+   ```bash
+   sudo -iu tamheed bash -c 'cd /var/www/tamheed && pm2 start deploy/ecosystem.config.js && pm2 save'
+   sudo -iu tamheed pm2 install pm2-logrotate
+   env PATH=$PATH:/usr/bin pm2 startup systemd -u tamheed --hp /home/tamheed
+   ```
+6. בדיקה: `ps -o user= -p $(pgrep -f "server.js" | head -1)` מדפיס `tamheed`, והאתר עובד.
+7. הגיבוי הלילי: מחליפים את שורת ה-cron של root בשורה עם `PM2_HOME=/home/tamheed/.pm2` (סעיף "גיבוי לילי" למעלה), ומריצים אותה פעם אחת ביד.
+8. רק אחרי ששלבים 6–7 עברו: `pm2 uninstall pm2-logrotate && pm2 kill` (ה-pm2 של root כבר לא צריך).
+
+עדכונים: ממשיכים עם `cd /var/www/tamheed && bash deploy/update.sh`, והסקריפט עובר ל-`tamheed` לבד.
+
+חזרה למצב הקודם, אם משהו נשבר:
+
+```bash
+sudo -iu tamheed pm2 kill; chown -R root:root /var/www/tamheed; cd /var/www/tamheed && pm2 start deploy/ecosystem.config.js && pm2 save && pm2 startup
+```
+
+ומחזירים את שורת ה-cron בלי `PM2_HOME=...`.
+
+## הגנה על השרת עצמו (2026-11-16)
+
+שני דברים שמריצים פעם אחת כ-root. הכניסה שלך לשרת לא משתנה.
+
+**1. חסימת מי שמנחש סיסמאות (fail2ban).** רובוטים מנסים לנחש את הסיסמה של root כל הזמן. fail2ban חוסם לשעה כתובת שטעתה 5 פעמים בתוך 10 דקות:
+
+```bash
+apt install -y fail2ban
+printf '[sshd]
+enabled = true
+maxretry = 5
+findtime = 10m
+bantime = 1h
+' > /etc/fail2ban/jail.local
+systemctl enable --now fail2ban
+fail2ban-client status sshd
+```
+
+אם נחסמת בעצמך, נכנסים דרך המסוף של Kamatera ומריצים `fail2ban-client set sshd unbanip <הכתובת שלך>`.
+
+**2. עדכוני אבטחה אוטומטיים ל-Ubuntu.** קודם בודקים אם הם כבר פועלים:
+
+```bash
+systemctl is-enabled unattended-upgrades; cat /etc/apt/apt.conf.d/20auto-upgrades
+```
+
+אם לא (או שהשורות לא מסתיימות ב-`"1"`):
+
+```bash
+apt install -y unattended-upgrades
+dpkg-reconfigure -f noninteractive unattended-upgrades
+```
+
+מותקנים רק תיקוני אבטחה. עדכונים גדולים (גרסה חדשה של Ubuntu, Node או MongoDB) נשארים ידניים.
 
 ## אם משהו לא עובד
 

@@ -1,12 +1,10 @@
 import React from "react";
-import { act, allByTestId, allByText, byTestId, byText, cleanup, queryByText, render } from "./displayTestDom";
+import { allByTestId, allByText, byTestId, byText, cleanup, queryByText, render } from "./displayTestDom";
 import WeekLayout from "./WeekLayout";
-import TodayLayout from "./TodayLayout";
-import RotateLayout from "./RotateLayout";
 
 // The wall layouts as real timetables (owner, 2026-11-12): hours down the
-// side and every lesson at its time, not a list; the week and the day-by-day
-// rotation always run Sunday to Saturday.
+// side and every lesson at its time, not a list; the week always runs Sunday
+// to Saturday. Only the week and the rooms board remain (owner, 2026-11-14).
 
 afterEach(cleanup);
 
@@ -18,8 +16,6 @@ const stateOf = (name) => byText(name).closest("[data-state]").getAttribute("dat
 
 describe.each([
   ["week", WeekLayout],
-  ["today", TodayLayout],
-  ["rotate", RotateLayout],
 ])("%s layout", (_name, Layout) => {
   test("a day with 14 lessons shows all 14", () => {
     render(<Layout lessons={many} today={3} minute={700} />);
@@ -87,66 +83,6 @@ describe("week", () => {
   });
 });
 
-describe("today", () => {
-  test("finished dimmed, next marked, coming days on the side", () => {
-    render(<TodayLayout lessons={[L("أ", 3, 840, 900), L("ب", 3, 1000, 1050), L("ج", 4, 600, 660), L("د", 1, 700, 760)]} today={3} minute={950} />);
-    expect(stateOf("أ")).toBe("past");
-    const next = byText("ب").closest("[data-state]");
-    expect(next.getAttribute("data-state")).toBe("next");
-    expect(byText("التالي", next)).toBeTruthy();
-    const side = byTestId("display-coming");
-    expect(allByTestId("display-coming-day", side).map((el) => el.textContent)).toEqual([
-      expect.stringContaining("الأربعاء"), expect.stringContaining("الأحد"),
-    ]);
-    expect(byText(/ج 10:00/, side)).toBeTruthy();
-  });
-
-  test("a day with no lessons says so and keeps the side column", () => {
-    render(<TodayLayout lessons={[L("ج", 4, 600, 660)]} today={3} minute={950} />);
-    expect(byText("لا برامج اليوم")).toBeTruthy();
-    expect(byTestId("display-coming")).toBeTruthy();
-  });
-
-  test("a long day moves with the clock", () => {
-    const day = [L("أ", 3, 540, 600), L("ب", 3, 1200, 1260)];
-    const { rerender } = render(<TodayLayout lessons={day} today={3} minute={800} />);
-    expect(byTestId("display-room-track").getAttribute("data-from")).toBe("740");
-    rerender(<TodayLayout lessons={day} today={3} minute={900} />);
-    expect(byTestId("display-room-track").getAttribute("data-from")).toBe("840");
-  });
-});
-
-describe("rotate", () => {
-  beforeEach(() => jest.useFakeTimers());
-  afterEach(() => jest.useRealTimers());
-
-  test("Sunday to Saturday, from today, 15 seconds each, empty days included", () => {
-    render(<RotateLayout lessons={[L("أ", 3, 600, 660), L("ب", 5, 600, 660)]} today={3} minute={0} />);
-    expect(allByTestId("display-rotate-dot").map((d) => d.textContent)).toEqual(DAYS);
-    expect(byTestId("display-rotate-day").textContent).toContain("الثلاثاء");
-    expect(byText("أ")).toBeTruthy();
-    act(() => { jest.advanceTimersByTime(15000); });
-    expect(byTestId("display-rotate-day").textContent).toContain("الأربعاء");
-    expect(byText("لا برامج في هذا اليوم")).toBeTruthy();
-    act(() => { jest.advanceTimersByTime(15000); });
-    expect(byTestId("display-rotate-day").textContent).toContain("الخميس");
-    expect(byText("ب")).toBeTruthy();
-    act(() => { jest.advanceTimersByTime(15000 * 5); });
-    expect(byTestId("display-rotate-day").textContent).toContain("الثلاثاء");
-  });
-
-  test("each day is a rooms board: every room a column", () => {
-    render(<RotateLayout lessons={[L("أ", 3, 600, 660, { room: "2" })]} today={3} minute={0} />);
-    expect(heads()).toEqual(["غرفة 1", "غرفة 2", "غرفة 3", "غرفة 4", "غرفة 5", "المصلى", "مقر قديم", "الساحة", "التدريب الخارجي"]);
-    expect(byText("أ").closest("[data-room]").getAttribute("data-room")).toBe("n2");
-  });
-
-  test("an empty week says so", () => {
-    render(<RotateLayout lessons={[]} today={3} minute={0} />);
-    expect(byText("لا برامج هذا الأسبوع")).toBeTruthy();
-  });
-});
-
 test("week: today's column is twice as wide (owner, 2026-11-12: a busy day stays readable)", () => {
   render(<WeekLayout lessons={[L("أ", 3, 600, 660)]} today={3} minute={0} />);
   const template = document.querySelector("[data-testid=display-room-track]").parentElement.parentElement.firstChild.style.gridTemplateColumns;
@@ -158,13 +94,4 @@ test("week: a short lesson keeps its room beside its name (Codex review)", () =>
   const block = byText("قصير").closest("[data-size]");
   expect(block.getAttribute("data-size")).toBe("xxs");
   expect(block.querySelector("[data-room-inline]").textContent).toContain("المصلى");
-});
-
-test("today: a busy coming day shows its first three lessons and how many more (Codex review)", () => {
-  const busy = Array.from({ length: 7 }, (_, i) => L(`درس ${i + 1}`, 4, 600 + i * 60, 650 + i * 60));
-  render(<TodayLayout lessons={[L("أ", 3, 600, 660)].concat(busy)} today={3} minute={0} />);
-  const day = allByTestId("display-coming-day")[0];
-  expect(day.textContent).toContain("درس 3");
-  expect(day.textContent).not.toContain("درس 4");
-  expect(day.querySelector("b").textContent).toContain("+4");
 });

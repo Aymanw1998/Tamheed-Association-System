@@ -268,12 +268,18 @@ test("invalid dates give 400 BAD_DATE", async () => {
   } finally { server.close(); }
 });
 
-test("ensureAuditIndexes creates the time and target indexes and the archived-row TTL", async () => {
+test("ensureAuditIndexes creates the time and target indexes, the archived-row TTL and the three-year TTL", async () => {
   const { ensureAuditIndexes, AUDIT_INDEXES, ARCHIVE_KEEP_DAYS } = require("../Entities/Audit/Audit.model");
   const calls = [];
   await ensureAuditIndexes({ createIndex: async (spec, options) => calls.push(options ? [spec, options] : spec) });
   assert.deepEqual(AUDIT_INDEXES, [{ at: -1 }, { targetId: 1, at: -1 }]);
-  // Archived rows go about six months after archiving; current rows (archivedAt null) never.
+  // Archived rows go about six months after archiving; every row three years
+  // after it happened (owner, 2026-11-16).
   assert.equal(ARCHIVE_KEEP_DAYS, 183);
-  assert.deepEqual(calls, [{ at: -1 }, { targetId: 1, at: -1 }, [{ archivedAt: 1 }, { expireAfterSeconds: 183 * 24 * 60 * 60 }]]);
+  assert.deepEqual(calls, [
+    { at: -1 },
+    { targetId: 1, at: -1 },
+    [{ archivedAt: 1 }, { expireAfterSeconds: 183 * 24 * 60 * 60 }],
+    [{ at: 1 }, { expireAfterSeconds: Math.round(3 * 365.25 * 24 * 60 * 60) }],
+  ]);
 });

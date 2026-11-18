@@ -235,8 +235,9 @@ test("hasVehiclePermission: admin role defaults hold all, others need explicit g
 test("hasVehiclePermission accepts a permission Set or a loaded actor", () => {
   assert.equal(rules.hasVehiclePermission(new Set(["vehicles.view", "vehicles.edit"]), "edit"), true);
   assert.equal(rules.hasVehiclePermission(new Set(["vehicles.edit"]), "edit"), false);
-  const actor = { roles: [], permissions: new Set(["vehicles.view", "vehicles.archive"]) };
-  assert.equal(rules.hasVehiclePermission(actor, "archive"), true);
+  const actor = { roles: [], permissions: new Set(["vehicles.view", "vehicles.compliance"]) };
+  assert.equal(rules.hasVehiclePermission(actor, "compliance"), true);
+  assert.equal(rules.hasVehiclePermission(actor, "archive"), false, "the archive is gone (owner, 2026-11-15)");
   assert.equal(rules.hasVehiclePermission(actor, "documents"), false);
   assert.equal(rules.hasVehiclePermission(undefined, "view"), false);
 });

@@ -76,7 +76,6 @@ function loadController({ students = [], rules = [{ version: 1, text: "the rules
     links: createModel(),
     rules: createModel(rules),
     consents: createModel([], { uniqueKey: "studentId" }),
-    consentHistory: createModel(),
   };
   const drive = {
     uploads: [],
@@ -89,7 +88,7 @@ function loadController({ students = [], rules = [{ version: 1, text: "the rules
     crypto: require("node:crypto"),
     "./defaultRules": require("../Entities/InviteToken/defaultRules"),
     "./InviteToken.model": { InviteTokenModelDef: models.links },
-    "./Rules.model": { RulesModelDef: models.rules, ConsentModelDef: models.consents, ConsentHistoryModelDef: models.consentHistory },
+    "./Rules.model": { RulesModelDef: models.rules, ConsentModelDef: models.consents },
     "../../utils/grades": require("../utils/grades"),
     "../Student/Student.model": { StudentModelDef: models.students },
     "../UploadFile/file": drive,
@@ -195,6 +194,18 @@ test("a parent request joins the waiting list with server-set status and source"
   assert.equal(student.source, "اهل");
   assert.equal(student.main_teacher, null);
   assert.equal(student.photo, "");
+});
+
+// Codex review, 2026-11-18: a graduate from the public form gets the year too.
+test("a parent request for a graduate records the graduation year; another grade does not", async () => {
+  const { GRADUATE } = require("../utils/grades");
+  const ctrl = loadController();
+  const token = await currentToken(ctrl);
+  await call(ctrl.submitRegistration, { params: { token }, body: registration({ layer: GRADUATE }) });
+  const [student] = ctrl.models.students.snapshot();
+  assert.equal(student.layer, GRADUATE);
+  assert.equal(typeof student.graduationYear, "number");
+  assert.ok(student.graduationYear >= 2026);
 });
 
 test("a known ID number gets the same reply and nothing is saved", async () => {
@@ -717,35 +728,34 @@ test("changed rules require fresh acceptance without consuming a signing link", 
   assert.equal((await call(ctrl.submitConsentLink, { body: { ...registration({ rulesVersion: "2" }), token } })).statusCode, 200);
 });
 
-test("signature updates retain evidence and invalidate stale versions and older links", async () => {
+// Owner, 2026-11-15: earlier signatures are not kept; a new one replaces the old.
+test("signature updates replace the old signature and invalidate stale versions and older links", async () => {
   const ctrl = loadController({ students: [{ tz: "1" }] }), params = { studentId: ctrl.models.students.snapshot()[0]._id };
   await call(ctrl.signConsent, { params, body: registration() });
-  const original = plain(ctrl.models.consents.snapshot()[0]), oldToken = await personalLink(ctrl, params.studentId);
+  const oldToken = await personalLink(ctrl, params.studentId);
   const read = (await call(ctrl.getConsent, { params })).body.consent;
   assert.equal((await call(ctrl.signConsent, { params, body: registration({ signerName: "New parent", baseConsentVersion: read.revision }) })).statusCode, 200);
+  assert.equal(ctrl.models.consents.snapshot().length, 1, "one signature per student, the old one is not kept");
   assert.equal(ctrl.models.consents.snapshot()[0].signerName, "New parent");
-  const [history] = ctrl.models.consentHistory.snapshot();
-  assert.equal(history.signature, original.signature); assert.equal(history.signerName, original.signerName);
-  assert.equal(history.rulesVersion, original.rulesVersion); assert.equal(history.sourceConsentId, original._id);
   assert.equal((await call(ctrl.submitConsentLink, { body: { ...registration(), token: oldToken } })).statusCode, 410);
   assert.equal((await call(ctrl.signConsent, { params, body: registration({ baseConsentVersion: read.revision }) })).statusCode, 409);
   assert.equal(ctrl.models.consents.snapshot()[0].signerName, "New parent");
 });
 
-test("concurrent edits preserve one winner and one immutable historical snapshot", async () => {
+test("concurrent edits preserve one winner", async () => {
   const ctrl = loadController({ students: [{ tz: "1" }] }), params = { studentId: ctrl.models.students.snapshot()[0]._id };
   await call(ctrl.signConsent, { params, body: registration() });
   const revision = (await call(ctrl.getConsent, { params })).body.consent.revision;
   const results = await Promise.all(["First", "Second"].map((signerName) => call(ctrl.signConsent, { params, body: registration({ signerName, baseConsentVersion: revision }) })));
   assert.deepEqual(results.map((row) => row.statusCode).sort(), [200, 409]);
-  assert.equal(ctrl.models.consentHistory.snapshot().length, 1); assert.equal(ctrl.models.consentHistory.snapshot()[0].signerName, "Parent");
+  assert.equal(ctrl.models.consents.snapshot().length, 1);
 });
 
 test("parallel parent submissions never overwrite accepted evidence", async () => {
   const ctrl = loadController({ students: [{ tz: "1" }] }), token = await personalLink(ctrl, ctrl.models.students.snapshot()[0]._id);
   const results = await Promise.all(["First", "Second"].map((signerName) => call(ctrl.submitConsentLink, { body: { ...registration({ signerName }), token } })));
   assert.ok(results.some((row) => row.statusCode === 200)); assert.equal(ctrl.models.consents.snapshot().length, 1);
-  assert.equal(ctrl.models.consentHistory.snapshot().length, 0); assert.equal(ctrl.models.links.snapshot()[0].used, true);
+  assert.equal(ctrl.models.links.snapshot()[0].used, true);
 });
 
 test("partial parent signing repairs the student marker without replacing original evidence", async () => {
@@ -781,13 +791,4 @@ test("a versioned pending retry repairs its marker without overwriting the accep
   const evidence = plain(ctrl.models.consents.snapshot()[0]); ctrl.models.students.updateExisting = update;
   assert.equal((await call(ctrl.signConsent, { params, body: registration({ signerName: "Retry", baseConsentVersion: revision }) })).statusCode, 200);
   assert.deepEqual(plain(ctrl.models.consents.snapshot()[0]), evidence); assert.ok(ctrl.models.students.snapshot()[0].consentAt);
-});
-
-test("failure to retain prior evidence prevents signature replacement", async () => {
-  const ctrl = loadController({ students: [{ tz: "1" }] }), params = { studentId: ctrl.models.students.snapshot()[0]._id };
-  await call(ctrl.signConsent, { params, body: registration() });
-  const previous = plain(ctrl.models.consents.snapshot()[0]), revision = (await call(ctrl.getConsent, { params })).body.consent.revision;
-  ctrl.models.consentHistory.create = async () => { throw new Error("archive unavailable"); };
-  assert.equal((await call(ctrl.signConsent, { params, body: registration({ signerName: "Replacement", baseConsentVersion: revision }) })).statusCode, 500);
-  assert.deepEqual(plain(ctrl.models.consents.snapshot()[0]), previous);
 });

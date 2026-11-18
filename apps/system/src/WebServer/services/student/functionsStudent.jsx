@@ -126,9 +126,11 @@ export const deletePhoto = async(tz) => {
  * ملاحظة عربية
  * @param {string} idOrName
  */
+// Asks first, then the record goes to «سلة المحذوفات» and the page offers
+// "تراجع" (utils/undoDelete.js) (owner, 2026-11-17). null means cancelled.
 export const deleteS= async(idOrName,{confirm = true} = {}) => {
     if(confirm) {
-        const ok = await ask("delete");
+        const ok = await ask("trash").catch(() => false);
         if(!ok) {
             return null;
         }
@@ -136,7 +138,7 @@ export const deleteS= async(idOrName,{confirm = true} = {}) => {
     try{
         const { data, status } = await api.delete(`/student/${encodeURIComponent(idOrName)}`);
         if (![200,201].includes(status) || !data?.ok) throw new Error(data?.message || 'تعذّر حذف الطالب');
-        return {ok: true, student: null}
+        return {ok: true, student: null, trashId: data.trashId}
     } catch(err) {
         return {ok: false, status: err.response?.status, data: err.response?.data, message: err.response?.data?.message || err.message || 'تعذّر إتمام العملية.'};
     }

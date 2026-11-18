@@ -14,6 +14,10 @@ import MobileLessonList from "./MobileLessonList";
 import { ask } from "../Provides/confirmBus";
 import FilterDialog from "../UI/FilterDialog.jsx";
 import Button from "../UI/Button";
+import { weeklyProgramRows } from "../../utils/printLists";
+import { getProgramsSummary } from "../../WebServer/services/exports/functionsExports";
+import { downloadWorkbook, programsSheet } from "../../utils/excelExport";
+import { asButton } from "../../utils/keyActivate";
 
 /* =======================
    Helpers
@@ -179,6 +183,7 @@ function WeekTimeline({
                 <div
                   key={l._id}
                   className={styles.lessonBlock}
+                  {...asButton(lessonLabel(l))}
                   data-tour="lessons-open"
                   style={{ top, height }}
                   draggable={!l.readOnly && canEdit && canStored("lessons.edit")}
@@ -597,19 +602,51 @@ export default function ViewAllLesson() {
     </Button>
   );
 
+  const [summaryMonth, setSummaryMonth] = useState(() => new Date().toISOString().slice(0, 7));
+  const [exportingMonth, setExportingMonth] = useState(false);
+  const exportMonth = async () => {
+    setExportingMonth(true);
+    try {
+      const res = await getProgramsSummary(summaryMonth);
+      if (!res.ok) { toast.error(res.message); return; }
+      await downloadWorkbook(`ملخص البرامج ${res.month}`, [programsSheet(res.rows || [], roomLabel)]);
+    } catch {
+      toast.error("تعذّر إنشاء الملف، حاول مرة أخرى");
+    } finally {
+      setExportingMonth(false);
+    }
+  };
+  const printProgram = async () => {
+    const { exportTablePdf } = await import("../ExportPDF/ExportPDF.jsx");
+    await exportTablePdf({
+      title: "برنامج الأسبوع",
+      columns: ["اليوم", "الساعة", "البرنامج", "الغرفة", "المرشد"],
+      rows: weeklyProgramRows(filteredLessons, { teacherName: (l) => (l.readOnly ? SYSTEM_TEACHER : teacherNames?.[l.teacher]), roomName: roomLabel }),
+      fileNameBase: "برنامج الأسبوع",
+    });
+  };
   const outsideHours = filteredLessons.filter((lesson) => !validProgramHours(getStart(lesson), getEnd(lesson)));
   const timelineLessons = filteredLessons.filter((lesson) => validProgramHours(getStart(lesson), getEnd(lesson)));
   return (
     <div>
       <h1 className={styles.title}>برنامج الأسبوع</h1>
       <p>ساعات البرامج: 13:00–22:00</p>
+      {/* A clean A4 print of the program as filtered (owner, 2026-11-16). */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+        <Button variant="secondary" size="sm" disabled={!filteredLessons.length} onClick={printProgram}>طباعة البرنامج</Button>
+        {/* The month's programs to Excel, managers only, logged (owner, 2026-11-16). */}
+        {canStored("lessons.viewAll") && canStored("attendance.view") && canStored("lessons.exportExcel") && <>
+          <input type="month" aria-label="شهر الملخص" value={summaryMonth} onChange={(event) => setSummaryMonth(event.target.value)} style={{ width: "auto" }} />
+          <Button variant="secondary" size="sm" disabled={!summaryMonth} loading={exportingMonth} onClick={exportMonth}>ملخص الشهر Excel</Button>
+        </>}
+      </div>
 
       {/* ===== Filters + Controls ===== */}
       <div className={styles.controlsBar} data-tour="lessons-filters">
         <div className={styles.controlsCenter}>
           {!isMobile && <div className={styles.filterGroup}>
-            <label>نوع الجدول</label>
-            <select data-tour="lessons-view-mode" value={viewMode} onChange={(e) => setViewMode(e.target.value)}>
+            <label htmlFor="lessons-view-mode">نوع الجدول</label>
+            <select id="lessons-view-mode" data-tour="lessons-view-mode" value={viewMode} onChange={(e) => setViewMode(e.target.value)}>
               <option value="week">أسبوعي (حسب الأيام)</option>
               <option value="dayRooms">يومي (حسب الأماكن)</option>
             </select>
@@ -617,8 +654,8 @@ export default function ViewAllLesson() {
 
           {viewMode === "dayRooms" && (
             <div className={styles.filterGroup}>
-              <label>اليوم</label>
-              <select value={selectedDay} onChange={(e)=>setSelectedDay(Number(e.target.value))}>
+              <label htmlFor="lessons-day">اليوم</label>
+              <select id="lessons-day" value={selectedDay} onChange={(e)=>setSelectedDay(Number(e.target.value))}>
                 {dayNames.map((d, i)=>(
                   <option key={i+1} value={i+1}>{d}</option>
                 ))}

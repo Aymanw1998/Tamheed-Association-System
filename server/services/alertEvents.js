@@ -73,6 +73,20 @@ function createAlertEvents({ engine, now = () => new Date() } = {}) {
     params: { remaining, week }, rule: { tz: user.tz }, link: "/weekly-tasks",
     dedupKey: `weekly_tasks_overdue:${user.tz}:${week}`,
   });
+  // The same week's end, to who manages the association's weekly tasks
+  // (tasks.viewAll, or tasks.manage with create or edit), with the guide's
+  // name; not to the guide, who has his own (owner, 2026-11-17).
+  const weeklyTasksOverdueStaff = async (user = {}, remaining, week) => {
+    const e = getEngine();
+    const rule = [{ permission: "tasks.viewAll" }, { permissions: ["tasks.manage", "tasks.create"] }, { permissions: ["tasks.manage", "tasks.edit"] }];
+    const recipients = (await e.recipientsFor(rule)).filter((tz) => tz !== String(user.tz));
+    if (!recipients.length) return { created: [] };
+    return e.raise({
+      type: "weekly_tasks_overdue_staff", severity: defaultSeverity("weekly_tasks_overdue_staff"),
+      text: renderAlert("weekly_tasks_overdue_staff", { name: fullName(user), remaining, week }),
+      link: "/weekly-tasks", dedupKey: `weekly_tasks_overdue_staff:${user.tz}:${week}`, recipients,
+    });
+  };
   const weeklyTasksGreeting = (user, text, deliveryId) => send("weekly_tasks_greeting", {
     params: { text }, rule: { tz: user.tz }, link: "/weekly-tasks",
     dedupKey: `weekly_tasks_greeting:${deliveryId}`,
@@ -141,7 +155,7 @@ function createAlertEvents({ engine, now = () => new Date() } = {}) {
     });
   }
 
-  return { weeklyTasks, weeklyTaskAdded, weeklyTasksOverdue, weeklyTasksGreeting, parentRegistered, userWaiting, adminAdded, accountLocked, accessChanged, systemLoginFailures, vehicleStage };
+  return { weeklyTasks, weeklyTaskAdded, weeklyTasksOverdue, weeklyTasksOverdueStaff, weeklyTasksGreeting, parentRegistered, userWaiting, adminAdded, accountLocked, accessChanged, systemLoginFailures, vehicleStage };
 }
 
 const events = createAlertEvents();

@@ -14,6 +14,7 @@ const LAST_DATE_KEY = 99991231;
 const ATTENDANCE_ROWS = 200;
 const { checkVersion, editorStamp, sameVersion, raceLost } = require("../../middleware/lockGuard");
 const { isDuplicateKey } = require("../../utils/tzUnique");
+const { graduationPatch } = require("../../utils/grades");
 const { notifyChange, liveHub } = require("../../services/liveHub");
 const { playerPhotoJob } = require("../../services/playerPhotoJob");
 const { passportPhotoJob } = require("../../services/passportPhotoJob");
@@ -224,6 +225,11 @@ const getOneS = async (req, res) => {
           year: Number(r.year), month: Number(r.month), day: Number(r.day), status: r.status || "", notes: r.notes || "",
         }));
     }
+    // A look at health or the parents' phones is written down (owner, 2026-11-16).
+    await Promise.resolve().then(() => {
+      const views = require("../../utils/sensitiveViews");
+      return views.sensitiveViews.record(req, { studentId: sid, studentLabel: studentLabel(student), fields: views.sensitiveFieldsOf(student) });
+    }).catch((e) => logWithSource("Student.getOneS.views", e));
     return res.status(200).json({
       ok: true,
       student,
@@ -242,6 +248,7 @@ const postS = async (req, res) => {
   let releasePrograms = async () => {};
   try {
     const model = buildData(req.body);
+    Object.assign(model, graduationPatch(model.layer));
     const assigns = mayAssignInstructor(req.actor);
     // A creator without students.viewAll becomes the responsible guide, so he
     // keeps seeing the student he just added.
@@ -343,6 +350,8 @@ const putS = async (req, res) => {
     }
 
     const newData = removeEmpty(buildData(req.body));
+    // خريج gets the year it was chosen; another class drops it (owner, 2026-11-16).
+    Object.assign(newData, graduationPatch(newData.layer, existing.result[0]));
     // buildData's default is for a new student: a parent's request stays a parent's after approval.
     if (!hasValue(req.body?.source)) delete newData.source;
     if (!assigns) delete newData.main_teacher;
@@ -444,27 +453,39 @@ const deleteS = async (req, res) => {
     // Only the record found above, never every record sharing the tz.
     const stale = checkVersion(existing.result[0], req);
     if (stale) return res.status(409).json(stale);
-    const deleted = await StudentModelDef.delete(sameVersion({ _id: String(existing.result[0]._id) }, existing.result[0]));
-    if (!deleted?.result?.deletedCount) return res.status(409).json(await raceLost(() => StudentModelDef.get({ _id: String(existing.result[0]._id) })));
-    await recordStudent(req, "delete", existing.result[0], null);
-    notifyChange("student", existing.result[0]._id);
-    await forgetAlerts("student", existing.result[0]._id);
-    // A parent's signature goes with the request it belongs to.
-    await Promise.resolve().then(() => require("../InviteToken/Rules.model").ConsentModelDef.delete({ studentId: String(existing.result[0]._id) }))
-      .catch((e) => logWithSource("Student.delete.consent", e));
-    await Promise.resolve().then(() => require("../InviteToken/Rules.model").ConsentHistoryModelDef.delete({ studentId: String(existing.result[0]._id) }))
-      .catch((e) => logWithSource("Student.delete.consentHistory", e));
-    await Promise.resolve().then(() => require("../InviteToken/InviteToken.model").InviteTokenModelDef.delete({ purpose: "student-consent", studentId: String(existing.result[0]._id) }))
-      .catch((e) => logWithSource("Student.delete.consentLinks", e));
-    // Its player photo goes with it, at once.
-    await playerPhotoJob.remove(existing.result[0]._id).catch((e) => logWithSource("Student.delete.playerPhoto", e));
-
-    // Rejecting a waiting-list request or deleting a student also removes the
-    // photo from Drive, so no orphaned files stay behind.
-    const photo = existing.result[0]?.photo;
-    if (photo) {
-      await handleDeleteByUrl(photo);
+    const student = existing.result[0];
+    const studentId = String(student._id);
+    // The recycle bin (owner, 2026-11-16): the record and the parent's
+    // signature are kept 30 days; the photo stays on Drive until then.
+    // No copy of the signature, no delete: it would be lost for good
+    // (Codex review, 2026-11-18).
+    let consents;
+    try {
+      const found = await require("../InviteToken/Rules.model").ConsentModelDef.get({ studentId });
+      if (found?.success === false) throw new Error("consent read failed");
+      consents = found?.result || [];
+    } catch (e) {
+      logWithSource("Student.delete.consentCopy", e);
+      return res.status(503).json({ ok: false, code: "CONSENT_COPY_FAILED", message: "تعذر حفظ نسخة من توقيع ولي الأمر، لذلك لم يُحذف الطالب. حاول مرة أخرى" });
     }
+    const trashId = await recycleBin().put("student", {
+      refId: studentId, label: studentLabel(student), data: student, extras: { consents }, actor: req.actor,
+    });
+    const deleted = await StudentModelDef.delete(sameVersion({ _id: studentId }, student));
+    if (!deleted?.result?.deletedCount) {
+      await recycleBin().drop(trashId);
+      return res.status(409).json(await raceLost(() => StudentModelDef.get({ _id: studentId })));
+    }
+    await recordStudent(req, "delete", student, null);
+    notifyChange("student", student._id);
+    await forgetAlerts("student", student._id);
+    // A parent's signature goes with the request it belongs to (a copy is in the bin).
+    await Promise.resolve().then(() => require("../InviteToken/Rules.model").ConsentModelDef.delete({ studentId }))
+      .catch((e) => logWithSource("Student.delete.consent", e));
+    await Promise.resolve().then(() => require("../InviteToken/InviteToken.model").InviteTokenModelDef.delete({ purpose: "student-consent", studentId }))
+      .catch((e) => logWithSource("Student.delete.consentLinks", e));
+    // Its player photo goes with it, at once (it is made again on restore).
+    await playerPhotoJob.remove(student._id).catch((e) => logWithSource("Student.delete.playerPhoto", e));
 
     await safeNotify({
       toRoles: ["ادارة"],
@@ -479,6 +500,7 @@ const deleteS = async (req, res) => {
     return res.status(200).json({
       ok: true,
       deleted,
+      trashId,
     });
   } catch (err) {
     logWithSource("Student.deleteS", err);
@@ -662,6 +684,90 @@ const lookupS = async (req, res) => {
   }
 };
 
+// The recycle bin's steps for a student (owner, 2026-11-16; services/recycleBin.js).
+const recycleBin = () => require("../../services/recycleBin").recycleBin;
+const studentLabel = (s) => `${s.firstname || ""} ${s.lastname || ""}`.trim() || String(s.tz || "");
+const trashHooks = {
+  // Same scope as deleting: managers see all; a guide only students of their
+  // lessons or for whom they are the responsible guide (read from the copy,
+  // since the student is no longer in the students collection).
+  async visible(entry, req) {
+    if (can(req.actor, "students.viewAll")) return true;
+    const id = req.actor?.id;
+    if (id != null && String(id).trim() && String(entry.data?.main_teacher || "") === String(id)) return true;
+    if (!req.trashStudentScope) req.trashStudentScope = scope.visibleStudentIds(req.actor);
+    return inScope(await req.trashStudentScope, { _id: entry.refId });
+  },
+  // Back with the same _id, so lessons and attendance that name it still do.
+  async restore(entry, req) {
+    const data = entry.data || {};
+    const taken = await StudentModelDef.get({ tz: data.tz });
+    if (taken?.result?.length) {
+      return { ok: false, status: 409, code: "TZ_EXISTS", message: "يوجد طالب آخر برقم الهوية نفسه. احذفه أو غيّر رقمه قبل الاستعادة" };
+    }
+    // The signatures come back first and the student last, so a student is
+    // never live without its signature: while the student is missing, a
+    // signature is shown nowhere. One already there from an earlier attempt
+    // that could not be undone counts as back (one signature per student), so
+    // trying again always works (Codex re-review, 2026-11-18).
+    // A failed restore never takes a written signature back out: another
+    // restore at the same moment may have adopted it for a live student. A
+    // leftover is harmless (shown nowhere while the student is missing); the
+    // next restore adopts it and the purge removes it (Codex third re-review,
+    // owner, 2026-11-18).
+    const { ConsentModelDef } = require("../InviteToken/Rules.model");
+    try {
+      for (const consent of entry.extras?.consents || []) {
+        try {
+          const made = await ConsentModelDef.create(consent);
+          if (made?.success === false) throw new Error("consent create failed");
+        } catch (err) {
+          if (!isDuplicateKey(err)) throw err;
+        }
+      }
+    } catch (err) {
+      logWithSource("Student.restore.consent", err);
+      return { ok: false, status: 503, code: "CONSENT_RESTORE_FAILED", message: "تعذرت استعادة توقيع ولي الأمر، لذلك لم يُستعد الطالب. حاول مرة أخرى" };
+    }
+    try {
+      await StudentModelDef.create(data);
+    } catch (err) {
+      if (isDuplicateKey(err)) return { ok: false, status: 409, code: "TZ_EXISTS", message: "يوجد طالب آخر برقم الهوية نفسه" };
+      throw err;
+    }
+    notifyChange("student", data._id);
+    playerPhotoJob.schedule(String(data._id));
+    return { ok: true };
+  },
+  // For good: the photo on Drive, unless the student is back meanwhile, and
+  // any signature a failed restore could not take back out. When the student
+  // cannot be read, nothing is removed and the bin row stays for another try
+  // (Codex re-review, 2026-11-18).
+  async purge(entry) {
+    const back = await Promise.resolve().then(() => StudentModelDef.get({ _id: String(entry.refId) })).catch((err) => {
+      logWithSource("Student.purge.lookup", err);
+      return null;
+    });
+    if (!back || back.success === false) return { failed: 1 };
+    if (back.result?.length) return { failed: 0 };
+    let failed = 0;
+    if (entry.extras?.consents?.length) {
+      await Promise.resolve()
+        .then(() => require("../InviteToken/Rules.model").ConsentModelDef.delete({ studentId: String(entry.refId) }))
+        .catch((err) => { failed += 1; logWithSource("Student.purge.consent", err); });
+    }
+    const photo = entry.data?.photo;
+    if (!photo) return { failed };
+    try {
+      await handleDeleteByUrl(photo);
+    } catch (err) {
+      logWithSource("Student.purge.photo", err);
+      failed += 1;
+    }
+    return { failed };
+  },
+};
+
 module.exports = {
   lookupS,
   getAllS,
@@ -671,6 +777,7 @@ module.exports = {
   deleteS,
   uploadPhoto,
   deletePhoto,
+  trashHooks,
 };
 // OLD CODE - DO NOT SUGGEST
 // // Entities/User/user.controller.js

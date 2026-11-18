@@ -35,7 +35,11 @@ function createStore(seed = []) {
       docs[index] = { ...docs[index], ...structuredClone(patch) };
       return { success: true, result: structuredClone(docs[index]) };
     },
-    async delete(filter) { docs = docs.filter((doc) => !matches(doc, filter)); return { success: true }; },
+    async delete(filter) {
+      const before = docs.length;
+      docs = docs.filter((doc) => !matches(doc, filter));
+      return { success: true, result: { deletedCount: before - docs.length } };
+    },
     all: () => docs,
   };
 }
@@ -44,9 +48,10 @@ const ADMIN = { _id: "1".padStart(24, "c"), tz: "111111118", firstname: "Ad", la
 const GUIDE = { _id: "2".padStart(24, "c"), tz: "222222226", firstname: "Gui", lastname: "De", roles: ["مرشد"] };
 const VIEWER = { _id: "3".padStart(24, "c"), tz: "333333334", firstname: "Vi", lastname: "Ewer", roles: ["مرشد"], permissionGrants: ["vehicles.view"] };
 const DOCS = { _id: "4".padStart(24, "c"), tz: "444444442", firstname: "Do", lastname: "Cs", roles: ["مساعد"], permissionGrants: ["vehicles.view", "vehicles.documents"] };
-// All five delegable vehicle permissions (what migration can grant at most).
+// The four delegable vehicle permissions plus the retired "archive" key (what
+// a user granted before 2026-11-15 may still hold).
 const FIVE = { _id: "6".padStart(24, "c"), tz: "666666668", firstname: "Fi", lastname: "Ve", roles: ["مرشد"], permissionGrants: ["vehicles.view", "vehicles.edit", "vehicles.compliance", "vehicles.documents", "vehicles.archive"] };
-// Every delegable vehicle permission except archive.
+// Every delegable vehicle permission.
 const FOUR = { _id: "5".padStart(24, "c"), tz: "555555550", firstname: "Fo", lastname: "Ur", roles: ["مرشد"], permissionGrants: ["vehicles.view", "vehicles.edit", "vehicles.compliance", "vehicles.documents"] };
 
 const lookupStub = { lookupByPlate: async (plate) => ({ available: true, found: false, reason: "stub", plate }) };
@@ -57,6 +62,7 @@ function setup({ vehicles = [], extraUsers = [], clock } = {}) {
   const userStore = createStore([ADMIN, GUIDE, VIEWER, DOCS, FOUR, FIVE, ...extraUsers]);
   const uploads = [];
   const audit = auditStub();
+  const bin = require("./helpers/recycleBinStub").recycleBinStub();
   const recordAlerts = { calls: [], async forget(kind, id) { this.calls.push(["forget", kind, String(id)]); }, async syncVehicle(v) { this.calls.push(["sync", structuredClone(v)]); } };
   const drive = {
     async uploadPrivateFile(args) {
@@ -92,6 +98,7 @@ function setup({ vehicles = [], extraUsers = [], clock } = {}) {
     "../../services/vehicleLookup.service.js": lookupStub,
     "../../services/recordAlerts.js": recordAlerts,
     ...audit.deps,
+    ...bin.deps,
   };
   const filename = path.join(__dirname, "../Entities/Vehicle/Vehicle.controller.js");
   const module = { exports: {} };
@@ -106,7 +113,7 @@ function setup({ vehicles = [], extraUsers = [], clock } = {}) {
       return dependencies[name];
     },
   }, { filename });
-  return { controller: module.exports, vehicleStore, auditStore, uploads, drive, audit, recordAlerts };
+  return { controller: module.exports, vehicleStore, auditStore, uploads, drive, audit, recordAlerts, bin };
 }
 
 function createRes() {
@@ -147,7 +154,8 @@ async function createVehicle(controller, overrides = {}) {
 test("permissions are enforced on the server for every role", async () => {
   const { controller } = setup();
   assert.equal((await guard(controller, "view", ADMIN)).passed, true);
-  assert.equal((await guard(controller, "archive", ADMIN)).passed, true);
+  assert.equal((await guard(controller, "compliance", ADMIN)).passed, true);
+  assert.equal((await guard(controller, "archive", ADMIN)).passed, false, "the archive is gone (owner, 2026-11-15)");
 
   const guide = await guard(controller, "view", GUIDE);
   assert.equal(guide.passed, false);
@@ -172,7 +180,7 @@ test("without a loaded actor the guard refuses, whatever the token says", async 
   assert.equal(res.statusCode, 403);
 });
 
-test("create normalises and rejects a duplicate plate, even archived", async () => {
+test("create normalises and rejects a duplicate plate", async () => {
   const { controller, vehicleStore } = setup();
   const first = await createVehicle(controller);
   assert.equal(first.statusCode, 201);
@@ -181,13 +189,6 @@ test("create normalises and rejects a duplicate plate, even archived", async () 
   const duplicate = await createVehicle(controller, { plate: " 1234567 " });
   assert.equal(duplicate.statusCode, 409);
   assert.ok(duplicate.body.errors.plate);
-
-  // Archived vehicles still hold their plate.
-  const id = first.body.vehicle._id;
-  const { req } = await guard(controller, "archive", ADMIN);
-  await controller.archive({ ...req, params: { id } }, createRes());
-  const again = await createVehicle(controller, { plate: "12-345-67" });
-  assert.equal(again.statusCode, 409);
   assert.equal(vehicleStore.all().length, 1);
 });
 
@@ -213,8 +214,8 @@ test("create validates input and a missing responsible user", async () => {
   assert.equal(ok.body.vehicle.responsibleName, "Gui De");
 });
 
-test("update records who changed what, and archive replaces delete", async () => {
-  const { controller, auditStore, vehicleStore } = setup();
+test("update records who changed what", async () => {
+  const { controller, auditStore } = setup();
   const created = await createVehicle(controller, { type: "trailer" });
   const id = created.body.vehicle._id;
   const { req } = await guard(controller, "edit", ADMIN);
@@ -232,19 +233,8 @@ test("update records who changed what, and archive replaces delete", async () =>
   const same = createRes();
   await controller.update({ ...req, params: { id }, body: { make: "Brenderup" } }, same);
   assert.equal(same.body.changed, false);
-
-  const archiveRes = createRes();
-  await controller.archive({ ...req, params: { id }, body: { reason: "sold" } }, archiveRes);
-  assert.equal(archiveRes.body.vehicle.status, "archived");
-  assert.equal(vehicleStore.all().length, 1, "archiving never deletes");
-
-  const blocked = createRes();
-  await controller.update({ ...req, params: { id }, body: { make: "X" } }, blocked);
-  assert.equal(blocked.statusCode, 409);
-
-  const restored = createRes();
-  await controller.restore({ ...req, params: { id } }, restored);
-  assert.equal(restored.body.vehicle.status, "active");
+  assert.equal(controller.archive, undefined, "no archive action (owner, 2026-11-15)");
+  assert.equal(controller.restore, undefined);
 });
 
 test("status cannot be set to archived through a normal update", async () => {
@@ -517,7 +507,7 @@ test("unknown or malformed ids give 404, not a crash", async () => {
 
 test("getMyPermissions reports what the caller may do", async () => {
   const { controller } = setup();
-  for (const [user, expected] of [[ADMIN, ["view", "edit", "compliance", "documents", "archive"]], [GUIDE, []], [DOCS, ["view", "documents"]]]) {
+  for (const [user, expected] of [[ADMIN, ["view", "edit", "compliance", "documents"]], [GUIDE, []], [DOCS, ["view", "documents"]]]) {
     const req = as(user);
     const res = createRes();
     await controller.getMyPermissions(req, res);
@@ -580,48 +570,65 @@ test("deletion needs vehicles.delete: admins only, even with every delegable per
   assert.equal(adminPassed, true);
 });
 
-test("delete needs the plate typed back and leaves nothing behind: vehicle, log and Drive files", async () => {
-  const { controller, vehicleStore, auditStore, drive } = setup();
+// The recycle bin (owner, 2026-11-16): no typed plate; the vehicle and its
+// log go to the bin at once, its Drive files stay until it is purged.
+test("delete moves the vehicle and its log to the recycle bin; Drive files go only when it is purged", async () => {
+  const { controller, vehicleStore, auditStore, drive, bin } = setup();
   const created = await createVehicle(controller);
   const id = created.body.vehicle._id;
-  const compliance = (await guard(controller, "compliance", ADMIN)).req;
-  await controller.addLicense({ ...compliance, params: { id }, body: { validUntil: "2027-01-01" } }, createRes());
-  await controller.addPolicy({ ...compliance, params: { id }, body: { type: "mandatory", insurer: "X" } }, createRes());
   const docs = (await guard(controller, "documents", ADMIN)).req;
   for (let i = 0; i < 2; i += 1) {
     await controller.uploadDocument({ ...docs, params: { id }, body: { kind: "receipt" }, file: { buffer: PDF } }, createRes());
   }
-  assert.ok(auditStore.all().length >= 4);
+  const history = auditStore.all().length;
+  assert.ok(history >= 3);
 
-  const wrong = await adminDelete(controller, id, { confirmPlate: "1111111" });
-  assert.equal(wrong.res.statusCode, 400);
-  assert.equal(vehicleStore.all().length, 1, "nothing is deleted without the right confirmation");
+  const done = await adminDelete(controller, id, {});
+  assert.equal(done.res.statusCode, 200);
+  assert.equal(done.res.body.trashId, "trash-1");
+  assert.equal(vehicleStore.all().length, 0);
+  assert.equal(auditStore.all().length, 0, "the vehicle's own log went with it");
+  assert.equal(drive.deleted.length, 0, "Drive is untouched until the purge");
+  assert.equal(bin.puts[0].kind, "vehicle");
+  assert.equal(bin.puts[0].label, "1234567");
+  assert.equal(bin.puts[0].extras.history.length, history);
+  assert.equal((await adminDelete(controller, id, {})).res.statusCode, 404);
+
+  // Restored: the vehicle and its log are back, with a restore row.
+  const entry = { refId: id, data: bin.puts[0].data, extras: bin.puts[0].extras };
+  assert.deepEqual({ ...(await controller.trashHooks.restore(entry, as(ADMIN))) }, { ok: true });
+  assert.equal(vehicleStore.all()[0]._id, id);
+  assert.equal(auditStore.all().length, history + 1);
+  assert.equal(auditStore.all().at(-1).action, "restore");
+
+  // A restored vehicle keeps its files even if a purge came late.
+  assert.equal((await controller.trashHooks.purge(entry)).failed, 0);
   assert.equal(drive.deleted.length, 0);
 
-  const done = await adminDelete(controller, id, { confirmPlate: "12-345-67" });
-  assert.equal(done.res.statusCode, 200);
-  assert.equal(vehicleStore.all().length, 0);
-  assert.deepEqual(drive.deleted.filter((item) => item.startsWith("drive-")).sort(), ["drive-1", "drive-2"]);
-  assert.ok(drive.deleted.includes("folder-1"), "the vehicle's Drive folder is removed too");
-  assert.equal(auditStore.all().length, 0, "no record about the vehicle remains, not even a marker");
-  assert.equal((await adminDelete(controller, id, { confirmPlate: "1234567" })).res.statusCode, 404);
+  // Deleted again and purged: the files and the plate's folder go.
+  const again = await adminDelete(controller, id, {});
+  assert.equal(again.res.statusCode, 200);
+  assert.equal((await controller.trashHooks.purge({ refId: id, data: bin.puts[1].data })).failed, 0);
+  assert.deepEqual(drive.deleted.sort(), ["drive-1", "drive-2", "folder-1"]);
 });
 
-test("a Drive failure keeps every record so the delete can be retried", async () => {
-  const { controller, vehicleStore, auditStore, drive } = setup();
-  const created = await createVehicle(controller);
-  const id = created.body.vehicle._id;
+test("restore is refused while another vehicle has the plate; a Drive failure keeps the bin row", async () => {
+  const { controller, drive, bin } = setup();
+  const id = (await createVehicle(controller)).body.vehicle._id;
   const docs = (await guard(controller, "documents", ADMIN)).req;
   await controller.uploadDocument({ ...docs, params: { id }, body: { kind: "receipt" }, file: { buffer: PDF } }, createRes());
-  const auditBefore = auditStore.all().length;
+  await adminDelete(controller, id, {});
+  const entry = { refId: id, data: bin.puts[0].data, extras: bin.puts[0].extras };
+  await createVehicle(controller);
+  const refused = await controller.trashHooks.restore(entry, as(ADMIN));
+  assert.equal(refused.ok, false);
+  assert.equal(refused.status, 409);
+
   drive.failOn = "drive-1";
-  const failed = await adminDelete(controller, id, { confirmPlate: "1234567" });
-  assert.equal(failed.res.statusCode, 502);
-  assert.equal(vehicleStore.all().length, 1);
-  assert.equal(auditStore.all().length, auditBefore);
+  assert.equal((await controller.trashHooks.purge(entry)).failed, 1);
   drive.failOn = null;
-  assert.equal((await adminDelete(controller, id, { confirmPlate: "1234567" })).res.statusCode, 200);
-  assert.equal(vehicleStore.all().length, 0);
+  assert.equal((await controller.trashHooks.purge(entry)).failed, 0);
+  assert.ok(!drive.deleted.includes("folder-1"), "the plate's folder belongs to the new vehicle now");
 });
 
 test("a document can belong to a whole section without a specific record", async () => {
@@ -714,18 +721,12 @@ test("a Drive failure keeps the file record; deleting a newer version restores t
   assert.equal(ok.body.vehicle.documents[0].supersededAt, "", "the older version is current again");
 });
 
-test("renaming or deleting files needs the documents permission and an unarchived vehicle", async () => {
+test("renaming or deleting files needs the documents permission", async () => {
   const { controller } = setup();
   const created = await createVehicle(controller);
-  const id = created.body.vehicle._id;
-  const doc = await uploadOne(controller, id);
+  await uploadOne(controller, created.body.vehicle._id);
   assert.equal((await guard(controller, "documents", VIEWER)).passed, false);
-  const { req } = await guard(controller, "archive", ADMIN);
-  await controller.archive({ ...req, params: { id }, body: {} }, createRes());
-  const adminReq = (await guard(controller, "documents", ADMIN)).req;
-  const blocked = createRes();
-  await controller.removeDocument({ ...adminReq, params: { id, docId: doc.body.document.id } }, blocked);
-  assert.equal(blocked.statusCode, 409);
+  assert.equal((await guard(controller, "documents", DOCS)).passed, true);
 });
 
 test("vehicle writes are also recorded in the central audit log, next to the vehicle's own log", async () => {
@@ -748,7 +749,7 @@ test("vehicle writes are also recorded in the central audit log, next to the veh
   await controller.uploadDocument({ ...docs, params: { id }, body: { kind: "receipt" }, file: { buffer: PDF } }, createRes());
   assert.equal(audit.find({ module: "vehicles", action: "upload", targetId: id }).length, 1);
 
-  const done = await adminDelete(controller, id, { confirmPlate: "12-345-67" });
+  const done = await adminDelete(controller, id, {});
   assert.equal(done.res.statusCode, 200);
   const [deleted] = audit.find({ module: "vehicles", action: "delete", targetId: id });
   assert.ok(deleted, "delete recorded");
@@ -794,12 +795,10 @@ test("what the system does to a vehicle is stored as \"system\" / \"النظام
     const updated = createRes();
     await controller.update({ ...asSystem, params: { id }, body: { make: "Brenderup" } }, updated);
     assert.equal(updated.statusCode, 200);
-    await controller.archive({ ...asSystem, params: { id }, body: { reason: "sold" } }, createRes());
 
     const [vehicle] = vehicleStore.all();
     assert.equal(vehicle.createdBy, "system");
     assert.equal(vehicle.updatedBy, "system");
-    assert.equal(vehicle.archivedBy, "system");
     for (const entry of auditStore.all()) {
       assert.equal(entry.by, "system");
       assert.equal(entry.byName, "النظام");
@@ -890,11 +889,11 @@ test("deleting a vehicle removes its alerts and notices", async () => {
   const { controller, recordAlerts } = setup();
   const id = (await createVehicle(controller)).body.vehicle._id;
   recordAlerts.calls.length = 0;
-  assert.equal((await adminDelete(controller, id, { confirmPlate: "12-345-67" })).res.statusCode, 200);
+  assert.equal((await adminDelete(controller, id, {})).res.statusCode, 200);
   assert.deepEqual(recordAlerts.calls, [["forget", "vehicle", id]]);
 });
 
-test("a renewed licence and archiving resync the vehicle's alerts", async () => {
+test("a renewed licence resyncs the vehicle's alerts", async () => {
   const { controller, recordAlerts } = setup();
   const id = (await createVehicle(controller)).body.vehicle._id;
   const compliance = (await guard(controller, "compliance", ADMIN)).req;
@@ -904,9 +903,28 @@ test("a renewed licence and archiving resync the vehicle's alerts", async () => 
   assert.equal(synced.length, 1);
   assert.equal(String(synced[0][1]._id), id);
   assert.equal(synced[0][1].licenses.at(-1).validUntil, "2027-11-01");
-  const archiver = (await guard(controller, "archive", ADMIN)).req;
-  await controller.archive({ ...archiver, params: { id }, body: { reason: "sold" } }, createRes());
-  assert.equal(recordAlerts.calls.filter(([op]) => op === "sync").at(-1)[1].status, "archived");
+});
+
+// Owner, 2026-11-15: the archive is gone and what it held is deleted for good.
+test("vehicles left archived are deleted for good at start, Drive files included; one whose files fail stays", async () => {
+  const doc = (n) => ({ id: `d${n}`, driveFileId: `file-${n}`, kind: "other", name: `f${n}.pdf` });
+  const vehicles = [
+    { _id: "a".repeat(24), plate: "1111111", type: "vehicle", status: "archived", documents: [doc(1)] },
+    { _id: "b".repeat(24), plate: "2222222", type: "vehicle", status: "active", documents: [doc(2)] },
+    { _id: "e".repeat(24), plate: "3333333", type: "vehicle", status: "archived", documents: [doc(3)] },
+  ];
+  const { controller, vehicleStore, drive, audit, recordAlerts } = setup({ vehicles });
+  drive.failOn = "file-3";
+  assert.equal(await controller.purgeArchivedVehicles(), 1);
+  assert.deepEqual(vehicleStore.all().map((v) => v.plate).sort(), ["2222222", "3333333"]);
+  assert.ok(drive.deleted.includes("file-1") && !drive.deleted.includes("file-2"));
+  const [gone] = audit.find({ module: "vehicles", action: "delete", targetId: "a".repeat(24) });
+  assert.ok(gone, "the delete is in the audit log");
+  assert.ok(recordAlerts.calls.some(([op, kind, id]) => op === "forget" && kind === "vehicle" && id === "a".repeat(24)));
+  drive.failOn = null;
+  assert.equal(await controller.purgeArchivedVehicles(), 1, "the one that failed goes on the next start");
+  assert.equal(await controller.purgeArchivedVehicles(), 0);
+  assert.deepEqual(vehicleStore.all().map((v) => v.plate), ["2222222"]);
 });
 
 test("an alert failure never fails the vehicle write", async () => {
@@ -918,5 +936,5 @@ test("an alert failure never fails the vehicle write", async () => {
   const r = createRes();
   await controller.addLicense({ ...compliance, params: { id }, body: { validUntil: "2027-11-01" } }, r);
   assert.ok(r.statusCode < 300, String(r.statusCode));
-  assert.equal((await adminDelete(controller, id, { confirmPlate: "12-345-67" })).res.statusCode, 200);
+  assert.equal((await adminDelete(controller, id, {})).res.statusCode, 200);
 });

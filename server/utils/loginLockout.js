@@ -1,5 +1,6 @@
 // Failed-login lockout rules. Pure functions: the caller persists the result.
-const LOCK_THRESHOLD = 10;
+// Owner, 2026-11-16: 5 (was 10), since a password may be one character.
+const LOCK_THRESHOLD = 5;
 const SYSTEM_ALERT_EVERY = 5;
 const LOCKED_MESSAGE =
   "تم حظر الحساب بسبب محاولات دخول فاشلة متكررة. يرجى التوجه إلى قسم تكنولوجيا المعلومات في الجمعية.";

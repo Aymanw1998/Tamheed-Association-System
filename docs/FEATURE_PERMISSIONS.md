@@ -14,13 +14,13 @@ its UI gate, record scope checks and a behavioral grant/revoke test.
 | Files | `files.use` to enter/read; separate `upload`, `createFolder`, `rename`, `delete`, `share`; per-path and sharing ACL remain additional requirements; `manageAll` does not bypass a revoked global operation |
 | Main page | `dashboard.view`; each data card additionally checks its own section permission |
 | Notices | `notices.view`, `notices.post`, `notices.archive`, `notices.runCheck`, `notices.delete` (to trash; purged automatically after 30 days), `notices.restore`, `notices.purge` (permanent delete from trash) |
-| Students | `students.view`, `viewAll`, `create`, `edit`, `delete`, `photo`, `parentLink`; existing student scope stays enforced |
-| Programs / weekly timetable | Program records use `lessons.view`, `viewAll`, `create`, `edit`, `roster`, `staffRoster` (users as participants), `delete`, `copyMonth`; the weekly timetable additionally needs `calendar.view` on its page and schedule endpoints. Ownership, scoped roster and record locks stay enforced |
+| Students | `students.view`, `viewAll`, `create`, `edit`, `delete` (to the recycle bin), `purge` (permanent delete from the bin), `photo`, `parentLink`, `exportExcel` (with `viewAll`); existing student scope stays enforced |
+| Programs / weekly timetable | Program records use `lessons.view`, `viewAll`, `create`, `edit`, `roster`, `staffRoster` (users as participants), `delete`, `copyMonth`, `exportExcel` (the month summary, with `viewAll` and `attendance.view`); the weekly timetable additionally needs `calendar.view` on its page and schedule endpoints. Ownership, scoped roster and record locks stay enforced |
 | Wall display screens | `displays.manage` (list, create, rename, change layout, new link, delete; nobody's role default, granted in IT). The TV reads `POST /api/displays/feed` with no sign-in: the link secret is a capability (only its SHA-256 is stored), rate-limited, `no-store`, and returns only lesson name, day, times, room and guide name |
 | Attendance | `attendance.view`, `attendance.record`; existing group/lesson scope stays enforced |
 | Reports | `reports.create`, `editOwn`, `viewAll`, `editAll`, `delete`, `exportPdf`; author/record checks stay enforced |
-| Vehicles | `vehicles.view`, `edit`, `compliance`, `documents`, `archive`, `delete`; vehicle assignment and record locks stay enforced |
-| Staff | `users.view`, `create`, `edit`, `approve`, `delete`, `changeRole`, `resetPassword`; hierarchy/IT protections stay enforced |
+| Vehicles | `vehicles.view`, `edit`, `compliance`, `documents`, `delete` (to the recycle bin), `purge` (permanent delete from the bin); vehicle assignment and record locks stay enforced |
+| Staff | `users.view`, `create`, `edit`, `approve`, `delete` (to the recycle bin), `purge` (permanent delete from the bin), `changeRole`, `resetPassword`, `exportExcel` (with `view`); hierarchy/IT protections stay enforced |
 | Sports staff | `sports.view`, `sports.coach`, `sports.manage`; sports portal students retain their separate self-only session |
 | AI assistant | `ai.use`; proposed actions still recheck their underlying business operation permissions |
 | IT administration | Existing IT-only gates, account membership/host checks and catalog keys remain; everyday roles cannot grant themselves IT powers |

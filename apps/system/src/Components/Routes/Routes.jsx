@@ -1,6 +1,7 @@
 import PasskeyOffer from "../Auth/PasskeyOffer.jsx";
 // src/Components/Routes/CRoutes.jsx
 import React, { Suspense } from 'react';
+import TrashPage from "../Trash/TrashPage.jsx";
 import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 
 import LoginPage from '../Auth/LoginPage/LoginPage';
@@ -52,6 +53,7 @@ const ViewAllVehicle = lazyPage(() => import('../Vehicle/ViewAllVehicle'));
 const EditVehicle = lazyPage(() => import('../Vehicle/EditVehicle'));
 const SportPage = lazyPage(() => import('../Sport/SportPage'));
 const PrivacyPage = lazyPage(() => import('../Privacy/PrivacyPage'));
+const AccessibilityPage = lazyPage(() => import('../Accessibility/AccessibilityPage'));
 const GuidePage = lazyPage(() => import('../../guide/GuidePage'));
 
 const LessonsHub = lazyPage(() => import('../Lesson/LessonsHub'));
@@ -104,6 +106,7 @@ export default function CRoutes() {
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/parent-consent" element={<ParentConsentPage />} />
       <Route path="/privacy" element={<PrivacyPage />} />
+      <Route path="/accessibility" element={<AccessibilityPage />} />
       <Route path="/register-student/:token" element={<EditStudent parent={true} />} />
       {/* عربيالجمعةالثلاثاءعربي */}
       <Route element={<RequireAuth />}>
@@ -142,6 +145,7 @@ export default function CRoutes() {
             <Route path="/weekly-tasks/manage" element={<ManageWeeklyTasks/>} />
 
             <Route path="/files" element={<FilesPage/>} />
+            <Route path="/trash" element={<TrashPage/>} />
             <Route path="/profile" element={<ProfilePage/>} />
           </Route>
 

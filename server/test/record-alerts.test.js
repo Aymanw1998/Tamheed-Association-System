@@ -40,7 +40,7 @@ test("a deleted student's and lesson's alerts go; the board is not touched", asy
   await records.forget("lesson", "l1");
   assert.deepEqual(alerts.calls, [
     ["prefixes", ["absence_streak:s1:", "parent_registration:s1"]],
-    ["prefixes", ["lesson_no_attendance:l1:"]],
+    ["prefixes", ["lesson_no_attendance:l1:", "lesson_attendance_reminder:l1:"]],
   ]);
   assert.deepEqual(notices.calls, []);
 });

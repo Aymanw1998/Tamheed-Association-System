@@ -918,8 +918,15 @@ const deleteU = async (req, res) => {
 
     const stale = checkVersion(existing, req, sanitize);
     if (stale) return res.status(409).json(stale);
+    // The recycle bin (owner, 2026-11-16): kept 30 days, then deleted for good.
+    const trashId = await recycleBin().put("user", {
+      refId: existing._id, label: userLabel(existing), data: existing, extras: { room }, actor: req.actor,
+    });
     const deleted = await UserModelDef.delete(sameVersion({ tz: existing.tz }, existing), room);
-    if (!deleted?.result?.deletedCount) return res.status(409).json(await raceLost(() => UserModelDef.get({ tz: existing.tz }, room), sanitize));
+    if (!deleted?.result?.deletedCount) {
+      await recycleBin().drop(trashId);
+      return res.status(409).json(await raceLost(() => UserModelDef.get({ tz: existing.tz }, room), sanitize));
+    }
     await recordUser(req, "delete", { ...existing, room }, null);
     notifyChange("user", existing._id);
     await forgetAlerts("user", existing.tz);
@@ -927,6 +934,7 @@ const deleteU = async (req, res) => {
     return res.status(200).json({
       ok: true,
       deleted,
+      trashId,
     });
   } catch (err) {
     logWithSource("User.deleteU", err);
@@ -1348,6 +1356,9 @@ const getme = async (req, res) => {
       // Present only for the system account, so the app can offer every role.
       ...(isSystem && { isSystem: true }),
       adminPowers: hidden || isAdminWithPowers(user),
+      // Whether the account already has a System passkey, so the app stops
+      // offering one after a sign-out cleared the device's memory of it.
+      hasPasskey: Array.isArray(user.systemPasskeys) && user.systemPasskeys.length > 0,
     });
   } catch (err) {
     logWithSource("User.getme", err);
@@ -2057,34 +2068,38 @@ const recoverSystem = async (req, res) => {
 };
 
 /* ================= viewPassword ================= */
+// The IT site shows a user's password (owner, 2026-11-16): needs
+// users.passwords, and every view is written to the audit log. A password
+// still stored as an old bcrypt hash cannot be shown; it becomes readable at
+// the user's next sign-in or when a new one is set.
 const viewPassword = async (req, res) => {
   try {
     const tz = String(req.params.tz ?? "").trim();
-    if (!tz) {
-      return res.status(400).json({
-        ok: false,
-        message: "tz is required",
-      });
-    }
+    if (!tz) return res.status(400).json({ ok: false, message: "tz is required" });
 
     const user = await getUserInRoomByTz(tz, "active");
-    if (!user || hiddenFrom(req, user)) {
-      return res.status(404).json({
-        ok: false,
-        message: "User not found",
-      });
-    }
+    if (!user || hiddenFrom(req, user)) return res.status(404).json({ ok: false, message: "User not found" });
     // An IT user's account is the system account's only (canManageTarget).
     if (!canManageTarget(req.actor, user)) return forbidden(res);
 
-    // Only report whether a password exists; never return the stored value.
-    const hasPassword = typeof user.password === "string" && user.password.trim() !== "";
-    return res.status(200).json({ ok: true, hasPassword });
+    const stored = typeof user.password === "string" ? user.password.trim() : "";
+    let password = null;
+    if (isEncrypted(stored)) {
+      try { password = decryptPassword(stored); } catch (error) { logWithSource("User.viewPassword.decrypt", error); }
+    }
+    if (password !== null) {
+      // No row, no password (Codex review, 2026-11-18).
+      const written = await audit.recordRequired(req, {
+        module: "users", action: "password_view", targetType: "user",
+        targetId: user.tz,
+        targetLabel: `${user.firstname || ""} ${user.lastname || ""}`.trim() || String(user.tz || ""),
+      });
+      if (!written) return res.status(503).json({ ok: false, code: "AUDIT_FAILED", message: "تعذر تسجيل العرض في السجل، لذلك لم تُعرض كلمة المرور. حاول مرة أخرى" });
+    }
+    return res.status(200).json({ ok: true, hasPassword: stored !== "", password });
   } catch (err) {
-    return res.status(500).json({
-      ok: false,
-      message: err.message,
-    });
+    logWithSource("User.viewPassword", err);
+    return res.status(500).json({ ok: false, message: "SERVER_ERROR" });
   }
 };
 
@@ -2219,7 +2234,37 @@ const deletePhoto = async (req, res) => {
   }
 };
 
+/* ================= recycle bin ================= */
+// The recycle bin's steps for a staff member (owner, 2026-11-16; services/recycleBin.js).
+const recycleBin = () => require("../../services/recycleBin").recycleBin;
+const userLabel = (u) => `${u.firstname || ""} ${u.lastname || ""}`.trim() || String(u.tz || "");
+const trashHooks = {
+  // The system account never shows; an IT user only to whoever may manage it.
+  visible: (entry, req) => !hiddenFrom(req, entry.data || {}) && canManageTarget(req.actor, entry.data || {}),
+  // Back in the room it was deleted from, with the same _id, signed out of
+  // every device it had.
+  async restore(entry) {
+    const data = { ...(entry.data || {}) };
+    const room = ROOMS.includes(entry.extras?.room) ? entry.extras.room : "active";
+    if (await roomHoldingTz(data.tz)) {
+      return { ok: false, status: 409, code: "TZ_EXISTS", message: "يوجد مستخدم آخر برقم الهوية نفسه. لا يمكن الاستعادة" };
+    }
+    for (const key of Object.keys(data)) if (key.startsWith("refresh")) delete data[key];
+    try {
+      await UserModelDef.create(data, room);
+    } catch (err) {
+      if (isDuplicateKey(err)) return { ok: false, status: 409, code: "TZ_EXISTS", message: "يوجد مستخدم آخر برقم الهوية نفسه" };
+      throw err;
+    }
+    notifyChange("user", data._id);
+    return { ok: true };
+  },
+  // Nothing outside the record to remove.
+  async purge() { return { failed: 0 }; },
+};
+
 module.exports = {
+  trashHooks,
   createItUser,
   viewPassword,
   uploadPhoto,

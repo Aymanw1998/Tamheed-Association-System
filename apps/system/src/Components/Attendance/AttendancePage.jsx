@@ -565,6 +565,7 @@ export default function AttendancePage() {
                         <label>ملاحظة</label>
                         <input
                         className={styles.noteInput}
+                        aria-label="ملاحظة"
                         placeholder="أدخل ملاحظة"
                         disabled={readonly}
                         value={it.notes || ""}

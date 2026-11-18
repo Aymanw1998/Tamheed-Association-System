@@ -7,6 +7,7 @@ import { getAccessExpiryMs } from '../../WebServer/utils/authTiming';
 import { getLogoutDeadline, scheduleAutoLogout } from '../../WebServer/utils/logoutScheduler';
 import { getMe } from '../../WebServer/services/auth/fuctionsAuth';
 import { rememberSessionUser } from '../../utils/session';
+import { syncSavedPasskey } from '../../utils/passkey';
 
 const SKEW_MS = 60_000;
 
@@ -63,6 +64,7 @@ export default function RequireAuth() {
           return;
         }
         rememberSessionUser(me);
+        syncSavedPasskey(me.tz, me.hasPasskey);
       } finally {
         if (alive) setChecking(false);
       }

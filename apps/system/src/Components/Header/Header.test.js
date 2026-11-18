@@ -146,14 +146,14 @@ test("desktop groups open on click, mark the active page and preserve phone acco
   expect(host.querySelector('#main-nav a[href="/weekly-tasks"]').closest('[hidden]')).not.toBeNull();
   await act(async () => groupButton("العمل اليومي").click());
   expect(host.querySelector('#main-nav a[href="/weekly-tasks"]').closest('[hidden]')).toBeNull();
-  await act(async () => groupButton("الأعضاء والطاقم").click());
+  await act(async () => groupButton("الطلاب والطاقم").click());
   await act(async () => host.querySelector('#main-nav a[href="/students"]').click());
   expect(at()).toBe("/students");
   expect(host.querySelector('#main-nav a[href="/students"]').getAttribute("aria-current")).toBe("page");
   window.innerWidth = 375;
   await act(async () => window.dispatchEvent(new Event("resize")));
   await act(async () => host.querySelector('[data-tour="menu-toggle"]').click());
-  expect(groupButton("الأعضاء والطاقم").getAttribute("aria-expanded")).toBe("true");
+  expect(groupButton("الطلاب والطاقم").getAttribute("aria-expanded")).toBe("true");
   window.innerWidth = 1280;
   await act(async () => window.dispatchEvent(new Event("resize")));
   expect(host.querySelector('[role="dialog"]')).toBeNull();
@@ -168,13 +168,13 @@ test("phone dropdown expands groups, closes after navigation and returns focus t
   await act(async () => toggle.click());
   expect(host.querySelector('[role="dialog"]')).not.toBeNull();
   expect(document.body.style.overflow).toBe("hidden");
-  await act(async () => groupButton("الأعضاء والطاقم").click());
+  await act(async () => groupButton("الطلاب والطاقم").click());
   await act(async () => host.querySelector('#main-nav a[href="/students"]').click());
   expect(at()).toBe("/students");
   expect(host.querySelector('[role="dialog"]')).toBeNull();
   expect(document.activeElement).toBe(toggle);
   await act(async () => toggle.click());
-  expect(groupButton("الأعضاء والطاقم").getAttribute("aria-expanded")).toBe("true");
+  expect(groupButton("الطلاب والطاقم").getAttribute("aria-expanded")).toBe("true");
   await act(async () => host.querySelector('[role="dialog"]').dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
   expect(document.body.style.overflow).not.toBe("hidden");
 });
@@ -209,7 +209,7 @@ test("the phone close control restores the menu toggle and page scrolling", asyn
 test("groups with no permitted pages are absent", async () => {
   mockPerms = [];
   await mount();
-  expect(groupButton("الأعضاء والطاقم")).toBeUndefined();
+  expect(groupButton("الطلاب والطاقم")).toBeUndefined();
   expect(groupButton("المتابعة")).toBeUndefined();
   expect(groupButton("الموارد")).toBeUndefined();
   expect(navText()).toEqual([]);

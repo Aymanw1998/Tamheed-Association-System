@@ -217,7 +217,7 @@ export default function Header() {
       opens("/weekly-tasks") && { path: "/weekly-tasks", label: t("nav.tasks"), tour: "menu-weekly-tasks", icon: "check_list" },
       opens("/sports") && { path: "/sports", label: t("nav.sports"), tour: "menu-sports", icon: "ball" },
     ] },
-    { id: "people", label: "الأعضاء والطاقم", items: [
+    { id: "people", label: "الطلاب والطاقم", items: [
       canViewStudents && { path: "/students", label: t("nav.students"), tour: "menu-students", badge: "students", icon: "student" },
       canViewUsers && { path: "/users", label: t("nav.users"), tour: "menu-users", badge: "users", icon: "users" },
     ] },
@@ -229,6 +229,7 @@ export default function Header() {
       opens("/association-rules") && { path: "/association-rules", label: t("nav.rules"), tour: "menu-rules", icon: "report" },
       opens("/files") && { path: "/files", label: t("nav.files"), tour: "menu-files", badge: "files", icon: "folder" },
       canViewVehicles && { path: "/vehicles", label: t("nav.vehicles"), tour: "menu-vehicles", badge: "vehicles", icon: "car" },
+      opens("/trash") && { path: "/trash", label: "سلة المحذوفات", icon: "trash" },
     ] },
   ].map((group) => ({ ...group, items: group.items.filter(Boolean) })).filter((group) => group.items.length);
   // Every page the menu offers, for quick search; the phone bar takes the

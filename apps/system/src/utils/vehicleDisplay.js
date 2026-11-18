@@ -101,12 +101,11 @@ const matchesSearch = (vehicle, query) => {
     .some((field) => String(field).toLowerCase().includes(text));
 };
 
-// Archived vehicles are hidden unless that status is chosen explicitly.
 export const filterVehicles = (vehicles = [], { search = "", type = "all", status = "all", docs = "all" } = {}) =>
   vehicles.filter((vehicle) => {
     if (!matchesSearch(vehicle, search)) return false;
     if (type !== "all" && vehicle.type !== type) return false;
-    if (status === "all" ? vehicle.status === "archived" : vehicle.status !== status) return false;
+    if (status !== "all" && vehicle.status !== status) return false;
     if (docs !== "all") {
       const issues = documentIssues(vehicle);
       if (docs === "attention" && !(issues.expired || issues.soon)) return false;
@@ -118,7 +117,7 @@ export const filterVehicles = (vehicles = [], { search = "", type = "all", statu
   });
 
 export const countVehicles = (vehicles = []) => {
-  const live = vehicles.filter((vehicle) => vehicle.status !== "archived");
+  const live = vehicles;
   const issues = live.map(documentIssues);
   return {
     total: live.length,

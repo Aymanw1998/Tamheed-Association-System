@@ -63,11 +63,11 @@ test("rules are independently grantable; parent-link access cannot read or publi
   assert.equal(f.calls.filter((name) => name === "publishRules").length, 1);
 });
 
-test("posting a notice never bypasses a revoked archive operation", async () => {
+test("posting a notice never bypasses a revoked delete operation", async () => {
   const f = fixture("Notice");
-  assert.equal((await f.call("post", "/:id/archive", { revokes: ["notices.archive"] })).statusCode, 403);
+  assert.equal((await f.call("post", "/:id/delete", { revokes: ["notices.delete"] })).statusCode, 403);
   assert.deepEqual(f.calls, []);
-  assert.equal((await f.call("post", "/:id/archive")).statusCode, 200);
+  assert.equal((await f.call("post", "/:id/delete")).statusCode, 200);
 });
 
 test("weekly timetable has its own revocable permission without removing record access", async () => {

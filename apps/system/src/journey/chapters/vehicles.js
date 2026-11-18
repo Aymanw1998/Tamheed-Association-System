@@ -1,7 +1,7 @@
 // Chapter 8: vehicles. The list, one vehicle's record, a document opened as
 // the in-page demo preview (journey/demoDocument.js: no new tab, no
-// download), the periodic test with a new test record saved to the demo store,
-// and the archive confirmation, which the guide cancels.
+// download) and the periodic test with a new test record saved to the demo
+// store. (The archive step went with the archive, 2026-11-15.)
 //
 // Vehicle buttons follow the user's vehicle permissions (vehicles.*), which
 // the page reads from the server; each step requires the same key.
@@ -124,22 +124,6 @@ const vehicles = {
       title: "حفظ الفحص",
       body: "سأضغط «حفظ»، فتظهر رسالة نجاح.",
       action: { type: "click", target: "vehicle-record-save" },
-    },
-    {
-      target: "vehicle-archive",
-      requires: "vehicles.archive",
-      mood: "warn",
-      title: "أرشفة المركبة",
-      body: "الأرشفة توقف المركبة وتنبيهاتها، وسأعرض التأكيد فقط.",
-      action: { type: "click", target: "vehicle-archive" },
-    },
-    {
-      target: "confirm-cancel",
-      requires: "vehicles.archive",
-      mood: "explain",
-      title: "إلغاء الأرشفة",
-      body: "سأضغط «إلغاء» فتبقى المركبة في العمل.",
-      action: { type: "cancelConfirm" },
     },
   ],
 };

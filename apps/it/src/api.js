@@ -57,8 +57,15 @@ export const passkeyRegisterOptions = () => send("POST", "/passkey/register-opti
 export const passkeyRegister = (response) => send("POST", "/passkey/register", { response });
 export const systemPass = () => send("POST", "/system-pass");
 
+// The server's checks: backup, Drive copy, restore test, disk (owner, 2026-11-16).
+export const getOpsStatus = () => call("/ops-status");
+
 // Reports from System («البلاغات»). Deleting is also «تم الحل».
 export const getBugReports = () => call("/bug-reports");
+// «ملخص الأخطاء»: the server's errors of the last 7 days (owner, 2026-11-16).
+export const getErrorSummary = () => call("/error-summary");
+// «سجل الاطلاع» (owner, 2026-11-16).
+export const getSensitiveViews = (page = 1) => call(`/sensitive-views?page=${Number(page) || 1}`);
 export const deleteBugReport = (id) => call(`/bug-reports/${enc(id)}`, { method: "DELETE" });
 export const bugReportImage = (id) => `${BASE}/bug-reports/${enc(id)}/image`;
 
@@ -68,6 +75,7 @@ export const getUser = (tz) => call(`/users/${enc(tz)}`);
 export const setRole = (tz, role) => send("PUT", `/users/${enc(tz)}/role`, { role });
 export const getPermissions = (tz) => call(`/users/${enc(tz)}/permissions`);
 export const savePermissions = (tz, { grants, revokes }) => send("PUT", `/users/${enc(tz)}/permissions`, { grants, revokes });
+// The password itself (owner, 2026-11-16); each view is in the audit log.
 export const getPassword = (tz) => call(`/users/${enc(tz)}/password`);
 export const resetPassword = (tz, password) => send("PUT", `/users/${enc(tz)}/password`, { password });
 export const unlockUser = (tz) => send("POST", `/users/${enc(tz)}/unlock`);

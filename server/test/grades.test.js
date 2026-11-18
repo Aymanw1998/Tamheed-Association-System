@@ -1,23 +1,24 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { canonicalGrade, nextGrade, NO_GRADE, UNIVERSITY } = require("../utils/grades");
+const { canonicalGrade, nextGrade, graduationPatch, NO_GRADE, UNIVERSITY, GRADUATE } = require("../utils/grades");
 const { createGradePromotion } = require("../services/gradePromotionJob");
 
 test("what was typed before the list is read only with certainty", () => {
   for (const [typed, grade] of [["السادس", "سادس"], ["الصف الثالث", "ثالث"], ["3", "ثالث"], ["٣", "ثالث"], ["صف أول", "اول"], ["الأول", "اول"],
-    ["الحادي عشر", "احد عشر"], ["الثاني عشر", "ثاني عشر"], ["ثاني عشر", "ثاني عشر"], ["12", "ثاني عشر"], ["روضة", "روضة"], ["جامعي", UNIVERSITY], ["لا يوجد صف", NO_GRADE]]) {
+    ["الحادي عشر", "احد عشر"], ["الثاني عشر", "ثاني عشر"], ["ثاني عشر", "ثاني عشر"], ["12", "ثاني عشر"], ["روضة", "روضة"], ["جامعي", UNIVERSITY], ["لا يوجد صف", NO_GRADE], ["خريج", GRADUATE], ["خريجة", GRADUATE]]) {
     assert.equal(canonicalGrade(typed), grade, typed);
   }
   for (const typed of ["", "ز", "13", "0", "something", "ثالث ب"]) assert.equal(canonicalGrade(typed), "", typed);
 });
 
-test("each class moves up one; after ثاني عشر there is no class", () => {
+test("each class moves up one; after ثاني عشر comes خريج (owner)", () => {
   assert.equal(nextGrade("روضة"), "اول");
   assert.equal(nextGrade("اول"), "ثاني");
   assert.equal(nextGrade("ثاني"), "ثالث");
   assert.equal(nextGrade("عاشر"), "احد عشر");
   assert.equal(nextGrade("احد عشر"), "ثاني عشر");
-  assert.equal(nextGrade("ثاني عشر"), NO_GRADE);
+  assert.equal(nextGrade("ثاني عشر"), GRADUATE);
+  assert.equal(nextGrade(GRADUATE), GRADUATE);
   assert.equal(nextGrade(UNIVERSITY), UNIVERSITY);
   assert.equal(nextGrade(NO_GRADE), NO_GRADE);
 });
@@ -51,11 +52,22 @@ test("nothing moves before July 1st, or at all before 2027, even after a deploy 
 test("on July 1st Israel time everyone moves once, and a second run changes nothing", async () => {
   const { rows, run, announced } = setup([{ layer: "اول" }, { layer: "ثاني عشر" }, { layer: "جامعي" }, { layer: "الصف الثالث" }], "2027-06-30T21:30:00Z");
   const first = await run();
-  assert.deepEqual(rows.map((r) => r.layer), ["ثاني", NO_GRADE, UNIVERSITY, "رابع"]);
+  assert.deepEqual(rows.map((r) => r.layer), ["ثاني", GRADUATE, UNIVERSITY, "رابع"]);
   assert.equal(first.moved, 4);
   assert.equal((await run()).skipped, true);
-  assert.deepEqual(rows.map((r) => r.layer), ["ثاني", NO_GRADE, UNIVERSITY, "رابع"]);
+  assert.deepEqual(rows.map((r) => r.layer), ["ثاني", GRADUATE, UNIVERSITY, "رابع"]);
   assert.equal(announced.length, 1);
+  assert.equal(rows[1].graduationYear, 2027);
+  assert.equal(rows[0].graduationYear, undefined);
+});
+
+test("choosing خريج by hand saves this year; another class removes it; an old year stays", () => {
+  const now = new Date("2028-03-01T10:00:00Z");
+  assert.deepEqual(graduationPatch(GRADUATE, { layer: "ثاني عشر" }, now), { graduationYear: 2028 });
+  assert.deepEqual(graduationPatch(GRADUATE, { layer: GRADUATE, graduationYear: 2027 }, now), {});
+  assert.deepEqual(graduationPatch("عاشر", { layer: GRADUATE, graduationYear: 2027 }, now), { graduationYear: null });
+  assert.deepEqual(graduationPatch("عاشر", { layer: "تاسع" }, now), {});
+  assert.deepEqual(graduationPatch(undefined, { layer: GRADUATE, graduationYear: 2027 }, now), {});
 });
 
 test("a server that was down on the day catches up, without moving those who joined after it", async () => {

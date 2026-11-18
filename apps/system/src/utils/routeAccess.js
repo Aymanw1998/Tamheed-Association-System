@@ -28,6 +28,8 @@ const RESTRICTED = [
   { pattern: /^\/lessons(\/|$)/, key: "lessons.view" },
   { pattern: /^\/reports(\/|$)/, any: ["reports.create", "reports.editOwn", "reports.viewAll", "reports.editAll", "reports.delete", "reports.exportPdf"] },
   { pattern: /^\/files(\/|$)/, key: "files.use" },
+  // «سلة المحذوفات» (owner, 2026-11-16): any of the delete keys.
+  { pattern: /^\/trash$/, any: ["students.delete", "vehicles.delete", "users.delete"] },
 ];
 
 export const canAccessPath = (pathname, permissions) => {

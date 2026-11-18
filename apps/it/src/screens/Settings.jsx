@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { errorText, forceReleaseLock, getAdminPowers, getPushSettings, recoverSystem, setAdminPowers, setPushEnabled } from "../api";
 import ConfirmDialog from "../ui/ConfirmDialog.jsx";
+import OpsStatus from "../ui/OpsStatus.jsx";
 import { toast } from "../ui/toast.jsx";
 
 const LOCK_ERRORS = { BAD_KEY: "مفتاح القفل غير صالح" };
@@ -68,6 +69,7 @@ export default function Settings() {
   return (
     <section>
       <h1>الإعدادات</h1>
+      <OpsStatus />
 
       <div className="card">
         <h2>الإشعارات الفورية</h2>

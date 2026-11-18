@@ -19,6 +19,7 @@ import PasskeyOffer from "../Auth/PasskeyOffer.jsx";
 import { passkeySupported } from "../../utils/passkey";
 import PhoneNotifications from "./PhoneNotifications.jsx";
 import MyDevices from "./MyDevices.jsx";
+import TextSizeChoice from "./TextSizeChoice.jsx";
 
 const Profile = ({parent = false}) => {
     const [form, setForm] = useState({
@@ -310,8 +311,8 @@ const Profile = ({parent = false}) => {
 
         <fieldset className={sectionStyles.formSection} data-tour="profile-account">
             <legend>بيانات الحساب</legend>
-            <label>رقم الهوية:<RequiredMark /></label>
-            <input name="tz" value={form.tz} onChange={onField} readOnly={true} />
+            <label htmlFor="profile-tz">رقم الهوية:<RequiredMark /></label>
+            <input id="profile-tz" name="tz" value={form.tz} onChange={onField} readOnly={true} />
             <label style={{color: "red"}}>{error.tz}</label>
 
         </fieldset>
@@ -321,20 +322,22 @@ const Profile = ({parent = false}) => {
 
         <PhoneNotifications />
 
+        <TextSizeChoice />
+
         <MyDevices />
 
         <fieldset className={sectionStyles.formSection} data-tour="profile-personal">
             <legend>البيانات الشخصية</legend>
-            <label>الاسم الشخصي:<RequiredMark /></label>
-            <input name="firstname" value={form.firstname} onChange={handleChange} required />
+            <label htmlFor="profile-firstname">الاسم الشخصي:<RequiredMark /></label>
+            <input id="profile-firstname" name="firstname" value={form.firstname} onChange={handleChange} required />
             <label style={{color: "red"}}>{error.firstname}</label>
 
-            <label>اسم العائلة:<RequiredMark /></label>
-            <input name="lastname" value={form.lastname} onChange={handleChange} required />
+            <label htmlFor="profile-lastname">اسم العائلة:<RequiredMark /></label>
+            <input id="profile-lastname" name="lastname" value={form.lastname} onChange={handleChange} required />
             <label style={{color: "red"}}>{error.lastname}</label>
 
-            <label>تاريخ الميلاد:<RequiredMark /></label>
-            <input
+            <label htmlFor="profile-birth_date">تاريخ الميلاد:<RequiredMark /></label>
+            <input id="profile-birth_date"
                 name="birth_date"
                 type="date"
                 value={form.birth_date ? String(form.birth_date).slice(0, 10) : ''}
@@ -342,8 +345,8 @@ const Profile = ({parent = false}) => {
             />
             <label style={{color: "red"}}>{error.birth_date}</label>
 
-            <label>الجنس:<RequiredMark /></label>
-            <select name="gender" value={form.gender} onChange={onField}>
+            <label htmlFor="profile-gender">الجنس:<RequiredMark /></label>
+            <select id="profile-gender" name="gender" value={form.gender} onChange={onField}>
                 <option value="">اختر الجنس</option>
                 <option value="ذكر">ذكر</option>
                 <option value="انثى">أنثى</option>
@@ -353,16 +356,16 @@ const Profile = ({parent = false}) => {
 
         <fieldset className={sectionStyles.formSection}>
             <legend>السكن والتواصل</legend>
-            <label>مدينة السكن:<RequiredMark /></label>
-            <input name="city" value={form.city} onChange={onField} />
+            <label htmlFor="profile-city">مدينة السكن:<RequiredMark /></label>
+            <input id="profile-city" name="city" value={form.city} onChange={onField} />
             <label style={{color: "red"}}>{error.city}</label>
 
-            <label>شارع السكن:<RequiredMark /></label>
-            <input name="street" value={form.street} onChange={onField} />
+            <label htmlFor="profile-street">شارع السكن:<RequiredMark /></label>
+            <input id="profile-street" name="street" value={form.street} onChange={onField} />
             <label style={{color: "red"}}>{error.street}</label>
 
-            <label>الهاتف:<RequiredMark /></label>
-            <input
+            <label htmlFor="profile-phone">الهاتف:<RequiredMark /></label>
+            <input id="profile-phone"
                 name="phone"
                 value={displayPhoneLocal(form.phone)}
                 onChange={(e)=>onPhoneChange('phone', e.target.value)}
@@ -370,8 +373,8 @@ const Profile = ({parent = false}) => {
             />
             <label style={{color: "red"}}>{error.phone}</label>
 
-            <label>البريد الإلكتروني:</label>
-            <input name="email" value={form.email} onChange={onField} />
+            <label htmlFor="profile-email">البريد الإلكتروني:</label>
+            <input id="profile-email" name="email" value={form.email} onChange={onField} />
             <label style={{color: "red"}}>{error.email}</label>
         </fieldset>
 

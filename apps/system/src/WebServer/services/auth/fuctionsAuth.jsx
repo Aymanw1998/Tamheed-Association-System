@@ -11,6 +11,7 @@ import { pending, clear as clearQueue } from "../../../pwa/attendanceQueue";
 import { dropDevicePush, unsubscribeStaff } from "../../../pwa/pushOptIn";
 import { ask } from "../../../Components/Provides/confirmBus";
 import { getStoredUserTz } from "../../../utils/session";
+import { clearStorageKeepingTextSize } from "../../../utils/textSize";
 
 function markSignedIn(user, accessToken, expirationTime) {
   // A new session never starts on top of the previous person's cached data.
@@ -85,7 +86,8 @@ export async function getMe() {
     // Keep what the server granted next to the user so the app can hide UI.
     // isSystem is sent only for the system account.
     return data.user
-      ? { ...data.user, role: data.role, permissions: data.permissions, isSystem: data.isSystem === true, adminPowers: data.adminPowers === true }
+      ? { ...data.user, role: data.role, permissions: data.permissions, isSystem: data.isSystem === true, adminPowers: data.adminPowers === true,
+        ...(typeof data.hasPasskey === "boolean" && { hasPasskey: data.hasPasskey }) }
       : data.user;
   } catch (err) {
     return null;
@@ -130,7 +132,7 @@ export async function logout() {
 
   clearAccessRefresh();
   setAuthTokens(null);
-  localStorage.clear();
+  clearStorageKeepingTextSize();
   localStorage.setItem("LOGOUT_BROADCAST", String(Date.now()));
   window.location.assign("/");
 }

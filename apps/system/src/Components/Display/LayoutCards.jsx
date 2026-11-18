@@ -4,11 +4,9 @@ import styles from "./DisplayScreensPage.module.css";
 // The wall layouts as picture cards (owner, 2026-11-12): the names alone say
 // little, so each card shows a small drawing of the screen and one line on
 // what it is for. Used for a new screen (nothing picked in advance) and to
-// change an existing screen's layout.
+// change an existing screen's layout. Two only (owner, 2026-11-14).
 export const LAYOUTS = [
   { value: "week", label: "كل الأسبوع", text: "كل أيام الأسبوع جنبًا إلى جنب. مناسب لعرض الأسبوع كله بنظرة واحدة." },
-  { value: "today", label: "اليوم بالتفصيل", text: "برامج اليوم بخط كبير حسب الساعة، وعلى الجانب ملخص الأيام القادمة." },
-  { value: "rotate", label: "يومًا بعد يوم", text: "يوم واحد في كل مرة ببطاقات كبيرة، ينتقل لليوم التالي كل 15 ثانية." },
   { value: "rooms", label: "اليوم حسب الغرف", text: "الغرف أعمدة في الأعلى والساعات على الجانب، واللوح ينزل مع الساعة." },
 ];
 
@@ -54,27 +52,6 @@ const THUMBS = {
           </g>
         );
       })}
-    </Frame>
-  ),
-  today: () => (
-    <Frame>
-      {block(48, 17, 106, 14, "")}
-      {block(48, 34, 106, 14, "now")}
-      {block(48, 51, 106, 14, "next")}
-      {block(48, 68, 106, 14, "")}
-      <rect x="6" y="17" width="38" height="65" rx="2" fill={C.card} stroke={C.line} strokeWidth="0.6" />
-      {[25, 38, 51, 64].map((y) => <rect key={y} x="10" y={y} width="30" height="3" rx="1.5" fill={C.ink} />)}
-    </Frame>
-  ),
-  rotate: () => (
-    <Frame>
-      {[0, 1, 2, 3, 4].map((i) => <rect key={i} x={50 + i * 13} y="16" width="10" height="4" rx="2" fill={i === 1 ? C.blue : C.ink} />)}
-      {block(108, 26, 46, 26, "now")}
-      {block(57, 26, 46, 26, "next")}
-      {block(6, 26, 46, 26, "")}
-      {block(108, 56, 46, 22, "")}
-      <rect x="6" y="84" width="148" height="2" rx="1" fill={C.line} />
-      <rect x="64" y="84" width="90" height="2" rx="1" fill={C.blue} />
     </Frame>
   ),
   rooms: () => (

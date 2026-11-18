@@ -82,6 +82,7 @@ function createWeeklyTasks({ tasks, assignments, statuses, summaries, greetings,
             if (user && !summary.finished && !summary.warningSentAt) {
               try {
                 await alerts.weeklyTasksOverdue?.(user, summary.total - summary.done, last);
+                await alerts.weeklyTasksOverdueStaff?.(user, summary.total - summary.done, last);
                 await summaries.updateExisting(filter, { warningSentAt: now() });
               } catch (error) { notificationFailed = true; log("weeklyTasks.warning", error); }
             }
@@ -220,7 +221,7 @@ function createWeeklyTasks({ tasks, assignments, statuses, summaries, greetings,
     const ids = [...new Set(Array.isArray(body?.guideIds) ? body.guideIds.map(String) : [])];
     const requestId = String(body?.requestId ?? "");
     if (!text || text.length > 500 || !ids.length || ids.length > 100 || !/^[a-zA-Z0-9_-]{8,80}$/.test(requestId)) {
-      throw fail(400, "INVALID_GREETING", "اختر المستلمين واكتب بركة حتى 500 حرف.");
+      throw fail(400, "INVALID_GREETING", "اختر المستلمين واكتب تهنئة حتى 500 حرف.");
     }
     const eligible = new Set((await guides()).map((guide) => guide.id));
     const people = await guideRows();
@@ -273,7 +274,7 @@ function defaultDeps() {
         return { result: (res?.result || []).filter((user) => !isHiddenUser(user)) };
       },
     },
-    alerts: { weeklyTasks: events.weeklyTasks, weeklyTaskAdded: events.weeklyTaskAdded, weeklyTasksOverdue: events.weeklyTasksOverdue, weeklyTasksGreeting: events.weeklyTasksGreeting },
+    alerts: { weeklyTasks: events.weeklyTasks, weeklyTaskAdded: events.weeklyTaskAdded, weeklyTasksOverdue: events.weeklyTasksOverdue, weeklyTasksOverdueStaff: events.weeklyTasksOverdueStaff, weeklyTasksGreeting: events.weeklyTasksGreeting },
     sendMail: (...args) => require("../utils/sendEmail").sendWeeklyTaskEmail(...args),
     log: logWithSource,
   };

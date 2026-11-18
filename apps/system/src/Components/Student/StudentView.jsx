@@ -12,6 +12,8 @@ import RecordPage from "../UI/RecordPage";
 import { DetailGroup, LinkList, GuideCard } from "../UI/RecordParts";
 import StudentAttendance from "./StudentAttendance";
 import { attendanceTotals } from "../../utils/attendanceView";
+import { offerUndo } from "../../utils/undoDelete";
+import { gradeLabel } from "../../utils/grades";
 
 const dateOf = (v) => {
   const d = v ? new Date(v) : null;
@@ -54,12 +56,12 @@ export default function StudentView() {
   if (!student) return <RecordPage loading={!error} error={error} />;
 
   const s = student;
-  // deleteS asks first; null means it was cancelled.
+  // Asks first (null: cancelled), then «سلة المحذوفات» with "تراجع" for 8 seconds.
   const remove = async () => {
     const res = await deleteS(s.tz);
     if (!res) return;
     if (!res.ok) return toast.warn(res.message || t("record.deleteFailed"));
-    toast.success(t("record.deleted"));
+    offerUndo({ trashId: res.trashId, message: t("record.movedToTrash"), onRestored: () => navigate(`/students/${s.tz}`) });
     navigate("/students");
   };
   const status = String(s.status || "").trim() || ACTIVE_STATUS;
@@ -104,7 +106,7 @@ export default function StudentView() {
           <DetailGroup title="السكن والتواصل" rows={[
             ["مدينة السكن", s.city], ["شارع السكن", s.street], ["الهاتف", s.phone], ["البريد الإلكتروني", s.email],
           ]} />
-          <DetailGroup title="الدراسة" rows={[["المدرسة", s.school], ["الصف", s.layer]]} />
+          <DetailGroup title="الدراسة" rows={[["المدرسة", s.school], ["الصف", gradeLabel(s)]]} />
           <DetailGroup title="الأهل" rows={[
             ["الأب", s.father_name], ["هاتف الأب", s.father_phone], ["عمل الأب", s.father_work],
             ["الأم", s.mother_name], ["هاتف الأم", s.mother_phone], ["عمل الأم", s.mother_work],
@@ -161,7 +163,7 @@ export default function StudentView() {
       photo={s.photo}
       facts={facts}
       title={`${s.firstname || ""} ${s.lastname || ""}`.trim() || s.tz}
-      subtitle={[s.layer, s.school].filter(Boolean).join(" · ")}
+      subtitle={[gradeLabel(s), s.school].filter(Boolean).join(" · ")}
       actions={actions}
       tabs={tabs}
     />

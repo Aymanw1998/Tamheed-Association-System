@@ -161,7 +161,7 @@ const students = {
       requires: "students.delete",
       mood: "warn",
       title: "حذف الطالب",
-      body: "الحذف نهائي، وسأعرض نافذة التأكيد فقط.",
+      body: "يسأل أولًا، ثم ينقل الطالب إلى «سلة المحذوفات» 30 يومًا.",
       action: { type: "click", target: "student-delete" },
     },
     {

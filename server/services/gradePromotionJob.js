@@ -1,4 +1,4 @@
-const { canonicalGrade, nextGrade } = require("../utils/grades");
+const { GRADUATE, canonicalGrade, nextGrade } = require("../utils/grades");
 
 // Every July 1st (Israel time) each student moves up one class.
 // Starts in 2027: without this, the first deploy after a July 1st would move
@@ -32,7 +32,10 @@ function createGradePromotion({ listStudents, updateStudent, hasFinished, markFi
         continue;
       }
       try {
-        await updateStudent(student, { layer: nextGrade(grade), gradePromotedYear: year });
+        const next = nextGrade(grade);
+        // From ثاني عشر to خريج, with the year (owner, 2026-11-16).
+        const graduated = next === GRADUATE && grade !== GRADUATE ? { graduationYear: year } : {};
+        await updateStudent(student, { layer: next, gradePromotedYear: year, ...graduated });
         moved += 1;
       } catch (error) {
         failed += 1;

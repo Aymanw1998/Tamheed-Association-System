@@ -43,7 +43,7 @@ const list = handle("list", async (req, res) => {
   if (!Number.isSafeInteger(skip) || skip < 0 || skip > 1000000) return fail(res, 400, "صفحة الإشعارات غير صالحة");
   const notices = await service.listNotices({
     userId: req.actor.id,
-    status: ["unread", "archived", "deleted"].includes(status) ? status : "all",
+    status: ["unread", "deleted"].includes(status) ? status : "all",
     canManageTrash: req.query?.personal !== "1" && ["notices.delete", "notices.restore", "notices.purge"].some((key) => can(req.actor?.permissions, key)),
     category: CATEGORIES.includes(category) ? category : "",
     severity: SEVERITIES.includes(severity) ? severity : "",
@@ -98,17 +98,6 @@ const readAll = handle("readAll", async (req, res) =>
   res.status(200).json({ ok: true, updated: await service.markAllRead(req.actor.id) })
 );
 
-const archive = handle("archive", async (req, res) => {
-  const notice = await service.archiveNotice(req.params?.id, req.actor);
-  if (!notice) return fail(res, 404, "الإعلان غير موجود");
-  const { archivedAt, archivedBy, ...before } = notice;
-  await audit.record(req, {
-    module: "notices", action: "update", targetType: "notice",
-    targetId: notice._id, targetLabel: notice.title, before, after: notice,
-  });
-  return res.status(200).json({ ok: true });
-});
-
 const runVehicleCheck = handle("runVehicleCheck", async (req, res) => {
   const result = await runVehicleExpiryCheck({ trigger: `manual:${req.actor.id}` });
   if (result?.skipped === "running") return res.status(409).json({ ok: false, message: "فحص المركبات يعمل الآن، حاول بعد قليل" });
@@ -128,5 +117,5 @@ const purge = handle("purge", async (req, res) => {
   await audit.record(req, { module: "notices", action: "delete", targetType: "notice", targetId: notice._id, targetLabel: notice.title });
   return res.json({ ok: true });
 });
-module.exports = { list, purge, unreadCount, create, read, readAll, archive, runVehicleCheck,
+module.exports = { list, purge, unreadCount, create, read, readAll, runVehicleCheck,
   trash: stateAction("delete"), restore: stateAction("restore"), hide: stateAction("hide"), unhide: stateAction("unhide") };

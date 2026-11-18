@@ -133,6 +133,8 @@
 
 .passwordWrapper input {
   flex: 1;
+  /* Lets the field shrink on a phone instead of widening the page. */
+  min-width: 0;
   padding-inline-end: 40px;
 }
 

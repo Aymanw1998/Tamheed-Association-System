@@ -1,4 +1,6 @@
-const { can, effectivePermissions, isSystemTz, isUnblockedItUser } = require("../utils/permissions");
+const { can, effectivePermissions, isSystemTz, isUnblockedItUser, isHiddenIt } = require("../utils/permissions");
+const { canSeeAlertType } = require("./alertAccess");
+const { isLocked } = require("../utils/loginLockout");
 
 // The alert engine: decides who receives an alert and writes it to each
 // recipient's AiAlerts inbox (the live stream picks new rows up from there).
@@ -23,9 +25,11 @@ const { can, effectivePermissions, isSystemTz, isUnblockedItUser } = require("..
 const SEVERITIES = new Set(["critical", "important", "info"]);
 const LANGS = ["ar", "he", "en"];
 
-// Alert types that also go to the recipients' phones (web push). A
-// student's three absences in a row too (owner, 2026-11-01).
-const PUSHED_TYPES = new Set(["lesson_no_attendance", "sport_lesson_no_attendance", "absence_streak"]);
+// Every alert also goes to its recipients' phones (web push), for whoever
+// turned it on in the profile (owner, 2026-11-17: "and everything"; before
+// that only no-attendance, absence streaks and a few chosen types pushed).
+// A phone gets it only when its owner may still read that alert type in the
+// app now (services/alertAccess), like the inbox (Codex review, 2026-11-18).
 
 const SELECTORS = ["permission", "permissions", "tz", "userIds", "scopeOfStudent", "it", "requestAlerts"];
 
@@ -92,6 +96,24 @@ function createAlertEngine({
     return [...out];
   }
 
+  // Of these recipients, those who may read this alert type now: what
+  // loadActor would let them into the app with (a locked account gets no push;
+  // only the real system account is never locked; Codex re-review, 2026-11-18).
+  async function mayRead(tzs, type) {
+    const users = ((await listActiveUsers()) || []).filter((u) => u?.tz);
+    const byTz = new Map(users.map((u) => [String(u.tz).trim(), u]));
+    return tzs.filter((tz) => {
+      const user = byTz.get(tz);
+      if (!user) return false;
+      const realSystem = isSystemTz(String(user.tz), sysTz());
+      const hidden = !realSystem && isHiddenIt(user, { systemTz: sysTz() });
+      if (isLocked(user, { isSystem: realSystem })) return false;
+      const isSystem = realSystem || hidden;
+      const actor = { id: String(user._id ?? ""), tz: String(user.tz), permissions: effectivePermissions(user, { isSystem }), isSystem, ...(hidden && { hidden: true }), user };
+      return canSeeAlertType(actor, type);
+    });
+  }
+
   async function raise({ type, severity, text, link = "", dedupKey, recipients = [] } = {}) {
     if (!type || typeof type !== "string") throw new Error("alert type required");
     if (!SEVERITIES.has(severity)) throw new Error(`unknown alert severity: ${severity}`);
@@ -115,10 +137,11 @@ function createAlertEngine({
       });
       if (res?.created) created.push(recipientTz);
     }
-    // Phones of the new recipients: only no-attendance alerts, never fatal.
-    if (PUSHED_TYPES.has(type) && created.length && push) {
+    // Phones of the new recipients, never fatal.
+    if (created.length && push) {
       try {
-        await push.sendToStaff(created, { title: "تمهيد", body: text.ar, url: link || "/" });
+        const phones = await mayRead(created, type);
+        if (phones.length) await push.sendToStaff(phones, { title: "تمهيد", body: text.ar, url: link || "/" });
       } catch (error) {
         log("push failed", error?.message || error);
       }

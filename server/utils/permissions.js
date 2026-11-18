@@ -7,7 +7,7 @@ const PERMISSION_TREE = catalog.tree;
 const ROLE_DEFAULTS = {
   "ادارة": ["dashboard", "calendar", "alerts.dismiss", "students", "lessons", "attendance", "reports", "vehicles",
             "files", "notices", "tasks", "rules", "consents", "users.view", "users.create", "users.edit", "users.approve",
-            "users.delete", "users.changeRole", "users.resetPassword", "ai"],
+            "users.delete", "users.purge", "users.exportExcel", "users.changeRole", "users.resetPassword", "ai"],
   // Only an admin edits students, lessons and users (owner, 2026-11-01); an
   // admin may still grant one guide an edit key in the permissions screen.
   "مرشد": ["dashboard", "calendar", "alerts.dismiss", "students.view",

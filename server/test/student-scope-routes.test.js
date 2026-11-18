@@ -100,6 +100,7 @@ function world({ lockPrograms } = {}) {
     "../../middleware/logger": { logWithSource() {} },
     "../Notification/Notification.controller": {},
     ...audit.deps,
+    ...require("./helpers/recycleBinStub").recycleBinStub().deps,
   };
   const student = load("Student/Student.controller.js", {
     ...common,
@@ -107,6 +108,9 @@ function world({ lockPrograms } = {}) {
     "./Student.model": { StudentModelDef: students },
     "../Lesson/Lesson.model": { LessonModelDef: lessons },
     "../User/User.model": { UserModelDef: users },
+    // No signatures here; reading them must work for a delete to go on.
+    "../InviteToken/Rules.model": { ConsentModelDef: { async get() { return { success: true, result: [] }; }, async delete() { return { success: true }; } } },
+    "../InviteToken/InviteToken.model": { InviteTokenModelDef: { async delete() { return { success: true }; } } },
     "../UploadFile/file": {
       async handleUpload() { return { secure_url: "https://example.test/new" }; },
       async handleDeleteByUrl() { return { deleted: true }; },

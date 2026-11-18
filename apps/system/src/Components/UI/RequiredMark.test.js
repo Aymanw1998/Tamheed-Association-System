@@ -38,11 +38,11 @@ test("the vehicle test date is required only for a test that passed or failed", 
 
 test("the user form stars exactly what blocks saving", () => {
   const source = fs.readFileSync(path.join(__dirname, "..", "User", "EditUser.jsx"), "utf8");
-  const starred = [...source.matchAll(/<label>([^<]+)<span style=\{\{color: "red"\}\}>\*<\/span>/g)].map((m) => m[1]);
+  const starred = [...source.matchAll(/<label(?: htmlFor="[^"]+")?>([^<]+)<span style=\{\{color: "red"\}\}>\*<\/span>/g)].map((m) => m[1]);
   expect(starred).toEqual(["رقم الهوية:", "الاسم الشخصي:", "اسم العائلة:", "الهاتف:"]);
   // A new user also needs a first password and a role.
   expect(source).toContain("<label>كلمة المرور:{isNew && <RequiredMark />}</label>");
-  expect(source).toContain('<label>{t("perms.role")}:<RequiredMark /></label>');
+  expect(source).toMatch(/<label(?: htmlFor="[^"]+")?>\{t\("perms\.role"\)\}:<RequiredMark \/><\/label>/);
 });
 
 test("the sign-in screen is one card with the logo and names above it on every site", () => {

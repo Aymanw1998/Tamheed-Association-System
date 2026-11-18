@@ -124,6 +124,9 @@ app.use('/api/inviteToken', require('./Entities/InviteToken/InviteToken.route'))
 app.use('/api/report', require('./Entities/Report/Report.route'));
 app.use('/api/vehicle', require('./Entities/Vehicle/Vehicle.route'));
 app.use('/api/notices', require('./Entities/Notice/Notice.route'));
+// «سلة المحذوفات»: deleted students, vehicles and staff, 30 days (owner, 2026-11-16).
+app.use('/api/trash', require('./Entities/Trash/Trash.route'));
+app.use('/api/exports', require('./Entities/Export/Export.route'));
 app.use('/api/weekly-tasks', require('./Entities/WeeklyTask/WeeklyTask.route'));
 app.use('/api/displays', require('./Entities/Display/Display.route'));
 // The audit log is on the IT site only (/api/it/audit, Entities/It/It.route.js).
@@ -162,6 +165,10 @@ require('./services/weeklyTasks').startWeeklyTasksJob();
 require('./services/sportPushJob').startSportPushJob();
 // Passport versions of the photos: made one at a time, the missing ones by a half-hourly sweep.
 require('./services/passportPhotoJob').passportPhotoJob.start();
+// Free disk space, hourly, for the IT site (owner, 2026-11-16).
+require('./services/diskCheckJob').startDiskCheckJob();
+// The recycle bin: what was deleted 30 days ago goes for good, daily.
+require('./services/recycleBin').startRecycleBinJob();
 // **********************************END - AUTO_PROCCESS ***************************
 
 
@@ -225,6 +232,22 @@ const StartServer = async () => {
     await require('./Entities/InviteToken/Rules.model').ensureRulesIndexes()
     await require('./Entities/Notice/Notice.model').ensureNoticeIndexes()
       .catch((err) => console.error('Notice index:', err.message));
+    // The notices archive was removed (owner, 2026-11-14): archived notices go to the trash.
+    await require('./Entities/Notice/Notice.service').trashArchivedNotices()
+      .then((n) => n && console.log(`Archived notices moved to the trash: ${n}`))
+      .catch((err) => console.error('Notice archive cleanup:', err.message));
+    // Earlier parent signatures are no longer kept (owner, 2026-11-15): the old copies are deleted.
+    await require('./Entities/InviteToken/Rules.model').purgeConsentHistory()
+      .then((n) => n && console.log(`Earlier consent signatures deleted: ${n}`))
+      .catch((err) => console.error('Consent history cleanup:', err.message));
+    // The vehicles archive was removed (owner, 2026-11-15): archived vehicles are deleted for good.
+    await require('./Entities/Vehicle/Vehicle.controller').purgeArchivedVehicles()
+      .then((n) => n && console.log(`Archived vehicles deleted: ${n}`))
+      .catch((err) => console.error('Vehicle archive cleanup:', err.message));
+    await require('./utils/errorLog').ensureErrorLogIndexes()
+      .catch((err) => console.error('Error log index:', err.message));
+    await require('./utils/sensitiveViews').ensureSensitiveViewIndexes()
+      .catch((err) => console.error('Sensitive views index:', err.message));
     await require('./Entities/Audit/Audit.model').ensureAuditIndexes()
       .catch((err) => console.error('Audit index:', err.message));
     await require('./Entities/Live/LiveTicket.model').ensureLiveTicketIndexes()

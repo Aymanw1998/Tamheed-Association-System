@@ -13,7 +13,7 @@ const FAKE_HASH = bcrypt.hashSync("real-pass", 4);
 
 // Load the real controller with inert dependencies (same approach as
 // user-profile-authorization.test.js).
-function loadController(storedPassword = FAKE_HASH, extra = {}) {
+function loadController(storedPassword = FAKE_HASH, extra = {}, audit = auditStub()) {
   const user = { _id: "id-1", tz: "1", roles: [], password: storedPassword, ...extra };
   const dependencies = {
     bcryptjs: bcrypt,
@@ -62,7 +62,7 @@ function loadController(storedPassword = FAKE_HASH, extra = {}) {
     },
     "../Notification/Notification.controller": {},
     ...require("./helpers/alertEventsStub").noopAlertDeps,
-    ...auditStub().deps,
+    ...audit.deps,
   };
   const filename = path.join(__dirname, "../Entities/User/User.controller.js");
   const module = { exports: {} };
@@ -119,26 +119,37 @@ test("login still accepts the real password", async () => {
 // The IT site's actor (middleware/requireIt.js); the route is on /api/it only.
 const IT_ACTOR = { id: "it-1", tz: "999999998", it: true, isSystem: false, permissions: new Set() };
 
-test("viewPassword never returns the stored value", async () => {
-  for (const stored of [FAKE_HASH, "enc:secret-value", "plain-secret"]) {
-    const { viewPassword } = loadController(stored);
-    const res = makeRes();
-    await viewPassword({ params: { tz: "1" }, actor: IT_ACTOR }, res);
-    const text = JSON.stringify(res.body);
-    assert.equal(res.statusCode, 200);
-    assert.equal(res.body.ok, true);
-    assert.equal(res.body.hasPassword, true);
-    assert.deepEqual(Object.keys(res.body).sort(), ["hasPassword", "ok"]);
-    assert.ok(!text.includes(stored), "stored value leaked");
-    assert.ok(!text.includes("secret-value"), "decrypted value leaked");
-  }
-});
-
-test("viewPassword reports hasPassword false when none is stored", async () => {
-  const { viewPassword } = loadController("");
+// Owner, 2026-11-16: the IT site shows the password itself, and logs each view.
+test("viewPassword returns the password and writes the view to the audit log", async () => {
+  const audit = auditStub();
+  const { viewPassword } = loadController("enc:the-test-value", {}, audit);
   const res = makeRes();
   await viewPassword({ params: { tz: "1" }, actor: IT_ACTOR }, res);
-  assert.deepEqual(JSON.parse(JSON.stringify(res.body)), { ok: true, hasPassword: false });
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(JSON.parse(JSON.stringify(res.body)), { ok: true, hasPassword: true, password: "the-test-value" });
+  assert.equal(audit.find({ module: "users", action: "password_view", targetId: "1" }).length, 1);
+});
+
+test("viewPassword shows nothing when the audit row cannot be written (Codex review, 2026-11-18)", async () => {
+  const audit = auditStub();
+  audit.deps["../../utils/audit"].audit.recordRequired = async () => false;
+  const { viewPassword } = loadController("enc:the-test-value", {}, audit);
+  const res = makeRes();
+  await viewPassword({ params: { tz: "1" }, actor: IT_ACTOR }, res);
+  assert.equal(res.statusCode, 503);
+  assert.equal(res.body.password, undefined);
+});
+
+test("viewPassword never sends a bcrypt hash and logs nothing when nothing is shown", async () => {
+  for (const [stored, hasPassword] of [[FAKE_HASH, true], ["", false]]) {
+    const audit = auditStub();
+    const { viewPassword } = loadController(stored, {}, audit);
+    const res = makeRes();
+    await viewPassword({ params: { tz: "1" }, actor: IT_ACTOR }, res);
+    assert.equal(res.statusCode, 200);
+    assert.deepEqual(JSON.parse(JSON.stringify(res.body)), { ok: true, hasPassword, password: null });
+    assert.equal(audit.calls.length, 0);
+  }
 });
 
 // ---- route wiring ----
@@ -249,6 +260,17 @@ test("getme adds the resolved role and the effective permissions", async () => {
   assert.ok(!body.permissions.includes("students.delete"));
   // Only the system account is flagged; nobody else carries the field.
   assert.equal(Object.hasOwn(body, "isSystem"), false);
+  assert.equal(body.hasPasskey, false);
+});
+
+test("getme says whether the account has a System passkey, and never sends the passkeys (owner, 2026-11-14)", async () => {
+  const { getme } = loadController(FAKE_HASH, { roles: ["مرشد"], systemPasskeys: [{ id: "cred-1", publicKey: "pk" }] });
+  const res = makeRes();
+  await getme({ user: { tz: "1" } }, res);
+  const body = JSON.parse(JSON.stringify(res.body));
+  assert.equal(body.hasPasskey, true);
+  assert.equal(body.user.systemPasskeys, undefined);
+  assert.ok(!JSON.stringify(body).includes("cred-1"));
 });
 
 test("getme gives the system account every permission but the IT keys", async () => {

@@ -340,8 +340,7 @@ export default function VehicleRecords({ kind, vehicle, canEdit, canAccessDocs, 
   const config = KINDS[kind];
   const [mode, setMode] = useState(null); // null | "add" | { edit: record } | { retire: record }
   const records = [...(vehicle[config.list] || [])].reverse();
-  const archived = vehicle.status === "archived";
-  const writable = canEdit && !archived;
+  const writable = canEdit;
 
   const saved = (next) => {
     setMode(null);
@@ -358,7 +357,7 @@ export default function VehicleRecords({ kind, vehicle, canEdit, canAccessDocs, 
         linkedType={kind}
         defaultKind={kind}
         canAccess={canAccessDocs}
-        canUpload={canUploadDocs && !archived}
+        canUpload={canUploadDocs}
         onVehicle={onVehicle}
       />
       <p className={styles.note}>{t(config.note)}</p>
@@ -376,7 +375,7 @@ export default function VehicleRecords({ kind, vehicle, canEdit, canAccessDocs, 
           kind={kind}
           config={config}
           vehicleId={vehicle._id}
-          canAttach={Boolean(canUploadDocs) && !archived}
+          canAttach={Boolean(canUploadDocs)}
           onSaved={saved}
           onCancel={() => setMode(null)}
           onDirty={reportDirty}
@@ -441,7 +440,7 @@ export default function VehicleRecords({ kind, vehicle, canEdit, canAccessDocs, 
                   config={config}
                   vehicleId={vehicle._id}
                   record={record}
-                  canAttach={Boolean(canUploadDocs) && !archived}
+                  canAttach={Boolean(canUploadDocs)}
                   onSaved={saved}
                   onCancel={() => setMode(null)}
                   onDirty={reportDirty}

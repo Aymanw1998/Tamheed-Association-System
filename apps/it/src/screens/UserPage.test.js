@@ -31,8 +31,8 @@ beforeEach(() => {
     effective: ["students.view", "students.create"], grantable: ["students.view", "students.create", "students.edit"],
     updatedAt: null, updatedBy: null,
   }));
+  api.getPassword.mockImplementation(() => ok({ hasPassword: true, password: "the-test-value" }));
   api.getSessions.mockImplementation(() => ok({ devices: [{ sid: "s1", label: "Chrome على ويندوز", startedAt: "2026-11-01T08:00:00Z", lastSeenAt: "2026-11-02T08:00:00Z", current: false }] }));
-  api.getPassword.mockImplementation(() => ok({ hasPassword: true }));
 });
 afterEach(async () => { await unmountAll(); jest.clearAllMocks(); });
 
@@ -57,10 +57,12 @@ test("UserPage: role, permissions, reset/view password, unlock, devices", async 
   expect(api.getPermissions).toHaveBeenCalledWith(TZ);
   expect(c.textContent).toContain("الطلاب");
 
-  // View password: only whether there is one, never the value.
+  // View password: the password itself, then hidden again (owner, 2026-11-16).
   await click(button(c, "عرض كلمة المرور"));
   expect(api.getPassword).toHaveBeenCalledWith(TZ);
-  expect(c.textContent).toContain("يوجد كلمة مرور");
+  expect(c.querySelector(".shown-password").textContent).toBe("the-test-value");
+  await click(button(c, "إخفاء كلمة المرور"));
+  expect(c.querySelector(".shown-password")).toBeNull();
 
   // Reset the password: two fields that must match (owner, 2026-11-03).
   await type(c.querySelector('input[name="newPassword"]'), "a-new-test-password");
@@ -85,11 +87,15 @@ test("UserPage: role, permissions, reset/view password, unlock, devices", async 
   expect(api.endSession).toHaveBeenCalledWith(TZ, "s1");
 });
 
-test("UserPage: no password on file", async () => {
-  api.getPassword.mockImplementation(() => ok({ hasPassword: false }));
+test("UserPage: no password on file, or one that cannot be shown yet", async () => {
+  api.getPassword.mockImplementation(() => ok({ hasPassword: false, password: null }));
   const c = await mount(<UserPage tz={TZ} />);
   await click(button(c, "عرض كلمة المرور"));
   expect(c.textContent).toContain("لا توجد كلمة مرور");
+  await click(button(c, "إخفاء كلمة المرور"));
+  api.getPassword.mockImplementation(() => ok({ hasPassword: true, password: null }));
+  await click(button(c, "عرض كلمة المرور"));
+  expect(c.textContent).toContain("لا يمكن عرضها");
 });
 
 test("UserPage: an unlocked account has no unlock button", async () => {

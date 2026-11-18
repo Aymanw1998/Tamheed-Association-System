@@ -1,8 +1,8 @@
 const crypto = require("crypto");
 const { DEFAULT_RULES } = require("./defaultRules");
 const { InviteTokenModelDef } = require("./InviteToken.model");
-const { RulesModelDef, ConsentModelDef, ConsentHistoryModelDef } = require("./Rules.model");
-const { canonicalGrade } = require("../../utils/grades");
+const { RulesModelDef, ConsentModelDef } = require("./Rules.model");
+const { canonicalGrade, graduationPatch } = require("../../utils/grades");
 const { StudentModelDef } = require("../Student/Student.model");
 const { handleUpload } = require("../UploadFile/file");
 const { passportPhotoJob } = require("../../services/passportPhotoJob");
@@ -136,8 +136,17 @@ const getConsent = async (req, res) => {
   try {
     const [consent] = resultsOf(await ConsentModelDef.get({ studentId: String(req.params.studentId) }));
     if (!consent) return res.status(200).json({ ok: true, consent: null });
-    if (!resultsOf(await StudentModelDef.get({ _id: String(req.params.studentId) })).length) return res.status(200).json({ ok: true, consent: null });
+    const [student] = resultsOf(await StudentModelDef.get({ _id: String(req.params.studentId) }));
+    if (!student) return res.status(200).json({ ok: true, consent: null });
     const rows = resultsOf(await RulesModelDef.get({ version: consent.rulesVersion }));
+    // A look at the parent's signature is written down (owner, 2026-11-16).
+    if (consent.signature) {
+      await Promise.resolve().then(() => require("../../utils/sensitiveViews").sensitiveViews.record(req, {
+        studentId: String(student._id),
+        studentLabel: `${student.firstname || ""} ${student.lastname || ""}`.trim() || String(student.tz || ""),
+        fields: ["signature"],
+      })).catch((e) => logWithSource("InviteToken.getConsent.views", e));
+    }
     return res.status(200).json({
       ok: true,
       consent: {
@@ -172,11 +181,6 @@ async function saveConsentEvidence(student, existing, body, rules, { recordedBy 
     if (body.baseConsentVersion !== undefined && body.baseConsentVersion !== consentRevision(existing)) return changedConsent();
     if (existing?.signature && body.baseConsentVersion === undefined) {
       return { status: 409, ok: false, code: "ALREADY_SIGNED", message: "يوجد توقيع لهذا الطالب. حدّث الصفحة قبل تعديله." };
-    }
-    if (existing?.signature) {
-      const snapshot = { ...existing, _id: digest(`${studentId}:${consentRevision(existing)}`).slice(0, 24), sourceConsentId: String(existing._id), archivedAt: signedAt };
-      try { await ConsentHistoryModelDef.create(snapshot); }
-      catch (error) { if (!isDuplicateKey(error)) throw error; }
     }
     const evidence = {
       studentId, tz: student.tz, rulesVersion: rules.version,
@@ -423,6 +427,8 @@ const submitRegistration = async (req, res) => {
       source: PARENT_SOURCE,
       status: PENDING_STATUS,
       consentAt: req.body.signature ? now : null,
+      // A graduate gets the graduation year, as when staff add one (Codex review, 2026-11-18).
+      ...graduationPatch(fields.layer, {}, now),
       createdAt: now,
       updatedAt: now,
     });

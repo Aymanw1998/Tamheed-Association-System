@@ -11,7 +11,8 @@ const { can, effectivePermissions } = require("./permissions");
 const TIME_ZONE = "Asia/Jerusalem";
 
 const VEHICLE_TYPES = ["vehicle", "trailer"];
-const VEHICLE_STATUSES = ["active", "out_of_service", "archived"];
+// "archived" is gone (owner, 2026-11-15); a vehicle left with it is deleted at server start.
+const VEHICLE_STATUSES = ["active", "out_of_service"];
 const BRAKE_VALUES = ["yes", "no", "unknown"];
 const FEE_STATUSES = ["unknown", "unpaid", "paid", "exempt"];
 const TEST_RESULTS = ["not_done", "passed", "failed", "exempt"];
@@ -22,7 +23,7 @@ const DOCUMENT_KINDS = ["license", "policy", "test", "receipt", "other"];
 // constant; every function that uses them also accepts an override.
 const DEFAULT_ALERT_DAYS = [60, 30, 14, 7, 0];
 
-const PERMISSIONS = ["view", "edit", "compliance", "documents", "archive"];
+const PERMISSIONS = ["view", "edit", "compliance", "documents"];
 
 // ---------------------------------------------------------------- permissions
 

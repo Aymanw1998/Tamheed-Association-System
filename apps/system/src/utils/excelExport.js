@@ -56,6 +56,34 @@ export function studentsSheet(students) {
   };
 }
 
+// The staff list as filtered on screen (owner, 2026-11-16). `roleName` is set by the page.
+export function usersSheet(users) {
+  return {
+    name: "الموظفون",
+    columns: [{ header: "الاسم", width: 24 }, { header: "رقم الهوية", width: 14 }, { header: "الدور", width: 12 }, { header: "الهاتف", width: 14 }, { header: "البريد الإلكتروني", width: 28 }],
+    rows: users.map((u) => [fullName(u), String(u.tz || ""), u.roleName || "", u.phone || "", u.email || ""]),
+  };
+}
+
+const DAYS = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+const hhmm = (min) => `${String(Math.floor((Number(min) || 0) / 60)).padStart(2, "0")}:${String((Number(min) || 0) % 60).padStart(2, "0")}`;
+
+// The month's programs (GET /api/exports/programs rows). `roomName` labels the room.
+export function programsSheet(rows, roomName = (room) => String(room ?? "")) {
+  return {
+    name: "ملخص البرامج",
+    columns: [
+      { header: "البرنامج", width: 24 }, { header: "اليوم", width: 10 }, { header: "الساعة", width: 12 }, { header: "الغرفة", width: 12 },
+      { header: "المرشد", width: 22 }, { header: "عدد الطلاب", width: 10 }, { header: "أيام سُجّل فيها الحضور", width: 14 },
+      { header: "حاضر", width: 8 }, { header: "متأخر", width: 8 }, { header: "غائب", width: 8 }, { header: "نسبة الحضور", width: 12 },
+    ],
+    rows: rows.map((r) => [
+      r.name, DAYS[r.day - 1] || "", r.endMin ? `${hhmm(r.startMin)}–${hhmm(r.endMin)}` : "", roomName(r.room), r.teacher,
+      r.students, r.days, r.present, r.late, r.absent, r.rate === null || r.rate === undefined ? "" : `${r.rate}%`,
+    ]),
+  };
+}
+
 // Football players with the sport's stats; a staff player has none (owner, 2026-11-09).
 export function playersSheet(players, stats = []) {
   return {

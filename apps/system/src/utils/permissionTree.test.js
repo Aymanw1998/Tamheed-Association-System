@@ -131,10 +131,10 @@ describe("fix round 1", () => {
   });
 
   test("splitting a module grant drops leaves that are defaults or revoked", () => {
-    const state = { defaults: ["files.use"], grants: ["vehicles"], revokes: ["vehicles.archive"] };
+    const state = { defaults: ["files.use"], grants: ["vehicles"], revokes: ["vehicles.documents"] };
     expect(toggleKey(state, "vehicles.delete", false)).toEqual({
-      grants: ["vehicles.view", "vehicles.edit", "vehicles.compliance", "vehicles.documents"],
-      revokes: ["vehicles.archive"],
+      grants: ["vehicles.view", "vehicles.edit", "vehicles.compliance", "vehicles.purge"],
+      revokes: ["vehicles.documents"],
     });
   });
 

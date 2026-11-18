@@ -17,7 +17,7 @@ jest.mock("../../WebServer/services/display/functionsDisplay.jsx", () => ({
 // link or a delete happens only after a confirm.
 
 const TOKEN = "T".repeat(43);
-const SCREEN = { id: "a".repeat(24), name: "المدخل", layout: "today", createdAt: "2026-11-10T10:00:00.000Z" };
+const SCREEN = { id: "a".repeat(24), name: "المدخل", layout: "rooms", createdAt: "2026-11-10T10:00:00.000Z" };
 
 const setValue = (el, value) => {
   const proto = el.tagName === "SELECT" ? window.HTMLSelectElement.prototype : window.HTMLInputElement.prototype;
@@ -36,17 +36,17 @@ afterEach(cleanup);
 const cardsIn = (scope) => [...scope.querySelectorAll("[role=radio]")];
 const cardNamed = (scope, label) => cardsIn(scope).find((c) => c.querySelector("b").textContent === label);
 
-test("lists screens with their layout; the cards show the four layouts with a picture", async () => {
+test("lists screens with their layout; the cards show the two layouts with a picture (owner, 2026-11-14)", async () => {
   render(<DisplayScreensPage />);
   await flush();
   const row = rowOf("المدخل");
-  expect(byText("اليوم بالتفصيل", row)).toBeTruthy();
+  expect(byText("اليوم حسب الغرف", row)).toBeTruthy();
   expect(cardsIn(row)).toHaveLength(0);
   await click(byText("تغيير طريقة العرض", row));
   const cards = cardsIn(row);
-  expect(cards.map((c) => c.querySelector("b").textContent)).toEqual(["كل الأسبوع", "اليوم بالتفصيل", "يومًا بعد يوم", "اليوم حسب الغرف"]);
+  expect(cards.map((c) => c.querySelector("b").textContent)).toEqual(["كل الأسبوع", "اليوم حسب الغرف"]);
   cards.forEach((c) => expect(c.querySelector("svg")).toBeTruthy());
-  expect(cardNamed(row, "اليوم بالتفصيل").getAttribute("aria-checked")).toBe("true");
+  expect(cardNamed(row, "اليوم حسب الغرف").getAttribute("aria-checked")).toBe("true");
 });
 
 test("a new screen has no layout until one is picked", async () => {
@@ -68,10 +68,10 @@ test("create shows the link once; reopening the page never shows it again", asyn
   await flush();
   const form = document.querySelector("form[data-new-screen]");
   await act(async () => { setValue(form.querySelector("input"), "القاعة"); });
-  await click(cardNamed(form, "يومًا بعد يوم"));
+  await click(cardNamed(form, "كل الأسبوع"));
   await act(async () => { form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })); });
   await flush();
-  expect(createDisplay).toHaveBeenCalledWith({ name: "القاعة", layout: "rotate" });
+  expect(createDisplay).toHaveBeenCalledWith({ name: "القاعة", layout: "week" });
   const dialog = document.querySelector("[role=dialog]");
   expect(dialog.textContent).toContain("احفظ الرابط الآن — لن يظهر مرة أخرى.");
   expect(dialog.querySelector("input").value).toBe(`${window.location.origin}/display#${TOKEN}`);

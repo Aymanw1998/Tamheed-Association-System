@@ -27,7 +27,18 @@ test("a failed fetch offers retry and never copies an invalid link", async () =>
   await act(async () => root.render(<CopyParentLink />));
   await act(async () => host.querySelector("button").click());
   expect(write).not.toHaveBeenCalled();
-  expect(host.textContent).toBe("نسخ رابط تسجيل الأهل");
+  expect(host.querySelector("button").textContent).toBe("نسخ رابط تسجيل الأهل");
   await act(async () => host.querySelector("button").click());
   expect(write).toHaveBeenCalledTimes(1);
+});
+// «إرسال بواتساب» sits next to the copy button (owner, 2026-11-16).
+test("«إرسال بواتساب» opens WhatsApp with the registration text and link", async () => {
+  const open = jest.spyOn(window, "open").mockImplementation(() => null);
+  await act(async () => root.render(<CopyParentLink />));
+  const button = [...host.querySelectorAll("button")].find((b) => b.textContent === "إرسال بواتساب");
+  await act(async () => button.click());
+  const url = decodeURIComponent(open.mock.calls[0][0]);
+  expect(url).toContain("رابط تسجيل الطالب");
+  expect(url).toContain("/register-student/synthetic-token");
+  open.mockRestore();
 });

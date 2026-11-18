@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { getLink } from "../../WebServer/services/inviteToken/functionInviteToken.jsx";
 import { toast } from "../../ALERT/SystemToasts.jsx";
 import Button from "../UI/Button.jsx";
+import { openWhatsApp, REGISTRATION_TEXT } from "../../utils/whatsApp";
 
 // Fetch in advance so clipboard.writeText runs during the user's click,
 // including on browsers that require transient user activation.
@@ -27,7 +28,12 @@ export default function CopyParentLink(props) {
         .catch(() => toast.error("تعذّر نسخ الرابط، حاول مرة أخرى."));
     } catch { toast.error("تعذّر نسخ الرابط، حاول مرة أخرى."); }
   };
-  return <Button variant="secondary" {...props} disabled={!token && !error} onClick={copy}>
-    {error ? "إعادة تحميل رابط الأهل" : "نسخ رابط تسجيل الأهل"}
-  </Button>;
+  const url = `${window.location.origin}/register-student/${token}`;
+  // «إرسال بواتساب» next to the copy button (owner, 2026-11-16).
+  return <span style={{ display: "inline-flex", flexWrap: "wrap", gap: 8 }}>
+    <Button variant="secondary" {...props} disabled={!token && !error} onClick={copy}>
+      {error ? "إعادة تحميل رابط الأهل" : "نسخ رابط تسجيل الأهل"}
+    </Button>
+    <Button variant="success" disabled={!token} onClick={() => openWhatsApp(REGISTRATION_TEXT, url)}>إرسال بواتساب</Button>
+  </span>;
 }

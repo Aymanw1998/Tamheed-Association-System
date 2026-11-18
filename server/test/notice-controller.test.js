@@ -111,7 +111,7 @@ function loadRoutes(controller) {
 }
 
 const res = () => ({ statusCode: 200, body: undefined, status(c) { this.statusCode = c; return this; }, json(v) { this.body = v; return this; } });
-test("trash purges after 30 days, restores the end date, and permanent delete needs notices.purge", async () => {
+test("trash purges after 14 days, restores the end date, and permanent delete needs notices.purge", async () => {
   const ctx = setup();
   const ends = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
   const { notice } = await ctx.service.publishNotice({ title: "Synthetic", body: "", category: "manual", severity: "info", endDate: "2099-01-01", expireAt: ends });
@@ -156,8 +156,7 @@ test("trash, restore and purge racing each other never leave a mixed or recreate
   const ctx = setup();
   const { notice } = await ctx.service.publishNotice({ title: "Race", body: "", category: "manual", severity: "info" });
   const params = { id: notice._id };
-  // Archived; a restore reads it, then a trash lands before the restore writes.
-  await guarded(ctx, ADMIN, "archive", { params });
+  // A restore reads it, then a trash lands before the restore writes.
   afterNextRead(ctx, () => ctx.service.changeNoticeState(notice._id, ADMIN, "delete"));
   assert.equal((await guarded(ctx, ADMIN, "restore", { params })).statusCode, 404);
   assert.ok(ctx.rows[0].deletedAt && ctx.rows[0].expireAt instanceof Date, "still in the trash, purge date intact");
@@ -209,7 +208,7 @@ async function guarded({ controller, routes }, user, handler, req = {}) {
 
 test("without notices permissions every notice route is 403, even with vehicle permissions", async () => {
   const ctx = setup();
-  for (const handler of ["list", "unreadCount", "create", "read", "readAll", "archive", "runVehicleCheck"]) {
+  for (const handler of ["list", "unreadCount", "create", "read", "readAll", "trash", "runVehicleCheck"]) {
     for (const user of [GUIDE, REVOKED]) {
       const r = await guarded(ctx, user, handler);
       assert.equal(r.statusCode, 403, `${handler} as ${user.lastname}`);
@@ -218,14 +217,14 @@ test("without notices permissions every notice route is 403, even with vehicle p
   }
 });
 
-test("notices.view alone reads the board but cannot post, archive or run the vehicle check", async () => {
+test("notices.view alone reads the board but cannot post, delete or run the vehicle check", async () => {
   const ctx = setup();
   const { notice } = await ctx.service.publishNotice({ title: "t", body: "b", category: "system", severity: "info" });
   assert.equal((await guarded(ctx, READER, "list")).statusCode, 200);
   assert.equal((await guarded(ctx, READER, "unreadCount")).body.count, 1);
   assert.equal((await guarded(ctx, READER, "read", { params: { id: notice._id } })).statusCode, 200);
   assert.equal((await guarded(ctx, READER, "readAll")).statusCode, 200);
-  for (const handler of ["create", "archive", "runVehicleCheck"]) {
+  for (const handler of ["create", "trash", "runVehicleCheck"]) {
     assert.equal((await guarded(ctx, READER, handler, { params: { id: notice._id }, body: { title: "x" } })).statusCode, 403, handler);
   }
 });
@@ -255,14 +254,14 @@ test("publishNotice ignores a duplicate dedupKey", async () => {
   assert.equal(rows.length, 1);
 });
 
-test("mark read, unread count and archive", async () => {
+test("mark read, unread count and trash", async () => {
   const ctx = setup();
   const { service } = ctx;
   const { notice } = await service.publishNotice({ title: "t", body: "b", category: "manual", severity: "info" });
   assert.equal((await guarded(ctx, ADMIN, "unreadCount")).body.count, 1);
   await guarded(ctx, ADMIN, "read", { params: { id: notice._id } });
   assert.equal((await guarded(ctx, ADMIN, "unreadCount")).body.count, 0);
-  await guarded(ctx, ADMIN, "archive", { params: { id: notice._id } });
+  await guarded(ctx, ADMIN, "trash", { params: { id: notice._id } });
   assert.equal((await guarded(ctx, ADMIN, "list")).body.notices.length, 0);
 });
 
@@ -273,7 +272,7 @@ test("listNoticeRecipients returns users holding notices.view with a valid email
   assert.deepEqual(JSON.parse(JSON.stringify(recipients.map((a) => a.email))), ["admin@example.com", "reader@example.com"]);
 });
 
-test("posting and archiving a notice are recorded in the audit log", async () => {
+test("posting a notice is recorded in the audit log", async () => {
   const ctx = setup();
   const created = await guarded(ctx, ADMIN, "create", { body: { title: "اجتماع", body: "غدًا", severity: "info" } });
   const id = created.body.notice._id;
@@ -283,16 +282,9 @@ test("posting and archiving a notice are recorded in the audit log", async () =>
   assert.equal(made.targetLabel, "اجتماع");
   assert.equal(made.after.title, "اجتماع");
 
-  await guarded(ctx, ADMIN, "archive", { params: { id } });
-  const [archived] = ctx.audit.find({ module: "notices", action: "update", targetId: id });
-  assert.ok(archived, "archive recorded");
-  assert.equal(archived.before.archivedAt, undefined);
-  assert.ok(archived.after.archivedAt);
-
   // A rejected action records nothing.
   const count = ctx.audit.calls.length;
   await guarded(ctx, ADMIN, "create", { body: { title: "" } });
-  await guarded(ctx, ADMIN, "archive", { params: { id } });
   assert.equal(ctx.audit.calls.length, count);
 });
 
@@ -410,22 +402,19 @@ test("a notice read before read times were kept counts from when it was posted",
   assert.equal((await guarded(ctx, READER, "list")).body.notices.length, 1);
 });
 
-test("manual notices archive, trash and restore while automatic notices have only personal dismissal", async () => {
+test("manual notices trash and restore while automatic notices have only personal dismissal", async () => {
   const ctx = setup();
   const { notice } = await ctx.service.publishNotice({ title: "Synthetic", body: "", category: "manual", severity: "info" });
   const params = { id: notice._id };
   assert.equal((await guarded(ctx, READER, "trash", { params })).statusCode, 403);
-  assert.equal((await guarded(ctx, ADMIN, "archive", { params })).statusCode, 200);
-  assert.equal((await guarded(ctx, ADMIN, "list")).body.notices.length, 0);
-  assert.equal((await guarded(ctx, ADMIN, "list", { query: { status: "archived" } })).body.notices.length, 1);
-  await guarded(ctx, ADMIN, "restore", { params }); await guarded(ctx, ADMIN, "trash", { params });
+  assert.equal(ctx.controller.archive, undefined, "the archive action is gone (owner, 2026-11-14)");
+  await guarded(ctx, ADMIN, "trash", { params });
   assert.equal((await guarded(ctx, READER, "list", { query: { status: "deleted" } })).body.notices.length, 0);
   assert.equal((await guarded(ctx, ADMIN, "list", { query: { status: "deleted" } })).body.notices.length, 1);
   await guarded(ctx, ADMIN, "restore", { params });
   assert.equal((await guarded(ctx, READER, "list")).body.notices.length, 1);
   ctx.rows[0].category = "system";
   assert.equal((await guarded(ctx, ADMIN, "trash", { params })).statusCode, 404);
-  assert.equal((await guarded(ctx, ADMIN, "archive", { params })).statusCode, 404);
   await Promise.all([guarded(ctx, ADMIN, "hide", { params }), guarded(ctx, READER, "hide", { params })]);
   assert.equal(ctx.rows[0].hiddenBy.length, 2);
   assert.equal((await guarded(ctx, ADMIN, "list")).body.notices.length, 0);
@@ -436,4 +425,27 @@ test("manual notices archive, trash and restore while automatic notices have onl
   assert.equal((await guarded(ctx, ADMIN, "list")).body.notices.length, 0);
   const revoked = { ...READER, permissionRevokes: ["alerts.dismiss"] };
   assert.equal((await guarded(ctx, revoked, "hide", { params })).statusCode, 403);
+});
+
+test("notices archived before the archive was removed move to the trash once (owner, 2026-11-14)", async () => {
+  const ctx = setup();
+  const now = new Date("2026-11-14T10:00:00.000Z");
+  const soon = new Date("2026-11-20T00:00:00.000Z");
+  ctx.rows.push(
+    { _id: "1".repeat(24), title: "old trip", category: "manual", createdAt: "2026-10-01", readBy: [], archivedAt: "2026-10-05", archivedBy: "x", deletedAt: null },
+    { _id: "2".repeat(24), title: "ends soon", category: "manual", createdAt: "2026-10-02", readBy: [], archivedAt: "2026-10-06", deletedAt: null, expireAt: soon },
+    { _id: "3".repeat(24), title: "in the inbox", category: "manual", createdAt: "2026-10-03", readBy: [], archivedAt: null, deletedAt: null },
+  );
+  assert.equal(await ctx.service.trashArchivedNotices(now), 2);
+  const [trip, ends, inbox] = ctx.rows;
+  assert.equal(trip.deletedAt, now.toISOString());
+  assert.equal(trip.deletedBy, "system");
+  assert.equal(new Date(trip.expireAt).getTime(), now.getTime() + ctx.service.TRASH_KEEP_MS);
+  assert.equal(new Date(ends.expireAt).getTime(), soon.getTime(), "an earlier end date is kept");
+  assert.equal(inbox.deletedAt, null);
+  assert.equal(await ctx.service.trashArchivedNotices(now), 0, "a second run finds nothing");
+  const trash = (await guarded(ctx, ADMIN, "list", { query: { status: "deleted" } })).body.notices.map((n) => n.title);
+  assert.deepEqual(JSON.parse(JSON.stringify(trash.sort())), ["ends soon", "old trip"]);
+  await guarded(ctx, ADMIN, "restore", { params: { id: trip._id } });
+  assert.ok((await guarded(ctx, ADMIN, "list")).body.notices.some((n) => n.title === "old trip"), "a restore brings it back to the inbox");
 });

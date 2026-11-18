@@ -7,7 +7,11 @@
 const crypto = require("node:crypto");
 const { findActive, fullName } = require("../utils/lessonParticipants");
 
-const LAYOUTS = ["week", "today", "rotate", "rooms"];
+// Two layouts only (owner, 2026-11-14). Screens saved with a removed day
+// layout ("today", "rotate") show the rooms board, today's view.
+const LAYOUTS = ["week", "rooms"];
+const RETIRED = new Set(["today", "rotate"]);
+const shownLayout = (value) => (LAYOUTS.includes(value) ? value : RETIRED.has(value) ? "rooms" : "week");
 const MAX_NAME = 60;
 const SECRET = /^[A-Za-z0-9_-]{43}$/;
 
@@ -27,7 +31,7 @@ function cleanLayout(value) {
   return value;
 }
 
-const publicScreen = (doc) => ({ id: String(doc._id), name: doc.name, layout: doc.layout, createdAt: doc.createdAt || null });
+const publicScreen = (doc) => ({ id: String(doc._id), name: doc.name, layout: shownLayout(doc.layout), createdAt: doc.createdAt || null });
 const auditEntry = (action, doc, extra = {}) => ({
   module: "displays", action, targetType: "displayScreen", targetId: String(doc._id), targetLabel: doc.name, ...extra,
 });
@@ -129,7 +133,7 @@ function createDisplayScreens({ screens, lessons, sportLessons, users, audit, no
       out.push({ name: String(lesson.name || ""), ...at, room: "9", guide: null, kind: "sport" });
     }
     out.sort((a, b) => a.day - b.day || a.startMin - b.startMin || a.endMin - b.endMin);
-    return { name: doc.name, layout: LAYOUTS.includes(doc.layout) ? doc.layout : "week", serverTime: now().toISOString(), lessons: out };
+    return { name: doc.name, layout: shownLayout(doc.layout), serverTime: now().toISOString(), lessons: out };
   }
 
   return { list, create, update, rotate, remove, feed };

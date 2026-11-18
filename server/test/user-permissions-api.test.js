@@ -104,6 +104,7 @@ function loadController(users, overrides = {}) {
     "../Notification/Notification.controller": {},
     ...require("./helpers/alertEventsStub").noopAlertDeps,
     ...audit.deps,
+    ...require("./helpers/recycleBinStub").recycleBinStub().deps,
     ...overrides,
   };
   const filename = path.join(__dirname, "../Entities/User/User.controller.js");

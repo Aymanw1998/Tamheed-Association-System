@@ -18,6 +18,8 @@ import { ask } from "../Provides/confirmBus";
 import Avatar from "../UI/Avatar.jsx";
 import { passportSrc } from "../../utils/passportPhoto";
 import Skeleton from "../UI/Skeleton";
+import { downloadWorkbook, usersSheet } from "../../utils/excelExport";
+import { logExport } from "../../WebServer/services/exports/functionsExports";
 
 const ViewAllUser = () => {
   const { t } = useI18n();
@@ -102,6 +104,20 @@ const ViewAllUser = () => {
     return Array.from(uniqueRoles);
   }, [users]);
 
+  const [exporting, setExporting] = useState(false);
+  const exportList = async () => {
+    setExporting(true);
+    try {
+      const logged = await logExport("users", sortedFilteredUsers.length);
+      if (!logged.ok) { toast.error(logged.message); return; }
+      const today = new Date().toISOString().slice(0, 10);
+      await downloadWorkbook(`الموظفون ${today}`, [usersSheet(sortedFilteredUsers.map((user) => ({ ...user, roleName: roleLabel(resolveRole(user)) || (Array.isArray(user.roles) ? user.roles : []).join("، ") })))]);
+    } catch {
+      toast.error("تعذّر إنشاء الملف، حاول مرة أخرى");
+    } finally {
+      setExporting(false);
+    }
+  };
   const sortedFilteredUsers = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
 
@@ -177,14 +193,14 @@ const ViewAllUser = () => {
   return (
     <div>
       <div>
-        <h1 className={styles.pageTitle}>قائمة المستخدمين</h1>
+        <h1 className={styles.pageTitle}>قائمة الطاقم</h1>
 
         <div className={styles.toolbar}>
           <input
             type="search"
             data-tour="users-search"
             placeholder="بحث…"
-            aria-label="بحث في قائمة المستخدمين"
+            aria-label="بحث في قائمة الطاقم"
             className={styles.searchInput}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -193,6 +209,11 @@ const ViewAllUser = () => {
           <Button ref={addBtnRef} id="page-add-user" data-tour="users-add" onClick={handleAddUser}>
             إضافة مستخدم جديد
           </Button>
+
+          {/* Excel of the list as filtered, managers only, logged first (owner, 2026-11-16). */}
+          {canStored("users.view") && canStored("users.exportExcel") && (
+            <Button variant="secondary" disabled={!sortedFilteredUsers.length} loading={exporting} onClick={exportList}>تصدير Excel</Button>
+          )}
 
           <Button variant="secondary" data-tour="users-refresh" onClick={loadUsers} loading={loading}>
             {loading ? "جارٍ التحديث…" : "تحديث القائمة"}
@@ -232,7 +253,7 @@ const ViewAllUser = () => {
         </div>
 
         <div className={styles.summary}>
-          {status === "active" ? "المستخدمون الفعّالون" : status === "pending" ? "المستخدمون بانتظار الموافقة" : "الحسابات الموقوفة"}: {sortedFilteredUsers.length}
+          {status === "active" ? "الطاقم الفعّال" : status === "pending" ? "بانتظار الموافقة" : "الحسابات الموقوفة"}: {sortedFilteredUsers.length}
           {roleFilter !== "all" ? ` - ${roleLabel(roleFilter)}` : ""}
         </div>
       </div>

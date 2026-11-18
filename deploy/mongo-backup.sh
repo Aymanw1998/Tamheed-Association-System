@@ -16,6 +16,13 @@
 #   and nothing secret is in this repository.
 # - The archive gets its final name only when mongodump succeeded; a failed or
 #   interrupted run leaves no file that looks like a backup.
+# - Owner, 2026-11-16: the first backup of each month is also kept in
+#   monthly/ for KEEP_MONTHLY_DAYS (a year); every backup is copied, encrypted,
+#   to the association's Google Drive (server/scripts/backupOffsite.js, unless
+#   OFFSITE=no); and the result of the run is shown on the IT site
+#   (server/scripts/opsReport.js), so a backup that stops is noticed.
+# - Once the app runs as its own user (deploy/DEPLOY.md), root's cron finds
+#   that user's pm2 by itself (PM2_HOME=/home/<APP_USER>/.pm2).
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -26,6 +33,18 @@ BACKUP_DIR="${BACKUP_DIR:-/var/backups/tamheed}"
 KEEP_DAYS="${KEEP_DAYS:-14}"
 APP_NAME="${APP_NAME:-tamheed}"
 STOP_APP="${STOP_APP:-yes}"
+KEEP_MONTHLY_DAYS="${KEEP_MONTHLY_DAYS:-366}"
+OFFSITE="${OFFSITE:-yes}"
+APP_USER="${APP_USER:-tamheed}"
+
+if [ -z "${PM2_HOME:-}" ] && [ "$(id -un)" = root ] && [ -d "/home/$APP_USER/.pm2" ]; then
+  export PM2_HOME="/home/$APP_USER/.pm2"
+fi
+
+# The run's result for the IT site; never fails the backup itself.
+report() {
+  node server/scripts/opsReport.js backup "$@" >/dev/null 2>&1 || true
+}
 
 db="$(env_value DB_NAME)"
 db="${db:-tamheed_db}"
@@ -58,11 +77,14 @@ partial="$BACKUP_DIR/.tamheed-$stamp-$$.partial"
 config="$(mktemp)"
 stopped=no
 
+succeeded=no
 cleanup() {
+  local code=$?
   rm -f "$config" "$partial"
   if [ "$stopped" = yes ]; then
     pm2 start "$APP_NAME" >/dev/null 2>&1 || echo "WARNING: could not start $APP_NAME again: run 'pm2 start $APP_NAME'" >&2
   fi
+  if [ "$succeeded" != yes ]; then report failed "the backup did not finish (exit $code); see /var/log/tamheed-backup.log"; fi
 }
 trap cleanup EXIT
 
@@ -97,4 +119,25 @@ fi
 mv "$partial" "$final"
 find "$BACKUP_DIR" -maxdepth 1 -name 'tamheed-*.archive.gz' -mtime +"$KEEP_DAYS" -delete
 
-echo "backup ok: $final ($(du -h "$final" | cut -f1))"
+# The first backup of a month is also kept for a year.
+monthly=no
+month_file="$BACKUP_DIR/monthly/tamheed-$(date +%Y-%m).archive.gz"
+mkdir -p "$BACKUP_DIR/monthly"
+if [ ! -e "$month_file" ]; then
+  cp "$final" "$month_file"
+  monthly=yes
+fi
+find "$BACKUP_DIR/monthly" -maxdepth 1 -name 'tamheed-*.archive.gz' -mtime +"$KEEP_MONTHLY_DAYS" -delete
+
+size="$(du -h "$final" | cut -f1)"
+succeeded=yes
+report ok "$(basename "$final") ($size)"
+echo "backup ok: $final ($size)"
+
+# The copy off the server: its own result (OpsStatus "offsite"); a failure
+# there does not undo the local backup.
+if [ "$OFFSITE" = yes ]; then
+  flag=""
+  if [ "$monthly" = yes ]; then flag="--monthly"; fi
+  node server/scripts/backupOffsite.js upload "$final" $flag || echo "WARNING: the Google Drive copy failed (see the IT site)" >&2
+fi

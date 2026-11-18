@@ -2,19 +2,18 @@ import TabIndicator from "../UI/TabIndicator";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
-  archiveVehicle,
   createVehicle,
   deleteVehicle,
   getResponsibles,
   getVehicle,
-  restoreVehicle,
   updateVehicle,
 } from "../../WebServer/services/vehicle/functionsVehicle.jsx";
 import { useI18n } from "../../i18n/I18nContext";
 import { toast } from "../../ALERT/SystemToasts";
 import { ask } from "../Provides/confirmBus";
 import { setUnsavedChanges } from "../../utils/unsavedChanges";
-import { fillText, formatPlate, normalizePlateInput, personOptionLabel } from "../../utils/vehicleDisplay";
+import { offerUndo } from "../../utils/undoDelete";
+import { formatPlate, normalizePlateInput, personOptionLabel } from "../../utils/vehicleDisplay";
 import Button from "../UI/Button.jsx";
 import StatusBadge from "../UI/StatusBadge.jsx";
 import Field from "./Field.jsx";
@@ -74,18 +73,16 @@ export default function EditVehicle() {
   const [loadError, setLoadError] = useState("");
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
-  const [busy, setBusy] = useState(false);
   const [responsibles, setResponsibles] = useState([]);
   const [dirtyForms, setDirtyForms] = useState([]);
   // Where reviewed official values came from; sent with the save for the log.
   const [importSource, setImportSource] = useState(null);
-  const [deleting, setDeleting] = useState(null); // null | { text, busy, error }
+  const [deleting, setDeleting] = useState(false);
 
   const canView = access.can("view");
   const canEdit = access.can("edit");
-  const archived = vehicle?.status === "archived";
   // Only someone who can change the vehicle holds its lock; a reader never blocks others.
-  const canWrite = canEdit || access.can("compliance") || access.can("documents") || access.can("archive");
+  const canWrite = canEdit || access.can("compliance") || access.can("documents");
   const lockKey = isNew ? null : `vehicle:${id}`;
   const lock = useItemLock(lockKey, { enabled: canWrite });
   const readonly = lock.status === "readonly";
@@ -215,31 +212,19 @@ export default function EditVehicle() {
     setEditing(false);
   };
 
-  const toggleArchive = async () => {
-    if (!archived) {
-      const confirmed = await ask("delete", { title: t("vehicles.archive"), message: t("vehicles.archiveConfirm") }).catch(() => false);
-      if (!confirmed) return;
-    }
-    setBusy(true);
-    const res = archived ? await restoreVehicle(id) : await archiveVehicle(id);
-    setBusy(false);
+  // Asks first (no typed plate), then «سلة المحذوفات» with "تراجع" for 8
+  // seconds (owner, 2026-11-16 and 2026-11-17).
+  const removeVehicle = async () => {
+    const confirmed = await ask("trash").catch(() => false);
+    if (!confirmed) return undefined;
+    setDeleting(true);
+    const res = await deleteVehicle(id);
+    setDeleting(false);
     if (!res.ok) return toast.warn(res.message);
-    toast.success(archived ? t("vehicles.restored") : t("vehicles.archived"));
-    onVehicle(res.vehicle);
-    setEditing(false);
-  };
-
-  const confirmDelete = async (event) => {
-    event.preventDefault();
-    setDeleting((prev) => ({ ...prev, busy: true, error: "" }));
-    const res = await deleteVehicle(id, deleting.text);
-    if (!res.ok) {
-      setDeleting((prev) => ({ ...prev, busy: false, error: res.errors?.confirmPlate || res.message }));
-      return;
-    }
     setUnsavedChanges(false);
-    toast.success(t("vehicles.del.done"));
+    offerUndo({ trashId: res.trashId, message: t("vehicles.del.done"), onRestored: () => navigate(`/vehicles/${id}`) });
     navigate("/vehicles", { replace: true });
+    return undefined;
   };
 
   const typeOptions = Object.keys(t("vehicles.type", {})).map((key) => ({ value: key, label: t(`vehicles.type.${key}`) }));
@@ -315,49 +300,22 @@ export default function EditVehicle() {
           {!isNew && (
             <p>
               {t(`vehicles.type.${vehicle.type}`)} ·{" "}
-              <StatusBadge tone={archived ? "neutral" : vehicle.status === "active" ? "success" : "warning"}>
+              <StatusBadge tone={vehicle.status === "active" ? "success" : "warning"}>
                 {t(`vehicles.status.${vehicle.status}`)}
               </StatusBadge>
             </p>
           )}
         </div>
         <div className={styles.actionsRow}>
-          {!isNew && canEdit && !archived && !editing && (
+          {!isNew && canEdit && !editing && (
             <Button data-tour="vehicle-edit" disabled={readonly} onClick={() => setEditing(true)}>{t("vehicles.edit")}</Button>
           )}
-          {!isNew && access.can("archive") && (
-            <Button variant={archived ? "success" : "danger"} data-tour="vehicle-archive" loading={busy} disabled={readonly} onClick={toggleArchive}>
-              {archived ? t("vehicles.restore") : t("vehicles.archive")}
-            </Button>
-          )}
-          {!isNew && access.isAdmin && !deleting && (
-            <Button variant="danger" data-tour="vehicle-delete" disabled={readonly} onClick={() => setDeleting({ text: "", busy: false, error: "" })}>{t("vehicles.del.button")}</Button>
+          {!isNew && access.isAdmin && (
+            <Button variant="danger" data-tour="vehicle-delete" disabled={readonly} loading={deleting} onClick={removeVehicle}>{t("vehicles.del.button")}</Button>
           )}
           <Button variant="secondary" onClick={() => navigate("/vehicles")}>{t("vehicles.back")}</Button>
         </div>
       </div>
-
-      {deleting && (
-        <form className={styles.inlineForm} onSubmit={confirmDelete} noValidate role="alertdialog" aria-labelledby="vehicle-delete-title">
-          <strong id="vehicle-delete-title" className={styles.fieldError}>{t("vehicles.del.title")}</strong>
-          <p className={styles.note}>{t("vehicles.del.warning")}</p>
-          <Field
-            id="vehicle-delete-confirm"
-            label={fillText(t("vehicles.del.confirmLabel"), { plate: vehicle.plate })}
-            value={deleting.text}
-            onChange={(text) => setDeleting((prev) => ({ ...prev, text }))}
-            error={deleting.error}
-            dir="ltr"
-            autoComplete="off"
-          />
-          <div className={styles.actionsRow}>
-            <Button type="submit" variant="danger" loading={deleting.busy} disabled={normalizePlateInput(deleting.text) !== vehicle.plate}>
-              {t("vehicles.del.confirm")}
-            </Button>
-            <Button type="button" variant="secondary" onClick={() => setDeleting(null)}>{t("vehicles.cancel")}</Button>
-          </div>
-        </form>
-      )}
 
       <div className={styles.tabs} data-tour="vehicle-tabs" role="tablist" aria-label={t("vehicles.title")}>
         {tabs.map((item) => (
@@ -392,7 +350,7 @@ export default function EditVehicle() {
                 linkedType="vehicle"
                 defaultKind="other"
                 canAccess={access.can("documents")}
-                canUpload={access.can("documents") && !archived && !readonly}
+                canUpload={access.can("documents") && !readonly}
                 onVehicle={onVehicle}
               />
             )}
@@ -421,9 +379,9 @@ export default function EditVehicle() {
                 ) : (
                   <Field id="v-responsible" label={t("vehicles.f.responsible")} value={vehicle?.responsibleName || ""} onChange={() => {}} disabled />
                 )}
-                <Field id="v-status" type="select" label={t("vehicles.f.status")} value={archived ? "archived" : form.status}
-                  onChange={setField("status")} disabled={fieldsDisabled || archived}
-                  options={archived ? [{ value: "archived", label: t("vehicles.status.archived") }] : statusOptions} />
+                <Field id="v-status" type="select" label={t("vehicles.f.status")} value={form.status}
+                  onChange={setField("status")} disabled={fieldsDisabled}
+                  options={statusOptions} />
                 <Field id="v-notes" type="textarea" label={t("vehicles.f.notes")} value={form.notes} onChange={setField("notes")} disabled={fieldsDisabled} wide />
               </div>
             )}

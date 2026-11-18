@@ -30,11 +30,9 @@ export const getAllVehicles = () => call(() => api.get(namespace));
 export const getVehicle = (id) => call(() => api.get(base(id)));
 export const createVehicle = (payload) => call(() => api.post(namespace, payload));
 export const updateVehicle = (id, payload) => call(() => api.put(base(id), payload));
-export const archiveVehicle = (id, reason = "") => call(() => api.post(`${base(id)}/archive`, { reason }));
-// Permanent delete (administrators only); the plate is sent back as confirmation.
-export const deleteVehicle = (id, confirmPlate) =>
-  call(() => api.delete(base(id), { data: { confirmPlate } }));
-export const restoreVehicle = (id) => call(() => api.post(`${base(id)}/restore`, {}));
+// Delete (administrators only): to «سلة المحذوفات» for 30 days; the answer
+// carries trashId for the "تراجع" button (owner, 2026-11-16).
+export const deleteVehicle = (id) => call(() => api.delete(base(id)));
 export const getVehicleAudit = (id) => call(() => api.get(`${base(id)}/audit`));
 
 // Licences, tests and policies share one shape: add, correct, retire.

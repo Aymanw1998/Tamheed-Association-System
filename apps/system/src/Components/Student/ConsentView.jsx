@@ -5,6 +5,7 @@ import { createConsentLink, getConsent, getRules, signConsent } from "../../WebS
 import { toast } from "../../ALERT/SystemToasts.jsx";
 import Button from "../UI/Button.jsx";
 import RegistrationConsent from "./RegistrationConsent";
+import { openWhatsApp, CONSENT_TEXT } from "../../utils/whatsApp";
 
 const when = (value) => formatDateTime(value);
 
@@ -74,7 +75,7 @@ export default function ConsentView({ studentId }) {
     {link && <section aria-label="رابط توقيع ولي الأمر" style={{ display: "grid", gap: 8 }}>
       <input readOnly dir="ltr" aria-label="رابط التوقيع" value={link.url} onFocus={(event) => event.target.select()} />
       <small>الرابط مخصص لقوانين هذا الطالب وتوقيعها فقط، صالح حتى {when(link.expiresAt)} وينتهي بعد الإرسال.</small>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><Button size="sm" onClick={copyLink}>نسخ الرابط</Button>{typeof navigator.share === "function" && <Button size="sm" onClick={shareLink}>مشاركة الرابط</Button>}</div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><Button size="sm" onClick={copyLink}>نسخ الرابط</Button><Button size="sm" variant="success" onClick={() => openWhatsApp(CONSENT_TEXT, link.url)}>إرسال بواتساب</Button>{typeof navigator.share === "function" && <Button size="sm" onClick={shareLink}>مشاركة الرابط</Button>}</div>
     </section>}
   </div>;
 }

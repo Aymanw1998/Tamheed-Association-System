@@ -10,10 +10,11 @@ const isDuplicate = (err) => err && (err.code === 11000 || /E11000/.test(String(
 // A notice someone read is gone for them this long after (owner, 2026-11-02);
 // a vehicle notice stays until the renewal removes it (services/recordAlerts).
 const READ_KEEP_MS = 30 * 24 * 60 * 60 * 1000;
-// A notice in the trash is deleted for good this long after (owner, 2026-11-08):
+// A notice in the trash is deleted for good this long after (owner, 2026-11-08;
+// 14 days instead of 30 since 2026-11-17):
 // its expireAt moves here, so the TTL index purges it. The end date it had
 // before is kept in keptExpireAt for a restore.
-const TRASH_KEEP_MS = 30 * 24 * 60 * 60 * 1000;
+const TRASH_KEEP_MS = 14 * 24 * 60 * 60 * 1000;
 
 // MongoDB filters that narrow each read to the rows it can use; the in-memory
 // filters after them stay as they were (the same rules, checked once more).
@@ -24,7 +25,6 @@ function listQuery({ userId, status, canManageTrash, category, severity, now }) 
   const me = String(userId);
   const parts = [notExpired(now)];
   if (status === "deleted") parts.push(canManageTrash ? { $or: [{ deletedAt: { $ne: null } }, { hiddenBy: me }] } : { hiddenBy: me });
-  else if (status === "archived") parts.push({ archivedAt: { $ne: null }, deletedAt: null }, notHiddenFor(me));
   else parts.push(ON_BOARD, notHiddenFor(me));
   if (status === "unread") parts.push({ readBy: { $ne: me } });
   if (category) parts.push({ category: String(category) });
@@ -90,8 +90,8 @@ async function listNotices({ userId, status = "all", category = "", severity = "
   const found = await NoticeModelDef.get(listQuery({ userId, status, canManageTrash, category, severity, now }));
   return (found?.result || [])
     .filter((row) => !row.expireAt || new Date(row.expireAt) > now)
-    .filter((row) => status === "deleted" ? (canManageTrash && Boolean(row.deletedAt)) || (row.hiddenBy || []).includes(String(userId)) : status === "archived" ? row.archivedAt && !row.deletedAt && !(row.hiddenBy || []).includes(String(userId)) : !row.archivedAt && !row.deletedAt && !(row.hiddenBy || []).includes(String(userId)))
-    .filter((row) => status === "archived" || status === "deleted" || stillShown(row, userId, now))
+    .filter((row) => status === "deleted" ? (canManageTrash && Boolean(row.deletedAt)) || (row.hiddenBy || []).includes(String(userId)) : !row.archivedAt && !row.deletedAt && !(row.hiddenBy || []).includes(String(userId)))
+    .filter((row) => status === "deleted" || stillShown(row, userId, now))
     .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
     .map((row) => withRead(row, userId))
     .filter((row) => (status === "unread" ? !row.read : true))
@@ -133,14 +133,29 @@ async function markAllRead(userId) {
   return unread.length;
 }
 
-// The notice as read: its id and trash/archive state (null matches a missing field).
+// The notice as read: its id and trash state (archivedAt from before 2026-11-14) (null matches a missing field).
 const sameState = (notice) => ({ _id: notice._id, deletedAt: notice.deletedAt ?? null, archivedAt: notice.archivedAt ?? null });
 
-async function archiveNotice(id, actor) {
-  const notice = await findNotice(id);
-  if (!notice || notice.archivedAt || notice.deletedAt || notice.category !== "manual") return null;
-  const patch = { archivedAt: new Date().toISOString(), archivedBy: actorRef(actor, String(actor.id)) };
-  return (await NoticeModelDef.updateIf(sameState(notice), patch)) ? { ...notice, ...patch } : null;
+// The trash patch: purged TRASH_KEEP_MS from now, or at its own end date if sooner.
+function trashPatch(notice, deletedBy, now = new Date()) {
+  const purgeAt = new Date(now.getTime() + TRASH_KEEP_MS);
+  const ends = notice.expireAt ? new Date(notice.expireAt) : null;
+  return { deletedAt: now.toISOString(), deletedBy,
+    expireAt: ends && ends < purgeAt ? ends : purgeAt, keptExpireAt: notice.expireAt || null };
+}
+
+// The archive is gone (owner, 2026-11-14). Notices archived before then move
+// to the trash, so they are purged with it after 14 days; until then a
+// restore brings one back to the inbox. Runs at server start; a second run
+// finds nothing (a trashed row is no longer "archived and not deleted").
+async function trashArchivedNotices(now = new Date()) {
+  const found = await NoticeModelDef.get({ archivedAt: { $ne: null }, deletedAt: null });
+  let moved = 0;
+  for (const notice of found?.result || []) {
+    if (!notice.archivedAt || notice.deletedAt) continue;
+    if (await NoticeModelDef.updateIf(sameState(notice), trashPatch(notice, "system", now))) moved += 1;
+  }
+  return moved;
 }
 
 async function changeNoticeState(id, actor, action) {
@@ -155,11 +170,7 @@ async function changeNoticeState(id, actor, action) {
   } else if (action === "delete") {
     // Automatic system notices retain their source lifecycle; dismissal is personal.
     if (notice.category !== "manual" || notice.deletedAt) return null;
-    const now = new Date();
-    const purgeAt = new Date(now.getTime() + TRASH_KEEP_MS);
-    const ends = notice.expireAt ? new Date(notice.expireAt) : null;
-    patch = { deletedAt: now.toISOString(), deletedBy: actorRef(actor, me),
-      expireAt: ends && ends < purgeAt ? ends : purgeAt, keptExpireAt: notice.expireAt || null };
+    patch = trashPatch(notice, actorRef(actor, me));
   } else if (action === "restore") {
     patch = { deletedAt: null, deletedBy: null, archivedAt: null, archivedBy: null };
     if (notice.deletedAt) Object.assign(patch, { expireAt: notice.keptExpireAt || null, keptExpireAt: null });
@@ -196,4 +207,4 @@ async function listNoticeRecipients() {
     .filter((user) => EMAIL.test(user.email) && user.email !== "test@test.com");
 }
 
-module.exports = { publishNotice, existingDedupKeys, listNotices, countUnread, markRead, markAllRead, archiveNotice, changeNoticeState, purgeNotice, listNoticeRecipients, TRASH_KEEP_MS };
+module.exports = { publishNotice, existingDedupKeys, listNotices, countUnread, markRead, markAllRead, trashArchivedNotices, changeNoticeState, purgeNotice, listNoticeRecipients, TRASH_KEEP_MS };

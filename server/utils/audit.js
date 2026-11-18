@@ -64,8 +64,9 @@ function systemMasker() {
 }
 
 function createAudit({ model, now = () => new Date() }) {
-  return {
+  const self = {
     // Never throws: a failed audit write must not fail the action it describes.
+    // Answers whether the row was written.
     async record(req, { module, action, targetType, targetId, targetLabel, before, after } = {}) {
       try {
         let id = targetId === undefined || targetId === null ? targetId : String(targetId);
@@ -85,7 +86,7 @@ function createAudit({ model, now = () => new Date() }) {
           }
           changes = masker.mask(changes);
         }
-        await model.create({
+        const written = await model.create({
           at: now(),
           ...actorLabel(req?.actor),
           // Everyone sees «النظام»; the IT site's log also keeps who it was.
@@ -100,11 +101,19 @@ function createAudit({ model, now = () => new Date() }) {
           // An action the user approved in the assistant (services/assistant/actionRunner.js).
           ...(req?.via === "assistant" ? { via: "assistant" } : {}),
         });
+        return written?.success !== false;
       } catch (error) {
         logWithSource("audit.record", error);
+        return false;
       }
     },
+    // For an action that must not happen without its row (an Excel export, a
+    // password shown): call this first and stop when it answers false.
+    async recordRequired(req, entry) {
+      return (await self.record(req, entry)) === true;
+    },
   };
+  return self;
 }
 
 // Loaded lazily so requiring this file does not pull in the database layer.

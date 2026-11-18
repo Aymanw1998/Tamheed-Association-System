@@ -16,7 +16,7 @@ jest.mock("react-router-dom", () => {
 // Owner, 2026-11-02: a notice may get an end date when it is posted; the
 // board shows it.
 jest.mock("../../WebServer/services/notice/functionsNotice.jsx", () => ({
-  archiveNotice: jest.fn(), changeNoticeState: jest.fn(), createNotice: jest.fn(), getNotices: jest.fn(),
+  changeNoticeState: jest.fn(), createNotice: jest.fn(), getNotices: jest.fn(),
   markAllNoticesRead: jest.fn(), markNoticeRead: jest.fn(), runVehicleCheck: jest.fn(),
 }));
 jest.mock("../../ALERT/SystemToasts", () => ({ toast: { success: jest.fn(), warn: jest.fn(), error: jest.fn() } }));
@@ -110,4 +110,13 @@ test("without notices.restore there is no undo: deleting asks first", async () =
   await act(async () => { buttonNamed("حذف للجميع").click(); });
   expect(require("../Provides/confirmBus").ask).toHaveBeenCalledWith("change", expect.any(Object));
   expect(changeNoticeState).toHaveBeenCalledWith("n1", "delete");
+});
+
+// Owner, 2026-11-14: no archive. Two folders, and no archive button on a row.
+test("the board has only the inbox and the trash, and no archive button", async () => {
+  await mount();
+  const tabs = [...host.querySelectorAll('[role="tab"]')].map((b) => b.textContent);
+  expect(tabs).toEqual(["الوارد", "المحذوفات"]);
+  expect(buttonNamed("أرشفة")).toBeUndefined();
+  expect(host.querySelector('[data-tour="notices-archive"]')).toBeNull();
 });

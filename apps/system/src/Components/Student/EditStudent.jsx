@@ -29,6 +29,7 @@ import { useLockRecovery } from "../../locks/LockLostBanner";
 import useFormDraft from "../../utils/useFormDraft";
 import { clearFieldError, revealFirstError } from "../../utils/revealError";
 import DraftBanner from "../UI/DraftBanner";
+import ConsentCopyButton from "./ConsentCopyButton";
 
 // Kept as a draft on this device until saved (never the password, photo or roles).
 const DRAFT_FIELDS = ["tz","firstname","lastname","birth_date","gender","phone","email","city","street","father_name","mother_name","father_phone","mother_phone","father_work","mother_work","school","layer","health_status","notes"];
@@ -368,7 +369,7 @@ const EditStudent = ({parent = false}) => {
           }
           throw new Error(res.message);
         }
-        setSubmitted(true);
+        setSubmitted(rules ? { studentName: `${form.firstname || ""} ${form.lastname || ""}`.trim(), rules, signerName: consent.signerName.trim(), signature: consent.signature, signedAt: new Date() } : true);
         return;
       }
       
@@ -453,6 +454,7 @@ const EditStudent = ({parent = false}) => {
         <div className={styles.formContainer} style={{ textAlign: "center" }}>
           <h2>تم استلام الطلب</h2>
           <p>سنتواصل معكم قريبًا.</p>
+          <ConsentCopyButton copy={submitted} />
         </div>
       );
     }
@@ -476,20 +478,20 @@ const EditStudent = ({parent = false}) => {
       <ReadOnlyArea readonly={readonly} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <fieldset className={sectionStyles.formSection} data-tour="student-details">
         <legend>بيانات الطالب</legend>
-        <label>رقم الهوية: <span style={{color: "red"}}>*</span></label>
-        <input name="tz" data-tour="student-tz" value={form.tz} onChange={onField} readOnly={!isNew} />
+        <label htmlFor="student-tz">رقم الهوية: <span style={{color: "red"}}>*</span></label>
+        <input id="student-tz" name="tz" data-tour="student-tz" value={form.tz} onChange={onField} readOnly={!isNew} />
         {error.tz != "" && <label style={{color: "red"}}>{error.tz}</label>}
 
-        <label>الاسم الشخصي: <span style={{color: "red"}}>*</span></label>
-        <input name="firstname" data-tour="student-firstname" value={form.firstname} onChange={handleChange} required />
+        <label htmlFor="student-firstname">الاسم الشخصي: <span style={{color: "red"}}>*</span></label>
+        <input id="student-firstname" name="firstname" data-tour="student-firstname" value={form.firstname} onChange={handleChange} required />
         {error.firstname != "" && <label style={{color: "red"}}>{error.firstname}</label>}
 
-        <label>اسم العائلة: <span style={{color: "red"}}>*</span></label>
-        <input name="lastname" data-tour="student-lastname" value={form.lastname} onChange={handleChange} required />
+        <label htmlFor="student-lastname">اسم العائلة: <span style={{color: "red"}}>*</span></label>
+        <input id="student-lastname" name="lastname" data-tour="student-lastname" value={form.lastname} onChange={handleChange} required />
         {error.lastname != "" && <label style={{color: "red"}}>{error.lastname}</label>}
 
-        <label>تاريخ الميلاد: <span style={{color: "red"}}>*</span></label>
-        <input
+        <label htmlFor="student-birth_date">تاريخ الميلاد: <span style={{color: "red"}}>*</span></label>
+        <input id="student-birth_date"
           name="birth_date"
           data-tour="student-birth-date"
           type="date"
@@ -498,8 +500,8 @@ const EditStudent = ({parent = false}) => {
         />
         {error.birth_date != "" && <label style={{color: "red"}}>{error.birth_date}</label>}
 
-        <label>الجنس: <span style={{color: "red"}}>*</span></label>
-        <select name="gender" data-tour="student-gender" value={form.gender} onChange={onField}>
+        <label htmlFor="student-gender">الجنس: <span style={{color: "red"}}>*</span></label>
+        <select id="student-gender" name="gender" data-tour="student-gender" value={form.gender} onChange={onField}>
           <option value="">اختر الجنس</option>
           <option value="ذكر">ذكر</option>
           <option value="انثى">أنثى</option>
@@ -509,16 +511,16 @@ const EditStudent = ({parent = false}) => {
 
       <fieldset className={sectionStyles.formSection}>
         <legend>السكن والتواصل</legend>
-        <label>مدينة السكن: <span style={{color: "red"}}>*</span></label>
-        <input name="city" value={form.city} onChange={onField} />
+        <label htmlFor="student-city">مدينة السكن: <span style={{color: "red"}}>*</span></label>
+        <input id="student-city" name="city" value={form.city} onChange={onField} />
         {error.city != "" && <label style={{color: "red"}}>{error.city}</label>}
 
-        <label>شارع السكن: <span style={{color: "red"}}>*</span></label>
-        <input name="street" data-tour="student-street" value={form.street} onChange={onField} />
+        <label htmlFor="student-street">شارع السكن: <span style={{color: "red"}}>*</span></label>
+        <input id="student-street" name="street" data-tour="student-street" value={form.street} onChange={onField} />
         {error.street != "" && <label style={{color: "red"}}>{error.street}</label>}
 
-        <label>الهاتف:</label>
-        <input
+        <label htmlFor="student-phone">الهاتف:</label>
+        <input id="student-phone"
           name="phone"
           value={displayPhoneLocal(form.phone)}
           onChange={(e)=>onPhoneChange('phone', e.target.value)}
@@ -526,19 +528,19 @@ const EditStudent = ({parent = false}) => {
         />
         {error.phone != "" && <label style={{color: "red"}}>{error.phone}</label>}
 
-        <label>البريد الإلكتروني:</label>
-        <input name="email" value={form.email} onChange={onField} />
+        <label htmlFor="student-email">البريد الإلكتروني:</label>
+        <input id="student-email" name="email" value={form.email} onChange={onField} />
         {error.email !="" && <label style={{color: "red"}}>{error.email}</label>}
       </fieldset>
 
       <fieldset className={sectionStyles.formSection} data-tour="student-study">
         <legend>الدراسة</legend>
-        <label>المدرسة:</label>
-        <input name="school" data-tour="student-school" value={form.school} onChange={handleChange} />
+        <label htmlFor="student-school">المدرسة:</label>
+        <input id="student-school" name="school" data-tour="student-school" value={form.school} onChange={handleChange} />
         {error.school != "" && <label style={{color: "red"}}>{error.school}</label>}
 
-        <label>الصف:</label>
-        <select name="layer" data-tour="student-layer" value={form.layer || ""} onChange={handleChange}>
+        <label htmlFor="student-layer">الصف:</label>
+        <select id="student-layer" name="layer" data-tour="student-layer" value={form.layer || ""} onChange={handleChange}>
           <option value="">اختر الصف</option>
           {gradeOptions(form.layer).map((grade) => <option key={grade} value={grade}>{grade}</option>)}
         </select>
@@ -546,8 +548,8 @@ const EditStudent = ({parent = false}) => {
 
         {/* Shown even before any staff account exists: the list then holds only «بدون مرشد مسؤول». */}
         {!parent && canAssignGuide && <>
-          <label>{t("roster.responsibleGuide")}:{!isEdit && <RequiredMark />}</label>
-          <select
+          <label htmlFor="student-main_teacher">{t("roster.responsibleGuide")}:{!isEdit && <RequiredMark />}</label>
+          <select id="student-main_teacher"
             name="main_teacher"
             value={form.main_teacher || ""}
             onChange={handleChange}
@@ -570,37 +572,39 @@ const EditStudent = ({parent = false}) => {
         <legend>الأهل <span className={sectionStyles.optionalTag}>اختياري</span></legend>
         <label>الأب:</label>
         <div className={sectionStyles.parentRow}>
-          <input name="father_name" value={form.father_name} onChange={handleChange} placeholder="اسم الأب" />
+          <input name="father_name" aria-label="اسم الأب" value={form.father_name} onChange={handleChange} placeholder="اسم الأب" />
           <input
             name="father_phone"
+            aria-label="هاتف الأب"
             value={displayPhoneLocal(form.father_phone)}
             onChange={(e) => onPhoneChange('father_phone', e.target.value)}
             placeholder="052-123-4567"
           />
-          <input name="father_work" value={form.father_work} onChange={handleChange} placeholder="عمل الأب" />
+          <input name="father_work" aria-label="عمل الأب" value={form.father_work} onChange={handleChange} placeholder="عمل الأب" />
         </div>
 
         <label>الأم:</label>
         <div className={sectionStyles.parentRow}>
-          <input name="mother_name" value={form.mother_name} onChange={handleChange} placeholder="اسم الأم" />
+          <input name="mother_name" aria-label="اسم الأم" value={form.mother_name} onChange={handleChange} placeholder="اسم الأم" />
           <input
             name="mother_phone"
+            aria-label="هاتف الأم"
             value={displayPhoneLocal(form.mother_phone)}
             onChange={(e) => onPhoneChange('mother_phone', e.target.value)}
             placeholder="052-123-4567"
           />
-          <input name="mother_work" value={form.mother_work} onChange={handleChange} placeholder="عمل الأم" />
+          <input name="mother_work" aria-label="عمل الأم" value={form.mother_work} onChange={handleChange} placeholder="عمل الأم" />
         </div>
       </fieldset>
 
       <fieldset className={sectionStyles.formSection} data-tour="student-health">
         <legend>الصحة والملاحظات</legend>
-        <label>الحالة الصحية:</label>
-        <textarea name="health_status" rows={4} value={form.health_status || ""} onChange={handleChange} />
+        <label htmlFor="student-health_status">الحالة الصحية:</label>
+        <textarea id="student-health_status" name="health_status" rows={4} value={form.health_status || ""} onChange={handleChange} />
         {error.health_status != "" && <label style={{color: "red"}}>{error.health_status}</label>}
 
-        <label>ملاحظات:</label>
-        <textarea name="notes" rows={4} value={form.notes || ""} onChange={handleChange} />
+        <label htmlFor="student-notes">ملاحظات:</label>
+        <textarea id="student-notes" name="notes" rows={4} value={form.notes || ""} onChange={handleChange} />
         {error.notes != "" && <label style={{color: "red"}}>{error.notes}</label>}
       </fieldset>
 

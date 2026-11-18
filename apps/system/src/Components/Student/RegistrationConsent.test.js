@@ -17,6 +17,8 @@ jest.mock("../../i18n/I18nContext", () => ({ useI18n: () => ({ t: (key) => key }
 
 jest.mock("../../locks/useItemLock", () => () => ({ status: "held" }));
 jest.mock("../../locks/LockLostBanner", () => ({ useLockRecovery: () => ({ element: null }) }));
+const mockPdfCopies = [];
+jest.mock("../ExportPDF/ExportPDF.jsx", () => ({ exportConsentPdf: async (copy) => { mockPdfCopies.push(copy); } }));
 jest.mock("./SignaturePad", () => ({ onChange }) => <button type="button" data-testid="signature-pad" onClick={() => onChange("drawn-png")}>ارسم الختم</button>);
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -134,6 +136,20 @@ test("the parent link shows only the child name and signing surface, and require
   await agree(); await click("إرسال الموافقة والتوقيع");
   expect(submitConsentLink).toHaveBeenCalledWith("personal-secret", { rulesVersion: 0, rulesAccepted: "true", signerName: "Parent", signature: "drawn-png" });
   expect(host.textContent).toContain("تم حفظ موافقتكم وتوقيعكم"); expect(host.querySelector('input[type="checkbox"]')).toBeNull();
+  // A copy of what was signed, as PDF (owner, 2026-11-16).
+  mockPdfCopies.length = 0;
+  await click("تنزيل نسخة PDF");
+  expect(mockPdfCopies).toEqual([expect.objectContaining({ studentName: "Child Family", rules, signerName: "Parent", signature: "drawn-png" })]);
+});
+
+test("after a parent registration the thank-you screen offers the signed copy as PDF", async () => {
+  await mount(<EditStudent parent />);
+  await click("قوانين الجمعية"); await change('[name="signerName"]', "Parent"); await agree(); await click("ارسم الختم"); await click("حفظ والعودة إلى الطلب");
+  await fillStudent(); await click("إرسال الطلب");
+  expect(host.textContent).toContain("تم استلام الطلب");
+  mockPdfCopies.length = 0;
+  await click("تنزيل نسخة PDF");
+  expect(mockPdfCopies).toEqual([expect.objectContaining({ studentName: "Child Family", signerName: "Parent", signature: "drawn-png" })]);
 });
 
 test("a closed parent link exposes no signing controls", async () => {

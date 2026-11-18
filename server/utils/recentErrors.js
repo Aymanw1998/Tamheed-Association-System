@@ -9,7 +9,9 @@ const { cleanText } = require("./reportRedact");
 const WINDOW_MS = 2 * 60 * 1000;
 const MAX_ENTRIES = 500;
 
-function createRecentErrors({ now = () => Date.now() } = {}) {
+// persist: also keeps every error for the IT site's weekly summary
+// (utils/errorLog.js, owner 2026-11-16); never awaited, never fails a request.
+function createRecentErrors({ now = () => Date.now(), persist = null } = {}) {
   const context = new AsyncLocalStorage();
   const entries = new Map();
 
@@ -27,7 +29,7 @@ function createRecentErrors({ now = () => Date.now() } = {}) {
     res.on("finish", () => {
       if (res.statusCode < 500) return;
       prune();
-      entries.set(id, {
+      const entry = {
         at: now(),
         status: res.statusCode,
         method: req.method,
@@ -37,7 +39,12 @@ function createRecentErrors({ now = () => Date.now() } = {}) {
         code: store.code,
         source: store.source,
         actorId: req.actor?.id ? String(req.actor.id) : "",
-      });
+      };
+      entries.set(id, entry);
+      if (persist) {
+        const { actorId, at, ...kept } = entry;
+        Promise.resolve().then(() => persist(kept)).catch(() => {});
+      }
     });
     context.run(store, next);
   };
@@ -67,4 +74,6 @@ function createRecentErrors({ now = () => Date.now() } = {}) {
   return { middleware, note, find, take };
 }
 
-module.exports = { createRecentErrors, WINDOW_MS, recentErrors: createRecentErrors() };
+const recentErrors = createRecentErrors({ persist: (entry) => require("./errorLog").errorLog.record(entry) });
+
+module.exports = { createRecentErrors, WINDOW_MS, recentErrors };

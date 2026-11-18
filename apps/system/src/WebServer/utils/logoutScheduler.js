@@ -3,6 +3,7 @@ const KEY = 'LOGOUT_DEADLINE_MS';
 const MAX_DAYS = 7;
 import { clearApiCache } from '../../pwa/clearApiCache';
 import { dropDevicePush } from '../../pwa/pushOptIn';
+import { clearStorageKeepingTextSize } from '../../utils/textSize';
 
 let logoutTimer = null;
 
@@ -58,7 +59,7 @@ function doLogoutNow() {
   clearApiCache();
   dropDevicePush();
   try {
-    localStorage.clear();
+    clearStorageKeepingTextSize();
     sessionStorage.clear();
     // ملاحظة عربية
     localStorage.setItem('LOGOUT_BROADCAST', String(Date.now()));

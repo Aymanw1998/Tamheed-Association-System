@@ -71,7 +71,7 @@ async function setup() {
 const MANAGEMENT = [
   ["GET", "/", undefined],
   ["POST", "/", { name: "المدخل", layout: "week" }],
-  ["PUT", `/${ID}`, { layout: "today" }],
+  ["PUT", `/${ID}`, { layout: "rooms" }],
   ["POST", `/${ID}/rotate`, undefined],
   ["DELETE", `/${ID}`, undefined],
 ];

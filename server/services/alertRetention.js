@@ -26,7 +26,7 @@ function recordPrefixes(kind, id) {
   switch (kind) {
     case "vehicle": return [`vehicle:${key}:`];
     case "student": return [`absence_streak:${key}:`, `parent_registration:${key}`];
-    case "lesson": return [`lesson_no_attendance:${key}:`];
+    case "lesson": return [`lesson_no_attendance:${key}:`, `lesson_attendance_reminder:${key}:`];
     case "user": return [
       `user_waiting:${key}:`, `account_locked:${key}:`, `access_changed:role:${key}:`, `access_changed:permissions:${key}:`,
     ];

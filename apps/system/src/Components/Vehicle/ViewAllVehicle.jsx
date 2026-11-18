@@ -1,11 +1,10 @@
 import EmptyState from "../UI/EmptyState";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { archiveVehicle, getAllVehicles, restoreVehicle } from "../../WebServer/services/vehicle/functionsVehicle.jsx";
+import { getAllVehicles } from "../../WebServer/services/vehicle/functionsVehicle.jsx";
 import useLiveRefresh from "../../locks/useLiveRefresh";
 import { useI18n } from "../../i18n/I18nContext";
 import { toast } from "../../ALERT/SystemToasts";
-import { ask } from "../Provides/confirmBus";
 import Button from "../UI/Button.jsx";
 import FilterDialog from "../UI/FilterDialog.jsx";
 import StatusBadge from "../UI/StatusBadge.jsx";
@@ -23,7 +22,7 @@ import {
 import styles from "./Vehicle.module.css";
 import Skeleton from "../UI/Skeleton";
 
-const STATUS_TONE = { active: "success", out_of_service: "warning", archived: "neutral" };
+const STATUS_TONE = { active: "success", out_of_service: "warning" };
 
 export default function ViewAllVehicle() {
   const { t, dir } = useI18n();
@@ -33,7 +32,6 @@ export default function ViewAllVehicle() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [filters, setFilters] = useState({ search: "", type: "all", status: "all", docs: "all" });
-  const [busyId, setBusyId] = useState("");
 
   const canView = access.can("view");
 
@@ -56,23 +54,6 @@ export default function ViewAllVehicle() {
   const setFilter = (key) => (value) => setFilters((prev) => ({ ...prev, [key]: value }));
   const visible = useMemo(() => filterVehicles(vehicles, filters), [vehicles, filters]);
   const counts = useMemo(() => countVehicles(vehicles), [vehicles]);
-
-  const toggleArchive = async (vehicle) => {
-    const archiving = vehicle.status !== "archived";
-    if (archiving) {
-      const confirmed = await ask("delete", {
-        title: t("vehicles.archive"),
-        message: t("vehicles.archiveConfirm"),
-      }).catch(() => false);
-      if (!confirmed) return;
-    }
-    setBusyId(vehicle._id);
-    const res = archiving ? await archiveVehicle(vehicle._id) : await restoreVehicle(vehicle._id);
-    setBusyId("");
-    if (!res.ok) return toast.warn(res.message);
-    toast.success(archiving ? t("vehicles.archived") : t("vehicles.restored"));
-    setVehicles((prev) => prev.map((item) => (item._id === vehicle._id ? res.vehicle : item)));
-  };
 
   const options = (group, extraAll = true) => [
     ...(extraAll ? [{ value: "all", label: t("vehicles.all") }] : []),
@@ -123,20 +104,9 @@ export default function ViewAllVehicle() {
       <Button size="sm" variant="secondary" data-tour="vehicles-open" onClick={() => navigate(`/vehicles/${vehicle._id}`)}>
         {t("vehicles.open")}
       </Button>
-      {access.can("edit") && vehicle.status !== "archived" && (
+      {access.can("edit") && (
         <Button size="sm" data-tour="vehicles-edit" onClick={() => navigate(`/vehicles/${vehicle._id}?edit=1`)}>
           {t("vehicles.edit")}
-        </Button>
-      )}
-      {access.can("archive") && (
-        <Button
-          size="sm"
-          data-tour="vehicles-archive"
-          variant={vehicle.status === "archived" ? "success" : "danger"}
-          loading={busyId === vehicle._id}
-          onClick={() => toggleArchive(vehicle)}
-        >
-          {vehicle.status === "archived" ? t("vehicles.restore") : t("vehicles.archive")}
         </Button>
       )}
     </div>

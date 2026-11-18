@@ -11,8 +11,6 @@ export const vehicleStrings = {
     back: "العودة إلى القائمة",
     open: "فتح الملف",
     edit: "تعديل",
-    archive: "أرشفة",
-    restore: "استعادة من الأرشيف",
     save: "حفظ",
     saveChanges: "حفظ التعديلات",
     cancel: "إلغاء",
@@ -43,7 +41,7 @@ export const vehicleStrings = {
     summaryMissing: "معلومات ناقصة",
 
     type: { vehicle: "مركبة", trailer: "مقطورة" },
-    status: { active: "نشطة", out_of_service: "خارج الخدمة", archived: "مؤرشفة" },
+    status: { active: "نشطة", out_of_service: "خارج الخدمة" },
 
     col: {
       plate: "رقم اللوحة",
@@ -182,6 +180,7 @@ export const vehicleStrings = {
     auditBy: "بواسطة {name}",
     actions: {
       create: "إنشاء",
+      restore: "استعادة من سلة المحذوفات",
       update: "تعديل البيانات",
       archive: "أرشفة",
       restore: "استعادة",
@@ -218,13 +217,10 @@ export const vehicleStrings = {
       manualHint: "الإدخال اليدوي متاح دائمًا حتى لو تعذّر الجلب.",
     },
 
+    // To «سلة المحذوفات» for 30 days, with "تراجع" (owner, 2026-11-16).
     del: {
-      button: "حذف نهائي",
-      title: "حذف المركبة نهائيًا",
-      warning: "سيُحذف كل ما يخص هذه المركبة: بياناتها والرخص والفحوصات والبوالص والمستندات (من Google Drive أيضًا) وسجل التغييرات. لا يمكن التراجع. إن أردت الاحتفاظ بها فاستخدم الأرشفة.",
-      confirmLabel: "اكتب رقم اللوحة {plate} للتأكيد",
-      confirm: "حذف كل شيء نهائيًا",
-      done: "تم حذف المركبة وكل سجلاتها",
+      button: "حذف",
+      done: "نُقلت المركبة إلى سلة المحذوفات. تُحذف نهائيًا بعد 30 يومًا.",
     },
 
     alertsTitle: "تنبيهات المركبات",
@@ -261,12 +257,8 @@ export const vehicleStrings = {
       },
     },
 
-    archiveConfirm: "هل تريد أرشفة هذه المركبة؟ تبقى بياناتها ومستنداتها محفوظة ويمكن استعادتها.",
-    archiveReason: "سبب الأرشفة (اختياري)",
     created: "تمت إضافة المركبة بنجاح",
     updated: "تم حفظ التعديلات بنجاح",
     recordSaved: "تم حفظ السجل",
-    archived: "تمت أرشفة المركبة",
-    restored: "تمت استعادة المركبة",
   },
 };

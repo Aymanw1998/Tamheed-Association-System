@@ -17,7 +17,6 @@ router.post("/read-all", requirePermission("notices.view"), controller.readAll);
 router.post("/run-vehicle-check", requirePermission("notices.runCheck"), checkRateLimit, controller.runVehicleCheck);
 router.post("/:id/read", requirePermission("notices.view"), controller.read);
 // Archiving removes a notice from everyone's board: independently revocable.
-router.post("/:id/archive", requirePermission("notices.archive"), controller.archive);
 router.post("/:id/delete", requirePermission("notices.view"), requirePermission("notices.delete"), controller.trash);
 router.post("/:id/restore", requirePermission("notices.view"), requirePermission("notices.restore"), controller.restore);
 router.post("/:id/purge", requirePermission("notices.purge"), requirePermission("notices.view"), controller.purge);

@@ -15,6 +15,8 @@ jest.mock("../../WebServer/services/student/functionsStudent.jsx", () => ({ getA
 jest.mock("../../locks/useLiveRefresh", () => ({ __esModule: true, default: () => {} }));
 jest.mock("../ExportPDF/ExportPDF.jsx", () => ({ exportStudentPdf: jest.fn() }));
 jest.mock("../../utils/excelExport", () => ({ ...jest.requireActual("../../utils/excelExport"), downloadWorkbook: jest.fn(() => Promise.resolve()) }));
+const mockLogged = [];
+jest.mock("../../WebServer/services/exports/functionsExports", () => ({ logExport: async (kind, count) => { mockLogged.push([kind, count]); return { ok: true }; } }));
 let mockPerms = [];
 jest.mock("../../utils/session.js", () => ({
   ...jest.requireActual("../../utils/session.js"),
@@ -129,6 +131,7 @@ test("age, grade, gender, school, guide and unsigned filters coexist and clear t
 
 // Excel export of the list as filtered on screen (owner, 2026-11-10).
 test("«تصدير Excel» downloads the students on screen", async () => {
+  mockPerms = [...mockPerms, "students.exportExcel"];
   getAll.mockResolvedValue({ ok: true, students: [{ ...STUDENT, layer: "ط3", school: "مدرسة", responsibleGuideName: "مرشد" }] });
   await mount();
   const button = [...container.querySelectorAll("button")].find((b) => b.textContent.trim() === "تصدير Excel");
@@ -138,4 +141,30 @@ test("«تصدير Excel» downloads the students on screen", async () => {
   const [fileName, sheets] = downloadWorkbook.mock.calls[0];
   expect(fileName).toMatch(/^الطلاب \d{4}-\d{2}-\d{2}$/);
   expect(sheets[0].rows).toEqual([["طالب تجربة", "800000001", "ط3", "مدرسة", "", "مرشد"]]);
+});
+
+// Graduates (owner, 2026-11-17): listed like everyone else, no extra filter.
+test("graduates are listed like any other student", async () => {
+  mockPerms = ["students.view", "students.viewAll"];
+  getAll.mockResolvedValue({ ok: true, students: [
+    { ...STUDENT, layer: "عاشر" },
+    { ...STUDENT, _id: "s2", tz: "800000002", layer: "خريج", graduationYear: 2027 },
+  ] });
+  await mount();
+  expect(container.querySelector("tbody").textContent).toContain("800000002");
+  await act(async () => [...container.querySelectorAll("button")].find((b) => b.textContent.trim() === "فلتر").click());
+  expect(document.querySelector('[role="dialog"]').textContent).not.toContain("إظهار الخريجين");
+});
+
+test("a guide (no students.viewAll) has no «تصدير Excel»", async () => {
+  mockPerms = ["students.view"];
+  getAll.mockResolvedValue({ ok: true, students: [STUDENT] });
+  await mount();
+  expect([...container.querySelectorAll("button")].some((b) => b.textContent.trim() === "تصدير Excel")).toBe(false);
+});
+
+test("without students.exportExcel there is no «تصدير Excel» (owner, 2026-11-18)", async () => {
+  mockPerms = mockPerms.filter((k) => k !== "students.exportExcel");
+  await mount();
+  expect([...container.querySelectorAll("button")].find((b) => b.textContent.trim() === "تصدير Excel")).toBeUndefined();
 });

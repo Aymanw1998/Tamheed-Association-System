@@ -49,7 +49,7 @@ test("canStored on a module needs every leaf", () => {
   const leaves = ["students.view", "students.viewAll", "students.create", "students.edit", "students.delete", "students.photo"];
   rememberSessionUser({ _id: "u1", permissions: leaves });
   expect(canStored("students")).toBe(false);
-  rememberSessionUser({ _id: "u1", permissions: [...leaves, "students.parentLink"] });
+  rememberSessionUser({ _id: "u1", permissions: [...leaves, "students.parentLink", "students.purge", "students.exportExcel"] });
   expect(canStored("students")).toBe(true);
 });
 

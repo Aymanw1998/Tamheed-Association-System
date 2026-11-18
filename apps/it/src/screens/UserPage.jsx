@@ -27,7 +27,8 @@ export default function UserPage({ tz }) {
   const [record, setRecord] = useState(null);
   const [error, setError] = useState("");
   const [role, setRoleValue] = useState("");
-  const [hasPassword, setHasPassword] = useState(null);
+  // The password shown on request (owner, 2026-11-16): { hasPassword, password }.
+  const [viewed, setViewed] = useState(null);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -69,14 +70,14 @@ export default function UserPage({ tz }) {
   const saveRole = () => run(() => setRole(tz, role), "تم تغيير الدور", loadUser);
   const viewPassword = async () => {
     const res = await run(() => getPassword(tz));
-    if (res.ok) setHasPassword(Boolean(res.data.hasPassword));
+    if (res.ok) setViewed({ hasPassword: Boolean(res.data.hasPassword), password: res.data.password ?? null });
   };
   const savePassword = async (event) => {
     event.preventDefault();
     // Two fields that must match, as in the everyday app (owner, 2026-11-03).
     if (newPassword !== confirmPassword) return toast.error("كلمتا المرور غير متطابقتين");
     const res = await run(() => resetPassword(tz, newPassword), "تم تعيين كلمة المرور");
-    if (res.ok) { setNewPassword(""); setConfirmPassword(""); setHasPassword(null); }
+    if (res.ok) { setNewPassword(""); setConfirmPassword(""); setViewed(null); }
   };
   const unlock = () => run(() => unlockUser(tz), "تم رفع الحظر", loadUser);
   const endDevice = (sid) => run(() => endSession(tz, sid), "تم إنهاء الجلسة", loadDevices);
@@ -138,9 +139,18 @@ export default function UserPage({ tz }) {
       <div className="card">
         <h2>كلمة المرور</h2>
         <div className="row">
-          <button type="button" onClick={viewPassword}>عرض كلمة المرور</button>
-          {hasPassword !== null && <span>{hasPassword ? "يوجد كلمة مرور" : "لا توجد كلمة مرور"}</span>}
+          {viewed === null
+            ? <button type="button" onClick={viewPassword}>عرض كلمة المرور</button>
+            : <button type="button" onClick={() => setViewed(null)}>إخفاء كلمة المرور</button>}
+          {viewed !== null && (
+            viewed.password !== null
+              ? <code className="shown-password" dir="ltr">{viewed.password}</code>
+              : <span>{viewed.hasPassword
+                ? "كلمة المرور محفوظة بالطريقة القديمة ولا يمكن عرضها. تظهر بعد أن يدخل المستخدم مرة واحدة، أو بعد تعيين كلمة مرور جديدة."
+                : "لا توجد كلمة مرور"}</span>
+          )}
         </div>
+        <p className="muted">كل عرض لكلمة المرور يُسجَّل في سجل التغييرات.</p>
         <form className="password-form" onSubmit={savePassword}>
           <label>
             <span>كلمة المرور الجديدة<RequiredMark /></span>

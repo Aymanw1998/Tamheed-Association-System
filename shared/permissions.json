@@ -12,8 +12,10 @@
       "create",
       "edit",
       "delete",
+      "purge",
       "photo",
-      "parentLink"
+      "parentLink",
+      "exportExcel"
     ],
     "lessons": [
       "view",
@@ -23,7 +25,8 @@
       "roster",
       "staffRoster",
       "delete",
-      "copyMonth"
+      "copyMonth",
+      "exportExcel"
     ],
     "displays": [
       "manage"
@@ -57,8 +60,8 @@
       "edit",
       "compliance",
       "documents",
-      "archive",
-      "delete"
+      "delete",
+      "purge"
     ],
     "files": [
       "use",
@@ -73,7 +76,6 @@
       "view",
       "post",
       "runCheck",
-      "archive",
       "delete",
       "restore",
       "purge"
@@ -84,10 +86,12 @@
       "edit",
       "approve",
       "delete",
+      "purge",
       "changeRole",
       "passwords",
       "unlock",
-      "resetPassword"
+      "resetPassword",
+      "exportExcel"
     ],
     "ai": [
       "use"
@@ -195,14 +199,15 @@
         "reset": "إعادة تعيين",
         "complete": "تأكيد الإنجاز",
         "assign": "توزيع وربط بالمجموعات",
-        "greet": "إرسال بركة",
+        "greet": "إرسال تهنئة",
         "upload": "رفع ملفات",
         "createFolder": "إنشاء مجلد",
         "rename": "إعادة تسمية",
         "link": "إنشاء رابط توقيع",
         "share": "مشاركة وإلغاء المشاركة",
         "restore": "استعادة",
-        "purge": "حذف نهائي"
+        "purge": "حذف نهائي",
+        "exportExcel": "تصدير Excel"
       },
       "leavesByModule": {
         "sports": {
@@ -232,6 +237,18 @@
         },
         "displays": {
           "manage": "إدارة شاشات العرض"
+        },
+        "students": {
+          "purge": "حذف نهائي من سلة المحذوفات"
+        },
+        "vehicles": {
+          "purge": "حذف نهائي من سلة المحذوفات"
+        },
+        "users": {
+          "purge": "حذف نهائي من سلة المحذوفات"
+        },
+        "lessons": {
+          "exportExcel": "تصدير ملخص الشهر Excel"
         }
       }
     }

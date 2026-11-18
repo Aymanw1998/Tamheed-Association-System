@@ -9,7 +9,7 @@
 // warning.
 const users = {
   id: "journey-users",
-  title: "المستخدمون",
+  title: "الطاقم",
   route: "/users",
   requires: "users.view",
   steps: [
@@ -60,7 +60,7 @@ const users = {
     {
       target: "users-table",
       mood: "point",
-      title: "قائمة المستخدمين",
+      title: "قائمة الطاقم",
       body: "لا يظهر «تعديل» إلا للحسابات الأدنى من دورك.",
     },
     {

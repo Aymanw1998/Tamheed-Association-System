@@ -70,7 +70,7 @@ JobRunModelDef.create = async function (data) {
 // api.js never creates indexes; this makes a repeated dedupKey impossible even
 // if two checks race. Manual notices have no dedupKey, hence the partial filter.
 // A notice with an end date is deleted at its expireAt (rows without one stay);
-// a notice moved to the trash gets one 30 days later (Notice.service).
+// a notice moved to the trash gets one 14 days later (Notice.service).
 async function ensureNoticeIndexes() {
   const collection = mongoose.connection.useDb(dbName, { useCache: true }).collection(NoticeModelDef.collection);
   await collection.createIndex({ dedupKey: 1 }, { unique: true, partialFilterExpression: { dedupKey: { $type: "string" } } });

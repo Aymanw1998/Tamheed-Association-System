@@ -3,6 +3,11 @@
 //                         more today has no attendance rows (owner, 2026-11-10:
 //                         the guide gets half an hour to record) -> its teacher
 //                         and helper, and lessons.viewAll holders
+//   lesson_attendance_reminder  a lesson that started in the last 15 minutes
+//                         and has no attendance yet -> its teacher and helper
+//                         (owner, 2026-11-17), once a day per lesson; it
+//                         alone also runs 21:00-22:00, since programs run
+//                         until 22:00 (Codex review, 2026-11-18)
 //   sport_lesson_no_attendance  a sport lesson that ended today has no
 //                         SportAttendance rows for today -> sports.coach and
 //                         sports.manage holders
@@ -27,6 +32,8 @@ const CONVERSATION_UNUSED_DAYS = 90;
 const TIME_ZONE = "Asia/Jerusalem";
 const START_MIN = 7 * 60;
 const END_MIN = 21 * 60;
+// The in-lesson reminder only, for lessons that start after 21:00.
+const REMINDER_END_MIN = 22 * 60;
 const REPORT_FROM_MIN = 20 * 60;
 const { ABSENT_STATUS, isAutoAbsence } = require("../utils/attendanceMarks");
 
@@ -105,6 +112,31 @@ async function checkLessonsWithoutAttendance(deps, clock, lessons) {
       rule: [{ userIds: [lesson.teacher, lesson.helper].filter(Boolean) }, { permission: "lessons.viewAll" }],
       link: `/lessons/${id}`,
       dedupKey: `lesson_no_attendance:${id}:${clock.date}`,
+    });
+  }
+  return raised;
+}
+
+// During the lesson: the first slot after it started reminds its teacher and
+// helper to take attendance, unless rows already exist.
+const REMINDER_WINDOW_MIN = 15;
+async function remindAttendanceDuringLessons(deps, clock, lessons) {
+  const started = lessonsToday(lessons, clock).filter((l) => {
+    const start = Number(l?.date?.startMin);
+    return Number.isFinite(start) && start <= clock.minutes && clock.minutes < start + REMINDER_WINDOW_MIN
+      && clock.minutes < Number(l?.date?.endMin) && hasParticipants(l) && (l.teacher || l.helper);
+  });
+  if (!started.length) return 0;
+  const recorded = new Set(((await deps.attendanceForDay(clock.dateKey)) || []).map((r) => String(r.lesson)));
+  let raised = 0;
+  for (const lesson of started) {
+    const id = String(lesson._id);
+    if (recorded.has(id)) continue;
+    raised += await raise(deps, "lesson_attendance_reminder", {
+      params: { lesson: lesson.name },
+      rule: { userIds: [lesson.teacher, lesson.helper].filter(Boolean) },
+      link: `/lessons/${id}`,
+      dedupKey: `lesson_attendance_reminder:${id}:${clock.date}`,
     });
   }
   return raised;
@@ -208,7 +240,8 @@ async function cleanUpConversations(deps, clock, now) {
 
 async function runAlertJob({ now = new Date(), deps = createDeps() } = {}) {
   const clock = jerusalemClock(now);
-  if (clock.minutes < START_MIN || clock.minutes > END_MIN) return { skipped: "outside_hours" };
+  if (clock.minutes < START_MIN || clock.minutes > REMINDER_END_MIN) return { skipped: "outside_hours" };
+  const reminderOnly = clock.minutes > END_MIN;
   if (running) return { skipped: "running" };
   running = true;
   const result = { slot: clock.slot, raised: 0, errors: [] };
@@ -221,12 +254,14 @@ async function runAlertJob({ now = new Date(), deps = createDeps() } = {}) {
       result.errors.push(`lessons: ${error.message}`);
       deps.log("lessons failed", error);
     }
-    const checks = [
+    const all = [
+      ["lesson_attendance_reminder", () => remindAttendanceDuringLessons(deps, clock, lessons)],
       ["lesson_no_attendance", () => checkLessonsWithoutAttendance(deps, clock, lessons)],
       ["sport_lesson_no_attendance", () => checkSportLessonsWithoutAttendance(deps, clock)],
       ["absence_streak", () => checkAbsenceStreaks(deps, clock)],
       ["report_missing", () => checkMissingReports(deps, clock, lessons, now)],
     ];
+    const checks = reminderOnly ? all.slice(0, 1) : all;
     for (const [name, check] of checks) {
       try {
         result.raised += await check();
@@ -235,6 +270,7 @@ async function runAlertJob({ now = new Date(), deps = createDeps() } = {}) {
         deps.log(`${name} failed`, error);
       }
     }
+    if (reminderOnly) return result;
     try {
       const deleted = await cleanUpConversations(deps, clock, now);
       if (deleted != null) result.conversationsDeleted = deleted;

@@ -11,7 +11,7 @@ const CHAPTERS = [
   ] },
   { id: "journey-lessons", title: "البرامج", route: "/lessons", requires: "lessons.view", steps: [step("lessons-add")] },
   { id: "journey-vehicles", title: "المركبات", route: "/vehicles", requires: "vehicles.view", steps: [step("vehicles-add")] },
-  { id: "journey-users", title: "المستخدمون", route: "/users", requires: "users.view", steps: [step("users-list")] },
+  { id: "journey-users", title: "الطاقم", route: "/users", requires: "users.view", steps: [step("users-list")] },
   // Every step needs a permission the guide and the assistant lack.
   { id: "journey-audit", title: "سجل التغييرات", route: "/audit", requires: null, steps: [step("audit-table", "audit.view")] },
 ];

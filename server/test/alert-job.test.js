@@ -93,8 +93,8 @@ test("the Jerusalem clock gives date, weekday (Sunday = 1), minutes and the 15-m
   assert.equal(c.slot, "2026-10-20T14:00");
 });
 
-test("outside 07:00-21:00 Jerusalem the job does nothing, not even take the lock", async () => {
-  for (const time of ["06:59", "21:01", "23:30", "02:00"]) {
+test("outside 07:00-22:00 Jerusalem the job does nothing, not even take the lock", async () => {
+  for (const time of ["06:59", "22:01", "23:30", "02:00"]) {
     const deps = fakeDeps();
     const result = await runAlertJob({ now: at(time), deps });
     assert.equal(result.skipped, "outside_hours", time);
@@ -400,4 +400,33 @@ test("absence rows of a participating user never look up a student", async () =>
   await runAlertJob({ now: at("14:00"), deps });
   assert.deepEqual(looked, []);
   assert.deepEqual(recipientsOf(deps.store, "absence_streak"), []);
+});
+
+// During the lesson (owner, 2026-11-17): one reminder to the teacher and helper.
+test("lesson_attendance_reminder: the first slot after a lesson starts reminds its teacher and helper", async () => {
+  const store = alertStore();
+  await runAlertJob({ now: at("10:00"), deps: fakeDeps({ store }) });
+  assert.deepEqual(recipientsOf(store, "lesson_attendance_reminder"), [TEACHER.tz, HELPER_U.tz].sort());
+  await runAlertJob({ now: at("10:10"), deps: fakeDeps({ store, locks: new Set() }) });
+  assert.equal(store.docs.filter((d) => d.type === "lesson_attendance_reminder").length, 2, "once a day");
+  const late = fakeDeps();
+  await runAlertJob({ now: at("10:15"), deps: late });
+  assert.deepEqual(recipientsOf(late.store, "lesson_attendance_reminder"), [], "not after the first 15 minutes");
+  const early = fakeDeps();
+  await runAlertJob({ now: at("09:50"), deps: early });
+  assert.deepEqual(recipientsOf(early.store, "lesson_attendance_reminder"), [], "not before it starts");
+  const taken = fakeDeps({ attendance: [row(TODAY, PRESENT)] });
+  await runAlertJob({ now: at("10:05"), deps: taken });
+  assert.deepEqual(recipientsOf(taken.store, "lesson_attendance_reminder"), [], "not once attendance exists");
+});
+
+// Codex review, 2026-11-18: programs run until 22:00, so a lesson starting
+// after 21:00 still gets its reminder; nothing else runs after 21:00.
+test("after 21:00 only the in-lesson reminder runs", async () => {
+  const deps = fakeDeps({ lessons: [lesson({ date: { day: 3, startMin: 21 * 60 + 15, endMin: 22 * 60 } }), lesson({ _id: "3".repeat(24), name: "Ended", date: { day: 3, startMin: 19 * 60, endMin: 20 * 60 } })] });
+  const result = await runAlertJob({ now: at("21:15"), deps });
+  assert.equal(result.skipped, undefined);
+  assert.deepEqual(recipientsOf(deps.store, "lesson_attendance_reminder"), [TEACHER.tz, HELPER_U.tz].sort());
+  assert.deepEqual(recipientsOf(deps.store, "lesson_no_attendance"), [], "the 21:00 checks do not run again");
+  assert.deepEqual(recipientsOf(deps.store, "report_missing"), []);
 });

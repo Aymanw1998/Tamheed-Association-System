@@ -108,14 +108,6 @@ async function saveVehicle(vehicle, patch, actor, { guarded = false } = {}) {
   return saved;
 }
 
-const requireNotArchived = (res, vehicle) => {
-  if (vehicle.status === "archived") {
-    fail(res, 409, "المركبة مؤرشفة. أعدها من الأرشيف قبل التعديل");
-    return false;
-  }
-  return true;
-};
-
 const publicDocument = (doc = {}) => ({
   id: doc.id,
   kind: doc.kind,
@@ -285,7 +277,6 @@ const getById = async (req, res) => {
 const create = async (req, res) => {
   try {
     const data = readVehicleBody(req.body);
-    if (data.status === "archived") data.status = "active";
     const errors = rules.validateVehicle(data);
     if (Object.keys(errors).length) return fail(res, 400, "تحقق من الحقول المطلوبة", { errors });
     if (await plateInUse(data.plate)) {
@@ -322,12 +313,10 @@ const update = async (req, res) => {
   try {
     const vehicle = await findVehicle(req.params.id);
     if (!vehicle) return fail(res, 404, "المركبة غير موجودة");
-    if (!requireNotArchived(res, vehicle)) return;
     const stale = checkVersion(vehicle, req, (v) => toClientVehicle(v, rules.todayInJerusalem()));
     if (stale) return send(res, 409, stale);
 
     const data = readVehicleBody({ ...vehicle, ...req.body, trailer: { ...vehicle.trailer, ...(req.body?.trailer || {}) } });
-    if (data.status === "archived") return fail(res, 400, "استخدم زر الأرشفة لأرشفة المركبة");
     const errors = rules.validateVehicle(data);
     if (Object.keys(errors).length) return fail(res, 400, "تحقق من الحقول المطلوبة", { errors });
     if (await plateInUse(data.plate, vehicle._id)) {
@@ -359,92 +348,143 @@ const update = async (req, res) => {
   }
 };
 
-const archive = async (req, res) => {
-  try {
-    const vehicle = await findVehicle(req.params.id);
-    if (!vehicle) return fail(res, 404, "المركبة غير موجودة");
-    if (vehicle.status === "archived") return fail(res, 409, "المركبة مؤرشفة مسبقًا");
-    const reason = clean(req.body?.reason, 500);
-    const saved = await saveVehicle(
-      vehicle,
-      { status: "archived", previousStatus: vehicle.status, archivedAt: new Date().toISOString(), archivedBy: actorId(req.actor) },
-      req.actor
-    );
-    await audit(saved, req, "archive", { before: vehicle, reason, changes: [{ field: "status", from: vehicle.status, to: "archived" }] });
-    return send(res, 200, { ok: true, vehicle: toClientVehicle(saved, rules.todayInJerusalem(), await loadUserNames()) });
-  } catch (err) {
-    logWithSource("Vehicle.archive", err);
-    return fail(res, 500, SERVER_ERROR);
-  }
-};
-
-const restore = async (req, res) => {
-  try {
-    const vehicle = await findVehicle(req.params.id);
-    if (!vehicle) return fail(res, 404, "المركبة غير موجودة");
-    if (vehicle.status !== "archived") return fail(res, 409, "المركبة غير مؤرشفة");
-    const status = vehicle.previousStatus === "out_of_service" ? "out_of_service" : "active";
-    const saved = await saveVehicle(vehicle, { status, previousStatus: "", archivedAt: "", archivedBy: "" }, req.actor);
-    await audit(saved, req, "restore", { before: vehicle, changes: [{ field: "status", from: "archived", to: status }] });
-    return send(res, 200, { ok: true, vehicle: toClientVehicle(saved, rules.todayInJerusalem(), await loadUserNames()) });
-  } catch (err) {
-    logWithSource("Vehicle.restore", err);
-    return fail(res, 500, SERVER_ERROR);
-  }
-};
-
-// Permanent delete: the vehicle with its licences, tests, policies, document
-// records, Drive files and change log. The plate must be typed back as
-// confirmation. Drive goes first: if a file cannot be removed nothing else is
-// deleted, so no orphaned file is left behind and the delete can be retried.
-// Nothing about the vehicle is kept afterwards (owner's explicit request).
+// Delete: the vehicle goes to the recycle bin (owner, 2026-11-16) with its
+// change log, and leaves the list at once. Its Drive files stay until it is
+// deleted for good from the bin (trashHooks.purge), after 30 days at most.
+// No typed confirmation: the app offers "تراجع" for 8 seconds instead.
+const recycleBin = () => require("../../services/recycleBin").recycleBin;
 const remove = async (req, res) => {
   try {
     const vehicle = await findVehicle(req.params.id);
     if (!vehicle) return fail(res, 404, "المركبة غير موجودة");
-    if (rules.normalizePlate(req.body?.confirmPlate) !== vehicle.plate) {
-      return fail(res, 400, "اكتب رقم اللوحة بشكل صحيح لتأكيد الحذف", { errors: { confirmPlate: "رقم اللوحة غير مطابق" } });
-    }
     const stale = checkVersion(vehicle, req, (v) => toClientVehicle(v, rules.todayInJerusalem()));
     if (stale) return send(res, 409, stale);
 
-    const documents = vehicle.documents || [];
-    let failed = 0;
-    for (const doc of documents) {
-      try {
-        await googleDrive.deleteByIdIfExists(doc.driveFileId);
-      } catch (err) {
-        failed += 1;
-        logWithSource("Vehicle.remove.drive", err);
-      }
+    const id = String(vehicle._id);
+    const history = (await VehicleAuditDef.get({ vehicleId: id }))?.result || [];
+    const trashId = await recycleBin().put("vehicle", {
+      refId: id, label: vehicle.plate, data: vehicle, extras: { history }, actor: req.actor,
+    });
+    const deleted = await VehicleModelDef.delete(sameVersion({ _id: id }, vehicle));
+    if (!deleted?.result?.deletedCount) {
+      await recycleBin().drop(trashId);
+      return send(res, 409, await raceLost(() => VehicleModelDef.get({ _id: id }), (v) => toClientVehicle(v, rules.todayInJerusalem())));
     }
-    if (failed > 0) {
-      return fail(res, 502, `تعذر حذف ${failed} من ملفات Google Drive. لم يُحذف شيء، حاول مرة أخرى`);
-    }
-    try {
-      const { folderId } = await googleDrive.resolveFolderPath(`Vehicles/${vehicle.plate}`);
-      if (folderId) await googleDrive.deleteByIdIfExists(folderId);
-    } catch (err) {
-      logWithSource("Vehicle.remove.folder", err); // an empty leftover folder is harmless
-    }
-
-    await VehicleAuditDef.delete({ vehicleId: String(vehicle._id) });
-    await VehicleModelDef.delete({ _id: String(vehicle._id) });
-    notifyChange("vehicle", String(vehicle._id));
+    await VehicleAuditDef.delete({ vehicleId: id });
+    notifyChange("vehicle", id);
     await Promise.resolve()
-      .then(() => recordAlerts.forget("vehicle", String(vehicle._id)))
+      .then(() => recordAlerts.forget("vehicle", id))
       .catch((err) => logWithSource("Vehicle.remove.alerts", err));
-    // Only the fact of the delete: nothing else about the vehicle is kept.
     await auditLog.record(req, {
       module: "vehicles", action: "delete", targetType: "vehicle",
       targetId: vehicle._id, targetLabel: vehicle.plate,
     });
-    return send(res, 200, { ok: true, deletedId: String(vehicle._id) });
+    return send(res, 200, { ok: true, deletedId: id, trashId });
   } catch (err) {
     logWithSource("Vehicle.remove", err);
     return fail(res, 500, SERVER_ERROR);
   }
 };
+
+// The recycle bin's steps for a vehicle (services/recycleBin.js).
+const trashHooks = {
+  async restore(entry, req) {
+    const vehicle = entry.data || {};
+    if (await plateInUse(vehicle.plate, vehicle._id)) {
+      return { ok: false, status: 409, code: "PLATE_EXISTS", message: "توجد مركبة أخرى برقم اللوحة نفسه. لا يمكن الاستعادة" };
+    }
+    await VehicleModelDef.create(vehicle);
+    for (const row of entry.extras?.history || []) {
+      await VehicleAuditDef.create(row).catch((err) => logWithSource("Vehicle.restore.history", err));
+    }
+    // The vehicle's own history only; the central log row is the bin's (Trash.controller.js).
+    await VehicleAuditDef.create({
+      vehicleId: String(vehicle._id), plate: vehicle.plate, action: "restore",
+      by: actorId(req.actor), byName: actorName(req.actor), at: new Date().toISOString(), changes: [], reason: "", details: null,
+    }).catch((err) => logWithSource("Vehicle.restore.log", err));
+    notifyChange("vehicle", String(vehicle._id));
+    return { ok: true };
+  },
+  // For good: the Drive documents, and the plate's folder unless another
+  // vehicle with that plate uses it now.
+  async purge(entry) {
+    const vehicle = entry.data || {};
+    // Back meanwhile: its files are its own again.
+    if (await findVehicle(String(entry.refId))) return { failed: 0 };
+    let failed = 0;
+    for (const doc of vehicle.documents || []) {
+      try {
+        await googleDrive.deleteByIdIfExists(doc.driveFileId);
+      } catch (err) {
+        failed += 1;
+        logWithSource("Vehicle.purge.drive", err);
+      }
+    }
+    if (failed > 0) return { failed };
+    if (!(await plateInUse(vehicle.plate, vehicle._id))) {
+      try {
+        const { folderId } = await googleDrive.resolveFolderPath(`Vehicles/${vehicle.plate}`);
+        if (folderId) await googleDrive.deleteByIdIfExists(folderId);
+      } catch (err) {
+        logWithSource("Vehicle.purge.folder", err); // an empty leftover folder is harmless
+      }
+    }
+    return { failed: 0 };
+  },
+};
+
+// The delete itself: { failed } Drive files; when any failed nothing was deleted.
+async function deleteForGood(vehicle) {
+  const documents = vehicle.documents || [];
+  let failed = 0;
+  for (const doc of documents) {
+    try {
+      await googleDrive.deleteByIdIfExists(doc.driveFileId);
+    } catch (err) {
+      failed += 1;
+      logWithSource("Vehicle.remove.drive", err);
+    }
+  }
+  if (failed > 0) return { failed };
+  try {
+    const { folderId } = await googleDrive.resolveFolderPath(`Vehicles/${vehicle.plate}`);
+    if (folderId) await googleDrive.deleteByIdIfExists(folderId);
+  } catch (err) {
+    logWithSource("Vehicle.remove.folder", err); // an empty leftover folder is harmless
+  }
+
+  await VehicleAuditDef.delete({ vehicleId: String(vehicle._id) });
+  await VehicleModelDef.delete({ _id: String(vehicle._id) });
+  notifyChange("vehicle", String(vehicle._id));
+  await Promise.resolve()
+    .then(() => recordAlerts.forget("vehicle", String(vehicle._id)))
+    .catch((err) => logWithSource("Vehicle.remove.alerts", err));
+  return { failed: 0 };
+}
+
+// The vehicles archive was removed (owner, 2026-11-15, who chose to delete
+// what it held for good). Runs at server start: every vehicle still archived
+// is deleted like the delete button does it, Drive files included. One whose
+// Drive files cannot be removed stays as it is and is tried again next start.
+const SYSTEM_REQ = { actor: { isSystem: true } };
+async function purgeArchivedVehicles() {
+  const found = await VehicleModelDef.get({ status: "archived" });
+  let deleted = 0;
+  for (const vehicle of (found?.result || []).filter((v) => v.status === "archived")) {
+    try {
+      const { failed } = await deleteForGood(vehicle);
+      if (failed > 0) continue;
+      deleted += 1;
+      await auditLog.record(SYSTEM_REQ, {
+        module: "vehicles", action: "delete", targetType: "vehicle",
+        targetId: vehicle._id, targetLabel: vehicle.plate,
+      });
+    } catch (err) {
+      logWithSource("Vehicle.purgeArchived", err);
+    }
+  }
+  return deleted;
+}
 
 // ------------------------------------------- licence / test / insurance records
 
@@ -546,7 +586,6 @@ function addRecordHandler(kind) {
     try {
       const vehicle = await findVehicle(req.params.id);
       if (!vehicle) return fail(res, 404, "المركبة غير موجودة");
-      if (!requireNotArchived(res, vehicle)) return;
 
       const data = config.read(req.body);
       const errors = config.validate(data);
@@ -586,7 +625,6 @@ function updateRecordHandler(kind) {
     try {
       const vehicle = await findVehicle(req.params.id);
       if (!vehicle) return fail(res, 404, "المركبة غير موجودة");
-      if (!requireNotArchived(res, vehicle)) return;
       const list = vehicle[config.list] || [];
       const index = list.findIndex((record) => record.id === req.params.recordId);
       if (index < 0) return fail(res, 404, `${config.label} غير موجودة`);
@@ -634,7 +672,6 @@ function retireRecordHandler(kind) {
     try {
       const vehicle = await findVehicle(req.params.id);
       if (!vehicle) return fail(res, 404, "المركبة غير موجودة");
-      if (!requireNotArchived(res, vehicle)) return;
       const reason = clean(req.body?.reason, 500);
       if (!reason) return fail(res, 400, "السبب مطلوب", { errors: { reason: "السبب مطلوب" } });
       const list = vehicle[config.list] || [];
@@ -664,7 +701,6 @@ const setNextTestDate = async (req, res) => {
   try {
     const vehicle = await findVehicle(req.params.id);
     if (!vehicle) return fail(res, 404, "المركبة غير موجودة");
-    if (!requireNotArchived(res, vehicle)) return;
     const nextTestDate = clean(req.body?.nextTestDate, 10);
     const reason = clean(req.body?.reason, 500);
     if (nextTestDate && !rules.isValidDateOnly(nextTestDate)) {
@@ -692,7 +728,6 @@ const uploadDocument = async (req, res) => {
   try {
     const vehicle = await findVehicle(req.params.id);
     if (!vehicle) return fail(res, 404, "المركبة غير موجودة");
-    if (!requireNotArchived(res, vehicle)) return;
     if (!req.file) return fail(res, 400, "الملف مطلوب");
 
     const kind = clean(req.body?.kind, 20) || "other";
@@ -769,7 +804,6 @@ const updateDocument = async (req, res) => {
   try {
     const vehicle = await findVehicle(req.params.id);
     if (!vehicle) return fail(res, 404, "المركبة غير موجودة");
-    if (!requireNotArchived(res, vehicle)) return;
     const documents = vehicle.documents || [];
     const doc = documents.find((item) => item.id === req.params.docId);
     if (!doc) return fail(res, 404, "المستند غير موجود");
@@ -799,7 +833,6 @@ const removeDocument = async (req, res) => {
   try {
     const vehicle = await findVehicle(req.params.id);
     if (!vehicle) return fail(res, 404, "المركبة غير موجودة");
-    if (!requireNotArchived(res, vehicle)) return;
     const documents = vehicle.documents || [];
     const doc = documents.find((item) => item.id === req.params.docId);
     if (!doc) return fail(res, 404, "المستند غير موجود");
@@ -910,8 +943,8 @@ module.exports = {
   getById,
   create,
   update,
-  archive,
-  restore,
+  purgeArchivedVehicles,
+  trashHooks,
   remove,
   addLicense: addRecordHandler("license"),
   updateLicense: updateRecordHandler("license"),

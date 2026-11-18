@@ -14,6 +14,7 @@ import { DetailGroup, GuideCard } from "../UI/RecordParts";
 import LessonRoster from "./LessonRoster";
 import LessonParticipants from "./LessonParticipants";
 import AttendanceExportDialog from "./AttendanceExportDialog";
+import { rosterRows } from "../../utils/printLists";
 import withLock from "../../locks/withLock";
 
 const nameOf = (s) => `${s?.firstname || ""} ${s?.lastname || ""}`.trim();
@@ -140,10 +141,22 @@ export default function LessonView() {
   const canStaff = canStored("lessons.staffRoster");
 
   const viewer = getStoredUserId();
+  const printRoster = async () => {
+    const { exportTablePdf } = await import("../ExportPDF/ExportPDF.jsx");
+    await exportTablePdf({
+      title: `قائمة طلاب ${lesson.name || ""}`.trim(),
+      subtitle: `${lessonWhen(lesson)} · ${roomLabel(lesson.room)}`,
+      columns: ["#", "الاسم", "الصف", "المدرسة"],
+      rows: rosterRows(lesson, students),
+      fileNameBase: `قائمة طلاب ${lesson.name || ""}`,
+    });
+  };
   const actions = [
     canStored("lessons.edit") && { label: t("record.edit"), onClick: openForm, tour: "lesson-view-edit" },
     // Excel export of this lesson's attendance (owner, 2026-11-10).
     canStored("attendance.view") && { label: "تصدير الحضور إلى Excel", onClick: () => setExporting(true) },
+    // A clean A4 list of the program's students (owner, 2026-11-16).
+    { label: "طباعة قائمة الطلاب", onClick: printRoster },
     canStored("lessons.delete") && { label: t("record.delete"), onClick: remove, variant: "danger", tour: "lesson-delete" },
   ].filter(Boolean);
 

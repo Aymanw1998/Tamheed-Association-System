@@ -14,6 +14,7 @@ import { useI18n } from "../../i18n/I18nContext";
 import RecordPage from "../UI/RecordPage";
 import { DetailGroup, LinkList } from "../UI/RecordParts";
 import { useRolePicker, permissionError } from "./RolePickerDialog.jsx";
+import { offerUndo } from "../../utils/undoDelete";
 
 const nameOf = (p) => `${p?.firstname || ""} ${p?.lastname || ""}`.trim();
 const dateOf = (v) => {
@@ -135,12 +136,12 @@ export default function UserView() {
     toast.success(t(room === "waiting" ? "perms.approved" : "record.activated"));
     setLoads((n) => n + 1);
   };
-  // deleteU asks first; null means it was cancelled.
+  // Asks first (null: cancelled), then «سلة المحذوفات» with "تراجع" for 8 seconds.
   const remove = async () => {
     const res = await deleteU(user.tz, room);
     if (!res) return;
     if (!res.ok) return toast.warn(res.message || t("record.deleteFailed"));
-    toast.success(t("record.deleted"));
+    offerUndo({ trashId: res.trashId, message: t("record.movedToTrash"), onRestored: () => navigate(`/users/${user.tz}`) });
     navigate("/users");
   };
   const actions = [

@@ -1,10 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import styles from "./Display.module.css";
 import { fetchDisplayFeed } from "../../WebServer/services/display/functionsDisplay.jsx";
-import { DAY_NAMES, clearFeed, clockOffset, dayAhead, israelDayMinute, loadStored, saveFeed } from "./displayBoard";
+import { DAY_NAMES, byDay, clearFeed, clockOffset, dayAhead, israelDayMinute, loadStored, saveFeed } from "./displayBoard";
 import WeekLayout from "./WeekLayout";
-import TodayLayout from "./TodayLayout";
-import RotateLayout from "./RotateLayout";
 import RoomsLayout from "./RoomsLayout";
 import LOGO from "../../images/logo.png";
 import { boardDay, boardTitle } from "./roomBoard";
@@ -20,23 +18,24 @@ const REFRESH_MS = 10 * 1000;
 const RETRY_MS = 60 * 1000;
 const TICK_MS = 15 * 1000;
 const STALE_MS = 5 * 60 * 1000;
-const LAYOUTS = { week: WeekLayout, today: TodayLayout, rotate: RotateLayout, rooms: RoomsLayout };
+// Two layouts only (owner, 2026-11-14). The server sends a screen saved with a
+// removed layout as "rooms"; anything else unknown shows the week.
+const LAYOUTS = { week: WeekLayout, rooms: RoomsLayout };
 
 // The title and the date in the top bar. The rooms board may show a coming
 // day (after the last lesson of today), so it names that day and its date.
 function headerOf(feed, at) {
   if (feed.layout === "rooms") {
     const board = boardDay(feed.lessons, at.day, at.minute);
-    if (board && board.ahead > 0) {
+    // A day with no lessons shows «لا برامج اليوم» under today's own title.
+    const todayEmpty = !(byDay(feed.lessons)[at.day] || []).length;
+    if (board && board.ahead > 0 && !todayEmpty) {
       const then = dayAhead(at.date, board.ahead);
       return { title: `تمهيد · ${boardTitle(board)}`, date: `${DAY_NAMES[then.day - 1]} ${then.date}` };
     }
     return { title: "تمهيد · برنامج اليوم", date: `${DAY_NAMES[at.day - 1]} ${at.date}` };
   }
-  return {
-    title: feed.layout === "today" ? "تمهيد · برنامج اليوم" : "تمهيد · برنامج الأسبوع",
-    date: `${DAY_NAMES[at.day - 1]} ${at.date}`,
-  };
+  return { title: "تمهيد · برنامج الأسبوع", date: `${DAY_NAMES[at.day - 1]} ${at.date}` };
 }
 const CLOSED_TEXT = "رابط هذه الشاشة لم يعد صالحًا. اطلبوا رابطًا جديدًا من الجمعية.";
 const LOADING_TEXT = "جارٍ تحميل البرنامج…";

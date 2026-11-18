@@ -16,6 +16,7 @@ import Avatar from "../UI/Avatar.jsx";
 import { passportSrc } from "../../utils/passportPhoto";
 import Skeleton from "../UI/Skeleton";
 import { downloadWorkbook, studentsSheet } from "../../utils/excelExport";
+import { logExport } from "../../WebServer/services/exports/functionsExports";
 import { toast } from "../../ALERT/SystemToasts";
 
 const ACTIVE_STATUS = "عادي";
@@ -183,6 +184,9 @@ const ViewAllStudent = () => {
   const exportList = async () => {
     setExportingList(true);
     try {
+      // Written in the audit log first (owner, 2026-11-16).
+      const logged = await logExport("students", sortedFilteredStudents.length);
+      if (!logged.ok) { toast.error(logged.message); return; }
       const today = new Date().toISOString().slice(0, 10);
       await downloadWorkbook(`الطلاب ${today}`, [studentsSheet(sortedFilteredStudents.map((student) => ({ ...student, mainTeacherName: student.responsibleGuideName || "" })))]);
     } catch {
@@ -230,10 +234,10 @@ const ViewAllStudent = () => {
           )}
           {isAdmin && hasOwn && <Button variant="secondary" onClick={() => setShowAll((value) => !value)}>{showAll ? "عرض طلابي" : "عرض طلاب الجمعية"}</Button>}
 
-          {/* Excel export of the list as filtered on screen (owner, 2026-11-10). */}
-          <Button variant="secondary" disabled={!sortedFilteredStudents.length} loading={exportingList} onClick={exportList}>
+          {/* Excel export of the list as filtered on screen (owner, 2026-11-10), managers only (2026-11-16), with the export key (2026-11-18). */}
+          {isAdmin && canStored("students.exportExcel") && <Button variant="secondary" disabled={!sortedFilteredStudents.length} loading={exportingList} onClick={exportList}>
             تصدير Excel
-          </Button>
+          </Button>}
 
           <Button variant="secondary" data-tour="students-refresh" onClick={loadStudent} loading={loading}>
             {loading ? "جارٍ التحديث…" : "تحديث القائمة"}
@@ -257,7 +261,7 @@ const ViewAllStudent = () => {
             : "الطلاب غير الفعّالين"}: {sortedFilteredStudents.length}
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginTop: 8 }}>
-          <FilterDialog count={Number(onlyUnsigned) + Object.values(filters).filter((value) => value !== "").length} onClear={() => { setOnlyUnsigned(false); setFilters({ minAge: "", maxAge: "", layer: "", gender: "", guide: "", school: "" }); }}>
+          <FilterDialog count={Number(onlyUnsigned) + Object.values(filters).filter((value) => value !== "").length} onClear={() => { setOnlyUnsigned(false);setFilters({ minAge: "", maxAge: "", layer: "", gender: "", guide: "", school: "" }); }}>
             <div className={styles.listFilters}>
             <label>العمر من<input type="number" min="0" max="120" value={filters.minAge} onChange={(event) => changeFilter("minAge", event.target.value)} /></label>
             <label>العمر حتى<input type="number" min="0" max="120" value={filters.maxAge} onChange={(event) => changeFilter("maxAge", event.target.value)} /></label>

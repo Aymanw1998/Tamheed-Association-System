@@ -69,6 +69,7 @@ function loadController(users) {
     "../Notification/Notification.controller": {},
     ...require("./helpers/alertEventsStub").noopAlertDeps,
     ...audit.deps,
+    ...require("./helpers/recycleBinStub").recycleBinStub().deps,
   };
   const filename = path.join(__dirname, "../Entities/User/User.controller.js");
   const module = { exports: {} };

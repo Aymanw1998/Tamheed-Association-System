@@ -24,14 +24,14 @@ const NOW = new Date("2026-01-01T00:00:00Z");
 /* ---------- unit ---------- */
 
 test("constants carry the agreed values", () => {
-  assert.equal(LOCK_THRESHOLD, 10);
+  assert.equal(LOCK_THRESHOLD, 5);
   assert.equal(SYSTEM_ALERT_EVERY, 5);
   assert.equal(LOCKED_MESSAGE, EXPECTED_MESSAGE);
 });
 
-test("nine failures do not lock, the tenth does", () => {
+test("four failures do not lock, the fifth does", () => {
   let user = { failedLoginCount: 0, lockedAt: null };
-  for (let i = 1; i <= 9; i++) {
+  for (let i = 1; i <= 4; i++) {
     const next = afterFailure(user, { isSystem: false, now: NOW });
     assert.equal(next.failedLoginCount, i);
     assert.equal(next.lockedAt, null);
@@ -39,7 +39,7 @@ test("nine failures do not lock, the tenth does", () => {
     assert.equal(isLocked(user, { isSystem: false }), false);
   }
   const fifth = afterFailure(user, { isSystem: false, now: NOW });
-  assert.equal(fifth.failedLoginCount, 10);
+  assert.equal(fifth.failedLoginCount, 5);
   assert.equal(fifth.lockedAt, NOW);
   assert.equal(fifth.alertSystem, false);
   assert.equal(isLocked({ ...user, ...fifth }, { isSystem: false }), true);
@@ -165,7 +165,7 @@ test("a locked account is refused even with the right password", async () => {
 });
 
 test("each wrong password tells how many tries are left", async () => {
-  for (const [before, left, text] of [[0, 9, "تبقّى لك 9 محاولات"], [7, 2, "تبقّى لك محاولتان"], [8, 1, "تبقّى لك محاولة واحدة"]]) {
+  for (const [before, left, text] of [[0, 4, "تبقّى لك 4 محاولات"], [2, 2, "تبقّى لك محاولتان"], [3, 1, "تبقّى لك محاولة واحدة"]]) {
     const user = { _id: "id-1", tz: "1", roles: [], password: FAKE_HASH, failedLoginCount: before, lockedAt: null };
     const { controller } = loadController({ user });
     const res = makeRes();
@@ -191,8 +191,8 @@ test("the system account is told nothing about tries, since it never locks", asy
   }
 });
 
-test("a wrong password is counted atomically and the tenth failure locks the account", async () => {
-  const user = { _id: "id-1", tz: "1", roles: [], password: FAKE_HASH, failedLoginCount: 9, lockedAt: null };
+test("a wrong password is counted atomically and the fifth failure locks the account", async () => {
+  const user = { _id: "id-1", tz: "1", roles: [], password: FAKE_HASH, failedLoginCount: 4, lockedAt: null };
   const { controller, calls } = loadController({ user });
   const res = makeRes();
   await controller.login({ body: { tz: "1", password: "wrong" }, headers: {}, cookies: {} }, res);
@@ -204,7 +204,7 @@ test("a wrong password is counted atomically and the tenth failure locks the acc
   const [tz, lockedAt, threshold, room] = calls.locks[0];
   assert.equal(tz, "1");
   assert.equal(room, "active");
-  assert.equal(threshold, 10);
+  assert.equal(threshold, 5);
   assert.equal(Object.prototype.toString.call(lockedAt), "[object Date]");
 });
 
@@ -287,8 +287,8 @@ test("reset-password on a locked account is refused", async () => {
 
 test("afterFailureCount decides the lock from an atomically returned count", () => {
   const { afterFailureCount } = require("../utils/loginLockout");
-  assert.equal(afterFailureCount(9, { isSystem: false, now: NOW }).lockedAt, null);
-  assert.equal(afterFailureCount(10, { isSystem: false, now: NOW }).lockedAt, NOW);
+  assert.equal(afterFailureCount(4, { isSystem: false, now: NOW }).lockedAt, null);
+  assert.equal(afterFailureCount(5, { isSystem: false, now: NOW }).lockedAt, NOW);
   assert.equal(afterFailureCount(5, { isSystem: true, now: NOW }).lockedAt, null);
   assert.equal(afterFailureCount(5, { isSystem: true, now: NOW }).alertSystem, true);
 });
@@ -318,4 +318,23 @@ test("a successful password reset clears the failure counter", async () => {
     calls.updates.some(([, d]) => d.password && d.failedLoginCount === 0 && d.lockedAt === null),
     "reset update must also clear the counter"
   );
+});
+
+// Owner, 2026-11-16 (reversed the same day): passwords stay encrypted so the
+// IT site can show them. An old bcrypt hash becomes encrypted at sign-in.
+test("a bcrypt password is replaced by its encrypted form at the next sign-in", async () => {
+  const { controller, calls } = loadController();
+  const res = makeRes();
+  await controller.login({ body: { tz: "1", password: "real-pass" }, headers: {}, cookies: {} }, res);
+  assert.equal(res.statusCode, 200);
+  assert.ok(calls.updates.some(([filter, data]) => filter.tz === "1" && data.password === "enc:real-pass"));
+});
+
+test("an encrypted password signs in without rewriting it", async () => {
+  const user = { _id: "id-1", tz: "1", roles: [], password: "enc:real-pass" };
+  const { controller, calls } = loadController({ user });
+  const res = makeRes();
+  await controller.login({ body: { tz: "1", password: "real-pass" }, headers: {}, cookies: {} }, res);
+  assert.equal(res.statusCode, 200);
+  assert.ok(!calls.updates.some(([, data]) => data && "password" in data), "no password write");
 });

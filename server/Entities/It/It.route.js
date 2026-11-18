@@ -40,6 +40,9 @@ function createItRouter(deps = {}) {
   const bugReports = deps.bugReports || lazyHandlers(() => require("../BugReport/BugReport.controller").bugReports);
   const adminPowers = deps.adminPowers || lazyHandlers(() => require("./AdminPowers.controller").adminPowers());
   const passkey = deps.passkey || lazyHandlers(() => require("./It.passkey").itPasskeys());
+  const opsStatus = deps.opsStatus || require("../../utils/opsStatus");
+  const sensitiveViews = deps.sensitiveViews || require("../../utils/sensitiveViews").sensitiveViews;
+  const errorLog = deps.errorLog || require("../../utils/errorLog").errorLog;
   // Refuses a change while the user is open in an everyday tab (423).
   const lockedUser = deps.lockedUser || ((req, res, next) => require("../User/User.route").lockedUser(req, res, next));
 
@@ -125,6 +128,35 @@ function createItRouter(deps = {}) {
   router.use("/push", pushRouter);
 
   // «البلاغات» from System: any IT user. Deleting is also «تم الحل».
+  // The server's own checks: backup, its Drive copy, the restore test and the
+  // disk (owner, 2026-11-16). Any IT user sees them; nothing secret.
+  router.get("/ops-status", requireIt, async (req, res) => {
+    try {
+      return res.status(200).json({ ok: true, checks: await opsStatus.list() });
+    } catch (error) {
+      return res.status(500).json({ ok: false, code: "SERVER_ERROR" });
+    }
+  });
+  // «سجل الاطلاع»: who looked at a student's health, parents' phones or
+  // signature (owner, 2026-11-16). Kept one year.
+  router.get("/sensitive-views", requireIt, requirePermission("audit.view"), async (req, res) => {
+    try {
+      const page = Math.min(Math.max(Number.parseInt(req.query.page, 10) || 1, 1), 10000);
+      const out = await sensitiveViews.page({ page, studentId: String(req.query.studentId || "").trim() || undefined });
+      return res.status(200).json({ ok: true, ...out });
+    } catch (error) {
+      return res.status(500).json({ ok: false, code: "SERVER_ERROR" });
+    }
+  });
+  // «ملخص الأخطاء»: the server's errors of the last 7 days, grouped (owner,
+  // 2026-11-16). Shown beside the reports, with the same key.
+  router.get("/error-summary", requireIt, requirePermission("permissions.manage"), async (req, res) => {
+    try {
+      return res.status(200).json({ ok: true, summary: await errorLog.summary({ days: 7 }) });
+    } catch (error) {
+      return res.status(500).json({ ok: false, code: "SERVER_ERROR" });
+    }
+  });
   router.get("/bug-reports", requireIt, requirePermission("permissions.manage"), bugReports.list);
   router.get("/bug-reports/:id/image", requireIt, requirePermission("permissions.manage"), bugReports.image);
   router.delete("/bug-reports/:id", requireIt, requirePermission("permissions.manage"), bugReports.remove);

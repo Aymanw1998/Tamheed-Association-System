@@ -116,7 +116,7 @@ function loadUserController(users, audit) {
     "../../utils/loginLockout": require("../utils/loginLockout"),
     "../../utils/systemPassword": require("../utils/systemPassword"),
     "../../middleware/logger": { logWithSource() {} },
-    "./passwordCrypto": {},
+    "./passwordCrypto": { encryptPassword: (v) => `enc:${v}`, decryptPassword: (v) => String(v).replace(/^enc:/, ""), isEncrypted: (v) => typeof v === "string" && v.startsWith("enc:"), safeEqual: (a, b) => a === b },
     "../UploadFile/file": {},
     "../Storage/Storage.controller": {
       buildUserStorageFolder: () => "folder",
@@ -126,6 +126,7 @@ function loadUserController(users, audit) {
     "../Notification/Notification.controller": {},
     ...require("./helpers/alertEventsStub").noopAlertDeps,
     ...audit.deps,
+    ...require("./helpers/recycleBinStub").recycleBinStub().deps,
   };
   const filename = path.join(__dirname, "../Entities/User/User.controller.js");
   const module = { exports: {} };
@@ -172,6 +173,7 @@ async function startApp() {
     },
     driveState,
     locks: { async forceRelease(key) { released.push(key); return true; } },
+    opsStatus: { async list() { return [{ id: "backup", label: "النسخ الاحتياطي الليلي", state: "failed", ok: false, at: null, message: "dump failed" }]; } },
     push: {
       async status() { return { ...pushState }; },
       async setEnabled(enabled) { pushState.enabled = enabled; pushState.keysFrom = "server"; return { ...pushState }; },
@@ -223,7 +225,7 @@ test("every IT route needs the IT session, and only IT_HOST serves them", withAp
     ["GET", "/storage/google/status"], ["POST", "/storage/google/connect-url"], ["POST", "/locks/force-release"],
     ["GET", "/push/settings"], ["PUT", "/push/settings"], ["GET", "/members"], ["POST", `/members/${GUIDE.tz}`],
     ["POST", `/users/${GUIDE.tz}/room`], ["DELETE", `/users/${GUIDE.tz}?from=active`],
-    ["POST", "/members"],
+    ["POST", "/members"], ["GET", "/ops-status"],
     ["GET", "/role-defaults"], ["PUT", `/role-defaults/${encodeURIComponent("مرشد")}`], ["DELETE", `/role-defaults/${encodeURIComponent("مرشد")}`],
   ]) {
     assert.equal((await call(method, url, { body: {} })).status, 401, `${method} ${url} without the IT cookie`);
@@ -648,4 +650,12 @@ test("an «مدير IT» (given only by the system account) manages IT users, ne
   // A plain IT user still has no members screen.
   users.find(IT_A.tz).itManager = false;
   assert.equal((await call("GET", "/members", { as: IT_A.tz })).status, 403);
+}));
+
+test("ops-status: any IT user sees the server's checks (owner, 2026-11-16)", withApp(async ({ call }) => {
+  const res = await call("GET", "/ops-status", { as: IT_A.tz });
+  assert.equal(res.status, 200);
+  assert.equal(res.body.ok, true);
+  assert.equal(res.body.checks[0].id, "backup");
+  assert.equal(res.body.checks[0].state, "failed");
 }));

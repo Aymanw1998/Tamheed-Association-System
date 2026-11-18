@@ -452,8 +452,8 @@ const EditUser = () => {
       <ReadOnlyArea readonly={readonly} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <fieldset className={sectionStyles.formSection} data-tour="user-account">
         <legend>بيانات الحساب</legend>
-        <label>رقم الهوية:<span style={{color: "red"}}>*</span></label>
-        <input name="tz" value={form.tz} onChange={onField} readOnly={!isNew} />
+        <label htmlFor="user-tz">رقم الهوية:<span style={{color: "red"}}>*</span></label>
+        <input id="user-tz" name="tz" value={form.tz} onChange={onField} readOnly={!isNew} />
         <label style={{color: "red"}}>{error.tz}</label>
 
         {showPasswordField && (<>
@@ -485,8 +485,8 @@ const EditUser = () => {
 
         {isNew && newUserRoles.length > 0 && (
           <>
-            <label>{t("perms.role")}:<RequiredMark /></label>
-            <select
+            <label htmlFor="user-roles">{t("perms.role")}:<RequiredMark /></label>
+            <select id="user-roles"
               name="roles"
               value={form.roles?.[0] || ""}
               onChange={(e) => setForm((prev) => ({ ...prev, roles: e.target.value ? [e.target.value] : [] }))}
@@ -530,16 +530,16 @@ const EditUser = () => {
 
       <fieldset className={sectionStyles.formSection} data-tour="user-personal">
         <legend>البيانات الشخصية</legend>
-        <label>الاسم الشخصي:<span style={{color: "red"}}>*</span></label>
-        <input name="firstname" value={form.firstname} onChange={handleChange} required />
+        <label htmlFor="user-firstname">الاسم الشخصي:<span style={{color: "red"}}>*</span></label>
+        <input id="user-firstname" name="firstname" value={form.firstname} onChange={handleChange} required />
         <label style={{color: "red"}}>{error.firstname}</label>
 
-        <label>اسم العائلة:<span style={{color: "red"}}>*</span></label>
-        <input name="lastname" value={form.lastname} onChange={handleChange} required />
+        <label htmlFor="user-lastname">اسم العائلة:<span style={{color: "red"}}>*</span></label>
+        <input id="user-lastname" name="lastname" value={form.lastname} onChange={handleChange} required />
         <label style={{color: "red"}}>{error.lastname}</label>
 
-        <label>تاريخ الميلاد:</label>
-        <input
+        <label htmlFor="user-birth_date">تاريخ الميلاد:</label>
+        <input id="user-birth_date"
           name="birth_date"
           type="date"
           value={form.birth_date ? String(form.birth_date).slice(0, 10) : ''}
@@ -547,8 +547,8 @@ const EditUser = () => {
         />
         <label style={{color: "red"}}>{error.birth_date}</label>
 
-        <label>الجنس:</label>
-        <select name="gender" value={form.gender} onChange={onField}>
+        <label htmlFor="user-gender">الجنس:</label>
+        <select id="user-gender" name="gender" value={form.gender} onChange={onField}>
           <option value="">اختر الجنس</option>
           <option value="ذكر">ذكر</option>
           <option value="انثى">أنثى</option>
@@ -558,16 +558,16 @@ const EditUser = () => {
 
       <fieldset className={sectionStyles.formSection}>
         <legend>السكن والتواصل</legend>
-        <label>مدينة السكن:</label>
-        <input name="city" value={form.city} onChange={onField} />
+        <label htmlFor="user-city">مدينة السكن:</label>
+        <input id="user-city" name="city" value={form.city} onChange={onField} />
         <label style={{color: "red"}}>{error.city}</label>
 
-        <label>شارع السكن:</label>
-        <input name="street" value={form.street} onChange={onField} />
+        <label htmlFor="user-street">شارع السكن:</label>
+        <input id="user-street" name="street" value={form.street} onChange={onField} />
         <label style={{color: "red"}}>{error.street}</label>
 
-        <label>الهاتف:<span style={{color: "red"}}>*</span></label>
-        <input
+        <label htmlFor="user-phone">الهاتف:<span style={{color: "red"}}>*</span></label>
+        <input id="user-phone"
           name="phone"
           value={displayPhoneLocal(form.phone)}
           onChange={(e)=>onPhoneChange('phone', e.target.value)}
@@ -575,8 +575,8 @@ const EditUser = () => {
         />
         <label style={{color: "red"}}>{error.phone}</label>
 
-        <label>البريد الإلكتروني:</label>
-        <input name="email" value={form.email} onChange={onField} readOnly={!canEditEmail} />
+        <label htmlFor="user-email">البريد الإلكتروني:</label>
+        <input id="user-email" name="email" value={form.email} onChange={onField} readOnly={!canEditEmail} />
         <label style={{color: "red"}}>{error.email}</label>
         {isNew && <small>بدون بريد إلكتروني لن يصل رمز «نسيت كلمة المرور»، ويعيّنها المدير.</small>}
       </fieldset>

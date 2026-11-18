@@ -82,6 +82,19 @@ export function rememberSaved(account) {
   }
 }
 
+// The server knows whether the account has a passkey; the device's memory of
+// it is lost on sign-out (localStorage.clear). An account with one is not
+// offered again; one whose passkeys were removed is offered again.
+export function syncSavedPasskey(account, hasPasskey) {
+  if (!account || typeof hasPasskey !== "boolean") return;
+  try {
+    if (hasPasskey) localStorage.setItem(savedKey(account), "1");
+    else localStorage.removeItem(savedKey(account));
+  } catch {
+    // Private mode: the offer may show again.
+  }
+}
+
 export function rememberOffer(account) {
   try {
     sessionStorage.setItem(LATER_KEY, String(account));

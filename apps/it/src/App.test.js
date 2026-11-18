@@ -12,6 +12,7 @@ jest.mock("./api", () => ({
   logout: jest.fn(),
   getUsers: jest.fn(),
   getMembers: jest.fn(),
+  getOpsStatus: jest.fn(),
   setPasswordChangeHandler: jest.fn(),
 }));
 jest.mock("./siteLink", () => ({ ...jest.requireActual("./siteLink"), openSite: jest.fn() }));
@@ -23,6 +24,7 @@ beforeEach(() => {
   api.getUsers.mockImplementation(() => ok({ users: [] }));
   api.getMembers.mockImplementation(() => ok({ members: [] }));
   api.logout.mockImplementation(() => ok());
+  api.getOpsStatus.mockImplementation(() => ok({ checks: [] }));
 });
 afterEach(async () => { await unmountAll(); jest.clearAllMocks(); });
 

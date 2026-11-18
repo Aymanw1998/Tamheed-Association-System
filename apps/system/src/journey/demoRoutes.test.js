@@ -99,8 +99,8 @@ describe("one read and one write per entity", () => {
   test("vehicles", () => {
     const [vehicle] = call("get", "/vehicle").data.vehicles;
     expect(vehicle.summary.license.state).toBe("due");
-    const res = call("post", `/vehicle/${vehicle._id}/archive`, { data: { reason: "" } });
-    expect(res.data.vehicle.status).toBe("archived");
+    const res = call("put", `/vehicle/${vehicle._id}`, { data: { status: "out_of_service" } });
+    expect(res.data.vehicle.status).toBe("out_of_service");
   });
 
   test("files", () => {
@@ -259,7 +259,6 @@ describe("demo responses match service shapes", () => {
     defined(ok(await Notices.createNotice({ title: "عنوان", body: "نص", severity: "info" })).notice);
     const id = store.notices[0]._id;
     ok(await Notices.markNoticeRead(id));
-    ok(await Notices.archiveNotice(id));
     ok(await Notices.markAllNoticesRead());
   });
 

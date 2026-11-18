@@ -98,16 +98,14 @@ test("filterVehicles searches plates regardless of separators, and names", () =>
   expect(filterVehicles(list, { type: "trailer" }).map((v) => v._id)).toEqual(["2"]);
 });
 
-test("filterVehicles hides archived unless asked, and filters by document state", () => {
+test("filterVehicles filters by status and document state", () => {
   const list = [
     car({ _id: "a" }),
-    car({ _id: "b", status: "archived" }),
     car({ _id: "c", status: "out_of_service", summary: summary({ state: "expired" }, known, insActive) }),
     car({ _id: "d", summary: summary(known, { state: "due", bucket: 14 }, insActive) }),
     car({ _id: "e", summary: summary(unknown, known, insActive) }),
   ];
   expect(filterVehicles(list).map((v) => v._id)).toEqual(["a", "c", "d", "e"]);
-  expect(filterVehicles(list, { status: "archived" }).map((v) => v._id)).toEqual(["b"]);
   expect(filterVehicles(list, { status: "out_of_service" }).map((v) => v._id)).toEqual(["c"]);
   expect(filterVehicles(list, { docs: "expired" }).map((v) => v._id)).toEqual(["c"]);
   expect(filterVehicles(list, { docs: "soon" }).map((v) => v._id)).toEqual(["d"]);
@@ -115,10 +113,9 @@ test("filterVehicles hides archived unless asked, and filters by document state"
   expect(filterVehicles(list, { docs: "attention" }).map((v) => v._id)).toEqual(["c", "d"]);
 });
 
-test("countVehicles ignores archived vehicles", () => {
+test("countVehicles counts every vehicle", () => {
   const list = [
     car(),
-    car({ _id: "2", status: "archived", summary: summary({ state: "expired" }, known, insActive) }),
     car({ _id: "3", summary: summary({ state: "expired" }, known, insActive) }),
     car({ _id: "4", status: "out_of_service", summary: summary(unknown, known, insActive) }),
   ];

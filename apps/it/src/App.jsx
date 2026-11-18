@@ -5,6 +5,7 @@ import { usePath } from "./router.jsx";
 import { openSite, systemUrlWithPass, takePassFromAddress } from "./siteLink";
 import Header from "./ui/Header.jsx";
 import PasskeyOffer from "./ui/PasskeyOffer.jsx";
+import OpsStatus from "./ui/OpsStatus.jsx";
 import { Toaster, toast } from "./ui/toast.jsx";
 import SignIn from "./screens/SignIn.jsx";
 import Users from "./screens/Users.jsx";
@@ -12,6 +13,7 @@ import UserPage from "./screens/UserPage.jsx";
 import Members from "./screens/Members.jsx";
 import BugReports from "./screens/BugReports.jsx";
 import Audit from "./screens/Audit.jsx";
+import SensitiveViews from "./screens/SensitiveViews.jsx";
 import Storage from "./screens/Storage.jsx";
 import Settings from "./screens/Settings.jsx";
 import RoleDefaults from "./screens/RoleDefaults.jsx";
@@ -22,6 +24,7 @@ const NAV = [
   { to: "/roles", label: "صلاحيات الأدوار" },
   { to: "/bug-reports", label: "البلاغات" },
   { to: "/audit", label: "سجل التغييرات" },
+  { to: "/sensitive-views", label: "سجل الاطلاع" },
   { to: "/storage", label: "التخزين" },
   { to: "/settings", label: "الإعدادات" },
 ];
@@ -32,6 +35,7 @@ function Screen({ path, me }) {
   if (path === "/roles") return <RoleDefaults />;
   if (path === "/bug-reports") return <BugReports />;
   if (path === "/audit") return <Audit me={me} />;
+  if (path === "/sensitive-views") return <SensitiveViews />;
   if (path === "/storage") return <Storage />;
   if (path === "/settings") return <Settings />;
   // The IT users screen: the system account and the «مدير IT» users (the server checks too).
@@ -96,6 +100,7 @@ export default function App() {
       <Header links={links} path={path} me={me} onOpenSystem={hasSystem ? openSystem : null} onSignOut={signOut} />
       <main className="page">
         <PasskeyOffer key={me.tz} account={me.tz} />
+        <OpsStatus banner />
         <PageFade path={path}><Screen path={path} me={me} /></PageFade>
       </main>
       <Toaster />

@@ -1,7 +1,6 @@
 // Chapter 9: the administrators' notices board. Marking as read, the vehicle
 // check (answered by the demo store), a new notice written field by field and
-// published to the demo store, and the archive confirmation, which the guide
-// cancels.
+// published to the demo store. (The archive step went with the archive, 2026-11-14.)
 const notices = {
   id: "journey-notices",
   title: "لوحة الإعلانات",
@@ -73,22 +72,6 @@ const notices = {
       title: "نشر الإعلان",
       body: "سأضغط «نشر»، فيظهر الإعلان في القائمة.",
       action: { type: "click", target: "notices-submit" },
-    },
-    {
-      target: "notices-archive",
-      requires: "notices.post",
-      mood: "warn",
-      title: "أرشفة إعلان",
-      body: "الأرشفة تخفي الإعلان عن الجميع، وسأعرض التأكيد فقط.",
-      action: { type: "click", target: "notices-archive" },
-    },
-    {
-      target: "confirm-cancel",
-      requires: "notices.post",
-      mood: "explain",
-      title: "إلغاء الأرشفة",
-      body: "سأضغط «إلغاء» فيبقى الإعلان ظاهرًا.",
-      action: { type: "cancelConfirm" },
     },
   ],
 };

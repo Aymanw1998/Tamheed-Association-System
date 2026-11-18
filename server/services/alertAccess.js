@@ -29,6 +29,9 @@ const ALERT_ACCESS = {
   weekly_tasks: has("tasks.view"),
   weekly_task_added: has("tasks.view"),
   weekly_tasks_overdue: has("tasks.view"),
+  weekly_tasks_overdue_staff: (actor) => can(actor, "tasks.viewAll")
+    || (can(actor, "tasks.manage") && (can(actor, "tasks.create") || can(actor, "tasks.edit"))),
+  lesson_attendance_reminder: always,
   weekly_tasks_greeting: has("tasks.view"),
 };
 

@@ -36,7 +36,7 @@ test("dedup prefixes of the alerts that belong to a record", () => {
   const id = "a".repeat(24);
   assert.deepEqual(retention.recordPrefixes("vehicle", id), [`vehicle:${id}:`]);
   assert.deepEqual(retention.recordPrefixes("student", id), [`absence_streak:${id}:`, `parent_registration:${id}`]);
-  assert.deepEqual(retention.recordPrefixes("lesson", id), [`lesson_no_attendance:${id}:`]);
+  assert.deepEqual(retention.recordPrefixes("lesson", id), [`lesson_no_attendance:${id}:`, `lesson_attendance_reminder:${id}:`]);
   assert.deepEqual(retention.recordPrefixes("user", "123"), [
     "user_waiting:123:", "account_locked:123:", "access_changed:role:123:", "access_changed:permissions:123:",
   ]);

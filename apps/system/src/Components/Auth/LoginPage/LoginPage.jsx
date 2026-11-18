@@ -239,6 +239,8 @@ export default function LoginPage() {
                     <div className={styles.links}>
                         <button type="button" className={styles.forgotLink} onClick={() => setShowPopup(true)}>نسيت كلمة المرور؟</button>
                         <button type="button" className={styles.forgotLink} onClick={()=>navigate("/register")}>تسجيل مستخدم جديد</button>
+                        {/* The accessibility statement (owner, 2026-11-17). */}
+                        <a className={styles.forgotLink} href="/accessibility">تصريح إتاحة</a>
                     </div>
                     {/* Phones only, until the app is installed. */}
                     <InstallAppButton className={styles.secondaryButton} />

@@ -29,9 +29,9 @@ export default function GreetingDialog({ guides, defaultText = DEFAULT_GREETING,
   return (
     <div className="c-overlay" role="dialog" aria-modal="true" aria-labelledby="greeting-title" dir="rtl">
       <div className="c-dialog">
-        <div className="c-header"><h3 id="greeting-title">إرسال بركة للمسؤولين</h3></div>
+        <div className="c-header"><h3 id="greeting-title">إرسال تهنئة للمسؤولين</h3></div>
         <div className="c-body" style={{ maxHeight: "65vh", overflowY: "auto" }}>
-          <p>تصل البركة للمختارين في التنبيهات وبريدهم الشخصي إن وُجد، حتى لو لم ينهوا المهمات بعد.</p>
+          <p>تصل التهنئة للمختارين في التنبيهات وبريدهم الشخصي إن وُجد، حتى لو لم ينهوا المهمات بعد.</p>
           <fieldset disabled={busy || Boolean(deliveries)} className={styles.form}>
             <legend>المستلمون</legend>
             <button type="button" onClick={() => change(() => setSelected(guides.map((guide) => guide.id)))}>اختيار الجميع</button>
@@ -41,7 +41,7 @@ export default function GreetingDialog({ guides, defaultText = DEFAULT_GREETING,
                 <span dir="auto">{guide.name}</span>
               </label>
             ))}
-            <label htmlFor="weekly-greeting-text">نص البركة</label>
+            <label htmlFor="weekly-greeting-text">نص التهنئة</label>
             <textarea id="weekly-greeting-text" rows={4} maxLength={500} value={text} onChange={(event) => change(() => setText(event.target.value))} />
           </fieldset>
           {error && <p role="alert" className={styles.error}>{error}</p>}

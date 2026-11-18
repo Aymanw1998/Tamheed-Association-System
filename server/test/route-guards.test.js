@@ -96,7 +96,8 @@ const ANY_ACTOR_ROUTES = {
   // One's own tour state: every write targets the caller's own record.
   "routes/tours.routes.js": ["GET /", "POST /item/:id", "POST /known-keys", "POST /releases/seen"],
   // The IT actor (requireIt) about himself: who he is, his pass to the everyday app (the handler checks the role), his own passkey.
-  "It/It.route.js": ["GET /me", "POST /system-pass", "POST /passkey/register-options", "POST /passkey/register", "POST /change-password"],
+  // ...and the server's own checks (backup, Drive copy, restore test, disk; owner, 2026-11-16): any IT user, nothing secret.
+  "It/It.route.js": ["GET /me", "POST /system-pass", "POST /passkey/register-options", "POST /passkey/register", "POST /change-password", "GET /ops-status"],
 };
 
 // requireIt loads the IT site's actor (middleware/requireIt.js), as loadActor does the everyday one.
@@ -211,7 +212,7 @@ const EXACT_GUARDS = {
     "DELETE /users/:tz/sessions/:sid": "users.unlock",
     "POST /system/recover": "systemRecovery.reset",
   },
-  "Notice/Notice.route.js": { "POST /:id/archive": "notices.archive", "POST /:id/purge": "notices.purge" },
+  "Notice/Notice.route.js": { "POST /:id/purge": "notices.purge" },
   "InviteToken/InviteToken.route.js": {
     "POST /rules": "rules.edit",
     "GET /consent/:studentId": "consents.view",

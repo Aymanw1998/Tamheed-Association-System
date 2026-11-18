@@ -141,7 +141,7 @@ test("legacy vehiclePermissions never yield vehicles.delete, even all five plus 
   const plan = planUserMigration({ tz: "T9", roles: [GUIDE],
     vehiclePermissions: ["view", "edit", "compliance", "documents", "archive", "delete"] });
   assert.deepEqual(plan.permissionGrants,
-    ["vehicles.view", "vehicles.edit", "vehicles.compliance", "vehicles.documents", "vehicles.archive"]);
+    ["vehicles.view", "vehicles.edit", "vehicles.compliance", "vehicles.documents"]);
 });
 
 test("the summary counts users with no or unknown role separately", async () => {

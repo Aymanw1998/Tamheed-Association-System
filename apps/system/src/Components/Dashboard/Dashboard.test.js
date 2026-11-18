@@ -78,3 +78,8 @@ test("revoking calendar.view hides the weekly timetable shortcut and panel", asy
   expect(cards()).toEqual([]);
   expect(lessonsPanel()).toBeNull();
 });
+
+test("the dashboard has no notifications list; the bell and the notices board keep it (owner, 2026-11-14)", async () => {
+  await mount(["students.view", "lessons.view", "notices.view"]);
+  expect(host.querySelector('[aria-label="الإشعارات"]')).toBeNull();
+});

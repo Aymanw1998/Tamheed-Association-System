@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { bugReportImage, deleteBugReport, errorText, getBugReports } from "../api";
 import { roleLabel } from "../strings";
 import ConfirmDialog from "../ui/ConfirmDialog.jsx";
+import ErrorSummary from "../ui/ErrorSummary.jsx";
 import { toast } from "../ui/toast.jsx";
 
 const TYPES = { fault: "عطل", suggestion: "اقتراح تحسين", problem: "مشكلة ملموسة" };
@@ -44,6 +45,7 @@ export default function BugReports() {
   return (
     <section>
       <h1>البلاغات</h1>
+      <ErrorSummary />
       {reports.length === 0 ? <p>لا توجد بلاغات.</p> : (
         <ul className="list">
           {reports.map((report) => {

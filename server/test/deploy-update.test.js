@@ -26,6 +26,21 @@ if [ "$name" = "pm2" ] && [ "$1" = "describe" ]; then echo "status \${PM2_STATUS
 exit 0
 `;
 
+// Who runs the update and who owns the folder, from the environment.
+const ACCOUNT_STUBS = {
+  id: [
+    "#!/usr/bin/env bash",
+    'echo "id $*" >> "$CALLS"',
+    'if [ "$1" = "-un" ]; then echo "${FAKE_ME:-dev}"; exit 0; fi',
+    'if [ "$1" = "-u" ] && [ -n "${FAKE_APP_EXISTS:-}" ] && [ "$2" = "$FAKE_APP_EXISTS" ]; then echo 1001; exit 0; fi',
+    "exit 1",
+  ].join("\n") + "\n",
+  stat: '#!/usr/bin/env bash\necho "${FAKE_OWNER:-dev}"\n',
+  sudo: '#!/usr/bin/env bash\necho "sudo $*" >> "$CALLS"\n',
+  // The hour in Israel; 23 (night) unless a test says otherwise.
+  date: '#!/usr/bin/env bash\necho "${FAKE_HOUR:-23}"\n',
+};
+
 function runKeeping(env) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "tamheed-update-"));
   fs.mkdirSync(path.join(dir, "deploy"));
@@ -39,6 +54,9 @@ function runKeeping(env) {
   }
   for (const name of ["git", "npm", "node", "pm2", "curl", "sleep"]) {
     fs.writeFileSync(path.join(dir, "bin", name), STUB, { mode: 0o755 });
+  }
+  for (const [name, body] of Object.entries(ACCOUNT_STUBS)) {
+    fs.writeFileSync(path.join(dir, "bin", name), body, { mode: 0o755 });
   }
   const r = spawnSync("bash", ["-c", 'export PATH="$PWD/bin:$PATH"; export CALLS="$PWD/calls.log"; bash deploy/update.sh'], {
     cwd: dir, encoding: "utf8", env: { ...process.env, TAMHEED_UPDATE_RESTARTED: "", ...env },
@@ -126,4 +144,69 @@ for (const [label, failOn, part] of [
 test("the update is only called done at the very end", () => {
   const r = runKeeping({ FAIL_ON: "it.example.test" });
   assert.doesNotMatch(r.out, /==> Done/);
+});
+
+// Owner, 2026-11-16: updates only at night (20:00-08:00 Israel time).
+for (const hour of ["08", "13", "19"]) {
+  test(`at ${hour}:00 the update refuses before touching anything`, () => {
+    const r = runKeeping({ FAKE_HOUR: hour });
+    assert.notEqual(r.status, 0);
+    assert.match(r.out, new RegExp(STOPPED));
+    assert.match(r.out, /ALLOW_DAY_UPDATE=yes/);
+    assert.doesNotMatch(r.calls, /git pull/);
+    assert.deepEqual(r.sites, { system: "old", sport: "old", it: "old" });
+  });
+}
+
+for (const hour of ["20", "02", "07"]) {
+  test(`at ${hour}:00 the update runs`, () => {
+    const r = runKeeping({ FAKE_HOUR: hour });
+    assert.equal(r.status, 0, r.out);
+    assert.deepEqual(r.sites, { system: "new", sport: "new", it: "new" });
+  });
+}
+
+test("ALLOW_DAY_UPDATE=yes runs an urgent update in the day", () => {
+  const r = runKeeping({ FAKE_HOUR: "13", ALLOW_DAY_UPDATE: "yes" });
+  assert.equal(r.status, 0, r.out);
+  assert.deepEqual(r.sites, { system: "new", sport: "new", it: "new" });
+});
+
+test("root hands ALLOW_DAY_UPDATE over to tamheed", () => {
+  const r = runKeeping({ FAKE_ME: "root", FAKE_APP_EXISTS: "tamheed", FAKE_OWNER: "tamheed", FAKE_HOUR: "13", ALLOW_DAY_UPDATE: "yes" });
+  assert.equal(r.status, 0, r.out);
+  assert.match(r.calls, /sudo -H -u tamheed env .*ALLOW_DAY_UPDATE=yes/);
+});
+
+// Owner, 2026-11-16: the app runs as its own user (tamheed), not root.
+test("started by root once tamheed owns the folder, it hands the update to tamheed", () => {
+  const r = runKeeping({ FAKE_ME: "root", FAKE_APP_EXISTS: "tamheed", FAKE_OWNER: "tamheed", REACT_APP_SYSTEM_URL: "https://system.example.test" });
+  assert.equal(r.status, 0, r.out);
+  assert.match(r.calls, /sudo -H -u tamheed env .*REACT_APP_SYSTEM_URL=https:\/\/system\.example\.test.* bash deploy\/update\.sh/);
+  assert.doesNotMatch(r.calls, /git pull/);
+  assert.deepEqual(r.sites, { system: "old", sport: "old", it: "old" });
+});
+
+test("started by another user once tamheed owns the folder, it stops and says how to run it", () => {
+  const r = runKeeping({ FAKE_ME: "ayman", FAKE_APP_EXISTS: "tamheed", FAKE_OWNER: "tamheed" });
+  assert.notEqual(r.status, 0);
+  assert.match(r.out, new RegExp(STOPPED));
+  assert.match(r.out, /sudo -u tamheed bash deploy\/update\.sh/);
+  assert.doesNotMatch(r.calls, /git pull|sudo /);
+});
+
+test("run by tamheed itself, it updates as usual", () => {
+  const r = runKeeping({ FAKE_ME: "tamheed", FAKE_APP_EXISTS: "tamheed", FAKE_OWNER: "tamheed" });
+  assert.equal(r.status, 0, r.out);
+  assert.doesNotMatch(r.calls, /sudo /);
+  assert.doesNotMatch(r.out, /running as root/);
+  assert.deepEqual(r.sites, { system: "new", sport: "new", it: "new" });
+});
+
+test("before the move (folder still root's) root updates as before, with a note", () => {
+  const r = runKeeping({ FAKE_ME: "root", FAKE_APP_EXISTS: "tamheed", FAKE_OWNER: "root" });
+  assert.equal(r.status, 0, r.out);
+  assert.doesNotMatch(r.calls, /sudo /);
+  assert.match(r.out, /running as root/);
+  assert.deepEqual(r.sites, { system: "new", sport: "new", it: "new" });
 });

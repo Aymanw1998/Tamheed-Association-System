@@ -432,3 +432,26 @@ test("every alert type has a read rule (else GET /api/alerts would hide it)", ()
   const { ALERT_ACCESS } = require("../services/alertAccess");
   assert.deepEqual(Object.keys(ALERT_TEMPLATES).sort(), Object.keys(ALERT_ACCESS).sort());
 });
+
+test("weekly_tasks_overdue_staff reaches the task managers with the guide's name, not the guide, and pushes", async () => {
+  const { events, store } = makeEvents();
+  await events.weeklyTasksOverdueStaff(GUIDE_U, 3, "2026-11-08");
+  await events.weeklyTasksOverdueStaff(GUIDE_U, 3, "2026-11-08");
+  const to = recipientsOf(store, "weekly_tasks_overdue_staff");
+  assert.ok(to.includes(ADMIN_U.tz));
+  assert.ok(!to.includes(GUIDE_U.tz));
+  assert.equal(new Set(to).size, to.length, "deduplicated");
+  const doc = store.docs.find((d) => d.type === "weekly_tasks_overdue_staff");
+  assert.match(doc.text.ar, /Gu Ide/);
+  assert.match(doc.text.ar, /3/);
+});
+
+test("the owner's chosen alerts also go to the phone", async () => {
+  for (const type of ["parent_registration", "user_waiting", "weekly_tasks_overdue", "weekly_tasks_overdue_staff", "lesson_attendance_reminder", "lesson_no_attendance"]) {
+    const sent = [];
+    // A manager who may read each of these types (Codex review, 2026-11-18).
+    const engine = createAlertEngine({ listActiveUsers: async () => [{ _id: "a", tz: "A", roles: ["ادارة"] }], store: { insertOnce: async () => ({ created: true }) }, push: { sendToStaff: async (tz) => sent.push(tz) }, log() {}, systemTz: "SYS" });
+    await engine.raise({ type, severity: "info", text: { ar: "a", he: "b", en: "c" }, dedupKey: "k", recipients: ["A"] });
+    assert.deepEqual(sent, [["A"]], type);
+  }
+});

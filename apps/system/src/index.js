@@ -14,6 +14,7 @@ import { startClientIdGuard } from "./locks/clientId";
 import * as serviceWorkerRegistration from "./serviceWorkerRegistration";
 import { ToastProvider, SystemStatusWatcher, StatusBadge, useToast, toast } from "./ALERT/SystemToasts";
 import { startTheme } from "./utils/theme";
+import { applyTextSize } from "./utils/textSize";
 import DisplayPage from "./Components/Display/DisplayPage";
 import { isWallDisplay } from "./utils/wallDisplay";
 
@@ -62,6 +63,7 @@ function DevToastPing() {
 const isDisplay = isWallDisplay();
 
 startTheme();
+if (!isDisplay) applyTextSize();
 const root = ReactDOM.createRoot(document.getElementById("root"));
 startFreshApp(() => root.render(isDisplay ? (
   <AppErrorBoundary>

@@ -40,7 +40,7 @@ test("constants have the expected shape", () => {
     ["audit.archive", "audit.view", "permissions.manage", "storage.drive", "systemRecovery.reset", "users.passwords", "users.unlock"],
   );
   assert.deepEqual(PERMISSION_TREE.users,
-    ["view", "create", "edit", "approve", "delete", "changeRole", "passwords", "unlock", "resetPassword"]);
+    ["view", "create", "edit", "approve", "delete", "purge", "changeRole", "passwords", "unlock", "resetPassword", "exportExcel"]);
   // The Drive account is an IT action (IT-site design, 2026-11-03).
   assert.deepEqual(PERMISSION_TREE.storage, ["drive"]);
   for (const role of [ADMIN, GUIDE, ASSISTANT]) assert.ok(!effectivePermissions({ role }).has("storage.drive"), role);
@@ -51,6 +51,7 @@ test("constants have the expected shape", () => {
 test("admin defaults include broad keys, role changes and password resets, and exclude IT and grant-only", () => {
   const set = effectivePermissions({ role: ADMIN });
   for (const key of ["students.viewAll", "lessons.viewAll", "files.manageAll", "users.delete",
+    "students.purge", "vehicles.purge", "users.purge", "students.exportExcel", "users.exportExcel", "lessons.exportExcel",
     "users.changeRole", "users.resetPassword"]) assert.ok(set.has(key), key);
   for (const key of IT_KEYS) assert.ok(!set.has(key), key);
   assert.ok(!set.has("sports.view"));
@@ -131,7 +132,7 @@ test("resolveRole prefers role, falls back to the highest legacy role", () => {
 });
 
 test("vehicles has a delete leaf that only the admin role default holds", () => {
-  assert.deepEqual(PERMISSION_TREE.vehicles, ["view", "edit", "compliance", "documents", "archive", "delete"]);
+  assert.deepEqual(PERMISSION_TREE.vehicles, ["view", "edit", "compliance", "documents", "delete", "purge"]);
   assert.ok(effectivePermissions({ role: "ادارة" }).has("vehicles.delete"));
   assert.ok(!effectivePermissions({ role: "مرشد" }).has("vehicles.delete"));
   assert.ok(!effectivePermissions({ role: "مساعد" }).has("vehicles.delete"));

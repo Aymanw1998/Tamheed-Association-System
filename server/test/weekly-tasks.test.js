@@ -39,6 +39,7 @@ function setup(start = "2026-11-10T10:00:00Z") {
       weeklyTasks: async (user, count, week) => raised.push(["week", user.tz, count, week]),
       weeklyTaskAdded: async (guide, taskId, week) => raised.push(["added", guide.tz, week]),
       weeklyTasksOverdue: async (guide, count, week) => raised.push(["overdue", guide.tz, count, week]),
+      weeklyTasksOverdueStaff: async (guide, count, week) => raised.push(["overdueStaff", guide.tz, count, week]),
       weeklyTasksGreeting: async (guide, text, deliveryId) => raised.push(["greeting", guide.tz, text, deliveryId]),
     },
     sendMail: async (to, text) => raised.push(["email", to, text]),
@@ -179,6 +180,8 @@ test("an unfinished week warns its owner once, closes, and does not carry debt",
   await ctx.service.closeLastWeek();
   await createWeeklyTasks({ ...ctx, now: () => ctx.clock.now }).closeLastWeek();
   assert.deepEqual(ctx.raised.filter((item) => item[0] === "overdue"), [["overdue", "1", 1, "2026-11-08"]]);
+  // The task managers hear about the same guide, once (owner, 2026-11-17).
+  assert.deepEqual(ctx.raised.filter((item) => item[0] === "overdueStaff"), [["overdueStaff", "1", 1, "2026-11-08"]]);
   const mine = await ctx.service.mine("g1");
   assert.equal(mine.remaining, 1);
   assert.equal(mine.tasks.length, 1, "only this week's recurring instance is shown");

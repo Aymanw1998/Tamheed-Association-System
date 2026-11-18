@@ -6,7 +6,7 @@ export const noticeStrings = {
     category: { vehicle: "المركبات", system: "النظام", manual: "رسالة من الإدارة" },
     severity: { critical: "عاجل", important: "مهم", info: "معلومة" },
     cols: { severity: "الأهمية", title: "العنوان", category: "الفئة", date: "التاريخ", author: "الكاتب", status: "الحالة" },
-    read: "مقروء", unread: "جديد", markRead: "تحديد كمقروء", markAll: "تحديد الكل كمقروء", archive: "أرشفة", archiveConfirm: "هل تريد أرشفة هذا الإعلان لدى جميع أعضاء الإدارة؟", open: "فتح",
+    read: "مقروء", unread: "جديد", markRead: "تحديد كمقروء", markAll: "تحديد الكل كمقروء", open: "فتح",
     system: "النظام", empty: "لا توجد إعلانات", newTitle: "إعلان جديد للإدارة",
     f: {
       title: "العنوان", body: "النص", severity: "الأهمية", endDate: "تاريخ الانتهاء (اختياري)",

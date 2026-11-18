@@ -93,11 +93,12 @@ test("after 5 minutes without success a stale note shows; a success removes it",
 
 test("the layout follows the next fetch", async () => {
   fetchDisplayFeed.mockImplementationOnce(ok());
-  fetchDisplayFeed.mockImplementation(ok({ layout: "today" }));
+  fetchDisplayFeed.mockImplementation(ok({ layout: "rooms" }));
   render(<DisplayPage />);
   expect((await flush(), byText(/تمهيد · برنامج الأسبوع/))).toBeTruthy();
   await tick(60000);
-  expect(byText(/تمهيد · برنامج اليوم/)).toBeTruthy();
+  expect(queryByText(/تمهيد · برنامج الأسبوع/)).toBeNull();
+  expect(byText("غرفة 1")).toBeTruthy();
 });
 
 test("an unknown layout falls back to the whole week", async () => {
@@ -207,7 +208,7 @@ test("rooms: tomorrow's date is right on the night the clocks move (Codex review
 
 test("rooms: a day further ahead across the autumn change keeps its date (Codex review)", async () => {
   jest.setSystemTime(Date.parse("2026-10-24T21:30:00Z")); // Sunday 00:30 in Israel, 25/10, winter time from 02:00
-  fetchDisplayFeed.mockImplementation(ok({ layout: "rooms", serverTime: new Date().toISOString(), lessons: [lesson("ب", 2, 600, 660)] }));
+  fetchDisplayFeed.mockImplementation(ok({ layout: "rooms", serverTime: new Date().toISOString(), lessons: [lesson("أ", 1, 0, 20), lesson("ب", 2, 600, 660)] }));
   render(<DisplayPage />);
   expect((await flush(), byText(/تمهيد · برنامج الغد/))).toBeTruthy();
   expect(byText("الاثنين 26/10/2026")).toBeTruthy();
@@ -215,11 +216,12 @@ test("rooms: a day further ahead across the autumn change keeps its date (Codex 
 
 test("a layout change in the System shows within 10 seconds, with no reload (owner)", async () => {
   fetchDisplayFeed.mockImplementationOnce(ok());
-  fetchDisplayFeed.mockImplementation(ok({ layout: "today" }));
+  fetchDisplayFeed.mockImplementation(ok({ layout: "rooms" }));
   render(<DisplayPage />);
   expect((await flush(), byText(/تمهيد · برنامج الأسبوع/))).toBeTruthy();
   await tick(10000);
-  expect(byText(/تمهيد · برنامج اليوم/)).toBeTruthy();
+  expect(queryByText(/تمهيد · برنامج الأسبوع/)).toBeNull();
+  expect(byText("غرفة 1")).toBeTruthy();
 });
 
 test("the top bar carries the association's logo (owner)", async () => {

@@ -12,8 +12,10 @@ const TARGET = { _id: "t1", tz: "990000069", role: "مساعد", roles: ["مسا
 const ADMIN = { _id: "a1", tz: "admin-user", role: "ادارة", roles: ["ادارة"] };
 
 // Load the real handler with inert dependencies (see user-profile-authorization.test.js).
-function loadController() {
+function loadController({ present = [TARGET.tz] } = {}) {
   const deletes = [];
+  const creates = [];
+  const bin = require("./helpers/recycleBinStub").recycleBinStub();
   const dependencies = {
     bcryptjs: {},
     jsonwebtoken: {},
@@ -21,9 +23,11 @@ function loadController() {
     "./User.model": {
       UserModelDef: {
         async get(filter) {
-          const hit = filter.tz === TARGET.tz;
+          const tzs = filter.tz && filter.tz.$regex ? present.filter((tz) => new RegExp(filter.tz.$regex).test(tz)) : [filter.tz];
+          const hit = tzs.some((tz) => present.includes(tz));
           return { success: true, count: hit ? 1 : 0, result: hit ? [TARGET] : [] };
         },
+        async create(data, room) { creates.push({ data, room }); return { success: true, result: data }; },
         async delete(filter, room) {
           deletes.push({ filter, room });
           return { success: true, result: { deletedCount: 1 } };
@@ -47,6 +51,7 @@ function loadController() {
     "../Notification/Notification.controller": {},
     ...require("./helpers/alertEventsStub").noopAlertDeps,
     ...auditStub().deps,
+    ...bin.deps,
   };
   const filename = path.join(__dirname, "../Entities/User/User.controller.js");
   const module = { exports: {} };
@@ -58,7 +63,7 @@ function loadController() {
       return dependencies[name];
     },
   }, { filename });
-  return { deleteU: module.exports.deleteU, deletes };
+  return { deleteU: module.exports.deleteU, trashHooks: module.exports.trashHooks, deletes, creates, bin };
 }
 
 // Mirrors the route DELETE /user/:tz/:from, where the room is a path parameter.
@@ -94,4 +99,25 @@ test("deleting a user removes the alerts about them and their own inbox", async 
   const { res } = await deleteUser({ tz: "990000069", from: "active" });
   assert.equal(res.statusCode, 200);
   assert.deepEqual(forgotten, [["user", "990000069"]]);
+});
+
+// The recycle bin (owner, 2026-11-16).
+test("a deleted user goes to the recycle bin with its room, and comes back there signed out", async () => {
+  const { deleteU, trashHooks, bin, creates } = loadController({ present: [TARGET.tz] });
+  const res = { status(c) { this.statusCode = c; return this; }, json(v) { this.body = v; return this; } };
+  await deleteU({ params: { tz: TARGET.tz, from: "noActive" }, query: {}, body: {}, actor: actorFor(ADMIN) }, res);
+  assert.equal(res.body.trashId, "trash-1");
+  assert.equal(bin.puts[0].kind, "user");
+  assert.equal(bin.puts[0].extras.room, "noActive");
+
+  const back = loadController({ present: [] });
+  const entry = { refId: "t1", data: { ...TARGET, refreshHashes: ["h"], refreshHash: "x" }, extras: { room: "noActive" } };
+  assert.deepEqual({ ...(await back.trashHooks.restore(entry)) }, { ok: true });
+  assert.equal(back.creates[0].room, "noActive");
+  assert.equal(back.creates[0].data._id, "t1");
+  assert.ok(!("refreshHashes" in back.creates[0].data) && !("refreshHash" in back.creates[0].data));
+
+  const taken = await trashHooks.restore(entry);
+  assert.equal(taken.ok, false);
+  assert.equal(taken.status, 409);
 });

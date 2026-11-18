@@ -23,7 +23,6 @@ export function VehicleDocuments({ vehicle, canUpload, canAccess, onVehicle, onD
   const [error, setError] = useState("");
 
   const documents = vehicle.documents || [];
-  const archived = vehicle.status === "archived";
 
   // Report an in-progress upload (a chosen file) as an unsaved change.
   useEffect(() => {
@@ -76,7 +75,7 @@ export function VehicleDocuments({ vehicle, canUpload, canAccess, onVehicle, onD
 
   return (
     <div className={styles.panel}>
-      {canUpload && !archived && (
+      {canUpload && (
         <form className={styles.inlineForm} onSubmit={upload} noValidate>
           <h3>{t("vehicles.uploadDocument")}</h3>
           <div className={styles.formGrid}>
@@ -119,7 +118,7 @@ export function VehicleDocuments({ vehicle, canUpload, canAccess, onVehicle, onD
       {documents.length === 0 && <p className={styles.fieldHint}>{t("vehicles.noDocuments")}</p>}
       <ul className={styles.docList}>
         {[...documents].reverse().map((doc) => (
-          <DocumentRow key={doc.id} vehicleId={vehicle._id} plate={vehicle.plate} doc={doc} canManage={canUpload && !archived} onVehicle={onVehicle} />
+          <DocumentRow key={doc.id} vehicleId={vehicle._id} plate={vehicle.plate} doc={doc} canManage={canUpload} onVehicle={onVehicle} />
         ))}
       </ul>
     </div>

@@ -30,6 +30,8 @@ export const recordStrings = {
     delete: "حذف",
     deleteAccount: "حذف الحساب",
     deleted: "تم الحذف بنجاح",
+    // The recycle bin (owner, 2026-11-16).
+    movedToTrash: "نُقل إلى سلة المحذوفات. يُحذف نهائيًا بعد 30 يومًا.",
     deleteFailed: "تعذّر الحذف",
     suspend: "إيقاف الحساب",
     suspendConfirm: "سيُنقل الحساب إلى الحسابات الموقوفة ولن يتمكن صاحبه من الدخول. متابعة؟",
