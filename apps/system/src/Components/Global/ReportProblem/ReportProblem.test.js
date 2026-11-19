@@ -25,13 +25,26 @@ const press = async () => {
 };
 const fault = () => noteFailure({ config: { url: "/student/1", method: "put" }, response: { status: 500, headers: { "x-request-id": "abc" }, data: {} } });
 
-beforeEach(() => { clearProblem(); api.post.mockReset(); toast.success.mockClear(); toast.error.mockClear(); getAuthToken.mockReturnValue("token"); });
+beforeEach(() => { clearProblem(); api.post.mockReset(); toast.success.mockClear(); toast.error.mockClear(); getAuthToken.mockReturnValue("token"); window.history.pushState({}, "", "/students"); });
 afterEach(async () => { await act(async () => root.unmount()); container.remove(); });
 
 test("signed out there is no button", async () => {
   getAuthToken.mockReturnValue(null);
   await render();
   expect(container.querySelector("button.report-problem")).toBeNull();
+});
+
+test("signed in, pages open to anyone show no button", async () => {
+  for (const path of ["/", "/login", "/register", "/register-student/abc", "/parent-consent", "/privacy", "/accessibility"]) {
+    window.history.pushState({}, "", path);
+    await render();
+    expect(container.querySelector("button.report-problem")).toBeNull();
+    await act(async () => root.unmount());
+    container.remove();
+  }
+  window.history.pushState({}, "", "/students");
+  await render();
+  expect(container.querySelector("button.report-problem")).not.toBeNull();
 });
 
 test("after an error the button says so, and one press sends it without a window", async () => {

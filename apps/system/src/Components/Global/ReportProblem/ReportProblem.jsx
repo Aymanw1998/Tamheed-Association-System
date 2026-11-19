@@ -111,17 +111,24 @@ function ReportWindow({ onClose }) {
   );
 }
 
+// Pages open to anyone (owner, 2026-11-19): a parent on the registration or
+// signing link, or anyone on the sign-in page, never sees the button, even
+// when a signed-in staff member opens the link in their own browser.
+const OUTSIDE = /^\/(login|register|register-student|parent-consent|privacy|accessibility)(\/|$)/;
+export const isOutsidePage = (path = window.location.pathname) => path === "/" || OUTSIDE.test(path);
+const mayShow = () => Boolean(getAuthToken()) && !isOutsidePage();
+
 // The button beside everything (owner, 2026-11-04): after an error, one press
 // sends it; otherwise it opens the window.
 export default function ReportProblem() {
-  const [signedIn, setSignedIn] = useState(() => Boolean(getAuthToken()));
+  const [signedIn, setSignedIn] = useState(mayShow);
   const [hasProblem, setHasProblem] = useState(() => Boolean(recentProblem()));
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     const check = () => {
-      setSignedIn(Boolean(getAuthToken()));
+      setSignedIn(mayShow());
       setHasProblem(Boolean(recentProblem()));
     };
     const stop = subscribeProblem(check);

@@ -8,5 +8,5 @@ export const openWhatsApp = (text, url) => {
   window.open(whatsAppUrl(text, url), "_blank", "noopener,noreferrer");
 };
 
-export const REGISTRATION_TEXT = "مرحبًا، هذا رابط تسجيل الطالب في الجمعية:";
-export const CONSENT_TEXT = "مرحبًا، يُرجى قراءة قوانين الجمعية والموافقة والتوقيع عبر هذا الرابط:";
+export const REGISTRATION_TEXT = "السلام عليكم ورحمة الله وبركاته\nهذا رابط تسجيل الطالب في الجمعية:";
+export const CONSENT_TEXT = "السلام عليكم ورحمة الله وبركاته\nيُرجى قراءة قوانين الجمعية والموافقة والتوقيع عبر هذا الرابط:";
