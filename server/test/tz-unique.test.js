@@ -14,7 +14,7 @@ test("the tz index is unique and skips records without an ID number", () => {
   assert.deepEqual(TZ_UNIQUE_INDEX.key, { tz: 1 });
   assert.equal(TZ_UNIQUE_INDEX.options.unique, true);
   assert.deepEqual(TZ_UNIQUE_INDEX.options.partialFilterExpression, { tz: { $gt: "" } });
-  assert.deepEqual(STUDENT_INDEXES, [TZ_UNIQUE_INDEX]);
+  assert.deepEqual(STUDENT_INDEXES[0], TZ_UNIQUE_INDEX);
   assert.deepEqual(USER_INDEXES, [TZ_UNIQUE_INDEX]);
 });
 
@@ -30,7 +30,14 @@ const fakeCollection = (name, made) => ({ async createIndex(key, options) { made
 test("students get the index on their collection", async () => {
   const made = [];
   await ensureStudentIndexes(fakeCollection("Students", made));
-  assert.deepEqual(made, [["Students", { tz: 1 }, TZ_UNIQUE_INDEX.options]]);
+  assert.deepEqual(made[0], ["Students", { tz: 1 }, TZ_UNIQUE_INDEX.options]);
+});
+
+// Owner, 2026-11-19 (Codex build review): one staff account per conversion.
+test("students also get a unique index on the conversion's user id, cleared conversions left out", async () => {
+  const made = [];
+  await ensureStudentIndexes(fakeCollection("Students", made));
+  assert.deepEqual(made[1], ["Students", { "staffConversion.userId": 1 }, { unique: true, partialFilterExpression: { "staffConversion.userId": { $type: "string" } } }]);
 });
 
 test("users get the index in each of the three rooms", async () => {

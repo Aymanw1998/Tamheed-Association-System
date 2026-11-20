@@ -23,7 +23,8 @@ function createGradePromotion({ listStudents, updateStudent, hasFinished, markFi
     let moved = 0;
     let unread = 0;
     let failed = 0;
-    for (const student of await listStudents()) {
+    // Archived students (became staff, 2026-11-19) keep the class they left with.
+    for (const student of (await listStudents()).filter((s) => !s.archivedAt)) {
       if (Number(student.gradePromotedYear) >= year) continue;
       if (new Date(student.createdAt).getTime() >= cutoff) continue;
       const grade = canonicalGrade(student.layer);

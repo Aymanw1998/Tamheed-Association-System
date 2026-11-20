@@ -330,3 +330,21 @@ test("no permissions tab with the powers off, on a peer, or on a waiting user", 
   expect(tabLabels()).not.toContain("الصلاحيات");
   mockAdminPowers = false;
 });
+
+// Testing review, 2026-11-20: a former student says so; the link to his
+// student record only for someone who may see every student.
+test("a staff member who was a student says so, with the link only for students.viewAll", async () => {
+  getUserById.mockResolvedValue({ ok: true, user: { ...USER, fromStudentId: "s1" } });
+  await mount();
+  expect(container.textContent).toContain("كان طالبًا في الجمعية");
+  expect(container.querySelector('a[href="/students/900000002"]')).toBeNull();
+  await act(async () => root.unmount()); container.remove();
+  mockPerms = ["users.view", "students.viewAll"];
+  await mount();
+  expect(container.querySelector('a[href="/students/900000002"]').textContent).toBe("سجله كطالب");
+});
+
+test("an ordinary staff member has no former-student note", async () => {
+  await mount();
+  expect(container.textContent).not.toContain("كان طالبًا");
+});

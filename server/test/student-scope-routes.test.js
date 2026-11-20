@@ -72,6 +72,7 @@ const ADMIN = { _id: "a".repeat(24), tz: "900000001", firstname: "Ad", lastname:
 const GUIDE = { _id: "b".repeat(24), tz: "900000002", firstname: "Gu", lastname: "Ide", roles: ["مرشد"] };
 const OTHER = { _id: "c".repeat(24), tz: "900000003", firstname: "Ot", lastname: "Her", roles: ["مرشد"] };
 const SYS = { _id: "e".repeat(24), tz: SYSTEM_TZ, firstname: "Sys", lastname: "Tem", roles: [] };
+const ASSISTANT = { _id: "f".repeat(24), tz: "900000004", firstname: "As", lastname: "Sist", roles: ["مساعد"] };
 const sid = (n) => `${"5".repeat(23)}${n}`;
 const S = [1, 2, 3, 4, 5].map((n) => ({ _id: sid(n), tz: `80000000${n}`, firstname: `F${n}`, lastname: `L${n}`, phone: "0500000000" }));
 S[1].main_teacher = GUIDE._id; // s2: the guide is responsible
@@ -90,7 +91,7 @@ const reqAs = (user, extra = {}) => ({
 function world({ lockPrograms } = {}) {
   const students = createStore(S);
   const lessons = createStore(LESSONS());
-  const users = createStore([ADMIN, GUIDE, OTHER, SYS]);
+  const users = createStore([ADMIN, GUIDE, OTHER, SYS, ASSISTANT]);
   const attendance = createStore();
   const audit = auditStub();
   const common = {
@@ -674,6 +675,74 @@ test("an unchanged stale main_teacher (inactive or legacy) does not block saving
   });
 });
 
+// Owner, 2026-11-19: a new or changed responsible guide is a guide or a manager;
+// a student who already has an assistant keeps him while other fields change.
+test("an assistant cannot become a student's «المرشد المسؤول», but an existing one is kept", async () => {
+  await withSystemTz(async () => {
+    const w = world();
+    const refused = await call(w.student.putS, reqAs(ADMIN, { params: { tz: S[0].tz }, body: { main_teacher: ASSISTANT._id } }));
+    assert.equal(refused.statusCode, 400);
+    assert.equal(refused.body.code, "INVALID_INSTRUCTOR");
+    w.students.all()[0].main_teacher = ASSISTANT._id;
+    const kept = await call(w.student.putS, reqAs(ADMIN, { params: { tz: S[0].tz }, body: { phone: "0500000002", main_teacher: ASSISTANT._id } }));
+    assert.equal(kept.statusCode, 200);
+    assert.equal(w.students.all()[0].main_teacher, ASSISTANT._id);
+    const toManager = await call(w.student.putS, reqAs(ADMIN, { params: { tz: S[0].tz }, body: { main_teacher: ADMIN._id } }));
+    assert.equal(toManager.statusCode, 200);
+  });
+});
+
+// Owner, 2026-11-19: a student who became staff is archived: out of the
+// list, in «طلاب سابقون» for students.viewAll, read-only, and no longer in
+// his former guide's scope.
+test("an archived student: out of the list, in «طلاب سابقون», read-only, out of scope", async () => {
+  await withSystemTz(async () => {
+    const w = world();
+    Object.assign(w.students.all()[1], { archivedAt: new Date(), staffConversion: { phase: "done" } }); // s2, the guide's own
+    const list = await call(w.student.getAllS, reqAs(ADMIN));
+    assert.ok(!list.body.students.some((x) => x.tz === S[1].tz));
+    const former = await call(w.student.getAllS, reqAs(ADMIN, { query: { archived: "1" } }));
+    assert.equal(JSON.stringify(former.body.students.map((x) => x.tz)), JSON.stringify([S[1].tz]));
+    const guideFormer = await call(w.student.getAllS, reqAs(GUIDE, { query: { archived: "1" } }));
+    assert.equal(guideFormer.body.students.length, 0);
+    const edit = await call(w.student.putS, reqAs(ADMIN, { params: { tz: S[1].tz }, body: { phone: "0509999999" } }));
+    assert.equal(edit.statusCode, 409);
+    assert.equal(edit.body.code, "ARCHIVED");
+    const removed = await call(w.student.deleteS, reqAs(ADMIN, { params: { tz: S[1].tz } }));
+    assert.equal(removed.statusCode, 409);
+    const guideOpen = await call(w.student.getOneS, reqAs(GUIDE, { params: { tz: S[1].tz } }));
+    assert.equal(guideOpen.statusCode, 404, "his former guide no longer sees him");
+    const adminOpen = await call(w.student.getOneS, reqAs(ADMIN, { params: { tz: S[1].tz } }));
+    assert.equal(adminOpen.statusCode, 200);
+  });
+});
+
+// Codex build review (2026-11-20): an assistant who creates a student is not
+// made its responsible guide; a student whose conversion stopped half way is
+// reachable through the programs it planned.
+test("an assistant creating a student does not become its responsible guide", async () => {
+  await withSystemTz(async () => {
+    const w = world();
+    const creator = { ...ASSISTANT, permissionGrants: ["students.create"] };
+    const res = await call(w.student.postS, reqAs(creator, { body: { tz: "123456782", firstname: "N", lastname: "S" } }));
+    assert.equal(res.statusCode, 400);
+    assert.equal(res.body.code, "GUIDE_REQUIRED");
+  });
+});
+
+test("a stopped conversion keeps the student page open to someone on a planned program", async () => {
+  await withSystemTz(async () => {
+    const w = world();
+    // s1 was on lesson-1 (the guide teaches it); the move took him off before the stop.
+    w.lessons.all()[0].list_students = w.lessons.all()[0].list_students.filter((x) => x !== sid(1));
+    w.students.all()[0].staffConversion = { phase: "account", plannedLessons: ["lesson-1"] };
+    const open = await call(w.student.getOneS, reqAs(GUIDE, { params: { tz: S[0].tz } }));
+    assert.equal(open.statusCode, 200);
+    const other = await call(w.student.getOneS, reqAs(OTHER, { params: { tz: S[0].tz } }));
+    assert.equal(other.statusCode, 404);
+  });
+});
+
 test("attendance save with nothing to write records no audit row", async () => {
   const w = world();
   const base = { year: 2026, month: 10, day: 17 };
@@ -793,4 +862,95 @@ test("manual roster writes refuse a race instead of overwriting a new enrolment"
     assert.equal(res.body.code, "STALE", action);
     assert.deepEqual(w.lessons.all()[0].list_students, [sid(1), sid(5)], action);
   }
+});
+
+/* ---------- testing review, 2026-11-20: a student in mid-conversion ---------- */
+
+test("a student in mid-conversion is read-only: edit, delete, photo, lookup", async () => {
+  await withSystemTz(async () => {
+    const w = world();
+    w.students.all()[0].staffConversion = { phase: "account", plannedLessons: ["lesson-1"] }; // s1, not archived yet
+    for (const [handler, extra] of [["putS", { body: { phone: "0509999999" } }], ["deleteS", {}], ["uploadPhoto", { file: { buffer: "x", originalname: "a.jpg", mimetype: "image/jpeg" } }], ["deletePhoto", {}]]) {
+      const res = await call(w.student[handler], reqAs(ADMIN, { params: { tz: S[0].tz }, ...extra }));
+      assert.equal(res.statusCode, 409, handler);
+      assert.equal(res.body.code, "CONVERSION_IN_PROGRESS", handler);
+    }
+    assert.equal(w.students.all()[0].phone, "0500000000", "nothing written");
+    const look = await call(w.student.lookupS, reqAs(GUIDE, { params: { tz: S[0].tz } }));
+    assert.equal(look.statusCode, 404);
+  });
+});
+
+test("no program route puts a student in mid-conversion on a roster", async () => {
+  await withSystemTz(async () => {
+    const w = world();
+    w.students.all()[4].staffConversion = { phase: "preparing" }; // s5
+    const lesson1 = () => w.lessons.all().find((l) => l._id === "lesson-1");
+    await call(w.lesson.addToList, reqAs(ADMIN, { params: { id: "lesson-1" }, body: { list_students: [sid(5)] } }));
+    await call(w.lesson.addToList, reqAs(ADMIN, { params: { id: "lesson-1" }, body: { list_tz: [S[4].tz] } }));
+    assert.ok(!lesson1().list_students.includes(sid(5)), "addToList by _id or by tz");
+    const created = await call(w.lesson.postOne, reqAs(ADMIN, { body: { name: "New", teacher: ADMIN._id, room: "3", date: { day: 3, startMin: 900, endMin: 960 }, list_students: [sid(5), sid(2)] } }));
+    assert.ok([200, 201].includes(created.statusCode), JSON.stringify(created.body));
+    const made = w.lessons.all().find((l) => l.name === "New");
+    assert.ok(made && !made.list_students.includes(sid(5)), "postOne");
+    const current = lesson1();
+    await call(w.lesson.putOne, reqAs(ADMIN, { params: { id: "lesson-1" }, body: { ...current, list_students: [...current.list_students, sid(5)], baseVersion: current.updatedAt } }));
+    assert.ok(!lesson1().list_students.includes(sid(5)), "putOne");
+  });
+});
+
+test("an add that raced the conversion is taken back and named, and the program is still made", async () => {
+  await withSystemTz(async () => {
+    const w = world();
+    // Read as a plain student before the write, as converting after it.
+    const realGet = w.students.get.bind(w.students);
+    let reads = 0;
+    w.students.get = async (filter) => {
+      const out = await realGet(filter);
+      if (String(filter?._id) === sid(5) && (reads += 1) > 1) out.result = out.result.map((s) => ({ ...s, staffConversion: { phase: "preparing" } }));
+      return out;
+    };
+    const created = await call(w.lesson.postOne, reqAs(ADMIN, { body: { name: "Raced", teacher: ADMIN._id, room: "3", date: { day: 3, startMin: 900, endMin: 960 }, list_students: [sid(5)] } }));
+    assert.equal(created.statusCode, 201, JSON.stringify(created.body));
+    assert.deepEqual(plain(created.body.notAdded), [sid(5)]);
+    assert.ok(!plain(created.body.lesson.result.list_students).includes(sid(5)), "the answer shows the roster as stored");
+    assert.ok(!w.lessons.all().find((l) => l.name === "Raced").list_students.includes(sid(5)));
+  });
+});
+
+test("a student in mid-conversion is refused before the write, by _id or by tz (nothing to take back)", async () => {
+  await withSystemTz(async () => {
+    const w = world();
+    w.students.all()[1].staffConversion = { phase: "preparing" }; // s2, the guide's own (visible to him)
+    const byId = await call(w.lesson.addToList, reqAs(GUIDE, { params: { id: "lesson-1" }, body: { list_students: [sid(2)] } }));
+    assert.equal(byId.statusCode, 200);
+    assert.equal(byId.body.notAdded, undefined, "never written, so nothing taken back");
+    const byTz = await call(w.lesson.addToList, reqAs(ADMIN, { params: { id: "lesson-1" }, body: { list_tz: [S[1].tz] } }));
+    assert.equal(byTz.statusCode, 200);
+    assert.equal(byTz.body.notAdded, undefined);
+    assert.ok(!w.lessons.all()[0].list_students.includes(sid(2)));
+  });
+});
+
+test("addToList and putOne take back an add that raced the conversion, and say so", async () => {
+  await withSystemTz(async () => {
+    for (const route of ["addToList", "putOne"]) {
+      const w = world();
+      const realGet = w.students.get.bind(w.students);
+      let reads = 0;
+      w.students.get = async (filter) => {
+        const out = await realGet(filter);
+        if (JSON.stringify(filter).includes(sid(5)) && (reads += 1) > 1) out.result = out.result.map((s) => ({ ...s, staffConversion: { phase: "preparing" } }));
+        return out;
+      };
+      const current = w.lessons.all()[0];
+      const req = route === "addToList"
+        ? reqAs(ADMIN, { params: { id: "lesson-1" }, body: { list_students: [sid(5)] } })
+        : reqAs(ADMIN, { params: { id: "lesson-1" }, body: { ...current, list_students: [...current.list_students, sid(5)], baseVersion: current.updatedAt } });
+      const res = await call(w.lesson[route], req);
+      assert.equal(res.statusCode, 200, `${route} ${JSON.stringify(res.body)}`);
+      assert.deepEqual(plain(res.body.notAdded), [sid(5)], route);
+      assert.ok(!w.lessons.all()[0].list_students.includes(sid(5)), route);
+    }
+  });
 });

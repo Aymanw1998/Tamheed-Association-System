@@ -14,6 +14,12 @@ const { mayOpenLesson } = require("../../utils/lessonAccess");
 // Users taking part in a lesson (owner, 2026-11-09): rows keyed by `user`.
 const { activeUsers } = require("../../utils/lessonParticipants");
 const participantsOf = (lesson) => activeUsers(UserModelDef, lesson?.list_users);
+// A student who became staff: student row before the cutover, staff row from
+// it (utils/conversionAttendance, owner 2026-11-19).
+const { conversionRules, conversionOf, historyRowOf, settleStudentRow, dropDuplicateRows } = require("../../utils/conversionAttendance");
+const rulesFor = (lessonId, dateKey, rosterStudents, userIds, alsoCheck = []) => conversionRules({
+  lessonId, dateKey, rosterStudents, userIds, alsoCheck, students: StudentModelDef, users: UserModelDef,
+});
 const NOT_FOUND = { ok: false, message: "غير موجود" };
 
 // Student scope: null (students.viewAll) or the Set of visible student _ids.
@@ -157,7 +163,8 @@ const getSheet = async (req, res) => {
       });
     }
 
-    const students = lesson.list_students || [];
+    const rules = await rulesFor(lessonId, dateKey, lesson.list_students || [], (await participantsOf(baseLesson)).map((u) => u._id));
+    const students = [...(lesson.list_students || []).filter((st) => !rules.skipStudents.has(String(st._id))), ...rules.addStudents];
     const existingResult = await AttendanceModelDef.get({
       lesson: String(lessonId),
       dateKey,
@@ -171,7 +178,7 @@ const getSheet = async (req, res) => {
       existingRows.filter((row) => !row.user).map((row) => [String(row.student), row])
     );
     const userRows = new Map(existingRows.filter((row) => row.user).map((row) => [String(row.user), row]));
-    const participants = await participantsOf(baseLesson);
+    const participants = (await participantsOf(baseLesson)).filter((u) => !rules.skipUsers.has(String(u._id)));
 
     const stamp = new Date();
     await ensureMissingRows({
@@ -185,9 +192,28 @@ const getSheet = async (req, res) => {
       stamp,
     });
     await ensureMissingUserRows({ users: participants, lessonId, y, m, d, existing: userRows, dateKey, stamp });
+    // The rows just added came from a snapshot: a conversion that finished
+    // meanwhile must not keep a student row from its cutover, and a staff row
+    // the conversion re-keyed meanwhile is not doubled (Codex build review 5).
+    const addedStudents = students.filter((st) => !existingMap.has(String(st._id))).map((st) => String(st._id));
+    const addedUsers = participants.filter((u) => !userRows.has(u._id)).map((u) => String(u._id));
+    if (addedStudents.length || addedUsers.length) {
+      await settleRacedRows(String(lessonId), dateKey, addedStudents);
+      for (const uid of addedUsers) await dropDuplicateRows(AttendanceModelDef, { lesson: String(lessonId), user: uid, dateKey });
+    }
     // The sheet's version (what bulk-save compares baseVersion with): only the
     // rows a person saved count, not the rows created just now.
     const { version } = sheetVersion(existingRows);
+
+    // A student who became staff: his stored rows before the cutover stay on
+    // the sheet even when he left this program or the participants changed
+    // (spec section D; Codex build review).
+    const shownIds = new Set(students.map((st) => String(st._id)));
+    for (const sidKey of existingMap.keys()) {
+      if (shownIds.has(sidKey)) continue;
+      const former = await getStudentById(sidKey);
+      if (historyRowOf(former, dateKey)) { students.push(former); shownIds.add(sidKey); }
+    }
 
     const items = students.map((student) => {
       const row = existingMap.get(String(student._id));
@@ -241,6 +267,37 @@ const getSheet = async (req, res) => {
   }
 };
 
+// The student rows a save just wrote, for students who are now becoming staff
+// with this date on or after their cutover: settled like the conversion does.
+// A failed read throws (the save answers an error, never a quiet success).
+async function settleRacedRows(lessonId, dateKey, studentIds) {
+  const ids = [...new Set(studentIds)];
+  if (!ids.length) return;
+  const found = await StudentModelDef.get({ _id: { $in: ids } });
+  if (!found || found.success === false) throw new Error("student lookup failed");
+  for (const student of found.result || []) {
+    const id = String(student._id);
+    const conv = conversionOf(student);
+    if (!conv || Number(dateKey) < Number(conv.cutoverDateKey)) continue;
+    // In "prepared" his account may still be refused (tz of other staff): no
+    // row is moved to an account that does not exist yet. Until it exists the
+    // conversion's own settling, which runs after the account is made, still
+    // sees this row (Codex build review 3).
+    if (conv.phase === "prepared") {
+      const account = await UserModelDef.get({ _id: String(conv.userId) }, "active");
+      if (!account || account.success === false) throw new Error("user lookup failed");
+      if (!(account.result || []).length) continue;
+    }
+    for (let attempt = 0; ; attempt += 1) {
+      if (attempt > 3) throw new Error("attendance kept changing");
+      const rows = await AttendanceModelDef.get({ lesson: lessonId, student: id, dateKey });
+      if (!rows || rows.success === false) throw new Error("attendance lookup failed");
+      const row = (rows.result || [])[0];
+      if (!row || (await settleStudentRow(AttendanceModelDef, row, conv))) break;
+    }
+  }
+}
+
 const bulkSave = async (req, res) => {
   try {
     const { lessonId, year, month, day, items: submitted } = req.body || {};
@@ -262,17 +319,39 @@ const bulkSave = async (req, res) => {
     // on this lesson's roster; the rest are ignored (never written).
     const visible = await scope.visibleStudentIds(req.actor);
     const isUserItem = (item) => item?.userId != null && item.userId !== "";
-    let studentItems = submitted.filter((item) => !isUserItem(item));
+    const saveDateKey = calcDateKey(y, m, d);
+    const lessonParticipants = await participantsOf(lessonDoc);
+    // A student who became staff (utils/conversionAttendance): before the
+    // cutover only his student row, from it only his staff row.
+    // Submitted student ids are checked too, not only the current roster: a
+    // stale screen cannot save a student row after the cutover (Codex build review).
+    const submittedStudents = submitted.filter((item) => !isUserItem(item)).map((item) => String(item?.studentId ?? "")).filter(Boolean);
+    const rules = await rulesFor(String(lessonId), saveDateKey, lessonDoc?.list_students || [], lessonParticipants.map((u) => u._id), submittedStudents);
+    const formerStudents = new Set(rules.addStudents.map((st) => String(st._id)));
+    // Rows as they were before the save, to count what this save changed.
+    const previous = await AttendanceModelDef.get({ lesson: String(lessonId), dateKey: saveDateKey }).catch(() => null);
+    // His stored rows before the cutover that the sheet shows as history are
+    // accepted too (the same rule as the sheet, utils/conversionAttendance
+    // historyRowOf): otherwise the edit was dropped while the screen said
+    // saved (Codex build review 2). Only existing rows: none is created.
+    const storedStudents = new Set((previous?.result || []).filter((row) => !row.user && row.student).map((row) => String(row.student)));
+    for (const key of new Set(submittedStudents)) {
+      if (!storedStudents.has(key) || formerStudents.has(key)) continue;
+      // Only on a program that exists and the actor may open (checked above):
+      // a deleted or unreadable program opens no history (Codex build review 3).
+      if (lessonDoc && historyRowOf(await getStudentById(key), saveDateKey)) formerStudents.add(key);
+    }
+    let studentItems = submitted.filter((item) => !isUserItem(item) && !rules.skipStudents.has(String(item?.studentId)));
     if (visible) {
-      const roster = new Set(((await getLessonById(String(lessonId)))?.list_students || []).map(String));
+      const roster = new Set((lessonDoc?.list_students || []).map(String));
       studentItems = studentItems.filter((item) => {
         const key = String(item?.studentId);
-        return visible.has(key) && roster.has(key);
+        return (visible.has(key) && roster.has(key)) || formerStudents.has(key);
       });
     }
     // A participating user's row only for an active user on this lesson (users
     // are not scoped by students: whoever may open the lesson records them).
-    const onLesson = new Set((await participantsOf(lessonDoc)).map((u) => u._id));
+    const onLesson = new Set(lessonParticipants.map((u) => u._id).filter((uid) => !rules.skipUsers.has(String(uid))));
     const userItems = submitted.filter((item) => isUserItem(item) && onLesson.has(String(item.userId)));
     // One list of writes: `key` tells students ("s:") and users ("u:") apart.
     const items = [
@@ -283,8 +362,6 @@ const bulkSave = async (req, res) => {
     const dateKey = calcDateKey(y, m, d);
     const actorId = String(req.actor.id);
 
-    // Rows as they were before the save, to count what this save changed.
-    const previous = await AttendanceModelDef.get({ lesson: String(lessonId), dateKey }).catch(() => null);
     const rowKey = (row) => (row.user ? `u:${row.user}` : `s:${row.student}`);
     const previousByKey = new Map((previous?.result || []).map((row) => [rowKey(row), row]));
 
@@ -292,7 +369,12 @@ const bulkSave = async (req, res) => {
     // draft). Only rows a person saved count (utils/attendanceMarks).
     const { last: lastRow } = sheetVersion(previous?.result || []);
     const stale = lastRow ? checkVersion({ updatedAt: lastRow.updatedAt, updatedBy: lastRow.updatedBy, updatedByName: lastRow.updatedByName }, req) : null;
-    if (stale) return res.status(409).json(stale);
+    if (stale) {
+      // A refused retry still settles what an earlier save left behind (its
+      // cleanup failed after the write) (Codex build review 4).
+      await settleRacedRows(String(lessonId), saveDateKey, submittedStudents);
+      return res.status(409).json(stale);
+    }
 
     const results = await Promise.all(
       items.map(({ item, field }) =>
@@ -317,6 +399,16 @@ const bulkSave = async (req, res) => {
         )
       )
     );
+
+    // After the write: a student who started becoming staff while this save
+    // was on its way (its checks passed before his conversion's barrier) must
+    // not keep a student row from the cutover. The conversion may already have
+    // settled the rows, so this save settles its own (re-keyed to his staff
+    // row or deleted, utils/conversionAttendance) (Codex build review 2).
+    // Every submitted student id is checked, also the ones this save skipped:
+    // a row left by an earlier save whose check failed is settled by the
+    // retry (Codex build review 3). Only rows the cutover forbids are touched.
+    await settleRacedRows(String(lessonId), dateKey, submittedStudents);
 
     // Marks this save replaced that another person had saved with a different status.
     // Students by their id (as before), users as "u:<id>".
@@ -425,13 +517,21 @@ async function runDailyAbsenceJob({ year, month, day, dow1to7 }) {
   let createdAbsences = 0;
 
   for (const lesson of lessons) {
-    const studentIds = (Array.isArray(lesson.list_students) ? lesson.list_students : []).map(
+    let studentIds = (Array.isArray(lesson.list_students) ? lesson.list_students : []).map(
       (id) => String(id)
     );
     // The active participating users are marked absent the same way.
-    const userIds = (Array.isArray(lesson.list_users) && lesson.list_users.length)
+    let userIds = (Array.isArray(lesson.list_users) && lesson.list_users.length)
       ? (await participantsOf(lesson).catch(() => [])).map((u) => u._id)
       : [];
+    // A student who became staff: absent as a student before the cutover,
+    // as staff from it (utils/conversionAttendance). A failed read skips him.
+    // A failed read skips this program tonight rather than guess (Codex build review).
+    const rules = await rulesFor(String(lesson._id), dateKey, studentIds, userIds)
+      .catch((error) => { logWithSource("Attendance.runDailyAbsenceJob.conversion", error); return null; });
+    if (!rules) continue;
+    studentIds = [...studentIds.filter((id) => !rules.skipStudents.has(id)), ...rules.addStudents.map((st) => String(st._id))];
+    userIds = userIds.filter((id) => !rules.skipUsers.has(String(id)));
     if (!studentIds.length && !userIds.length) continue;
 
     const existingResult = await AttendanceModelDef.get({
@@ -513,8 +613,21 @@ const exportAttendance = async (req, res) => {
     if (!lesson || !mayOpenLesson(req.actor, lesson)) return res.status(404).json(NOT_FOUND);
     const visible = await scope.visibleStudentIds(req.actor);
     const found = await AttendanceModelDef.get({ lesson: String(lesson._id), dateKey: { $gte: from.key, $lte: to.key } });
+    // A student who became staff left the scope with his rosters; his rows in
+    // a program he was moved out of stay in its export (Codex build review).
+    const formerHere = new Map();
+    if (visible) {
+      const hidden = [...new Set((found?.result || []).filter((r) => !r.user && r.student && !visible.has(String(r.student))).map((r) => String(r.student)))];
+      for (const id of hidden) {
+        const former = await getStudentById(id);
+        if (conversionOf(former)) formerHere.set(id, former);
+      }
+    }
+    // The same rows as the sheet shows: his rows before the cutover, whether
+    // or not the program was in his plan (Codex build review 2).
+    const keptAsHistory = (r) => formerHere.has(String(r.student)) && historyRowOf(formerHere.get(String(r.student)), r.dateKey);
     const marks = (found?.result || []).map(normalizeAttendanceRow)
-      .filter((r) => (r.user ? true : r.student != null && r.student !== "" && (!visible || visible.has(String(r.student)))));
+      .filter((r) => (r.user ? true : r.student != null && r.student !== "" && (!visible || visible.has(String(r.student)) || keptAsHistory(r))));
 
     const studentIds = [...new Set(marks.filter((r) => !r.user).map((r) => String(r.student)))];
     const userIds = [...new Set(marks.filter((r) => r.user).map((r) => String(r.user)))];

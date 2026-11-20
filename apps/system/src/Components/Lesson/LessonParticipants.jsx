@@ -12,7 +12,7 @@ import styles from "./LessonParticipants.module.css";
 // that shows the server's refusal (for example the lesson's own guide).
 // confirmRemove(user) resolves true to go ahead with a removal.
 const REASONS = {
-  STAFF: "مرشد أو مساعد هذا البرنامج",
+  STAFF: "مسؤول أو مساعد هذا البرنامج",
   ON_LESSON: "مشارك بالفعل",
 };
 

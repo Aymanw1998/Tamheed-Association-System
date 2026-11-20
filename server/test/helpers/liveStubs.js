@@ -37,6 +37,10 @@ const noticeStore = {
 const pushes = [];
 const push = { sendToStudents: async (ids, payload) => { pushes.push([Array.from(ids || [], String), payload]); return { sent: 0, removed: 0 }; } };
 const requireFreeOrMine = () => (req, res, next) => next();
+// Programs the user controller reads (a demotion checks the educational
+// programs a guide runs). Push rows in a test; clear with `programs.length = 0`.
+const programs = [];
+const programStore = { async get(filter = {}) { return { success: true, result: programs.filter((p) => matchesAll(p, filter)).map((p) => ({ ...p })) }; } };
 const deps = {
   "../../services/educationalLesson": { educationalLessons: () => ({
     holdForStudentChange: async () => async () => {}, moveStudent: async () => {}, enrolAll: async () => 0, takenBy: async () => null,
@@ -51,6 +55,9 @@ for (const suffix of ["", ".js"]) {
   deps[`../../utils/refreshSessions${suffix}`] = require("../../utils/refreshSessions");
   deps[`../../utils/lessonAccess${suffix}`] = require("../../utils/lessonAccess");
   deps[`../../utils/lessonParticipants${suffix}`] = require("../../utils/lessonParticipants");
+  deps[`../../utils/lessonInCharge${suffix}`] = require("../../utils/lessonInCharge");
+  deps[`../../utils/conversionAttendance${suffix}`] = require("../../utils/conversionAttendance");
+  deps[`../../utils/rosterGuard${suffix}`] = require("../../utils/rosterGuard");
   deps[`../../utils/sportPeople${suffix}`] = require("../../utils/sportPeople");
   deps[`../../utils/tzUnique${suffix}`] = require("../../utils/tzUnique");
   deps[`../../utils/grades${suffix}`] = require("../../utils/grades");
@@ -59,7 +66,8 @@ for (const suffix of ["", ".js"]) {
   deps[`./SportNotice.model${suffix}`] = { SportNoticeModelDef: noticeStore };
   deps[`../../utils/push${suffix}`] = { push };
   // The student page reads the student's attendance; none unless a test passes its own.
+  deps[`../Lesson/Lesson.model${suffix}`] = { LessonModelDef: programStore };
   deps[`../Attendance/Attendance.model${suffix}`] = { AttendanceModelDef: { async latestOfStudent() { return []; }, async get() { return { success: true, result: [] }; } } };
 }
 
-module.exports = { deps, changes, students, holders, photoJobs, passportJobs, notices, pushes };
+module.exports = { deps, programs, changes, students, holders, photoJobs, passportJobs, notices, pushes };

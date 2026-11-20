@@ -206,7 +206,7 @@ function WeekTimeline({
                       content: (
                         <>
                           <div><b>الاسم:</b> {lessonLabel(l)}</div>
-                          <div><b>المرشد:</b> {l.readOnly ? SYSTEM_TEACHER : (teacherNames?.[l.teacher] || "…")}</div>
+                          <div><b>المسؤول:</b> {l.readOnly ? SYSTEM_TEACHER : (teacherNames?.[l.teacher] || "…")}</div>
                           <div><b>الوقت:</b> {toHHMM(getStart(l))}–{toHHMM(getEnd(l))}</div>
                           <div><b>اليوم:</b> {dayNames[(Number(l.date.day) || 1) - 1]}</div>
                           <div><b>المكان:</b> {roomLabel(l?.room)}</div>
@@ -377,7 +377,7 @@ function DayRoomsTimeline({
                     content: (
                       <>
                         <div><b>الاسم:</b> {lessonLabel(l)}</div>
-                        <div><b>المرشد:</b> {l.readOnly ? SYSTEM_TEACHER : (teacherNames?.[l.teacher] || "…")}</div>
+                        <div><b>المسؤول:</b> {l.readOnly ? SYSTEM_TEACHER : (teacherNames?.[l.teacher] || "…")}</div>
                         <div><b>الوقت:</b> {toHHMM(getStart(l))}–{toHHMM(getEnd(l))}</div>
                         <div><b>اليوم:</b> {dayNames[(Number(l.date.day) || 1) - 1]}</div>
                         <div><b>المكان:</b> {roomLabel(room)}</div>
@@ -418,7 +418,7 @@ function SportLessonDetails({ lesson, canOpenSports, onClose, onOpenSports }) {
         <h2 className={styles.detailsTitle}>{name}</h2>
         <p><b>اليوم والوقت:</b> {dayNames[(Number(lesson.date?.day) || 1) - 1]} {toHHMM(getStart(lesson))}–{toHHMM(getEnd(lesson))}</p>
         <p><b>المكان:</b> {roomLabel(lesson.room)}</p>
-        <p><b>المرشد:</b> {SYSTEM_TEACHER}</p>
+        <p><b>المسؤول:</b> {SYSTEM_TEACHER}</p>
         <p><b>عدد اللاعبين:</b> {lesson.playersCount ?? 0}</p>
         <div className={styles.detailsActions}>
           {canOpenSports && (
@@ -620,7 +620,7 @@ export default function ViewAllLesson() {
     const { exportTablePdf } = await import("../ExportPDF/ExportPDF.jsx");
     await exportTablePdf({
       title: "برنامج الأسبوع",
-      columns: ["اليوم", "الساعة", "البرنامج", "الغرفة", "المرشد"],
+      columns: ["اليوم", "الساعة", "البرنامج", "الغرفة", "المسؤول"],
       rows: weeklyProgramRows(filteredLessons, { teacherName: (l) => (l.readOnly ? SYSTEM_TEACHER : teacherNames?.[l.teacher]), roomName: roomLabel }),
       fileNameBase: "برنامج الأسبوع",
     });
@@ -694,7 +694,7 @@ export default function ViewAllLesson() {
               </select>
             </label>
 
-            <label>المرشد
+            <label>المسؤول
               <select value={filterTeacher} onChange={(e)=>setFilterTeacher(e.target.value)}>
                 <option value="all">الكل</option>
                 {(teachers || []).map(t => (

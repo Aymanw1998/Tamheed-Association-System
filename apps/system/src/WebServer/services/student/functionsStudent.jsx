@@ -144,3 +144,25 @@ export const deleteS= async(idOrName,{confirm = true} = {}) => {
     }
 }
 
+
+// «طلاب سابقون»: students who became staff (owner, 2026-11-19; students.viewAll).
+export const getArchived = async() => {
+    try{
+        const {status, data} = await api.get("/student/", { params: { archived: "1" } });
+        if(![200,201].includes(status) || !data?.ok) throw new Error('تعذّر تحميل الطلاب السابقين');
+        return {ok: true, students: (data.students || []).map(normalizeStudent).filter(Boolean)}
+    } catch(err) {
+        return {ok: false, status: err.response?.status, message: err.response?.data?.message || err.message || 'تعذّر إتمام العملية.'};
+    }
+}
+
+// A student becomes staff, or a stopped conversion is finished (owner, 2026-11-19).
+// body: { role, password, phone, email }. Answers { ok, userId } or { ok:false, code, message }.
+export const makeStaff = async(studentId, body) => {
+    try{
+        const {data} = await api.post(`/student/${encodeURIComponent(studentId)}/make-staff`, body);
+        return {ok: true, userId: data?.userId, photoCopied: data?.photoCopied};
+    } catch(err) {
+        return {ok: false, status: err.response?.status, code: err.response?.data?.code, message: err.response?.data?.message || 'تعذّر إتمام العملية.'};
+    }
+}

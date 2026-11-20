@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { getUserById, signOutEverywhere, deleteU, changeStatus } from "../../WebServer/services/user/functionsUser.jsx";
 import { exportUserPdf } from "../ExportPDF/ExportPDF.jsx";
 import { ask } from "../Provides/confirmBus";
@@ -162,6 +162,13 @@ export default function UserView() {
 
   return (
     <>
+      {/* A former student (owner, 2026-11-19): his student record stays, read-only. */}
+      {user.fromStudentId && (
+        <p role="status" style={{ margin: "0 0 12px", padding: "10px 14px", borderRadius: 8, background: "var(--info-bg, #eef5ff)", border: "1px solid var(--info-border, #b9d3f5)", color: "var(--info-text, #1d3d66)" }}>
+          كان طالبًا في الجمعية.{" "}
+          {canStored("students.viewAll") && <Link to={`/students/${user.tz}`}>سجله كطالب</Link>}
+        </p>
+      )}
       <RecordPage
         photo={user.photo}
         facts={facts}

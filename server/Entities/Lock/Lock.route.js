@@ -7,6 +7,7 @@ const { liveHub } = require("../../services/liveHub");
 const { createLocks } = require("../../services/locks");
 const { can } = require("../../utils/permissions");
 const { hasVehiclePermission } = require("../../utils/vehicleRules");
+const { mayRecordAttendance, readLesson } = require("../../utils/attendanceRecord");
 const { lockedMessage } = require("../../middleware/lockGuard");
 
 // Item locks, owned by a browser tab (header X-Client-Id).
@@ -42,7 +43,13 @@ const ownOr = (keys, ownKey) => async (actor, id, ctx) => anyOf(keys)(actor) || 
 const LOCK_RULES = {
   student: { edit: anyOf(["students.edit", "students.photo", "students.delete"]), view: anyOf(["students.view"]) },
   lesson: { edit: anyOf(["lessons.edit", "lessons.roster", "lessons.delete"]), view: anyOf(["lessons.view"]) },
-  attendance: { edit: anyOf(["attendance.record"]), view: anyOf(["attendance.view"]) },
+  // attendance:<lessonId>:<date>. attendance.record, or the program's
+  // «المسؤول» (utils/attendanceRecord, owner 2026-11-19); a failed read refuses.
+  attendance: {
+    edit: async (actor, id, ctx) => anyOf(["attendance.record"])(actor)
+      || Boolean(await readLesson(ctx.lessons, id).then((lesson) => lesson && mayRecordAttendance(actor, lesson), () => false)),
+    view: anyOf(["attendance.view"]),
+  },
   player: { edit: anyOf(SPORT_EDIT), view: anyOf(SPORT_VIEW) },
   sportLesson: { edit: anyOf(SPORT_EDIT), view: anyOf(SPORT_VIEW) },
   sportAttendance: { edit: anyOf(SPORT_EDIT), view: anyOf(SPORT_VIEW) },
@@ -70,12 +77,13 @@ const allowed = async (kind, actor, key, ctx) => {
 const SERVER_ERROR = "حدث خطأ غير متوقع، حاول مرة أخرى";
 // Read lazily, so a test can load this router without the database.
 const lazyReports = () => ({ get: (filter) => require("../Report/Report.model").ReportModelDef.get(filter) });
+const lazyLessons = () => ({ get: (filter) => require("../Lesson/Lesson.model").LessonModelDef.get(filter) });
 const BAD_KEY = { ok: false, code: "BAD_KEY", message: "مفتاح القفل غير صالح" };
 const NO_CLIENT = { ok: false, code: "NO_CLIENT", message: "معرّف المتصفح مفقود" };
 
-function createLockRouter({ requireAuth, loadActor, locks, reports = lazyReports() }) {
+function createLockRouter({ requireAuth, loadActor, locks, reports = lazyReports(), lessons = lazyLessons() }) {
   const router = express.Router();
-  const ctx = { reports };
+  const ctx = { reports, lessons };
 
   // Validates the key and the client id; sets req.lockKey / req.clientId.
   const readInput = (keyOf) => (req, res, next) => {

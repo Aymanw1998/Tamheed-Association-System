@@ -173,7 +173,7 @@ export default function LessonView() {
             ["المكان", roomLabel(lesson.room)],
             ["نوع البرنامج", lesson.kind === "educational" ? "برنامج تربوي" : "برنامج عادي"],
           ]} />
-          <GuideCard label="المرشد" contact={lesson.teacherContact} to={guideLink(lesson.teacherContact, viewer, lesson.teacher)} empty="—" />
+          <GuideCard label="المسؤول" contact={lesson.teacherContact} to={guideLink(lesson.teacherContact, viewer, lesson.teacher)} empty="—" />
           {lesson.helperContact && (
             <GuideCard label="المساعد" contact={lesson.helperContact} to={guideLink(lesson.helperContact, viewer, lesson.helper)} empty="—" />
           )}

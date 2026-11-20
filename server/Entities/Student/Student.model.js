@@ -122,7 +122,14 @@ StudentModelDef.delete = async function (filter) {
     });
 };
 
-const STUDENT_INDEXES = [TZ_UNIQUE_INDEX];
+// One staff account per conversion (owner, 2026-11-19): the user id chosen
+// for a student who becomes staff is never chosen for another student. A
+// cleared conversion (null) is left out of the index.
+const CONVERSION_USER_INDEX = {
+    key: { "staffConversion.userId": 1 },
+    options: { unique: true, partialFilterExpression: { "staffConversion.userId": { $type: "string" } } },
+};
+const STUDENT_INDEXES = [TZ_UNIQUE_INDEX, CONVERSION_USER_INDEX];
 const ensureStudentIndexes = (collection) => ensureIndexes(
     collection || collectionOf({ dbName: StudentModelDef.dbName, collection: StudentModelDef.collections.active }),
     STUDENT_INDEXES,

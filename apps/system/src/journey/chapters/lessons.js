@@ -71,8 +71,8 @@ const lessons = {
       target: "lesson-teacher",
       requires: ["lessons.create", "students.viewAll"],
       mood: "explain",
-      title: "المرشد",
-      body: "أختار المرشد المسؤول، والمساعد اختياري.",
+      title: "المسؤول",
+      body: "أختار المسؤول عن البرنامج، والمساعد اختياري.",
       action: { type: "select", target: "lesson-teacher", value: DEMO_GUIDE_ID },
     },
     {

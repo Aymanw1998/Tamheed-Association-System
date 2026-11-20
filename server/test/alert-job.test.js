@@ -430,3 +430,12 @@ test("after 21:00 only the in-lesson reminder runs", async () => {
   assert.deepEqual(recipientsOf(deps.store, "lesson_no_attendance"), [], "the 21:00 checks do not run again");
   assert.deepEqual(recipientsOf(deps.store, "report_missing"), []);
 });
+
+// Testing review, 2026-11-20: a student who became staff gets no streak alert.
+test("no absence_streak for an archived student (became staff)", async () => {
+  const attendance = [row(20261013, ABSENT), row(20261015, ABSENT), row(TODAY, ABSENT)];
+  const deps = fakeDeps({ attendance });
+  deps.findStudent = async (id) => (id === STUDENT._id ? { ...STUDENT, archivedAt: new Date("2026-10-01") } : null);
+  await runAlertJob({ now: at("14:00"), deps });
+  assert.deepEqual(recipientsOf(deps.store, "absence_streak"), []);
+});

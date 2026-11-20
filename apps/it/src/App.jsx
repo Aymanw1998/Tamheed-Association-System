@@ -14,6 +14,7 @@ import Members from "./screens/Members.jsx";
 import BugReports from "./screens/BugReports.jsx";
 import Audit from "./screens/Audit.jsx";
 import SensitiveViews from "./screens/SensitiveViews.jsx";
+import AssistantGuides from "./screens/AssistantGuides.jsx";
 import Storage from "./screens/Storage.jsx";
 import Settings from "./screens/Settings.jsx";
 import RoleDefaults from "./screens/RoleDefaults.jsx";
@@ -26,6 +27,7 @@ const NAV = [
   { to: "/bug-reports", label: "البلاغات" },
   { to: "/audit", label: "سجل التغييرات" },
   { to: "/sensitive-views", label: "سجل الاطلاع" },
+  { to: "/assistant-guides", label: "طلاب مع مساعد مسؤول" },
   { to: "/storage", label: "التخزين" },
   { to: "/settings", label: "الإعدادات" },
 ];
@@ -37,6 +39,7 @@ function Screen({ path, me }) {
   if (path === "/bug-reports") return <BugReports />;
   if (path === "/audit") return <Audit me={me} />;
   if (path === "/sensitive-views") return <SensitiveViews />;
+  if (path === "/assistant-guides") return <AssistantGuides />;
   if (path === "/storage") return <Storage />;
   if (path === "/settings") return <Settings />;
   // The IT users screen: the system account and the «مدير IT» users (the server checks too).

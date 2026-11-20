@@ -1,0 +1,29 @@
+# Codex re-review of the student-to-staff build fixes (2026-11-20)
+
+Read-only Codex review of the fixes for docs/reviews/2026-11-19-codex-student-to-staff-build-review.md. Verbatim output below (local absolute links shortened to repo paths).
+
+**9 fixed; 6 partly fixed.** One new P2 defect found.
+
+| # | Status | Evidence and remaining issue |
+|---|---|---|
+| 1 | **Fixed** | Account creation now precedes destructive attendance reconciliation; rejection clears conversion first. [staffConversion.js:192](server/services/staffConversion.js:192) |
+| 2 | **Partly fixed** | Conversion updates `updatedAt`, but uses `new Date()` rather than a guaranteed advancing version. Same-millisecond writes can leave the old delete predicate valid; no unfrozen-state condition was added. Reproduced with a controlled clock. [staffConversion.js:71](server/services/staffConversion.js:71), [Student.controller.js:505](server/Entities/Student/Student.controller.js:505) |
+| 3 | **Partly fixed** | Reconciliation is conditional and non-upserting. However, an already-authorized attendance save can execute its upsert **after** reconciliation, recreating the forbidden student row. Reproduced. [staffConversion.js:100](server/services/staffConversion.js:100), [Attendance.controller.js:326](server/Entities/Attendance/Attendance.controller.js:326) |
+| 4 | **Partly fixed** | Late programs are reconciled immediately, but not reliably on resume: fail after persisting the expanded plan, then retry; the program moves and conversion finishes without reconciliation. Reproduced with a surviving future student row. [staffConversion.js:203](server/services/staffConversion.js:203), [staffConversion.js:217](server/services/staffConversion.js:217) |
+| 5 | **Fixed** | Cutover validation now includes submitted student IDs independently of current roster membership. The concurrent-save issue remains under #3. [Attendance.controller.js:289](server/Entities/Attendance/Attendance.controller.js:289) |
+| 6 | **Partly fixed** | Sheets recover stored pre-cutover rows. Scoped exports still exclude programs left **before** conversion because `formerStudentOf` requires `plannedLessons` membership. Reproduced: sheet contains the row; export omits it. [Attendance.controller.js:203](server/Entities/Attendance/Attendance.controller.js:203), [conversionAttendance.js:69](server/utils/conversionAttendance.js:69), [Attendance.controller.js:556](server/Entities/Attendance/Attendance.controller.js:556) |
+| 7 | **Partly fixed** | Post-write checks exist, but `enrolAll` excludes IDs present in its initial snapshot from rollback. Conversion can remove one during a version-conflict retry; enrolment then re-adds it without checking it. Reproduced with an archived student remaining enrolled. [educationalLesson.js:60](server/services/educationalLesson.js:60) |
+| 8 | **Fixed** | Prepared resumes recheck stored-role authorization and required password/phone. [staffConversion.js:184](server/services/staffConversion.js:184) |
+| 9 | **Fixed** | Student-page lookup now accepts planned-program scope for incomplete conversions. [Student.controller.js:216](server/Entities/Student/Student.controller.js:216) |
+| 10 | **Partly fixed** | Entry guards and read-only UI are present, but an in-flight signing request can pass the guard, then write evidence and `consentAt` after archival. Reproduced with HTTP 200. [InviteToken.controller.js:212](server/Entities/InviteToken/InviteToken.controller.js:212), [InviteToken.controller.js:197](server/Entities/InviteToken/InviteToken.controller.js:197), [StudentView.jsx:153](apps/system/src/Components/Student/StudentView.jsx:153) |
+| 11 | **Fixed** | Implicit creator/approver assignment rejects actors outside guide/manager roles. [Student.controller.js:281](server/Entities/Student/Student.controller.js:281), [Student.controller.js:404](server/Entities/Student/Student.controller.js:404) |
+| 12 | **Fixed** | Staff counts are filtered by lesson scope before incrementing. [attendance_summary.js:82](server/services/assistant/tools/attendance_summary.js:82) |
+| 13 | **Fixed** | Conversion lookup failure skips the program’s nightly writes. [Attendance.controller.js:465](server/Entities/Attendance/Attendance.controller.js:465) |
+| 14 | **Fixed** | Documented grandfathering matches the unchanged-teacher/kind bypass; teacher/helper equality remains checked. [spec:100](docs/superpowers/specs/2026-11-19-student-to-staff-design.md:100), [lessonInCharge.js:43](server/utils/lessonInCharge.js:43) |
+| 15 | **Fixed** | Unique partial index covers string conversion-user IDs and excludes cleared conversions. [Student.model.js:128](server/Entities/Student/Student.model.js:128) |
+
+**New defect introduced by the fixes**
+
+- **P2 — Newly displayed historical attendance edits are silently discarded.** The history fix displays former students independently of current participation, but scoped saving still requires current roster visibility or discovery through an active staff participant. After the converted user leaves/is suspended, the guide can edit the displayed historical row; saving returns 200 without persisting it, and the client reports success. Reproduced. [Attendance.controller.js:207](server/Entities/Attendance/Attendance.controller.js:207), [Attendance.controller.js:297](server/Entities/Attendance/Attendance.controller.js:297), [AttendancePage.jsx:315](apps/system/src/Components/Attendance/AttendancePage.jsx:315).
+
+178 focused tests passed, plus isolated synthetic probes. No files edited. `npm run verify` was not run because its synchronization/build steps write files. No real MongoDB, Drive, or browser validation.

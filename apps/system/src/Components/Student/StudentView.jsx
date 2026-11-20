@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { getOne, deleteS, update } from "../../WebServer/services/student/functionsStudent.jsx";
 import { toast } from "../../ALERT/SystemToasts";
 import ConsentView from "./ConsentView.jsx";
 import GuidePickerDialog from "./GuidePickerDialog.jsx";
+import MakeStaffDialog from "./MakeStaffDialog.jsx";
 import { exportStudentPdf } from "../ExportPDF/ExportPDF.jsx";
 import { canStored, getStoredUserId } from "../../utils/session";
 import { byLessonTime, lessonWhen, guideLink } from "../../utils/recordLinks";
@@ -30,12 +31,19 @@ const PENDING_STATUS = "ينتظر";
 // student included.
 export default function StudentView() {
   const [pickGuide, setPickGuide] = useState(false);
+  const [makingStaff, setMakingStaff] = useState(false);
   const { id } = useParams();
   const navigate = useNavigate();
   const { t } = useI18n();
   const [student, setStudent] = useState(null);
   const [error, setError] = useState("");
 
+  // Read again after a conversion call that did not finish: its phase, banner
+  // and buttons change on the server (testing review, 2026-11-20).
+  const refresh = async () => {
+    const s = await getOne(id);
+    if (s.ok) setStudent(s.student);
+  };
   useEffect(() => {
     let alive = true;
     setStudent(null);
@@ -83,14 +91,21 @@ export default function StudentView() {
     toast.success(t(waiting ? "record.approvedStudent" : "record.activated"));
     setStudent({ ...s, ...extra, status: ACTIVE_STATUS });
   };
-  const canEdit = canStored("students.edit");
+  // A student who became staff (owner, 2026-11-19): archived, read-only.
+  // One whose conversion stopped half way is finished from here.
+  const archived = Boolean(s.archivedAt);
+  const converting = Boolean(s.staffConversion) && s.staffConversion.phase !== "done";
+  const mayMakeStaff = canStored("students.makeStaff") && canStored("users.create");
+  const canEdit = canStored("students.edit") && !archived && !converting;
   const actions = [
+    mayMakeStaff && !archived && !converting && !waiting && status === ACTIVE_STATUS && { label: "تحويل إلى الطاقم", onClick: () => setMakingStaff(true) },
+    mayMakeStaff && converting && { label: "إكمال التحويل", onClick: () => setMakingStaff(true), variant: "success" },
     waiting && canEdit && { label: t("record.approve"), onClick: activate, variant: "success", tour: "students-approve" },
     !waiting && status !== ACTIVE_STATUS && canEdit && { label: t("record.activate"), onClick: activate, variant: "success" },
     canEdit && { label: t("record.edit"), onClick: () => navigate(`/students/${s.tz}/edit`), tour: "student-view-edit" },
     canStored("students.view") && { label: t("record.print"), onClick: () => exportStudentPdf(s, s.guide?.name || "") },
     waiting && canStored("students.delete") && { label: t("record.reject"), onClick: remove, variant: "danger", tour: "students-reject" },
-    !waiting && canStored("students.delete") && { label: t("record.delete"), onClick: remove, variant: "danger", tour: "student-delete" },
+    !waiting && !archived && !converting && canStored("students.delete") && { label: t("record.delete"), onClick: remove, variant: "danger", tour: "student-delete" },
   ].filter(Boolean);
 
   const tabs = [
@@ -141,7 +156,7 @@ export default function StudentView() {
     canStored("consents.view") && {
       id: "consent",
       label: "التوقيع",
-      content: <ConsentView studentId={s._id} />,
+      content: <ConsentView studentId={s._id} readOnly={Boolean(s.archivedAt || s.staffConversion)} />,
     },
   ].filter(Boolean);
 
@@ -158,6 +173,20 @@ export default function StudentView() {
 
   return (
     <>
+    {makingStaff && <MakeStaffDialog student={s} onClose={() => setMakingStaff(false)} onFailed={refresh} onDone={(res) => {
+      setMakingStaff(false);
+      toast.success(res.photoCopied === false ? "صار من الطاقم. لم تُنسخ الصورة، يمكن رفعها من صفحته." : "صار من الطاقم");
+      navigate(`/users/${s.tz}`);
+    }} />}
+    {archived && (
+      <p role="status" style={{ margin: "0 0 12px", padding: "10px 14px", borderRadius: 8, background: "var(--info-bg, #eef5ff)", border: "1px solid var(--info-border, #b9d3f5)", color: "var(--info-text, #1d3d66)" }}>
+        أصبح من الطاقم في {dateOf(s.staffConversion?.doneAt || s.archivedAt)}. هذا سجله كطالب، للقراءة فقط.{" "}
+        {canStored("users.view") && <Link to={`/users/${s.tz}`}>صفحته في الطاقم</Link>}
+      </p>
+    )}
+    {converting && (
+      <p role="status" style={{ margin: "0 0 12px", padding: "10px 14px", borderRadius: 8, background: "var(--warn-bg, #fff6e5)", border: "1px solid var(--warn-border, #f0c36d)", color: "var(--warn-text, #6b4a00)" }}>التحويل إلى الطاقم لم يكتمل. {mayMakeStaff ? "اضغط «إكمال التحويل»." : "اطلب من المدير إكماله."}</p>
+    )}
     {pickGuide && <GuidePickerDialog student={s} onClose={() => setPickGuide(false)} onPick={(guide) => { setPickGuide(false); approveWith({ main_teacher: guide }); }} />}
     <RecordPage
       photo={s.photo}

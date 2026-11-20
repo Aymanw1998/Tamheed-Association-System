@@ -10,7 +10,7 @@ jest.mock("react-router-dom", () => {
   return jest.requireActual("react-router");
 });
 jest.mock("../../WebServer/services/api", () => ({ __esModule: true, default: { get: jest.fn(), post: jest.fn() }, API_BASE_URL: "/api" }));
-jest.mock("../../WebServer/services/student/functionsStudent.jsx", () => ({ getOne: jest.fn(), deleteS: jest.fn(), update: jest.fn() }));
+jest.mock("../../WebServer/services/student/functionsStudent.jsx", () => ({ getOne: jest.fn(), deleteS: jest.fn(), update: jest.fn(), makeStaff: jest.fn() }));
 jest.mock("../../ALERT/SystemToasts", () => ({ toast: { success: jest.fn(), warn: jest.fn(), error: jest.fn() } }));
 jest.mock("../../WebServer/services/lesson/functionsLesson.jsx", () => ({ getAllLesson: jest.fn() }));
 jest.mock("../ExportPDF/ExportPDF.jsx", () => ({ exportStudentPdf: jest.fn() }));
@@ -21,7 +21,7 @@ jest.mock("../../utils/session", () => ({
   getStoredUserId: () => "viewer-1",
 }));
 
-import { getOne, deleteS, update } from "../../WebServer/services/student/functionsStudent.jsx";
+import { getOne, deleteS, update, makeStaff } from "../../WebServer/services/student/functionsStudent.jsx";
 import { getAllLesson } from "../../WebServer/services/lesson/functionsLesson.jsx";
 import { exportStudentPdf } from "../ExportPDF/ExportPDF.jsx";
 import StudentView from "./StudentView";
@@ -325,4 +325,147 @@ test("no «قبول» without students.edit, and no «قبول» or «تفعيل
   await mount();
   expect(btn("قبول")).toBeUndefined();
   expect(btn("تفعيل")).toBeUndefined();
+});
+
+/* ---------- a student becomes staff (owner, 2026-11-19) ---------- */
+
+const button = (label) => [...container.querySelectorAll("button")].find((b) => b.textContent === label);
+const setValue = (el, value) => {
+  const proto = el.tagName === "SELECT" ? HTMLSelectElement.prototype : HTMLInputElement.prototype;
+  Object.getOwnPropertyDescriptor(proto, "value").set.call(el, value);
+  el.dispatchEvent(new Event(el.tagName === "SELECT" ? "change" : "input", { bubbles: true }));
+};
+
+test("«تحويل إلى الطاقم» needs both keys; the form sends the role, phone and first password", async () => {
+  await mount();
+  expect(button("تحويل إلى الطاقم")).toBeUndefined();
+  await act(async () => root.unmount()); container.remove();
+  mockPerms = ["students.view", "students.makeStaff", "users.create"];
+  makeStaff.mockResolvedValue({ ok: true, userId: "u9" });
+  await mount();
+  await act(async () => button("تحويل إلى الطاقم").click());
+  const dialog = container.querySelector("[role=dialog]");
+  expect(dialog.textContent).toContain("800000001");
+  await act(async () => { setValue(dialog.querySelector("select"), "مساعد"); });
+  await act(async () => { setValue(dialog.querySelector("input[type=password]"), "Secret-123"); });
+  await act(async () => { setValue(dialog.querySelector("input[type=tel]"), "0501111111"); });
+  await act(async () => { dialog.querySelector("form").dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })); });
+  expect(makeStaff).toHaveBeenCalledWith("s1", expect.objectContaining({ role: "مساعد", password: "Secret-123", phone: "0501111111" }));
+});
+
+test("an archived student is read-only and says he became staff", async () => {
+  mockPerms = ["students.view", "students.edit", "students.delete", "students.makeStaff", "users.create", "users.view"];
+  getOne.mockResolvedValue({ ok: true, student: { ...STUDENT, archivedAt: "2026-11-19T10:00:00Z", staffConversion: { phase: "done", doneAt: "2026-11-19T10:00:00Z" } } });
+  await mount();
+  expect(container.textContent).toContain("أصبح من الطاقم في 19/11/2026");
+  for (const label of ["تعديل", "حذف", "تحويل إلى الطاقم"]) expect(button(label)).toBeUndefined();
+  expect(container.querySelector('a[href="/users/800000001"]')).not.toBeNull();
+});
+
+test("a conversion that stopped half way offers «إكمال التحويل»", async () => {
+  mockPerms = ["students.view", "students.edit", "students.makeStaff", "users.create"];
+  getOne.mockResolvedValue({ ok: true, student: { ...STUDENT, staffConversion: { phase: "account", role: "مرشد" } } });
+  makeStaff.mockResolvedValue({ ok: true, userId: "u9" });
+  await mount();
+  expect(container.textContent).toContain("التحويل إلى الطاقم لم يكتمل");
+  expect(button("تعديل")).toBeUndefined();
+  await act(async () => button("إكمال التحويل").click());
+  const dialog = container.querySelector("[role=dialog]");
+  expect(dialog.querySelector("input[type=password]")).toBeNull();
+  await act(async () => { dialog.querySelector("form").dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })); });
+  expect(makeStaff).toHaveBeenCalledWith("s1", expect.objectContaining({ role: "مرشد" }));
+});
+
+/* ---------- testing review, 2026-11-20: the conversion dialog ---------- */
+
+const openMakeStaff = async (student = STUDENT) => {
+  mockPerms = ["students.view", "students.edit", "students.makeStaff", "users.create"];
+  getOne.mockResolvedValue({ ok: true, student });
+  await mount();
+  const label = student.staffConversion ? "إكمال التحويل" : "تحويل إلى الطاقم";
+  await act(async () => button(label).focus());
+  await act(async () => button(label).click());
+  return container.querySelector("[role=dialog]");
+};
+const submitDialog = (dialog) => act(async () => { dialog.querySelector("form").dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })); });
+const fillNew = async (dialog) => {
+  await act(async () => { setValue(dialog.querySelector("select"), "مساعد"); });
+  await act(async () => { setValue(dialog.querySelector("input[type=password]"), "Secret-123"); });
+  await act(async () => { setValue(dialog.querySelector("input[type=tel]"), "0501111111"); });
+};
+
+test("a failed conversion shows the error in the open window and refreshes the page behind it", async () => {
+  const dialog = await openMakeStaff();
+  makeStaff.mockResolvedValue({ ok: false, message: "التحويل لم يكتمل. اضغط «إكمال التحويل» للمتابعة" });
+  getOne.mockResolvedValue({ ok: true, student: { ...STUDENT, staffConversion: { phase: "prepared", role: "مساعد" } } });
+  await fillNew(dialog);
+  await submitDialog(dialog);
+  const alert = container.querySelector("[role=dialog] [role=alert]");
+  expect(alert.textContent).toContain("لم يكتمل");
+  expect(container.querySelector("[role=dialog] form").getAttribute("aria-describedby")).toBe(alert.id);
+  expect(getOne).toHaveBeenCalledTimes(2);
+  await act(async () => [...container.querySelectorAll("[role=dialog] button")].find((b) => b.textContent === "إلغاء").click());
+  expect(container.textContent).toContain("التحويل إلى الطاقم لم يكتمل");
+  expect(button("إكمال التحويل")).toBeDefined();
+  expect(button("تعديل")).toBeUndefined();
+});
+
+test("success says when the photo was not copied", async () => {
+  const { toast } = require("../../ALERT/SystemToasts");
+  const dialog = await openMakeStaff();
+  makeStaff.mockResolvedValue({ ok: true, userId: "u9", photoCopied: false });
+  await fillNew(dialog);
+  await submitDialog(dialog);
+  expect(toast.success).toHaveBeenCalledWith(expect.stringContaining("لم تُنسخ الصورة"));
+});
+
+test("Escape closes the window, except while it is saving", async () => {
+  let dialog = await openMakeStaff();
+  await act(async () => { window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })); });
+  expect(container.querySelector("[role=dialog]")).toBeNull();
+
+  let finish;
+  makeStaff.mockReturnValue(new Promise((resolve) => { finish = resolve; }));
+  await act(async () => button("تحويل إلى الطاقم").click());
+  dialog = container.querySelector("[role=dialog]");
+  await fillNew(dialog);
+  await submitDialog(dialog);
+  await act(async () => { window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })); });
+  expect(container.querySelector("[role=dialog]")).not.toBeNull();
+  await act(async () => finish({ ok: false, message: "x" }));
+});
+
+test("focus goes into the window and back to the button that opened it", async () => {
+  const dialog = await openMakeStaff();
+  expect(document.activeElement).toBe(dialog.querySelector("select"));
+  await act(async () => [...dialog.querySelectorAll("button")].find((b) => b.textContent === "إلغاء").click());
+  expect(document.activeElement).toBe(button("تحويل إلى الطاقم"));
+});
+
+test("Tab wraps inside the window", async () => {
+  const dialog = await openMakeStaff();
+  const items = [...dialog.querySelectorAll("button, input, select")].filter((el) => !el.disabled);
+  const last = items[items.length - 1];
+  last.focus();
+  await act(async () => { window.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", cancelable: true })); });
+  expect(document.activeElement).toBe(items[0]);
+});
+
+test("a resume that needs nothing focuses the button; a resume before the account asks for password and phone", async () => {
+  const later = await openMakeStaff({ ...STUDENT, staffConversion: { phase: "rosters", role: "مرشد" } });
+  expect(document.activeElement).toBe([...later.querySelectorAll("button")].find((b) => b.type === "submit"));
+  await act(async () => root.unmount()); container.remove();
+  const early = await openMakeStaff({ ...STUDENT, staffConversion: { phase: "prepared", role: "مرشد" } });
+  expect(early.querySelector("select")).toBeNull();
+  expect(early.querySelector("input[type=password]")).not.toBeNull();
+  expect(early.querySelector("input[type=tel]")).not.toBeNull();
+});
+
+test("without both keys a stopped conversion says to ask the manager, with no button", async () => {
+  mockPerms = ["students.view", "students.edit", "students.makeStaff"];
+  getOne.mockResolvedValue({ ok: true, student: { ...STUDENT, staffConversion: { phase: "account", role: "مرشد" } } });
+  await mount();
+  expect(button("إكمال التحويل")).toBeUndefined();
+  expect(container.textContent).toContain("اطلب من المدير إكماله");
+  expect(container.querySelector('[role="status"]').textContent).toContain("لم يكتمل");
 });

@@ -55,7 +55,7 @@ function world() {
     "../Sport/SportLesson.model": { SportLessonModelDef: none },
     "../../utils/lessonConflict": require("../utils/lessonConflict"),
     "../Student/Student.model": { StudentModelDef: students },
-    "../User/User.model": { UserModelDef: none },
+    "../User/User.model": { UserModelDef: { async get(filter = {}) { const id = String(filter?._id || ""); return { success: true, result: ["c".repeat(24), "d".repeat(24)].includes(id) ? [{ _id: id, tz: "123456782", firstname: "م", lastname: "ر", role: "مرشد" }] : [] }; } } },
   });
   return { lesson, stored: () => stored };
 }
@@ -106,7 +106,7 @@ test("an admin cannot add a student who is still on the waiting list", async () 
   assert.deepEqual(JSON.parse(JSON.stringify(w.stored().list_students.map(String))), [REAL]);
 });
 
-const LESSON_BODY = { name: "Math", teacher: "t".repeat(24), room: "1", date: { day: 2, startMin: 840, endMin: 885 } };
+const LESSON_BODY = { name: "Math", teacher: "c".repeat(24), room: "1", date: { day: 2, startMin: 840, endMin: 885 } };
 
 test("an admin creating a lesson stores only existing, accepted students", async () => {
   const w = world();

@@ -74,7 +74,7 @@ export function programsSheet(rows, roomName = (room) => String(room ?? "")) {
     name: "ملخص البرامج",
     columns: [
       { header: "البرنامج", width: 24 }, { header: "اليوم", width: 10 }, { header: "الساعة", width: 12 }, { header: "الغرفة", width: 12 },
-      { header: "المرشد", width: 22 }, { header: "عدد الطلاب", width: 10 }, { header: "أيام سُجّل فيها الحضور", width: 14 },
+      { header: "المسؤول", width: 22 }, { header: "عدد الطلاب", width: 10 }, { header: "أيام سُجّل فيها الحضور", width: 14 },
       { header: "حاضر", width: 8 }, { header: "متأخر", width: 8 }, { header: "غائب", width: 8 }, { header: "نسبة الحضور", width: 12 },
     ],
     rows: rows.map((r) => [

@@ -43,6 +43,10 @@ function createItRouter(deps = {}) {
   const opsStatus = deps.opsStatus || require("../../utils/opsStatus");
   const sensitiveViews = deps.sensitiveViews || require("../../utils/sensitiveViews").sensitiveViews;
   const errorLog = deps.errorLog || require("../../utils/errorLog").errorLog;
+  const assistantGuides = deps.assistantGuides || (() => require("../../utils/assistantGuides").studentsWithAssistantGuide({
+    students: require("../Student/Student.model").StudentModelDef,
+    users: require("../User/User.model").UserModelDef,
+  }));
   // Refuses a change while the user is open in an everyday tab (423).
   const lockedUser = deps.lockedUser || ((req, res, next) => require("../User/User.route").lockedUser(req, res, next));
 
@@ -153,6 +157,15 @@ function createItRouter(deps = {}) {
   router.get("/error-summary", requireIt, requirePermission("permissions.manage"), async (req, res) => {
     try {
       return res.status(200).json({ ok: true, summary: await errorLog.summary({ days: 7 }) });
+    } catch (error) {
+      return res.status(500).json({ ok: false, code: "SERVER_ERROR" });
+    }
+  });
+  // Students whose responsible guide is an assistant (owner, 2026-11-19):
+  // read-only, for a manager to change; new ones are refused by the server.
+  router.get("/assistant-guides", requireIt, requirePermission("permissions.manage"), async (req, res) => {
+    try {
+      return res.status(200).json({ ok: true, items: await assistantGuides() });
     } catch (error) {
       return res.status(500).json({ ok: false, code: "SERVER_ERROR" });
     }

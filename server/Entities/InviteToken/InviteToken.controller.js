@@ -177,6 +177,7 @@ async function saveConsentEvidence(student, existing, body, rules, { recordedBy 
   const markerMatches = existing?.signedAt && new Date(student.consentAt).getTime() === new Date(existing.signedAt).getTime();
   const repairing = existing?.signature && ((requestId && existing.requestId === requestId) || (!requestId && ((!student.consentAt && !body.baseConsentVersion) || (!markerMatches && body.baseConsentVersion !== undefined && body.baseConsentVersion === existing.previousRevision))));
   let signedAt = repairing ? existing.signedAt : new Date();
+  let undo = async () => {};
   if (!repairing) {
     if (body.baseConsentVersion !== undefined && body.baseConsentVersion !== consentRevision(existing)) return changedConsent();
     if (existing?.signature && body.baseConsentVersion === undefined) {
@@ -192,13 +193,34 @@ async function saveConsentEvidence(student, existing, body, rules, { recordedBy 
         { _id: String(existing._id), signature: existing.signature ?? null, revision: existing.revision ?? null }, evidence,
       );
       if (!saved?.result) return changedConsent();
-    } else await ConsentModelDef.create(evidence);
+      const restore = Object.fromEntries(Object.keys(evidence).map((key) => [key, existing[key] ?? null]));
+      undo = () => ConsentModelDef.updateExisting({ _id: String(existing._id), revision: evidence.revision }, restore);
+    } else {
+      await ConsentModelDef.create(evidence);
+      undo = () => ConsentModelDef.delete({ studentId, revision: evidence.revision });
+    }
   }
-  const marked = await StudentModelDef.updateExisting({ _id: studentId }, { consentAt: signedAt });
-  if (!marked?.result) throw new Error("Student disappeared while saving consent");
+  // The marker is written only while the student is not archived or becoming
+  // staff. A signing that passed the entry check before his conversion's
+  // barrier and lands after it is undone, so nothing changes on a frozen
+  // record (Codex build review 2).
+  const marked = await StudentModelDef.updateExisting({ _id: studentId, archivedAt: null, staffConversion: null }, { consentAt: signedAt });
+  if (!marked?.result) {
+    const [now] = resultsOf(await StudentModelDef.get({ _id: studentId }));
+    if (!now) throw new Error("Student disappeared while saving consent");
+    // Another request may have adopted this evidence (the repair path) and
+    // marked the student before the freeze: then it is his signature and
+    // stays (Codex build review 3).
+    const adopted = now.consentAt && new Date(now.consentAt).getTime() === new Date(signedAt).getTime();
+    if (!adopted) await undo();
+    if (!now.archivedAt && !now.staffConversion) throw new Error("consent marker missed");
+    return { status: 409, ...FROZEN_CONSENT };
+  }
   notifyChange("student", studentId);
   return { ok: true };
 }
+
+const FROZEN_CONSENT = { ok: false, code: "ARCHIVED", message: "هذا الطالب في الأرشيف (أصبح من الطاقم)، لا يمكن تغيير التوقيع" };
 
 // Staff-assisted signing and explicitly versioned updates use the same evidence path.
 const signConsent = async (req, res) => {
@@ -206,6 +228,8 @@ const signConsent = async (req, res) => {
     const studentId = String(req.params.studentId);
     const [student] = resultsOf(await StudentModelDef.get({ _id: studentId }));
     if (!student) return res.status(404).json({ ok: false, message: "الطالب غير موجود" });
+    // A student who became staff, or is becoming staff, is read-only (owner, 2026-11-19; Codex build review).
+    if (student.archivedAt || student.staffConversion) return res.status(409).json(FROZEN_CONSENT);
     const rules = await currentRules();
     if (!rules?.text) return res.status(409).json({ ok: false, code: "NO_RULES", message: "يجب نشر نظام الجمعية أولًا." });
     const problem = consentProblem(req.body, rules);
@@ -227,6 +251,8 @@ const createConsentLink = async (req, res) => {
     const studentId = String(req.params.studentId);
     const [student] = resultsOf(await StudentModelDef.get({ _id: studentId }));
     if (!student) return res.status(404).json({ ok: false, message: "الطالب غير موجود" });
+    // A student who became staff, or is becoming staff, is read-only (owner, 2026-11-19; Codex build review).
+    if (student.archivedAt || student.staffConversion) return res.status(409).json(FROZEN_CONSENT);
     const rules = await currentRules();
     if (!rules?.text) return res.status(409).json({ ok: false, code: "NO_RULES", message: "يجب نشر قوانين الجمعية أولًا." });
     const [existing] = resultsOf(await ConsentModelDef.get({ studentId }));
@@ -246,7 +272,8 @@ async function consentLinkContext(token) {
   const [link] = resultsOf(await InviteTokenModelDef.get({ purpose: "student-consent", tokenHash: digest(token), used: false }));
   if (!link || !(new Date(link.expiresAt).getTime() > Date.now())) return null;
   const [student] = resultsOf(await StudentModelDef.get({ _id: String(link.studentId) }));
-  if (!student) return null;
+  // An archived student (became staff, 2026-11-19): the link is closed.
+  if (!student || student.archivedAt || student.staffConversion) return null;
   const [existing] = resultsOf(await ConsentModelDef.get({ studentId: String(link.studentId) }));
   if (consentRevision(existing) !== link.baseConsentVersion && existing?.requestId !== link.tokenHash) return null;
   return { link, student, existing };

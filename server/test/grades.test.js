@@ -118,3 +118,11 @@ test("a write that fails keeps the run open; the next run moves only the one lef
   await healed();
   assert.deepEqual(ctx.rows.map((r) => r.layer), ["ثاني", "خامس"]);
 });
+
+// Testing review, 2026-11-20: a student who became staff keeps the class he left with.
+test("an archived student (became staff) is not moved up", async () => {
+  const { rows, run } = setup([{ layer: "اول" }, { layer: "اول", archivedAt: "2026-11-20T00:00:00Z" }], "2027-06-30T21:30:00Z");
+  const result = await run();
+  assert.deepEqual(rows.map((r) => r.layer), ["ثاني", "اول"]);
+  assert.equal(result.moved, 1);
+});

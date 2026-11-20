@@ -140,7 +140,8 @@ function routesOf(source) {
 }
 
 // requireSystemIt / requireItManager: the system account (and the «مدير IT» users) on the IT site's members routes.
-const GUARD = /requirePermission\(|requireSelfOr\(|requireVehiclePermission\(|requireSystemIt\b|requireItManager\b/;
+// requireAttendanceRecord: attendance.record, or «المسؤول» of the program (owner, 2026-11-19).
+const GUARD = /requirePermission\(|requireSelfOr\(|requireVehiclePermission\(|requireSystemIt\b|requireItManager\b|requireAttendanceRecord\(/;
 
 test("no role-based guard remains in any router", () => {
   for (const file of ROUTE_FILES) {

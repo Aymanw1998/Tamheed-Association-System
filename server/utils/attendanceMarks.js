@@ -30,4 +30,4 @@ function sheetVersion(rows = []) {
   return { version: last ? new Date(last.updatedAt).toISOString() : EMPTY_SHEET_VERSION, last };
 }
 
-module.exports = { ABSENT_STATUS, AUTO_ABSENCE_NOTE, EMPTY_SHEET_VERSION, isAutoAbsence, sheetVersion };
+module.exports = { ABSENT_STATUS, AUTO_ABSENCE_NOTE, EMPTY_SHEET_VERSION, isAutoAbsence, sheetVersion, savedByPerson };

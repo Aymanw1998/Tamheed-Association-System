@@ -44,5 +44,7 @@ router.put('/:tz', requirePermission('students.edit'), lockedStudent, putS);
 router.delete('/photo/:tz', requirePermission('students.photo'), lockedStudent, deletePhoto);
 router.delete('/:tz', requirePermission('students.delete'), lockedStudent, deleteS);
 router.post('/upload-photo/:tz', requirePermission('students.photo'), lockedStudent, upload.single('file'), uploadPhoto);
+// A student becomes staff, or a stopped conversion is finished (owner, 2026-11-19).
+router.post('/:id/make-staff', requirePermission('students.makeStaff'), requirePermission('users.create'), (req, res) => require('./StaffConversion.controller').makeStaff(req, res));
 
 module.exports = router;

@@ -55,7 +55,10 @@ const ADMIN = { _id: "a".repeat(24), tz: "111111118", firstname: "Ad", lastname:
 const req = (extra = {}) => ({ user: { id: ADMIN._id, tz: ADMIN.tz, roles: ADMIN.roles }, actor: actorFor(ADMIN), params: {}, query: {}, body: {}, ...extra });
 const createRes = () => ({ statusCode: 200, status(c) { this.statusCode = c; return this; }, json(v) { this.body = v; return this; } });
 
+// The person in charge must be an existing staff member (lessonInCharge).
+const T1 = "c".repeat(24);
 function lessonSetup(seed = [], users = []) {
+  users = [...users, { _id: T1, tz: "123456782", firstname: "Te", lastname: "One", role: "مرشد" }];
   const lessons = createStore(seed);
   const audit = auditStub();
   const controller = load("Lesson/Lesson.controller.js", {
@@ -78,7 +81,7 @@ function lessonSetup(seed = [], users = []) {
 test("lesson create, edit, roster changes and delete are recorded in the audit log", async () => {
   const { controller, lessons, audit } = lessonSetup();
   const created = createRes();
-  await controller.postOne(req({ body: { name: "Math", teacher: "t1", room: "1", date: { day: 2, startMin: 840, endMin: 885 } } }), created);
+  await controller.postOne(req({ body: { name: "Math", teacher: T1, room: "1", date: { day: 2, startMin: 840, endMin: 885 } } }), created);
   assert.equal(created.statusCode, 201);
   const id = lessons.all()[0]._id;
   const [made] = audit.find({ module: "lessons", action: "create", targetId: id });
@@ -253,7 +256,9 @@ test("a teacher or helper value that is not an ObjectId is not looked up (no Cas
     const lesson = { name: "Math", room: "1", date: { day: 2, startMin: 840, endMin: 885 } };
     const out = createRes();
     await controller.postOne(req({ body: { ...lesson, teacher: "not-an-object-id" } }), out);
-    assert.equal(out.statusCode, 201);
+    // Not looked up, and refused: «المسؤول» must be an existing staff member.
+    assert.equal(out.statusCode, 400);
+    assert.equal(out.body.code, "INVALID_STAFF");
 
     const blocked = createRes();
     await controller.postOne(req({ body: { ...lesson, date: { day: 3, startMin: 840, endMin: 885 }, teacher: "not-an-object-id", helper: SYS._id } }), blocked);
@@ -339,7 +344,7 @@ test("lesson writes stamp updatedAt, announce the change, and a stale form save 
   const { controller, lessons } = lessonSetup();
   live.changes.length = 0;
   const created = createRes();
-  await controller.postOne(req({ body: { name: "Math", teacher: "t1", room: "1", date: { day: 2, startMin: 840, endMin: 885 } } }), created);
+  await controller.postOne(req({ body: { name: "Math", teacher: T1, room: "1", date: { day: 2, startMin: 840, endMin: 885 } } }), created);
   const id = lessons.all()[0]._id;
   assert.deepEqual(live.changes, [["lesson", id]]);
 

@@ -12,7 +12,12 @@ const ADMIN = "ادارة";
 const GUIDE = "مرشد";
 const ADMIN_U = { _id: "a".repeat(24), tz: "t-admin", firstname: "Ad", lastname: "Min", role: ADMIN, roles: [ADMIN], permissionGrants: ["permissions.manage", "sports.manage"] };
 const GUIDE_U = { _id: "b".repeat(24), tz: "t-guide", firstname: "Gu", lastname: "Ide", role: GUIDE, roles: [GUIDE], permissionGrants: ["lessons.edit", "lessons.roster", "students.edit"] };
-const USERS = { [ADMIN_U.tz]: ADMIN_U, [GUIDE_U.tz]: GUIDE_U };
+// Assistants: one in charge of PROGRAM, one not, one in charge with the attendance module revoked.
+const ASSIST_IN = { _id: "c".repeat(24), tz: "t-assist-in", firstname: "As", lastname: "In", role: "مساعد", roles: ["مساعد"] };
+const ASSIST_OUT = { _id: "d".repeat(24), tz: "t-assist-out", firstname: "As", lastname: "Out", role: "مساعد", roles: ["مساعد"] };
+const ASSIST_REVOKED = { _id: "e".repeat(24), tz: "t-assist-rev", firstname: "As", lastname: "Rev", role: "مساعد", roles: ["مساعد"], permissionRevokes: ["attendance"] };
+const PROGRAM_ID = "f".repeat(24);
+const USERS = { [ADMIN_U.tz]: ADMIN_U, [GUIDE_U.tz]: GUIDE_U, [ASSIST_IN.tz]: ASSIST_IN, [ASSIST_OUT.tz]: ASSIST_OUT, [ASSIST_REVOKED.tz]: ASSIST_REVOKED };
 
 // Stub collection with a unique `key`: a conditional upsert that does not match
 // an existing key throws E11000, like MongoDB. A tick between the check and the
@@ -153,7 +158,7 @@ test("a failed acquire does not broadcast", async () => {
 /* ---------------- routes ---------------- */
 
 // reports: the stand-in for ReportModelDef the report lock rules read.
-async function startApp({ reports = { get: async () => ({ result: [] }) } } = {}) {
+async function startApp({ reports = { get: async () => ({ result: [] }) }, lessons = { get: async () => ({ success: true, result: [] }) } } = {}) {
   const ctx = setup();
   const requireAuth = (req, res, next) => {
     const bearer = (req.headers.authorization || "").replace(/^Bearer /, "");
@@ -166,7 +171,7 @@ async function startApp({ reports = { get: async () => ({ result: [] }) } } = {}
   const loadActor = (req, res, next) => { req.actor = actorFor(USERS[req.user.tz]); next(); };
   const app = express();
   app.use(express.json());
-  app.use("/api/locks", createLockRouter({ requireAuth, loadActor, locks: ctx.locks, reports }));
+  app.use("/api/locks", createLockRouter({ requireAuth, loadActor, locks: ctx.locks, reports, lessons }));
   // The IT site's force-release (/api/it/locks): x-it gives the actor the IT key, as requireIt does.
   const itActor = (req, res, next) => requireAuth(req, res, () => {
     req.actor = actorFor(USERS[req.user.tz]);
@@ -405,5 +410,41 @@ test("routes: report locks follow report ownership (editOwn locks only his own; 
     assert.deepEqual(hidden.body, { ok: true, holder: null }, "no name or ID number for a report he cannot see");
     const seen = await call("GET", "/report:r-guide", { tz: ADMIN_U.tz, client: "tab-a" });
     assert.deepEqual(seen.body.holder, { name: "Gu Ide", tz: GUIDE_U.tz });
+  } finally { server.close(); }
+});
+
+// «المسؤول» records attendance on his own program (owner, 2026-11-19).
+test("routes: an assistant in charge takes and renews the attendance lock of his program only", async () => {
+  const program = (teacher) => ({ get: async (filter) => ({ success: true, result: String(filter._id) === PROGRAM_ID ? [{ _id: PROGRAM_ID, teacher }] : [] }) });
+  const { server, call } = await startApp({ lessons: program(ASSIST_IN._id) });
+  try {
+    const key = { key: `attendance:${PROGRAM_ID}:2026-11-19` };
+    assert.equal((await call("POST", "/acquire", { tz: ASSIST_IN.tz, client: "tab-1", body: key })).status, 200);
+    assert.equal((await call("POST", "/heartbeat", { tz: ASSIST_IN.tz, client: "tab-1", body: key })).status, 200);
+    assert.equal((await call("POST", "/acquire", { tz: ASSIST_OUT.tz, client: "tab-2", body: key })).status, 403);
+  } finally { server.close(); }
+  const revoked = await startApp({ lessons: program(ASSIST_REVOKED._id) });
+  try {
+    const key = { key: `attendance:${PROGRAM_ID}:2026-11-19` };
+    assert.equal((await revoked.call("POST", "/acquire", { tz: ASSIST_REVOKED.tz, client: "tab-3", body: key })).status, 403);
+  } finally { revoked.server.close(); }
+  const broken = await startApp({ lessons: { get: async () => { throw new Error("db down"); } } });
+  try {
+    const key = { key: `attendance:${PROGRAM_ID}:2026-11-19` };
+    assert.equal((await broken.call("POST", "/acquire", { tz: ASSIST_IN.tz, client: "tab-4", body: key })).status, 403);
+  } finally { broken.server.close(); }
+});
+
+// Testing review, 2026-11-20: when the program gets another «المسؤول», the
+// assistant's held attendance lock is not renewed.
+test("routes: an assistant's attendance heartbeat is refused once he is no longer in charge", async () => {
+  let teacher = ASSIST_IN._id;
+  const lessons = { get: async (filter) => ({ success: true, result: String(filter._id) === PROGRAM_ID ? [{ _id: PROGRAM_ID, teacher }] : [] }) };
+  const { server, call } = await startApp({ lessons });
+  try {
+    const key = { key: `attendance:${PROGRAM_ID}:2026-11-20` };
+    assert.equal((await call("POST", "/acquire", { tz: ASSIST_IN.tz, client: "tab-1", body: key })).status, 200);
+    teacher = ASSIST_OUT._id;
+    assert.equal((await call("POST", "/heartbeat", { tz: ASSIST_IN.tz, client: "tab-1", body: key })).status, 403);
   } finally { server.close(); }
 });

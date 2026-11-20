@@ -55,7 +55,7 @@ test("the picker disables the lesson's staff and current participants, and adds 
   expect(getAddableUsers).toHaveBeenCalledWith("L1");
   const option = (name) => [...host.querySelectorAll("[data-user-option]")].find((b) => b.textContent.includes(name));
   expect(option("مرشد البرنامج").disabled).toBe(true);
-  expect(option("مرشد البرنامج").textContent).toContain("مرشد أو مساعد هذا البرنامج");
+  expect(option("مرشد البرنامج").textContent).toContain("مسؤول أو مساعد هذا البرنامج");
   expect(option("موظف أول").disabled).toBe(true);
   expect(option("موظف أول").textContent).toContain("مشارك بالفعل");
   expect(option("موظفة ثانية").disabled).toBe(false);

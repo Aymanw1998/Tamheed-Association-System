@@ -191,7 +191,8 @@ async function checkAbsenceStreaks(deps, clock) {
     const run = currentAbsenceRun((await deps.attendanceOfStudent(studentId, clock.dateKey, STREAK_ROWS)) || []);
     if (run.length < STREAK) continue;
     const student = await deps.findStudent(studentId);
-    if (!student) continue;
+    // No streak alert for an archived student (became staff, 2026-11-19).
+    if (!student || student.archivedAt) continue;
     // One alert per streak: keyed on where the run started, so a 4th, 5th…
     // absence in the same run never alerts again.
     const startKey = run[run.length - 1].dateKey;

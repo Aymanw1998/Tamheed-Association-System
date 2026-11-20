@@ -112,8 +112,9 @@ test("the edit form offers no «حذف»", async () => {
   container.remove();
 });
 
-// Owner, 2026-11-03: administrators may have lessons of their own.
-test("the guide picker offers guides and administrators, in two groups, whichever field holds the role", async () => {
+// Owner, 2026-11-03: administrators may have lessons of their own; 2026-11-14:
+// an assistant may be «المسؤول» of a regular program.
+test("«المسؤول» offers managers, guides and assistants in groups, whichever field holds the role", async () => {
   getOneLesson.mockResolvedValue({ ok: true, lesson: lesson(OPENED, []) });
   getAllU.mockImplementation(async () => ({ ok: true, users: [
     { _id: "t1", firstname: "مرشد", lastname: "أول", roles: ["مرشد"] },
@@ -126,10 +127,55 @@ test("the guide picker offers guides and administrators, in two groups, whicheve
   root = createRoot(container);
   await act(async () => root.render(<I18nProvider><EditLesson /></I18nProvider>));
   const groups = [...container.querySelectorAll("#lesson-teacher optgroup")];
-  expect(groups.map((g) => g.label)).toEqual(["المرشدون", "الإدارة"]);
-  expect([...groups[0].querySelectorAll("option")].map((o) => o.value)).toEqual(["t1"]);
-  expect([...groups[1].querySelectorAll("option")].map((o) => o.value)).toEqual(["a1", "a2"]);
-  expect([...container.querySelectorAll("#lesson-teacher option")].map((o) => o.value)).not.toContain("h1");
+  expect(groups.map((g) => g.label)).toEqual(["الإدارة", "المرشدون", "المساعدون"]);
+  expect([...groups[0].querySelectorAll("option")].map((o) => o.value)).toEqual(["a1", "a2"]);
+  expect([...groups[1].querySelectorAll("option")].map((o) => o.value)).toEqual(["t1"]);
+  expect([...groups[2].querySelectorAll("option")].map((o) => o.value)).toEqual(["h1"]);
+  expect(container.querySelector("label[for=lesson-teacher]").textContent).toContain("المسؤول");
   await act(async () => root.unmount());
   container.remove();
+});
+
+/* ---------- testing review, 2026-11-20: «المسؤول» ---------- */
+
+const STAFF = [
+  { _id: "t1", firstname: "مرشد", lastname: "أول", roles: ["مرشد"], tz: "123451111" },
+  { _id: "h1", firstname: "مساعد", lastname: "أول", roles: ["مساعد"], tz: "123452222" },
+  { _id: "h2", firstname: "مساعد", lastname: "ثان", roles: ["مساعد"], tz: "123453333" },
+];
+const changeValue = (el, value) => {
+  const proto = el.tagName === "SELECT" ? window.HTMLSelectElement.prototype : window.HTMLInputElement.prototype;
+  Object.getOwnPropertyDescriptor(proto, "value").set.call(el, value);
+  el.dispatchEvent(new Event(el.tagName === "SELECT" ? "change" : "input", { bubbles: true }));
+};
+const mountForm = async (data) => {
+  getOneLesson.mockResolvedValue({ ok: true, lesson: { ...lesson(OPENED, []), date: { day: 2, startMin: 900, endMin: 960 }, ...data } });
+  getAllU.mockImplementation(async () => ({ ok: true, users: STAFF }));
+  container = document.createElement("div"); document.body.appendChild(container); root = createRoot(container);
+  await act(async () => root.render(<I18nProvider><EditLesson /></I18nProvider>));
+};
+const optionValues = (select) => [...select.querySelectorAll("option")].map((o) => o.value).filter(Boolean);
+
+test("a درس تربوي with an assistant in charge shows the message on the field and cannot be saved", async () => {
+  await mountForm({ teacher: "h1", kind: "educational" });
+  const select = container.querySelector("#lesson-teacher");
+  expect(select.value).toBe("h1");
+  const message = container.querySelector("#lesson-teacher-error");
+  expect(message.textContent).toContain("مرشدًا");
+  expect(select.getAttribute("aria-describedby")).toBe("lesson-teacher-error");
+  const save = [...container.querySelectorAll("button")].find((b) => b.textContent.includes("حفظ التعديلات"));
+  await act(async () => save.click());
+  expect(updateLesson).not.toHaveBeenCalled();
+  await act(async () => root.unmount()); container.remove();
+});
+
+test("the search narrows «المسؤول» but keeps the chosen person; the two lists exclude each other", async () => {
+  await mountForm({ teacher: "t1", helper: "h1" });
+  const select = container.querySelector("#lesson-teacher");
+  const search = container.querySelector("#lesson-teacher-search");
+  await act(async () => changeValue(search, "3333"));
+  expect(optionValues(select)).toEqual(["t1", "h2"]);
+  expect(optionValues(container.querySelector("#lesson-teacher"))).not.toContain("h1");
+  expect(optionValues(container.querySelector("#lesson-helper"))).not.toContain("t1");
+  await act(async () => root.unmount()); container.remove();
 });

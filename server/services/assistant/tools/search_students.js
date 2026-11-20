@@ -22,7 +22,8 @@ module.exports = {
     const visible = await ctx.visible();
     const term = q.trim().toLowerCase();
     const matches = rows(await ctx.models.Student.get({}))
-      .filter((s) => inScope(visible, s) && !ctx.isSystemTz(s.tz))
+      // Archived students (became staff, 2026-11-19) are not searched.
+      .filter((s) => inScope(visible, s) && !ctx.isSystemTz(s.tz) && !s.archivedAt)
       .filter((s) => {
         if (!term) return true;
         if (String(s.tz ?? "").trim() === q.trim()) return true;

@@ -61,7 +61,7 @@ function setup(lessonSeed = [], sportSeed = [SPORT_LESSON]) {
     "./Lesson.model": { LessonModelDef: lessons },
     "../Sport/SportLesson.model": { SportLessonModelDef: sportLessons },
     "../../utils/lessonConflict": require("../utils/lessonConflict"),
-    "../User/User.model": { UserModelDef: createStore() },
+    "../User/User.model": { UserModelDef: createStore([{ _id: "c".repeat(24), tz: "123456782", role: "مرشد" }, { _id: "d".repeat(24), tz: "123456790", role: "مرشد" }]) },
     "../../utils/permissions": require("../utils/permissions"),
     "../../middleware/logger": { logWithSource() {} },
     "../Notification/Notification.controller": {},
@@ -73,7 +73,7 @@ function setup(lessonSeed = [], sportSeed = [SPORT_LESSON]) {
   return { controller, lessons };
 }
 
-const body = (room, startMin = 870, endMin = 930) => ({ name: "Math", teacher: "t1", room, date: { day: 2, startMin, endMin } });
+const body = (room, startMin = 870, endMin = 930) => ({ name: "Math", teacher: "c".repeat(24), room, date: { day: 2, startMin, endMin } });
 
 test("POST in room 9 over a football lesson is refused; room 2 is fine", async () => {
   const { controller } = setup();
@@ -85,7 +85,7 @@ test("POST in room 9 over a football lesson is refused; room 2 is fine", async (
   await controller.postOne(req({ body: body("2") }), other);
   assert.equal(other.statusCode, 201);
   const later = res();
-  await controller.postOne(req({ body: { ...body("9", 900, 960), teacher: "t2" } }), later);
+  await controller.postOne(req({ body: { ...body("9", 900, 960), teacher: "d".repeat(24) } }), later);
   assert.equal(later.statusCode, 201);
 });
 

@@ -66,6 +66,8 @@ export const getBugReports = () => call("/bug-reports");
 export const getErrorSummary = () => call("/error-summary");
 // «سجل الاطلاع» (owner, 2026-11-16).
 export const getSensitiveViews = (page = 1) => call(`/sensitive-views?page=${Number(page) || 1}`);
+// Students whose responsible guide is an assistant (owner, 2026-11-19).
+export const getAssistantGuides = () => call("/assistant-guides");
 export const deleteBugReport = (id) => call(`/bug-reports/${enc(id)}`, { method: "DELETE" });
 export const bugReportImage = (id) => `${BASE}/bug-reports/${enc(id)}/image`;
 

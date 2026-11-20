@@ -42,7 +42,8 @@ async function responsibleStudentIds(studentModel, actor) {
   const me = String(actor?.id ?? "").trim();
   if (!me) return new Set();
   const found = await studentModel.get({ main_teacher: OBJECT_ID.test(me) ? { $in: [me, new Types.ObjectId(me)] } : me });
-  return new Set((found?.result || []).map((s) => String(s._id)));
+  // An archived student (became staff, 2026-11-19) no longer gives access.
+  return new Set((found?.result || []).filter((s) => !s.archivedAt).map((s) => String(s._id)));
 }
 
 module.exports = { seesAllLessons, isOnLesson, mayOpenLesson, ownLessons, isResponsible, mayViewLesson, responsibleStudentIds };

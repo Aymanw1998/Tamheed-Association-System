@@ -698,6 +698,74 @@ const postU = async (req, res) => {
   }
 };
 
+// A student becomes staff (services/staffConversion, owner 2026-11-19): the
+// account is made from the student's own details, with the _id chosen in the
+// "prepared" phase, so a retry finds the same account instead of making a
+// second one. Answers {} when the account exists, or { status, body, clear }.
+async function createUserFromStudent({ student, conv, body = {}, req }) {
+  const userId = String(conv.userId);
+  for (const room of ROOMS) {
+    const found = await UserModelDef.get({ _id: userId }, room);
+    if (found?.success === false) throw new Error("user lookup failed");
+    const same = (found?.result || [])[0];
+    if (same && String(same.fromStudentId || "") === String(student._id)) return {};
+  }
+  const tz = String(student.tz ?? "").trim();
+  const tzProblem = newTzProblem(tz);
+  if (tzProblem) return { status: 400, clear: true, body: { ok: false, code: "INVALID_TZ", message: "رقم هوية الطالب غير صالح لحساب طاقم" } };
+  if (await roomHoldingTz(tz)) return { status: 409, clear: true, body: { ok: false, code: "TZ_EXISTS", message: "رقم الهوية مسجّل مسبقًا في الطاقم" } };
+  const role = conv.role;
+  const model = {
+    _id: userId,
+    tz,
+    firstname: student.firstname || "",
+    lastname: student.lastname || "",
+    birth_date: student.birth_date || null,
+    gender: student.gender || "",
+    phone: String(body.phone || student.phone || "").trim(),
+    email: String(body.email || student.email || "").trim() || undefined,
+    city: student.city || "",
+    street: student.street || "",
+    password: String(body.password || ""),
+    role, roles: [role], permissionGrants: [], permissionRevokes: [], mustChangePassword: true,
+    fromStudentId: String(student._id),
+  };
+  if (!model.email) delete model.email;
+  deriveServerFields(model);
+  try {
+    const created = await UserModelDef.create(model, "active");
+    await recordUser(req, "create", null, { ...(created?.result || model), room: "active" });
+    notifyChange("user", userId);
+    await safeEnsureStorageFolder(model);
+    return {};
+  } catch (err) {
+    if (isDuplicateKey(err)) {
+      const again = await UserModelDef.get({ _id: userId }, "active");
+      if ((again?.result || []).some((u) => String(u.fromStudentId || "") === String(student._id))) return {};
+      return { status: 409, clear: true, body: { ok: false, code: "TZ_EXISTS", message: "رقم الهوية مسجّل مسبقًا في الطاقم" } };
+    }
+    throw err;
+  }
+}
+
+// The student's photo copied to a new file for the staff account, never the
+// same file: replacing either one later never removes the other.
+async function copyStudentPhotoToUser({ student, userId }) {
+  if (!student?.photo) return;
+  const drive = require("../../services/googleDrive.service");
+  const fileId = drive.extractFileId(student.photo);
+  if (!fileId) return;
+  const stream = await drive.downloadStream(fileId);
+  const chunks = [];
+  for await (const chunk of stream) chunks.push(chunk);
+  const info = await drive.getFileInfo(fileId).catch(() => ({}));
+  const file = { buffer: Buffer.concat(chunks), originalname: info?.name || "photo.jpg", mimetype: info?.mimeType || "image/jpeg" };
+  const uploaded = await handleUpload(file, UserModelDef.dbName, UserModelDef.collections.active, student.tz);
+  if (!uploaded?.secure_url) throw new Error("photo upload failed");
+  await UserModelDef.updateExisting({ _id: String(userId) }, { photo: uploaded.secure_url, updatedAt: new Date() }, "active");
+  passportPhotoJob.schedule(uploaded.secure_url);
+}
+
 // The first sign-in details of an IT user made on the IT site. No ID number in it.
 function newItUserEmail({ name, password, itHost }) {
   const subject = "حسابك في قسم IT - جمعية تمهيد";
@@ -1762,6 +1830,17 @@ const putPermissions = async (req, res) => {
 
 // PUT /:tz/role (users.changeRole), body { role }. A demotion clears the
 // user's special permissions.
+// A guide or manager who is «المسؤول» of a درس تربوي cannot become an
+// assistant until those programs get another guide or manager (owner,
+// 2026-11-19). Returns the program names; throws on a failed read (fail closed).
+const EDUCATIONAL_ROLES = new Set(["مرشد", "ادارة"]);
+async function educationalProgramsRunBy(userId) {
+  const { LessonModelDef } = require("../Lesson/Lesson.model");
+  const found = await LessonModelDef.get({ teacher: String(userId), kind: "educational" });
+  if (!found || found.success === false) throw new Error("program lookup failed");
+  return (found.result || []).map((l) => l.name || "").filter(Boolean);
+}
+
 const putRole = async (req, res) => {
   try {
     const { user, room } = await loadTarget(req);
@@ -1770,6 +1849,21 @@ const putRole = async (req, res) => {
     const role = normalizeRole(req.body?.role);
     if (!role) return invalid(res, "UNKNOWN_ROLE");
     if (!canAssignRole(req.actor, user, role)) return forbidden(res);
+    if (EDUCATIONAL_ROLES.has(resolveRole(user)) && !EDUCATIONAL_ROLES.has(role)) {
+      let names;
+      try {
+        names = await educationalProgramsRunBy(user._id);
+      } catch (error) {
+        logWithSource("User.putRole.programs", error);
+        return res.status(503).json({ ok: false, code: "PROGRAMS_LOOKUP_FAILED", message: "تعذر التحقق من البرامج التربوية، حاول مرة أخرى" });
+      }
+      if (names.length) {
+        return res.status(409).json({
+          ok: false, code: "IN_CHARGE_OF_EDUCATIONAL", programs: names,
+          message: `هو المسؤول عن برامج تربوية: ${names.join("، ")}. انقلها إلى مرشد أو أحد الإدارة أولًا`,
+        });
+      }
+    }
 
     let change;
     try {
@@ -2128,7 +2222,7 @@ const   uploadPhoto = async (req, res) => {
 
     const uploaded = await handleUpload(
       req.file,
-      process.env.DB_NAME,
+      UserModelDef.dbName,
       UserModelDef.collections.active,
       user.tz
     );
@@ -2267,6 +2361,10 @@ const trashHooks = {
 
 module.exports = {
   trashHooks,
+  createUserFromStudent,
+  copyStudentPhotoToUser,
+  // A first role on a new account (users.create), for a student made staff.
+  mayGiveStaffRole: (actor, role) => canGiveFirstRole(actor, {}, role, "users.create"),
   createItUser,
   viewPassword,
   uploadPhoto,

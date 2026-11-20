@@ -2,6 +2,8 @@ const router = require("express").Router();
 const { requireAuth } = require("../../middleware/authMiddleware");
 const { loadActor, requirePermission } = require("../../middleware/permissionMiddleware");
 const { requireFreeOrMine } = require("../../middleware/lockGuard");
+// attendance.record, or «المسؤول» of the program (owner, 2026-11-19).
+const { requireAttendanceRecord } = require("../../middleware/attendanceRecordGuard");
 
 // One sheet = one lesson on one date: attendance:<lessonId>:<YYYY-MM-DD>.
 // An unreadable lesson or date has no key; the controller answers 400.
@@ -26,7 +28,7 @@ const {
 router.use(requireAuth, loadActor);
 
 router.get("/sheet", requirePermission("attendance.view"), getSheet);
-router.post("/bulk-save", requirePermission("attendance.record"), lockedSheet, bulkSave);
+router.post("/bulk-save", requireAttendanceRecord(), lockedSheet, bulkSave);
 router.get("/dates", requirePermission("attendance.view"), getLessonDates);
 // One lesson's marks over a period, for the Excel export (owner, 2026-11-10).
 // Its own key, so IT can take the export away and keep viewing (Codex full

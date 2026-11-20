@@ -68,6 +68,16 @@ AttendanceModelDef.update = async function (filter, newData) {
   });
 };
 
+// Like update() but never creates a row: result is null when nothing matches.
+AttendanceModelDef.updateExisting = async function (filter, newData) {
+  return await api.updateExisting({
+    dbName: this.dbName,
+    collection: this.collections.active,
+    filter,
+    newData,
+  });
+};
+
 // A student's rows up to toKey, newest first, at most `limit` (alert job).
 AttendanceModelDef.latestOfStudent = async function (studentId, toKey, limit = 100) {
   const res = await api.readSorted({

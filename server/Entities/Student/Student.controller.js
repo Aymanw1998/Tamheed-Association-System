@@ -4,10 +4,10 @@ const { handleUpload, handleDeleteByUrl } = require("../UploadFile/file");
 const { audit } = require("../../utils/audit");
 const { LessonModelDef } = require("../Lesson/Lesson.model");
 const { UserModelDef } = require("../User/User.model");
-const { isSystemTz, can, isHiddenUser } = require("../../utils/permissions");
+const { isSystemTz, can, isHiddenUser, resolveRole } = require("../../utils/permissions");
 const { createStudentScope } = require("../../utils/studentScope");
 const { contactById } = require("../../utils/guideContact");
-const { isResponsible, ownLessons, seesAllLessons } = require("../../utils/lessonAccess");
+const { isResponsible, isOnLesson, ownLessons, seesAllLessons } = require("../../utils/lessonAccess");
 const { AttendanceModelDef } = require("../Attendance/Attendance.model");
 // The student page's attendance: every date (dateKey is yyyymmdd), newest 200 rows.
 const LAST_DATE_KEY = 99991231;
@@ -24,17 +24,31 @@ const scope = createStudentScope({ lessonModel: LessonModelDef, studentModel: St
 const inScope = (visible, student) => !visible || visible.has(String(student?._id));
 // A hidden student gets the same answer as a missing one (existence is not revealed).
 const NOT_FOUND = { ok: false, message: "Student not found" };
+// A student who became staff is archived (owner, 2026-11-19): read-only,
+// shown only to students.viewAll in «طلاب سابقون»; one being converted
+// cannot be changed until the conversion ends.
+const { rosterable } = require("../../utils/rosterGuard");
+const FROZEN = (student) => student?.archivedAt
+  ? { ok: false, code: "ARCHIVED", message: "هذا الطالب في الأرشيف (أصبح من الطاقم) ولا يمكن تعديله" }
+  : { ok: false, code: "CONVERSION_IN_PROGRESS", message: "هذا الطالب يُحوَّل إلى الطاقم الآن، لا يمكن تعديله" };
+const archivedHidden = (actor, student) => Boolean(student?.archivedAt) && !can(actor, "students.viewAll");
 
 // main_teacher (the responsible guide) names a user by _id: an active (approved) account that
-// is not the system account. Only a 24-hex ObjectId is looked up.
+// is not the system account, and a guide or a manager (owner, 2026-11-19). It
+// is checked only when set or changed, so a student who already has an
+// assistant keeps him until someone changes it. Only a 24-hex ObjectId is looked up.
 const OBJECT_ID = /^[0-9a-fA-F]{24}$/;
+const INSTRUCTOR_ROLES = new Set(["مرشد", "ادارة"]);
 async function isValidInstructor(id) {
   if (typeof id !== "string" || !OBJECT_ID.test(id)) return false;
   const found = await UserModelDef.get({ _id: id }, "active");
   const user = found?.result?.[0];
-  return Boolean(user) && !isHiddenUser(user);
+  return Boolean(user) && !isHiddenUser(user) && INSTRUCTOR_ROLES.has(resolveRole(user));
 }
-const INVALID_INSTRUCTOR = { ok: false, code: "INVALID_INSTRUCTOR", message: "المرشد المسؤول غير موجود" };
+// A creator or approver who is not a guide or a manager cannot become the
+// responsible guide himself; a manager chooses one.
+const GUIDE_BY_MANAGER = { ok: false, code: "GUIDE_REQUIRED", message: "المرشد المسؤول يكون مرشدًا أو من الإدارة. اطلب من المدير اختياره." };
+const INVALID_INSTRUCTOR = { ok: false, code: "INVALID_INSTRUCTOR", message: "المرشد المسؤول غير موجود، أو ليس مرشدًا أو من الإدارة" };
 const hasValue = (v) => v !== undefined && v !== null && v !== "";
 // Only a students.viewAll holder sets or changes main_teacher; for
 // anyone else the field is ignored (not validated, not written).
@@ -86,6 +100,8 @@ function sanitize(u) {
   delete o.sportCardHash;
   // Passkeys saved on the player's phones (SportPortal.passkey.js).
   delete o.sportPasskeys;
+  // The conversion claim is internal (services/staffConversion).
+  delete o.conversionClaim;
   return o;
 }
 
@@ -160,7 +176,10 @@ function removeEmpty(obj = {}) {
 const getAllS = async (req, res) => {
   try {
     const [result, visible] = await Promise.all([StudentModelDef.get({}), scope.visibleStudentIds(req.actor)]);
-    const students = (result?.result || []).filter((s) => inScope(visible, s));
+    // ?archived=1: «طلاب سابقون» (students.viewAll only); otherwise the active list.
+    const archived = req.query?.archived === "1";
+    if (archived && !can(req.actor, "students.viewAll")) return res.status(200).json({ ok: true, students: [] });
+    const students = (result?.result || []).filter((s) => inScope(visible, s) && Boolean(s.archivedAt) === archived);
     const guideNames = new Map(await Promise.all([...new Set(students.map((s) => String(s.main_teacher || "")).filter(Boolean))]
       .map(async (id) => [id, (await contactById(UserModelDef, id, req.actor))?.name || ""])));
 
@@ -192,7 +211,12 @@ const getOneS = async (req, res) => {
     const result = await StudentModelDef.get({ tz });
     const visible = await scope.visibleStudentIds(req.actor);
 
-    if (!result?.result?.length || !inScope(visible, result.result[0])) {
+    // A student whose conversion stopped half way stays reachable through the
+    // programs it planned, so the actor who may finish it sees the page (Codex build review).
+    const planned = result?.result?.[0]?.staffConversion?.phase !== "done" ? result?.result?.[0]?.staffConversion?.plannedLessons : null;
+    const viaPlan = Array.isArray(planned) && planned.length && !inScope(visible, result.result[0])
+      && ((await LessonModelDef.get({}))?.result || []).some((l) => planned.some((id) => String(id) === String(l._id)) && isOnLesson(req.actor, l));
+    if (!result?.result?.length || !(inScope(visible, result.result[0]) || viaPlan) || archivedHidden(req.actor, result.result[0])) {
       return res.status(404).json({
         ok: false,
         message: "غير موجود",
@@ -251,8 +275,12 @@ const postS = async (req, res) => {
     Object.assign(model, graduationPatch(model.layer));
     const assigns = mayAssignInstructor(req.actor);
     // A creator without students.viewAll becomes the responsible guide, so he
-    // keeps seeing the student he just added.
-    if (!assigns) model.main_teacher = req.actor?.id != null ? String(req.actor.id) : null;
+    // keeps seeing the student he just added. Only a guide or a manager can be
+    // one (owner, 2026-11-19): anyone else is refused (Codex build review).
+    if (!assigns) {
+      if (!INSTRUCTOR_ROLES.has(req.actor?.role)) return res.status(400).json(GUIDE_BY_MANAGER);
+      model.main_teacher = req.actor?.id != null ? String(req.actor.id) : null;
+    }
 
     if (!model.tz) {
       return res.status(400).json({
@@ -339,6 +367,7 @@ const putS = async (req, res) => {
     if (!existing?.result?.length || !inScope(visible, existing.result[0])) {
       return res.status(404).json(NOT_FOUND);
     }
+    if (!rosterable(existing.result[0])) return res.status(409).json(FROZEN(existing.result[0]));
 
     const assigns = mayAssignInstructor(req.actor);
     // Validated only when it changes: an unchanged stale value (inactive guide,
@@ -372,6 +401,7 @@ const putS = async (req, res) => {
     const approving = before.status === WAITING_STATUS && hasValue(body.status) && body.status !== WAITING_STATUS;
     if (approving && !hasValue(newData.main_teacher ?? before.main_teacher)) {
       if (assigns || req.actor?.id == null) return res.status(400).json(GUIDE_REQUIRED);
+      if (!INSTRUCTOR_ROLES.has(req.actor?.role)) return res.status(400).json(GUIDE_BY_MANAGER);
       newData.main_teacher = String(req.actor.id);
     }
 
@@ -449,6 +479,7 @@ const deleteS = async (req, res) => {
     if (!existing?.result?.length || !inScope(visible, existing.result[0])) {
       return res.status(404).json(NOT_FOUND);
     }
+    if (!rosterable(existing.result[0])) return res.status(409).json(FROZEN(existing.result[0]));
 
     // Only the record found above, never every record sharing the tz.
     const stale = checkVersion(existing.result[0], req);
@@ -528,6 +559,7 @@ const uploadPhoto = async (req, res) => {
     if (!existing?.result?.length || !inScope(visible, existing.result[0])) {
       return res.status(404).json(NOT_FOUND);
     }
+    if (!rosterable(existing.result[0])) return res.status(409).json(FROZEN(existing.result[0]));
 
     const student = existing.result[0];
 
@@ -611,6 +643,7 @@ const deletePhoto = async (req, res) => {
     if (!user || !inScope(visible, user)) {
       return res.status(404).json({ ok: false, message: "Student not found" });
     }
+    if (!rosterable(user)) return res.status(409).json(FROZEN(user));
 
     console.log("Deleting photo for user:", user.tz, "Photo URL:", user.photo);
     if (user.photo) {
@@ -668,7 +701,7 @@ const lookupS = async (req, res) => {
     const student = (result?.result || []).find((s) => String(s.tz) === tz);
     // A scoped actor never finds a student still on the waiting list.
     const waiting = student && student.status === PENDING_STATUS && !can(req.actor, "students.viewAll");
-    if (!student || waiting) return res.status(404).json({ ok: false, message: "غير موجود" });
+    if (!student || waiting || !rosterable(student)) return res.status(404).json({ ok: false, message: "غير موجود" });
     return res.status(200).json({
       ok: true,
       student: {

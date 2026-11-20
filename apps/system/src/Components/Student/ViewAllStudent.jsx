@@ -2,6 +2,7 @@ import EmptyState from "../UI/EmptyState";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { getAll } from "../../WebServer/services/student/functionsStudent.jsx";
+import FormerStudents from "./FormerStudents.jsx";
 import useLiveRefresh from "../../locks/useLiveRefresh";
 import styles from "./Student.module.css";
 import Fabtn from "../Global/Fabtn/Fabtn";
@@ -344,6 +345,9 @@ const ViewAllStudent = () => {
           </tbody>
         </table>
       )}
+
+      {/* Students who became staff (owner, 2026-11-19). */}
+      {canStored("students.viewAll") && <FormerStudents />}
 
       <Fabtn
         anchor="#page-add-student"

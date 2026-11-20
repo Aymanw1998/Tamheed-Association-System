@@ -13,6 +13,7 @@ module.exports = {
   name: "list_lessons",
   description: "Lessons on a date, or on each date of a range of up to 7 days (lessons repeat weekly). Without dates: today. "
     + "Each lesson: id, name, start, end, room, teacher, helper, students (how many the user may see), totalStudents, "
+    + "staffParticipants (staff taking part; their attendance is recorded on the attendance page, not through you), "
     + "and mine (the user teaches or helps). The user's own lessons are listed first.",
   input_schema: {
     type: "object",
@@ -62,6 +63,9 @@ module.exports = {
             helper: staffName(l.helper),
             students: (scoped.list_students || []).length,
             totalStudents: (l.list_students || []).length,
+            // Staff taking part (a student who became staff, owner 2026-11-19).
+            // Their attendance is recorded on the attendance page, not by the assistant.
+            staffParticipants: (l.list_users || []).length,
             mine,
             startMin: Number(l?.date?.startMin) || 0,
           };

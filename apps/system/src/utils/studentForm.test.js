@@ -20,8 +20,8 @@ test.each(["phone", "email", "notes"])("the field %s is optional", (name) => {
 
 
 const users = [
-  { _id: "u1", firstname: "A", lastname: "One" },
-  { _id: "u2", firstname: "B", lastname: "Two" },
+  { _id: "u1", firstname: "A", lastname: "One", role: "مرشد" },
+  { _id: "u2", firstname: "B", lastname: "Two", roles: ["ادارة"] },
 ];
 
 test("the guide options list every instructor by name", () => {
@@ -49,7 +49,7 @@ test("a missing instructors list is treated as empty", () => {
 
 test("only active users are offered; a stored waiting or inactive guide shows as inactive", () => {
   const users = [
-    { _id: "u1", firstname: "A", lastname: "One", room: "active" },
+    { _id: "u1", firstname: "A", lastname: "One", room: "active", role: "مرشد" },
     { _id: "w1", firstname: "W", lastname: "Wait", room: "waiting" },
     { _id: "n1", firstname: "N", lastname: "Off", room: "noActive" },
   ];
@@ -58,4 +58,11 @@ test("only active users are offered; a stored waiting or inactive guide shows as
     { value: "w1", label: "", inactive: true },
     { value: "u1", label: "A One", inactive: false },
   ]);
+});
+
+// Owner, 2026-11-19: only guides and managers; an assistant already chosen keeps his name.
+test("assistants are not offered, unless one is the current value", () => {
+  const withAssistant = [...users, { _id: "h1", firstname: "C", lastname: "Three", role: "مساعد" }];
+  expect(responsibleGuideOptions(withAssistant, "").map((o) => o.value)).toEqual(["u1", "u2"]);
+  expect(responsibleGuideOptions(withAssistant, "h1")).toContainEqual({ value: "h1", label: "C Three", inactive: false });
 });

@@ -15,7 +15,8 @@
       "purge",
       "photo",
       "parentLink",
-      "exportExcel"
+      "exportExcel",
+      "makeStaff"
     ],
     "lessons": [
       "view",
@@ -240,7 +241,8 @@
           "manage": "إدارة شاشات العرض"
         },
         "students": {
-          "purge": "حذف نهائي من سلة المحذوفات"
+          "purge": "حذف نهائي من سلة المحذوفات",
+          "makeStaff": "تحويل طالب إلى الطاقم"
         },
         "vehicles": {
           "purge": "حذف نهائي من سلة المحذوفات"

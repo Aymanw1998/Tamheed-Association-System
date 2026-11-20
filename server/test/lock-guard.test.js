@@ -176,6 +176,7 @@ function loadRoutes(file, { models = {}, locks }) {
       return { loadActor: middlewareStub, requirePermission: () => middlewareStub, requireSelfOr: () => middlewareStub };
     }
     if (/authMiddleware/.test(name)) return { requireAuth: middlewareStub };
+    if (/attendanceRecordGuard/.test(name)) return { requireAttendanceRecord: () => middlewareStub };
     if (/rateLimit/.test(name)) return { rateLimit: () => middlewareStub };
     if (/objectIdParam/.test(name)) return require("../middleware/objectIdParam");
     if (/utils\/permissions/.test(name)) return require("../utils/permissions");

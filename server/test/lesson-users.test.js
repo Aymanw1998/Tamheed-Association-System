@@ -267,3 +267,69 @@ test("being a participant does not open the lesson itself", async () => {
   const res = await call(w.controller.getOne, STAFF1, { params: { id: LESSON_ID } });
   assert.equal(res.statusCode, 404);
 });
+
+/* ---------- «المسؤول» (owner, 2026-11-14/19; lessonInCharge) ---------- */
+
+test("an assistant may be in charge of a regular program", async () => {
+  const w = world();
+  const res = await call(w.controller.postOne, ADMIN, { body: newLesson({ teacher: STAFF1._id, helper: null }) });
+  assert.equal(res.statusCode, 201, JSON.stringify(res.body));
+  assert.equal(w.lessons.created[0].teacher, STAFF1._id);
+});
+
+test("a درس تربوي with an assistant in charge is refused and nothing is created", async () => {
+  const w = world();
+  const res = await call(w.controller.postOne, ADMIN, { body: newLesson({ teacher: STAFF1._id, helper: null, kind: "educational" }) });
+  assert.equal(res.statusCode, 400);
+  assert.equal(res.body.code, "EDUCATIONAL_NEEDS_GUIDE");
+  assert.equal(w.lessons.created.length, 0);
+});
+
+test("changing a program run by an assistant to تربوي is refused, nothing saved", async () => {
+  const w = world({ lessonList: [{ _id: LESSON_ID, name: "ب", teacher: STAFF1._id, helper: null, room: "1", date: DATE, list_students: [], list_users: [] }] });
+  const res = await call(w.controller.putOne, ADMIN, { params: { id: LESSON_ID }, body: { kind: "educational" } });
+  assert.equal(res.statusCode, 400);
+  assert.equal(res.body.code, "EDUCATIONAL_NEEDS_GUIDE");
+  assert.equal(w.lessonById(LESSON_ID).kind, undefined);
+});
+
+test("making an assistant «المسؤول» of a درس تربوي is refused", async () => {
+  const w = world({ lessonList: [{ _id: LESSON_ID, name: "ب", kind: "educational", teacher: GUIDE._id, helper: null, room: "1", date: DATE, list_students: [], list_users: [] }] });
+  const res = await call(w.controller.putOne, ADMIN, { params: { id: LESSON_ID }, body: { teacher: STAFF1._id } });
+  assert.equal(res.statusCode, 400);
+  assert.equal(res.body.code, "EDUCATIONAL_NEEDS_GUIDE");
+  assert.equal(w.lessonById(LESSON_ID).teacher, GUIDE._id);
+});
+
+test("the same person as «المسؤول» and «المساعد» is refused", async () => {
+  const w = world();
+  const res = await call(w.controller.postOne, ADMIN, { body: newLesson({ teacher: HELPER._id, helper: HELPER._id }) });
+  assert.equal(res.statusCode, 400);
+  assert.equal(res.body.code, "SAME_STAFF");
+  assert.equal(w.lessons.created.length, 0);
+});
+
+test("an inactive or unknown «المسؤول» is refused", async () => {
+  for (const teacher of [FORMER._id, id("8")]) {
+    const w = world();
+    const res = await call(w.controller.postOne, ADMIN, { body: newLesson({ teacher }) });
+    assert.equal(res.statusCode, 400, teacher);
+    assert.equal(res.body.code, "INVALID_STAFF");
+  }
+});
+
+test("a failed lookup of «المسؤول» writes nothing (503)", async () => {
+  const w = world();
+  const broken = { ...require("./helpers/memoryModel").memoryModel([]), async get() { return { success: false, result: [] }; } };
+  const c = w.reload({ "../User/User.model": { UserModelDef: broken } });
+  const res = await call(c.postOne, ADMIN, { body: newLesson() });
+  assert.equal(res.statusCode, 503);
+  assert.equal(w.lessons.created.length, 0);
+});
+
+test("an old program whose «المسؤول» has left can still be renamed", async () => {
+  const w = world({ lessonList: [{ _id: LESSON_ID, name: "ب", teacher: FORMER._id, helper: null, room: "1", date: DATE, list_students: [], list_users: [] }] });
+  const res = await call(w.controller.putOne, ADMIN, { params: { id: LESSON_ID }, body: { name: "ج" } });
+  assert.equal(res.statusCode, 200, JSON.stringify(res.body));
+  assert.equal(w.lessonById(LESSON_ID).name, "ج");
+});

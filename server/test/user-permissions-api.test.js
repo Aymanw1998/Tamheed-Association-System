@@ -335,6 +335,25 @@ test("PUT role demotes, clears special permissions and records role_change", asy
   assert.equal(row.after.role, HELPER);
 });
 
+test("demoting a guide who runs a درس تربوي is refused with the program names; nothing saved", async () => {
+  live.programs.push({ _id: "p1", name: "برنامج تربوي", kind: "educational", teacher: GUIDE_USER._id });
+  try {
+    const { res: out, body, users } = await call("putRole", MANAGER, { params: { tz: GUIDE_USER.tz }, body: { role: HELPER } });
+    assert.equal(out.statusCode, 409);
+    assert.equal(body.code, "IN_CHARGE_OF_EDUCATIONAL");
+    assert.deepEqual([...body.programs], ["برنامج تربوي"]);
+    assert.equal(stored(users, GUIDE_USER.tz).role, GUIDE);
+  } finally { live.programs.length = 0; }
+});
+
+test("a guide who runs only regular programs can still become an assistant", async () => {
+  live.programs.push({ _id: "p2", name: "عادي", kind: "regular", teacher: GUIDE_USER._id });
+  try {
+    const { res: out } = await call("putRole", MANAGER, { params: { tz: GUIDE_USER.tz }, body: { role: HELPER } });
+    assert.equal(out.statusCode, 200);
+  } finally { live.programs.length = 0; }
+});
+
 test("PUT role and PUT permissions pass the actor to the access_changed alert (so it skips him)", async () => {
   const seen = [];
   const capture = { "../../services/alertEvents": {

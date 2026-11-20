@@ -8,6 +8,7 @@ import { getLessonsToday, getAllLesson as getAllLessons } from "../../WebServer/
 import { getAttendanceSheet, saveAttendanceSheet, getLessonDates } from "../../WebServer/services/attendance/functionsAttendance";
 import { toast } from "../../ALERT/SystemToasts";
 import { canStored, getStoredUserId } from "../../utils/session";
+import { mayRecordAttendance } from "../../utils/attendanceRecord";
 import { roomLabel } from "../../utils/rooms";
 import { attendanceDateLabel } from "../../utils/attendanceDates";
 import { ask } from "../Provides/confirmBus";
@@ -91,7 +92,8 @@ export default function AttendancePage() {
     const lockKey = selectedLesson && usedDate && usedDate.year && usedDate.month && usedDate.day
         ? `attendance:${selectedLesson._id}:${usedDate.year}-${pad2(usedDate.month)}-${pad2(usedDate.day)}`
         : null;
-    const lock = useItemLock(lockKey, { enabled: canStored("attendance.record") });
+    // attendance.record, or «المسؤول» of this program (an assistant in charge, owner 2026-11-19).
+    const lock = useItemLock(lockKey, { enabled: mayRecordAttendance(selectedLesson) });
     // The lock lapsed for want of a connection (no heartbeat got through): the
     // guide keeps recording, and every save stays on this device until the
     // connection is back. The server still checks the sheet version, so a save

@@ -31,7 +31,8 @@ module.exports = {
   description: "Attendance over a period (default: the last 7 days, at most 92 days) for the students the user may see: "
     + "per student present/absent/late counts, automatic absences (no attendance was taken), the current absence streak "
     + "and last absence date; and per lesson counts. Optional filters: one student id or one lesson id. "
-    + "Students are sorted by most absences; at most 50 are listed.",
+    + "Students are sorted by most absences; at most 50 are listed. Staff taking part in a lesson (former students "
+    + "among them) are not included: staffRows counts their rows; for them, point the user to the attendance page.",
   input_schema: {
     type: "object",
     properties: {
@@ -75,7 +76,10 @@ module.exports = {
     const perStudent = new Map();
     const perLesson = new Map();
     const totals = counts();
+    let staffRows = 0;
     for (const r of rows(attendance)) {
+      // Staff rows are counted only in lessons the user may see (Codex build review).
+      if (r.user != null && r.user !== "") { if (seesAll || mine.has(String(r.lesson ?? ""))) staffRows += 1; continue; }
       const sid = String(r.student);
       if (visible && !visible.has(sid)) continue;
       if (!studentById.has(sid)) continue;
@@ -113,6 +117,7 @@ module.exports = {
       studentCount: list.length,
       students: list.slice(0, MAX_STUDENTS),
       lessons: [...perLesson.entries()].map(([id, c]) => ({ id, name: lessonName.get(id) || "", ...c })),
+      ...(staffRows ? { staffRows } : {}),
     };
   },
 };

@@ -792,3 +792,55 @@ test("a versioned pending retry repairs its marker without overwriting the accep
   assert.equal((await call(ctrl.signConsent, { params, body: registration({ signerName: "Retry", baseConsentVersion: revision }) })).statusCode, 200);
   assert.deepEqual(plain(ctrl.models.consents.snapshot()[0]), evidence); assert.ok(ctrl.models.students.snapshot()[0].consentAt);
 });
+
+// Codex build review 2: a signing that passed the entry check before the
+// student's conversion started, and lands after it, changes nothing.
+test("a signing that lands after the student started becoming staff is undone (409)", async () => {
+  const ctrl = loadController({ students: [{ tz: "1", status: "عادي" }] });
+  const params = { studentId: ctrl.models.students.snapshot()[0]._id };
+  const create = ctrl.models.consents.create.bind(ctrl.models.consents);
+  ctrl.models.consents.create = async (data) => {
+    const out = await create(data);
+    await ctrl.models.students.updateExisting({ _id: params.studentId }, { staffConversion: { phase: "preparing" } });
+    return out;
+  };
+  const res = await call(ctrl.signConsent, { params, body: registration() });
+  assert.equal(res.statusCode, 409);
+  assert.equal(res.body.code, "ARCHIVED");
+  assert.equal(ctrl.models.consents.snapshot().length, 0, "the evidence is taken back");
+  assert.equal(ctrl.models.students.snapshot()[0].consentAt, undefined);
+});
+
+test("an undo never removes a signature another request already completed", async () => {
+  const ctrl = loadController({ students: [{ tz: "1", status: "عادي" }] });
+  const params = { studentId: ctrl.models.students.snapshot()[0]._id };
+  const create = ctrl.models.consents.create.bind(ctrl.models.consents);
+  ctrl.models.consents.create = async (data) => {
+    const out = await create(data);
+    // Another request adopts this evidence and marks the student, then the conversion starts.
+    await ctrl.models.students.updateExisting({ _id: params.studentId }, { consentAt: data.signedAt });
+    await ctrl.models.students.updateExisting({ _id: params.studentId }, { staffConversion: { phase: "preparing" } });
+    return out;
+  };
+  const res = await call(ctrl.signConsent, { params, body: registration() });
+  assert.equal(res.statusCode, 409);
+  assert.equal(ctrl.models.consents.snapshot().length, 1, "the accepted signature stays");
+});
+
+test("a link already sent closes once the student starts becoming staff; new links and staff signing are refused", async () => {
+  const ctrl = loadController({ students: [{ tz: "1", status: "عادي" }] });
+  const studentId = ctrl.models.students.snapshot()[0]._id;
+  const token = await personalLink(ctrl, studentId);
+  await ctrl.models.students.updateExisting({ _id: studentId }, { staffConversion: { phase: "account" } });
+  assert.equal((await call(ctrl.validateConsentLink, { body: { token } })).statusCode, 410);
+  assert.equal((await call(ctrl.submitConsentLink, { body: { ...registration(), token } })).statusCode, 410);
+  const link = await call(ctrl.createConsentLink, { params: { studentId } });
+  assert.equal(link.statusCode, 409);
+  assert.equal(link.body.code, "ARCHIVED");
+  let created = 0;
+  const create = ctrl.models.consents.create.bind(ctrl.models.consents);
+  ctrl.models.consents.create = async (data) => { created += 1; return create(data); };
+  assert.equal((await call(ctrl.signConsent, { params: { studentId }, body: registration() })).statusCode, 409);
+  assert.equal(created, 0, "refused before any evidence is written");
+  assert.equal(ctrl.models.consents.snapshot().length, 0);
+});

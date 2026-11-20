@@ -119,3 +119,20 @@ test("mergeRoster drops duplicate submitted ids", () => {
 test("mergeRoster with an empty visible Set keeps the existing roster as is", () => {
   assert.deepEqual(mergeRoster(["h1", "h2"], ["a"], new Set()), ["h1", "h2"]);
 });
+
+// Testing review, 2026-11-20: an archived student (became staff) no longer
+// gives his former responsible guide access, through the student scope or
+// the lesson access.
+test("an archived student leaves his responsible guide's scope", async () => {
+  const students = [{ _id: "s1", main_teacher: "g1" }, { _id: "s2", main_teacher: "g1", archivedAt: new Date() }];
+  const scope = createStudentScope({ lessonModel: fakeLessons([]), studentModel: fakeStudents(students) });
+  const ids = await scope.visibleStudentIds(actor([]));
+  assert.deepEqual([...ids], ["s1"]);
+});
+
+test("an archived student gives no lesson access through responsibility", async () => {
+  const { responsibleStudentIds } = require("../utils/lessonAccess");
+  const students = [{ _id: "s1", main_teacher: "g1" }, { _id: "s2", main_teacher: "g1", archivedAt: new Date() }];
+  const ids = await responsibleStudentIds(fakeStudents(students), actor([]));
+  assert.deepEqual([...ids], ["s1"]);
+});

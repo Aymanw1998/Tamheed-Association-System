@@ -25,7 +25,8 @@ function createStudentScope({ lessonModel, studentModel }) {
         for (const sid of lesson.list_students || []) ids.add(String(sid));
       }
     }
-    for (const s of responsible?.result || []) ids.add(String(s._id));
+    // An archived student (became staff, 2026-11-19) no longer gives access.
+    for (const s of responsible?.result || []) if (!s.archivedAt) ids.add(String(s._id));
     return ids;
   }
   return { visibleStudentIds };

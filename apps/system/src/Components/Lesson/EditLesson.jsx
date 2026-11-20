@@ -15,6 +15,7 @@ import { getAll as getAllS} from '../../WebServer/services/student/functionsStud
 import { getAll as getAllU } from '../../WebServer/services/user/functionsUser';
 import { canStored, getStoredUserId } from '../../utils/session';
 import { resolveRole } from '../../utils/roles';
+import { inChargeGroups, inChargeError, staffLabel } from '../../utils/inChargeOptions';
 import { buildAddPayload, countAdded, unwrapCreated } from '../../utils/lessonRoster';
 import { useI18n } from '../../i18n/I18nContext';
 import { ROOM_OPTIONS } from '../../utils/rooms';
@@ -94,6 +95,8 @@ const EditLesson = () => {
   const [students, setStudents] = useState([]);
   const [teachers, setTeachers] = useState([]);
   const [helpers, setHelpers] = useState([]);
+  // Narrows the «المسؤول» list (owner, 2026-11-14); never saved.
+  const [teacherSearch, setTeacherSearch] = useState('');
   const [allLessons, setAllLessons] = useState([]);
   const [loaded, setLoaded] = useState(false);
   // The lesson as opened: its updatedAt is the baseVersion of the save.
@@ -127,11 +130,11 @@ const EditLesson = () => {
       const usersRes = await getAllU();
       if (usersRes?.ok) {
         const allUsers = usersRes.users || [];
-        // A lesson's guide is a guide or an administrator: administrators may
-        // have lessons of their own (owner, 2026-11-03). The role is read from
+        // «المسؤول»: a manager, a guide or (for a regular program) an
+        // assistant (owner, 2026-11-03 and 2026-11-14). The role is read from
         // role or roles (resolveRole). The system account is never in the list
         // (the server leaves it out).
-        setTeachers(allUsers.filter((u) => ['مرشد', 'ادارة'].includes(resolveRole(u))));
+        setTeachers(allUsers.filter((u) => ['مرشد', 'ادارة', 'مساعد'].includes(resolveRole(u))));
         setHelpers(allUsers.filter((u) => resolveRole(u) === 'مساعد'));
       } else{
         throw new Error(usersRes?.message)
@@ -192,7 +195,9 @@ const EditLesson = () => {
 
     const validateBeforeSave = async() => {
       if (!lesson.name?.trim()) return 'اسم البرنامج مطلوب';
-      if (!lesson.teacher) return 'المرشد مطلوب';
+      if (!lesson.teacher) return 'المسؤول مطلوب';
+      const inCharge = inChargeError(teachers, lesson);
+      if (inCharge) return inCharge;
       if (!lesson.room || lesson.room === '-1') return 'المكان مطلوب';
       const d = Number(lesson.date.day);
       const start = Number(lesson.date.startMin);
@@ -393,8 +398,19 @@ const EditLesson = () => {
           </>}
         </div>
         <div className={styles.formControl}>
-          <label htmlFor="lesson-teacher">المرشد / الإدارة:<span style={{color: "red"}}>*</span></label>
+          <label htmlFor="lesson-teacher">المسؤول:<span style={{color: "red"}}>*</span></label>
           {id === 'new' && !viewAll && <small>{t('roster.teacherHint')}</small>}
+          {/* Typing narrows the list below; only a listed person can be chosen. */}
+          <input
+            type="search"
+            id="lesson-teacher-search"
+            aria-label="بحث في قائمة المسؤول"
+            aria-controls="lesson-teacher"
+            placeholder="ابحث بالاسم أو آخر 4 أرقام من الهوية"
+            value={teacherSearch}
+            onChange={(e) => setTeacherSearch(e.target.value)}
+            disabled={!editing}
+          />
           <select
             name="teacher"
             id="lesson-teacher"
@@ -402,24 +418,22 @@ const EditLesson = () => {
             value={lesson.teacher}
             onChange={handleChange}
             disabled={!editing}
+            aria-invalid={Boolean(inChargeError(teachers, lesson)) || undefined}
+            aria-describedby={inChargeError(teachers, lesson) ? 'lesson-teacher-error' : undefined}
           >
-            <option value="">اختر المرشد أو أحد الإدارة</option>
+            <option value="">اختر المسؤول</option>
             {myId && !viewAll && !teachers.some((u) => String(u._id) === myId) && (
               <option value={myId}>{t('common.you')}</option>
             )}
-            {[['مرشد', 'المرشدون'], ['ادارة', 'الإدارة']].map(([role, label]) => {
-              const group = (Array.isArray(teachers) ? teachers : []).filter((u) => resolveRole(u) === role);
-              return group.length > 0 && (
-                <optgroup key={role} label={label}>
-                  {group.map((u) => (
-                    <option key={u._id} value={u._id}>
-                      {u.firstname} {u.lastname}{u.tz ? ` (${String(u.tz).slice(-4)})` : ''}
-                    </option>
-                  ))}
-                </optgroup>
-              );
-            })}
+            {inChargeGroups(teachers, { kind: lesson.kind, search: teacherSearch, chosen: lesson.teacher, exclude: lesson.helper }).map((group) => (
+              <optgroup key={group.role} label={group.label}>
+                {group.users.map((u) => (
+                  <option key={u._id} value={u._id}>{staffLabel(u)}</option>
+                ))}
+              </optgroup>
+            ))}
           </select>
+          {inChargeError(teachers, lesson) && <p id="lesson-teacher-error" role="alert" style={{color: "red"}}>{inChargeError(teachers, lesson)}</p>}
           <label style={{color: "red"}}>{error.teacher}</label>
         </div>
 
@@ -434,7 +448,7 @@ const EditLesson = () => {
           >
             <option value="">اختر المساعد</option>
             {Array.isArray(helpers) &&
-              helpers.map((t) => (
+              helpers.filter((h) => String(h._id) !== String(lesson.teacher || '') || String(h._id) === String(lesson.helper || '')).map((t) => (
                 <option key={t._id} value={t._id}>
                   {t.firstname} {t.lastname}{t.tz ? ` (${String(t.tz).slice(-4)})` : ''}
                 </option>

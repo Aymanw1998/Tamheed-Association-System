@@ -16,6 +16,9 @@ const { can } = require("../../utils/permissions");
 // Users as participants (owner, 2026-11-09): list_users, lessons.staffRoster.
 const { CLASH, staffIds, staffClash, addableUsers, activeUsers, fullName } = require("../../utils/lessonParticipants");
 const mayManageUsers = (actor) => can(actor, "lessons.staffRoster");
+// «المسؤول»: any staff role for a regular program, a guide or a manager for a
+// درس تربوي (owner, 2026-11-14/19); checked on the merged record.
+const { checkInCharge } = require("../../utils/lessonInCharge");
 
 // Student scope: null (students.viewAll, today's behaviour) or the Set of
 // student _ids the actor may see. Hidden ids never leave the server; the
@@ -24,6 +27,12 @@ const scope = createStudentScope({ lessonModel: LessonModelDef, studentModel: St
 
 // Waiting-list status (parent registration, until staff approve).
 const PENDING_STATUS = "ينتظر";
+// A student who is becoming staff, or archived, joins no roster (owner,
+// 2026-11-19); an add that raced the conversion is taken back after the write.
+const { rosterable, takeBackConverting, CONVERSION_IN_PROGRESS } = require("../../utils/rosterGuard");
+const takeBack = (lessonId, addedIds) => takeBackConverting({
+  lessons: LessonModelDef, students: StudentModelDef, lessonId, addedIds, sameVersion, nextStamp, log: logWithSource,
+});
 
 // _ids a scoped actor may put on a roster (addToList, postOne): only students
 // he can already see, that exist and are not waiting. A hidden _id is never
@@ -37,7 +46,7 @@ async function addableIds(ids, visible) {
     seen.add(key);
     const found = await StudentModelDef.get({ _id: key });
     const student = found?.result?.[0];
-    if (student && student.status !== PENDING_STATUS) accepted.push(s);
+    if (student && student.status !== PENDING_STATUS && rosterable(student)) accepted.push(s);
   }
   return accepted;
 }
@@ -53,7 +62,7 @@ async function idsFromTz(tzs) {
     if (!tz) continue;
     const found = await StudentModelDef.get({ tz });
     const student = (found?.result || []).find((s) => String(s.tz) === tz);
-    if (student && student.status !== PENDING_STATUS) ids.push(String(student._id));
+    if (student && student.status !== PENDING_STATUS && rosterable(student)) ids.push(String(student._id));
   }
   return ids;
 }
@@ -70,7 +79,7 @@ async function existingIds(ids) {
     seen.add(key);
     const found = await StudentModelDef.get({ _id: key });
     const student = found?.result?.[0];
-    if (student && student.status !== PENDING_STATUS) accepted.push(s);
+    if (student && student.status !== PENDING_STATUS && rosterable(student)) accepted.push(s);
   }
   return accepted;
 }
@@ -322,6 +331,8 @@ const postOne = async (req, res) => {
       model.list_students = appendNew(model.list_students, await idsFromTz(req.body.list_tz));
     }
     if (await namesSystemAccount([model.teacher, model.helper])) return res.status(400).json(SYSTEM_STAFF);
+    const inCharge = await checkInCharge(UserModelDef, model, null);
+    if (inCharge) return res.status(inCharge.status).json(inCharge.body);
     // Participating users only from a lessons.staffRoster holder; the
     // lesson's own teacher or helper is refused, never quietly dropped.
     if (mayManageUsers(req.actor)) {
@@ -354,11 +365,19 @@ const postOne = async (req, res) => {
       updatedAt: createdAt,
       ...editorStamp(req),
     });
-    await recordLesson(req, "create", null, created?.result || model);
+    // A student who started becoming staff meanwhile is taken back before the
+    // audit row and the answer, so both show the roster as stored; the
+    // program itself was made, so the answer is 201 with notAdded (testing
+    // review, 2026-11-20).
+    const notAdded = await takeBack(created?.result?._id, model.list_students);
+    // Read again: the take-back moved its roster and its version on.
+    const reread = notAdded.length ? ((await LessonModelDef.get({ _id: String(created?.result?._id) }))?.result || [])[0] : null;
+    const stored = reread ? { ...created, result: reread } : created;
+    await recordLesson(req, "create", null, stored?.result || model);
     notifyChange("lesson", created?.result?._id);
     if (model.kind === "educational") await enrolGuideStudents(model.teacher, created?.result?._id);
 
-    return res.status(201).json({ ok: true, lesson: created });
+    return res.status(201).json({ ok: true, lesson: stored, ...(notAdded.length ? { notAdded, message: CONVERSION_IN_PROGRESS.message } : {}) });
   } catch (err) {
     logWithSource("Lesson.postOne", err);
     return res.status(500).json({ ok: false, message: err.message });
@@ -409,6 +428,8 @@ const putOne = async (req, res) => {
       });
     }
     if (await namesSystemAccount([req.body?.teacher, req.body?.helper])) return res.status(400).json(SYSTEM_STAFF);
+    const inCharge = await checkInCharge(UserModelDef, next, current);
+    if (inCharge) return res.status(inCharge.status).json(inCharge.body);
     // Participating users: kept as stored unless a lessons.staffRoster holder
     // sends a list (then: those still listed, plus newly addable ones).
     const storedUsers = (Array.isArray(current.list_users) ? current.list_users : []).map(String);
@@ -451,9 +472,16 @@ const putOne = async (req, res) => {
     notifyChange("lesson", id);
     // The guide's students stay on it, whatever the submitted roster said.
     if (next.kind === "educational") await enrolGuideStudents(next.teacher, id);
+    const before = new Set((current.list_students || []).map(String));
+    // The edit is saved; a student taken back is named in the answer, not a
+    // 409 that reads as "nothing saved" (testing review, 2026-11-20).
+    const notAdded = await takeBack(id, (next.list_students || []).filter((x) => !before.has(String(x))));
+    // Read again: the take-back moved its roster and its version on.
+    const reread = notAdded.length ? ((await LessonModelDef.get({ _id: id }))?.result || [])[0] : null;
+    if (reread && updated) updated.result = reread;
 
     const lesson = visible && updated?.result ? { ...updated, result: scopeLesson(updated.result, visible) } : updated;
-    return res.status(200).json({ ok: true, lesson });
+    return res.status(200).json({ ok: true, lesson, ...(notAdded.length ? { notAdded, message: CONVERSION_IN_PROGRESS.message } : {}) });
   } catch (err) {
     logWithSource("Lesson.putOne", err);
     return res.status(500).json({ ok: false, message: err.message });
@@ -521,6 +549,13 @@ const addToList = async (req, res) => {
     if (!saved?.result) return res.status(409).json(await raceLost(() => LessonModelDef.get({ _id: id })));
     await recordLesson(req, "update", lesson, { ...lesson, list_students: updatedList });
     notifyChange("lesson", id);
+    // A student taken back is named in the answer; the others were added, and
+    // the version is the one after the take-back (testing review, 2026-11-20).
+    const notAdded = await takeBack(id, toAdd);
+    if (notAdded.length) {
+      const reread = ((await LessonModelDef.get({ _id: id }))?.result || [])[0];
+      return res.status(200).json({ ok: true, updatedAt: reread?.updatedAt ?? updatedAt, notAdded, message: CONVERSION_IN_PROGRESS.message });
+    }
 
     // The new version: the open edit screen saves on top of it, not a 409.
     return res.status(200).json({ ok: true, updatedAt });

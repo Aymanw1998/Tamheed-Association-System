@@ -5,7 +5,8 @@ const { OBJECT_ID } = require("./_shared");
 module.exports = {
   name: "propose_attendance",
   description: "Propose saving attendance for one lesson on one date. This does NOT save anything: the user sees a card "
-    + "with exactly what will be saved and must press approve. Only students on that lesson whom the user can see; "
+    + "with exactly what will be saved and must press approve. Only students on that lesson whom the user can see "
+    + "(staff taking part are recorded on the attendance page, not through you; say so if asked); "
     + "never a future date. Each row: studentId (from list_lessons or search_students), status, optional short notes. "
     + "Returns pendingActionId and a summary; tell the user to review and approve the card, never say it is saved.",
   input_schema: {
