@@ -1,5 +1,4 @@
 import ThemeSwitch from "../UI/ThemeSwitch";
-import BottomNav from "./BottomNav";
 import QuickSearch from "./QuickSearch";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -232,8 +231,8 @@ export default function Header() {
       opens("/trash") && { path: "/trash", label: "سلة المحذوفات", icon: "trash" },
     ] },
   ].map((group) => ({ ...group, items: group.items.filter(Boolean) })).filter((group) => group.items.length);
-  // Every page the menu offers, for quick search; the phone bar takes the
-  // everyday ones (package B, 2026-11-08).
+  // Every page the menu offers, for quick search. The phone bottom bar was
+  // removed (owner, 2026-11-20): the menu button does the same.
   const pages = [
     home && { ...home, icon: "home" },
     program && { ...program, icon: "calendar" },
@@ -241,8 +240,6 @@ export default function Header() {
     opens("/calendar") && program?.path !== "/calendar" && { path: "/calendar", label: "الحضور والغياب", icon: "check_list" },
     { path: "/profile", label: "الملف الشخصي", icon: "users" },
   ].filter(Boolean);
-  const byPath = (path) => pages.find((page) => page.path === path);
-  const barItems = [byPath("/dashboard"), program && { ...program, icon: "calendar" }, byPath("/reports") || byPath("/students"), byPath("/notices") || byPath("/weekly-tasks")].filter(Boolean);
 
   return (
     <header id="header" className={styles.header} ref={headerRef} dir={dir} data-menu-open={isMobile && menuOpen}>
@@ -288,7 +285,6 @@ export default function Header() {
         program={program}
         groups={groups}
       />
-      {isMobile && <BottomNav items={barItems} onNav={onNavClick} onMore={() => setMenuOpen((value) => !value)} moreOpen={menuOpen} />}
     </header>
   );
 }

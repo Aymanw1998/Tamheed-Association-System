@@ -213,11 +213,6 @@ table {
 }
 [data-tab-indicator="underline"] > [role="tab"][aria-selected="true"] { border-bottom-color: transparent !important; }
 
-/* Room for the phone's bottom bar (BottomNav) under the page. */
-@media (max-width: 768px) {
-  body.has-bottom-nav { padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px)); }
-}
-
 /* The first wrong field after a failed save (revealFirstError). */
 @keyframes field-shake {
   0%, 100% { transform: none; }
