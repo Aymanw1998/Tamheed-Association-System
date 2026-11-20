@@ -243,6 +243,24 @@ test("PUT permissions refuses an unknown key with 400 UNKNOWN_KEY", async () => 
   assert.deepEqual(body, { ok: false, code: "UNKNOWN_KEY" });
 });
 
+// A key removed from the catalog (lessons.exportExcel, owner 2026-11-20) can
+// still be cleared from a user who has it stored, but never given again.
+test("PUT permissions drops a stored key that no longer exists, but refuses adding it", async () => {
+  const users = createUsers(seed());
+  Object.assign(stored(users, GUIDE_USER.tz), { permissionGrants: ["vehicles.view", "lessons.exportExcel"] });
+  const { res: out } = await call("putPermissions", IT_USER, {
+    params: { tz: GUIDE_USER.tz }, body: { grants: ["vehicles.view"], revokes: ["ai.use"] },
+  }, users);
+  assert.equal(out.statusCode, 200);
+  assert.deepEqual(stored(users, GUIDE_USER.tz).permissionGrants, ["vehicles.view"]);
+
+  const again = await call("putPermissions", IT_USER, {
+    params: { tz: GUIDE_USER.tz }, body: { grants: ["vehicles.view", "lessons.exportExcel"], revokes: ["ai.use"] },
+  }, users);
+  assert.equal(again.res.statusCode, 400);
+  assert.deepEqual(again.body, { ok: false, code: "UNKNOWN_KEY" });
+});
+
 test("PUT permissions refuses a non-array body with 400 UNKNOWN_KEY", async () => {
   const { res: out, body } = await call("putPermissions", MANAGER, {
     params: { tz: GUIDE_USER.tz }, body: { grants: "vehicles.view" },

@@ -10,6 +10,5 @@ router.use(requireAuth, loadActor);
 const controller = defaultController();
 
 router.post("/log", requirePermission("students.viewAll", "users.view"), controller.log);
-router.get("/programs", requirePermission("lessons.viewAll"), controller.programs);
 
 module.exports = router;

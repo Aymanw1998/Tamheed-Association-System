@@ -26,8 +26,7 @@
       "roster",
       "staffRoster",
       "delete",
-      "copyMonth",
-      "exportExcel"
+      "copyMonth"
     ],
     "displays": [
       "manage"
@@ -249,9 +248,6 @@
         },
         "users": {
           "purge": "حذف نهائي من سلة المحذوفات"
-        },
-        "lessons": {
-          "exportExcel": "تصدير ملخص الشهر Excel"
         },
         "attendance": {
           "exportExcel": "تصدير حضور البرنامج Excel"

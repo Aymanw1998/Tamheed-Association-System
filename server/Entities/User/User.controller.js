@@ -1791,9 +1791,13 @@ const putPermissions = async (req, res) => {
     const oldGrants = listOf(user.permissionGrants);
     const oldRevokes = listOf(user.permissionRevokes);
 
+    // A stored key that no longer exists (lessons.exportExcel, removed by the
+    // owner 2026-11-20) may always be dropped: it grants nothing.
+    const changed = (before, after) => symmetricDifference(before, after)
+      .filter((key) => !(before.includes(key) && !after.includes(key) && expandKeys([key]).size === 0));
     const verdict = validatePermissionChange(req.actor, user, {
-      grants: symmetricDifference(oldGrants, nextGrants),
-      revokes: symmetricDifference(oldRevokes, nextRevokes),
+      grants: changed(oldGrants, nextGrants),
+      revokes: changed(oldRevokes, nextRevokes),
     });
     if (!verdict.ok) return verdict.code === "FORBIDDEN" ? forbidden(res) : invalid(res, verdict.code);
 

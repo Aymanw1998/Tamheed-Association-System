@@ -34,7 +34,7 @@ test("unknown keys and bad input are denied", () => {
 });
 
 test("lessons has a viewAll leaf", () => {
-  expect(PERMISSION_TREE.lessons).toEqual(["view", "viewAll", "create", "edit", "roster", "staffRoster", "delete", "copyMonth", "exportExcel"]);
+  expect(PERMISSION_TREE.lessons).toEqual(["view", "viewAll", "create", "edit", "roster", "staffRoster", "delete", "copyMonth"]);
   expect(hasPermission(["lessons.viewAll"], "lessons.viewAll")).toBe(true);
 });
 

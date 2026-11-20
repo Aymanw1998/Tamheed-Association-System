@@ -51,7 +51,7 @@ test("constants have the expected shape", () => {
 test("admin defaults include broad keys, role changes and password resets, and exclude IT and grant-only", () => {
   const set = effectivePermissions({ role: ADMIN });
   for (const key of ["students.viewAll", "lessons.viewAll", "files.manageAll", "users.delete",
-    "students.purge", "vehicles.purge", "users.purge", "students.exportExcel", "users.exportExcel", "lessons.exportExcel",
+    "students.purge", "vehicles.purge", "users.purge", "students.exportExcel", "users.exportExcel",
     "users.changeRole", "users.resetPassword"]) assert.ok(set.has(key), key);
   for (const key of IT_KEYS) assert.ok(!set.has(key), key);
   assert.ok(!set.has("sports.view"));

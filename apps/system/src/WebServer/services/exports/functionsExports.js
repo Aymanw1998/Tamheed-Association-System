@@ -14,5 +14,3 @@ const call = async (request) => {
 
 // kind: "students" | "users". Asked before the file is made.
 export const logExport = (kind, count) => call(() => api.post("/exports/log", { kind, count }));
-// month: "YYYY-MM". The server logs it.
-export const getProgramsSummary = (month) => call(() => api.get("/exports/programs", { params: { month } }));
