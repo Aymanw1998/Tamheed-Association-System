@@ -57,7 +57,7 @@ function store(seed = []) {
   };
 }
 
-function world({ student = {}, lessonList, rows = [], userSeed = [], photoFails = false } = {}) {
+function world({ student = {}, lessonList, rows = [], userSeed = [], photoFails = false, staff = [] } = {}) {
   const students = store([{ _id: STUDENT_ID, tz: "123456782", firstname: "علي", lastname: "طالب", status: "عادي", phone: "0500000000", ...student }]);
   const lessons = store(lessonList || [
     { _id: id("1"), name: "أ", teacher: id("b"), list_students: [STUDENT_ID, id("6")], list_users: [], updatedAt: new Date("2026-11-01") },
@@ -70,6 +70,8 @@ function world({ student = {}, lessonList, rows = [], userSeed = [], photoFails 
   let auditOk = true;
   let nextId = 0;
   const made = [];
+  const linked = [];
+  const photos = [];
   const failCreate = { times: 0 };
   const conversion = createStaffConversion({
     students, lessons, users, attendance,
@@ -83,7 +85,20 @@ function world({ student = {}, lessonList, rows = [], userSeed = [], photoFails 
       made.push(conv.userId);
       return {};
     },
-    copyPhoto: async () => { if (photoFails) throw new Error("drive down"); },
+    copyPhoto: async (args) => { photos.push(args); if (photoFails) throw new Error("drive down"); },
+    // Existing staff (owner, 2026-11-26): { ...user, room } rows in `staff`.
+    findStaff: async (tz) => {
+      const row = staff.find((u) => u.tz === tz);
+      return row ? { user: { ...row }, room: row.room } : null;
+    },
+    linkUser: async ({ student, conv }) => {
+      const row = staff.find((u) => u._id === conv.userId);
+      if (!row || row.room !== "active") return { status: 409, clear: true, body: { ok: false, code: "STAFF_NOT_ACTIVE" } };
+      if (row.fromStudentId && row.fromStudentId !== String(student._id)) return { status: 409, clear: true, body: { ok: false, code: "LINKED_ELSEWHERE" } };
+      row.fromStudentId = String(student._id);
+      linked.push(row._id);
+      return {};
+    },
     newId: () => id(String.fromCharCode(100 + nextId++)), // "dddd…", "eeee…"
     now: () => new Date("2026-11-19T10:00:00Z"),
     sameVersion, nextStamp, log: (where, e) => { if (process.env.DEBUG_CONV) console.error(where, e); },
@@ -93,7 +108,8 @@ function world({ student = {}, lessonList, rows = [], userSeed = [], photoFails 
     mayAccess: async () => true, mayGiveRole: () => true, ...extra,
   });
   const current = () => students.all()[0];
-  return { students, lessons, users, attendance, audits, made, failCreate, run, student: current, setAudit: (v) => { auditOk = v; } };
+  const preview = (extra = {}) => conversion.preview({ studentId: STUDENT_ID, mayAccess: async () => true, mayGiveRole: () => true, ...extra });
+  return { students, lessons, users, attendance, audits, made, linked, photos, staff, failCreate, run, preview, student: current, setAudit: (v) => { auditOk = v; } };
 }
 
 test("a full conversion makes one user, moves him in his programs and archives the student", async () => {
@@ -484,4 +500,107 @@ test("a claim taken over between the read and the write stops the call", async (
   assert.equal(out.status, 503);
   assert.equal(w.student().staffConversion.phase, "prepared");
   assert.equal(w.student().conversionClaim.by, "other");
+});
+
+/* ---------- owner, 2026-11-26: staff with his ID number already exists ---------- */
+// The student is linked to that account instead of a new one: same moves,
+// cutover and archive; the account keeps its role and details.
+const EXISTING = { _id: id("f"), tz: "123456782", firstname: "علي", lastname: "موظف", role: "مرشد", room: "active" };
+
+test("staff with the student's ID number: he is linked to that account, no new one, no password", async () => {
+  const w = world({ staff: [{ ...EXISTING }] });
+  const out = await w.run({});
+  assert.equal(out.status, 200, JSON.stringify(out.body));
+  assert.equal(out.body.userId, EXISTING._id);
+  assert.equal(out.body.linked, true);
+  assert.deepEqual(w.made, [], "no account made");
+  assert.deepEqual(w.linked, [EXISTING._id]);
+  assert.equal(w.staff[0].fromStudentId, STUDENT_ID, "the account is marked as his");
+  const [a, b] = w.lessons.all();
+  assert.deepEqual(a.list_students, [id("6")]);
+  assert.deepEqual(a.list_users, [EXISTING._id]);
+  assert.deepEqual(b.list_users, [id("c"), EXISTING._id]);
+  const s = w.student();
+  assert.equal(s.staffConversion.phase, "done");
+  assert.equal(s.staffConversion.role, "مرشد", "the account's own role");
+  assert.ok(s.archivedAt);
+  assert.deepEqual(w.audits[0].after, { role: "مرشد", linkedUserId: EXISTING._id });
+  assert.equal(w.photos[0].keepExisting, true, "the account keeps its own photo");
+});
+
+test("a role or password sent along is ignored when linking", async () => {
+  const w = world({ staff: [{ ...EXISTING }] });
+  const out = await w.run({ role: "مساعد", password: "x", phone: "1" });
+  assert.equal(out.status, 200);
+  assert.equal(w.student().staffConversion.role, "مرشد");
+});
+
+test("existing staff that is not active (waiting or suspended): refused, nothing changed", async () => {
+  for (const room of ["waiting", "noActive"]) {
+    const w = world({ staff: [{ ...EXISTING, room }] });
+    const out = await w.run();
+    assert.equal(out.status, 409);
+    assert.equal(out.body.code, "STAFF_NOT_ACTIVE");
+    assert.equal(w.student().staffConversion, undefined);
+    assert.equal(w.audits.length, 0);
+    assert.deepEqual(w.made, [], "no second account either");
+  }
+});
+
+test("existing staff linked to another student: refused, nothing changed", async () => {
+  const w = world({ staff: [{ ...EXISTING, fromStudentId: id("6") }] });
+  const out = await w.run();
+  assert.equal(out.body.code, "LINKED_ELSEWHERE");
+  assert.equal(w.student().staffConversion, undefined);
+  assert.equal(w.lessons.all()[0].list_students.length, 2);
+});
+
+test("linking needs the right to give that account's role", async () => {
+  const w = world({ staff: [{ ...EXISTING, role: "ادارة" }] });
+  const out = await w.run({}, { mayGiveRole: (role) => role !== "ادارة" });
+  assert.equal(out.status, 403);
+  assert.equal(w.student().staffConversion, undefined);
+  assert.equal(w.audits.length, 0);
+});
+
+test("an account that stopped being active before the link: the conversion is cleared, nothing moved", async () => {
+  const w = world({ staff: [{ ...EXISTING }] });
+  // Stopped right after "preparing" (the link was chosen), then the account was suspended.
+  w.students.all()[0].staffConversion = { phase: "preparing", role: "مرشد", linkUserId: EXISTING._id };
+  w.staff[0].room = "noActive";
+  const out = await w.run({});
+  assert.equal(out.status, 409);
+  assert.equal(w.student().staffConversion, null);
+  assert.deepEqual(w.lessons.all()[0].list_students, [STUDENT_ID, id("6")]);
+  assert.equal(w.student().archivedAt, undefined);
+});
+
+test("a stopped link is resumed without a password and ends once", async () => {
+  const w = world({ staff: [{ ...EXISTING }] });
+  w.students.all()[0].staffConversion = { phase: "preparing", role: "مرشد", linkUserId: EXISTING._id };
+  const out = await w.run({});
+  assert.equal(out.status, 200, JSON.stringify(out.body));
+  assert.equal(w.student().staffConversion.userId, EXISTING._id);
+  assert.deepEqual(w.linked, [EXISTING._id]);
+  assert.deepEqual(w.made, []);
+});
+
+test("preview: nothing found, or the account and whether he can be linked (never its id)", async () => {
+  assert.deepEqual((await world().preview()).body, { ok: true, existing: null });
+  const out = await world({ staff: [{ ...EXISTING }] }).preview();
+  assert.equal(out.status, 200);
+  assert.deepEqual(out.body.existing, { name: "علي موظف", role: "مرشد", active: true, linkedElsewhere: false, mayLink: true });
+  const waiting = await world({ staff: [{ ...EXISTING, room: "waiting", fromStudentId: id("6") }] }).preview({ mayGiveRole: () => false });
+  assert.deepEqual(waiting.body.existing, { name: "علي موظف", role: "مرشد", active: false, linkedElsewhere: true, mayLink: false });
+});
+
+test("preview: an ordinary conversion resumed after its account was made shows no existing staff", async () => {
+  const w = world({ staff: [{ ...EXISTING, _id: id("d"), fromStudentId: STUDENT_ID }] });
+  w.students.all()[0].staffConversion = { phase: "account", role: "مساعد", userId: id("d") };
+  assert.equal((await w.preview()).body.existing, null);
+});
+
+test("preview: a student outside the actor's scope is not found", async () => {
+  const out = await world({ staff: [{ ...EXISTING }] }).preview({ mayAccess: async () => false });
+  assert.equal(out.status, 404);
 });

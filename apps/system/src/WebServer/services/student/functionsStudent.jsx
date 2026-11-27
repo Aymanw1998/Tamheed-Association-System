@@ -158,10 +158,23 @@ export const getArchived = async() => {
 
 // A student becomes staff, or a stopped conversion is finished (owner, 2026-11-19).
 // body: { role, password, phone, email }. Answers { ok, userId } or { ok:false, code, message }.
+// Before anything is sent (owner, 2026-11-26): staff with the student's ID
+// number, if any: { name, role, active, linkedElsewhere, mayLink } or null.
+// A failed look answers ok: false; the window then works as before and the
+// server still decides.
+export const makeStaffPreview = async(studentId) => {
+    try{
+        const {data} = await api.get(`/student/${encodeURIComponent(studentId)}/make-staff`);
+        return {ok: true, existing: data?.existing || null};
+    } catch(err) {
+        return {ok: false, existing: null};
+    }
+}
+
 export const makeStaff = async(studentId, body) => {
     try{
         const {data} = await api.post(`/student/${encodeURIComponent(studentId)}/make-staff`, body);
-        return {ok: true, userId: data?.userId, photoCopied: data?.photoCopied};
+        return {ok: true, userId: data?.userId, photoCopied: data?.photoCopied, linked: data?.linked === true};
     } catch(err) {
         return {ok: false, status: err.response?.status, code: err.response?.data?.code, message: err.response?.data?.message || 'تعذّر إتمام العملية.'};
     }

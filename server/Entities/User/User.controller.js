@@ -3,7 +3,7 @@ const jwt = require("jsonwebtoken");
 const path = require("path");
 
 const { UserModelDef } = require("./User.model");
-const { checkVersion, editorStamp, sameVersion, raceLost } = require("../../middleware/lockGuard");
+const { checkVersion, editorStamp, sameVersion, raceLost, nextStamp } = require("../../middleware/lockGuard");
 const { isDuplicateKey } = require("../../utils/tzUnique");
 const { notifyChange } = require("../../services/liveHub");
 
@@ -748,10 +748,57 @@ async function createUserFromStudent({ student, conv, body = {}, req }) {
   }
 }
 
+// The staff account holding this ID number (any spelling), with its room, or
+// null (owner, 2026-11-26: a student with the ID number of existing staff is
+// linked to that account). A failed read throws.
+async function findStaffByTz(tz) {
+  for (const room of ROOMS) {
+    const found = await UserModelDef.get(sameTzFilter(tz), room);
+    if (!found || found.success === false) throw new Error("user lookup failed");
+    const user = (found.result || [])[0];
+    if (user) return { user, room };
+  }
+  return null;
+}
+
+// Links the student to the existing staff account chosen when the conversion
+// started (conv.userId): checked again here (still active, same ID number, not
+// linked to another student), then marked with fromStudentId. Its role and
+// details are not touched. Answers {} or { status, body, clear }.
+async function linkUserToStudent({ student, conv, req }) {
+  const userId = String(conv.userId);
+  const digits = (v) => String(v ?? "").trim().replace(/^0+/, "");
+  const refuse = (code, message) => ({ status: 409, clear: true, body: { ok: false, code, message } });
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const found = await UserModelDef.get({ _id: userId }, "active");
+    if (!found || found.success === false) throw new Error("user lookup failed");
+    const user = (found.result || [])[0];
+    if (!user) return refuse("STAFF_NOT_ACTIVE", "حساب الطاقم بنفس رقم الهوية لم يعد فعّالًا، لم يتغير شيء");
+    if (digits(user.tz) !== digits(student.tz)) return refuse("TZ_CHANGED", "رقم الهوية في حساب الطاقم تغيّر، لم يتغير شيء");
+    if (String(user.fromStudentId || "") === String(student._id)) return {};
+    if (user.fromStudentId) return refuse("LINKED_ELSEWHERE", "حساب الطاقم بنفس رقم الهوية مرتبط بطالب آخر");
+    const patch = { fromStudentId: String(student._id), updatedAt: nextStamp(user) };
+    const written = await UserModelDef.updateExisting(sameVersion({ _id: userId }, user), patch, "active");
+    if (written?.result) {
+      await recordUser(req, "update", user, { ...user, ...patch, room: "active" });
+      notifyChange("user", userId);
+      return {};
+    }
+  }
+  throw new Error("user kept changing");
+}
+
 // The student's photo copied to a new file for the staff account, never the
 // same file: replacing either one later never removes the other.
-async function copyStudentPhotoToUser({ student, userId }) {
+// keepExisting (a student linked to an account that was already there): the
+// account's own photo stays; the student's is copied only when it has none.
+async function copyStudentPhotoToUser({ student, userId, keepExisting = false }) {
   if (!student?.photo) return;
+  if (keepExisting) {
+    const found = await UserModelDef.get({ _id: String(userId) }, "active");
+    if (found?.success === false) throw new Error("user lookup failed");
+    if ((found?.result || [])[0]?.photo) return;
+  }
   const drive = require("../../services/googleDrive.service");
   const fileId = drive.extractFileId(student.photo);
   if (!fileId) return;
@@ -2366,6 +2413,8 @@ const trashHooks = {
 module.exports = {
   trashHooks,
   createUserFromStudent,
+  findStaffByTz,
+  linkUserToStudent,
   copyStudentPhotoToUser,
   // A first role on a new account (users.create), for a student made staff.
   mayGiveStaffRole: (actor, role) => canGiveFirstRole(actor, {}, role, "users.create"),

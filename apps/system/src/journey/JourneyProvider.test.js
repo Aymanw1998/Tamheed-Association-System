@@ -67,6 +67,11 @@ beforeEach(() => {
 
 global.IS_REACT_ACT_ENVIRONMENT = true;
 
+// The guide (with its DiceBear drawings) loads lazily on the first start. Load it
+// once here, with its own time limit, so that cost is not charged to the first
+// test: under load (several suites at once) it went past Jest's 5 s limit.
+beforeAll(() => import("./Guide"), 60000);
+
 let container;
 let root;
 let api;

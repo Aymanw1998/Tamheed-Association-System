@@ -28,6 +28,12 @@ const FORBIDDEN = answer(403, { code: "FORBIDDEN", message: "لا توجد صل�
 const AUDIT_FAILED = answer(503, { ok: false, code: "AUDIT_FAILED", message: "تعذر تسجيل العملية، لم يتغير شيء. حاول مرة أخرى" });
 const INCOMPLETE = answer(503, { ok: false, code: "CONVERSION_INCOMPLETE", message: "التحويل لم يكتمل. اضغط «إكمال التحويل» للمتابعة" });
 const NEEDS_PASSWORD = answer(400, { ok: false, code: "MISSING_FIELDS", message: "كلمة المرور الأولى ورقم الهاتف مطلوبان" });
+// Staff with the student's ID number already exists (owner, 2026-11-26): the
+// student is linked to that account instead of a new one, only while it is
+// active, not linked to another student, and its role is one the actor may give.
+const STAFF_NOT_ACTIVE = answer(409, { ok: false, code: "STAFF_NOT_ACTIVE", message: "يوجد في الطاقم حساب بنفس رقم الهوية لكنه غير فعّال (ينتظر الموافقة أو موقوف). فعّله أولًا ثم حاول مرة أخرى" });
+const LINKED_ELSEWHERE = answer(409, { ok: false, code: "LINKED_ELSEWHERE", message: "حساب الطاقم بنفس رقم الهوية مرتبط بطالب آخر" });
+const LINK_FORBIDDEN = answer(403, { ok: false, code: "FORBIDDEN", message: "لا يمكنك ربط الطالب بحساب طاقم بهذا الدور" });
 
 // The Israel date of `now` plus `days`, as yyyymmdd.
 const ISRAEL = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jerusalem", year: "numeric", month: "2-digit", day: "2-digit" });
@@ -44,7 +50,31 @@ function createStaffConversion(deps) {
   const {
     students, lessons, users, attendance, recordRequired, createUser, copyPhoto,
     newId, now = () => new Date(), sameVersion, nextStamp, log = () => {},
+    // findStaff(tz) -> { user, room } | null: the staff account with this ID
+    // number in any room. linkUser({ student, conv, req }) -> {} | { status, body, clear }.
+    findStaff = async () => null, linkUser,
   } = deps;
+
+  // The staff account with the student's ID number, if there is one, and
+  // whether he can be linked to it. A resume of an ordinary conversion finds
+  // his own new account: not counted.
+  async function existingFor(student, mayGiveRole) {
+    const conv = student.staffConversion || null;
+    if (conv && !conv.linkUserId) return null;
+    const tz = sid(student.tz).trim();
+    const found = tz ? await findStaff(tz) : null;
+    if (!found?.user) return null;
+    const user = found.user;
+    const role = sid(user.role).trim();
+    return {
+      userId: sid(user._id),
+      name: `${user.firstname || ""} ${user.lastname || ""}`.trim() || sid(user.tz),
+      role,
+      active: found.room === "active",
+      linkedElsewhere: Boolean(user.fromStudentId) && sid(user.fromStudentId) !== sid(student._id),
+      mayLink: Boolean(role) && Boolean(mayGiveRole(role)),
+    };
+  }
 
   async function readStudent(id) {
     if (!OBJECT_ID.test(sid(id))) return null;
@@ -153,43 +183,64 @@ function createStaffConversion(deps) {
       if (conv?.phase === "done") return DONE;
 
       if (!conv) {
-        const role = String(body.role || "").trim();
-        if (!STAFF_ROLES.has(role)) return BAD_ROLE;
-        if (!mayGiveRole(role)) return FORBIDDEN;
-        if (student.archivedAt || student.status !== ELIGIBLE_STATUS) return NOT_ELIGIBLE;
-        if (!String(body.password || "").trim() || !String(body.phone || student.phone || "").trim()) return NEEDS_PASSWORD;
+        const existing = await existingFor(student, mayGiveRole);
+        let role;
+        if (existing) {
+          // Linked to that account: its role and details stay as they are.
+          if (!existing.active) return STAFF_NOT_ACTIVE;
+          if (existing.linkedElsewhere) return LINKED_ELSEWHERE;
+          if (!existing.mayLink) return LINK_FORBIDDEN;
+          role = existing.role;
+          if (student.archivedAt || student.status !== ELIGIBLE_STATUS) return NOT_ELIGIBLE;
+        } else {
+          role = String(body.role || "").trim();
+          if (!STAFF_ROLES.has(role)) return BAD_ROLE;
+          if (!mayGiveRole(role)) return FORBIDDEN;
+          if (student.archivedAt || student.status !== ELIGIBLE_STATUS) return NOT_ELIGIBLE;
+          if (!String(body.password || "").trim() || !String(body.phone || student.phone || "").trim()) return NEEDS_PASSWORD;
+        }
         const recorded = await recordRequired(req, {
           module: "students", action: "make_staff", targetType: "student", targetId: sid(student._id),
-          targetLabel: `${student.firstname || ""} ${student.lastname || ""}`.trim(), after: { role },
+          targetLabel: `${student.firstname || ""} ${student.lastname || ""}`.trim(),
+          after: existing ? { role, linkedUserId: existing.userId } : { role },
         });
         if (!recorded) return AUDIT_FAILED;
         // The barrier: from here on no roster takes him (utils/rosterGuard).
         student = await writeHeld(studentId, requestId, {
-          staffConversion: { phase: "preparing", role, startedAt: now(), startedBy: sid(actor?.id) },
+          staffConversion: {
+            phase: "preparing", role, startedAt: now(), startedBy: sid(actor?.id),
+            ...(existing ? { linkUserId: existing.userId } : {}),
+          },
         });
         conv = student.staffConversion;
       }
+      const linking = Boolean(conv.linkUserId);
 
       // While the account is still to be made, a resume is checked like a first
       // call: the stored role must still be one the actor may give, and the
       // first password and a phone are needed (Codex build review).
       if (conv.phase === "preparing" || conv.phase === "prepared") {
-        if (!mayGiveRole(conv.role)) return FORBIDDEN;
-        if (!String(body.password || "").trim() || !String(body.phone || student.phone || "").trim()) return NEEDS_PASSWORD;
+        if (!mayGiveRole(conv.role)) return linking ? LINK_FORBIDDEN : FORBIDDEN;
+        if (!linking && (!String(body.password || "").trim() || !String(body.phone || student.phone || "").trim())) return NEEDS_PASSWORD;
       }
 
       if (conv.phase === "preparing") {
         const plannedLessons = await programsHolding(studentId);
-        conv = { ...conv, phase: "prepared", userId: newId(), cutoverDateKey: israelDateKey(now(), 1), plannedLessons, movedLessons: [] };
+        conv = { ...conv, phase: "prepared", userId: linking ? sid(conv.linkUserId) : newId(), cutoverDateKey: israelDateKey(now(), 1), plannedLessons, movedLessons: [] };
         student = await writeHeld(studentId, requestId, { staffConversion: conv });
       }
 
       if (conv.phase === "prepared") {
         // The account first: a refused one (tz of other staff) leaves nothing
         // changed, attendance included (Codex build review).
-        const made = await createUser({ student, conv, body, actor, req });
+        // Linking checks the account again (still active, same ID number, not
+        // linked to another student) and marks it as his.
+        const made = linking
+          ? await linkUser({ student, conv, req })
+          : await createUser({ student, conv, body, actor, req });
         if (made.status) {
-          // The tz belongs to other staff: nothing else was changed, the conversion is cleared.
+          // Refused (tz of other staff, or the account to link changed):
+          // nothing else was changed, the conversion is cleared.
           if (made.clear) await writeHeld(studentId, requestId, { staffConversion: null });
           return answer(made.status, made.body);
         }
@@ -230,11 +281,12 @@ function createStaffConversion(deps) {
         });
       }
 
-      const photoCopied = await copyPhoto({ student, userId: conv.userId }).then(() => true, (error) => {
+      // A linked account keeps its own photo; it gets the student's only when it has none.
+      const photoCopied = await copyPhoto({ student, userId: conv.userId, keepExisting: linking }).then(() => true, (error) => {
         log("staffConversion.photo", error);
         return false;
       });
-      return answer(200, { ok: true, userId: sid(conv.userId), photoCopied });
+      return answer(200, { ok: true, userId: sid(conv.userId), photoCopied, linked: linking });
     } catch (error) {
       log("staffConversion.run", error);
       return INCOMPLETE;
@@ -243,7 +295,17 @@ function createStaffConversion(deps) {
     }
   }
 
-  return { run, israelDateKey };
+  /** GET: what the window shows before anything is sent (owner, 2026-11-26). */
+  async function preview({ studentId, mayAccess, mayGiveRole }) {
+    const student = await readStudent(studentId);
+    if (!student || !(await mayAccess(student, student.staffConversion || null))) return NOT_FOUND;
+    const existing = await existingFor(student, mayGiveRole);
+    if (!existing) return answer(200, { ok: true, existing: null });
+    const { userId, ...shown } = existing;
+    return answer(200, { ok: true, existing: shown });
+  }
+
+  return { run, preview, israelDateKey };
 }
 
 module.exports = { createStaffConversion, israelDateKey, STAFF_ROLES };

@@ -77,7 +77,9 @@ function world({ student = {}, lessons } = {}) {
     "../User/User.controller": {
       async createUserFromStudent({ student: s, conv }) { await users.create({ _id: conv.userId, tz: s.tz, fromStudentId: String(s._id) }); return {}; },
       async copyStudentPhotoToUser() {},
-      mayGiveStaffRole: () => true,
+      async findStaffByTz(tz) { const user = (await users.get({ tz })).result[0]; return user ? { user, room: user.room || "active" } : null; },
+      async linkUserToStudent({ student: s, conv }) { await users.updateExisting({ _id: conv.userId }, { fromStudentId: String(s._id) }); return {}; },
+      mayGiveStaffRole: (actor, role) => role !== "ادارة" || actor.role === "ادارة",
     },
     ...audit.deps,
   };
@@ -140,4 +142,44 @@ test("a stopped conversion is resumed through a planned program; a guide on none
   const res = await call(w, GUIDE, STUDENT_ID, {});
   assert.equal(res.statusCode, 200, JSON.stringify(res.body));
   assert.equal(w.students.all()[0].staffConversion.phase, "done");
+});
+
+/* ---------- owner, 2026-11-26: the window's first look, and linking ---------- */
+async function look(w, user, studentId) {
+  const res = { statusCode: 200, status(c) { this.statusCode = c; return this; }, json(v) { this.body = JSON.parse(JSON.stringify(v)); return this; } };
+  await w.controller.makeStaffPreview({ actor: actorFor(user), params: { id: studentId }, headers: {} }, res);
+  return res;
+}
+
+test("the window's first look has its own route with the same two keys", () => {
+  const source = fs.readFileSync(path.join(__dirname, "../Entities/Student/Student.route.js"), "utf8");
+  const line = source.split("\n").find((l) => l.startsWith("router.get('/:id/make-staff'"));
+  assert.ok(line, "the route exists");
+  assert.match(line, /requirePermission\('students\.makeStaff'\)/);
+  assert.match(line, /requirePermission\('users\.create'\)/);
+});
+
+test("the first look keeps the student scope, and shows staff with his ID number", async () => {
+  const w = world();
+  assert.equal((await look(w, GUIDE, OTHER_STUDENT)).statusCode, 404);
+  assert.deepEqual((await look(w, GUIDE, STUDENT_ID)).body, { ok: true, existing: null });
+  await w.users.create({ _id: id("f"), tz: "000000018", firstname: "علي", lastname: "موظف", role: "ادارة" });
+  const guideSees = (await look(w, GUIDE, STUDENT_ID)).body.existing;
+  assert.equal(guideSees.mayLink, false, "a guide may not link to a manager's account");
+  assert.equal(guideSees.userId, undefined, "the account id is not sent");
+  assert.equal((await look(w, ADMIN, STUDENT_ID)).body.existing.mayLink, true);
+});
+
+test("a guide cannot link his student to a manager's account; the manager can", async () => {
+  const w = world();
+  await w.users.create({ _id: id("f"), tz: "000000018", firstname: "علي", lastname: "موظف", role: "ادارة" });
+  const refused = await call(w, GUIDE, STUDENT_ID, {});
+  assert.equal(refused.statusCode, 403);
+  assert.equal(w.students.all()[0].staffConversion, undefined);
+  const res = await call(w, ADMIN, STUDENT_ID, {});
+  assert.equal(res.statusCode, 200, JSON.stringify(res.body));
+  assert.equal(res.body.linked, true);
+  assert.equal(w.users.all().length, 1, "no second account");
+  assert.equal(w.users.all()[0].fromStudentId, STUDENT_ID);
+  assert.deepEqual(w.lessons.all()[0].list_users, [id("f")]);
 });

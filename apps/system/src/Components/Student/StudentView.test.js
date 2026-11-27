@@ -10,7 +10,7 @@ jest.mock("react-router-dom", () => {
   return jest.requireActual("react-router");
 });
 jest.mock("../../WebServer/services/api", () => ({ __esModule: true, default: { get: jest.fn(), post: jest.fn() }, API_BASE_URL: "/api" }));
-jest.mock("../../WebServer/services/student/functionsStudent.jsx", () => ({ getOne: jest.fn(), deleteS: jest.fn(), update: jest.fn(), makeStaff: jest.fn() }));
+jest.mock("../../WebServer/services/student/functionsStudent.jsx", () => ({ getOne: jest.fn(), deleteS: jest.fn(), update: jest.fn(), makeStaff: jest.fn(), makeStaffPreview: jest.fn() }));
 jest.mock("../../ALERT/SystemToasts", () => ({ toast: { success: jest.fn(), warn: jest.fn(), error: jest.fn() } }));
 jest.mock("../../WebServer/services/lesson/functionsLesson.jsx", () => ({ getAllLesson: jest.fn() }));
 jest.mock("../ExportPDF/ExportPDF.jsx", () => ({ exportStudentPdf: jest.fn() }));
@@ -21,7 +21,7 @@ jest.mock("../../utils/session", () => ({
   getStoredUserId: () => "viewer-1",
 }));
 
-import { getOne, deleteS, update, makeStaff } from "../../WebServer/services/student/functionsStudent.jsx";
+import { getOne, deleteS, update, makeStaff, makeStaffPreview } from "../../WebServer/services/student/functionsStudent.jsx";
 import { getAllLesson } from "../../WebServer/services/lesson/functionsLesson.jsx";
 import { exportStudentPdf } from "../ExportPDF/ExportPDF.jsx";
 import StudentView from "./StudentView";
@@ -468,4 +468,98 @@ test("without both keys a stopped conversion says to ask the manager, with no bu
   expect(button("إكمال التحويل")).toBeUndefined();
   expect(container.textContent).toContain("اطلب من المدير إكماله");
   expect(container.querySelector('[role="status"]').textContent).toContain("لم يكتمل");
+});
+
+/* ---------- 2026-11-26: «تحويل» did nothing on an iPhone ---------- */
+// A student's saved email is never checked, but the window's email field is
+// type=email: Safari on the iPhone then refused to send the form without saying
+// why. The window checks the fields itself and says what is wrong.
+test("the conversion window never leaves it to the browser to refuse the form", async () => {
+  const dialog = await openMakeStaff();
+  expect(dialog.querySelector("form").noValidate).toBe(true);
+});
+
+test("an invalid saved email is named in the window instead of the tap doing nothing", async () => {
+  const dialog = await openMakeStaff({ ...STUDENT, email: "لا يوجد" });
+  makeStaff.mockResolvedValue({ ok: true, userId: "u9" });
+  await fillNew(dialog);
+  await submitDialog(dialog);
+  expect(makeStaff).not.toHaveBeenCalled();
+  const alert = dialog.querySelector("[role=alert]");
+  expect(alert.textContent).toContain("البريد الإلكتروني غير صالح");
+  const email = dialog.querySelector("input[type=email]");
+  expect(email.getAttribute("aria-invalid")).toBe("true");
+  expect(document.activeElement).toBe(email);
+  await act(async () => { setValue(email, ""); });
+  await submitDialog(dialog);
+  expect(makeStaff).toHaveBeenCalledWith("s1", expect.objectContaining({ email: "" }));
+});
+
+/* ---------- 2026-11-26: staff with his ID number already exists ---------- */
+const EXISTING = { name: "علي موظف", role: "مرشد", active: true, linkedElsewhere: false, mayLink: true };
+const openWithExisting = async (existing) => {
+  mockPerms = ["students.view", "students.edit", "students.makeStaff", "users.create"];
+  getOne.mockResolvedValue({ ok: true, student: STUDENT });
+  makeStaffPreview.mockResolvedValue({ ok: true, existing });
+  await mount();
+  await act(async () => button("تحويل إلى الطاقم").focus());
+  await act(async () => button("تحويل إلى الطاقم").click());
+  return container.querySelector("[role=dialog]");
+};
+const submitOf = (dialog) => [...dialog.querySelectorAll("button")].find((b) => b.type === "submit");
+
+test("the window says at once that he will be linked to the existing account, and asks for nothing", async () => {
+  const dialog = await openWithExisting(EXISTING);
+  expect(makeStaffPreview).toHaveBeenCalledWith("s1");
+  expect(dialog.querySelector("[role=status]").textContent).toContain("علي موظف (مرشد)");
+  expect(dialog.textContent).toContain("لا يُنشأ حساب جديد");
+  expect(dialog.querySelector("select")).toBeNull();
+  expect(dialog.querySelector("input")).toBeNull();
+  const submit = submitOf(dialog);
+  expect(submit.textContent).toBe("ربط بالحساب");
+  expect(submit.disabled).toBe(false);
+  expect(document.activeElement).toBe(submit);
+  const { toast } = require("../../ALERT/SystemToasts");
+  makeStaff.mockResolvedValue({ ok: true, userId: "u9", linked: true });
+  await submitDialog(dialog);
+  expect(makeStaff).toHaveBeenCalledWith("s1", {});
+  expect(toast.success).toHaveBeenCalledWith("رُبط بحسابه في الطاقم");
+});
+
+test.each([
+  [{ ...EXISTING, active: false }, "غير فعّال"],
+  [{ ...EXISTING, linkedElsewhere: true }, "مرتبط بطالب آخر"],
+  [{ ...EXISTING, mayLink: false }, "لا يمكنك ربط الطالب"],
+])("an account he cannot be linked to: the window says why and nothing can be sent (%#)", async (existing, why) => {
+  const dialog = await openWithExisting(existing);
+  expect(dialog.querySelector("[role=alert]").textContent).toContain(why);
+  expect(dialog.querySelector("input")).toBeNull();
+  expect(submitOf(dialog).disabled).toBe(true);
+  expect(document.activeElement.textContent).toBe("إلغاء");
+  await submitDialog(dialog);
+  expect(makeStaff).not.toHaveBeenCalled();
+});
+
+test("nothing can be sent before the first look answers; a failed look leaves the usual form", async () => {
+  mockPerms = ["students.view", "students.edit", "students.makeStaff", "users.create"];
+  getOne.mockResolvedValue({ ok: true, student: STUDENT });
+  let answer;
+  makeStaffPreview.mockReturnValue(new Promise((resolve) => { answer = resolve; }));
+  await mount();
+  await act(async () => button("تحويل إلى الطاقم").click());
+  const dialog = container.querySelector("[role=dialog]");
+  await fillNew(dialog);
+  expect(submitOf(dialog).disabled).toBe(true);
+  await act(async () => answer({ ok: false, existing: null }));
+  expect(submitOf(dialog).disabled).toBe(false);
+  expect(dialog.querySelector("input[type=password]")).not.toBeNull();
+});
+
+test("a stopped link is finished without a password", async () => {
+  const dialog = await openMakeStaff({ ...STUDENT, staffConversion: { phase: "prepared", role: "مرشد", linkUserId: "u9" } });
+  expect(dialog.querySelector("input[type=password]")).toBeNull();
+  expect(dialog.querySelector("[role=status]").textContent).toContain("ربط الطالب بحسابه");
+  makeStaff.mockResolvedValue({ ok: true, userId: "u9", linked: true });
+  await submitDialog(dialog);
+  expect(makeStaff).toHaveBeenCalledWith("s1", {});
 });

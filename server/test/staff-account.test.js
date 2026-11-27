@@ -154,3 +154,66 @@ test("the photo is copied to a new file, under the model's database name, even w
   assert.deepEqual(uploads, [{ dbName: "tamheed_db", collection: "Users", tz: STUDENT_TZ }]);
   assert.equal(users.rooms.active[0].photo, "https://drive/new-file", "his own file, not the student's");
 });
+
+/* ---------- owner, 2026-11-26: a student linked to existing staff ---------- */
+const STAFF = { _id: USER_ID, tz: "18", firstname: "علي", lastname: "موظف", role: "مرشد", phone: "0529999999", password: "enc:Own-1", updatedAt: new Date("2026-11-01") };
+
+test("findStaffByTz finds staff in any room and any spelling of the ID number", async () => {
+  const c = load(createUsers({ waiting: [{ ...STAFF }] }));
+  const found = await c.findStaffByTz(STUDENT_TZ);
+  assert.equal(found.room, "waiting");
+  assert.equal(found.user._id, USER_ID);
+  assert.equal(await load(createUsers()).findStaffByTz(STUDENT_TZ), null);
+});
+
+test("findStaffByTz throws on a failed read instead of answering none", async () => {
+  const users = createUsers();
+  users.get = async () => ({ success: false });
+  await assert.rejects(load(users).findStaffByTz(STUDENT_TZ));
+});
+
+test("linking marks the account as his and keeps its role, phone and password", async () => {
+  const users = createUsers({ active: [{ ...STAFF }] });
+  const out = await load(users).linkUserToStudent({ student: student(), conv: { userId: USER_ID, role: "مرشد" }, req: {} });
+  assert.deepEqual(JSON.parse(JSON.stringify(out)), {});
+  const [u] = users.rooms.active;
+  assert.equal(u.fromStudentId, STUDENT_ID);
+  assert.equal(u.role, "مرشد");
+  assert.equal(u.phone, "0529999999");
+  assert.equal(u.password, "enc:Own-1");
+  assert.ok(new Date(u.updatedAt) > STAFF.updatedAt, "its version moves on");
+  const again = await load(users).linkUserToStudent({ student: student(), conv: { userId: USER_ID }, req: {} });
+  assert.deepEqual(JSON.parse(JSON.stringify(again)), {}, "a resume finds it already linked");
+});
+
+test("linking is refused when the account is no longer active, is another student's, or changed its ID number", async () => {
+  const cases = [
+    [createUsers({ noActive: [{ ...STAFF }] }), "STAFF_NOT_ACTIVE"],
+    [createUsers({ active: [{ ...STAFF, fromStudentId: "6".repeat(24) }] }), "LINKED_ELSEWHERE"],
+    [createUsers({ active: [{ ...STAFF, tz: "000000026" }] }), "TZ_CHANGED"],
+  ];
+  for (const [users, code] of cases) {
+    const out = await load(users).linkUserToStudent({ student: student(), conv: { userId: USER_ID }, req: {} });
+    assert.equal(out.status, 409);
+    assert.equal(out.clear, true);
+    assert.equal(out.body.code, code);
+  }
+  assert.equal(cases[2][0].rooms.active[0].fromStudentId, undefined, "nothing written");
+});
+
+test("a linked account keeps its own photo; one without a photo gets the student's", async () => {
+  let downloads = 0;
+  const drive = {
+    extractFileId: () => "file-1",
+    async downloadStream() { downloads += 1; return (async function* one() { yield Buffer.from("x"); })(); },
+    async getFileInfo() { return {}; },
+  };
+  const upload = async () => ({ secure_url: "https://example.test/new.jpg" });
+  const withPhoto = createUsers({ active: [{ ...STAFF, photo: "https://example.test/own.jpg" }] });
+  await load(withPhoto, { drive, upload }).copyStudentPhotoToUser({ student: student({ photo: "https://drive.test/s" }), userId: USER_ID, keepExisting: true });
+  assert.equal(withPhoto.rooms.active[0].photo, "https://example.test/own.jpg");
+  assert.equal(downloads, 0);
+  const without = createUsers({ active: [{ ...STAFF }] });
+  await load(without, { drive, upload }).copyStudentPhotoToUser({ student: student({ photo: "https://drive.test/s" }), userId: USER_ID, keepExisting: true });
+  assert.equal(without.rooms.active[0].photo, "https://example.test/new.jpg");
+});

@@ -354,3 +354,12 @@ staff attendance is not available through it (no silent drop).
 - AI tools with a staff participant.
 - Client: combobox keyboard and screen-reader attributes, labels «المسؤول», the
   button visibility, the form, «طلاب سابقون» tab and banner, «إكمال التحويل».
+
+## Addendum 2026-11-26: staff with the student's ID number already exists (owner)
+
+Before, the conversion was refused with TZ_EXISTS. Now the student is linked to that account:
+
+- **Which account:** the staff account holding the student's ID number (any spelling, any room). Linked only when it is **active**, not linked to another student (`fromStudentId` empty or his own), and its role is one the actor may give (`mayGiveStaffRole`). Otherwise refused with nothing changed: `STAFF_NOT_ACTIVE`, `LINKED_ELSEWHERE`, `FORBIDDEN`.
+- **What stays:** the account's role, details, password and photo stay as they are. No role, password or phone is asked; whatever is sent is ignored. The student's photo is copied only when the account has none.
+- **Flow:** the same phases. The first call stores `staffConversion.linkUserId` (and the account's role) in "preparing" and writes the audit row with `after: { role, linkedUserId }`. "prepared" takes `userId = linkUserId`. In place of creating the account, `linkUserToStudent` checks it again (still active, same ID number, not another student's) and sets `fromStudentId` (versioned write, user audit row `update`). A refusal there clears the conversion with nothing else changed. Moves, cutover rows and archive are unchanged. The answer has `linked: true`.
+- **The window's first look:** `GET /api/students/:id/make-staff` (same two keys and student scope as the POST) answers `{ existing: null | { name, role, active, linkedElsewhere, mayLink } }`, never the account id. A resume of an ordinary conversion answers null (his own new account is not "existing staff"). The window sends nothing until the look answers. Linkable: a notice, no fields, «ربط بالحساب». Not linkable: the reason, the button disabled. A failed look leaves the usual form; the server still decides.

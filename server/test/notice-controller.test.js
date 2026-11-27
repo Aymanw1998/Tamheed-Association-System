@@ -429,8 +429,10 @@ test("manual notices trash and restore while automatic notices have only persona
 
 test("notices archived before the archive was removed move to the trash once (owner, 2026-11-14)", async () => {
   const ctx = setup();
-  const now = new Date("2026-11-14T10:00:00.000Z");
-  const soon = new Date("2026-11-20T00:00:00.000Z");
+  // Relative to the real clock: the trash list hides expired notices, so "soon"
+  // must stay in the future whenever the test runs (a fixed date failed once it passed).
+  const now = new Date();
+  const soon = new Date(now.getTime() + 6 * 24 * 60 * 60 * 1000);
   ctx.rows.push(
     { _id: "1".repeat(24), title: "old trip", category: "manual", createdAt: "2026-10-01", readBy: [], archivedAt: "2026-10-05", archivedBy: "x", deletedAt: null },
     { _id: "2".repeat(24), title: "ends soon", category: "manual", createdAt: "2026-10-02", readBy: [], archivedAt: "2026-10-06", deletedAt: null, expireAt: soon },

@@ -175,7 +175,8 @@ export default function StudentView() {
     <>
     {makingStaff && <MakeStaffDialog student={s} onClose={() => setMakingStaff(false)} onFailed={refresh} onDone={(res) => {
       setMakingStaff(false);
-      toast.success(res.photoCopied === false ? "صار من الطاقم. لم تُنسخ الصورة، يمكن رفعها من صفحته." : "صار من الطاقم");
+      const done = res.linked ? "رُبط بحسابه في الطاقم" : "صار من الطاقم";
+      toast.success(res.photoCopied === false ? `${done}. لم تُنسخ الصورة، يمكن رفعها من صفحته.` : done);
       navigate(`/users/${s.tz}`);
     }} />}
     {archived && (

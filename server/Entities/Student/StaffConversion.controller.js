@@ -26,24 +26,48 @@ const conversion = createStaffConversion({
   recordRequired: (req, entry) => audit.recordRequired(req, entry),
   createUser: (args) => users().createUserFromStudent(args),
   copyPhoto: (args) => users().copyStudentPhotoToUser(args),
+  findStaff: (tz) => users().findStaffByTz(tz),
+  linkUser: (args) => users().linkUserToStudent(args),
   newId: () => String(new Types.ObjectId()),
   sameVersion,
   nextStamp,
   log: logWithSource,
 });
 
+// The student in the actor's scope; on a resume also through a planned
+// program he is on (the moves take the student off those rosters).
+async function accessFor(actor) {
+  const visible = await scope.visibleStudentIds(actor);
+  return async (student, conv) => {
+    if (!visible || visible.has(String(student._id))) return true;
+    if (!Array.isArray(conv?.plannedLessons) || !conv.plannedLessons.length) return false;
+    const all = (await LessonModelDef.get({}))?.result || [];
+    return all.some((l) => conv.plannedLessons.some((id) => String(id) === String(l._id)) && isOnLesson(actor, l));
+  };
+}
+
+// GET /api/students/:id/make-staff (owner, 2026-11-26): before anything is
+// sent, the window learns whether staff with the student's ID number exists,
+// and whether he can be linked to it. Same keys and scope as the POST.
+const makeStaffPreview = async (req, res) => {
+  try {
+    const actor = req.actor;
+    const { status, body } = await conversion.preview({
+      studentId: String(req.params.id || ""),
+      mayAccess: await accessFor(actor),
+      mayGiveRole: (role) => users().mayGiveStaffRole(actor, role),
+    });
+    return res.status(status).json(body);
+  } catch (err) {
+    logWithSource("Student.makeStaffPreview", err);
+    return res.status(500).json({ ok: false, message: "server error" });
+  }
+};
+
 const makeStaff = async (req, res) => {
   try {
     const actor = req.actor;
-    const visible = await scope.visibleStudentIds(actor);
-    // The student in the actor's scope; on a resume also through a planned
-    // program he is on (the moves take the student off those rosters).
-    const mayAccess = async (student, conv) => {
-      if (!visible || visible.has(String(student._id))) return true;
-      if (!Array.isArray(conv?.plannedLessons) || !conv.plannedLessons.length) return false;
-      const all = (await LessonModelDef.get({}))?.result || [];
-      return all.some((l) => conv.plannedLessons.some((id) => String(id) === String(l._id)) && isOnLesson(actor, l));
-    };
+    const mayAccess = await accessFor(actor);
     const { status, body } = await conversion.run({
       actor,
       req,
@@ -64,4 +88,4 @@ const makeStaff = async (req, res) => {
   }
 };
 
-module.exports = { makeStaff };
+module.exports = { makeStaff, makeStaffPreview };
