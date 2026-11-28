@@ -12,7 +12,8 @@
     "client": "cd apps/system && npm start",
     "sport": "cd apps/sport && npm start",
     "it": "cd apps/it && npm start",
-    "build": "npm run build --prefix apps/system && npm run build --prefix apps/sport && npm run build --prefix apps/it"
+    "build": "npm run build --prefix apps/system && npm run build --prefix apps/sport && npm run build --prefix apps/it && npm run build --prefix apps/nasheed",
+    "nasheed": "cd apps/nasheed && npm start"
   },
   "author": "",
   "license": "ISC",

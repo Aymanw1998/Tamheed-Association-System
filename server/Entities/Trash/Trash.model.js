@@ -9,7 +9,7 @@ const api = require("../api");
 //   data (the record as it was), extras (what went with it, per kind),
 //   deletedAt (Date), deletedBy ({ tz, name }).
 const KEEP_DAYS = 30;
-const KINDS = ["student", "vehicle", "user"];
+const KINDS = ["student", "vehicle", "user", "nasheed"];
 
 const TrashModelDef = { dbName: process.env.DB_NAME || "tamheed_db", collection: "RecycleBin" };
 

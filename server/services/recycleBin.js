@@ -17,6 +17,7 @@ const DEFAULT_HOOKS = {
   student: () => require("../Entities/Student/Student.controller").trashHooks,
   vehicle: () => require("../Entities/Vehicle/Vehicle.controller").trashHooks,
   user: () => require("../Entities/User/User.controller").trashHooks,
+  nasheed: () => require("./nasheeds").nasheedLibrary().trashHooks,
 };
 
 function createRecycleBin({ model = TrashModelDef, hooks = DEFAULT_HOOKS, now = () => new Date(), log = logWithSource } = {}) {

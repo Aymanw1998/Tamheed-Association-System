@@ -1,0 +1,267 @@
+/* The IT site: the everyday app's look (apps/system/src/index.css tokens), right to left. */
+:root {
+  /* Tokens: shared/tokens.css (generated/tokens.css, loaded first by index.js).
+     Older names still used by the IT screens' modules: */
+  --navy: var(--color-primary-600);
+  --ink: var(--color-text-primary);
+  --muted: var(--color-text-secondary);
+  --line: var(--color-border);
+  --bg: var(--color-background);
+  --primary: var(--color-primary-500);
+  --ok: var(--color-success-700);
+  --bad: var(--color-danger-700);
+}
+*, *::before, *::after { box-sizing: border-box; }
+html, body, #root { margin: 0; min-height: 100%; }
+body {
+  direction: rtl;
+  font-family: var(--font-sans);
+  font-size: var(--fs-base);
+  line-height: 1.6;
+  background: var(--color-background);
+  color: var(--color-text-primary);
+  -webkit-font-smoothing: antialiased;
+}
+button, input, select, textarea { font: inherit; }
+h1, h2, h3 { font-weight: 600; line-height: 1.3; color: var(--color-text-primary); }
+h1 { font-size: var(--fs-2xl); margin: 0 0 var(--space-4); }
+h2 { font-size: var(--fs-lg); margin: 0 0 var(--space-3); }
+p { margin: 0 0 var(--space-2); }
+a { color: var(--color-link); }
+:focus-visible { outline: 2px solid var(--color-primary-400); outline-offset: 2px; }
+
+/* Buttons: the everyday app's Button (secondary by default, .primary / .danger). */
+button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 40px;
+  padding: 10px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  transition: filter var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
+}
+button:hover:not(:disabled) { filter: brightness(0.96); }
+button:active:not(:disabled) { filter: brightness(0.92); }
+button:disabled { opacity: .55; cursor: not-allowed; }
+button.primary { background: var(--color-primary-500); border-color: transparent; color: var(--color-text-on-primary); }
+button.danger { background: var(--color-danger-100); border-color: transparent; color: var(--color-danger-700); }
+button.success { background: var(--color-success-100); border-color: transparent; color: var(--color-success-700); }
+/* Tabs (role="tab"): the open one looks like a primary button. */
+button[role="tab"][aria-selected="true"] { background: var(--color-primary-500); border-color: transparent; color: var(--color-text-on-primary); }
+
+input, select, textarea {
+  min-height: 40px;
+  padding: 10px 12px;
+  font-size: var(--fs-sm);
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  max-width: 100%;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--color-primary-400);
+  box-shadow: 0 0 0 3px var(--color-primary-100);
+}
+label { display: grid; gap: 4px; font-weight: 600; font-size: var(--fs-sm); color: var(--color-text-secondary); }
+label.check { display: flex; align-items: center; gap: 8px; font-weight: 500; color: var(--color-text-primary); }
+
+.center { text-align: center; padding: 40px 16px; }
+.muted { color: var(--color-text-secondary); font-weight: 400; }
+.error { color: var(--color-danger-700); }
+.ok { color: var(--color-success-700); }
+.grow { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+
+/* Sign-in */
+.signin {
+  max-width: 400px; margin: 6vh auto; padding: var(--space-5) var(--space-5);
+  background: var(--color-surface); border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-lg);
+}
+.signin form { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+.signin input { width: 100%; box-sizing: border-box; }
+.signin h1, .signin h2 { margin: 0 0 12px; font-size: var(--fs-xl); font-weight: 800; color: var(--color-primary-700); }
+/* The same screen on all three sites: the logo, the names, one white card. */
+.signin-page { min-height: 100vh; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px 16px; background: var(--color-primary-900); }
+.signin-page .signin { width: 100%; max-width: 400px; margin: 0; box-sizing: border-box; }
+.signin-brand { display: flex; flex-direction: column; align-items: center; text-align: center; margin-bottom: 20px; }
+.signin-brand h1 { margin: 14px 0 0; font-size: var(--fs-2xl); font-weight: 800; color: #fff; }
+.signin-brand p { margin: 2px 0 0; font-size: var(--fs-sm); font-weight: 700; color: #ffc46b; }
+.signin-logo { display: grid; place-items: center; width: 96px; height: 96px; border-radius: 50%; background: var(--color-surface); box-shadow: 0 0 0 4px var(--color-accent-500), 0 10px 26px rgba(0, 0, 0, .3); overflow: hidden; }
+.signin-logo img { width: 80%; height: 80%; object-fit: contain; }
+.signin-logo-small { margin: 0 auto 10px; }
+.signin .signin-submit { min-height: 48px; background: var(--color-accent-500); border-color: var(--color-accent-500); color: var(--color-primary-900); font-weight: 800; }
+.signin .signin-submit:hover:not(:disabled) { background: var(--color-accent-600); filter: none; }
+.signin button { width: 100%; }
+
+/* Passkey sign-in and its offer. */
+.btn-passkey { min-height: 48px; font-size: var(--fs-base); }
+.signin-or { text-align: center; color: var(--color-text-secondary); margin: 10px 0; font-size: var(--fs-sm); }
+.passkey-offer { border-color: var(--color-primary-300); background: var(--color-primary-50); }
+.passkey-offer p { margin-bottom: 6px; }
+
+/* Show / hide the password (the everyday app's login). */
+.password-wrap { position: relative; display: flex; }
+.password-wrap input { flex: 1; padding-inline-end: 44px; }
+.password-form { display: grid; gap: 12px; max-width: 420px; margin-top: 10px; }
+.password-form button[type="submit"] { justify-self: start; }
+.signin .toggle-password, .password-form .toggle-password {
+  position: absolute; inset-inline-end: 4px; top: 50%; transform: translateY(-50%);
+  width: 34px; min-height: 34px; height: 34px; padding: 0;
+  border: none; background: transparent; color: var(--color-text-secondary);
+  border-radius: var(--radius-sm);
+}
+.signin .toggle-password:hover:not(:disabled), .password-form .toggle-password:hover:not(:disabled) { filter: none; color: var(--color-link); background: var(--color-primary-50); }
+
+/* Page */
+.page { max-width: 1000px; margin: 0 auto; padding: var(--space-4); }
+.page > section > h1 { color: var(--color-primary-700); }
+
+/* A page title with its main action beside it. */
+.page-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2); margin-bottom: var(--space-3); }
+.page-head h1 { margin: 0; }
+
+/* «مستخدم IT جديد» */
+.new-it-user .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.new-it-user .c-actions button { min-width: 96px; }
+@media (max-width: 520px) { .new-it-user .form-grid { grid-template-columns: 1fr; } }
+.new-it-user { max-height: 92vh; overflow-y: auto; }
+
+/* Lists: the everyday app's person cards */
+.toolbar { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-3); }
+.toolbar input[type="search"] { flex: 1 1 100%; min-height: 48px; font-size: var(--fs-base); border-radius: var(--radius-lg); }
+.list { list-style: none; margin: var(--space-3) 0 var(--space-5); padding: 0; display: grid; gap: var(--space-2); }
+.list > li {
+  background: var(--color-surface); border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg); padding: var(--space-3);
+}
+.list > li:has(> .row-link) { padding: 0; }
+.row-link {
+  display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3);
+  color: inherit; text-decoration: none; border-radius: var(--radius-lg);
+}
+.row-link:hover { background: var(--color-primary-50); }
+.row-link strong { font-weight: 600; }
+.device { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+.card {
+  background: var(--color-surface); border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
+  padding: var(--space-4); margin-bottom: var(--space-3);
+}
+.card h2 { color: var(--color-primary-700); }
+.user-head {
+  display: flex; align-items: center; gap: 14px; margin-bottom: var(--space-3);
+  background: var(--color-surface); border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg); padding: var(--space-4); box-shadow: var(--shadow-sm);
+}
+.user-head h1 { margin: 0; font-size: var(--fs-xl); }
+.badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.badge {
+  display: inline-block; padding: 2px 10px; border-radius: var(--radius-full);
+  background: var(--color-primary-50); color: var(--color-primary-700);
+  font-size: var(--fs-xs); font-weight: 600;
+}
+.badge.info { background: var(--color-info-100); color: var(--color-info-700); }
+.badge.success { background: var(--color-success-100); color: var(--color-success-700); }
+.badge.warning { background: var(--color-warning-100); color: var(--color-warning-700); }
+.badge.danger { background: var(--color-danger-100); color: var(--color-danger-700); }
+
+/* «صلاحيات الأدوار» */
+.role-tabs { margin-bottom: var(--space-3); }
+.role-tabs .badge { margin-inline-start: 6px; }
+
+/* Account state */
+.account-actions { margin-top: var(--space-2); }
+
+/* Audit table */
+.table-wrap {
+  overflow-x: auto; background: var(--color-surface); border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
+}
+table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+th {
+  background: var(--color-primary-50); color: var(--color-text-secondary);
+  font-size: var(--fs-xs); font-weight: 700;
+}
+th, td { padding: 10px 12px; text-align: start; border-bottom: 1px solid var(--color-border); vertical-align: top; }
+.changes { list-style: none; margin: 0; padding: 0; }
+.pager { margin-top: 10px; justify-content: space-between; }
+
+@media (max-width: 600px) {
+  .page { padding: var(--space-3); }
+  .card { padding: var(--space-3); }
+}
+
+/* «البلاغات» */
+.report-field { margin: var(--space-1) 0; overflow-wrap: anywhere; }
+.report-image { display: block; max-width: min(320px, 100%); max-height: 240px; margin: var(--space-2) 0; border-radius: 8px; }
+
+/* ---- Motion (2026-11-08), the same as the everyday app ---------------- */
+@keyframes page-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+/* backwards, not both: a transform kept after the animation would pin every
+   fixed window inside (filters, confirmations) to the page instead of the
+   screen, as in the everyday app (Codex full review, 2026-11-18). */
+.page-enter { animation: page-in var(--dur-slow) var(--ease-out) backwards; }
+@keyframes rise-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.list > li, tbody tr { animation: rise-in var(--dur-slow) var(--ease-out) backwards; }
+button[role="tab"] { transition: background-color var(--dur-base) ease, color var(--dur-base) ease, filter var(--transition-fast); }
+button:active:not(:disabled) { transform: scale(0.97); }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important; animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important;
+  }
+}
+
+/* The server's checks (owner, 2026-11-16). */
+.ops-banner { border-color: var(--color-danger-700); background: var(--color-danger-100); color: var(--color-danger-700); }
+.ops-banner ul { margin: var(--space-2) 0; padding-inline-start: 1.2em; }
+.ops-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
+
+/* The password shown on request (owner, 2026-11-16). */
+.shown-password { font-family: monospace; font-size: 1.1em; padding: 2px 8px; border-radius: 6px; background: rgba(0, 0, 0, 0.06); user-select: all; }
+
+/* ---------- The nasheed site (owner, 2026-11-27) ---------- */
+.site-header { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: 10px 16px; background: var(--background-header, var(--color-primary-900)); color: #fff; }
+.site-header a, .site-header .muted { color: #fff; }
+.site-header .brand { font-weight: 800; font-size: var(--fs-lg); text-decoration: none; }
+.site-header button { min-height: 36px; padding: 6px 12px; }
+a.button { display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding: 10px 16px; border-radius: var(--radius-md); border: 1px solid var(--color-border-strong); background: var(--color-surface); color: var(--color-text-primary); font-size: var(--fs-sm); font-weight: 600; text-decoration: none; }
+a.button.primary { background: var(--color-primary-500); border-color: transparent; color: var(--color-text-on-primary); }
+.read { max-width: 760px; }
+.read .back { margin-bottom: var(--space-3); }
+.read-title { text-align: center; color: var(--color-primary-700); }
+.read .actions { margin-top: var(--space-5); }
+/* The edit form: one row per line. */
+.line-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
+/* On a phone the fields take the whole width and the row buttons go under them. */
+.line-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-2); align-items: start; padding: var(--space-2); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); }
+@media (min-width: 640px) { .line-row { grid-template-columns: minmax(0, 1fr) auto; } }
+.line-fields { display: grid; gap: var(--space-2); grid-template-columns: minmax(0, 1fr); }
+.line-row[data-kind="verse"] .line-fields { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.line-row[data-kind="break"] .line-fields { text-align: center; letter-spacing: .3em; color: var(--color-text-secondary); align-self: center; }
+.line-tools { display: flex; gap: 4px; justify-content: flex-end; }
+.line-tools button { min-height: 36px; padding: 6px 10px; }
+.line-fields input { width: 100%; }
+.add-row { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: var(--space-3) 0; }
+.edit-form { display: grid; gap: var(--space-3); max-width: 900px; }
+.edit-form > label input { width: 100%; }
+/* Build a list. */
+.build-grid { display: grid; gap: var(--space-4); grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 900px) { .build-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+.picked { list-style: decimal; padding-inline-start: 1.6em; display: grid; gap: var(--space-2); }
+.picked li { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.picked li .grow { flex: 1; }
+.picked li button { min-height: 36px; padding: 6px 10px; }

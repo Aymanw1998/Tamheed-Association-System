@@ -14,10 +14,10 @@ function syncShared({ root = path.resolve(__dirname, ".."), check = false } = {}
   syncTokens({ root, check });
 }
 // One set of design tokens (colors, spacing, motion, the dark theme) for
-// the everyday app and IT; Sport keeps its own stadium palette.
+// the everyday app, IT and the nasheed site; Sport keeps its own stadium palette.
 function syncTokens({ root, check }) {
   const source = fs.readFileSync(path.join(root, "shared/tokens.css"), "utf8").replace(/\r\n/g, "\n");
-  for (const app of ["system", "it"]) {
+  for (const app of ["system", "it", "nasheed"]) {
     const target = path.join(root, "apps", app, "src/generated/tokens.css");
     const current = fs.existsSync(target) ? fs.readFileSync(target, "utf8").replace(/\r\n/g, "\n") : "";
     if (current === source) continue;

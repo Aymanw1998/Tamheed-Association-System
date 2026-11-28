@@ -26,6 +26,7 @@ dotenv.config({path: './config/.env'});
 const { ensureSystemAdmin } = require('./scripts/ensureSystemAdmin');
 const { createFatalShutdown } = require('./utils/fatalShutdown');
 const { sportStatic, hostStatic, cacheHeaders } = require('./utils/sportHost');
+const { isNasheedHost } = require('./middleware/requireNasheed');
 //Craete app
 const app = express();
 app.use(logger);
@@ -81,6 +82,10 @@ if (process.env.SERVE_CLIENT === 'true') {
   app.use(sportStatic(path.join(__dirname, '..', 'apps', 'sport', 'build'), process.env.SPORT_HOST));
   // The IT site on its own host name (IT_HOST).
   app.use(hostStatic(path.join(__dirname, '..', 'apps', 'it', 'build'), process.env.IT_HOST));
+  // The nasheed site on its own host name (NASHEED_HOST, owner 2026-11-27);
+  // search engines are asked not to list it.
+  app.use((req, res, next) => { if (isNasheedHost(req)) res.set('X-Robots-Tag', 'noindex'); next(); });
+  app.use(hostStatic(path.join(__dirname, '..', 'apps', 'nasheed', 'build'), process.env.NASHEED_HOST));
   // The shell and the service worker are always checked again (cacheHeaders).
   app.use(express.static(clientBuild, { setHeaders: cacheHeaders }));
   app.get(/^\/(?!api(\/|$)).*/, (req, res, next) => {
@@ -120,6 +125,10 @@ app.use('/api/photos', require('./Entities/Photo/Photo.route'));
 app.use('/api/sport-portal', require('./Entities/SportPortal/SportPortal.route'));
 // The IT site's API: only on IT_HOST, with its own session (middleware/requireIt).
 app.use('/api/it', require('./Entities/It/It.route'));
+// The nasheed site's API: only on NASHEED_HOST; guests read, a nasheeds.manage
+// holder signs in to change (Entities/Nasheed). Built on its first request.
+let nasheedRouter = null;
+app.use('/api/nasheed', (req, res, next) => (nasheedRouter || (nasheedRouter = require('./Entities/Nasheed/Nasheed.route').defaultRouter()))(req, res, next));
 app.use('/api/inviteToken', require('./Entities/InviteToken/InviteToken.route'))
 app.use('/api/report', require('./Entities/Report/Report.route'));
 app.use('/api/vehicle', require('./Entities/Vehicle/Vehicle.route'));

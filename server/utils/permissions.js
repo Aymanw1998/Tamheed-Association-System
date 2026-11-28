@@ -29,7 +29,7 @@ const IT_KEYS = new Set(catalog.itKeys);
 // IT user (owner, 2026-11-03).
 const IT_SET = [...IT_KEYS, "users.view", "users.changeRole", "users.resetPassword", "users.approve", "users.delete", "users.create"];
 
-const GRANT_ONLY_MODULES = new Set(["sports", "finance"]);
+const GRANT_ONLY_MODULES = new Set(["sports", "finance", "nasheeds"]);
 
 const ALL_KEYS = Object.entries(PERMISSION_TREE).flatMap(([module, leaves]) =>
   leaves.map((leaf) => `${module}.${leaf}`));

@@ -8,10 +8,10 @@ const { loadActor, requirePermission } = require("../../middleware/permissionMid
 const router = express.Router();
 router.use(requireAuth, loadActor);
 
-const ANY_DELETE = ["students.delete", "vehicles.delete", "users.delete"];
+const ANY_DELETE = ["students.delete", "vehicles.delete", "users.delete", "nasheeds.manage"];
 router.get("/", requirePermission(...ANY_DELETE), controller.list);
 router.post("/:id/restore", requirePermission(...ANY_DELETE), controller.restore);
 // Deleting for good needs the kind's purge key too (checked in the controller).
-router.delete("/:id", requirePermission("students.purge", "vehicles.purge", "users.purge"), controller.purge);
+router.delete("/:id", requirePermission("students.purge", "vehicles.purge", "users.purge", "nasheeds.manage"), controller.purge);
 
 module.exports = router;

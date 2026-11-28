@@ -112,7 +112,7 @@ step "Server" "Fetching the portrait model for player photos (once, ~26MB)"
 node server/scripts/fetchPortraitModel.js
 
 # A build empties its folder before it compiles: built aside, so a failed build
-# leaves all three sites as they were. Nothing is swapped until all succeeded.
+# leaves all the sites as they were. Nothing is swapped until all succeeded.
 build_aside() {
   rm -rf "apps/$1/build.new"
   BUILD_PATH=build.new npm run build --prefix "apps/$1"
@@ -141,6 +141,11 @@ npm ci --prefix apps/it
 step "IT" "Building"
 build_aside it
 
+step "Nasheed" "Installing packages"
+npm ci --prefix apps/nasheed
+step "Nasheed" "Building"
+build_aside nasheed
+
 SITES_STATE="The swap stopped midway: some sites are on the new version. Check the apps/*/build folders."
 step "System" "Moving the new build into place"
 swap_in system
@@ -148,13 +153,15 @@ step "Sport" "Moving the new build into place"
 swap_in sport
 step "IT" "Moving the new build into place"
 swap_in it
+step "Nasheed" "Moving the new build into place"
+swap_in nasheed
 
 # The sites' packages are needed only to build them; the next update installs
 # them again (npm ci starts from an empty folder anyway). Freeing ~1-1.5GB on a
 # small disk. The server's own packages (server/node_modules) stay.
 SITES_STATE="The new version of the sites is in place; the server was not restarted yet."
 step "Sites" "Removing the build-only packages"
-rm -rf apps/system/node_modules apps/sport/node_modules apps/it/node_modules
+rm -rf apps/system/node_modules apps/sport/node_modules apps/it/node_modules apps/nasheed/node_modules
 
 SITES_STATE="The new version of the sites is already in place, but the server may be down or running the previous code."
 FAILURE_HINT="For details: pm2 logs tamheed"

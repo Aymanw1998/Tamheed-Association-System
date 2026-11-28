@@ -11,7 +11,7 @@ import styles from "./Trash.module.css";
 // kept 30 days. «استعادة» puts one back; «حذف نهائي» asks first and cannot be
 // undone. Each kind shows only to whoever may delete it; «حذف نهائي» only to
 // whoever holds that kind's purge key (the server says so per row, 2026-11-18).
-const KIND_TEXT = { student: "طالب", vehicle: "مركبة", user: "عضو طاقم" };
+const KIND_TEXT = { student: "طالب", vehicle: "مركبة", user: "عضو طاقم", nasheed: "نشيد" };
 
 export default function TrashPage() {
   const [state, setState] = useState({ loading: true, items: [], error: "" });

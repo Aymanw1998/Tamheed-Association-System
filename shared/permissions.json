@@ -31,6 +31,9 @@
     "displays": [
       "manage"
     ],
+    "nasheeds": [
+      "manage"
+    ],
     "attendance": [
       "view",
       "record",
@@ -151,6 +154,7 @@
         "students": "الطلاب",
         "lessons": "البرنامج",
         "displays": "شاشات العرض",
+        "nasheeds": "الأناشيد",
         "attendance": "الحضور والغياب",
         "tasks": "المهمات الأسبوعية",
         "reports": "التقارير",
@@ -238,6 +242,9 @@
         },
         "displays": {
           "manage": "إدارة شاشات العرض"
+        },
+        "nasheeds": {
+          "manage": "إدارة الأناشيد"
         },
         "students": {
           "purge": "حذف نهائي من سلة المحذوفات",

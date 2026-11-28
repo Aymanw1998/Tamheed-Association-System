@@ -34,7 +34,7 @@ test("normalizeRole maps spellings, trims and repairs mojibake", () => {
 
 test("constants have the expected shape", () => {
   assert.deepEqual(ROLE_RANK, { [ADMIN]: 3, [GUIDE]: 2, [ASSISTANT]: 1 });
-  assert.deepEqual([...GRANT_ONLY_MODULES].sort(), ["finance", "sports"]);
+  assert.deepEqual([...GRANT_ONLY_MODULES].sort(), ["finance", "nasheeds", "sports"]);
   assert.deepEqual(
     [...IT_KEYS].sort(),
     ["audit.archive", "audit.view", "permissions.manage", "storage.drive", "systemRecovery.reset", "users.passwords", "users.unlock"],
@@ -170,7 +170,7 @@ test("sports opens view, coach and manage but stays grant-only and out of every 
   for (const [role, keys] of Object.entries(ROLE_DEFAULTS)) {
     assert.deepEqual([...expandKeys(keys)].filter((k) => k.startsWith("sports.")), [], role);
   }
-  assert.deepEqual([...GRANT_ONLY_MODULES].sort(), ["finance", "sports"]);
+  assert.deepEqual([...GRANT_ONLY_MODULES].sort(), ["finance", "nasheeds", "sports"]);
 });
 
 test("only an admin edits students, lessons and users by default (owner's rule, 2026-11-01)", () => {

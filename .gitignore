@@ -44,6 +44,10 @@ apps/sport/node_modules
 apps/it/build
 apps/it/node_modules
 
+# nasheed site
+apps/nasheed/build
+apps/nasheed/node_modules
+
 # deploy/update.sh builds aside before swapping
 apps/*/build.new
 apps/*/build.old

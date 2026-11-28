@@ -41,6 +41,9 @@ test("checkRoleDefaults: leaves only, no IT key, no grant-only module, no unknow
   assert.equal(checkRoleDefaults(["audit.view"]).code, "IT_KEY");
   assert.equal(checkRoleDefaults(["permissions"]).code, "IT_KEY");
   assert.equal(checkRoleDefaults(["sports.view"]).code, "GRANT_ONLY");
+  // The nasheed site (owner, 2026-11-27): granted to a person, never a role.
+  assert.equal(checkRoleDefaults(["nasheeds.manage"]).code, "GRANT_ONLY");
+  for (const role of Object.keys(ROLE_DEFAULTS)) assert.ok(!roleDefaults(role).has("nasheeds.manage"), role);
   assert.equal(checkRoleDefaults(["nothing.here"]).code, "UNKNOWN_KEY");
   assert.equal(checkRoleDefaults("students").code, "UNKNOWN_KEY");
   for (const key of ROLE_DEFAULT_KEYS) {

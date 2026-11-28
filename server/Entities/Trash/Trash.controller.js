@@ -6,15 +6,16 @@ const { audit: defaultAudit } = require("../../utils/audit");
 const { can } = require("../../utils/permissions");
 const { logWithSource } = require("../../middleware/logger");
 
-const KEY_OF = { student: "students.delete", vehicle: "vehicles.delete", user: "users.delete" };
-const PURGE_KEY_OF = { student: "students.purge", vehicle: "vehicles.purge", user: "users.purge" };
-const MODULE_OF = { student: "students", vehicle: "vehicles", user: "users" };
+const KEY_OF = { student: "students.delete", vehicle: "vehicles.delete", user: "users.delete", nasheed: "nasheeds.manage" };
+const PURGE_KEY_OF = { student: "students.purge", vehicle: "vehicles.purge", user: "users.purge", nasheed: "nasheeds.manage" };
+const MODULE_OF = { student: "students", vehicle: "vehicles", user: "users", nasheed: "nasheeds" };
 const NOT_FOUND = { ok: false, code: "NOT_FOUND", message: "العنصر غير موجود في سلة المحذوفات" };
 
 const HOOKS = {
   student: () => require("../Student/Student.controller").trashHooks,
   vehicle: () => require("../Vehicle/Vehicle.controller").trashHooks,
   user: () => require("../User/User.controller").trashHooks,
+  nasheed: () => require("../../services/nasheeds").nasheedLibrary().trashHooks,
 };
 
 function createTrashController({ bin = defaultBin, audit = defaultAudit, hooks = HOOKS } = {}) {

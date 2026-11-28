@@ -174,3 +174,30 @@ test("a student row outside the actor's students can be neither seen, restored n
   }
   assert.equal(calls.length, 0);
 });
+
+/* ---------- owner, 2026-11-27: nasheeds in the bin ---------- */
+test("a nasheed goes to the bin and is listed and restored only for a nasheeds.manage holder", async () => {
+  const model = memoryModel();
+  const calls = [];
+  const hooks = { nasheed: { async restore(entry) { calls.push(entry.refId); return { ok: true }; }, async purge() { return { failed: 0 }; } } };
+  const bin = createRecycleBin({ model, hooks, now: () => NOW });
+  const id = await bin.put("nasheed", { refId: "n1", label: "أوقدت", data: { _id: "n1" } });
+  const audit = auditStub();
+  const controller = createTrashController({ bin, hooks, audit: audit.deps["../../utils/audit"].audit });
+
+  const hidden = makeRes();
+  await controller.list(actor("students.delete"), hidden);
+  assert.deepEqual(hidden.body.items, []);
+  const refused = makeRes();
+  await controller.restore({ ...actor("students.delete"), params: { id } }, refused);
+  assert.equal(refused.statusCode, 404);
+
+  const shown = makeRes();
+  await controller.list(actor("nasheeds.manage"), shown);
+  assert.deepEqual(shown.body.items.map((i) => i.label), ["أوقدت"]);
+  const restored = makeRes();
+  await controller.restore({ ...actor("nasheeds.manage"), params: { id } }, restored);
+  assert.equal(restored.statusCode, 200);
+  assert.deepEqual(calls, ["n1"]);
+  assert.equal(audit.find({ module: "nasheeds", action: "restore" }).length, 1);
+});

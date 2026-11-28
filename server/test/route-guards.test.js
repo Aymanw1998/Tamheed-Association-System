@@ -69,6 +69,8 @@ const PUBLIC_ROUTES = {
   // IT site sign-in: IT_HOST only (router.use(requireItHost)), its own cookie, never staff auth.
   // login-pass: a one-time pass replaces the password step.
   "It/It.route.js": ["POST /login", "POST /verify", "POST /login-pass", "POST /logout", "POST /passkey/login-options", "POST /passkey/login"],
+  // The nasheed site (owner, 2026-11-27): NASHEED_HOST only, guests read titles and lines; sign-in with its own cookie.
+  "Nasheed/Nasheed.route.js": ["GET /public", "GET /public/:id", "POST /login", "POST /logout"],
   // The VAPID public key the browser needs before it can subscribe; nothing private.
   "Push/Push.route.js": ["GET /key"],
   // An <img> cannot send the Authorization header; the passport version is as
@@ -97,11 +99,13 @@ const ANY_ACTOR_ROUTES = {
   "routes/tours.routes.js": ["GET /", "POST /item/:id", "POST /known-keys", "POST /releases/seen"],
   // The IT actor (requireIt) about himself: who he is, his pass to the everyday app (the handler checks the role), his own passkey.
   // ...and the server's own checks (backup, Drive copy, restore test, disk; owner, 2026-11-16): any IT user, nothing secret.
+  // The nasheed actor (requireNasheed) about himself.
+  "Nasheed/Nasheed.route.js": ["GET /me"],
   "It/It.route.js": ["GET /me", "POST /system-pass", "POST /passkey/register-options", "POST /passkey/register", "POST /change-password", "GET /ops-status"],
 };
 
-// requireIt loads the IT site's actor (middleware/requireIt.js), as loadActor does the everyday one.
-const LOADS_ACTOR = /loadActor|requireIt\b/;
+// requireIt and requireNasheed load their site's actor (middleware/), as loadActor does the everyday one.
+const LOADS_ACTOR = /loadActor|requireIt\b|requireNasheed\b/;
 
 // Router files outside Entities/ are named "routes/<file>" by rel().
 const fileOf = (name) => (name.startsWith("routes/") ? path.join(SERVER, name) : path.join(ENTITIES, name));

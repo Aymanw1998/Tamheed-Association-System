@@ -1,0 +1,149 @@
+/* Tamheed design tokens: one source for the everyday app and IT (2026-11-08).
+   scripts/syncShared.js copies this file to apps/{system,it}/src/generated/tokens.css;
+   edit it here only. App-specific aliases stay in each app's own stylesheet.
+   The light theme is the default; :root[data-theme="dark"] (set by the app's
+   theme switch) swaps the colors only, never the sizes. */
+:root {
+  color-scheme: light;
+
+  /* Brand (logo blue). 400 is the logo's exact blue; it is too light to carry
+     white text at body sizes (3.3:1), so the fill/header steps are darkened
+     versions of the same hue that clear 4.5:1. */
+  --color-primary-50: #eaf5f9;
+  --color-primary-100: #cfe6f0;
+  --color-primary-300: #7fc3da;
+  --color-primary-400: #3299ba;
+  --color-primary-500: #257a97;
+  --color-primary-600: #1e6580;
+  --color-primary-700: #164d63;
+  --color-primary-900: #0d3040;
+
+  /* Accent (logo orange, used sparingly for highlights) */
+  --color-accent-100: #ffecd1;
+  --color-accent-500: #fe9900;
+  --color-accent-600: #d97f00;
+
+  /* Status */
+  --color-success-100: #dcfce7;
+  --color-success-500: #16a34a;
+  --color-success-700: #166534;
+  --color-warning-100: #fef3c7;
+  --color-warning-500: #d97706;
+  --color-warning-700: #92400e;
+  --color-danger-100: #fee2e2;
+  --color-danger-500: #dc2626;
+  --color-danger-700: #991b1b;
+  --color-info-100: #dbeafe;
+  --color-info-500: #2563eb;
+  --color-info-700: #1e40af;
+
+  /* Neutrals / surfaces */
+  --color-surface: #ffffff;
+  --color-surface-raised: #ffffff;
+  --color-background: #f5f7f9;
+  --color-border: #e3e8ec;
+  --color-border-strong: #c8d3da;
+  --color-text-primary: #1b2327;
+  --color-text-secondary: #566268;
+  --color-text-muted: #87939a;
+  --color-text-on-primary: #ffffff;
+  /* Links and brand-colored text (the 600 step is a fill in the dark theme). */
+  --color-link: #1e6580;
+  --color-overlay: rgba(13, 48, 64, 0.45);
+
+  /* The header bar */
+  --background-header: var(--color-primary-600);
+  --background-navbar: var(--color-primary-700);
+
+  /* Spacing (4/8px rhythm) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  /* Radius */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-full: 999px;
+
+  /* Elevation */
+  --shadow-sm: 0 1px 2px rgba(17, 26, 32, 0.06);
+  --shadow-md: 0 4px 12px rgba(17, 26, 32, 0.08);
+  --shadow-lg: 0 12px 32px rgba(17, 26, 32, 0.14);
+
+  /* Typography */
+  --font-sans: "IBM Plex Sans Arabic", "IBM Plex Sans", "Segoe UI", Tahoma, sans-serif;
+  --fs-xs: 12px;
+  --fs-sm: 14px;
+  --fs-base: 16px;
+  --fs-lg: 18px;
+  --fs-xl: 20px;
+  --fs-2xl: 24px;
+  --fs-3xl: 32px;
+
+  /* Motion */
+  --transition-fast: 120ms ease;
+  --transition-base: 200ms ease;
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+  --dur-slow: 320ms;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-spring: cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+
+/* Dark theme: deep blue-gray surfaces, the brand hue kept. Steps 500/600 stay
+   dark enough for white text on buttons; 700/900 turn light, because they are
+   used as text on tinted backgrounds; 50/100 turn into dark tints. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --color-primary-50: #10303c;
+  --color-primary-100: #164253;
+  --color-primary-300: #3e93b1;
+  --color-primary-400: #4fb0d1;
+  --color-primary-500: #2a85a5;
+  --color-primary-600: #2a7896;
+  --color-primary-700: #8fd0e6;
+  --color-primary-900: #d4eef7;
+
+  --color-accent-100: #3a2a10;
+  --color-accent-500: #ffab33;
+  --color-accent-600: #ffbe5c;
+
+  --color-success-100: #11301f;
+  --color-success-500: #2fb766;
+  --color-success-700: #8ee0ae;
+  --color-warning-100: #3a2a0d;
+  --color-warning-500: #eea23a;
+  --color-warning-700: #f6d08a;
+  --color-danger-100: #3d1818;
+  --color-danger-500: #e65050;
+  --color-danger-700: #fca5a5;
+  --color-info-100: #142b4d;
+  --color-info-500: #5c9cf5;
+  --color-info-700: #a9c8fb;
+
+  --color-surface: #16232a;
+  --color-surface-raised: #1c2b33;
+  --color-background: #0e171c;
+  --color-border: #263740;
+  --color-border-strong: #385058;
+  --color-text-primary: #e6eef2;
+  --color-text-secondary: #a8b8c0;
+  --color-text-muted: #7b8d96;
+  --color-text-on-primary: #ffffff;
+  --color-link: #6cc3e0;
+  --color-overlay: rgba(0, 0, 0, 0.6);
+
+  --background-header: #12303c;
+  --background-navbar: #0f2832;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 14px 36px rgba(0, 0, 0, 0.55);
+}
