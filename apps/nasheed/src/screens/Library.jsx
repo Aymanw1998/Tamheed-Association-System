@@ -47,7 +47,7 @@ export default function Library() {
       {!error && list?.length === 0 && <p className="center muted">لا توجد أناشيد بعد</p>}
       {!error && list?.length > 0 && shown.length === 0 && <p className="center muted">لا توجد نتائج</p>}
       {shown.length > 0 && (
-        <ul className="list">
+        <ul className="list library-list">
           {shown.map((n) => (
             <li key={n._id}><Link to={`/n/${n._id}`} className="row-link"><strong>{n.title}</strong></Link></li>
           ))}

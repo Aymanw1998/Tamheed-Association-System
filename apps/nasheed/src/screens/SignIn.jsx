@@ -3,6 +3,7 @@ import { flushSync } from "react-dom";
 import * as api from "../api";
 import { navigate } from "../router.jsx";
 import { safeNext, useSession } from "../session.jsx";
+import WaveHero from "../ui/WaveHero.jsx";
 
 // Staff sign-in with the Tamheed ID number and password (owner, 2026-11-27).
 // noValidate: Safari on the iPhone silently refuses a form whose native
@@ -32,7 +33,9 @@ export default function SignIn() {
   };
 
   return (
-    <section className="signin-page">
+    <>
+    <WaveHero />
+    <section className="signin-page nasheed-signin">
       <div className="signin card">
         <h1>دخول المسؤول عن الأناشيد</h1>
         <p className="muted">بحساب جمعية تمهيد. قراءة الأناشيد لا تحتاج دخولًا.</p>
@@ -49,5 +52,6 @@ export default function SignIn() {
         <p><a href="/" onClick={(e) => { e.preventDefault(); navigate("/"); }}>العودة إلى الأناشيد</a></p>
       </div>
     </section>
+    </>
   );
 }

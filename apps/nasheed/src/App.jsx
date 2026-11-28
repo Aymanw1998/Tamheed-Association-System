@@ -6,6 +6,7 @@ import Read from "./screens/Read.jsx";
 import Edit from "./screens/Edit.jsx";
 import Build from "./screens/Build.jsx";
 import SignIn from "./screens/SignIn.jsx";
+import WaveHero from "./ui/WaveHero.jsx";
 
 // The nasheed site (owner, 2026-11-27). Guests read the library; the manager
 // (nasheeds.manage) adds, edits, deletes and builds a list for the PDF.
@@ -25,20 +26,21 @@ function Screen({ path }) {
   return <Library />;
 }
 
+// The header «موج الصوت» (owner, 2026-11-28): full on the library, a lower
+// strip on the other screens so a nasheed's lines start near the top.
 function Header({ path }) {
   const { user, loading, signOut } = useSession();
   return (
-    <header className="site-header">
-      <Link to="/" className="brand">أناشيد تمهيد</Link>
+    <WaveHero compact={path !== "/"}>
       {!loading && (user ? (
-        <div className="row">
-          <span className="muted">{user.name}</span>
+        <>
+          <span className="wave-user">{user.name}</span>
           <button type="button" onClick={signOut}>خروج</button>
-        </div>
+        </>
       ) : (
         <Link to={loginPath(path + window.location.search)}>دخول</Link>
       ))}
-    </header>
+    </WaveHero>
   );
 }
 

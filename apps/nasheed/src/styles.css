@@ -234,10 +234,58 @@ button:active:not(:disabled) { transform: scale(0.97); }
 .shown-password { font-family: monospace; font-size: 1.1em; padding: 2px 8px; border-radius: 6px; background: rgba(0, 0, 0, 0.06); user-select: all; }
 
 /* ---------- The nasheed site (owner, 2026-11-27) ---------- */
-.site-header { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: 10px 16px; background: var(--background-header, var(--color-primary-900)); color: #fff; }
-.site-header a, .site-header .muted { color: #fff; }
-.site-header .brand { font-weight: 800; font-size: var(--fs-lg); text-decoration: none; }
-.site-header button { min-height: 36px; padding: 6px 12px; }
+/* The header «موج الصوت» (owner, 2026-11-28): the logo's blue-to-orange, the
+   logo in a white circle, rings going out like sound, letters rising behind. */
+.wave-hero { position: relative; height: 220px; overflow: hidden; isolation: isolate; color: #fff; background: linear-gradient(135deg, #0d6f8f 0%, #2f9cc0 45%, #f6a443 100%); }
+.wave-hero.compact { height: 112px; }
+.wave-inner { position: relative; height: 100%; max-width: 1000px; margin: 0 auto; }
+.wave-ring { position: absolute; left: 70px; top: 50%; width: 90px; height: 90px; margin: -45px; border-radius: 50%; border: 3px solid rgba(255, 255, 255, .7); animation: wave-ring 3.6s ease-out infinite; pointer-events: none; }
+.wave-ring:nth-of-type(2) { animation-delay: -1.2s; border-color: rgba(255, 196, 107, .85); }
+.wave-ring:nth-of-type(3) { animation-delay: -2.4s; }
+@keyframes wave-ring { from { transform: scale(.9); opacity: .95; } to { transform: scale(3.4); opacity: 0; } }
+.wave-letters { position: absolute; inset: 0; pointer-events: none; }
+.wave-letters span { position: absolute; bottom: -34px; font-size: 26px; font-weight: 800; color: rgba(255, 255, 255, .18); animation: wave-float 9s linear infinite; }
+@keyframes wave-float { to { transform: translateY(-290px) rotate(12deg); } }
+.wave-badge { position: absolute; left: 25px; top: 50%; width: 90px; height: 90px; margin-top: -45px; display: grid; place-items: center; border-radius: 50%; background: #fff; overflow: hidden; box-shadow: 0 0 0 4px #fff, 0 8px 22px rgba(0, 0, 0, .25); }
+.wave-badge img { width: 86%; height: 86%; object-fit: contain; }
+.wave-hello { position: absolute; right: 18px; left: 130px; top: 50%; transform: translateY(-50%); text-shadow: 0 2px 10px rgba(0, 0, 0, .25); }
+.wave-title { display: block; text-align: right; unicode-bidi: plaintext; letter-spacing: .5px; white-space: nowrap; color: #fff; font-size: 23px; font-weight: 800; text-decoration: none; line-height: 1.25; }
+.wave-hello p { margin: 2px 0 0; font-size: 14px; font-weight: 700; color: #fff3df; }
+.wave-actions { position: absolute; top: 12px; right: 14px; display: flex; align-items: center; gap: 8px; }
+.wave-actions a, .wave-actions button { min-height: 34px; padding: 4px 14px; border-radius: 999px; background: rgba(255, 255, 255, .16); border: 1px solid rgba(255, 255, 255, .4); color: #fff; font-size: 13px; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; }
+.wave-actions a:hover, .wave-actions button:hover { background: rgba(255, 255, 255, .28); filter: none; }
+.wave-user { font-size: 13px; font-weight: 700; max-width: 40vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wave-hero:has(.wave-actions) .wave-hello { top: auto; bottom: 22px; transform: none; }
+.wave-hero.compact .wave-badge { width: 64px; height: 64px; margin-top: -32px; left: 18px; }
+.wave-hero.compact .wave-ring { left: 50px; width: 64px; height: 64px; margin: -32px; }
+.wave-hero.compact .wave-hello { left: 96px; bottom: 14px; }
+.wave-hero.compact .wave-title { font-size: 21px; }
+.wave-hero.compact .wave-hello p { display: none; }
+.nasheed-signin { min-height: auto; justify-content: flex-start; padding-top: 24px; background: transparent; }
+/* A computer (owner, 2026-11-28): a taller header lined up with the column,
+   the list as cards in columns, the verses bigger. */
+@media (min-width: 900px) {
+  .wave-hero { height: 260px; }
+  .wave-hero.compact { height: 136px; }
+  .wave-badge { left: 24px; width: 124px; height: 124px; margin-top: -62px; }
+  .wave-ring { left: 86px; width: 124px; height: 124px; margin: -62px; }
+  .wave-hello { left: 190px; right: 24px; }
+  .wave-hero:has(.wave-actions) .wave-hello { bottom: 40px; }
+  .wave-title { font-size: 40px; }
+  .wave-hello p { font-size: 17px; }
+  .wave-actions { right: 24px; top: 18px; }
+  .wave-actions a, .wave-actions button, .wave-user { font-size: 15px; }
+  .wave-hero.compact .wave-badge { left: 24px; width: 88px; height: 88px; margin-top: -44px; }
+  .wave-hero.compact .wave-ring { left: 68px; width: 88px; height: 88px; margin: -44px; }
+  .wave-hero.compact .wave-hello { left: 132px; bottom: 22px; }
+  .wave-hero.compact .wave-title { font-size: 28px; }
+  .library-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-3); }
+  .library-list .row-link { height: 100%; min-height: 64px; display: flex; align-items: center; font-size: var(--fs-lg); }
+  .read { max-width: 880px; }
+  .read-title { font-size: 34px; }
+  .read .nasheed-lines { font-size: 24px !important; }
+}
+@media (prefers-reduced-motion: reduce) { .wave-ring, .wave-letters span { animation: none; } .wave-ring { opacity: .35; } .wave-letters span { bottom: 20px; } }
 a.button { display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding: 10px 16px; border-radius: var(--radius-md); border: 1px solid var(--color-border-strong); background: var(--color-surface); color: var(--color-text-primary); font-size: var(--fs-sm); font-weight: 600; text-decoration: none; }
 a.button.primary { background: var(--color-primary-500); border-color: transparent; color: var(--color-text-on-primary); }
 .read { max-width: 760px; }

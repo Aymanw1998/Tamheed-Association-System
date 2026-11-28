@@ -96,3 +96,26 @@ test("a signed-in user sees the staff buttons and can sign out", async () => {
   expect(api.logout).toHaveBeenCalled();
   expect(byText(c, "a", "دخول")).toBeDefined();
 });
+
+// The header «موج الصوت» (owner, 2026-11-28): the association logo in a white
+// circle with rings going out like sound, on the logo's blue-to-orange.
+test("the header shows the association logo and the name Tamheed-Anasheed that leads home, on the library and on a nasheed", async () => {
+  const c = await mount(<App />);
+  const hero = c.querySelector("header.wave-hero");
+  expect(hero).not.toBeNull();
+  expect(hero.querySelector('img[alt="شعار جمعية تمهيد"]')).not.toBeNull();
+  // The site is called Tamheed-Anasheed (owner, 2026-11-28).
+  const home = byText(hero, "a", "Tamheed-Anasheed");
+  expect(home.getAttribute("href")).toBe("/");
+  expect(hero.textContent).toContain("فريق الأناشيد");
+  expect(byText(hero, "a", "دخول")).toBeDefined();
+  // The rings and letters are drawing only: a screen reader skips them.
+  hero.querySelectorAll(".wave-ring, .wave-letters").forEach((el) => expect(el.getAttribute("aria-hidden")).toBe("true"));
+});
+
+test("the sign-in page opens under the same header with the logo", async () => {
+  window.history.replaceState(null, "", "/login");
+  const c = await mount(<App />);
+  expect(c.querySelector('header.wave-hero img[alt="شعار جمعية تمهيد"]')).not.toBeNull();
+  expect(c.querySelector("form")).not.toBeNull();
+});
